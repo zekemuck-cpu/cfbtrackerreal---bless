@@ -583,6 +583,181 @@ export function processBoxScoreDelete(players, oldContribution, year) {
   return applyBoxScoreDelta(players, {}, oldContribution, year)
 }
 
+/**
+ * Recalculate ALL player stats from ALL box scores for a given year
+ * This is more robust than delta tracking - just sum everything fresh
+ * @param {Array} players - Current players array
+ * @param {Array} games - All games array
+ * @param {number} year - The year to recalculate
+ * @param {string} userTeam - The user's team abbreviation (only count stats for user's team players)
+ * @returns {Array} Updated players array with recalculated stats
+ */
+export function recalculateStatsFromBoxScores(players, games, year, userTeam) {
+  const yearNum = Number(year)
+
+  // Get all games for this year that have box scores
+  const gamesWithBoxScores = (games || []).filter(g =>
+    Number(g.year) === yearNum && g.boxScore && g.userTeam === userTeam
+  )
+
+  // Build aggregated stats for each player from all box scores
+  const aggregatedStats = {} // { normalizedPlayerName: { category: { field: value } } }
+  const gamesPlayedCount = {} // { normalizedPlayerName: count }
+
+  gamesWithBoxScores.forEach(game => {
+    const contribution = extractBoxScoreContribution(game.boxScore)
+
+    Object.keys(contribution).forEach(playerName => {
+      const playerStats = contribution[playerName]
+
+      // Track games played
+      if (playerStats._hadStats) {
+        gamesPlayedCount[playerName] = (gamesPlayedCount[playerName] || 0) + 1
+      }
+
+      // Initialize player if needed
+      if (!aggregatedStats[playerName]) {
+        aggregatedStats[playerName] = {}
+      }
+
+      // Aggregate each category
+      Object.keys(BOX_SCORE_STATS).forEach(category => {
+        if (!playerStats[category]) return
+
+        if (!aggregatedStats[playerName][category]) {
+          aggregatedStats[playerName][category] = {}
+        }
+
+        // Get max fields for this category
+        const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+        const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+
+        // Sum or max each field
+        Object.keys(playerStats[category]).forEach(field => {
+          const value = playerStats[category][field] || 0
+          const currentValue = aggregatedStats[playerName][category][field] || 0
+
+          if (maxFields.includes(field)) {
+            // For "long" fields, take the max
+            aggregatedStats[playerName][category][field] = Math.max(currentValue, value)
+          } else {
+            // For sum fields, add
+            aggregatedStats[playerName][category][field] = currentValue + value
+          }
+        })
+      })
+    })
+  })
+
+  // Apply aggregated stats to players
+  return players.map(player => {
+    const playerNameNormalized = normalizePlayerName(player.name)
+    const playerAggregated = aggregatedStats[playerNameNormalized]
+
+    if (!playerAggregated) {
+      // Player has no box score stats for this year - preserve existing stats
+      // but clear box score derived stats if they existed
+      return player
+    }
+
+    const existingStatsByYear = player.statsByYear || {}
+    const existingYearStats = existingStatsByYear[yearNum] || {}
+    const boxScoreGamesPlayed = gamesPlayedCount[playerNameNormalized]
+
+    // Build new year stats - sync box score stat categories (passing, rushing, etc.)
+    // but preserve manually entered gamesPlayed and snapsPlayed
+    const newYearStats = {
+      // Preserve gamesPlayed if manually entered and player not found in box scores
+      // Only overwrite if player was actually found in box score data
+      gamesPlayed: boxScoreGamesPlayed !== undefined
+        ? boxScoreGamesPlayed
+        : (existingYearStats.gamesPlayed ?? 0),
+      // Preserve snapsPlayed if it exists (manually entered)
+      ...(existingYearStats.snapsPlayed !== undefined ? { snapsPlayed: existingYearStats.snapsPlayed } : {}),
+      // Add all aggregated category stats from box scores
+      ...playerAggregated
+    }
+
+    return {
+      ...player,
+      statsByYear: {
+        ...existingStatsByYear,
+        [yearNum]: newYearStats
+      }
+    }
+  })
+}
+
+/**
+ * Get box score totals for a single player for a specific year
+ * Returns null if player has no box score stats, otherwise returns aggregated stats
+ * @param {string} playerName - Player name
+ * @param {Array} games - All games array
+ * @param {number} year - The year to check
+ * @param {string} userTeam - The user's team abbreviation
+ * @returns {Object|null} { gamesPlayed, passing, rushing, etc. } or null if no box score data
+ */
+export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
+  const yearNum = Number(year)
+  const playerNameNormalized = normalizePlayerName(playerName)
+
+  // Get all games for this year that have box scores
+  const gamesWithBoxScores = (games || []).filter(g =>
+    Number(g.year) === yearNum && g.boxScore && g.userTeam === userTeam
+  )
+
+  if (gamesWithBoxScores.length === 0) return null
+
+  // Build aggregated stats for this player
+  let gamesPlayed = 0
+  const aggregatedStats = {}
+
+  gamesWithBoxScores.forEach(game => {
+    const contribution = extractBoxScoreContribution(game.boxScore)
+    const playerStats = contribution[playerNameNormalized]
+
+    if (!playerStats) return
+
+    // Track games played
+    if (playerStats._hadStats) {
+      gamesPlayed++
+    }
+
+    // Aggregate each category
+    Object.keys(BOX_SCORE_STATS).forEach(category => {
+      if (!playerStats[category]) return
+
+      if (!aggregatedStats[category]) {
+        aggregatedStats[category] = {}
+      }
+
+      // Get max fields for this category
+      const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+      const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+
+      // Sum or max each field
+      Object.keys(playerStats[category]).forEach(field => {
+        const value = playerStats[category][field] || 0
+        const currentValue = aggregatedStats[category][field] || 0
+
+        if (maxFields.includes(field)) {
+          aggregatedStats[category][field] = Math.max(currentValue, value)
+        } else {
+          aggregatedStats[category][field] = currentValue + value
+        }
+      })
+    })
+  })
+
+  // If player had no stats in any box score, return null
+  if (gamesPlayed === 0 && Object.keys(aggregatedStats).length === 0) return null
+
+  return {
+    gamesPlayed,
+    ...aggregatedStats
+  }
+}
+
 // ============================================================================
 // TEAM-CENTRIC HELPER FUNCTIONS
 // These functions get/set data specific to the current team and year
@@ -2277,29 +2452,29 @@ export function DynastyProvider({ children }) {
     // cfpResultsByYear is deprecated and only kept for reading legacy data
     const updates = { games: updatedGames }
 
-    // If game has box score, apply delta to player.statsByYear
-    // Delta tracking: compare new box score to old statsContributed to prevent double-counting
-    if (cleanGameData.boxScore) {
-      // Get old contribution from existing game (null for new games)
-      const oldContribution = existingGameIndex !== -1 && existingGameIndex !== undefined
-        ? dynasty.games[existingGameIndex]?.statsContributed || null
+    // AUTO-SYNC: Process box score stats if present (delta tracking)
+    // The manual "Sync Stats" button in Player Editor is a backup for fixing discrepancies
+    if (cleanGameData.boxScore && !isCPUGame) {
+      const existingGame = existingGameIndex !== -1 && existingGameIndex !== undefined
+        ? dynasty.games[existingGameIndex]
         : null
+      const oldContribution = existingGame?.statsContributed || null
 
       const { updatedPlayers, statsContributed } = processBoxScoreSave(
         dynasty.players || [],
         cleanGameData.boxScore,
         oldContribution,
-        cleanGameData.year || dynasty.currentYear
+        cleanGameData.year
       )
 
-      // Store statsContributed on the game for future delta calculations
+      // Store the stats contribution on the game for future delta calculations
       const gameIndex = updatedGames.findIndex(g => g.id === game.id)
       if (gameIndex !== -1) {
         updatedGames[gameIndex] = { ...updatedGames[gameIndex], statsContributed }
       }
 
-      updates.games = updatedGames
       updates.players = updatedPlayers
+      updates.games = updatedGames
     }
 
     await updateDynasty(dynastyId, updates)
@@ -3373,37 +3548,16 @@ export function DynastyProvider({ children }) {
     }
 
     // Remove game data from the week we're reverting from
+    // NOTE: Stats are NOT auto-adjusted here - use "Sync Stats" in Player Editor for manual control
     let updatedGames = [...(dynasty.games || [])]
-    let updatedPlayers = [...(dynasty.players || [])]
     const year = dynasty.currentYear
 
-    // Helper to subtract stats from removed games
-    const subtractRemovedGameStats = (gamesToRemove) => {
-      gamesToRemove.forEach(game => {
-        if (game.statsContributed) {
-          updatedPlayers = processBoxScoreDelete(updatedPlayers, game.statsContributed, game.year || year)
-        }
-      })
-    }
-
     if (dynasty.currentPhase === 'regular_season') {
-      // Find games that will be removed
-      const removedGames = updatedGames.filter(g =>
-        g.week === dynasty.currentWeek && g.year === year && !g.isConferenceChampionship
-      )
-      subtractRemovedGameStats(removedGames)
-
       // Remove regular season game for current week
       updatedGames = updatedGames.filter(g =>
         !(g.week === dynasty.currentWeek && g.year === year && !g.isConferenceChampionship)
       )
     } else if (dynasty.currentPhase === 'conference_championship') {
-      // Find games that will be removed
-      const removedGames = updatedGames.filter(g =>
-        g.isConferenceChampionship && g.year === year
-      )
-      subtractRemovedGameStats(removedGames)
-
       // Remove CC game from games array
       updatedGames = updatedGames.filter(g =>
         !(g.isConferenceChampionship && g.year === year)
@@ -3447,13 +3601,6 @@ export function DynastyProvider({ children }) {
         // Reverting FROM Week 1 TO Conference Championship phase
         // Clear ALL Bowl Week 1 data
 
-        // Find and subtract stats from games that will be removed
-        const removedGames = updatedGames.filter(g =>
-          (g.isCFPFirstRound && g.year === year) ||
-          (g.isBowlGame && g.year === year && g.bowlWeek === 'week1')
-        )
-        subtractRemovedGameStats(removedGames)
-
         // Remove user's CFP First Round game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
           !(g.isCFPFirstRound && g.year === year) &&
@@ -3496,13 +3643,6 @@ export function DynastyProvider({ children }) {
         // Reverting FROM Week 2 TO Week 1
         // Clear Week 2 data (Bowl Week 2 + CFP Quarterfinals)
 
-        // Find and subtract stats from games that will be removed
-        const removedGames = updatedGames.filter(g =>
-          (g.isCFPQuarterfinal && g.year === year) ||
-          (g.isBowlGame && g.year === year && g.bowlWeek === 'week2')
-        )
-        subtractRemovedGameStats(removedGames)
-
         // Remove user's CFP Quarterfinal game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
           !(g.isCFPQuarterfinal && g.year === year) &&
@@ -3529,13 +3669,6 @@ export function DynastyProvider({ children }) {
         // Reverting FROM Week 3 TO Week 2
         // Clear Week 3 data (Bowl Week 3 + CFP Semifinals)
 
-        // Find and subtract stats from games that will be removed
-        const removedGames = updatedGames.filter(g =>
-          (g.isCFPSemifinal && g.year === year) ||
-          (g.isBowlGame && g.year === year && g.bowlWeek === 'week3')
-        )
-        subtractRemovedGameStats(removedGames)
-
         // Remove user's CFP Semifinal game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
           !(g.isCFPSemifinal && g.year === year) &&
@@ -3561,12 +3694,6 @@ export function DynastyProvider({ children }) {
       } else if (dynasty.currentWeek === 4) {
         // Reverting FROM Week 4 TO Week 3
         // Clear Week 4 data (National Championship)
-
-        // Find and subtract stats from games that will be removed
-        const removedGames = updatedGames.filter(g =>
-          g.isCFPChampionship && g.year === year
-        )
-        subtractRemovedGameStats(removedGames)
 
         // Remove user's CFP Championship game from games array
         updatedGames = updatedGames.filter(g =>
@@ -3627,7 +3754,6 @@ export function DynastyProvider({ children }) {
       currentPhase: prevPhase,
       currentYear: prevYear,
       games: updatedGames,
-      players: updatedPlayers,
       ...additionalUpdates
     })
   }
@@ -4303,6 +4429,43 @@ export function DynastyProvider({ children }) {
     }
   }
 
+  // Sync all players' stats to match box score totals for a given year
+  const syncAllPlayersStats = async (dynastyId, year) => {
+    console.log('syncAllPlayersStats called with:', { dynastyId, year })
+    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    let dynasty
+
+    if (isDev || !user) {
+      const currentData = localStorage.getItem('cfb-dynasties')
+      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
+    } else {
+      dynasty = String(currentDynasty?.id) === String(dynastyId)
+        ? currentDynasty
+        : dynasties.find(d => String(d.id) === String(dynastyId))
+    }
+
+    if (!dynasty) {
+      console.error('Dynasty not found:', dynastyId)
+      throw new Error('Dynasty not found')
+    }
+
+    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    console.log('Syncing stats for team:', userTeamAbbr, 'year:', year)
+    console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
+
+    const updatedPlayers = recalculateStatsFromBoxScores(
+      dynasty.players || [],
+      dynasty.games || [],
+      year,
+      userTeamAbbr
+    )
+
+    console.log('Updated', updatedPlayers.length, 'players')
+    await updateDynasty(dynastyId, { players: updatedPlayers })
+    console.log('Sync complete!')
+  }
+
   const createGoogleSheetForDynasty = async (dynastyId) => {
     if (!user) {
       throw new Error('You must be signed in to create Google Sheets')
@@ -4904,6 +5067,7 @@ export function DynastyProvider({ children }) {
     saveCoachingStaff,
     updatePlayer,
     deletePlayer,
+    syncAllPlayersStats,
     createGoogleSheetForDynasty,
     createTempSheetWithData,
     deleteSheetAndClearRefs,

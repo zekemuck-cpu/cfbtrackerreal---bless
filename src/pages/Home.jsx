@@ -9,6 +9,7 @@ import { getTeamConference } from '../data/conferenceTeams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import ConfirmModal from '../components/ConfirmModal'
 import ShareDynastyModal from '../components/ShareDynastyModal'
+import BouncingLogos from '../components/BouncingLogos'
 
 // Helper to get team's conference from dynasty data
 function getDynastyTeamConference(dynasty) {
@@ -261,33 +262,38 @@ export default function Home() {
   // Show loading state while dynasties are being fetched
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center py-16">
-          <div className="animate-spin w-12 h-12 border-4 border-gray-300 border-t-gray-800 rounded-full mx-auto mb-4" />
-          <p className="text-gray-600">Loading dynasties...</p>
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-gray-700 border-t-orange-500 rounded-full mx-auto mb-4" />
+          <p className="text-gray-400">Loading dynasties...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      {/* Bouncing logos background - full edge to edge */}
+      <BouncingLogos />
+
+      {/* Main content - centered with padding */}
+      <div className="relative z-10 max-w-4xl mx-auto px-4 py-6">
       {!hasDynasties ? (
         <div className="text-center py-16">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+          <h1 className="text-3xl font-bold text-white mb-6">
             CFB Dynasty Tracker
           </h1>
           <div className="flex gap-4 justify-center">
             <Link
               to="/create"
-              className="inline-block bg-gray-800 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-gray-700"
+              className="inline-block bg-orange-600 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-orange-500 shadow-lg"
             >
               Create Dynasty
             </Link>
             <button
               onClick={handleImportClick}
               disabled={importing}
-              className="inline-block bg-gray-600 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-block bg-gray-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
             >
               {importing ? 'Importing...' : 'Import Dynasty'}
             </button>
@@ -303,11 +309,11 @@ export default function Home() {
       ) : (
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Your Dynasties</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Your Dynasties</h1>
             <div className="flex gap-2 flex-wrap">
               <Link
                 to="/create"
-                className="bg-gray-800 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm transition-colors hover:bg-gray-700"
+                className="bg-orange-600 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm transition-colors hover:bg-orange-500 shadow-md"
               >
                 + New
               </Link>
@@ -354,10 +360,11 @@ export default function Home() {
               return (
                 <div
                   key={dynasty.id}
-                  className="rounded-lg p-3 sm:p-5 transition-all hover:scale-[1.01]"
+                  className="rounded-xl p-3 sm:p-5 transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
                   style={{
                     backgroundColor: colors.primary,
-                    border: `2px solid ${colors.secondary}`
+                    border: `2px solid ${colors.secondary}`,
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)'
                   }}
                 >
                   <Link
@@ -476,6 +483,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      </div>
 
       <ConfirmModal
         isOpen={!!dynastyToDelete && !showFinalConfirm}

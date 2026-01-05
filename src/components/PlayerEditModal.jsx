@@ -1,14 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
+import { getTeamAbbreviationsList, getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
 // Stats are read directly from player.statsByYear (single source of truth)
 
-export default function PlayerEditModal({ isOpen, onClose, player, teamColors, onSave, defaultSchool, dynasty }) {
+export default function PlayerEditModal({ isOpen, onClose, player, teamColors, onSave, onSyncAllPlayers, defaultSchool, dynasty }) {
   const [formData, setFormData] = useState({})
   const [expandedSections, setExpandedSections] = useState([])
   const [selectedStatsYear, setSelectedStatsYear] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [showQuickImageModal, setShowQuickImageModal] = useState(false)
+  const [syncingAll, setSyncingAll] = useState(false)
+  const [justSyncedThisPlayer, setJustSyncedThisPlayer] = useState(false)
   const fileInputRef = useRef(null)
   const quickFileInputRef = useRef(null)
   const initializedForPlayerRef = useRef(null) // Track which player we've initialized for
@@ -147,6 +150,100 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
     return Array.from(yearsSet).sort((a, b) => b - a) // Most recent first
   }
 
+  // Calculate box score totals for this player for the selected year
+  const userTeamAbbr = dynasty ? (getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName) : null
+  const boxScoreTotals = useMemo(() => {
+    if (!player?.name || !dynasty?.games || !selectedStatsYear || !userTeamAbbr) return null
+    return getPlayerBoxScoreTotals(player.name, dynasty.games, selectedStatsYear, userTeamAbbr)
+  }, [player?.name, dynasty?.games, selectedStatsYear, userTeamAbbr])
+
+  // Check if current stats are out of sync with box score totals
+  const statsOutOfSync = useMemo(() => {
+    if (!boxScoreTotals) return false
+
+    const currentStats = player?.statsByYear?.[selectedStatsYear] || {}
+
+    // Check games played
+    if ((currentStats.gamesPlayed || 0) !== (boxScoreTotals.gamesPlayed || 0)) return true
+
+    // Check key stats in each category
+    const checkCategory = (cat, fields) => {
+      const current = currentStats[cat] || {}
+      const boxScore = boxScoreTotals[cat] || {}
+      return fields.some(f => (current[f] || 0) !== (boxScore[f] || 0))
+    }
+
+    if (checkCategory('passing', ['cmp', 'att', 'yds', 'td', 'int'])) return true
+    if (checkCategory('rushing', ['car', 'yds', 'td'])) return true
+    if (checkCategory('receiving', ['rec', 'yds', 'td'])) return true
+    if (checkCategory('defense', ['tkl', 'tfl', 'sacks', 'int'])) return true
+    if (checkCategory('kicking', ['fgm', 'fga', 'xpm', 'xpa'])) return true
+    if (checkCategory('punting', ['punts', 'yds'])) return true
+    if (checkCategory('kickReturn', ['ret', 'yds', 'td'])) return true
+    if (checkCategory('puntReturn', ['ret', 'yds', 'td'])) return true
+
+    return false
+  }, [boxScoreTotals, player?.statsByYear, selectedStatsYear])
+
+  // Sync this player's stats to box score totals
+  const handleSyncThisPlayer = () => {
+    if (!boxScoreTotals) return
+
+    // Update form data with box score totals
+    setFormData(prev => ({
+      ...prev,
+      gamesPlayed: boxScoreTotals.gamesPlayed || 0,
+      // Passing
+      passing_completions: boxScoreTotals.passing?.cmp || 0,
+      passing_attempts: boxScoreTotals.passing?.att || 0,
+      passing_yards: boxScoreTotals.passing?.yds || 0,
+      passing_touchdowns: boxScoreTotals.passing?.td || 0,
+      passing_interceptions: boxScoreTotals.passing?.int || 0,
+      passing_passingLong: boxScoreTotals.passing?.lng || 0,
+      passing_sacksTaken: boxScoreTotals.passing?.sacks || 0,
+      // Rushing
+      rushing_carries: boxScoreTotals.rushing?.car || 0,
+      rushing_yards: boxScoreTotals.rushing?.yds || 0,
+      rushing_touchdowns: boxScoreTotals.rushing?.td || 0,
+      rushing_rushingLong: boxScoreTotals.rushing?.lng || 0,
+      rushing_fumbles: boxScoreTotals.rushing?.fumbles || 0,
+      // Receiving
+      receiving_receptions: boxScoreTotals.receiving?.rec || 0,
+      receiving_yards: boxScoreTotals.receiving?.yds || 0,
+      receiving_touchdowns: boxScoreTotals.receiving?.td || 0,
+      receiving_receivingLong: boxScoreTotals.receiving?.lng || 0,
+      // Defense
+      defensive_tackles: boxScoreTotals.defense?.tkl || 0,
+      defensive_tfl: boxScoreTotals.defense?.tfl || 0,
+      defensive_sacks: boxScoreTotals.defense?.sacks || 0,
+      defensive_forcedFumbles: boxScoreTotals.defense?.ff || 0,
+      defensive_interceptions: boxScoreTotals.defense?.int || 0,
+      defensive_defensiveTds: boxScoreTotals.defense?.td || 0,
+      // Kicking
+      kicking_fgm: boxScoreTotals.kicking?.fgm || 0,
+      kicking_fga: boxScoreTotals.kicking?.fga || 0,
+      kicking_fgLong: boxScoreTotals.kicking?.lng || 0,
+      kicking_xpm: boxScoreTotals.kicking?.xpm || 0,
+      kicking_xpa: boxScoreTotals.kicking?.xpa || 0,
+      // Punting
+      punting_punts: boxScoreTotals.punting?.punts || 0,
+      punting_puntYards: boxScoreTotals.punting?.yds || 0,
+      punting_puntLong: boxScoreTotals.punting?.lng || 0,
+      punting_inside20: boxScoreTotals.punting?.in20 || 0,
+      // Returns
+      kickReturn_returns: boxScoreTotals.kickReturn?.ret || 0,
+      kickReturn_yards: boxScoreTotals.kickReturn?.yds || 0,
+      kickReturn_touchdowns: boxScoreTotals.kickReturn?.td || 0,
+      kickReturn_long: boxScoreTotals.kickReturn?.lng || 0,
+      puntReturn_returns: boxScoreTotals.puntReturn?.ret || 0,
+      puntReturn_yards: boxScoreTotals.puntReturn?.yds || 0,
+      puntReturn_touchdowns: boxScoreTotals.puntReturn?.td || 0,
+      puntReturn_long: boxScoreTotals.puntReturn?.lng || 0,
+    }))
+    // Mark as synced so warning disappears
+    setJustSyncedThisPlayer(true)
+  }
+
   // Helper to get stats for a specific year
   // Reads stats from player.statsByYear (single source of truth)
   const getYearStats = (year) => {
@@ -222,6 +319,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
     // This prevents resetting form data when dynasty updates after save
     if (player && isOpen && initializedForPlayerRef.current !== playerId) {
       initializedForPlayerRef.current = playerId
+      setJustSyncedThisPlayer(false) // Reset sync flag for new player
 
       // Set default selected year to current dynasty year
       const years = getAvailableYears()
@@ -383,6 +481,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
   // Update stats when selected year changes
   const handleYearChange = (newYear) => {
     setSelectedStatsYear(newYear)
+    setJustSyncedThisPlayer(false) // Reset sync flag when changing years
     const yearStats = getYearStats(newYear)
 
     setFormData(prev => ({
@@ -1376,6 +1475,100 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                 </div>
               )}
             </div>
+
+            {/* Box Score Stats Sync */}
+            {boxScoreTotals && (
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{
+                  border: `2px solid ${statsOutOfSync ? '#f59e0b' : teamColors.primary}`,
+                  backgroundColor: statsOutOfSync ? '#fef3c720' : undefined
+                }}
+              >
+                <div
+                  className="px-4 py-3 flex items-center justify-between"
+                  style={{ backgroundColor: statsOutOfSync ? '#f59e0b20' : `${teamColors.primary}20` }}
+                >
+                  <div className="flex items-center gap-2">
+                    {statsOutOfSync ? (
+                      <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    <span className="font-semibold text-sm" style={{ color: primaryText }}>
+                      {statsOutOfSync ? 'Stats Out of Sync' : 'Stats In Sync'}
+                    </span>
+                  </div>
+                  <span className="text-xs" style={{ color: primaryText, opacity: 0.7 }}>
+                    Box Scores: {boxScoreTotals.gamesPlayed || 0} games
+                  </span>
+                </div>
+
+                {statsOutOfSync && !justSyncedThisPlayer && (
+                  <div className="p-4 space-y-3" style={{ backgroundColor: teamColors.secondary }}>
+                    <p className="text-xs" style={{ color: secondaryText, opacity: 0.8 }}>
+                      This player's stats don't match the sum of their box scores. This is fine if you plan to enter total season stats manually at end of year.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSyncThisPlayer}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                        style={{
+                          backgroundColor: teamColors.primary,
+                          color: getContrastTextColor(teamColors.primary)
+                        }}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Sync This Player
+                      </button>
+                      {onSyncAllPlayers && (
+                        <button
+                          type="button"
+                          disabled={syncingAll}
+                          onClick={async () => {
+                            setSyncingAll(true)
+                            try {
+                              await onSyncAllPlayers(selectedStatsYear)
+                              alert(`All players synced for ${selectedStatsYear}!`)
+                              onClose() // Close modal so user sees fresh data when they reopen
+                            } catch (err) {
+                              console.error('Sync failed:', err)
+                              alert('Sync failed: ' + err.message)
+                            } finally {
+                              setSyncingAll(false)
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border-2 disabled:opacity-50"
+                          style={{
+                            borderColor: teamColors.primary,
+                            color: primaryText
+                          }}
+                        >
+                          {syncingAll ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          )}
+                          {syncingAll ? 'Syncing...' : `Sync All Players (${selectedStatsYear})`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Game Log */}
             <div className="rounded-xl overflow-hidden" style={{ border: `2px solid ${teamColors.primary}` }}>

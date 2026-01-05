@@ -88,7 +88,7 @@ export const teamAbbreviations = {
   "PITT": { name: "Pittsburgh Panthers", backgroundColor: "#1c2957", textColor: "#cdb87d" },
   "PSU": { name: "Penn State Nittany Lions", backgroundColor: "#041e42", textColor: "#FFFFFF" },
   "PUR": { name: "Purdue Boilermakers", backgroundColor: "#000000", textColor: "#CEB888" },
-  "RICE": { name: "Rice Owls", backgroundColor: "#002469", textColor: "#5e6062" },
+  "RICE": { name: "Rice Owls", backgroundColor: "#002469", textColor: "#FFFFFF" },
   "RUTG": { name: "Rutgers Scarlet Knights", backgroundColor: "#d21034", textColor: "#FFFFFF" },
   "SCAR": { name: "South Carolina Gamecocks", backgroundColor: "#73000A", textColor: "#FFFFFF" },
   "SDSU": { name: "San Diego State Aztecs", backgroundColor: "#C41230", textColor: "#000000" },

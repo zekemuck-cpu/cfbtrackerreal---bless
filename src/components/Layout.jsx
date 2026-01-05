@@ -30,6 +30,7 @@ export default function Layout({ children }) {
   const teamColors = useTeamColors(currentDynasty?.teamName)
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
+  const isHomePage = location.pathname === '/' || location.pathname === '/home'
   const useTeamTheme = isDynastyPage && currentDynasty
   const isCFPBracketPage = location.pathname.includes('/cfp-bracket')
   const isGamePage = location.pathname.includes('/game/')
@@ -275,6 +276,7 @@ export default function Layout({ children }) {
 
   // Page background - neutral pages get gray, team/player pages use viewed team's colors
   const getPageBg = () => {
+    if (isHomePage) return '#111827' // Dark background for home page (gray-900)
     if (isCFPBracketPage || isGamePage || isCoachCareerPage || isNeutralPage) return '#374151'
     if (isPlayerPageWithDifferentTeam && playerTeamInfo) return playerTeamInfo.backgroundColor
     if (isTeamPage && viewedTeamInfo) return viewedTeamInfo.backgroundColor
@@ -474,7 +476,7 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main className={`flex-1 px-4 py-6 ${isDynastyPage ? '' : 'container mx-auto'}`}>
+      <main className={`flex-1 ${isHomePage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage ? '' : 'container mx-auto'}`}>
         {children}
       </main>
 

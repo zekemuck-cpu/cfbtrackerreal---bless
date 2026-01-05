@@ -94,7 +94,7 @@ const getPrimaryStatCategory = (position) => {
 
 export default function Player() {
   const { id: dynastyId, pid } = useParams()
-  const { dynasties, currentDynasty, updatePlayer, deletePlayer, isViewOnly } = useDynasty()
+  const { dynasties, currentDynasty, updatePlayer, deletePlayer, syncAllPlayersStats, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
   const [showEditModal, setShowEditModal] = useState(false)
@@ -1197,8 +1197,25 @@ export default function Player() {
             if (joinMovement) {
               timelineEntries.push({ ...joinMovement, team })
             } else {
-              // No join movement - create a synthetic "Started" entry
-              timelineEntries.push({ year, type: 'started', team, to: team })
+              // No join movement - determine type from player data
+              let joinType = 'started'
+              let fromTeam = null
+
+              // Check if player was a portal transfer
+              if (player.isPortal) {
+                joinType = 'portal_in'
+                fromTeam = player.previousTeam || null
+              }
+              // Check if player was a JUCO transfer (class starts with JUCO)
+              else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) {
+                joinType = 'juco_in'
+              }
+              // Check if player has recruit data (was recruited from HS)
+              else if (player.stars || player.nationalRank || player.recruitYear) {
+                joinType = 'recruited'
+              }
+
+              timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
             }
           } else if (team !== prevTeam && prevTeam) {
             // Team changed - show transfer
@@ -1238,7 +1255,8 @@ export default function Player() {
         const getMovementLabel = (m) => {
           switch (m.type) {
             case 'recruited': return 'Recruited'
-            case 'portal_in': return 'Transferred In'
+            case 'portal_in': return 'Portal Transfer'
+            case 'juco_in': return 'JUCO Transfer'
             case 'entered_portal': return 'Entered Portal'
             case 'transfer': return 'Transferred'
             case 'departure': return m.reason || 'Left Team'
@@ -1377,10 +1395,10 @@ export default function Player() {
               )}
             </div>
           </div>
-          {/* Link to recruiting class if applicable */}
+          {/* Link to recruiting class if applicable - use original recruiting team, not current team */}
           {player.recruitYear && (
             <Link
-              to={`${pathPrefix}/recruiting/${playerTeamAbbr}/${player.recruitYear}`}
+              to={`${pathPrefix}/recruiting/${player.teamsByYear?.[player.recruitYear] || playerTeamAbbr}/${player.recruitYear}`}
               className="block px-4 py-2 text-sm font-medium hover:opacity-80 transition-opacity text-center"
               style={{ backgroundColor: `${teamColors.secondary}50`, color: primaryText }}
             >
@@ -2509,6 +2527,7 @@ export default function Player() {
         player={player}
         teamColors={teamColors}
         onSave={handlePlayerSave}
+        onSyncAllPlayers={(year) => syncAllPlayersStats(dynasty.id, year)}
         defaultSchool={dynasty.teamName}
         dynasty={dynasty}
       />

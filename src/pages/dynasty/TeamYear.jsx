@@ -228,6 +228,9 @@ export default function TeamYear() {
   const [rosterSort, setRosterSort] = useState('position') // 'position', 'overall', 'jerseyNumber', 'name'
   const [rosterSortDir, setRosterSortDir] = useState('asc') // 'asc', 'desc'
   const [showRosterModal, setShowRosterModal] = useState(false)
+  const [rosterCollapsed, setRosterCollapsed] = useState(false)
+  const [scheduleCollapsed, setScheduleCollapsed] = useState(false)
+  const [positionFilter, setPositionFilter] = useState('all') // 'all', 'QB', 'RB', 'WR', etc.
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
   const [showTeamEditModal, setShowTeamEditModal] = useState(false)
   const [editWins, setEditWins] = useState('')
@@ -1060,6 +1063,25 @@ export default function TeamYear() {
     }
     return rosterSortDir === 'desc' ? -result : result
   })
+
+  // Position groups for filtering (depth chart style)
+  const positionGroups = {
+    'all': { label: 'All', positions: null },
+    'QB': { label: 'QB', positions: ['QB'] },
+    'RB': { label: 'RB', positions: ['HB', 'FB'] },
+    'WR': { label: 'WR', positions: ['WR'] },
+    'TE': { label: 'TE', positions: ['TE'] },
+    'OL': { label: 'OL', positions: ['LT', 'LG', 'C', 'RG', 'RT'] },
+    'DL': { label: 'DL', positions: ['LE', 'RE', 'DT', 'EDGE', 'LEDG', 'REDG'] },
+    'LB': { label: 'LB', positions: ['LOLB', 'MLB', 'ROLB', 'WILL', 'MIKE', 'SAM', 'LB', 'OLB', 'ILB'] },
+    'DB': { label: 'DB', positions: ['CB', 'FS', 'SS'] },
+    'K/P': { label: 'K/P', positions: ['K', 'P'] },
+  }
+
+  // Filter players by position group
+  const filteredTeamPlayers = positionFilter === 'all'
+    ? sortedTeamPlayers
+    : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(p.position))
 
   // Handle edit game click - opens GameEntryModal
   const handleEditGame = (game) => {
@@ -1929,25 +1951,49 @@ export default function TeamYear() {
           }}
         >
           <div
-            className="px-3 sm:px-4 py-2 sm:py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+            className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer"
             style={{ backgroundColor: teamInfo.textColor }}
+            onClick={() => setRosterCollapsed(!rosterCollapsed)}
           >
-            <div className="flex items-center justify-between sm:justify-start gap-2">
-              <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
-                {selectedYear} Roster
-              </h2>
-              <span
-                className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
-                style={{
-                  backgroundColor: teamInfo.backgroundColor,
-                  color: teamBgText
-                }}
-              >
-                {sortedTeamPlayers.length} Players
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {/* Collapse/Expand Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRosterCollapsed(!rosterCollapsed)
+                  }}
+                  className="p-1 rounded hover:opacity-70 transition-opacity"
+                  style={{ color: teamPrimaryText }}
+                >
+                  <svg
+                    className={`w-5 h-5 transition-transform ${rosterCollapsed ? '' : 'rotate-90'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
+                  {selectedYear} Roster
+                </h2>
+                <span
+                  className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
+                  style={{
+                    backgroundColor: teamInfo.backgroundColor,
+                    color: teamBgText
+                  }}
+                >
+                  {positionFilter !== 'all' ? `${filteredTeamPlayers.length}/${sortedTeamPlayers.length}` : sortedTeamPlayers.length} Players
+                </span>
+              </div>
               {!isViewOnly && (
                 <button
-                  onClick={() => setShowRosterModal(true)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowRosterModal(true)
+                  }}
                   className="p-1.5 sm:p-2 rounded-lg hover:opacity-70 transition-opacity"
                   style={{ color: teamPrimaryText }}
                   title="Edit Roster"
@@ -1958,39 +2004,62 @@ export default function TeamYear() {
                 </button>
               )}
             </div>
-            {/* Sort Controls */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs font-medium mr-1" style={{ color: teamPrimaryText, opacity: 0.7 }}>Sort:</span>
-              {[
-                { key: 'position', label: 'Pos' },
-                { key: 'overall', label: 'OVR' },
-                { key: 'class', label: 'Class' },
-                { key: 'devTrait', label: 'Dev' },
-                { key: 'jerseyNumber', label: '#' },
-                { key: 'name', label: 'Name' }
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => handleRosterSort(key)}
-                  className="px-2 py-0.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
-                  style={{
-                    backgroundColor: rosterSort === key ? teamInfo.backgroundColor : `${teamInfo.backgroundColor}50`,
-                    color: rosterSort === key ? teamBgText : teamPrimaryText
-                  }}
-                >
-                  {label}
-                  {rosterSort === key && (
-                    <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            {/* Position Filter & Sort - Only show when expanded */}
+            {!rosterCollapsed && (
+              <div className="mt-2 flex flex-col sm:flex-row gap-2" onClick={(e) => e.stopPropagation()}>
+                {/* Position Filter */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-xs font-medium mr-1" style={{ color: teamPrimaryText, opacity: 0.7 }}>Filter:</span>
+                  {Object.keys(positionGroups).map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setPositionFilter(key)}
+                      className="px-2 py-0.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+                      style={{
+                        backgroundColor: positionFilter === key ? teamInfo.backgroundColor : `${teamInfo.backgroundColor}30`,
+                        color: positionFilter === key ? teamBgText : teamPrimaryText
+                      }}
+                    >
+                      {positionGroups[key].label}
+                    </button>
+                  ))}
+                </div>
+                {/* Sort Controls */}
+                <div className="flex items-center gap-1 flex-wrap sm:ml-auto">
+                  <span className="text-xs font-medium mr-1" style={{ color: teamPrimaryText, opacity: 0.7 }}>Sort:</span>
+                  {[
+                    { key: 'position', label: 'Pos' },
+                    { key: 'overall', label: 'OVR' },
+                    { key: 'class', label: 'Class' },
+                    { key: 'devTrait', label: 'Dev' },
+                    { key: 'jerseyNumber', label: '#' },
+                    { key: 'name', label: 'Name' }
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => handleRosterSort(key)}
+                      className="px-2 py-0.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+                      style={{
+                        backgroundColor: rosterSort === key ? teamInfo.backgroundColor : `${teamInfo.backgroundColor}30`,
+                        color: rosterSort === key ? teamBgText : teamPrimaryText
+                      }}
+                    >
+                      {label}
+                      {rosterSort === key && (
+                        <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
+          {!rosterCollapsed && (
           <div className="p-2 sm:p-4">
             {/* Mobile: Card Layout */}
             <div className="sm:hidden space-y-2">
-              {sortedTeamPlayers.map((player) => (
+              {filteredTeamPlayers.map((player) => (
                 <Link
                   key={player.pid}
                   to={`${pathPrefix}/player/${player.pid}`}
@@ -2155,7 +2224,7 @@ export default function TeamYear() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedTeamPlayers.map((player, idx) => (
+                  {filteredTeamPlayers.map((player, idx) => (
                     <tr
                       key={player.pid}
                       className="cursor-pointer transition-all hover:brightness-95"
@@ -2297,6 +2366,7 @@ export default function TeamYear() {
               </table>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -2345,14 +2415,45 @@ export default function TeamYear() {
           }}
         >
           <div
-            className="px-4 py-3"
+            className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer"
             style={{ backgroundColor: teamInfo.textColor }}
+            onClick={() => setScheduleCollapsed(!scheduleCollapsed)}
           >
-            <h2 className="text-lg font-bold" style={{ color: teamInfo.backgroundColor }}>
-              {selectedYear} Schedule
-            </h2>
+            <div className="flex items-center gap-2">
+              {/* Collapse/Expand Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setScheduleCollapsed(!scheduleCollapsed)
+                }}
+                className="p-1 rounded hover:opacity-70 transition-opacity"
+                style={{ color: teamPrimaryText }}
+              >
+                <svg
+                  className={`w-5 h-5 transition-transform ${scheduleCollapsed ? '' : 'rotate-90'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
+                {selectedYear} Schedule
+              </h2>
+              <span
+                className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
+                style={{
+                  backgroundColor: teamInfo.backgroundColor,
+                  color: teamBgText
+                }}
+              >
+                {teamYearGames.length} Games
+              </span>
+            </div>
           </div>
 
+          {!scheduleCollapsed && (
           <div className="space-y-2 p-2 sm:p-4">
             {teamYearGames.map((game, index) => {
               // Use display values for flipped games, otherwise use original values
@@ -2753,6 +2854,7 @@ export default function TeamYear() {
               )
             })()}
           </div>
+          )}
         </div>
       )}
 
