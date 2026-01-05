@@ -5,6 +5,7 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getMascotName, getTeamLogo } from '../data/teams'
 import Sidebar from '../components/Sidebar'
+import NewsTicker from '../components/NewsTicker/NewsTicker'
 import logo from '../assets/logo.png'
 
 function ViewDynastyContent() {
@@ -196,10 +197,13 @@ function ViewDynastyContent() {
         dynasty={currentDynasty}
       />
 
-      {/* Main content - offset by sidebar width on desktop */}
-      <main className="lg:ml-56 min-w-0 flex-1 px-4 py-6">
+      {/* Main content - offset by sidebar width on desktop, bottom padding for ticker */}
+      <main className="lg:ml-56 min-w-0 flex-1 px-4 py-6 pb-16">
         <Outlet />
       </main>
+
+      {/* News ticker at bottom */}
+      <NewsTicker dynasty={currentDynasty} />
     </div>
   )
 }

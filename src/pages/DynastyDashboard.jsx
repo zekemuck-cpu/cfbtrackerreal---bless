@@ -3,6 +3,7 @@ import { useParams, useNavigate, Outlet } from 'react-router-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useTeamColors } from '../hooks/useTeamColors'
 import Sidebar from '../components/Sidebar'
+import NewsTicker from '../components/NewsTicker/NewsTicker'
 
 export default function DynastyDashboard() {
   const { id } = useParams()
@@ -46,10 +47,13 @@ export default function DynastyDashboard() {
         currentYear={currentDynasty.currentYear}
       />
 
-      {/* Main content - offset by sidebar width on desktop */}
-      <div className="lg:ml-56 min-w-0">
+      {/* Main content - offset by sidebar width on desktop, bottom padding for ticker */}
+      <div className="lg:ml-56 min-w-0 pb-14">
         <Outlet />
       </div>
+
+      {/* News ticker at bottom */}
+      <NewsTicker dynasty={currentDynasty} />
     </>
   )
 }
