@@ -352,8 +352,10 @@ export default function Team() {
 
       // Check if this team played in this game
       const isUserTeam = game.userTeam === teamAbbr
-      const isCpuTeam1 = !game.opponent && game.team1 === teamAbbr
-      const isCpuTeam2 = !game.opponent && game.team2 === teamAbbr
+      // CPU games have no opponent AND no userTeam (just team1/team2)
+      const isCpuGame = !game.opponent && !game.userTeam && game.team1 && game.team2
+      const isCpuTeam1 = isCpuGame && game.team1 === teamAbbr
+      const isCpuTeam2 = isCpuGame && game.team2 === teamAbbr
 
       if (!isUserTeam && !isCpuTeam1 && !isCpuTeam2) return
 

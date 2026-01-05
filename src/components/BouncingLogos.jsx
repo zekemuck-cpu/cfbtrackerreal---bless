@@ -22,12 +22,14 @@ export default function BouncingLogos({ subtle = false }) {
   const imagesRef = useRef({})
   const animationRef = useRef(null)
   const dimensionsRef = useRef({ width: 0, height: 0 })
+  const lastTimeRef = useRef(null)
   const [imagesLoaded, setImagesLoaded] = useState(false)
 
   // Subtle mode: smaller, more transparent, slower
   const sizeRange = subtle ? { min: 20, max: 30 } : { min: 30, max: 50 }
   const opacityRange = subtle ? { min: 0.15, max: 0.3 } : { min: 0.5, max: 1.0 }
-  const baseSpeedMultiplier = subtle ? 0.25 : 0.4
+  // Even slower speeds - these are pixels per second at 60fps baseline
+  const baseSpeedMultiplier = subtle ? 0.12 : 0.2
 
   // Scale speed based on screen width - use 1440px as reference
   const getScreenSpeedScale = useCallback(() => {
@@ -108,21 +110,39 @@ export default function BouncingLogos({ subtle = false }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Animation loop
+  // Animation loop with delta time normalization for consistent speed across refresh rates
   useEffect(() => {
     if (!imagesLoaded) return
 
     const screenScale = getScreenSpeedScale()
     const speedMultiplier = baseSpeedMultiplier * screenScale
-    const maxSpeed = (subtle ? 2 : 4) * screenScale
-    const minSpeed = (subtle ? 0.5 : 0.8) * screenScale
+    const maxSpeed = (subtle ? 1.5 : 2.5) * screenScale
+    const minSpeed = (subtle ? 0.3 : 0.5) * screenScale
+    // Target 60fps - normalize all movement to this baseline
+    const targetFrameTime = 1000 / 60
 
-    const animate = () => {
+    const animate = (currentTime) => {
       const canvas = canvasRef.current
       if (!canvas) {
         animationRef.current = requestAnimationFrame(animate)
         return
       }
+
+      // Calculate delta time for frame-rate independent movement
+      if (lastTimeRef.current === null) {
+        lastTimeRef.current = currentTime
+      }
+      const deltaTime = currentTime - lastTimeRef.current
+      lastTimeRef.current = currentTime
+
+      // Skip if tab was hidden (deltaTime would be huge)
+      if (deltaTime > 100) {
+        animationRef.current = requestAnimationFrame(animate)
+        return
+      }
+
+      // Delta multiplier normalizes movement to 60fps baseline
+      const deltaMultiplier = deltaTime / targetFrameTime
 
       const ctx = canvas.getContext('2d')
       const { width, height } = dimensionsRef.current
@@ -132,10 +152,10 @@ export default function BouncingLogos({ subtle = false }) {
 
       // Update and draw each logo
       logosRef.current.forEach((logo) => {
-        // Update position
-        logo.x += logo.vx
-        logo.y += logo.vy
-        logo.rotation += logo.rotationSpeed
+        // Update position - scale by delta time
+        logo.x += logo.vx * deltaMultiplier
+        logo.y += logo.vy * deltaMultiplier
+        logo.rotation += logo.rotationSpeed * deltaMultiplier
 
         // Bounce off edges
         if (logo.x <= 0 || logo.x >= width - logo.size) {
@@ -172,6 +192,7 @@ export default function BouncingLogos({ subtle = false }) {
       animationRef.current = requestAnimationFrame(animate)
     }
 
+    lastTimeRef.current = null
     animationRef.current = requestAnimationFrame(animate)
     return () => {
       if (animationRef.current) {

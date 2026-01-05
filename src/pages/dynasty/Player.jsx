@@ -305,6 +305,7 @@ export default function Player() {
   const getTeamNameFromAbbr = (abbr) => teamAbbreviations[abbr]?.name || abbr
 
   // Get all games where this player has box score stats
+  // Simple: if the player is in a box score, include the game
   const getAllPlayerGameLogs = () => {
     const games = dynasty.games || []
     const playerName = player.name
@@ -317,9 +318,6 @@ export default function Player() {
     games.forEach(game => {
       // Skip games without box scores
       if (!game.boxScore) return
-      // CPU game detection: has team1/team2 but NO opponent field
-      const isCPUGame = !game.opponent && game.team1 && game.team2
-      if (isCPUGame) return
 
       // Check both home and away box scores for this player
       const statCategories = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'blocking', 'punting', 'kickReturn', 'puntReturn']
@@ -349,10 +347,23 @@ export default function Player() {
       }
     })
 
-    // Sort by year desc, then week desc
+    // Sort by year desc, then game order desc (postseason at top, then regular season weeks desc)
+    const getGameOrder = (g) => {
+      // Conference Championship
+      if (g.isConferenceChampionship || g.gameType === 'conference_championship') return 100
+      // CFP/Bowl games - come after regular season
+      if (g.isCFPFirstRound || g.gameType === 'cfp_first_round') return 101
+      if (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') return 102
+      if (g.isCFPSemifinal || g.gameType === 'cfp_semifinal') return 103
+      if (g.isCFPChampionship || g.gameType === 'cfp_championship') return 104
+      if (g.isBowlGame || g.gameType === 'bowl') return 100 + (parseInt(g.week) || 1)
+      // Regular season - use week number
+      return parseInt(g.week) || 0
+    }
     gameLog.sort((a, b) => {
       if (b.game.year !== a.game.year) return b.game.year - a.game.year
-      return (b.game.week || 0) - (a.game.week || 0)
+      // Within same year, higher game order first (postseason before regular season)
+      return getGameOrder(b.game) - getGameOrder(a.game)
     })
 
     return gameLog
@@ -576,50 +587,153 @@ export default function Player() {
     setExpandedGameLogYear(expandedGameLogYear === year ? null : year)
   }
 
-  // Game log row component
-  const renderGameLogRow = (year, colSpan) => {
+  // Game log row component - renders a table matching the stat type columns
+  const renderGameLogRow = (year, colSpan, statType) => {
     if (expandedGameLogYear !== year) return null
+
+    // Define columns for each stat type
+    const getStatColumns = () => {
+      switch (statType) {
+        case 'passing':
+          return [
+            { key: 'completions', label: 'Cmp', getter: g => g.passing?.completions || 0 },
+            { key: 'attempts', label: 'Att', getter: g => g.passing?.attempts || 0 },
+            { key: 'yards', label: 'Yds', getter: g => g.passing?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.passing?.attempts ? (g.passing.yards / g.passing.attempts).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.passing?.touchdowns || 0, bold: true },
+            { key: 'int', label: 'INT', getter: g => g.passing?.interceptions || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.passing?.longest || 0 },
+            { key: 'sacks', label: 'Sck', getter: g => g.passing?.sacks || 0 },
+          ]
+        case 'rushing':
+          return [
+            { key: 'car', label: 'Car', getter: g => g.rushing?.carries || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.rushing?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.rushing?.carries ? (g.rushing.yards / g.rushing.carries).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.rushing?.touchdowns || 0, bold: true },
+            { key: 'lng', label: 'Lng', getter: g => g.rushing?.longest || 0 },
+            { key: 'fum', label: 'Fum', getter: g => g.rushing?.fumbles || 0 },
+            { key: 'bt', label: 'BTkl', getter: g => g.rushing?.brokenTackles || 0 },
+          ]
+        case 'receiving':
+          return [
+            { key: 'rec', label: 'Rec', getter: g => g.receiving?.receptions || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.receiving?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.receiving?.receptions ? (g.receiving.yards / g.receiving.receptions).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.receiving?.touchdowns || 0, bold: true },
+            { key: 'lng', label: 'Lng', getter: g => g.receiving?.longest || 0 },
+            { key: 'drops', label: 'Drp', getter: g => g.receiving?.drops || 0 },
+          ]
+        case 'defense':
+          return [
+            { key: 'solo', label: 'Solo', getter: g => g.defense?.solo || 0 },
+            { key: 'ast', label: 'Ast', getter: g => g.defense?.assists || 0 },
+            { key: 'tot', label: 'Tot', getter: g => (g.defense?.solo || 0) + (g.defense?.assists || 0), bold: true },
+            { key: 'tfl', label: 'TFL', getter: g => g.defense?.tacklesForLoss || 0 },
+            { key: 'sacks', label: 'Sck', getter: g => g.defense?.sacks || 0 },
+            { key: 'int', label: 'INT', getter: g => g.defense?.interceptions || 0 },
+            { key: 'pdef', label: 'PD', getter: g => g.defense?.passDeflections || 0 },
+            { key: 'ff', label: 'FF', getter: g => g.defense?.forcedFumbles || 0 },
+          ]
+        case 'kicking':
+          return [
+            { key: 'fgm', label: 'FGM', getter: g => g.kicking?.fGM || 0 },
+            { key: 'fga', label: 'FGA', getter: g => g.kicking?.fGA || 0 },
+            { key: 'fgpct', label: 'FG%', getter: g => g.kicking?.fGA ? ((g.kicking.fGM / g.kicking.fGA) * 100).toFixed(0) : '0' },
+            { key: 'lng', label: 'Lng', getter: g => g.kicking?.fGLong || 0 },
+            { key: 'xpm', label: 'XPM', getter: g => g.kicking?.xPM || 0 },
+            { key: 'xpa', label: 'XPA', getter: g => g.kicking?.xPA || 0 },
+          ]
+        case 'punting':
+          return [
+            { key: 'punts', label: 'Punts', getter: g => g.punting?.punts || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.punting?.yards || 0 },
+            { key: 'avg', label: 'AVG', getter: g => g.punting?.punts ? (g.punting.yards / g.punting.punts).toFixed(1) : '0.0' },
+            { key: 'lng', label: 'Lng', getter: g => g.punting?.longest || 0 },
+            { key: 'in20', label: 'In20', getter: g => g.punting?.inside20 || 0 },
+            { key: 'tb', label: 'TB', getter: g => g.punting?.touchbacks || 0 },
+          ]
+        case 'kickReturn':
+          return [
+            { key: 'ret', label: 'Ret', getter: g => g.kickReturn?.returns || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.kickReturn?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.kickReturn?.returns ? (g.kickReturn.yards / g.kickReturn.returns).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.kickReturn?.touchdowns || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.kickReturn?.longest || 0 },
+          ]
+        case 'puntReturn':
+          return [
+            { key: 'ret', label: 'Ret', getter: g => g.puntReturn?.returns || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.puntReturn?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.puntReturn?.returns ? (g.puntReturn.yards / g.puntReturn.returns).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.puntReturn?.touchdowns || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.puntReturn?.longest || 0 },
+          ]
+        case 'blocking':
+          return [
+            { key: 'sacksAllowed', label: 'Sck Allow', getter: g => g.blocking?.sacksAllowed || 0 },
+          ]
+        default:
+          return []
+      }
+    }
+
+    const columns = getStatColumns()
 
     return (
       <tr>
         <td colSpan={colSpan} className="p-0">
-          <div className="bg-gray-100 border-t border-b border-gray-300 p-3">
+          <div className="bg-gray-100 border-t border-b border-gray-300 p-2">
             <div className="text-xs font-semibold text-gray-700 mb-2 uppercase">Game Log - {year}</div>
             {gameLog.length === 0 ? (
               <div className="text-xs text-gray-500 italic">No game data available</div>
             ) : (
-              <div className="space-y-1">
-                {gameLog.map((game, idx) => {
-                  const oppMascot = getMascotName(game.opponent)
-                  const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
-                  const isWin = game.result === 'win' || game.result === 'W'
-                  return (
-                    <Link
-                      key={idx}
-                      to={`${pathPrefix}/game/${game.gameId}`}
-                      className="flex items-center gap-2 p-2 rounded hover:bg-gray-200 transition-colors"
-                    >
-                      <span className="text-xs font-medium text-gray-500 w-10">
-                        {game.week ? `Wk ${game.week}` : '-'}
-                      </span>
-                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isWin ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
-                        {isWin ? 'W' : 'L'}
-                      </span>
-                      <span className="text-xs text-gray-600">{Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}</span>
-                      {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain" />}
-                      <span className="text-xs font-medium text-gray-700">{oppMascot || game.opponent}</span>
-                      {/* Show key stats */}
-                      <span className="text-xs text-gray-500 ml-auto">
-                        {game.passing && `${game.passing.yards || 0} pass yds`}
-                        {game.rushing && `${game.rushing.yards || 0} rush yds`}
-                        {game.receiving && `${game.receiving.receptions || 0} rec, ${game.receiving.yards || 0} yds`}
-                        {game.defense && `${(game.defense.solo || 0) + (game.defense.assists || 0)} tkl`}
-                        {game.kicking && `${game.kicking.fGM || 0}/${game.kicking.fGA || 0} FG`}
-                        {game.punting && `${game.punting.punts || 0} punts`}
-                      </span>
-                    </Link>
-                  )
-                })}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-200">
+                      <th className="px-2 py-1 text-left font-semibold text-gray-600 w-12">Wk</th>
+                      <th className="px-2 py-1 text-center font-semibold text-gray-600 w-8"></th>
+                      <th className="px-2 py-1 text-left font-semibold text-gray-600">Opponent</th>
+                      {columns.map(col => (
+                        <th key={col.key} className="px-2 py-1 text-right font-semibold text-gray-600">{col.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {gameLog.map((game, idx) => {
+                      const oppMascot = getMascotName(game.opponent)
+                      const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+                      const isWin = game.result === 'win' || game.result === 'W'
+                      return (
+                        <tr
+                          key={idx}
+                          className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 cursor-pointer`}
+                          onClick={() => navigate(`${pathPrefix}/game/${game.gameId}`)}
+                        >
+                          <td className="px-2 py-1.5 text-gray-600">{game.week || '-'}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${isWin ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                              {isWin ? 'W' : 'L'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain" />}
+                              <span className="font-medium text-gray-700 truncate max-w-[120px]">{oppMascot || game.opponent}</span>
+                              <span className="text-gray-400 text-[10px]">{game.teamScore}-{game.opponentScore}</span>
+                            </div>
+                          </td>
+                          {columns.map(col => (
+                            <td key={col.key} className={`px-2 py-1.5 text-right ${col.bold ? 'font-medium' : 'text-gray-500'}`}>
+                              {col.getter(game)}
+                            </td>
+                          ))}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
@@ -1497,7 +1611,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{y.passing.lng}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.passing.sacks}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'passing')}
                             </React.Fragment>
                           )
                         })}
@@ -1603,7 +1717,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{y.rushing.fum}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.rushing.bt}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'rushing')}
                             </React.Fragment>
                           )
                         })}
@@ -1704,7 +1818,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{y.receiving.lng}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.receiving.drops}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'receiving')}
                             </React.Fragment>
                           )
                         })}
@@ -1789,7 +1903,7 @@ export default function Player() {
                                 {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{(y.snapsPlayed || 0).toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right font-medium">{y.blocking.sacksAllowed}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'blocking')}
                             </React.Fragment>
                           )
                         })}
@@ -1890,7 +2004,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{y.defensive.ff}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.defensive.fr}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'defense')}
                             </React.Fragment>
                           )
                         })}
@@ -1994,7 +2108,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{y.kicking.xpa}</td>
                                 <td className="px-2 py-2 text-right">{calcPct(y.kicking.xpm, y.kicking.xpa)}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'kicking')}
                             </React.Fragment>
                           )
                         })}
@@ -2091,7 +2205,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right">{y.punting.in20}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.punting.tb}</td>
                               </tr>
-                              {renderGameLogRow(y.year, colSpan)}
+                              {renderGameLogRow(y.year, colSpan, 'punting')}
                             </React.Fragment>
                           )
                         })}
@@ -2179,7 +2293,7 @@ export default function Player() {
                             <td className="px-2 py-2 text-right font-medium">{y.kickReturn.td}</td>
                             <td className="px-2 py-2 text-right text-gray-500">{y.kickReturn.lng}</td>
                           </tr>
-                          {renderGameLogRow(y.year, colSpan)}
+                          {renderGameLogRow(y.year, colSpan, 'kickReturn')}
                         </React.Fragment>
                       )
                     })}
@@ -2264,7 +2378,7 @@ export default function Player() {
                             <td className="px-2 py-2 text-right font-medium">{y.puntReturn.td}</td>
                             <td className="px-2 py-2 text-right text-gray-500">{y.puntReturn.lng}</td>
                           </tr>
-                          {renderGameLogRow(y.year, colSpan)}
+                          {renderGameLogRow(y.year, colSpan, 'puntReturn')}
                         </React.Fragment>
                       )
                     })}

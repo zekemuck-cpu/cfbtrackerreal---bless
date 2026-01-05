@@ -14,41 +14,21 @@ function normalizeName(name) {
 
 /**
  * Aggregate all box score stats for a player across games in a specific year
+ * Simple: if the player appears in a box score, aggregate their stats
  * @param {Object} dynasty - The dynasty object containing games
  * @param {string} playerName - The player's name to search for
  * @param {number} year - The year to aggregate stats for
- * @param {string} teamAbbr - The player's team abbreviation
- * @param {Object} player - Optional: The full player object (for teamsByYear filtering)
+ * @param {string} teamAbbr - The player's team abbreviation (unused but kept for API compat)
+ * @param {Object} player - Optional: The full player object (unused but kept for API compat)
  * @returns {Object} Aggregated stats by category
  */
 export function aggregatePlayerBoxScoreStats(dynasty, playerName, year, teamAbbr, player = null) {
   if (!dynasty?.games || !playerName) return null
 
-  // Get user's team abbreviation for filtering
-  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName || ''
-
-  // Check if player was on user's team this year (if player object provided)
-  if (player?.teamsByYear) {
-    const playerTeamThisYear = player.teamsByYear[year] || player.teamsByYear[String(year)]
-    // If player has teamsByYear data and wasn't on user's team this year, return null
-    if (playerTeamThisYear && playerTeamThisYear.toUpperCase() !== userTeamAbbr.toUpperCase()) {
-      return null
-    }
-  }
-
-  // Find all games for this year where the user's team played
-  // CPU games have team1/team2 but NO opponent field
-  // User games ALWAYS have an opponent field (even postseason games with team1/team2 for history)
+  // Find all games for this year that have box scores
+  // We'll filter by player presence in the box score later
   const yearGames = dynasty.games.filter(g => {
-    const gameYear = Number(g.year)
-    if (gameYear !== year) return false
-    // Must have box score data
-    if (!g.boxScore) return false
-    // CPU game detection: has team1/team2 but NO opponent field
-    const isCPUGame = !g.opponent && g.team1 && g.team2
-    if (isCPUGame) return false
-    // User's team must be involved
-    return true
+    return Number(g.year) === year && g.boxScore
   })
 
   if (yearGames.length === 0) return null
@@ -181,7 +161,7 @@ export function aggregatePlayerBoxScoreStats(dynasty, playerName, year, teamAbbr
 
 /**
  * Get all season stats for a player from box scores
- * Returns data in the format expected by Player.jsx yearByYearStats
+ * Simple: if the player appears in a box score, include their stats
  * @param {Object} dynasty - The dynasty object
  * @param {Object} player - The player object
  * @returns {Array} Array of year stats objects
@@ -192,37 +172,16 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
   const playerName = player.name
   const teamAbbr = player.team
 
-  // Get user's team abbreviation for filtering
-  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName || ''
-
   // Find all years where this player appears in box scores
-  // CPU games have team1/team2 but NO opponent field
+  // Simple: if player is in the box score, include the year
   const years = new Set()
   dynasty.games.forEach(game => {
     if (!game.boxScore || !game.year) return
-    // CPU game detection: has team1/team2 but NO opponent field
-    const isCPUGame = !game.opponent && game.team1 && game.team2
-    if (isCPUGame) return
 
     const gameYear = Number(game.year)
-
-    // CRITICAL: Check if the player was on the user's team for this year
-    // If not, skip this game (they were an opponent)
-    const playerTeamThisYear = player.teamsByYear?.[gameYear]
-      || player.teamsByYear?.[String(gameYear)]
-
-    // If player has teamsByYear data and wasn't on user's team this year, skip
-    if (playerTeamThisYear && playerTeamThisYear.toUpperCase() !== userTeamAbbr.toUpperCase()) {
-      return
-    }
-
-    // Also skip if player wasn't on user's team and has no teamsByYear for this year
-    // (meaning they weren't on the roster yet - they were an opponent)
-    if (!playerTeamThisYear && teamAbbr && teamAbbr.toUpperCase() !== userTeamAbbr.toUpperCase()) {
-      return
-    }
-
     const boxScore = game.boxScore
+
+    // Check if player appears in this game's box score
     const checkCategory = (side) => {
       if (!boxScore[side]) return false
       return Object.values(boxScore[side]).some(category =>
@@ -362,16 +321,25 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
   if (!dynasty?.games || !playerName) return []
 
   // Get all games for this year that have box scores
-  // CPU games have team1/team2 but NO opponent field
+  // Simple: if the game has a boxScore, it's eligible for the game log
+  // We'll filter by player presence in the boxScore later
   const yearGames = dynasty.games.filter(g => {
-    if (Number(g.year) !== year || !g.boxScore) return false
-    // CPU game detection: has team1/team2 but NO opponent field
-    const isCPUGame = !g.opponent && g.team1 && g.team2
-    return !isCPUGame
+    return Number(g.year) === year && g.boxScore
   }).sort((a, b) => {
-    const weekA = a.week || 0
-    const weekB = b.week || 0
-    return weekA - weekB
+    // Sort by game order: regular season weeks, then CC, then postseason games
+    const getGameOrder = (g) => {
+      // Conference Championship
+      if (g.isConferenceChampionship || g.gameType === 'conference_championship') return 100
+      // CFP/Bowl games - use week + offset to come after regular season
+      if (g.isCFPFirstRound || g.gameType === 'cfp_first_round') return 101
+      if (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') return 102
+      if (g.isCFPSemifinal || g.gameType === 'cfp_semifinal') return 103
+      if (g.isCFPChampionship || g.gameType === 'cfp_championship') return 104
+      if (g.isBowlGame || g.gameType === 'bowl') return 100 + (parseInt(g.week) || 1)
+      // Regular season - use week number
+      return parseInt(g.week) || 0
+    }
+    return getGameOrder(a) - getGameOrder(b)
   })
 
   const gameLog = []
@@ -408,51 +376,60 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
 
     if (!playerFoundIn) return // Player not in this game
 
-    // SIMPLE APPROACH: User games are ALWAYS stored from user's perspective
-    // - game.opponent = who user played against
-    // - game.teamScore = user's score
-    // - game.opponentScore = opponent's score
-    // - game.result = user's result
-    //
-    // We just need to check if the player (teamAbbr) is on the user's team or opponent's team
+    // SIMPLE APPROACH: Player was found in box score - determine opponent and scores
+    // based on which side (home/away) the player was on
 
-    // Get user's team abbreviation
-    const userTeamAbbr = game.userTeam || getAbbreviationFromDisplayName(dynasty.teamName) || ''
+    // Determine teams and scores based on game structure
+    let playerTeam, opponentTeam, playerTeamScore, opponentTeamScore
 
-    // Check if player is on user's team (case-insensitive comparison)
-    const playerOnUserTeam = teamAbbr && userTeamAbbr &&
-      teamAbbr.toUpperCase() === userTeamAbbr.toUpperCase()
+    // For games with userTeam/opponent format (regular games, user postseason)
+    if (game.opponent) {
+      const isUserHome = game.location === 'home' || game.location === 'neutral'
+      const userTeam = game.userTeam || getAbbreviationFromDisplayName(dynasty.teamName) || ''
 
-    let opponent, playerTeamScore, playerOpponentScore, playerResult
-
-    if (playerOnUserTeam) {
-      // Player is on user's team - use game data directly
-      opponent = game.opponent
-      playerTeamScore = game.teamScore
-      playerOpponentScore = game.opponentScore
-      playerResult = game.result
-    } else {
-      // Player is on opponent's team - flip the perspective
-      opponent = userTeamAbbr || dynasty.teamName
-      playerTeamScore = game.opponentScore
-      playerOpponentScore = game.teamScore
-      // Invert result
-      if (game.result === 'W' || game.result === 'win') {
-        playerResult = 'L'
-      } else if (game.result === 'L' || game.result === 'loss') {
-        playerResult = 'W'
+      if (playerFoundIn === 'home') {
+        // Player is on home team
+        playerTeam = isUserHome ? userTeam : game.opponent
+        opponentTeam = isUserHome ? game.opponent : userTeam
+        playerTeamScore = isUserHome ? game.teamScore : game.opponentScore
+        opponentTeamScore = isUserHome ? game.opponentScore : game.teamScore
       } else {
-        playerResult = game.result
+        // Player is on away team
+        playerTeam = isUserHome ? game.opponent : userTeam
+        opponentTeam = isUserHome ? userTeam : game.opponent
+        playerTeamScore = isUserHome ? game.opponentScore : game.teamScore
+        opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
       }
     }
+    // For games with team1/team2 format (CPU games, some CFP games)
+    else if (game.team1 && game.team2) {
+      if (playerFoundIn === 'home') {
+        playerTeam = game.team1
+        opponentTeam = game.team2
+        playerTeamScore = game.team1Score
+        opponentTeamScore = game.team2Score
+      } else {
+        playerTeam = game.team2
+        opponentTeam = game.team1
+        playerTeamScore = game.team2Score
+        opponentTeamScore = game.team1Score
+      }
+    } else {
+      // Fallback - shouldn't happen but handle gracefully
+      return
+    }
+
+    // Determine result from player's perspective
+    const playerWon = parseInt(playerTeamScore) > parseInt(opponentTeamScore)
+    const playerResult = playerWon ? 'W' : 'L'
 
     gameLog.push({
       gameId: game.id,
       week: game.week,
-      opponent,
+      opponent: opponentTeam,
       result: playerResult,
       teamScore: playerTeamScore,
-      opponentScore: playerOpponentScore,
+      opponentScore: opponentTeamScore,
       ...playerStats
     })
   })

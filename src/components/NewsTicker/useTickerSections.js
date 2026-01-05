@@ -45,6 +45,24 @@ export function useTickerSections(dynasty) {
   // Store shuffle order in ref so it persists but is random on mount
   const shuffleOrderRef = useRef(null)
 
+  // Create a fingerprint of games that changes when any game is updated
+  // This ensures the ticker updates when games are modified, not just added/removed
+  const gamesFingerprint = useMemo(() => {
+    if (!dynasty?.games) return ''
+    return dynasty.games.map(g =>
+      `${g.id || ''}:${g.result || ''}:${g.teamScore || ''}:${g.opponentScore || ''}`
+    ).join('|')
+  }, [dynasty?.games])
+
+  // Create a fingerprint for player stats changes
+  const playersFingerprint = useMemo(() => {
+    if (!dynasty?.players) return ''
+    return dynasty.players.slice(0, 50).map(p => {
+      const stats = p.statsByYear?.[dynasty?.currentYear]
+      return `${p.pid}:${stats?.gamesPlayed || 0}:${stats?.passing?.yds || 0}:${stats?.rushing?.yds || 0}`
+    }).join('|')
+  }, [dynasty?.players, dynasty?.currentYear])
+
   const sections = useMemo(() => {
     if (!dynasty) return []
 
@@ -145,7 +163,9 @@ export function useTickerSections(dynasty) {
     dynasty?.currentPhase,
     dynasty?.currentWeek,
     dynasty?.games?.length,
+    gamesFingerprint, // Triggers update when any game is modified
     dynasty?.players?.length,
+    playersFingerprint, // Triggers update when player stats change
     dynasty?.awardsByYear,
     dynasty?.cfpResultsByYear,
     dynasty?.recruitsByTeamYear,
@@ -212,22 +232,54 @@ function generateThisWeekSection(dynasty, teamAbbr, year) {
 function generateStreakSection(dynasty, teamAbbr) {
   if (!dynasty?.games) return null
 
-  // Get all user games sorted by year then week
+  // Helper to get sort order for game (accounts for postseason being after regular season)
+  const getGameSortValue = (game) => {
+    const year = Number(game.year) || 0
+    const gameType = game.gameType || ''
+    const week = Number(game.week) || 0
+
+    // Phase order: regular_season < conference_championship < postseason
+    let phaseOrder = 0
+    if (game.isConferenceChampionship || gameType === 'conference_championship') {
+      phaseOrder = 100
+    } else if (game.isCFPFirstRound || gameType === 'cfp_first_round') {
+      phaseOrder = 200
+    } else if (game.isCFPQuarterfinal || gameType === 'cfp_quarterfinal') {
+      phaseOrder = 201
+    } else if (game.isCFPSemifinal || gameType === 'cfp_semifinal') {
+      phaseOrder = 202
+    } else if (game.isCFPChampionship || gameType === 'cfp_championship') {
+      phaseOrder = 203
+    } else if (game.isBowlGame || gameType === 'bowl') {
+      phaseOrder = 150 + (week || 0) // Bowl week 1 = 151, week 2 = 152, etc.
+    }
+
+    // Combine: year * 1000 + phaseOrder + week (for regular season)
+    return year * 1000 + phaseOrder + (phaseOrder === 0 ? week : 0)
+  }
+
+  // Get all user games sorted by recency (most recent first)
   const userGames = dynasty.games
     .filter(g => g.userTeam === teamAbbr && g.result)
-    .sort((a, b) => {
-      if (a.year !== b.year) return Number(b.year) - Number(a.year)
-      return (b.week || 0) - (a.week || 0)
-    })
+    .sort((a, b) => getGameSortValue(b) - getGameSortValue(a))
 
   if (userGames.length < 3) return null
 
-  // Calculate current streak
-  let streakType = userGames[0].result
-  let streakCount = 0
+  // Calculate current streak - normalize result to 'win'/'loss'
+  const normalizeResult = (result) => {
+    if (!result) return null
+    const r = result.toLowerCase()
+    if (r === 'w' || r === 'win') return 'win'
+    if (r === 'l' || r === 'loss') return 'loss'
+    return result
+  }
 
+  const firstResult = normalizeResult(userGames[0].result)
+  if (!firstResult) return null
+
+  let streakCount = 0
   for (const game of userGames) {
-    if (game.result === streakType) {
+    if (normalizeResult(game.result) === firstResult) {
       streakCount++
     } else {
       break
@@ -237,7 +289,7 @@ function generateStreakSection(dynasty, teamAbbr) {
   // Only show if streak is 3+
   if (streakCount < 3) return null
 
-  const isWinStreak = streakType === 'win'
+  const isWinStreak = firstResult === 'win'
 
   return {
     label: isWinStreak ? 'WIN STREAK' : 'LOSING STREAK',
@@ -247,7 +299,7 @@ function generateStreakSection(dynasty, teamAbbr) {
       id: 'streak',
       label: `${streakCount}`,
       labelColor: isWinStreak ? '#4ade80' : '#f87171',
-      text: isWinStreak ? `${streakCount} straight wins` : `${streakCount} straight losses`
+      text: 'straight ' + (isWinStreak ? 'wins' : 'losses')
     }]
   }
 }

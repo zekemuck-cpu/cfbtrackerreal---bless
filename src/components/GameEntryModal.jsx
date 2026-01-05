@@ -31,11 +31,11 @@ export default function GameEntryModal({
   const teamRatings = getCurrentTeamRatings(currentDynasty)
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
-  // In unified model: games WITHOUT userTeam field are CPU vs CPU games
-  // User games always have userTeam set to the user's team abbreviation
+  // In unified model: CPU games have team1/team2 but NO userTeam AND NO opponent
+  // User games always have opponent field (even CFP/bowl games with team1/team2 for unified format)
   const isCPUGame =
-    (!existingGame?.userTeam && existingGame?.team1 && existingGame?.team2) || // Has team1/team2 but no userTeam
-    (passedTeam1 && passedTeam2 && !existingGame?.userTeam) // Passed as CPU game via props
+    (!existingGame?.userTeam && !existingGame?.opponent && existingGame?.team1 && existingGame?.team2) || // Has team1/team2 but no userTeam/opponent
+    (passedTeam1 && passedTeam2 && !existingGame?.userTeam && !existingGame?.opponent) // Passed as CPU game via props
 
   // Merge existingGame with backward compat props (existingGame takes priority)
   // Note: No isCPUGame flag needed - CPU games are identified by absence of userTeam
@@ -805,8 +805,8 @@ export default function GameEntryModal({
       // SIMPLE APPROACH: If existingGame or effectiveGame is provided, use it directly
       const gameToLoad = effectiveGame
       if (gameToLoad) {
-        // CPU games (!userTeam with team1/team2) use team1Score/team2Score; user games use teamScore/opponentScore
-        const isCPUGameData = !gameToLoad.userTeam && gameToLoad.team1 && gameToLoad.team2
+        // CPU games (!userTeam AND !opponent with team1/team2) use team1Score/team2Score; user games use teamScore/opponentScore
+        const isCPUGameData = !gameToLoad.userTeam && !gameToLoad.opponent && gameToLoad.team1 && gameToLoad.team2
         const teamScore = isCPUGameData ? gameToLoad.team1Score : gameToLoad.teamScore
         const oppScore = isCPUGameData ? gameToLoad.team2Score : gameToLoad.opponentScore
 
@@ -820,9 +820,22 @@ export default function GameEntryModal({
           conferenceRecord = confMatch ? confMatch[1] : ''
         }
 
+        // For CFP First Round without location, determine from seeds
+        let effectiveLocation = gameToLoad.location || 'neutral'
+        if (!gameToLoad.location && (gameToLoad.isCFPFirstRound || gameToLoad.gameType === 'cfp_first_round' || bowlName === 'CFP First Round')) {
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
+          const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+          const opponentAbbr = getAbbreviationFromDisplayName(gameToLoad.opponent) || gameToLoad.opponent
+          const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
+          if (userSeed && oppSeed) {
+            effectiveLocation = userSeed < oppSeed ? 'home' : 'away'
+          }
+        }
+
         setGameData({
           opponent: gameToLoad.opponent || gameToLoad.team2 || '',
-          location: gameToLoad.location || 'neutral',
+          location: effectiveLocation,
           teamScore: teamScore?.toString() || '',
           opponentScore: oppScore?.toString() || '',
           isConferenceGame: gameToLoad.isConferenceGame || isConferenceChampionship || false,
@@ -945,10 +958,22 @@ export default function GameEntryModal({
         setNatlDefPOWOpen(false)
       } else if (scheduledGame || isConferenceChampionship || bowlName || passedOpponent) {
         // New game - load from schedule, CC opponent, or bowl opponent
+        // For CFP First Round, higher seed hosts (lower number = higher seed)
+        let cfpLocation = 'neutral'
+        if (bowlName === 'CFP First Round') {
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
+          const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+          const opponentAbbr = getAbbreviationFromDisplayName(passedOpponent) || passedOpponent
+          const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
+          if (userSeed && oppSeed) {
+            cfpLocation = userSeed < oppSeed ? 'home' : 'away'
+          }
+        }
         setGameData(prev => ({
           ...prev,
           opponent: passedOpponent || scheduledGame?.opponent || '',
-          location: isConferenceChampionship ? 'neutral' : bowlName ? 'neutral' : (scheduledGame?.location || 'home'),
+          location: isConferenceChampionship ? 'neutral' : (bowlName === 'CFP First Round' ? cfpLocation : (bowlName ? 'neutral' : (scheduledGame?.location || 'home'))),
           teamScore: '',
           opponentScore: '',
           isConferenceGame: isConferenceChampionship || false,

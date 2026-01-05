@@ -375,8 +375,29 @@ When `isViewOnly` is true from `useDynasty()`, hide all edit/add functionality.
 
 All games stored in `games[]` array with `gameType` field:
 - Game types: `regular`, `conference_championship`, `bowl`, `cfp_first_round`, `cfp_quarterfinal`, `cfp_semifinal`, `cfp_championship`
-- **CPU games**: Have `team1`/`team2` but NO `opponent` field
+- **CPU games**: Have `team1`/`team2` but NO `opponent` AND NO `userTeam`
 - **User games**: Have `opponent` field (and `userTeam`)
+
+### Player Game Log - Box Score Based
+
+**CRITICAL**: Player game logs are based purely on box score presence, NOT on `userTeam`.
+
+```javascript
+// Simple logic: if player is in box score, show the game
+const yearGames = dynasty.games.filter(g => g.year === year && g.boxScore)
+// Then search for player in boxScore.home and boxScore.away
+```
+
+**Why this matters**: When coaches take new jobs, filtering by `userTeam` breaks historical data. The box score approach ensures player stats display correctly regardless of coaching changes.
+
+**Game order sorting** for display (highest = most recent):
+- Regular season: week number (1-12)
+- Conference Championship: 100
+- CFP First Round: 101
+- CFP Quarterfinal: 102
+- CFP Semifinal: 103
+- CFP Championship: 104
+- Bowl games: 100 + week
 
 ### CFP First Round Data Format
 

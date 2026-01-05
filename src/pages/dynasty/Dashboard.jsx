@@ -3960,7 +3960,8 @@ export default function Dashboard() {
                     )}
 
                     {/* Task: Enter YOUR CFP Quarterfinal Game (if in CFP and advancing to QF) */}
-                    {userInCFPQuarterfinal && hasBowlWeek1Data && (
+                    {/* userWonFirstRound bypasses hasBowlWeek1Data check since First Round winners already played their "week 1" game */}
+                    {userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data) && (
                       <div
                         className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
                           userCFPQuarterfinalGame ? 'bg-green-50' : ''
@@ -4013,7 +4014,7 @@ export default function Dashboard() {
                       // Task number depends on how many tasks are showing above
                       let newJobTaskNum = 2
                       if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) newJobTaskNum++
-                      if (userInCFPQuarterfinal && hasBowlWeek1Data) newJobTaskNum++
+                      if (userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data)) newJobTaskNum++
                       return (
                     <div
                       className={`p-4 rounded-xl transition-all ${
@@ -4400,7 +4401,7 @@ export default function Dashboard() {
                       // Task number: starts at base, increments based on visible tasks
                       let taskNum = 2
                       if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) taskNum++
-                      if (userInCFPQuarterfinal && hasBowlWeek1Data) taskNum++
+                      if (userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data)) taskNum++
                       taskNum++ // After "Taking a New Job" task
                       const ccDataForTaskNum = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
                       if (currentDynasty.coachPosition === 'HC' && (ccDataForTaskNum.firedOCName || ccDataForTaskNum.firedDCName)) taskNum++ // After coordinator hire task

@@ -2238,9 +2238,10 @@ export function DynastyProvider({ children }) {
 
     // CRITICAL: Always store the actual team abbreviation for user games
     // This ensures games are correctly attributed when user switches teams
-    // CPU games are identified by having team1/team2 but no userTeam
+    // CPU games are identified by having team1/team2 but NO userTeam AND NO opponent
+    // User games (incl. CFP/bowl) always have opponent field, even if they also have team1/team2 for unified format
     const currentUserTeam = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
-    const isCPUGame = cleanGameData.team1 && cleanGameData.team2 && !cleanGameData.userTeam
+    const isCPUGame = cleanGameData.team1 && cleanGameData.team2 && !cleanGameData.userTeam && !cleanGameData.opponent
     if (!isCPUGame) {
       cleanGameData.userTeam = currentUserTeam
     }

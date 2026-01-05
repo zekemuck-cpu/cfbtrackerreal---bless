@@ -22,6 +22,7 @@ function getLogoUrl(teamIdentifier) {
   return getTeamLogo(teamIdentifier)
 }
 
+// Timing constants
 const SECTION_DURATION = 5000 // 5 seconds per section
 
 export default function NewsTicker({ dynasty }) {
@@ -33,7 +34,12 @@ export default function NewsTicker({ dynasty }) {
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
   const progressRef = useRef(null)
-  const lastTimeRef = useRef(Date.now())
+  const startTimeRef = useRef(Date.now())
+  const pausedProgressRef = useRef(0)
+
+  // Scroll animation state
+  const itemsContainerRef = useRef(null)
+  const [overflowAmount, setOverflowAmount] = useState(0)
 
   const sections = useTickerSections(dynasty)
 
@@ -42,34 +48,48 @@ export default function NewsTicker({ dynasty }) {
     setCurrentSectionIndex(0)
     setIsTransitioning(false)
     setProgress(0)
-    lastTimeRef.current = Date.now()
+    startTimeRef.current = Date.now()
+    pausedProgressRef.current = 0
   }, [location.pathname])
 
-  // Progress bar and auto-advance with pause support
+  // Measure overflow when section changes
+  useEffect(() => {
+    setProgress(0)
+    startTimeRef.current = Date.now()
+    pausedProgressRef.current = 0
+
+    const measureOverflow = () => {
+      const container = itemsContainerRef.current
+      if (container) {
+        const overflow = container.scrollWidth - container.clientWidth
+        setOverflowAmount(Math.max(0, overflow))
+      }
+    }
+
+    const timeoutId = setTimeout(measureOverflow, 50)
+    return () => clearTimeout(timeoutId)
+  }, [currentSectionIndex])
+
+  // Simple timer - progress from 0 to 100 over SECTION_DURATION
   useEffect(() => {
     if (sections.length === 0) return
 
     const animate = () => {
       if (!isPaused) {
-        const now = Date.now()
-        const delta = now - lastTimeRef.current
-        lastTimeRef.current = now
+        const elapsed = Date.now() - startTimeRef.current
+        const newProgress = (elapsed / SECTION_DURATION) * 100
 
-        setProgress(prev => {
-          const newProgress = prev + (delta / SECTION_DURATION) * 100
-          if (newProgress >= 100) {
-            // Time to advance
-            setIsTransitioning(true)
-            setTimeout(() => {
-              setCurrentSectionIndex(prevIdx => (prevIdx + 1) % sections.length)
-              setIsTransitioning(false)
-            }, 300)
-            return 0
-          }
-          return newProgress
-        })
-      } else {
-        lastTimeRef.current = Date.now()
+        if (newProgress >= 100) {
+          // Advance to next section
+          setIsTransitioning(true)
+          setProgress(100)
+          setTimeout(() => {
+            setCurrentSectionIndex(prevIdx => (prevIdx + 1) % sections.length)
+            setIsTransitioning(false)
+          }, 300)
+        } else {
+          setProgress(newProgress)
+        }
       }
 
       progressRef.current = requestAnimationFrame(animate)
@@ -82,7 +102,22 @@ export default function NewsTicker({ dynasty }) {
         cancelAnimationFrame(progressRef.current)
       }
     }
-  }, [sections.length, isPaused])
+  }, [sections.length, isPaused, currentSectionIndex])
+
+  // Handle pause/unpause - preserve progress
+  const togglePause = useCallback(() => {
+    setIsPaused(prev => {
+      if (!prev) {
+        // Pausing - store current progress
+        pausedProgressRef.current = progress
+      } else {
+        // Unpausing - reset start time based on stored progress
+        const elapsed = (pausedProgressRef.current / 100) * SECTION_DURATION
+        startTimeRef.current = Date.now() - elapsed
+      }
+      return !prev
+    })
+  }, [progress])
 
   // Handle item click
   const handleItemClick = useCallback((item) => {
@@ -102,7 +137,8 @@ export default function NewsTicker({ dynasty }) {
   const goToSection = useCallback((index) => {
     setIsTransitioning(true)
     setProgress(0)
-    lastTimeRef.current = Date.now()
+    startTimeRef.current = Date.now()
+    pausedProgressRef.current = 0
     setTimeout(() => {
       setCurrentSectionIndex(index)
       setIsTransitioning(false)
@@ -131,10 +167,17 @@ export default function NewsTicker({ dynasty }) {
 
   return (
     <>
-      {/* Hide scrollbar CSS */}
+      {/* Ticker CSS */}
       <style>{`
         .ticker-items::-webkit-scrollbar {
           display: none;
+        }
+        @keyframes ticker-scroll {
+          0%, 15% { transform: translateX(0); }
+          85%, 100% { transform: translateX(calc(-1 * var(--overflow-amount))); }
+        }
+        .ticker-scroll {
+          animation: ticker-scroll var(--scroll-duration) ease-in-out infinite;
         }
       `}</style>
       <div
@@ -144,8 +187,6 @@ export default function NewsTicker({ dynasty }) {
           borderTop: `2px solid ${borderColor}`,
           height: '48px'
         }}
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
       >
       <div className="h-full flex items-center">
         {/* Section indicator dots with progress bar */}
@@ -210,14 +251,20 @@ export default function NewsTicker({ dynasty }) {
             {currentSection.label}
           </div>
 
-          {/* Section items */}
+          {/* Section items - CSS animation for overflow scroll */}
           <div
-            className="ticker-items flex-1 flex items-center gap-2 sm:gap-4 px-3 sm:px-4 overflow-x-auto"
-            style={{
-              scrollbarWidth: 'none', /* Firefox */
-              msOverflowStyle: 'none', /* IE/Edge */
-            }}
+            ref={itemsContainerRef}
+            className="ticker-items flex-1 overflow-hidden"
           >
+            <div
+              className={`flex items-center gap-2 sm:gap-4 px-3 sm:px-4 whitespace-nowrap ${
+                overflowAmount > 0 && !isPaused ? 'ticker-scroll' : ''
+              }`}
+              style={{
+                '--overflow-amount': `${overflowAmount}px`,
+                '--scroll-duration': `${Math.max(3, overflowAmount / 50)}s`
+              }}
+            >
             {currentSection.items.map((item, idx) => (
               <div key={item.id || idx} className="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
                 {idx > 0 && (
@@ -260,18 +307,28 @@ export default function NewsTicker({ dynasty }) {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
 
-        {/* Pause indicator and Navigation arrows */}
+        {/* Pause/Play and Navigation arrows */}
         <div className="flex items-center gap-1 px-2 h-full border-l border-white/20">
-          {isPaused && (
-            <div className="px-1 opacity-60" style={{ color: textColor }}>
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+          <button
+            onClick={togglePause}
+            className="p-1 rounded hover:bg-white/10 transition-colors"
+            style={{ color: textColor }}
+            title={isPaused ? 'Play' : 'Pause'}
+          >
+            {isPaused ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
               </svg>
-            </div>
-          )}
+            )}
+          </button>
           <button
             onClick={goToPrev}
             className="p-1 rounded hover:bg-white/10 transition-colors"
