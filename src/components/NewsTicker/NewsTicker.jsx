@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTickerSections } from './useTickerSections'
@@ -22,12 +22,18 @@ function getLogoUrl(teamIdentifier) {
   return getTeamLogo(teamIdentifier)
 }
 
+const SECTION_DURATION = 5000 // 5 seconds per section
+
 export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
   const location = useLocation()
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const progressRef = useRef(null)
+  const lastTimeRef = useRef(Date.now())
 
   const sections = useTickerSections(dynasty)
 
@@ -35,23 +41,48 @@ export default function NewsTicker({ dynasty }) {
   useEffect(() => {
     setCurrentSectionIndex(0)
     setIsTransitioning(false)
+    setProgress(0)
+    lastTimeRef.current = Date.now()
   }, [location.pathname])
 
-  // Auto-advance sections
+  // Progress bar and auto-advance with pause support
   useEffect(() => {
     if (sections.length === 0) return
 
-    const interval = setInterval(() => {
-      setIsTransitioning(true)
+    const animate = () => {
+      if (!isPaused) {
+        const now = Date.now()
+        const delta = now - lastTimeRef.current
+        lastTimeRef.current = now
 
-      setTimeout(() => {
-        setCurrentSectionIndex(prev => (prev + 1) % sections.length)
-        setIsTransitioning(false)
-      }, 300)
-    }, 5000) // 5 seconds per section
+        setProgress(prev => {
+          const newProgress = prev + (delta / SECTION_DURATION) * 100
+          if (newProgress >= 100) {
+            // Time to advance
+            setIsTransitioning(true)
+            setTimeout(() => {
+              setCurrentSectionIndex(prevIdx => (prevIdx + 1) % sections.length)
+              setIsTransitioning(false)
+            }, 300)
+            return 0
+          }
+          return newProgress
+        })
+      } else {
+        lastTimeRef.current = Date.now()
+      }
 
-    return () => clearInterval(interval)
-  }, [sections.length])
+      progressRef.current = requestAnimationFrame(animate)
+    }
+
+    progressRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (progressRef.current) {
+        cancelAnimationFrame(progressRef.current)
+      }
+    }
+  }, [sections.length, isPaused])
 
   // Handle item click
   const handleItemClick = useCallback((item) => {
@@ -59,6 +90,32 @@ export default function NewsTicker({ dynasty }) {
       navigate(`${pathPrefix}${item.link}`)
     }
   }, [navigate, pathPrefix])
+
+  // Handle header click
+  const handleHeaderClick = useCallback((section) => {
+    if (section?.headerLink) {
+      navigate(`${pathPrefix}${section.headerLink}`)
+    }
+  }, [navigate, pathPrefix])
+
+  // Handle manual navigation (resets progress)
+  const goToSection = useCallback((index) => {
+    setIsTransitioning(true)
+    setProgress(0)
+    lastTimeRef.current = Date.now()
+    setTimeout(() => {
+      setCurrentSectionIndex(index)
+      setIsTransitioning(false)
+    }, 150)
+  }, [])
+
+  const goToPrev = useCallback(() => {
+    goToSection(currentSectionIndex === 0 ? sections.length - 1 : currentSectionIndex - 1)
+  }, [currentSectionIndex, sections.length, goToSection])
+
+  const goToNext = useCallback(() => {
+    goToSection((currentSectionIndex + 1) % sections.length)
+  }, [currentSectionIndex, sections.length, goToSection])
 
   // Don't render if no dynasty or no sections
   if (!dynasty || sections.length === 0) return null
@@ -70,29 +127,42 @@ export default function NewsTicker({ dynasty }) {
   const borderColor = '#374151' // gray-700
   const textColor = '#f3f4f6' // gray-100
   const headerBg = '#1f2937' // gray-800
+  const progressColor = '#3b82f6' // blue-500
 
   return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 overflow-hidden"
-      style={{
-        backgroundColor: bgColor,
-        borderTop: `2px solid ${borderColor}`,
-        height: '48px'
-      }}
-    >
+    <>
+      {/* Hide scrollbar CSS */}
+      <style>{`
+        .ticker-items::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-40 overflow-hidden"
+        style={{
+          backgroundColor: bgColor,
+          borderTop: `2px solid ${borderColor}`,
+          height: '48px'
+        }}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
       <div className="h-full flex items-center">
-        {/* Section indicator dots */}
-        <div className="hidden sm:flex items-center gap-1 px-3 h-full border-r border-white/20">
+        {/* Section indicator dots with progress bar */}
+        <div className="hidden sm:flex items-center gap-1 px-3 h-full border-r border-white/20 relative">
+          {/* Progress bar - contained within dots section */}
+          <div
+            className="absolute bottom-0 left-0 h-0.5 transition-all duration-100"
+            style={{
+              width: `${progress}%`,
+              backgroundColor: progressColor,
+              opacity: isPaused ? 0.5 : 1
+            }}
+          />
           {sections.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => {
-                setIsTransitioning(true)
-                setTimeout(() => {
-                  setCurrentSectionIndex(idx)
-                  setIsTransitioning(false)
-                }, 150)
-              }}
+              onClick={() => goToSection(idx)}
               className={`w-2 h-2 rounded-full transition-all ${
                 idx === currentSectionIndex
                   ? 'scale-125'
@@ -111,11 +181,14 @@ export default function NewsTicker({ dynasty }) {
         >
           {/* Section header/label */}
           <div
-            className="h-full flex items-center gap-2 px-3 sm:px-4 font-bold text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap"
+            className={`h-full flex items-center gap-2 px-3 sm:px-4 font-bold text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap ${
+              currentSection.headerLink ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
+            }`}
             style={{
               backgroundColor: headerBg,
               color: textColor
             }}
+            onClick={() => handleHeaderClick(currentSection)}
           >
             {currentSection.teamLogo ? (
               <img
@@ -138,7 +211,13 @@ export default function NewsTicker({ dynasty }) {
           </div>
 
           {/* Section items */}
-          <div className="flex-1 flex items-center gap-2 sm:gap-4 px-3 sm:px-4 overflow-x-auto scrollbar-hide">
+          <div
+            className="ticker-items flex-1 flex items-center gap-2 sm:gap-4 px-3 sm:px-4 overflow-x-auto"
+            style={{
+              scrollbarWidth: 'none', /* Firefox */
+              msOverflowStyle: 'none', /* IE/Edge */
+            }}
+          >
             {currentSection.items.map((item, idx) => (
               <div key={item.id || idx} className="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
                 {idx > 0 && (
@@ -184,16 +263,17 @@ export default function NewsTicker({ dynasty }) {
           </div>
         </div>
 
-        {/* Navigation arrows */}
+        {/* Pause indicator and Navigation arrows */}
         <div className="flex items-center gap-1 px-2 h-full border-l border-white/20">
+          {isPaused && (
+            <div className="px-1 opacity-60" style={{ color: textColor }}>
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            </div>
+          )}
           <button
-            onClick={() => {
-              setIsTransitioning(true)
-              setTimeout(() => {
-                setCurrentSectionIndex(prev => prev === 0 ? sections.length - 1 : prev - 1)
-                setIsTransitioning(false)
-              }, 150)
-            }}
+            onClick={goToPrev}
             className="p-1 rounded hover:bg-white/10 transition-colors"
             style={{ color: textColor }}
           >
@@ -202,13 +282,7 @@ export default function NewsTicker({ dynasty }) {
             </svg>
           </button>
           <button
-            onClick={() => {
-              setIsTransitioning(true)
-              setTimeout(() => {
-                setCurrentSectionIndex(prev => (prev + 1) % sections.length)
-                setIsTransitioning(false)
-              }, 150)
-            }}
+            onClick={goToNext}
             className="p-1 rounded hover:bg-white/10 transition-colors"
             style={{ color: textColor }}
           >
@@ -219,5 +293,6 @@ export default function NewsTicker({ dynasty }) {
         </div>
       </div>
     </div>
+    </>
   )
 }

@@ -27,7 +27,7 @@ export default function BouncingLogos({ subtle = false }) {
   // Subtle mode: smaller, more transparent, slower
   const sizeRange = subtle ? { min: 20, max: 30 } : { min: 30, max: 50 }
   const opacityRange = subtle ? { min: 0.15, max: 0.3 } : { min: 0.5, max: 1.0 }
-  const baseSpeedMultiplier = subtle ? 0.5 : 1
+  const baseSpeedMultiplier = subtle ? 0.25 : 0.4
 
   // Scale speed based on screen width - use 1440px as reference
   const getScreenSpeedScale = useCallback(() => {
@@ -73,10 +73,10 @@ export default function BouncingLogos({ subtle = false }) {
       team,
       x: Math.random() * (window.innerWidth - 50),
       y: Math.random() * (window.innerHeight - 50),
-      vx: ((Math.random() - 0.5) * 8 + (Math.random() > 0.5 ? 3 : -3)) * speedMultiplier,
-      vy: ((Math.random() - 0.5) * 8 + (Math.random() > 0.5 ? 3 : -3)) * speedMultiplier,
+      vx: ((Math.random() - 0.5) * 4 + (Math.random() > 0.5 ? 1.5 : -1.5)) * speedMultiplier,
+      vy: ((Math.random() - 0.5) * 4 + (Math.random() > 0.5 ? 1.5 : -1.5)) * speedMultiplier,
       rotation: Math.random() * 360,
-      rotationSpeed: (Math.random() - 0.5) * 10 * speedMultiplier,
+      rotationSpeed: (Math.random() - 0.5) * 4 * speedMultiplier,
       size: sizeRange.min + Math.random() * (sizeRange.max - sizeRange.min),
       opacity: opacityRange.min + Math.random() * (opacityRange.max - opacityRange.min),
     }))
@@ -114,8 +114,8 @@ export default function BouncingLogos({ subtle = false }) {
 
     const screenScale = getScreenSpeedScale()
     const speedMultiplier = baseSpeedMultiplier * screenScale
-    const maxSpeed = (subtle ? 5 : 10) * screenScale
-    const minSpeed = (subtle ? 1 : 2) * screenScale
+    const maxSpeed = (subtle ? 2 : 4) * screenScale
+    const minSpeed = (subtle ? 0.5 : 0.8) * screenScale
 
     const animate = () => {
       const canvas = canvasRef.current
