@@ -6,43 +6,17 @@ This file provides guidance to Claude Code when working with this repository.
 
 ---
 
-## 🚨 PENDING: Google OAuth Verification
+## ✅ COMPLETED: Google OAuth Verification
 
-**Status**: In progress - need to complete domain verification
+**Status**: Verified and published (January 2026)
 
-### What's Done
-- ✅ Privacy Policy page created (`/privacy`)
-- ✅ Terms of Service page created (`/terms`)
-- ✅ Privacy/Terms links added to Login page
+- ✅ Privacy Policy page (`/privacy`)
+- ✅ Terms of Service page (`/terms`)
+- ✅ Privacy/Terms links on Login page
+- ✅ Domain verified via Google Search Console
+- ✅ OAuth branding verified and published
 
-### Next Step: Domain Verification
-
-Google requires proof that you own `dynastytracker.vercel.app`.
-
-**Steps:**
-1. Go to Google Search Console: https://search.google.com/search-console
-2. Click "Add property" → Choose "URL prefix"
-3. Enter: `https://dynastytracker.vercel.app`
-4. Choose "HTML tag" verification method
-5. Copy the meta tag content (looks like: `<meta name="google-site-verification" content="ABC123..." />`)
-6. Give Claude the content value to add to the app's `index.html`
-7. Deploy and verify
-
-### After Domain Verification
-
-1. Go to: https://console.cloud.google.com/auth/branding?project=cfbtracker-200ab
-2. Click "I have fixed the issues" → "Request re-verification"
-
-### Quick Links
-- **Google Cloud Console - Branding**: https://console.cloud.google.com/auth/branding?project=cfbtracker-200ab
-- **Google Cloud Console - Data Access (Scopes)**: https://console.cloud.google.com/auth/scopes?project=cfbtracker-200ab
-- **Google Cloud Console - Audience**: https://console.cloud.google.com/auth/audience?project=cfbtracker-200ab
-- **Google Search Console**: https://search.google.com/search-console
-- **Privacy Policy**: https://dynastytracker.vercel.app/privacy
-- **Terms of Service**: https://dynastytracker.vercel.app/terms
-
-### Why This Matters
-Without verification, users see a scary "Google hasn't verified this app" warning when signing in, which will prevent adoption.
+Users now see a clean, verified Google sign-in experience.
 
 ---
 
