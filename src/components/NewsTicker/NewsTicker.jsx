@@ -36,6 +36,7 @@ export default function NewsTicker({ dynasty }) {
   const progressRef = useRef(null)
   const startTimeRef = useRef(Date.now())
   const pausedProgressRef = useRef(0)
+  const pendingIndexRef = useRef(null) // For manual navigation target
 
   // Scroll animation state
   const itemsContainerRef = useRef(null)
@@ -75,18 +76,14 @@ export default function NewsTicker({ dynasty }) {
     if (sections.length === 0) return
 
     const animate = () => {
-      if (!isPaused) {
+      if (!isPaused && !isTransitioning) {
         const elapsed = Date.now() - startTimeRef.current
         const newProgress = (elapsed / SECTION_DURATION) * 100
 
         if (newProgress >= 100) {
-          // Advance to next section
+          // Start transition - fade out first
           setIsTransitioning(true)
           setProgress(100)
-          setTimeout(() => {
-            setCurrentSectionIndex(prevIdx => (prevIdx + 1) % sections.length)
-            setIsTransitioning(false)
-          }, 300)
         } else {
           setProgress(newProgress)
         }
@@ -102,7 +99,34 @@ export default function NewsTicker({ dynasty }) {
         cancelAnimationFrame(progressRef.current)
       }
     }
-  }, [sections.length, isPaused, currentSectionIndex])
+  }, [sections.length, isPaused, isTransitioning])
+
+  // Handle the transition sequence: fade out -> change section -> fade in
+  useEffect(() => {
+    if (!isTransitioning) return
+
+    // Wait for fade out to complete (300ms), then change section
+    const changeTimer = setTimeout(() => {
+      if (pendingIndexRef.current !== null) {
+        // Manual navigation - go to specific index
+        setCurrentSectionIndex(pendingIndexRef.current)
+        pendingIndexRef.current = null
+      } else {
+        // Auto-advance to next section
+        setCurrentSectionIndex(prevIdx => (prevIdx + 1) % sections.length)
+      }
+    }, 300)
+
+    // After section changes and new content renders, fade in (add small buffer)
+    const fadeInTimer = setTimeout(() => {
+      setIsTransitioning(false)
+    }, 350)
+
+    return () => {
+      clearTimeout(changeTimer)
+      clearTimeout(fadeInTimer)
+    }
+  }, [isTransitioning, sections.length])
 
   // Handle pause/unpause - preserve progress
   const togglePause = useCallback(() => {
@@ -135,15 +159,13 @@ export default function NewsTicker({ dynasty }) {
 
   // Handle manual navigation (resets progress)
   const goToSection = useCallback((index) => {
+    if (isTransitioning) return // Prevent double-clicks during transition
+    pendingIndexRef.current = index
     setIsTransitioning(true)
     setProgress(0)
     startTimeRef.current = Date.now()
     pausedProgressRef.current = 0
-    setTimeout(() => {
-      setCurrentSectionIndex(index)
-      setIsTransitioning(false)
-    }, 150)
-  }, [])
+  }, [isTransitioning])
 
   const goToPrev = useCallback(() => {
     goToSection(currentSectionIndex === 0 ? sections.length - 1 : currentSectionIndex - 1)
