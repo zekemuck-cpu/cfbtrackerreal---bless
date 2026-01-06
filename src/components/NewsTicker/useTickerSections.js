@@ -122,9 +122,9 @@ export function useTickerSections(dynasty) {
     const confRecordSection = generateConferenceRecordSection(dynasty, teamAbbr, year)
     if (confRecordSection) result.push(confRecordSection)
 
-    // ===== SECTION: SCORING BREAKDOWN =====
-    const scoringSection = generateScoringBreakdownSection(dynasty, teamAbbr, year)
-    if (scoringSection) result.push(scoringSection)
+    // ===== SECTION: SCORING BREAKDOWN (per-game quarter scores) =====
+    const scoringSections = generateScoringBreakdownSections(dynasty, teamAbbr, year)
+    result.push(...scoringSections)
 
     // ===== SECTION: CLOSE GAMES / CLUTCH =====
     const clutchSection = generateClutchGamesSection(dynasty, teamAbbr, year)
@@ -1025,78 +1025,104 @@ function generateConferenceRecordSection(dynasty, teamAbbr, year) {
   }
 }
 
-// Scoring breakdown by quarter
-function generateScoringBreakdownSection(dynasty, teamAbbr, year) {
-  const games = (dynasty.games || []).filter(g =>
-    g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.quarters
-  )
+// Individual game quarter-by-quarter scoring breakdowns
+// Returns array of sections, one per game with quarter data
+function generateScoringBreakdownSections(dynasty, teamAbbr, year) {
+  const games = (dynasty.games || []).filter(g => {
+    if (g.userTeam !== teamAbbr) return false
+    if (Number(g.year) !== year) return false
+    if (!g.result) return false
+    // Check if quarters data exists and has actual values
+    const q = g.quarters
+    if (!q || !q.team || !q.opponent) return false
+    // Ensure at least Q1 has data
+    const hasQ1 = (q.team.Q1 !== '' && q.team.Q1 !== undefined) ||
+                  (q.opponent.Q1 !== '' && q.opponent.Q1 !== undefined)
+    return hasQ1
+  }).sort((a, b) => (a.week || 0) - (b.week || 0))
 
-  if (games.length < 3) return null
+  if (games.length === 0) return []
 
-  // Aggregate quarter scoring
-  let q1Total = 0, q2Total = 0, q3Total = 0, q4Total = 0, otTotal = 0
+  const sections = []
 
-  games.forEach(game => {
+  games.forEach((game, idx) => {
+    const oppAbbr = getTeamAbbr(game.opponent)
     const q = game.quarters
-    if (!q) return
+    const isWin = game.result === 'win'
 
-    // Determine which side is the user's team based on location
-    const isHome = game.location === 'home'
-    const userQ = isHome ? {
-      q1: q.homeQ1 || q.q1?.home || 0,
-      q2: q.homeQ2 || q.q2?.home || 0,
-      q3: q.homeQ3 || q.q3?.home || 0,
-      q4: q.homeQ4 || q.q4?.home || 0,
-      ot: q.homeOT || q.ot?.home || 0
-    } : {
-      q1: q.awayQ1 || q.q1?.away || 0,
-      q2: q.awayQ2 || q.q2?.away || 0,
-      q3: q.awayQ3 || q.q3?.away || 0,
-      q4: q.awayQ4 || q.q4?.away || 0,
-      ot: q.awayOT || q.ot?.away || 0
+    // Get quarter scores - use actual data format: quarters.team.Q1, quarters.opponent.Q1
+    const teamQ1 = Number(q.team?.Q1) || 0
+    const teamQ2 = Number(q.team?.Q2) || 0
+    const teamQ3 = Number(q.team?.Q3) || 0
+    const teamQ4 = Number(q.team?.Q4) || 0
+    const oppQ1 = Number(q.opponent?.Q1) || 0
+    const oppQ2 = Number(q.opponent?.Q2) || 0
+    const oppQ3 = Number(q.opponent?.Q3) || 0
+    const oppQ4 = Number(q.opponent?.Q4) || 0
+
+    // Check for overtime
+    const hasOT = game.overtimes && game.overtimes.length > 0
+
+    const items = [
+      {
+        id: `q1-${idx}`,
+        label: '1Q',
+        labelColor: teamQ1 > oppQ1 ? '#4ade80' : teamQ1 < oppQ1 ? '#f87171' : '#9ca3af',
+        text: `${teamQ1}-${oppQ1}`
+      },
+      {
+        id: `q2-${idx}`,
+        label: '2Q',
+        labelColor: teamQ2 > oppQ2 ? '#4ade80' : teamQ2 < oppQ2 ? '#f87171' : '#9ca3af',
+        text: `${teamQ2}-${oppQ2}`
+      },
+      {
+        id: `q3-${idx}`,
+        label: '3Q',
+        labelColor: teamQ3 > oppQ3 ? '#4ade80' : teamQ3 < oppQ3 ? '#f87171' : '#9ca3af',
+        text: `${teamQ3}-${oppQ3}`
+      },
+      {
+        id: `q4-${idx}`,
+        label: '4Q',
+        labelColor: teamQ4 > oppQ4 ? '#4ade80' : teamQ4 < oppQ4 ? '#f87171' : '#9ca3af',
+        text: `${teamQ4}-${oppQ4}`
+      }
+    ]
+
+    // Add OT if applicable
+    if (hasOT) {
+      let teamOT = 0, oppOT = 0
+      game.overtimes.forEach(ot => {
+        teamOT += Number(ot.team) || 0
+        oppOT += Number(ot.opponent) || 0
+      })
+      items.push({
+        id: `ot-${idx}`,
+        label: game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT',
+        labelColor: '#fbbf24',
+        text: `${teamOT}-${oppOT}`
+      })
     }
 
-    q1Total += Number(userQ.q1) || 0
-    q2Total += Number(userQ.q2) || 0
-    q3Total += Number(userQ.q3) || 0
-    q4Total += Number(userQ.q4) || 0
-    otTotal += Number(userQ.ot) || 0
+    // Add final score
+    items.push({
+      id: `final-${idx}`,
+      label: isWin ? 'W' : 'L',
+      labelColor: isWin ? '#22c55e' : '#ef4444',
+      text: `${game.teamScore}-${game.opponentScore}`
+    })
+
+    sections.push({
+      label: `${teamAbbr} vs ${oppAbbr}`,
+      teamLogo: teamAbbr,
+      opponentLogo: oppAbbr,
+      headerLink: `/game/${game.id}`,
+      items
+    })
   })
 
-  const q1Avg = (q1Total / games.length).toFixed(1)
-  const q2Avg = (q2Total / games.length).toFixed(1)
-  const q3Avg = (q3Total / games.length).toFixed(1)
-  const q4Avg = (q4Total / games.length).toFixed(1)
-
-  const items = [
-    { id: 'q1', label: '1Q', text: q1Avg },
-    { id: 'q2', label: '2Q', text: q2Avg },
-    { id: 'q3', label: '3Q', text: q3Avg },
-    { id: 'q4', label: '4Q', text: q4Avg }
-  ]
-
-  // Find strongest quarter
-  const quarters = [
-    { name: '1st', avg: parseFloat(q1Avg) },
-    { name: '2nd', avg: parseFloat(q2Avg) },
-    { name: '3rd', avg: parseFloat(q3Avg) },
-    { name: '4th', avg: parseFloat(q4Avg) }
-  ]
-  const strongest = quarters.sort((a, b) => b.avg - a.avg)[0]
-
-  items.push({
-    id: 'best',
-    label: 'BEST',
-    labelColor: '#4ade80',
-    text: `${strongest.name} quarter (${strongest.avg} PPG)`
-  })
-
-  return {
-    label: 'SCORING BY QTR',
-    teamLogo: teamAbbr,
-    headerLink: `/team/${teamAbbr}/${year}`,
-    items
-  }
+  return sections
 }
 
 // Close games and comeback wins

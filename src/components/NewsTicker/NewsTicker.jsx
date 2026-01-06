@@ -253,6 +253,7 @@ export default function NewsTicker({ dynasty }) {
             }}
             onClick={() => handleHeaderClick(currentSection)}
           >
+            {/* Team logo or other icon */}
             {currentSection.teamLogo ? (
               <img
                 src={getLogoUrl(currentSection.teamLogo)}
@@ -270,7 +271,22 @@ export default function NewsTicker({ dynasty }) {
             ) : currentSection.icon ? (
               <span>{currentSection.icon}</span>
             ) : null}
-            {currentSection.label}
+
+            {/* Opponent logo for matchup display (Team vs Opponent) */}
+            {currentSection.opponentLogo && (
+              <>
+                <span className="text-gray-400 text-[10px] sm:text-xs">vs</span>
+                <img
+                  src={getLogoUrl(currentSection.opponentLogo)}
+                  alt=""
+                  className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                  onError={(e) => { e.target.style.display = 'none' }}
+                />
+              </>
+            )}
+
+            {/* Hide label text when showing matchup logos - the logos speak for themselves */}
+            {!currentSection.opponentLogo && currentSection.label}
           </div>
 
           {/* Section items - CSS animation for overflow scroll */}
