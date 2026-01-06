@@ -102,10 +102,6 @@ export function useTickerSections(dynasty) {
     const gameBreakdownSection = generateGameBreakdownSection(dynasty, teamAbbr, year)
     if (gameBreakdownSection) result.push(gameBreakdownSection)
 
-    // ===== SECTION: GAME BY GAME (individual game sections with stats) =====
-    const gameByGameSections = generateGameByGameSections(dynasty, teamAbbr, year)
-    result.push(...gameByGameSections)
-
     // ===== SECTION: UNDERDOG WINS =====
     const underdogSection = generateUnderdogWinsSection(dynasty, teamAbbr, year)
     if (underdogSection) result.push(underdogSection)
@@ -122,9 +118,9 @@ export function useTickerSections(dynasty) {
     const confRecordSection = generateConferenceRecordSection(dynasty, teamAbbr, year)
     if (confRecordSection) result.push(confRecordSection)
 
-    // ===== SECTION: SCORING BREAKDOWN (per-game quarter scores) =====
-    const scoringSections = generateScoringBreakdownSections(dynasty, teamAbbr, year)
-    result.push(...scoringSections)
+    // ===== SECTION: GAME RECAPS (ESPN-style: score + player stats) =====
+    const gameRecapSections = generateGameRecapSections(dynasty, teamAbbr, year)
+    result.push(...gameRecapSections)
 
     // ===== SECTION: CLOSE GAMES / CLUTCH =====
     const clutchSection = generateClutchGamesSection(dynasty, teamAbbr, year)
@@ -637,116 +633,6 @@ function generateGameBreakdownSection(dynasty, teamAbbr, year) {
 }
 
 // Generate individual sections for each game with box score (cycles through games)
-function generateGameByGameSections(dynasty, teamAbbr, year) {
-  if (!dynasty?.games) return []
-
-  const sections = []
-
-  // Get all games with box scores for this season, sorted by week
-  const gamesWithBoxScore = (dynasty.games || [])
-    .filter(g => g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.boxScore)
-    .sort((a, b) => {
-      // Sort chronologically
-      const aOrder = (a.isBowlGame ? 100 : 0) + (a.isConferenceChampionship ? 90 : 0) + (a.week || 0)
-      const bOrder = (b.isBowlGame ? 100 : 0) + (b.isConferenceChampionship ? 90 : 0) + (b.week || 0)
-      return aOrder - bOrder
-    })
-
-  // Create a section for each game (limit to most recent 6 to not overwhelm)
-  const gamesToShow = gamesWithBoxScore.slice(-6)
-
-  gamesToShow.forEach((game, idx) => {
-    const oppAbbr = getTeamAbbr(game.opponent)
-    const isWin = game.result === 'win'
-    const homeStats = game.boxScore?.home || {}
-    const items = []
-
-    // Score
-    items.push({
-      id: `score-${idx}`,
-      team: oppAbbr,
-      label: isWin ? 'W' : 'L',
-      labelColor: isWin ? '#4ade80' : '#f87171',
-      text: `${game.teamScore}-${game.opponentScore}`
-    })
-
-    // Top passer
-    const passers = [...(homeStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-    const topPasser = passers[0]
-    if (topPasser && (topPasser.yards || 0) > 50) {
-      items.push({
-        id: `pass-${idx}`,
-        label: topPasser.playerName?.split(' ').pop() || 'QB',
-        text: `${topPasser.comp || 0}/${topPasser.attempts || 0}, ${topPasser.yards || 0} yds, ${topPasser.tD || 0} TD`
-      })
-    }
-
-    // Top rusher
-    const rushers = [...(homeStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-    const topRusher = rushers[0]
-    if (topRusher && (topRusher.yards || 0) > 30) {
-      items.push({
-        id: `rush-${idx}`,
-        label: topRusher.playerName?.split(' ').pop() || 'RB',
-        text: `${topRusher.carries || 0} car, ${topRusher.yards || 0} yds, ${topRusher.tD || 0} TD`
-      })
-    }
-
-    // Top receiver
-    const receivers = [...(homeStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-    const topReceiver = receivers[0]
-    if (topReceiver && (topReceiver.yards || 0) > 30) {
-      items.push({
-        id: `rec-${idx}`,
-        label: topReceiver.playerName?.split(' ').pop() || 'WR',
-        text: `${topReceiver.receptions || 0} rec, ${topReceiver.yards || 0} yds`
-      })
-    }
-
-    // Top defensive performer (if any tackles)
-    const defenders = [...(homeStats.defense || [])].sort((a, b) => {
-      const aTkl = (a.solo || 0) + (a.assists || 0)
-      const bTkl = (b.solo || 0) + (b.assists || 0)
-      return bTkl - aTkl
-    })
-    const topDefender = defenders[0]
-    if (topDefender) {
-      const tkls = (topDefender.solo || 0) + (topDefender.assists || 0)
-      const extras = []
-      if (topDefender.sack > 0) extras.push(`${topDefender.sack} sck`)
-      if (topDefender.iNT > 0) extras.push(`${topDefender.iNT} INT`)
-      if (topDefender.tFL > 0) extras.push(`${topDefender.tFL} TFL`)
-      if (tkls > 3) {
-        items.push({
-          id: `def-${idx}`,
-          label: topDefender.playerName?.split(' ').pop() || 'DEF',
-          text: `${tkls} tkl${extras.length > 0 ? ', ' + extras.join(', ') : ''}`
-        })
-      }
-    }
-
-    if (items.length < 2) return // Skip if not enough stats
-
-    // Create week label
-    let weekLabel = `WK ${game.week}`
-    if (game.isBowlGame) weekLabel = game.bowlName || 'Bowl'
-    else if (game.isConferenceChampionship) weekLabel = 'Conf Champ'
-    else if (game.isCFPFirstRound) weekLabel = 'CFP R1'
-    else if (game.isCFPQuarterfinal) weekLabel = 'CFP QF'
-    else if (game.isCFPSemifinal) weekLabel = 'CFP Semi'
-    else if (game.isCFPChampionship) weekLabel = 'CFP Champ'
-
-    sections.push({
-      label: `${weekLabel} vs ${oppAbbr}`,
-      teamLogo: teamAbbr,
-      headerLink: `/game/${game.id}`,
-      items
-    })
-  })
-
-  return sections
-}
-
 // Underdog wins - games won when favoriteStatus is 'underdog'
 function generateUnderdogWinsSection(dynasty, teamAbbr, year) {
   if (!dynasty?.games) return null
@@ -1025,20 +911,15 @@ function generateConferenceRecordSection(dynasty, teamAbbr, year) {
   }
 }
 
-// Individual game quarter-by-quarter scoring breakdowns
-// Returns array of sections, one per game with quarter data
-function generateScoringBreakdownSections(dynasty, teamAbbr, year) {
+// ESPN-style game recap: Logo vs Logo with score, then player stats
+// Returns array of sections, one per game with box score
+function generateGameRecapSections(dynasty, teamAbbr, year) {
   const games = (dynasty.games || []).filter(g => {
     if (g.userTeam !== teamAbbr) return false
     if (Number(g.year) !== year) return false
     if (!g.result) return false
-    // Check if quarters data exists and has actual values
-    const q = g.quarters
-    if (!q || !q.team || !q.opponent) return false
-    // Ensure at least Q1 has data
-    const hasQ1 = (q.team.Q1 !== '' && q.team.Q1 !== undefined) ||
-                  (q.opponent.Q1 !== '' && q.opponent.Q1 !== undefined)
-    return hasQ1
+    // Need box score for player stats
+    return g.boxScore?.home
   }).sort((a, b) => (a.week || 0) - (b.week || 0))
 
   if (games.length === 0) return []
@@ -1047,71 +928,83 @@ function generateScoringBreakdownSections(dynasty, teamAbbr, year) {
 
   games.forEach((game, idx) => {
     const oppAbbr = getTeamAbbr(game.opponent)
-    const q = game.quarters
     const isWin = game.result === 'win'
+    const items = []
+    const homeStats = game.boxScore?.home || {}
 
-    // Get quarter scores - use actual data format: quarters.team.Q1, quarters.opponent.Q1
-    const teamQ1 = Number(q.team?.Q1) || 0
-    const teamQ2 = Number(q.team?.Q2) || 0
-    const teamQ3 = Number(q.team?.Q3) || 0
-    const teamQ4 = Number(q.team?.Q4) || 0
-    const oppQ1 = Number(q.opponent?.Q1) || 0
-    const oppQ2 = Number(q.opponent?.Q2) || 0
-    const oppQ3 = Number(q.opponent?.Q3) || 0
-    const oppQ4 = Number(q.opponent?.Q4) || 0
-
-    // Check for overtime
-    const hasOT = game.overtimes && game.overtimes.length > 0
-
-    const items = [
-      {
-        id: `q1-${idx}`,
-        label: '1Q',
-        labelColor: teamQ1 > oppQ1 ? '#4ade80' : teamQ1 < oppQ1 ? '#f87171' : '#9ca3af',
-        text: `${teamQ1}-${oppQ1}`
-      },
-      {
-        id: `q2-${idx}`,
-        label: '2Q',
-        labelColor: teamQ2 > oppQ2 ? '#4ade80' : teamQ2 < oppQ2 ? '#f87171' : '#9ca3af',
-        text: `${teamQ2}-${oppQ2}`
-      },
-      {
-        id: `q3-${idx}`,
-        label: '3Q',
-        labelColor: teamQ3 > oppQ3 ? '#4ade80' : teamQ3 < oppQ3 ? '#f87171' : '#9ca3af',
-        text: `${teamQ3}-${oppQ3}`
-      },
-      {
-        id: `q4-${idx}`,
-        label: '4Q',
-        labelColor: teamQ4 > oppQ4 ? '#4ade80' : teamQ4 < oppQ4 ? '#f87171' : '#9ca3af',
-        text: `${teamQ4}-${oppQ4}`
-      }
-    ]
-
-    // Add OT if applicable
-    if (hasOT) {
-      let teamOT = 0, oppOT = 0
-      game.overtimes.forEach(ot => {
-        teamOT += Number(ot.team) || 0
-        oppOT += Number(ot.opponent) || 0
-      })
-      items.push({
-        id: `ot-${idx}`,
-        label: game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT',
-        labelColor: '#fbbf24',
-        text: `${teamOT}-${oppOT}`
-      })
-    }
-
-    // Add final score
+    // Final score - always first
     items.push({
-      id: `final-${idx}`,
+      id: `score-${idx}`,
       label: isWin ? 'W' : 'L',
       labelColor: isWin ? '#22c55e' : '#ef4444',
       text: `${game.teamScore}-${game.opponentScore}`
     })
+
+    // Top QB
+    const passers = [...(homeStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topPasser = passers[0]
+    if (topPasser && (topPasser.yards || 0) > 50) {
+      const lastName = topPasser.playerName?.split(' ').pop() || 'QB'
+      items.push({
+        id: `qb-${idx}`,
+        label: lastName,
+        labelColor: '#60a5fa', // blue
+        text: `${topPasser.comp || 0}/${topPasser.attempts || 0}, ${topPasser.yards || 0} yds, ${topPasser.tD || 0} TD`
+      })
+    }
+
+    // Top RB
+    const rushers = [...(homeStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topRusher = rushers[0]
+    if (topRusher && (topRusher.yards || 0) > 25) {
+      const lastName = topRusher.playerName?.split(' ').pop() || 'RB'
+      items.push({
+        id: `rb-${idx}`,
+        label: lastName,
+        labelColor: '#a78bfa', // purple
+        text: `${topRusher.carries || 0} car, ${topRusher.yards || 0} yds${topRusher.tD > 0 ? `, ${topRusher.tD} TD` : ''}`
+      })
+    }
+
+    // Top WR
+    const receivers = [...(homeStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topReceiver = receivers[0]
+    if (topReceiver && (topReceiver.yards || 0) > 25) {
+      const lastName = topReceiver.playerName?.split(' ').pop() || 'WR'
+      items.push({
+        id: `wr-${idx}`,
+        label: lastName,
+        labelColor: '#f472b6', // pink
+        text: `${topReceiver.receptions || 0} rec, ${topReceiver.yards || 0} yds${topReceiver.tD > 0 ? `, ${topReceiver.tD} TD` : ''}`
+      })
+    }
+
+    // Top defender
+    const defenders = [...(homeStats.defense || [])].sort((a, b) => {
+      const aTkl = (a.solo || 0) + (a.assists || 0)
+      const bTkl = (b.solo || 0) + (b.assists || 0)
+      return bTkl - aTkl
+    })
+    const topDefender = defenders[0]
+    if (topDefender) {
+      const tkls = (topDefender.solo || 0) + (topDefender.assists || 0)
+      if (tkls > 3 || topDefender.sack > 0 || topDefender.iNT > 0) {
+        const lastName = topDefender.playerName?.split(' ').pop() || 'DEF'
+        const extras = []
+        if (topDefender.sack > 0) extras.push(`${topDefender.sack} sck`)
+        if (topDefender.iNT > 0) extras.push(`${topDefender.iNT} INT`)
+        if (topDefender.tFL > 0) extras.push(`${topDefender.tFL} TFL`)
+        items.push({
+          id: `def-${idx}`,
+          label: lastName,
+          labelColor: '#facc15', // yellow
+          text: `${tkls} tkl${extras.length > 0 ? ', ' + extras.join(', ') : ''}`
+        })
+      }
+    }
+
+    // Need at least score + one player stat
+    if (items.length < 2) return
 
     sections.push({
       label: `${teamAbbr} vs ${oppAbbr}`,
