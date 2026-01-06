@@ -378,6 +378,44 @@ All games stored in `games[]` array with `gameType` field:
 - **CPU games**: Have `team1`/`team2` but NO `opponent` AND NO `userTeam`
 - **User games**: Have `opponent` field (and `userTeam`)
 
+### The `userTeam` Field on Games - Critical Understanding
+
+The `userTeam` field on games identifies **which team the coach was coaching when that game was played**. It is ESSENTIAL for team-centric data but must be used correctly.
+
+**What `userTeam` does:**
+- Set automatically when saving user games: `userTeam = currentTeamAbbr`
+- Allows filtering games by which team the coach was coaching
+- Differentiates user games from CPU vs CPU games (CPU games have NO `userTeam`)
+
+**CORRECT uses of `userTeam`:**
+```javascript
+// 1. Detecting CPU vs user games
+const isCPUGame = !g.userTeam && !g.opponent && g.team1 && g.team2
+
+// 2. Filtering games for a SPECIFIC team view (TeamYear, Dashboard)
+const teamGames = games.filter(g => g.userTeam === teamAbbr)
+
+// 3. Calculating coach career stats (all games where coach was involved)
+const coachGames = games.filter(g => g.userTeam)  // Any team coached
+
+// 4. News ticker showing CURRENT team highlights
+const currentTeamGames = games.filter(g => g.userTeam === currentTeamAbbr)
+```
+
+**WRONG uses of `userTeam`:**
+```javascript
+// DON'T filter player game logs by userTeam - use box score presence instead!
+// WRONG:
+const playerGames = games.filter(g => g.userTeam === playerTeam && g.boxScore)
+
+// CORRECT:
+const playerGames = games.filter(g => g.boxScore && g.year === year)
+// Then search boxScore.home and boxScore.away for the player
+```
+
+**Why player game logs must NOT use `userTeam`:**
+When coaches take new jobs, `userTeam` changes. A player who appeared in a CFP game while the coach was at Team A won't show that game in their log if we filter by `userTeam` after the coach moves to Team B. The box score approach ensures player stats display correctly regardless of coaching changes.
+
 ### Player Game Log - Box Score Based
 
 **CRITICAL**: Player game logs are based purely on box score presence, NOT on `userTeam`.
