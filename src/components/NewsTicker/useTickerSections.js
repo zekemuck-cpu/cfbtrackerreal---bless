@@ -98,6 +98,46 @@ export function useTickerSections(dynasty) {
     const recentGamesSection = generateRecentGamesSection(dynasty, teamAbbr, year)
     if (recentGamesSection) result.push(recentGamesSection)
 
+    // ===== SECTION: GAME BREAKDOWN (ESPN-style detailed game recap) =====
+    const gameBreakdownSection = generateGameBreakdownSection(dynasty, teamAbbr, year)
+    if (gameBreakdownSection) result.push(gameBreakdownSection)
+
+    // ===== SECTION: GAME BY GAME (individual game sections with stats) =====
+    const gameByGameSections = generateGameByGameSections(dynasty, teamAbbr, year)
+    result.push(...gameByGameSections)
+
+    // ===== SECTION: UNDERDOG WINS =====
+    const underdogSection = generateUnderdogWinsSection(dynasty, teamAbbr, year)
+    if (underdogSection) result.push(underdogSection)
+
+    // ===== SECTION: TOP PERFORMANCES =====
+    const topPerformancesSection = generateTopPerformancesSection(dynasty, teamAbbr, year)
+    if (topPerformancesSection) result.push(topPerformancesSection)
+
+    // ===== SECTION: HOME/AWAY SPLITS =====
+    const splitsSection = generateHomAwaySplitsSection(dynasty, teamAbbr, year)
+    if (splitsSection) result.push(splitsSection)
+
+    // ===== SECTION: CONFERENCE RECORD =====
+    const confRecordSection = generateConferenceRecordSection(dynasty, teamAbbr, year)
+    if (confRecordSection) result.push(confRecordSection)
+
+    // ===== SECTION: SCORING BREAKDOWN =====
+    const scoringSection = generateScoringBreakdownSection(dynasty, teamAbbr, year)
+    if (scoringSection) result.push(scoringSection)
+
+    // ===== SECTION: CLOSE GAMES / CLUTCH =====
+    const clutchSection = generateClutchGamesSection(dynasty, teamAbbr, year)
+    if (clutchSection) result.push(clutchSection)
+
+    // ===== SECTION: TURNOVER BATTLE =====
+    const turnoverSection = generateTurnoverSection(dynasty, teamAbbr, year)
+    if (turnoverSection) result.push(turnoverSection)
+
+    // ===== SECTION: OFFENSIVE STATS =====
+    const offenseSection = generateOffensiveStatsSection(dynasty, teamAbbr, year)
+    if (offenseSection) result.push(offenseSection)
+
     // ===== SECTION: BIGGEST WINS =====
     const biggestWinsSection = generateBiggestWinsSection(dynasty, teamAbbr)
     if (biggestWinsSection) result.push(biggestWinsSection)
@@ -514,6 +554,743 @@ function generateRecentGamesSection(dynasty, teamAbbr, year) {
     label: 'RECENT GAMES',
     teamLogo: teamAbbr,
     headerLink: `/schedule`,
+    items
+  }
+}
+
+// ESPN-style game breakdown with box score stats
+function generateGameBreakdownSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return null
+
+  // Find most recent game with box score
+  const gamesWithBoxScore = (dynasty.games || [])
+    .filter(g => g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.boxScore)
+    .sort((a, b) => {
+      // Sort by recency (week, then game type)
+      const aOrder = (a.isBowlGame ? 100 : 0) + (a.week || 0)
+      const bOrder = (b.isBowlGame ? 100 : 0) + (b.week || 0)
+      return bOrder - aOrder
+    })
+
+  const game = gamesWithBoxScore[0]
+  if (!game) return null
+
+  const oppAbbr = getTeamAbbr(game.opponent)
+  const isWin = game.result === 'win'
+  const items = []
+
+  // Game result
+  items.push({
+    id: 'result',
+    team: oppAbbr,
+    label: isWin ? 'W' : 'L',
+    labelColor: isWin ? '#4ade80' : '#f87171',
+    text: `${teamAbbr} ${game.teamScore}-${game.opponentScore} ${oppAbbr}`
+  })
+
+  // Extract top performers from box score
+  const homeStats = game.boxScore?.home || {}
+
+  // Top passer
+  const passers = homeStats.passing || []
+  const topPasser = passers.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
+  if (topPasser && topPasser.yards > 100) {
+    items.push({
+      id: 'passer',
+      label: topPasser.playerName?.split(' ').pop() || 'QB',
+      text: `${topPasser.comp || 0}/${topPasser.attempts || 0}, ${topPasser.yards || 0} yds, ${topPasser.tD || 0} TD`
+    })
+  }
+
+  // Top rusher
+  const rushers = homeStats.rushing || []
+  const topRusher = rushers.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
+  if (topRusher && topRusher.yards > 50) {
+    items.push({
+      id: 'rusher',
+      label: topRusher.playerName?.split(' ').pop() || 'RB',
+      text: `${topRusher.carries || 0} car, ${topRusher.yards || 0} yds, ${topRusher.tD || 0} TD`
+    })
+  }
+
+  // Top receiver
+  const receivers = homeStats.receiving || []
+  const topReceiver = receivers.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
+  if (topReceiver && topReceiver.yards > 50) {
+    items.push({
+      id: 'receiver',
+      label: topReceiver.playerName?.split(' ').pop() || 'WR',
+      text: `${topReceiver.receptions || 0} rec, ${topReceiver.yards || 0} yds, ${topReceiver.tD || 0} TD`
+    })
+  }
+
+  if (items.length < 2) return null
+
+  const weekLabel = game.isBowlGame ? game.bowlName : `WK ${game.week}`
+
+  return {
+    label: `${weekLabel} RECAP`,
+    teamLogo: teamAbbr,
+    headerLink: `/schedule`,
+    items
+  }
+}
+
+// Generate individual sections for each game with box score (cycles through games)
+function generateGameByGameSections(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return []
+
+  const sections = []
+
+  // Get all games with box scores for this season, sorted by week
+  const gamesWithBoxScore = (dynasty.games || [])
+    .filter(g => g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.boxScore)
+    .sort((a, b) => {
+      // Sort chronologically
+      const aOrder = (a.isBowlGame ? 100 : 0) + (a.isConferenceChampionship ? 90 : 0) + (a.week || 0)
+      const bOrder = (b.isBowlGame ? 100 : 0) + (b.isConferenceChampionship ? 90 : 0) + (b.week || 0)
+      return aOrder - bOrder
+    })
+
+  // Create a section for each game (limit to most recent 6 to not overwhelm)
+  const gamesToShow = gamesWithBoxScore.slice(-6)
+
+  gamesToShow.forEach((game, idx) => {
+    const oppAbbr = getTeamAbbr(game.opponent)
+    const isWin = game.result === 'win'
+    const homeStats = game.boxScore?.home || {}
+    const items = []
+
+    // Score
+    items.push({
+      id: `score-${idx}`,
+      team: oppAbbr,
+      label: isWin ? 'W' : 'L',
+      labelColor: isWin ? '#4ade80' : '#f87171',
+      text: `${game.teamScore}-${game.opponentScore}`
+    })
+
+    // Top passer
+    const passers = [...(homeStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topPasser = passers[0]
+    if (topPasser && (topPasser.yards || 0) > 50) {
+      items.push({
+        id: `pass-${idx}`,
+        label: topPasser.playerName?.split(' ').pop() || 'QB',
+        text: `${topPasser.comp || 0}/${topPasser.attempts || 0}, ${topPasser.yards || 0} yds, ${topPasser.tD || 0} TD`
+      })
+    }
+
+    // Top rusher
+    const rushers = [...(homeStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topRusher = rushers[0]
+    if (topRusher && (topRusher.yards || 0) > 30) {
+      items.push({
+        id: `rush-${idx}`,
+        label: topRusher.playerName?.split(' ').pop() || 'RB',
+        text: `${topRusher.carries || 0} car, ${topRusher.yards || 0} yds, ${topRusher.tD || 0} TD`
+      })
+    }
+
+    // Top receiver
+    const receivers = [...(homeStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topReceiver = receivers[0]
+    if (topReceiver && (topReceiver.yards || 0) > 30) {
+      items.push({
+        id: `rec-${idx}`,
+        label: topReceiver.playerName?.split(' ').pop() || 'WR',
+        text: `${topReceiver.receptions || 0} rec, ${topReceiver.yards || 0} yds`
+      })
+    }
+
+    // Top defensive performer (if any tackles)
+    const defenders = [...(homeStats.defense || [])].sort((a, b) => {
+      const aTkl = (a.solo || 0) + (a.assists || 0)
+      const bTkl = (b.solo || 0) + (b.assists || 0)
+      return bTkl - aTkl
+    })
+    const topDefender = defenders[0]
+    if (topDefender) {
+      const tkls = (topDefender.solo || 0) + (topDefender.assists || 0)
+      const extras = []
+      if (topDefender.sack > 0) extras.push(`${topDefender.sack} sck`)
+      if (topDefender.iNT > 0) extras.push(`${topDefender.iNT} INT`)
+      if (topDefender.tFL > 0) extras.push(`${topDefender.tFL} TFL`)
+      if (tkls > 3) {
+        items.push({
+          id: `def-${idx}`,
+          label: topDefender.playerName?.split(' ').pop() || 'DEF',
+          text: `${tkls} tkl${extras.length > 0 ? ', ' + extras.join(', ') : ''}`
+        })
+      }
+    }
+
+    if (items.length < 2) return // Skip if not enough stats
+
+    // Create week label
+    let weekLabel = `WK ${game.week}`
+    if (game.isBowlGame) weekLabel = game.bowlName || 'Bowl'
+    else if (game.isConferenceChampionship) weekLabel = 'Conf Champ'
+    else if (game.isCFPFirstRound) weekLabel = 'CFP R1'
+    else if (game.isCFPQuarterfinal) weekLabel = 'CFP QF'
+    else if (game.isCFPSemifinal) weekLabel = 'CFP Semi'
+    else if (game.isCFPChampionship) weekLabel = 'CFP Champ'
+
+    sections.push({
+      label: `${weekLabel} vs ${oppAbbr}`,
+      teamLogo: teamAbbr,
+      headerLink: `/game/${game.id}`,
+      items
+    })
+  })
+
+  return sections
+}
+
+// Underdog wins - games won when favoriteStatus is 'underdog'
+function generateUnderdogWinsSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return null
+
+  // Find games where user was underdog and won (using existing favoriteStatus field)
+  const underdogWins = (dynasty.games || [])
+    .filter(g => {
+      if (g.userTeam !== teamAbbr) return false
+      if (g.result !== 'win') return false
+      return g.favoriteStatus === 'underdog'
+    })
+    .sort((a, b) => {
+      // Sort by year descending, then week
+      if (Number(a.year) !== Number(b.year)) return Number(b.year) - Number(a.year)
+      return (b.week || 0) - (a.week || 0)
+    })
+
+  if (underdogWins.length === 0) return null
+
+  const items = underdogWins.slice(0, 4).map((game, i) => {
+    const oppAbbr = getTeamAbbr(game.opponent)
+    const userRankText = game.userRank ? `#${game.userRank}` : ''
+    const oppRankText = game.opponentRank ? `#${game.opponentRank}` : ''
+
+    // Build display text
+    let displayText = `${teamAbbr}`
+    if (userRankText) displayText = `${userRankText} ${displayText}`
+    displayText += ` def. `
+    if (oppRankText) displayText += `${oppRankText} `
+    displayText += `${oppAbbr} ${game.teamScore}-${game.opponentScore}`
+
+    return {
+      id: `underdog-${i}`,
+      team: oppAbbr,
+      label: 'UPSET',
+      labelColor: '#fcd34d',
+      text: displayText,
+      link: `/game/${game.id}`
+    }
+  })
+
+  // Add summary at front if multiple wins
+  if (underdogWins.length > 1) {
+    items.unshift({
+      id: 'underdog-count',
+      label: `${underdogWins.length}`,
+      labelColor: '#fcd34d',
+      text: 'underdog wins'
+    })
+  }
+
+  return {
+    label: 'UNDERDOG WINS',
+    teamLogo: teamAbbr,
+    icon: '🔥',
+    headerLink: `/coach-career`,
+    items: items.slice(0, 4)
+  }
+}
+
+// Top individual performances of the season
+function generateTopPerformancesSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return null
+
+  const performances = []
+
+  // Find games with box scores
+  const gamesWithBoxScore = (dynasty.games || [])
+    .filter(g => g.userTeam === teamAbbr && Number(g.year) === year && g.boxScore)
+
+  gamesWithBoxScore.forEach(game => {
+    const oppAbbr = getTeamAbbr(game.opponent)
+    const homeStats = game.boxScore?.home || {}
+
+    // Check passing performances (300+ yards)
+    const passers = homeStats.passing || []
+    passers.forEach(p => {
+      if ((p.yards || 0) >= 300) {
+        performances.push({
+          type: 'passing',
+          name: p.playerName,
+          opponent: oppAbbr,
+          week: game.week,
+          yards: p.yards,
+          td: p.tD || 0,
+          stat: `${p.yards} yds, ${p.tD || 0} TD`,
+          score: p.yards + (p.tD || 0) * 50 // For sorting
+        })
+      }
+    })
+
+    // Check rushing performances (150+ yards)
+    const rushers = homeStats.rushing || []
+    rushers.forEach(p => {
+      if ((p.yards || 0) >= 150) {
+        performances.push({
+          type: 'rushing',
+          name: p.playerName,
+          opponent: oppAbbr,
+          week: game.week,
+          yards: p.yards,
+          td: p.tD || 0,
+          stat: `${p.yards} yds, ${p.tD || 0} TD`,
+          score: p.yards + (p.tD || 0) * 30
+        })
+      }
+    })
+
+    // Check receiving performances (125+ yards)
+    const receivers = homeStats.receiving || []
+    receivers.forEach(p => {
+      if ((p.yards || 0) >= 125) {
+        performances.push({
+          type: 'receiving',
+          name: p.playerName,
+          opponent: oppAbbr,
+          week: game.week,
+          yards: p.yards,
+          td: p.tD || 0,
+          stat: `${p.receptions || 0} rec, ${p.yards} yds`,
+          score: p.yards + (p.tD || 0) * 30
+        })
+      }
+    })
+  })
+
+  if (performances.length === 0) return null
+
+  // Sort by score and take top 3
+  performances.sort((a, b) => b.score - a.score)
+
+  const items = performances.slice(0, 3).map((p, i) => ({
+    id: `perf-${i}`,
+    team: p.opponent,
+    label: p.name?.split(' ').pop() || 'Player',
+    labelColor: '#60a5fa',
+    text: `vs ${p.opponent}: ${p.stat}`
+  }))
+
+  return {
+    label: 'TOP PERFORMANCES',
+    teamLogo: teamAbbr,
+    headerLink: `/team-stats/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Home/Away record splits
+function generateHomAwaySplitsSection(dynasty, teamAbbr, year) {
+  const games = (dynasty.games || []).filter(g =>
+    g.userTeam === teamAbbr && Number(g.year) === year && g.result
+  )
+
+  if (games.length < 4) return null
+
+  const homeGames = games.filter(g => g.location === 'home')
+  const awayGames = games.filter(g => g.location === 'away')
+  const neutralGames = games.filter(g => g.location === 'neutral')
+
+  const homeWins = homeGames.filter(g => g.result === 'win').length
+  const homeLosses = homeGames.filter(g => g.result === 'loss').length
+  const awayWins = awayGames.filter(g => g.result === 'win').length
+  const awayLosses = awayGames.filter(g => g.result === 'loss').length
+
+  const items = []
+
+  if (homeGames.length > 0) {
+    const perfect = homeLosses === 0 && homeWins >= 3
+    items.push({
+      id: 'home',
+      label: 'HOME',
+      labelColor: perfect ? '#4ade80' : undefined,
+      text: `${homeWins}-${homeLosses}`
+    })
+  }
+
+  if (awayGames.length > 0) {
+    const perfect = awayLosses === 0 && awayWins >= 2
+    items.push({
+      id: 'away',
+      label: 'AWAY',
+      labelColor: perfect ? '#4ade80' : undefined,
+      text: `${awayWins}-${awayLosses}`
+    })
+  }
+
+  if (neutralGames.length > 0) {
+    const neutralWins = neutralGames.filter(g => g.result === 'win').length
+    const neutralLosses = neutralGames.filter(g => g.result === 'loss').length
+    items.push({
+      id: 'neutral',
+      label: 'NEUTRAL',
+      text: `${neutralWins}-${neutralLosses}`
+    })
+  }
+
+  // Calculate home PPG vs away PPG
+  if (homeGames.length >= 2 && awayGames.length >= 2) {
+    const homePPG = Math.round(homeGames.reduce((sum, g) => sum + (Number(g.teamScore) || 0), 0) / homeGames.length)
+    const awayPPG = Math.round(awayGames.reduce((sum, g) => sum + (Number(g.teamScore) || 0), 0) / awayGames.length)
+    items.push({
+      id: 'ppg-diff',
+      text: `Home PPG: ${homePPG} • Away: ${awayPPG}`
+    })
+  }
+
+  if (items.length < 2) return null
+
+  return {
+    label: `${year} SPLITS`,
+    teamLogo: teamAbbr,
+    headerLink: `/team/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Conference vs non-conference record
+function generateConferenceRecordSection(dynasty, teamAbbr, year) {
+  const games = (dynasty.games || []).filter(g =>
+    g.userTeam === teamAbbr && Number(g.year) === year && g.result && !g.isBowlGame && !g.isConferenceChampionship
+  )
+
+  if (games.length < 4) return null
+
+  // We'd need conference data to truly split this, but we can use isConferenceGame flag if present
+  // For now, assume games without isConferenceGame flag are non-conference
+  const confGames = games.filter(g => g.isConferenceGame === true)
+  const nonConfGames = games.filter(g => g.isConferenceGame === false || g.isConferenceGame === undefined)
+
+  // If no clear split, try to infer (first 3-4 weeks often non-conf, rest conf)
+  let confWins, confLosses, nonConfWins, nonConfLosses
+
+  if (confGames.length > 0 || nonConfGames.length > 0) {
+    confWins = confGames.filter(g => g.result === 'win').length
+    confLosses = confGames.filter(g => g.result === 'loss').length
+    nonConfWins = nonConfGames.filter(g => g.result === 'win').length
+    nonConfLosses = nonConfGames.filter(g => g.result === 'loss').length
+  } else {
+    // No conference flags - skip this section
+    return null
+  }
+
+  if (confGames.length < 2) return null
+
+  const items = [
+    {
+      id: 'conf',
+      label: 'CONF',
+      labelColor: confLosses === 0 && confWins >= 4 ? '#4ade80' : undefined,
+      text: `${confWins}-${confLosses}`
+    }
+  ]
+
+  if (nonConfGames.length > 0) {
+    items.push({
+      id: 'non-conf',
+      label: 'NON-CONF',
+      text: `${nonConfWins}-${nonConfLosses}`
+    })
+  }
+
+  // Add overall
+  const totalWins = confWins + nonConfWins
+  const totalLosses = confLosses + nonConfLosses
+  items.push({
+    id: 'overall',
+    label: 'OVERALL',
+    text: `${totalWins}-${totalLosses}`
+  })
+
+  return {
+    label: `${year} BY OPPONENT`,
+    teamLogo: teamAbbr,
+    headerLink: `/team/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Scoring breakdown by quarter
+function generateScoringBreakdownSection(dynasty, teamAbbr, year) {
+  const games = (dynasty.games || []).filter(g =>
+    g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.quarters
+  )
+
+  if (games.length < 3) return null
+
+  // Aggregate quarter scoring
+  let q1Total = 0, q2Total = 0, q3Total = 0, q4Total = 0, otTotal = 0
+
+  games.forEach(game => {
+    const q = game.quarters
+    if (!q) return
+
+    // Determine which side is the user's team based on location
+    const isHome = game.location === 'home'
+    const userQ = isHome ? {
+      q1: q.homeQ1 || q.q1?.home || 0,
+      q2: q.homeQ2 || q.q2?.home || 0,
+      q3: q.homeQ3 || q.q3?.home || 0,
+      q4: q.homeQ4 || q.q4?.home || 0,
+      ot: q.homeOT || q.ot?.home || 0
+    } : {
+      q1: q.awayQ1 || q.q1?.away || 0,
+      q2: q.awayQ2 || q.q2?.away || 0,
+      q3: q.awayQ3 || q.q3?.away || 0,
+      q4: q.awayQ4 || q.q4?.away || 0,
+      ot: q.awayOT || q.ot?.away || 0
+    }
+
+    q1Total += Number(userQ.q1) || 0
+    q2Total += Number(userQ.q2) || 0
+    q3Total += Number(userQ.q3) || 0
+    q4Total += Number(userQ.q4) || 0
+    otTotal += Number(userQ.ot) || 0
+  })
+
+  const q1Avg = (q1Total / games.length).toFixed(1)
+  const q2Avg = (q2Total / games.length).toFixed(1)
+  const q3Avg = (q3Total / games.length).toFixed(1)
+  const q4Avg = (q4Total / games.length).toFixed(1)
+
+  const items = [
+    { id: 'q1', label: '1Q', text: q1Avg },
+    { id: 'q2', label: '2Q', text: q2Avg },
+    { id: 'q3', label: '3Q', text: q3Avg },
+    { id: 'q4', label: '4Q', text: q4Avg }
+  ]
+
+  // Find strongest quarter
+  const quarters = [
+    { name: '1st', avg: parseFloat(q1Avg) },
+    { name: '2nd', avg: parseFloat(q2Avg) },
+    { name: '3rd', avg: parseFloat(q3Avg) },
+    { name: '4th', avg: parseFloat(q4Avg) }
+  ]
+  const strongest = quarters.sort((a, b) => b.avg - a.avg)[0]
+
+  items.push({
+    id: 'best',
+    label: 'BEST',
+    labelColor: '#4ade80',
+    text: `${strongest.name} quarter (${strongest.avg} PPG)`
+  })
+
+  return {
+    label: 'SCORING BY QTR',
+    teamLogo: teamAbbr,
+    headerLink: `/team/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Close games and comeback wins
+function generateClutchGamesSection(dynasty, teamAbbr, year) {
+  const games = (dynasty.games || []).filter(g =>
+    g.userTeam === teamAbbr && Number(g.year) === year && g.result
+  )
+
+  if (games.length < 4) return null
+
+  const items = []
+
+  // Close games (decided by 7 or less)
+  const closeGames = games.filter(g => {
+    const margin = Math.abs((Number(g.teamScore) || 0) - (Number(g.opponentScore) || 0))
+    return margin <= 7
+  })
+
+  const closeWins = closeGames.filter(g => g.result === 'win').length
+  const closeLosses = closeGames.filter(g => g.result === 'loss').length
+
+  if (closeGames.length >= 2) {
+    items.push({
+      id: 'close',
+      label: '1-SCORE GAMES',
+      labelColor: closeWins > closeLosses ? '#4ade80' : closeWins < closeLosses ? '#f87171' : undefined,
+      text: `${closeWins}-${closeLosses}`
+    })
+  }
+
+  // Blowout wins (20+)
+  const blowouts = games.filter(g => {
+    const margin = (Number(g.teamScore) || 0) - (Number(g.opponentScore) || 0)
+    return g.result === 'win' && margin >= 20
+  })
+
+  if (blowouts.length >= 2) {
+    items.push({
+      id: 'blowouts',
+      label: 'BLOWOUTS',
+      labelColor: '#4ade80',
+      text: `${blowouts.length} wins by 20+`
+    })
+  }
+
+  // Comeback wins (trailed at half) - would need quarter data
+  // For now, just show largest comeback if quarters exist
+  const comebackWins = games.filter(g => {
+    if (g.result !== 'win' || !g.quarters) return false
+    const q = g.quarters
+    const isHome = g.location === 'home'
+
+    // Calculate halftime score
+    const userHalf = isHome
+      ? (Number(q.homeQ1 || q.q1?.home || 0) + Number(q.homeQ2 || q.q2?.home || 0))
+      : (Number(q.awayQ1 || q.q1?.away || 0) + Number(q.awayQ2 || q.q2?.away || 0))
+    const oppHalf = isHome
+      ? (Number(q.awayQ1 || q.q1?.away || 0) + Number(q.awayQ2 || q.q2?.away || 0))
+      : (Number(q.homeQ1 || q.q1?.home || 0) + Number(q.homeQ2 || q.q2?.home || 0))
+
+    return oppHalf > userHalf // Trailed at halftime
+  })
+
+  if (comebackWins.length > 0) {
+    items.push({
+      id: 'comebacks',
+      label: 'COMEBACKS',
+      labelColor: '#fcd34d',
+      text: `${comebackWins.length} win${comebackWins.length > 1 ? 's' : ''} when trailing at half`
+    })
+  }
+
+  if (items.length === 0) return null
+
+  return {
+    label: 'CLUTCH',
+    teamLogo: teamAbbr,
+    headerLink: `/team/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Turnover margin
+function generateTurnoverSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.players) return null
+
+  // Get season stats for all players on team
+  const teamPlayers = dynasty.players.filter(p =>
+    p.teamsByYear?.[year] === teamAbbr && p.statsByYear?.[year]
+  )
+
+  if (teamPlayers.length === 0) return null
+
+  // Calculate turnovers caused (INTs + Fumble recoveries)
+  let totalINTs = 0
+  let totalFR = 0
+  let totalFF = 0
+
+  // Calculate turnovers lost (INTs thrown + fumbles lost)
+  let intsThrown = 0
+  let fumblesLost = 0
+
+  teamPlayers.forEach(p => {
+    const stats = p.statsByYear[year]
+    // Defensive stats
+    totalINTs += stats.defense?.int || 0
+    totalFR += stats.defense?.fr || 0
+    totalFF += stats.defense?.ff || 0
+    // Offensive turnovers
+    intsThrown += stats.passing?.int || 0
+    fumblesLost += stats.rushing?.fumbles || stats.rushing?.fum || 0
+  })
+
+  const takeaways = totalINTs + totalFR
+  const giveaways = intsThrown + fumblesLost
+  const margin = takeaways - giveaways
+
+  if (takeaways === 0 && giveaways === 0) return null
+
+  const items = [
+    {
+      id: 'margin',
+      label: 'MARGIN',
+      labelColor: margin > 0 ? '#4ade80' : margin < 0 ? '#f87171' : undefined,
+      text: margin > 0 ? `+${margin}` : `${margin}`
+    },
+    {
+      id: 'takeaways',
+      label: 'TAKEAWAYS',
+      text: `${takeaways} (${totalINTs} INT, ${totalFR} FR)`
+    },
+    {
+      id: 'giveaways',
+      label: 'GIVEAWAYS',
+      text: `${giveaways} (${intsThrown} INT, ${fumblesLost} FUM)`
+    }
+  ]
+
+  return {
+    label: 'TURNOVER BATTLE',
+    teamLogo: teamAbbr,
+    headerLink: `/team-stats/${teamAbbr}/${year}`,
+    items
+  }
+}
+
+// Offensive stats summary
+function generateOffensiveStatsSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.players) return null
+
+  const teamPlayers = dynasty.players.filter(p =>
+    p.teamsByYear?.[year] === teamAbbr && p.statsByYear?.[year]
+  )
+
+  if (teamPlayers.length === 0) return null
+
+  // Aggregate offensive stats
+  let totalPassYds = 0, totalPassTD = 0
+  let totalRushYds = 0, totalRushTD = 0
+  let totalRecYds = 0
+
+  teamPlayers.forEach(p => {
+    const stats = p.statsByYear[year]
+    totalPassYds += stats.passing?.yds || 0
+    totalPassTD += stats.passing?.td || 0
+    totalRushYds += stats.rushing?.yds || 0
+    totalRushTD += stats.rushing?.td || 0
+    totalRecYds += stats.receiving?.yds || 0
+  })
+
+  const totalYards = totalPassYds + totalRushYds
+
+  // Get number of games
+  const games = (dynasty.games || []).filter(g =>
+    g.userTeam === teamAbbr && Number(g.year) === year && g.result
+  )
+
+  if (games.length === 0) return null
+
+  const ypg = Math.round(totalYards / games.length)
+  const passYPG = Math.round(totalPassYds / games.length)
+  const rushYPG = Math.round(totalRushYds / games.length)
+
+  const items = [
+    { id: 'total', label: 'TOTAL', text: `${ypg} YPG` },
+    { id: 'pass', label: 'PASS', text: `${passYPG} YPG` },
+    { id: 'rush', label: 'RUSH', text: `${rushYPG} YPG` },
+    { id: 'td', label: 'TD', text: `${totalPassTD + totalRushTD} total` }
+  ]
+
+  return {
+    label: 'OFFENSE',
+    teamLogo: teamAbbr,
+    headerLink: `/team-stats/${teamAbbr}/${year}`,
     items
   }
 }
