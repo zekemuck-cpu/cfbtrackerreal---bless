@@ -747,58 +747,54 @@ function generateGameByGameSections(dynasty, teamAbbr, year) {
   return sections
 }
 
-// Underdog wins - games won when ranked lower or unranked vs ranked
+// Underdog wins - games won when favoriteStatus is 'underdog'
 function generateUnderdogWinsSection(dynasty, teamAbbr, year) {
   if (!dynasty?.games) return null
 
-  // Find games where user was underdog and won
+  // Find games where user was underdog and won (using existing favoriteStatus field)
   const underdogWins = (dynasty.games || [])
     .filter(g => {
       if (g.userTeam !== teamAbbr) return false
       if (g.result !== 'win') return false
-
-      const userRank = g.userRank || 0
-      const oppRank = g.opponentRank || 0
-
-      // User is underdog if:
-      // 1. Opponent is ranked and user is not
-      // 2. Both ranked but user has worse (higher number) ranking
-      if (oppRank > 0 && userRank === 0) return true
-      if (oppRank > 0 && userRank > 0 && userRank > oppRank) return true
-
-      return false
+      return g.favoriteStatus === 'underdog'
     })
     .sort((a, b) => {
-      // Sort by "upset factor" - bigger upsets first
-      const aFactor = (a.opponentRank || 26) - (a.userRank || 26)
-      const bFactor = (b.opponentRank || 26) - (b.userRank || 26)
-      return bFactor - aFactor
+      // Sort by year descending, then week
+      if (Number(a.year) !== Number(b.year)) return Number(b.year) - Number(a.year)
+      return (b.week || 0) - (a.week || 0)
     })
 
   if (underdogWins.length === 0) return null
 
   const items = underdogWins.slice(0, 4).map((game, i) => {
     const oppAbbr = getTeamAbbr(game.opponent)
-    const userRankText = game.userRank ? `#${game.userRank}` : 'Unranked'
+    const userRankText = game.userRank ? `#${game.userRank}` : ''
     const oppRankText = game.opponentRank ? `#${game.opponentRank}` : ''
+
+    // Build display text
+    let displayText = `${teamAbbr}`
+    if (userRankText) displayText = `${userRankText} ${displayText}`
+    displayText += ` def. `
+    if (oppRankText) displayText += `${oppRankText} `
+    displayText += `${oppAbbr} ${game.teamScore}-${game.opponentScore}`
 
     return {
       id: `underdog-${i}`,
       team: oppAbbr,
       label: 'UPSET',
       labelColor: '#fcd34d',
-      text: `${userRankText} ${teamAbbr} def. ${oppRankText} ${oppAbbr} ${game.teamScore}-${game.opponentScore}`,
+      text: displayText,
       link: `/game/${game.id}`
     }
   })
 
-  // Add summary
+  // Add summary at front if multiple wins
   if (underdogWins.length > 1) {
     items.unshift({
       id: 'underdog-count',
       label: `${underdogWins.length}`,
       labelColor: '#fcd34d',
-      text: 'underdog wins this season'
+      text: 'underdog wins'
     })
   }
 
@@ -806,7 +802,7 @@ function generateUnderdogWinsSection(dynasty, teamAbbr, year) {
     label: 'UNDERDOG WINS',
     teamLogo: teamAbbr,
     icon: '🔥',
-    headerLink: `/team/${teamAbbr}/${year}`,
+    headerLink: `/coach-career`,
     items: items.slice(0, 4)
   }
 }
