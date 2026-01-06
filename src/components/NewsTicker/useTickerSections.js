@@ -102,6 +102,14 @@ export function useTickerSections(dynasty) {
     const gameBreakdownSection = generateGameBreakdownSection(dynasty, teamAbbr, year)
     if (gameBreakdownSection) result.push(gameBreakdownSection)
 
+    // ===== SECTION: GAME BY GAME (individual game sections with stats) =====
+    const gameByGameSections = generateGameByGameSections(dynasty, teamAbbr, year)
+    result.push(...gameByGameSections)
+
+    // ===== SECTION: UNDERDOG WINS =====
+    const underdogSection = generateUnderdogWinsSection(dynasty, teamAbbr, year)
+    if (underdogSection) result.push(underdogSection)
+
     // ===== SECTION: TOP PERFORMANCES =====
     const topPerformancesSection = generateTopPerformancesSection(dynasty, teamAbbr, year)
     if (topPerformancesSection) result.push(topPerformancesSection)
@@ -625,6 +633,181 @@ function generateGameBreakdownSection(dynasty, teamAbbr, year) {
     teamLogo: teamAbbr,
     headerLink: `/schedule`,
     items
+  }
+}
+
+// Generate individual sections for each game with box score (cycles through games)
+function generateGameByGameSections(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return []
+
+  const sections = []
+
+  // Get all games with box scores for this season, sorted by week
+  const gamesWithBoxScore = (dynasty.games || [])
+    .filter(g => g.userTeam === teamAbbr && Number(g.year) === year && g.result && g.boxScore)
+    .sort((a, b) => {
+      // Sort chronologically
+      const aOrder = (a.isBowlGame ? 100 : 0) + (a.isConferenceChampionship ? 90 : 0) + (a.week || 0)
+      const bOrder = (b.isBowlGame ? 100 : 0) + (b.isConferenceChampionship ? 90 : 0) + (b.week || 0)
+      return aOrder - bOrder
+    })
+
+  // Create a section for each game (limit to most recent 6 to not overwhelm)
+  const gamesToShow = gamesWithBoxScore.slice(-6)
+
+  gamesToShow.forEach((game, idx) => {
+    const oppAbbr = getTeamAbbr(game.opponent)
+    const isWin = game.result === 'win'
+    const homeStats = game.boxScore?.home || {}
+    const items = []
+
+    // Score
+    items.push({
+      id: `score-${idx}`,
+      team: oppAbbr,
+      label: isWin ? 'W' : 'L',
+      labelColor: isWin ? '#4ade80' : '#f87171',
+      text: `${game.teamScore}-${game.opponentScore}`
+    })
+
+    // Top passer
+    const passers = [...(homeStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topPasser = passers[0]
+    if (topPasser && (topPasser.yards || 0) > 50) {
+      items.push({
+        id: `pass-${idx}`,
+        label: topPasser.playerName?.split(' ').pop() || 'QB',
+        text: `${topPasser.comp || 0}/${topPasser.attempts || 0}, ${topPasser.yards || 0} yds, ${topPasser.tD || 0} TD`
+      })
+    }
+
+    // Top rusher
+    const rushers = [...(homeStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topRusher = rushers[0]
+    if (topRusher && (topRusher.yards || 0) > 30) {
+      items.push({
+        id: `rush-${idx}`,
+        label: topRusher.playerName?.split(' ').pop() || 'RB',
+        text: `${topRusher.carries || 0} car, ${topRusher.yards || 0} yds, ${topRusher.tD || 0} TD`
+      })
+    }
+
+    // Top receiver
+    const receivers = [...(homeStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+    const topReceiver = receivers[0]
+    if (topReceiver && (topReceiver.yards || 0) > 30) {
+      items.push({
+        id: `rec-${idx}`,
+        label: topReceiver.playerName?.split(' ').pop() || 'WR',
+        text: `${topReceiver.receptions || 0} rec, ${topReceiver.yards || 0} yds`
+      })
+    }
+
+    // Top defensive performer (if any tackles)
+    const defenders = [...(homeStats.defense || [])].sort((a, b) => {
+      const aTkl = (a.solo || 0) + (a.assists || 0)
+      const bTkl = (b.solo || 0) + (b.assists || 0)
+      return bTkl - aTkl
+    })
+    const topDefender = defenders[0]
+    if (topDefender) {
+      const tkls = (topDefender.solo || 0) + (topDefender.assists || 0)
+      const extras = []
+      if (topDefender.sack > 0) extras.push(`${topDefender.sack} sck`)
+      if (topDefender.iNT > 0) extras.push(`${topDefender.iNT} INT`)
+      if (topDefender.tFL > 0) extras.push(`${topDefender.tFL} TFL`)
+      if (tkls > 3) {
+        items.push({
+          id: `def-${idx}`,
+          label: topDefender.playerName?.split(' ').pop() || 'DEF',
+          text: `${tkls} tkl${extras.length > 0 ? ', ' + extras.join(', ') : ''}`
+        })
+      }
+    }
+
+    if (items.length < 2) return // Skip if not enough stats
+
+    // Create week label
+    let weekLabel = `WK ${game.week}`
+    if (game.isBowlGame) weekLabel = game.bowlName || 'Bowl'
+    else if (game.isConferenceChampionship) weekLabel = 'Conf Champ'
+    else if (game.isCFPFirstRound) weekLabel = 'CFP R1'
+    else if (game.isCFPQuarterfinal) weekLabel = 'CFP QF'
+    else if (game.isCFPSemifinal) weekLabel = 'CFP Semi'
+    else if (game.isCFPChampionship) weekLabel = 'CFP Champ'
+
+    sections.push({
+      label: `${weekLabel} vs ${oppAbbr}`,
+      teamLogo: teamAbbr,
+      headerLink: `/game/${game.id}`,
+      items
+    })
+  })
+
+  return sections
+}
+
+// Underdog wins - games won when ranked lower or unranked vs ranked
+function generateUnderdogWinsSection(dynasty, teamAbbr, year) {
+  if (!dynasty?.games) return null
+
+  // Find games where user was underdog and won
+  const underdogWins = (dynasty.games || [])
+    .filter(g => {
+      if (g.userTeam !== teamAbbr) return false
+      if (g.result !== 'win') return false
+
+      const userRank = g.userRank || 0
+      const oppRank = g.opponentRank || 0
+
+      // User is underdog if:
+      // 1. Opponent is ranked and user is not
+      // 2. Both ranked but user has worse (higher number) ranking
+      if (oppRank > 0 && userRank === 0) return true
+      if (oppRank > 0 && userRank > 0 && userRank > oppRank) return true
+
+      return false
+    })
+    .sort((a, b) => {
+      // Sort by "upset factor" - bigger upsets first
+      const aFactor = (a.opponentRank || 26) - (a.userRank || 26)
+      const bFactor = (b.opponentRank || 26) - (b.userRank || 26)
+      return bFactor - aFactor
+    })
+
+  if (underdogWins.length === 0) return null
+
+  const items = underdogWins.slice(0, 4).map((game, i) => {
+    const oppAbbr = getTeamAbbr(game.opponent)
+    const userRankText = game.userRank ? `#${game.userRank}` : 'Unranked'
+    const oppRankText = game.opponentRank ? `#${game.opponentRank}` : ''
+
+    return {
+      id: `underdog-${i}`,
+      team: oppAbbr,
+      label: 'UPSET',
+      labelColor: '#fcd34d',
+      text: `${userRankText} ${teamAbbr} def. ${oppRankText} ${oppAbbr} ${game.teamScore}-${game.opponentScore}`,
+      link: `/game/${game.id}`
+    }
+  })
+
+  // Add summary
+  if (underdogWins.length > 1) {
+    items.unshift({
+      id: 'underdog-count',
+      label: `${underdogWins.length}`,
+      labelColor: '#fcd34d',
+      text: 'underdog wins this season'
+    })
+  }
+
+  return {
+    label: 'UNDERDOG WINS',
+    teamLogo: teamAbbr,
+    icon: '🔥',
+    headerLink: `/team/${teamAbbr}/${year}`,
+    items: items.slice(0, 4)
   }
 }
 
