@@ -124,7 +124,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
         </div>
 
         {/* Navigation */}
-        <nav className="px-4 pt-4 pb-4">
+        <nav className="px-4 pt-4 pb-24 lg:pb-4">
           <div className="space-y-1">
             {navItems.map((item) => {
               const active = isActive(item.path)
