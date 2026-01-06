@@ -22,8 +22,10 @@ function getLogoUrl(teamIdentifier) {
   return getTeamLogo(teamIdentifier)
 }
 
-// Timing constants
-const SECTION_DURATION = 5000 // 5 seconds per section
+// Timing constants - base duration, with extra time for more content
+const BASE_DURATION = 6000 // 6 seconds minimum
+const PER_ITEM_DURATION = 1500 // 1.5 seconds per item beyond the first 2
+const OVERFLOW_SCROLL_SPEED = 50 // pixels per second for overflow scroll time
 
 export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
@@ -33,6 +35,7 @@ export default function NewsTicker({ dynasty }) {
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [sectionDuration, setSectionDuration] = useState(BASE_DURATION)
   const progressRef = useRef(null)
   const startTimeRef = useRef(Date.now())
   const pausedProgressRef = useRef(0)
@@ -43,6 +46,7 @@ export default function NewsTicker({ dynasty }) {
   const [overflowAmount, setOverflowAmount] = useState(0)
 
   const sections = useTickerSections(dynasty)
+  const currentSection = sections[currentSectionIndex] || { label: '', items: [] }
 
   // Reset to first section on route change
   useEffect(() => {
@@ -53,32 +57,41 @@ export default function NewsTicker({ dynasty }) {
     pausedProgressRef.current = 0
   }, [location.pathname])
 
-  // Measure overflow when section changes
+  // Measure overflow and calculate duration when section changes
   useEffect(() => {
     setProgress(0)
     startTimeRef.current = Date.now()
     pausedProgressRef.current = 0
 
-    const measureOverflow = () => {
+    const measureAndCalculate = () => {
       const container = itemsContainerRef.current
+      let overflow = 0
       if (container) {
-        const overflow = container.scrollWidth - container.clientWidth
-        setOverflowAmount(Math.max(0, overflow))
+        overflow = Math.max(0, container.scrollWidth - container.clientWidth)
+        setOverflowAmount(overflow)
       }
+
+      // Calculate dynamic duration based on content
+      const itemCount = currentSection.items?.length || 0
+      const extraItemTime = Math.max(0, itemCount - 2) * PER_ITEM_DURATION
+      const scrollTime = overflow > 0 ? (overflow / OVERFLOW_SCROLL_SPEED) * 1000 * 2 : 0 // *2 for back and forth
+
+      const totalDuration = BASE_DURATION + extraItemTime + scrollTime
+      setSectionDuration(Math.min(totalDuration, 20000)) // Cap at 20 seconds max
     }
 
-    const timeoutId = setTimeout(measureOverflow, 50)
+    const timeoutId = setTimeout(measureAndCalculate, 50)
     return () => clearTimeout(timeoutId)
-  }, [currentSectionIndex])
+  }, [currentSectionIndex, currentSection.items?.length])
 
-  // Simple timer - progress from 0 to 100 over SECTION_DURATION
+  // Timer - progress from 0 to 100 over dynamic sectionDuration
   useEffect(() => {
     if (sections.length === 0) return
 
     const animate = () => {
       if (!isPaused && !isTransitioning) {
         const elapsed = Date.now() - startTimeRef.current
-        const newProgress = (elapsed / SECTION_DURATION) * 100
+        const newProgress = (elapsed / sectionDuration) * 100
 
         if (newProgress >= 100) {
           // Start transition - fade out first
@@ -99,7 +112,7 @@ export default function NewsTicker({ dynasty }) {
         cancelAnimationFrame(progressRef.current)
       }
     }
-  }, [sections.length, isPaused, isTransitioning])
+  }, [sections.length, isPaused, isTransitioning, sectionDuration])
 
   // Handle the transition sequence: fade out -> change section -> fade in
   useEffect(() => {
@@ -178,8 +191,6 @@ export default function NewsTicker({ dynasty }) {
   // Don't render if no dynasty or no sections
   if (!dynasty || sections.length === 0) return null
 
-  const currentSection = sections[currentSectionIndex]
-
   // Neutral dark color scheme
   const bgColor = '#111827' // gray-900
   const borderColor = '#374151' // gray-700
@@ -253,6 +264,7 @@ export default function NewsTicker({ dynasty }) {
             }}
             onClick={() => handleHeaderClick(currentSection)}
           >
+            {/* Team logo or other icon */}
             {currentSection.teamLogo ? (
               <img
                 src={getLogoUrl(currentSection.teamLogo)}
@@ -270,7 +282,22 @@ export default function NewsTicker({ dynasty }) {
             ) : currentSection.icon ? (
               <span>{currentSection.icon}</span>
             ) : null}
-            {currentSection.label}
+
+            {/* Opponent logo for matchup display (Team vs Opponent) */}
+            {currentSection.opponentLogo && (
+              <>
+                <span className="text-gray-400 text-[10px] sm:text-xs">vs</span>
+                <img
+                  src={getLogoUrl(currentSection.opponentLogo)}
+                  alt=""
+                  className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                  onError={(e) => { e.target.style.display = 'none' }}
+                />
+              </>
+            )}
+
+            {/* Hide label text when showing matchup logos - the logos speak for themselves */}
+            {!currentSection.opponentLogo && currentSection.label}
           </div>
 
           {/* Section items - CSS animation for overflow scroll */}
