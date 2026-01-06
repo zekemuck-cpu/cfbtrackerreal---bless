@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTickerSections } from './useTickerSections'
 import { getTeamLogo } from '../../data/teams'
@@ -22,97 +22,197 @@ function getLogoUrl(teamIdentifier) {
   return getTeamLogo(teamIdentifier)
 }
 
-// Timing constants - base duration, with extra time for more content
-const BASE_DURATION = 6000 // 6 seconds minimum
-const PER_ITEM_DURATION = 1500 // 1.5 seconds per item beyond the first 2
-const OVERFLOW_SCROLL_SPEED = 50 // pixels per second for overflow scroll time
+// Timing constants
+const BASE_HOLD_TIME = 3000 // 3 seconds to hold at start/end of scroll
+const SCROLL_PIXELS_PER_MS = 0.08 // Scroll speed (pixels per millisecond)
+const DESKTOP_BREAKPOINT = 768 // px - screens wider than this are "desktop"
 
 export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
-  const location = useLocation()
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [sectionDuration, setSectionDuration] = useState(BASE_DURATION)
-  const progressRef = useRef(null)
-  const startTimeRef = useRef(Date.now())
-  const pausedProgressRef = useRef(0)
   const pendingIndexRef = useRef(null) // For manual navigation target
+  const hasInitializedRef = useRef(false) // Track if we've set random start
 
-  // Scroll animation state
+  // Scroll state
   const itemsContainerRef = useRef(null)
+  const scrollContentRef = useRef(null)
   const [overflowAmount, setOverflowAmount] = useState(0)
+  const [scrollPhase, setScrollPhase] = useState('hold-start') // 'hold-start', 'scrolling-right', 'hold-end', 'scrolling-left', 'done'
+  const scrollAnimationRef = useRef(null)
+  const phaseTimerRef = useRef(null)
+
+  // Desktop detection
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= DESKTOP_BREAKPOINT)
 
   const sections = useTickerSections(dynasty)
   const currentSection = sections[currentSectionIndex] || { label: '', items: [] }
 
-  // Reset to first section on route change
+  // Initialize with random section on first load
   useEffect(() => {
-    setCurrentSectionIndex(0)
-    setIsTransitioning(false)
-    setProgress(0)
-    startTimeRef.current = Date.now()
-    pausedProgressRef.current = 0
-  }, [location.pathname])
+    if (sections.length > 0 && !hasInitializedRef.current) {
+      const randomIndex = Math.floor(Math.random() * sections.length)
+      setCurrentSectionIndex(randomIndex)
+      hasInitializedRef.current = true
+    }
+  }, [sections.length])
 
-  // Measure overflow and calculate duration when section changes
+  // Handle window resize for desktop detection
   useEffect(() => {
-    setProgress(0)
-    startTimeRef.current = Date.now()
-    pausedProgressRef.current = 0
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
-    const measureAndCalculate = () => {
-      const container = itemsContainerRef.current
-      let overflow = 0
-      if (container) {
-        overflow = Math.max(0, container.scrollWidth - container.clientWidth)
-        setOverflowAmount(overflow)
-      }
 
-      // Calculate dynamic duration based on content
-      const itemCount = currentSection.items?.length || 0
-      const extraItemTime = Math.max(0, itemCount - 2) * PER_ITEM_DURATION
-      const scrollTime = overflow > 0 ? (overflow / OVERFLOW_SCROLL_SPEED) * 1000 * 2 : 0 // *2 for back and forth
-
-      const totalDuration = BASE_DURATION + extraItemTime + scrollTime
-      setSectionDuration(Math.min(totalDuration, 20000)) // Cap at 20 seconds max
+  // Measure overflow when section changes
+  useEffect(() => {
+    setScrollPhase('hold-start')
+    if (scrollContentRef.current) {
+      scrollContentRef.current.style.transform = 'translateX(0)'
     }
 
-    const timeoutId = setTimeout(measureAndCalculate, 50)
+    const measureOverflow = () => {
+      const container = itemsContainerRef.current
+      if (container) {
+        const overflow = Math.max(0, container.scrollWidth - container.clientWidth)
+        setOverflowAmount(overflow)
+      }
+    }
+
+    const timeoutId = setTimeout(measureOverflow, 50)
     return () => clearTimeout(timeoutId)
   }, [currentSectionIndex, currentSection.items?.length])
 
-  // Timer - progress from 0 to 100 over dynamic sectionDuration
+  // JavaScript-based scroll animation - completion-based, not timer-based
   useEffect(() => {
-    if (sections.length === 0) return
+    if (sections.length === 0 || isPaused || isTransitioning) return
 
-    const animate = () => {
-      if (!isPaused && !isTransitioning) {
-        const elapsed = Date.now() - startTimeRef.current
-        const newProgress = (elapsed / sectionDuration) * 100
+    // Clear any existing timers/animations
+    if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current)
+    if (scrollAnimationRef.current) cancelAnimationFrame(scrollAnimationRef.current)
 
-        if (newProgress >= 100) {
-          // Start transition - fade out first
-          setIsTransitioning(true)
-          setProgress(100)
-        } else {
-          setProgress(newProgress)
-        }
-      }
+    const content = scrollContentRef.current
+    if (!content) return
 
-      progressRef.current = requestAnimationFrame(animate)
+    // No overflow - just hold then advance
+    if (overflowAmount === 0) {
+      phaseTimerRef.current = setTimeout(() => {
+        advanceToNextSection()
+      }, BASE_HOLD_TIME * 2)
+      return
     }
 
-    progressRef.current = requestAnimationFrame(animate)
+    // DESKTOP: Scroll once to end, hold, then advance (no scroll back)
+    if (isDesktop) {
+      let startTime = null
+
+      const animateDesktop = (timestamp) => {
+        if (!startTime) startTime = timestamp
+        const elapsed = timestamp - startTime
+
+        if (scrollPhase === 'hold-start') {
+          // Brief hold at start
+          if (elapsed >= 1500) {
+            setScrollPhase('scrolling-right')
+            startTime = null
+          }
+        } else if (scrollPhase === 'scrolling-right') {
+          // Scroll to show all content
+          const scrollProgress = Math.min(1, elapsed * SCROLL_PIXELS_PER_MS / overflowAmount)
+          const currentScroll = scrollProgress * overflowAmount
+          content.style.transform = `translateX(-${currentScroll}px)`
+
+          if (scrollProgress >= 1) {
+            setScrollPhase('hold-end')
+            startTime = null
+          }
+        } else if (scrollPhase === 'hold-end') {
+          // Hold at end showing all content, then advance
+          if (elapsed >= BASE_HOLD_TIME) {
+            advanceToNextSection()
+            return
+          }
+        } else if (scrollPhase === 'done') {
+          advanceToNextSection()
+          return
+        }
+
+        scrollAnimationRef.current = requestAnimationFrame(animateDesktop)
+      }
+
+      scrollAnimationRef.current = requestAnimationFrame(animateDesktop)
+      return () => {
+        if (scrollAnimationRef.current) cancelAnimationFrame(scrollAnimationRef.current)
+      }
+    }
+
+    // MOBILE: Full scroll dance (scroll right, hold, scroll left, advance)
+    let currentScroll = 0
+    let startTime = null
+
+    const animateScroll = (timestamp) => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+
+      if (scrollPhase === 'hold-start') {
+        // Hold at start position
+        if (elapsed >= BASE_HOLD_TIME) {
+          setScrollPhase('scrolling-right')
+          startTime = null
+        }
+      } else if (scrollPhase === 'scrolling-right') {
+        // Scroll to show hidden content
+        const scrollProgress = Math.min(1, elapsed * SCROLL_PIXELS_PER_MS / overflowAmount)
+        currentScroll = scrollProgress * overflowAmount
+        content.style.transform = `translateX(-${currentScroll}px)`
+
+        if (scrollProgress >= 1) {
+          setScrollPhase('hold-end')
+          startTime = null
+        }
+      } else if (scrollPhase === 'hold-end') {
+        // Hold at end position
+        if (elapsed >= BASE_HOLD_TIME) {
+          setScrollPhase('scrolling-left')
+          startTime = null
+          currentScroll = overflowAmount
+        }
+      } else if (scrollPhase === 'scrolling-left') {
+        // Scroll back to start
+        const scrollProgress = Math.min(1, elapsed * SCROLL_PIXELS_PER_MS / overflowAmount)
+        currentScroll = overflowAmount * (1 - scrollProgress)
+        content.style.transform = `translateX(-${currentScroll}px)`
+
+        if (scrollProgress >= 1) {
+          setScrollPhase('done')
+          startTime = null
+        }
+      } else if (scrollPhase === 'done') {
+        // Scroll cycle complete - advance to next section
+        advanceToNextSection()
+        return
+      }
+
+      scrollAnimationRef.current = requestAnimationFrame(animateScroll)
+    }
+
+    scrollAnimationRef.current = requestAnimationFrame(animateScroll)
 
     return () => {
-      if (progressRef.current) {
-        cancelAnimationFrame(progressRef.current)
-      }
+      if (scrollAnimationRef.current) cancelAnimationFrame(scrollAnimationRef.current)
+      if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current)
     }
-  }, [sections.length, isPaused, isTransitioning, sectionDuration])
+  }, [scrollPhase, overflowAmount, isPaused, isTransitioning, sections.length, isDesktop])
+
+  // Advance to next section with fade transition
+  const advanceToNextSection = useCallback(() => {
+    setIsTransitioning(true)
+  }, [])
 
   // Handle the transition sequence: fade out -> change section -> fade in
   useEffect(() => {
@@ -141,20 +241,10 @@ export default function NewsTicker({ dynasty }) {
     }
   }, [isTransitioning, sections.length])
 
-  // Handle pause/unpause - preserve progress
+  // Handle pause/unpause
   const togglePause = useCallback(() => {
-    setIsPaused(prev => {
-      if (!prev) {
-        // Pausing - store current progress
-        pausedProgressRef.current = progress
-      } else {
-        // Unpausing - reset start time based on stored progress
-        const elapsed = (pausedProgressRef.current / 100) * SECTION_DURATION
-        startTimeRef.current = Date.now() - elapsed
-      }
-      return !prev
-    })
-  }, [progress])
+    setIsPaused(prev => !prev)
+  }, [])
 
   // Handle item click
   const handleItemClick = useCallback((item) => {
@@ -170,14 +260,11 @@ export default function NewsTicker({ dynasty }) {
     }
   }, [navigate, pathPrefix])
 
-  // Handle manual navigation (resets progress)
+  // Handle manual navigation (resets scroll)
   const goToSection = useCallback((index) => {
     if (isTransitioning) return // Prevent double-clicks during transition
     pendingIndexRef.current = index
     setIsTransitioning(true)
-    setProgress(0)
-    startTimeRef.current = Date.now()
-    pausedProgressRef.current = 0
   }, [isTransitioning])
 
   const goToPrev = useCallback(() => {
@@ -196,7 +283,6 @@ export default function NewsTicker({ dynasty }) {
   const borderColor = '#374151' // gray-700
   const textColor = '#f3f4f6' // gray-100
   const headerBg = '#1f2937' // gray-800
-  const progressColor = '#3b82f6' // blue-500
 
   return (
     <>
@@ -205,12 +291,9 @@ export default function NewsTicker({ dynasty }) {
         .ticker-items::-webkit-scrollbar {
           display: none;
         }
-        @keyframes ticker-scroll {
-          0%, 15% { transform: translateX(0); }
-          85%, 100% { transform: translateX(calc(-1 * var(--overflow-amount))); }
-        }
-        .ticker-scroll {
-          animation: ticker-scroll var(--scroll-duration) ease-in-out infinite;
+        .ticker-items {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
       <div
@@ -239,14 +322,19 @@ export default function NewsTicker({ dynasty }) {
             }}
             onClick={() => handleHeaderClick(currentSection)}
           >
-            {/* Team logo or other icon */}
+            {/* Team logo with record underneath */}
             {currentSection.teamLogo ? (
-              <img
-                src={getLogoUrl(currentSection.teamLogo)}
-                alt=""
-                className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0"
-                onError={(e) => { e.target.style.display = 'none' }}
-              />
+              <div className="flex flex-col items-center flex-shrink-0">
+                <img
+                  src={getLogoUrl(currentSection.teamLogo)}
+                  alt=""
+                  className="w-6 h-6 rounded-full bg-white p-0.5"
+                  onError={(e) => { e.target.style.display = 'none' }}
+                />
+                {currentSection.teamRecord && (
+                  <span className="text-[8px] text-gray-400 leading-none mt-0.5">{currentSection.teamRecord}</span>
+                )}
+              </div>
             ) : currentSection.imageUrl ? (
               <img
                 src={currentSection.imageUrl}
@@ -262,12 +350,17 @@ export default function NewsTicker({ dynasty }) {
             {currentSection.opponentLogo && (
               <>
                 <span className="text-gray-400 text-[10px] sm:text-xs">vs</span>
-                <img
-                  src={getLogoUrl(currentSection.opponentLogo)}
-                  alt=""
-                  className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0"
-                  onError={(e) => { e.target.style.display = 'none' }}
-                />
+                <div className="flex flex-col items-center flex-shrink-0">
+                  <img
+                    src={getLogoUrl(currentSection.opponentLogo)}
+                    alt=""
+                    className="w-6 h-6 rounded-full bg-white p-0.5"
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                  {currentSection.opponentRecord && (
+                    <span className="text-[8px] text-gray-400 leading-none mt-0.5">{currentSection.opponentRecord}</span>
+                  )}
+                </div>
               </>
             )}
 
@@ -275,19 +368,15 @@ export default function NewsTicker({ dynasty }) {
             {!currentSection.opponentLogo && currentSection.label}
           </div>
 
-          {/* Section items - CSS animation for overflow scroll */}
+          {/* Section items - JavaScript-controlled scroll */}
           <div
             ref={itemsContainerRef}
             className="ticker-items flex-1 overflow-hidden"
           >
             <div
-              className={`flex items-center gap-2 sm:gap-4 px-3 sm:px-4 whitespace-nowrap ${
-                overflowAmount > 0 && !isPaused ? 'ticker-scroll' : ''
-              }`}
-              style={{
-                '--overflow-amount': `${overflowAmount}px`,
-                '--scroll-duration': `${Math.max(3, overflowAmount / 50)}s`
-              }}
+              ref={scrollContentRef}
+              className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 whitespace-nowrap"
+              style={{ willChange: 'transform' }}
             >
             {currentSection.items.map((item, idx) => (
               <div

@@ -44,6 +44,7 @@ export function useTickerSections(dynasty) {
       result.push({
         label: `${year} SEASON`,
         teamLogo: teamAbbr,
+        teamRecord: `${wins}-${losses}`,
         headerLink: `/schedule`,
         items: [
           { id: 'record', label: 'Record', text: `${wins}-${losses}` },
@@ -54,11 +55,47 @@ export function useTickerSections(dynasty) {
       })
     }
 
-    // === SECTIONS 2+: Individual Game Recaps ===
-    // Each game gets its own section showing score + key stats
+    // === SECTION 2: Game Log - All games in one scrolling row ===
+    if (seasonGames.length > 0) {
+      const wins = seasonGames.filter(g => g.result === 'win').length
+      const losses = seasonGames.filter(g => g.result === 'loss').length
+
+      const gameLogItems = seasonGames.map((game, idx) => {
+        const oppAbbr = getTeamAbbr(game.opponent)
+        const isWin = game.result === 'win'
+        const locationPrefix = game.location === 'away' ? '@' : 'vs'
+
+        return {
+          id: `game-${idx}`,
+          team: oppAbbr, // Shows opponent logo
+          label: isWin ? 'W' : 'L',
+          labelColor: isWin ? '#22c55e' : '#ef4444',
+          text: `${locationPrefix} ${oppAbbr} ${game.teamScore}-${game.opponentScore}`,
+          link: game.id ? `/game/${game.id}` : null
+        }
+      })
+
+      result.push({
+        label: `${year} GAME LOG`,
+        teamLogo: teamAbbr,
+        teamRecord: `${wins}-${losses}`,
+        headerLink: `/schedule`,
+        items: gameLogItems
+      })
+    }
+
+    // === SECTION 3: Individual Game Recaps with Stats ===
+    // Each game with box score stats gets its own detailed section
     seasonGames.forEach((game, idx) => {
       const oppAbbr = getTeamAbbr(game.opponent)
       const isWin = game.result === 'win'
+
+      // Check if user team is home or away based on game location
+      const userStats = game.location === 'away' ? game.boxScore?.away : game.boxScore?.home
+
+      // Skip games without box score stats
+      if (!userStats) return
+
       const items = []
 
       // Get week label
@@ -85,59 +122,264 @@ export function useTickerSections(dynasty) {
         text: `${game.teamScore}-${game.opponentScore}`
       })
 
-      // If box score exists, add player stats
-      if (game.boxScore?.home) {
-        const homeStats = game.boxScore.home
+      // Top passer - show if any passing yards
+      const passers = [...(userStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+      if (passers[0] && (passers[0].yards || 0) > 0) {
+        const p = passers[0]
+        items.push({
+          id: `qb-${idx}`,
+          label: p.playerName || 'QB',
+          text: `${p.comp || 0}/${p.attempts || 0}, ${p.yards || 0} yds, ${p.tD || 0} TD`
+        })
+      }
 
-        // Top passer
-        const passers = [...(homeStats.passing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-        if (passers[0] && (passers[0].yards || 0) > 50) {
-          const p = passers[0]
-          items.push({
-            id: `qb-${idx}`,
-            label: p.playerName?.split(' ').pop() || 'QB',
-            labelColor: '#60a5fa',
-            text: `${p.comp || 0}/${p.attempts || 0}, ${p.yards || 0} yds, ${p.tD || 0} TD`
-          })
-        }
+      // Top rusher - show if any rushing yards
+      const rushers = [...(userStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+      if (rushers[0] && (rushers[0].yards || 0) > 0) {
+        const p = rushers[0]
+        items.push({
+          id: `rb-${idx}`,
+          label: p.playerName || 'RB',
+          text: `${p.carries || 0} car, ${p.yards || 0} yds${p.tD > 0 ? `, ${p.tD} TD` : ''}`
+        })
+      }
 
-        // Top rusher
-        const rushers = [...(homeStats.rushing || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-        if (rushers[0] && (rushers[0].yards || 0) > 20) {
-          const p = rushers[0]
-          items.push({
-            id: `rb-${idx}`,
-            label: p.playerName?.split(' ').pop() || 'RB',
-            labelColor: '#a78bfa',
-            text: `${p.carries || 0} car, ${p.yards || 0} yds${p.tD > 0 ? `, ${p.tD} TD` : ''}`
-          })
-        }
+      // Top receiver - show if any receiving yards
+      const receivers = [...(userStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
+      if (receivers[0] && (receivers[0].yards || 0) > 0) {
+        const p = receivers[0]
+        items.push({
+          id: `wr-${idx}`,
+          label: p.playerName || 'WR',
+          text: `${p.receptions || 0} rec, ${p.yards || 0} yds${p.tD > 0 ? `, ${p.tD} TD` : ''}`
+        })
+      }
 
-        // Top receiver
-        const receivers = [...(homeStats.receiving || [])].sort((a, b) => (b.yards || 0) - (a.yards || 0))
-        if (receivers[0] && (receivers[0].yards || 0) > 20) {
-          const p = receivers[0]
-          items.push({
-            id: `wr-${idx}`,
-            label: p.playerName?.split(' ').pop() || 'WR',
-            labelColor: '#f472b6',
-            text: `${p.receptions || 0} rec, ${p.yards || 0} yds${p.tD > 0 ? `, ${p.tD} TD` : ''}`
-          })
-        }
+      // Only add section if we have more than just the score (i.e., we have stats)
+      if (items.length > 1) {
+        // Get opponent record directly from game object (format: "5-2 (3-1)")
+        // Extract just the overall record part (before the parentheses)
+        const oppRecordStr = game.opponentRecord?.match(/^[\d]+-[\d]+/)?.[0] || game.opponentRecord || null
+
+        // Calculate record at this point
+        const gamesUpToThis = seasonGames.slice(0, idx + 1)
+        const winsAtPoint = gamesUpToThis.filter(g => g.result === 'win').length
+        const lossesAtPoint = gamesUpToThis.filter(g => g.result === 'loss').length
+
+        result.push({
+          label: weekLabel,
+          teamLogo: teamAbbr,
+          teamRecord: `${winsAtPoint}-${lossesAtPoint}`,
+          opponentLogo: oppAbbr,
+          opponentRecord: oppRecordStr,
+          headerLink: game.id ? `/game/${game.id}` : `/schedule`,
+          items
+        })
+      }
+    })
+
+    // === SECTION 4: Scoring Summary ===
+    // Show points scored per quarter/half breakdown if we have scoring data
+    if (seasonGames.length > 0) {
+      const avgPF = Math.round(seasonGames.reduce((sum, g) => sum + (Number(g.teamScore) || 0), 0) / seasonGames.length)
+      const avgPA = Math.round(seasonGames.reduce((sum, g) => sum + (Number(g.opponentScore) || 0), 0) / seasonGames.length)
+      const biggestWin = seasonGames
+        .filter(g => g.result === 'win')
+        .sort((a, b) => (Number(b.teamScore) - Number(b.opponentScore)) - (Number(a.teamScore) - Number(a.opponentScore)))[0]
+      const closestGame = seasonGames
+        .sort((a, b) => Math.abs(Number(a.teamScore) - Number(a.opponentScore)) - Math.abs(Number(b.teamScore) - Number(b.opponentScore)))[0]
+
+      const scoringItems = [
+        { id: 'avg-pf', label: 'Avg PF', text: `${avgPF}` },
+        { id: 'avg-pa', label: 'Avg PA', text: `${avgPA}` }
+      ]
+
+      if (biggestWin) {
+        const margin = Number(biggestWin.teamScore) - Number(biggestWin.opponentScore)
+        scoringItems.push({
+          id: 'biggest-win',
+          label: 'Biggest Win',
+          text: `+${margin} vs ${getTeamAbbr(biggestWin.opponent)}`
+        })
+      }
+
+      if (closestGame) {
+        const margin = Math.abs(Number(closestGame.teamScore) - Number(closestGame.opponentScore))
+        const result = closestGame.result === 'win' ? 'W' : 'L'
+        scoringItems.push({
+          id: 'closest',
+          label: 'Closest',
+          text: `${result} by ${margin} vs ${getTeamAbbr(closestGame.opponent)}`
+        })
       }
 
       result.push({
-        label: weekLabel,
+        label: 'SCORING',
         teamLogo: teamAbbr,
-        opponentLogo: oppAbbr,
-        headerLink: game.id ? `/game/${game.id}` : `/schedule`,
-        items
+        teamRecord: `${seasonGames.filter(g => g.result === 'win').length}-${seasonGames.filter(g => g.result === 'loss').length}`,
+        headerLink: `/schedule`,
+        items: scoringItems
       })
-    })
+    }
 
     // === SECTION: Season Leaders (if we have stats) ===
-    const leadersSection = generateSeasonLeadersSection(dynasty, teamAbbr, year)
+    const totalWins = seasonGames.filter(g => g.result === 'win').length
+    const totalLosses = seasonGames.filter(g => g.result === 'loss').length
+    const finalRecord = `${totalWins}-${totalLosses}`
+    const leadersSection = generateSeasonLeadersSection(dynasty, teamAbbr, year, finalRecord)
     if (leadersSection) result.push(leadersSection)
+
+    // === SECTION: Awards (Heisman, etc.) ===
+    const awardsByYear = dynasty.awardsByYear || {}
+    const allAwards = []
+    Object.entries(awardsByYear).forEach(([awardYear, yearAwards]) => {
+      Object.entries(yearAwards || {}).forEach(([awardName, winner]) => {
+        if (winner && typeof winner === 'object' && winner.name) {
+          allAwards.push({ year: awardYear, award: awardName, player: winner.name })
+        } else if (winner && typeof winner === 'string') {
+          allAwards.push({ year: awardYear, award: awardName, player: winner })
+        }
+      })
+    })
+    if (allAwards.length > 0) {
+      // Show most recent awards first
+      const sortedAwards = allAwards.sort((a, b) => Number(b.year) - Number(a.year)).slice(0, 6)
+      result.push({
+        label: 'AWARDS',
+        teamLogo: teamAbbr,
+        headerLink: `/awards`,
+        items: sortedAwards.map((a, idx) => ({
+          id: `award-${idx}`,
+          label: a.award,
+          text: `${a.player} (${a.year})`
+        }))
+      })
+    }
+
+    // === SECTION: All-Americans ===
+    const allAmericansByYear = dynasty.allAmericansByYear || {}
+    const allAmericans = []
+    Object.entries(allAmericansByYear).forEach(([aaYear, yearData]) => {
+      const aaList = yearData?.allAmericans || []
+      aaList.forEach(aa => {
+        if (aa.name) {
+          allAmericans.push({ year: aaYear, name: aa.name, team: aa.team || '1st', position: aa.position })
+        }
+      })
+    })
+    if (allAmericans.length > 0) {
+      const sortedAA = allAmericans.sort((a, b) => Number(b.year) - Number(a.year)).slice(0, 6)
+      result.push({
+        label: 'ALL-AMERICANS',
+        teamLogo: teamAbbr,
+        headerLink: `/all-americans`,
+        items: sortedAA.map((aa, idx) => ({
+          id: `aa-${idx}`,
+          label: aa.name,
+          text: `${aa.team} Team ${aa.position} (${aa.year})`
+        }))
+      })
+    }
+
+    // === SECTION: Conference Championships ===
+    const ccByYear = dynasty.conferenceChampionshipsByYear || {}
+    const confChamps = []
+    Object.entries(ccByYear).forEach(([ccYear, ccList]) => {
+      if (Array.isArray(ccList)) {
+        ccList.forEach(cc => {
+          if (cc.winner === teamAbbr || cc.team === teamAbbr) {
+            confChamps.push({ year: ccYear, opponent: cc.opponent || cc.loser, conference: cc.conference })
+          }
+        })
+      }
+    })
+    if (confChamps.length > 0) {
+      result.push({
+        label: 'CONF CHAMPS',
+        teamLogo: teamAbbr,
+        headerLink: `/conference-championship-history`,
+        items: confChamps.sort((a, b) => Number(b.year) - Number(a.year)).map((cc, idx) => ({
+          id: `cc-${idx}`,
+          label: cc.year,
+          text: cc.conference ? `${cc.conference} Champion` : `vs ${cc.opponent}`
+        }))
+      })
+    }
+
+    // === SECTION: National Championships (CFP) ===
+    const cfpByYear = dynasty.cfpResultsByYear || {}
+    const nattyWins = []
+    Object.entries(cfpByYear).forEach(([cfpYear, cfpData]) => {
+      const championship = cfpData?.championship
+      if (championship && championship.winner === teamAbbr) {
+        nattyWins.push({
+          year: cfpYear,
+          opponent: championship.team1 === teamAbbr ? championship.team2 : championship.team1,
+          score: `${championship.team1Score}-${championship.team2Score}`
+        })
+      }
+    })
+    if (nattyWins.length > 0) {
+      result.push({
+        label: 'NATIONAL CHAMPS',
+        teamLogo: teamAbbr,
+        headerLink: `/cfp-bracket`,
+        items: nattyWins.sort((a, b) => Number(b.year) - Number(a.year)).map((n, idx) => ({
+          id: `natty-${idx}`,
+          label: n.year,
+          labelColor: '#fcd34d',
+          text: `vs ${n.opponent} ${n.score}`
+        }))
+      })
+    }
+
+    // === SECTION: Bowl History ===
+    const bowlGames = (dynasty.games || []).filter(g =>
+      (g.isBowlGame || g.gameType === 'bowl') && g.userTeam === teamAbbr && g.result
+    )
+    if (bowlGames.length > 0) {
+      const sortedBowls = bowlGames.sort((a, b) => Number(b.year) - Number(a.year)).slice(0, 6)
+      const bowlWins = bowlGames.filter(g => g.result === 'win').length
+      const bowlLosses = bowlGames.filter(g => g.result === 'loss').length
+      result.push({
+        label: 'BOWL HISTORY',
+        teamLogo: teamAbbr,
+        teamRecord: `${bowlWins}-${bowlLosses}`,
+        headerLink: `/bowl-history`,
+        items: sortedBowls.map((b, idx) => ({
+          id: `bowl-${idx}`,
+          label: b.result === 'win' ? 'W' : 'L',
+          labelColor: b.result === 'win' ? '#22c55e' : '#ef4444',
+          text: `${b.bowlName || 'Bowl'} ${b.year} vs ${getTeamAbbr(b.opponent)}`
+        }))
+      })
+    }
+
+    // === SECTION: Final Rankings ===
+    const finalPolls = dynasty.finalPollsByYear || {}
+    const rankings = []
+    Object.entries(finalPolls).forEach(([pollYear, pollData]) => {
+      if (pollData?.apRank || pollData?.cfpRank) {
+        rankings.push({
+          year: pollYear,
+          ap: pollData.apRank,
+          cfp: pollData.cfpRank
+        })
+      }
+    })
+    if (rankings.length > 0) {
+      const sortedRankings = rankings.sort((a, b) => Number(b.year) - Number(a.year)).slice(0, 6)
+      result.push({
+        label: 'FINAL RANKINGS',
+        teamLogo: teamAbbr,
+        headerLink: `/rankings`,
+        items: sortedRankings.map((r, idx) => ({
+          id: `rank-${idx}`,
+          label: r.year,
+          text: r.cfp ? `#${r.cfp} CFP${r.ap ? `, #${r.ap} AP` : ''}` : `#${r.ap} AP`
+        }))
+      })
+    }
 
     // === SECTION: Upcoming Game (if in regular season) ===
     if (dynasty.currentPhase === 'regular_season') {
@@ -146,9 +388,13 @@ export function useTickerSections(dynasty) {
       if (upcomingGame) {
         const oppAbbr = getTeamAbbr(upcomingGame.opponent)
         const locationText = upcomingGame.location === 'away' ? '@' : 'vs'
+        // Calculate current record from season games
+        const currentWins = seasonGames.filter(g => g.result === 'win').length
+        const currentLosses = seasonGames.filter(g => g.result === 'loss').length
         result.unshift({
           label: `WEEK ${dynasty.currentWeek}`,
           teamLogo: teamAbbr,
+          teamRecord: `${currentWins}-${currentLosses}`,
           opponentLogo: oppAbbr,
           headerLink: `/schedule`,
           items: [{
@@ -168,14 +414,19 @@ export function useTickerSections(dynasty) {
     dynasty?.currentWeek,
     dynasty?.games,
     dynasty?.players,
-    dynasty?.teamName
+    dynasty?.teamName,
+    dynasty?.awardsByYear,
+    dynasty?.allAmericansByYear,
+    dynasty?.conferenceChampionshipsByYear,
+    dynasty?.cfpResultsByYear,
+    dynasty?.finalPollsByYear
   ])
 
   return sections
 }
 
 // Season statistical leaders
-function generateSeasonLeadersSection(dynasty, teamAbbr, year) {
+function generateSeasonLeadersSection(dynasty, teamAbbr, year, teamRecord) {
   if (!dynasty?.players) return null
 
   const playersWithStats = dynasty.players.filter(p =>
@@ -195,8 +446,7 @@ function generateSeasonLeadersSection(dynasty, teamAbbr, year) {
     const stats = passLeader.statsByYear[year].passing
     items.push({
       id: 'pass-leader',
-      label: passLeader.name?.split(' ').pop() || 'QB',
-      labelColor: '#60a5fa',
+      label: passLeader.name || 'QB',
       text: `${stats.yds.toLocaleString()} yds, ${stats.td} TD`,
       link: `/player/${passLeader.pid}`
     })
@@ -211,8 +461,7 @@ function generateSeasonLeadersSection(dynasty, teamAbbr, year) {
     const stats = rushLeader.statsByYear[year].rushing
     items.push({
       id: 'rush-leader',
-      label: rushLeader.name?.split(' ').pop() || 'RB',
-      labelColor: '#a78bfa',
+      label: rushLeader.name || 'RB',
       text: `${stats.yds.toLocaleString()} yds, ${stats.td} TD`,
       link: `/player/${rushLeader.pid}`
     })
@@ -227,8 +476,7 @@ function generateSeasonLeadersSection(dynasty, teamAbbr, year) {
     const stats = recLeader.statsByYear[year].receiving
     items.push({
       id: 'rec-leader',
-      label: recLeader.name?.split(' ').pop() || 'WR',
-      labelColor: '#f472b6',
+      label: recLeader.name || 'WR',
       text: `${stats.rec} rec, ${stats.yds.toLocaleString()} yds`,
       link: `/player/${recLeader.pid}`
     })
@@ -239,6 +487,7 @@ function generateSeasonLeadersSection(dynasty, teamAbbr, year) {
   return {
     label: 'SEASON LEADERS',
     teamLogo: teamAbbr,
+    teamRecord: teamRecord,
     headerLink: `/team-stats/${teamAbbr}/${year}`,
     items
   }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 
 const POSITIONS = [
@@ -9,6 +9,157 @@ const POSITIONS = [
   'CB', 'FS', 'SS',
   'K', 'P'
 ]
+
+// Searchable player input component
+function PlayerSearchInput({ value, players, onSelect, teamColors, placeholder = "Search player..." }) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const inputRef = useRef(null)
+  const dropdownRef = useRef(null)
+
+  // Get selected player name for display
+  const selectedPlayer = players.find(p => String(p.pid) === String(value))
+
+  // Filter players based on search term
+  const filteredPlayers = searchTerm
+    ? players.filter(p =>
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.position?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : players
+
+  // Reset highlighted index when filtered results change
+  useEffect(() => {
+    setHighlightedIndex(0)
+  }, [filteredPlayers.length])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleInputChange = (e) => {
+    setSearchTerm(e.target.value)
+    setIsOpen(true)
+  }
+
+  const handleSelectPlayer = (player) => {
+    onSelect(player.pid)
+    setSearchTerm('')
+    setIsOpen(false)
+  }
+
+  const handleClear = () => {
+    onSelect('')
+    setSearchTerm('')
+    setIsOpen(false)
+  }
+
+  const handleKeyDown = (e) => {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter') {
+        setIsOpen(true)
+      }
+      return
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex(prev => Math.min(prev + 1, filteredPlayers.length - 1))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(prev => Math.max(prev - 1, 0))
+        break
+      case 'Enter':
+        e.preventDefault()
+        if (filteredPlayers[highlightedIndex]) {
+          handleSelectPlayer(filteredPlayers[highlightedIndex])
+        }
+        break
+      case 'Escape':
+        setIsOpen(false)
+        setSearchTerm('')
+        break
+    }
+  }
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      {selectedPlayer ? (
+        // Show selected player with clear button
+        <div
+          className="w-full px-3 py-3 rounded-lg border-2 flex items-center justify-between"
+          style={{ borderColor: teamColors.primary, backgroundColor: '#fff' }}
+        >
+          <span className="font-medium">
+            {selectedPlayer.name} <span className="text-gray-500">({selectedPlayer.position})</span>
+          </span>
+          <button
+            onClick={handleClear}
+            className="p-1 hover:bg-gray-100 rounded"
+            type="button"
+          >
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        // Show search input
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm}
+          onChange={handleInputChange}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="w-full px-3 py-3 rounded-lg border-2 focus:outline-none text-base"
+          style={{ borderColor: teamColors.primary, backgroundColor: '#fff' }}
+        />
+      )}
+
+      {/* Dropdown */}
+      {isOpen && !selectedPlayer && (
+        <div
+          className="absolute z-50 w-full mt-1 bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+          style={{ borderColor: teamColors.primary }}
+        >
+          {filteredPlayers.length > 0 ? (
+            filteredPlayers.map((player, idx) => (
+              <div
+                key={player.pid}
+                onClick={() => handleSelectPlayer(player)}
+                className={`px-3 py-2 cursor-pointer flex justify-between items-center ${
+                  idx === highlightedIndex ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
+              >
+                <span className="font-medium">{player.name}</span>
+                <span
+                  className="text-xs px-2 py-0.5 rounded font-semibold"
+                  style={{ backgroundColor: `${teamColors.primary}20`, color: teamColors.primary }}
+                >
+                  {player.position}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-gray-500 text-sm">No players found</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function PositionChangesModal({
   isOpen,
@@ -212,24 +363,15 @@ export default function PositionChangesModal({
                   backgroundColor: change.playerId ? `${teamColors.primary}10` : 'transparent'
                 }}
               >
-                {/* Player Dropdown */}
+                {/* Player Search */}
                 <div className="col-span-5">
-                  <select
-                    value={change.playerId || ''}
-                    onChange={(e) => handlePlayerSelect(index, e.target.value)}
-                    className="w-full px-3 py-3 rounded-lg border-2 focus:outline-none text-base"
-                    style={{
-                      borderColor: teamColors.primary,
-                      backgroundColor: '#fff'
-                    }}
-                  >
-                    <option value="">-- Select Player --</option>
-                    {getAvailablePlayers(index).map(player => (
-                      <option key={player.pid} value={player.pid}>
-                        {player.name} ({player.position})
-                      </option>
-                    ))}
-                  </select>
+                  <PlayerSearchInput
+                    value={change.playerId}
+                    players={getAvailablePlayers(index)}
+                    onSelect={(playerId) => handlePlayerSelect(index, playerId)}
+                    teamColors={teamColors}
+                    placeholder="Type to search player..."
+                  />
                 </div>
 
                 {/* Old Position */}

@@ -421,19 +421,21 @@ export default function Recruiting() {
       })
     }
 
-    // Sort by year (most recent first), then by national rank
+    // Sort by national rank first, then by stars, then by year
     return commitments.sort((a, b) => {
-      // If viewing all seasons, sort by year first
-      if (isAllSeasons && a.recruitYear !== b.recruitYear) {
-        return b.recruitYear - a.recruitYear
-      }
+      // Primary sort: national rank (lower rank = better)
       const rankA = Number(a.nationalRank) || 9999
       const rankB = Number(b.nationalRank) || 9999
       if (rankA !== rankB) return rankA - rankB
-      // If same rank (or both unranked), sort by stars
+      // Secondary sort: stars (higher = better)
       const starsA = Number(a.stars) || 0
       const starsB = Number(b.stars) || 0
-      return starsB - starsA
+      if (starsA !== starsB) return starsB - starsA
+      // Tertiary sort: year (most recent first) - only relevant for all seasons view
+      if (a.recruitYear !== b.recruitYear) {
+        return b.recruitYear - a.recruitYear
+      }
+      return 0
     })
   }, [currentDynasty.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
 

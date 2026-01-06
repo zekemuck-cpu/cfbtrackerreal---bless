@@ -3113,6 +3113,10 @@ export function DynastyProvider({ children }) {
         if (playerTeamThisSeason && playerTeamThisSeason !== teamAbbr) return player
         if (!playerTeamThisSeason && player.team && player.team !== teamAbbr) return player
 
+        // CRITICAL: Skip players who weren't on the team this season (they already left in a prior year)
+        // This prevents departed players from being re-added to the roster
+        if (!playerTeamThisSeason && !player.isRecruit) return player
+
         // Skip recruits (they get converted when advanceToNewSeason runs)
         if (player.isRecruit) return player
 
@@ -3284,6 +3288,11 @@ export function DynastyProvider({ children }) {
       const playerTeamPrevSeason = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
       if (playerTeamPrevSeason && playerTeamPrevSeason !== teamAbbr) return player
       if (!playerTeamPrevSeason && player.team && player.team !== teamAbbr) return player
+
+      // CRITICAL: Skip players who weren't on the team last season (they already left in a prior year)
+      // This prevents departed players from being re-added to the roster
+      // Exception: recruits are handled separately below
+      if (!playerTeamPrevSeason && !player.isRecruit) return player
 
       // Skip players who already have a team for the current season (already processed or transferred)
       const existingTeamForCurrentSeason = player.teamsByYear?.[currentSeasonYear] ?? player.teamsByYear?.[String(currentSeasonYear)]
@@ -5046,6 +5055,87 @@ export function DynastyProvider({ children }) {
     return 'Honor'
   }
 
+  /**
+   * Clean up roster data - fixes players who incorrectly have teamsByYear entries
+   * after they should have left, and ensures recruits are properly set up.
+   */
+  const cleanupRosterData = async (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const currentYear = dynasty.currentYear
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const players = [...(dynasty.players || [])]
+    let fixedCount = 0
+    let recruitFixedCount = 0
+
+    const updatedPlayers = players.map(player => {
+      if (player.isHonorOnly) return player
+
+      let modified = false
+      let updatedTeamsByYear = { ...(player.teamsByYear || {}) }
+
+      // Check for departure movements - player should not have teamsByYear entries AFTER their departure year
+      const departureMovements = (player.movements || []).filter(m =>
+        (m.type === 'departure' || m.type === 'transfer' || m.type === 'entered_portal') &&
+        m.from === teamAbbr
+      )
+
+      if (departureMovements.length > 0 && !player.isRecruit) {
+        // Find the earliest departure year from this team
+        const departureYears = departureMovements.map(m => Number(m.year)).filter(y => !isNaN(y))
+        if (departureYears.length > 0) {
+          const earliestDeparture = Math.min(...departureYears)
+
+          // Check if player has a recommit after their departure (they came back)
+          const recommitMovements = (player.movements || []).filter(m =>
+            m.type === 'recommit' && m.to === teamAbbr && Number(m.year) >= earliestDeparture
+          )
+
+          // If no recommit, remove all teamsByYear entries after the departure year
+          if (recommitMovements.length === 0) {
+            Object.keys(updatedTeamsByYear).forEach(yearKey => {
+              const year = Number(yearKey)
+              if (year > earliestDeparture && updatedTeamsByYear[yearKey] === teamAbbr) {
+                delete updatedTeamsByYear[yearKey]
+                modified = true
+              }
+            })
+          }
+        }
+      }
+
+      // Fix recruits - ensure they have teamsByYear for their enrollment year
+      if (player.isRecruit && player.recruitYear) {
+        const enrollmentYear = Number(player.recruitYear) + 1
+        if (!updatedTeamsByYear[enrollmentYear] && !updatedTeamsByYear[String(enrollmentYear)]) {
+          updatedTeamsByYear[enrollmentYear] = player.team || teamAbbr
+          modified = true
+          recruitFixedCount++
+        }
+      }
+
+      if (modified) {
+        fixedCount++
+        return {
+          ...player,
+          teamsByYear: updatedTeamsByYear
+        }
+      }
+      return player
+    })
+
+    if (fixedCount > 0 || recruitFixedCount > 0) {
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+      return {
+        success: true,
+        message: `Fixed ${fixedCount} player(s) with incorrect roster entries, ${recruitFixedCount} recruit(s) with missing team entries`
+      }
+    }
+
+    return { success: true, message: 'No roster issues found' }
+  }
+
   const value = {
     dynasties,
     currentDynasty,
@@ -5076,7 +5166,8 @@ export function DynastyProvider({ children }) {
     saveConferences,
     exportDynasty,
     importDynasty,
-    processHonorPlayers
+    processHonorPlayers,
+    cleanupRosterData
   }
 
   return (

@@ -82,7 +82,8 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Conf. Standings', path: `${pathPrefix}/conference-standings` },
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
-    { name: 'All Players', path: `${pathPrefix}/players` }
+    { name: 'All Players', path: `${pathPrefix}/players` },
+    { name: 'Admin Tools', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 
   const isActive = (path) => {
@@ -123,10 +124,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
           </button>
         </div>
 
-        {/* Navigation */}
-        <nav className="px-4 pt-4 pb-24 lg:pb-4">
+        {/* Navigation - extra bottom padding for ticker (48px) */}
+        <nav className="px-4 pt-4 pb-24 lg:pb-16">
           <div className="space-y-1">
-            {navItems.map((item) => {
+            {navItems.filter(item => !item.isAdmin).map((item) => {
               const active = isActive(item.path)
               return (
                 <Link
@@ -153,6 +154,42 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
               )
             })}
           </div>
+
+          {/* Admin Tools Section - separated at bottom */}
+          {!isViewOnly && (
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: `${secondaryBgText}20` }}>
+              {navItems.filter(item => item.isAdmin).map((item) => {
+                const active = isActive(item.path)
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.path}
+                    onClick={onClose}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
+                      active ? 'shadow-md' : 'hover:opacity-70'
+                    }`}
+                    style={
+                      active
+                        ? {
+                            backgroundColor: teamColors.primary,
+                            color: primaryBgText
+                          }
+                        : {
+                            color: secondaryBgText,
+                            opacity: 0.6
+                          }
+                    }
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {item.name}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
 
           {/* Bottom section - different for view mode vs edit mode */}
           <div className="mt-4 pt-4 border-t" style={{ borderColor: `${secondaryBgText}20` }}>

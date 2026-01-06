@@ -175,6 +175,7 @@ dynasty = {
 - `src/pages/dynasty/TeamYear.jsx` - Team season page with Stats modal
 - `src/pages/dynasty/Player.jsx` - Player profile with stats tables
 - `src/pages/dynasty/CoachCareer.jsx` - Coach career page with team links and season tiles
+- `src/pages/dynasty/DangerZone.jsx` - Admin Tools page with data repair utilities
 - `src/data/teamAbbreviations.js` - Team abbreviations and colors
 - `src/services/sheetsService.js` - Google Sheets integration
 
@@ -491,6 +492,28 @@ Both Dashboard.jsx and TeamYear.jsx use a consistent schedule card design:
 - Logo: `w-7 h-7 sm:w-10 sm:h-10`
 - Gaps: `gap-1.5 sm:gap-3`
 - Text: `text-xs sm:text-base` for names, `text-[9px] sm:text-xs` for subtitles
+
+## Admin Tools Page
+
+The Admin Tools page (`/dynasty/:id/admin`) provides data repair utilities:
+
+- **Fix Roster Data** (`cleanupRosterData()` in DynastyContext) - Repairs roster issues:
+  - Removes `teamsByYear` entries for players who departed in prior years
+  - Ensures recruits have proper `teamsByYear` entries for their enrollment year
+  - Handles recommit cases (players who returned after entering portal)
+
+- **Clear Local Cache** - Clears localStorage items related to dynasty data and Google Sheets tokens
+
+Access via sidebar: "Admin Tools" link at the bottom (only visible to dynasty owners, not in view-only mode).
+
+### Roster Filtering Bug Prevention
+
+Both Signing Day class progression and `advanceToNewSeason()` include a critical check:
+```javascript
+// Skip players who weren't on the team last season (they already left in a prior year)
+if (!playerTeamPrevSeason && !player.isRecruit) return player
+```
+This prevents players who departed in earlier years from being re-added to the roster.
 
 ## Hidden Dev Tools
 
