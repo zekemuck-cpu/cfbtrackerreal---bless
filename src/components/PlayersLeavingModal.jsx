@@ -425,6 +425,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

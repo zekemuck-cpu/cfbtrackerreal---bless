@@ -44,9 +44,14 @@ const normalizeTeamForComparison = (team) => {
   return upperTeam
 }
 
-// Get all years a player has records for (from all honor types)
+// Get all years a player has records for (from all honor types and roster)
 const getPlayerYears = (player) => {
   const years = new Set()
+
+  // From teamsByYear (primary roster tracking) - most important!
+  if (player.teamsByYear) {
+    Object.keys(player.teamsByYear).forEach(y => years.add(Number(y)))
+  }
 
   // From awards
   if (player.awards) {
@@ -63,7 +68,7 @@ const getPlayerYears = (player) => {
     player.allConference.forEach(a => years.add(a.year))
   }
 
-  // From roster year (if they were on user's roster)
+  // From roster year (legacy field)
   if (player.rosterYear) {
     years.add(player.rosterYear)
   }
@@ -74,6 +79,13 @@ const getPlayerYears = (player) => {
 // Get all teams a player has been associated with (normalized to abbreviations)
 const getPlayerTeams = (player) => {
   const teams = new Set()
+
+  // From teamsByYear (primary roster tracking) - most important!
+  if (player.teamsByYear) {
+    Object.values(player.teamsByYear).forEach(t => {
+      if (t) teams.add(normalizeTeamForComparison(t))
+    })
+  }
 
   // Primary team from roster (could be full name like "Kentucky Wildcats")
   if (player.team) {

@@ -69,7 +69,7 @@ const BOXSCORE_TO_INTERNAL = {
     tD: 'td', Touchdowns: 'td',
     long: 'lng', 'Receiving Long': 'lng',
     drops: 'drops', Drops: 'drops',
-    rAC: 'rac', 'Run After Catch': 'rac'
+    rAC: 'rac', 'Yards After Catch': 'rac', 'Run After Catch': 'rac'
   },
   blocking: {
     sacksAllowed: 'sacksAllowed', 'Sacks Allowed': 'sacksAllowed',
@@ -124,6 +124,10 @@ const convertBoxScoreToInternal = (stats, categoryName) => {
   const converted = {}
   Object.entries(stats).forEach(([key, value]) => {
     const internalKey = mapping[key] || key
+    // Skip null/undefined values - these are empty cells in the sheet and should NOT overwrite existing stats
+    if (value === null || value === undefined) {
+      return
+    }
     // Parse numeric values
     const numValue = typeof value === 'string' ? parseFloat(value) : value
     if (!isNaN(numValue)) {
@@ -514,8 +518,10 @@ export default function TeamStats() {
       fumbles: p.fumbles || 0,
       long: p.long || 0,
       '20+': p['20+'] || 0,
+      yAC: p.yAC || 0,
       ypc: p.carries > 0 ? (p.yards / p.carries).toFixed(1) : '0.0',
-      yardsPerGame: p.games > 0 ? (p.yards / p.games).toFixed(1) : '0.0'
+      yardsPerGame: p.games > 0 ? (p.yards / p.games).toFixed(1) : '0.0',
+      yacAvg: p.carries > 0 ? ((p.yAC || 0) / p.carries).toFixed(1) : '0.0'
     })).filter(p => p.carries > 0)
 
     const receiving = rawReceiving.map(p => ({
@@ -750,7 +756,11 @@ export default function TeamStats() {
           delete statsOnly.name
           delete statsOnly.pid
           // Convert from box score format (from sheet) to internal format for player.statsByYear
-          playerStatsObj[internalCat] = convertBoxScoreToInternal(statsOnly, internalCat)
+          const convertedStats = convertBoxScoreToInternal(statsOnly, internalCat)
+          // Only add if there are actual stats (not all null/empty)
+          if (Object.keys(convertedStats).length > 0) {
+            playerStatsObj[internalCat] = convertedStats
+          }
         })
       }
     })
@@ -768,15 +778,23 @@ export default function TeamStats() {
         const existingStatsByYear = player.statsByYear || {}
         // Check both string and number keys for existing stats (consistent with handleSavePlayerStats)
         const existingYearStats = existingStatsByYear[yearKey] || existingStatsByYear[Number(yearKey)] || {}
+
+        // Deep merge: for each category in detailedPlayerStats, merge with existing category stats
+        // This preserves any existing stats not included in the sheet update
+        const mergedYearStats = { ...existingYearStats }
+        Object.entries(detailedPlayerStats).forEach(([category, newCategoryStats]) => {
+          const existingCategoryStats = existingYearStats[category] || {}
+          mergedYearStats[category] = {
+            ...existingCategoryStats,
+            ...newCategoryStats
+          }
+        })
+
         return {
           ...player,
           statsByYear: {
             ...existingStatsByYear,
-            [yearKey]: {
-              ...existingYearStats,
-              ...detailedPlayerStats
-              // Preserve existing gamesPlayed/snapsPlayed - don't overwrite
-            }
+            [yearKey]: mergedYearStats
           }
         }
       }
@@ -970,6 +988,8 @@ export default function TeamStats() {
       { key: 'ypc', label: 'AVG' },
       { key: 'tD', label: 'TD' },
       { key: 'yardsPerGame', label: 'YDS/G' },
+      { key: 'yAC', label: 'YAC' },
+      { key: 'yacAvg', label: 'YAC AVG' },
       { key: 'fumbles', label: 'FUM' },
       { key: '20+', label: '20+' },
       { key: 'long', label: 'LNG' }

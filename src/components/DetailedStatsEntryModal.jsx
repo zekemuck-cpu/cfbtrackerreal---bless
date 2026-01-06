@@ -598,6 +598,13 @@ export default function DetailedStatsEntryModal({
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => {
+          // Reset error states to allow sheet creation retry
+          setAuthErrorOccurred(false)
+          setCreateAttempts(0)
+          // Trigger sheet creation retry
+          setRetryCount(c => c + 1)
+        }}
         teamColors={teamColors}
       />
     </div>

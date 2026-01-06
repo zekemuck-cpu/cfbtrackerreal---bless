@@ -221,14 +221,16 @@ export default function Awards() {
 
   if (!currentDynasty) return null
 
-  // Get available years with awards (most recent first)
+  // Get all years from dynasty start to current year (most recent first)
   const awardsByYear = currentDynasty.awardsByYear || {}
-  const availableYears = Object.keys(awardsByYear)
-    .map(y => parseInt(y))
-    .sort((a, b) => b - a)
+  const startYear = currentDynasty.startYear || currentDynasty.currentYear
+  const availableYears = []
+  for (let year = currentDynasty.currentYear; year >= startYear; year--) {
+    availableYears.push(year)
+  }
 
-  // Use URL year if provided, otherwise most recent, otherwise current year
-  const displayYear = urlYear ? parseInt(urlYear) : (availableYears.length > 0 ? availableYears[0] : currentDynasty.currentYear)
+  // Use URL year if provided, otherwise most recent (current year)
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
   const yearAwards = awardsByYear[displayYear] || {}
 
   // Navigate to year when dropdown changes
@@ -268,22 +270,6 @@ export default function Awards() {
     }
 
     setShowAwardsModal(false)
-  }
-
-  // No awards yet
-  if (availableYears.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <h1 className="text-2xl font-bold mb-4 text-white">
-            Season Awards
-          </h1>
-          <p className="text-lg text-gray-400">
-            No awards recorded yet. Complete a season and enter awards to see them here.
-          </p>
-        </div>
-      </div>
-    )
   }
 
   // Helper function to find player by name

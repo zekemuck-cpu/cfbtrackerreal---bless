@@ -453,6 +453,7 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

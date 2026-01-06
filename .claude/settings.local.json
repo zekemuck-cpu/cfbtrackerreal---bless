@@ -52,7 +52,8 @@
       "Bash(do if grep -q \"saveRoster\\\\|updateDynasty\" \"$file\")",
       "Bash(then basename \"$file\" fi done)",
       "WebFetch(domain:imgbb.com)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(pgrep:*)"
     ],
     "deny": [],
     "ask": []

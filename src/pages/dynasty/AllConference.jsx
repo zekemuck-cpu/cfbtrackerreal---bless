@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getCurrentCustomConferences } from '../../context/DynastyContext'
+import { useDynasty, getCurrentCustomConferences, getCustomConferencesForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
@@ -184,7 +184,7 @@ const cleanPlayerName = (name) => {
 export default function AllConference() {
   const { id, year: urlYear, conference: urlConference } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, isViewOnly, processHonorPlayers } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
@@ -192,25 +192,39 @@ export default function AllConference() {
 
   if (!currentDynasty) return null
 
-  // Get the user's conference from their team
+  // Get all years from dynasty start to current year (most recent first)
+  const allAmericansByYear = currentDynasty.allAmericansByYear || {}
+  const startYear = currentDynasty.startYear || currentDynasty.currentYear
+  const availableYears = []
+  for (let year = currentDynasty.currentYear; year >= startYear; year--) {
+    availableYears.push(year)
+  }
+
+  // Use URL year if provided, otherwise most recent (current year)
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
+  const yearData = allAmericansByYear[displayYear] || {}
+
+  // Get the user's team abbreviation
   const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
-  const userConference = getTeamConference(userTeamAbbr) || 'SEC'
 
-  // Get custom conferences using helper (handles year-based fallback)
-  const customConferences = getCurrentCustomConferences(currentDynasty)
+  // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
+  const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)
 
-  // Get list of available conferences - use custom conferences if available, otherwise defaults
+  // Get the user's conference for the display year (handles realignment)
+  const userConference = getTeamConferenceForDynasty(currentDynasty, userTeamAbbr, displayYear) || 'SEC'
+
+  // Get list of available conferences for display year - use custom conferences if available, otherwise defaults
   const availableConferences = useMemo(() => {
-    if (customConferences && Object.keys(customConferences).length > 0) {
-      return Object.keys(customConferences).sort()
+    if (customConferencesForYear && Object.keys(customConferencesForYear).length > 0) {
+      return Object.keys(customConferencesForYear).sort()
     }
     return getAllConferences().sort()
-  }, [customConferences])
+  }, [customConferencesForYear])
 
-  // Get the current conference alignment for team lookup
+  // Get the conference teams for the display year
   const getConferenceTeams = (conf) => {
-    if (customConferences && customConferences[conf]) {
-      return customConferences[conf]
+    if (customConferencesForYear && customConferencesForYear[conf]) {
+      return customConferencesForYear[conf]
     }
     return conferenceTeams[conf] || []
   }
@@ -235,26 +249,6 @@ export default function AllConference() {
 
   // Use URL conference if provided and valid, otherwise user's conference
   const displayConference = decodeConference(urlConference) || userConference
-
-  // Get available years with all-conference (most recent first)
-  const allAmericansByYear = currentDynasty.allAmericansByYear || {}
-  const yearsWithData = Object.keys(allAmericansByYear)
-    .filter(year => {
-      const yearData = allAmericansByYear[year]
-      return yearData?.allConference && yearData.allConference.length > 0
-    })
-    .map(y => parseInt(y))
-
-  // Always include current year so user can view/enter current season's data
-  if (!yearsWithData.includes(currentDynasty.currentYear)) {
-    yearsWithData.push(currentDynasty.currentYear)
-  }
-
-  const availableYears = yearsWithData.sort((a, b) => b - a)
-
-  // Use URL year if provided, otherwise most recent, otherwise current year
-  const displayYear = urlYear ? parseInt(urlYear) : (availableYears.length > 0 ? availableYears[0] : currentDynasty.currentYear)
-  const yearData = allAmericansByYear[displayYear] || {}
 
   // Get all-conference data for the selected conference
   // First try the new structure (allConferenceByConference), then fall back to filtering the old structure
@@ -288,6 +282,23 @@ export default function AllConference() {
   const handleAllAmericansSave = async (data) => {
     const year = displayYear
 
+    // Process All-Conference entries for player matching
+    if (data.allConference && data.allConference.length > 0) {
+      const acEntries = data.allConference.map(entry => ({
+        ...entry,
+        name: entry.player,
+        honorCategory: 'allConference'
+      }))
+
+      await processHonorPlayers(
+        currentDynasty.id,
+        'allConference',
+        acEntries,
+        year,
+        []
+      )
+    }
+
     // Transform allConference to be grouped by conference
     const transformedData = { ...data }
     if (data.allConference && data.allConference.length > 0) {
@@ -295,7 +306,7 @@ export default function AllConference() {
       const newByConf = { ...existingByConf }
 
       data.allConference.forEach(entry => {
-        const conference = getTeamConference(entry.school) || 'Unknown'
+        const conference = getTeamConferenceForDynasty(currentDynasty, entry.school, year) || 'Unknown'
         if (!newByConf[conference]) {
           newByConf[conference] = []
         }
@@ -323,22 +334,6 @@ export default function AllConference() {
         }
       }
     })
-  }
-
-  // No data yet
-  if (availableYears.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <h1 className="text-2xl font-bold mb-4 text-white">
-            All-{displayConference}
-          </h1>
-          <p className="text-lg text-gray-300 opacity-70">
-            No All-{displayConference} selections recorded yet. Complete a season and enter data to see them here.
-          </p>
-        </div>
-      </div>
-    )
   }
 
   // Filter all-conference players

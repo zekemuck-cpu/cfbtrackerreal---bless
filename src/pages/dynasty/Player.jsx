@@ -1165,120 +1165,6 @@ export default function Player() {
         </div>
       </div>
 
-      {/* POW Accolades */}
-      {(powHonors.confPOW > 0 || powHonors.nationalPOW > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {powHonors.confPOW > 0 && (
-            <button
-              onClick={() => handleAccoladeClick('confPOW')}
-              className="px-4 py-2 rounded-full font-semibold text-sm hover:opacity-80 transition-opacity"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
-            >
-              Conference POW {powHonors.confPOW}x
-            </button>
-          )}
-          {powHonors.nationalPOW > 0 && (
-            <button
-              onClick={() => handleAccoladeClick('nationalPOW')}
-              className="px-4 py-2 rounded-full font-semibold text-sm hover:opacity-80 transition-opacity"
-              style={{ backgroundColor: '#fbbf24', color: '#78350f' }}
-            >
-              National POW {powHonors.nationalPOW}x
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Career Honors (Awards, All-Americans, All-Conference) */}
-      {((player.awards && player.awards.length > 0) ||
-        (player.allAmericans && player.allAmericans.length > 0) ||
-        (player.allConference && player.allConference.length > 0)) && (
-        <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
-        >
-          <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Career Honors</h2>
-
-          {/* Awards */}
-          {player.awards && player.awards.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: secondaryText, opacity: 0.7 }}>Awards</h3>
-              <div className="flex flex-wrap gap-2">
-                {player.awards.map((award, idx) => {
-                  // Format award name nicely
-                  const awardName = award.award
-                    ? award.award.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()
-                    : 'Award'
-                  const badgeText = getContrastTextColor(teamColors.primary)
-                  return (
-                    <div
-                      key={idx}
-                      className="px-3 py-2 rounded-lg text-sm font-semibold"
-                      style={{ backgroundColor: teamColors.primary, color: badgeText }}
-                    >
-                      <div className="font-bold">{awardName}</div>
-                      <div className="text-xs opacity-80">{award.year} • {award.team}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* All-Americans */}
-          {player.allAmericans && player.allAmericans.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: secondaryText, opacity: 0.7 }}>All-American</h3>
-              <div className="flex flex-wrap gap-2">
-                {player.allAmericans.map((aa, idx) => {
-                  const designation = aa.designation === 'first' ? '1st Team' :
-                                      aa.designation === 'second' ? '2nd Team' : 'Freshman'
-                  const badgeColor = aa.designation === 'first' ? teamColors.primary :
-                                     aa.designation === 'second' ? '#6B7280' : '#3B82F6'
-                  const badgeText = getContrastTextColor(badgeColor)
-                  return (
-                    <div
-                      key={idx}
-                      className="px-3 py-2 rounded-lg text-sm font-semibold"
-                      style={{ backgroundColor: badgeColor, color: badgeText }}
-                    >
-                      <div className="font-bold">{designation} All-American</div>
-                      <div className="text-xs opacity-80">{aa.year} • {aa.position} • {aa.school}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* All-Conference */}
-          {player.allConference && player.allConference.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-2" style={{ color: secondaryText, opacity: 0.7 }}>All-Conference</h3>
-              <div className="flex flex-wrap gap-2">
-                {player.allConference.map((ac, idx) => {
-                  const designation = ac.designation === 'first' ? '1st Team' :
-                                      ac.designation === 'second' ? '2nd Team' : 'Freshman'
-                  const badgeColor = ac.designation === 'first' ? teamColors.primary :
-                                     ac.designation === 'second' ? '#6B7280' : '#3B82F6'
-                  const badgeText = getContrastTextColor(badgeColor)
-                  return (
-                    <div
-                      key={idx}
-                      className="px-3 py-2 rounded-lg text-sm font-semibold"
-                      style={{ backgroundColor: badgeColor, color: badgeText }}
-                    >
-                      <div className="font-bold">{designation} All-Conference</div>
-                      <div className="text-xs opacity-80">{ac.year} • {ac.position} • {ac.school}</div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Career Timeline - Built from teamsByYear (source of truth) with movements for context */}
       {(() => {
         // Build timeline from teamsByYear as source of truth
@@ -2404,6 +2290,76 @@ export default function Player() {
         </div>
         )
       })()}
+
+      {/* Awards Section - all honors in one place */}
+      {(powHonors.confPOW > 0 || powHonors.nationalPOW > 0 ||
+        (player.awards && player.awards.length > 0) ||
+        (player.allAmericans && player.allAmericans.length > 0) ||
+        (player.allConference && player.allConference.length > 0)) && (
+        <div
+          className="rounded-lg shadow-lg p-4 sm:p-6"
+          style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
+        >
+          <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Awards</h2>
+          <div className="space-y-1">
+            {/* POW honors */}
+            {powHonors.confPOW > 0 && (
+              <button
+                onClick={() => handleAccoladeClick('confPOW')}
+                className="block text-left hover:opacity-70 transition-opacity"
+                style={{ color: secondaryText }}
+              >
+                <span className="font-semibold">Conference Player of the Week</span>
+                <span className="opacity-70"> ({powHonors.confPOW}x)</span>
+              </button>
+            )}
+            {powHonors.nationalPOW > 0 && (
+              <button
+                onClick={() => handleAccoladeClick('nationalPOW')}
+                className="block text-left hover:opacity-70 transition-opacity"
+                style={{ color: secondaryText }}
+              >
+                <span className="font-semibold">National Player of the Week</span>
+                <span className="opacity-70"> ({powHonors.nationalPOW}x)</span>
+              </button>
+            )}
+            {/* Awards (Heisman, etc.) */}
+            {player.awards?.map((award, idx) => {
+              const awardName = award.award
+                ? award.award.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()
+                : 'Award'
+              return (
+                <div key={`award-${idx}`} style={{ color: secondaryText }}>
+                  <span className="font-semibold">{awardName}</span>
+                  <span className="opacity-70"> ({award.year})</span>
+                </div>
+              )
+            })}
+            {/* All-Americans */}
+            {player.allAmericans?.map((aa, idx) => {
+              const designation = aa.designation === 'first' ? '1st Team' :
+                                  aa.designation === 'second' ? '2nd Team' : 'Freshman'
+              return (
+                <div key={`aa-${idx}`} style={{ color: secondaryText }}>
+                  <span className="font-semibold">{designation} All-American</span>
+                  <span className="opacity-70"> ({aa.year})</span>
+                </div>
+              )
+            })}
+            {/* All-Conference */}
+            {player.allConference?.map((ac, idx) => {
+              const designation = ac.designation === 'first' ? '1st Team' :
+                                  ac.designation === 'second' ? '2nd Team' : 'Freshman'
+              return (
+                <div key={`ac-${idx}`} style={{ color: secondaryText }}>
+                  <span className="font-semibold">{designation} All-Conference</span>
+                  <span className="opacity-70"> ({ac.year})</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Notes & Media */}
       {(player.notes || (player.links && player.links.length > 0)) && (

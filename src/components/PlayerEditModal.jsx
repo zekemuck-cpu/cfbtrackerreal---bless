@@ -12,6 +12,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
   const [showQuickImageModal, setShowQuickImageModal] = useState(false)
   const [syncingAll, setSyncingAll] = useState(false)
   const [justSyncedThisPlayer, setJustSyncedThisPlayer] = useState(false)
+  const [showSyncConfirmation, setShowSyncConfirmation] = useState(null) // 'this' or 'all' or null
   const fileInputRef = useRef(null)
   const quickFileInputRef = useRef(null)
   const initializedForPlayerRef = useRef(null) // Track which player we've initialized for
@@ -184,6 +185,44 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
 
     return false
   }, [boxScoreTotals, player?.statsByYear, selectedStatsYear])
+
+  // Check if detailed stats were entered via the end-of-season sheet for the selected year
+  const detailedStatsEntered = useMemo(() => {
+    if (!dynasty || !selectedStatsYear) return false
+    return dynasty.detailedStatsCompletedByYear?.[selectedStatsYear] ||
+           dynasty.detailedStatsCompletedByYear?.[String(selectedStatsYear)]
+  }, [dynasty, selectedStatsYear])
+
+  // Handle sync button click - show confirmation if detailed stats were entered
+  const handleSyncThisPlayerClick = () => {
+    if (detailedStatsEntered) {
+      setShowSyncConfirmation('this')
+    } else {
+      handleSyncThisPlayer()
+    }
+  }
+
+  const handleSyncAllPlayersClick = () => {
+    if (detailedStatsEntered) {
+      setShowSyncConfirmation('all')
+    } else {
+      performSyncAllPlayers()
+    }
+  }
+
+  const performSyncAllPlayers = async () => {
+    setSyncingAll(true)
+    try {
+      await onSyncAllPlayers(selectedStatsYear)
+      alert(`All players synced for ${selectedStatsYear}!`)
+      onClose() // Close modal so user sees fresh data when they reopen
+    } catch (err) {
+      console.error('Sync failed:', err)
+      alert('Sync failed: ' + err.message)
+    } finally {
+      setSyncingAll(false)
+    }
+  }
 
   // Sync this player's stats to box score totals
   const handleSyncThisPlayer = () => {
@@ -1516,7 +1555,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={handleSyncThisPlayer}
+                        onClick={handleSyncThisPlayerClick}
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
                         style={{
                           backgroundColor: teamColors.primary,
@@ -1532,19 +1571,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                         <button
                           type="button"
                           disabled={syncingAll}
-                          onClick={async () => {
-                            setSyncingAll(true)
-                            try {
-                              await onSyncAllPlayers(selectedStatsYear)
-                              alert(`All players synced for ${selectedStatsYear}!`)
-                              onClose() // Close modal so user sees fresh data when they reopen
-                            } catch (err) {
-                              console.error('Sync failed:', err)
-                              alert('Sync failed: ' + err.message)
-                            } finally {
-                              setSyncingAll(false)
-                            }
-                          }}
+                          onClick={handleSyncAllPlayersClick}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border-2 disabled:opacity-50"
                           style={{
                             borderColor: teamColors.primary,
@@ -1984,12 +2011,12 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
         <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4"
           style={{ margin: 0 }}
-          onClick={() => setShowQuickImageModal(false)}
+          onMouseDown={() => setShowQuickImageModal(false)}
         >
           <div
             className="rounded-xl max-w-sm w-full overflow-hidden shadow-2xl"
             style={{ backgroundColor: teamColors.secondary }}
-            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <div className="p-4" style={{ backgroundColor: teamColors.primary }}>
               <div className="flex items-center justify-between">
@@ -2131,6 +2158,79 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                   Remove Photo
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync Confirmation Modal */}
+      {showSyncConfirmation && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4"
+          style={{ margin: 0 }}
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            setShowSyncConfirmation(null)
+          }}
+        >
+          <div
+            className="rounded-xl w-full max-w-md overflow-hidden"
+            style={{ backgroundColor: teamColors.secondary }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4" style={{ backgroundColor: teamColors.primary }}>
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke={getContrastTextColor(teamColors.primary)}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h3 className="text-lg font-bold" style={{ color: getContrastTextColor(teamColors.primary) }}>
+                  Detailed Stats Already Entered
+                </h3>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-4">
+              <p className="text-sm" style={{ color: secondaryText }}>
+                You've already entered detailed stats for <strong>{selectedStatsYear}</strong> via the end-of-season Detailed Stats Entry sheet.
+              </p>
+              <p className="text-sm" style={{ color: secondaryText }}>
+                <strong>Syncing will replace those stats</strong> with the totals calculated from your game box scores.
+              </p>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15` }}>
+                <p className="text-xs font-medium" style={{ color: primaryText }}>
+                  {showSyncConfirmation === 'this'
+                    ? `This will overwrite ${player?.name || 'this player'}'s detailed stats with box score totals.`
+                    : `This will overwrite ALL players' detailed stats for ${selectedStatsYear} with box score totals.`}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 flex gap-3 border-t" style={{ borderColor: `${teamColors.primary}30` }}>
+              <button
+                onClick={() => setShowSyncConfirmation(null)}
+                className="flex-1 py-2.5 rounded-lg font-semibold text-sm border-2"
+                style={{ borderColor: teamColors.primary, color: primaryText }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const syncType = showSyncConfirmation
+                  setShowSyncConfirmation(null)
+                  if (syncType === 'this') {
+                    handleSyncThisPlayer()
+                  } else {
+                    performSyncAllPlayers()
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-lg font-semibold text-sm"
+                style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
+              >
+                Sync Anyway
+              </button>
             </div>
           </div>
         </div>

@@ -468,6 +468,7 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

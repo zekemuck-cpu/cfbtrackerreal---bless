@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getContrastTextColor } from '../utils/colorUtils'
 
-export default function AuthErrorModal({ isOpen, onClose, teamColors }) {
+export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors }) {
   const { refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
 
@@ -14,7 +14,11 @@ export default function AuthErrorModal({ isOpen, onClose, teamColors }) {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await refreshSession()
+      const success = await refreshSession()
+      // Call onRefresh callback if provided (allows parent to retry operations)
+      if (success && onRefresh) {
+        await onRefresh()
+      }
       onClose()
     } catch (error) {
       console.error('Failed to refresh session:', error)

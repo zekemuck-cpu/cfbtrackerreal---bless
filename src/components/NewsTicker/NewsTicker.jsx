@@ -222,31 +222,6 @@ export default function NewsTicker({ dynasty }) {
         }}
       >
       <div className="h-full flex items-center">
-        {/* Section indicator dots with progress bar */}
-        <div className="hidden sm:flex items-center gap-1 px-3 h-full border-r border-white/20 relative">
-          {/* Progress bar - contained within dots section */}
-          <div
-            className="absolute bottom-0 left-0 h-0.5 transition-all duration-100"
-            style={{
-              width: `${progress}%`,
-              backgroundColor: progressColor,
-              opacity: isPaused ? 0.5 : 1
-            }}
-          />
-          {sections.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => goToSection(idx)}
-              className={`w-2 h-2 rounded-full transition-all ${
-                idx === currentSectionIndex
-                  ? 'scale-125'
-                  : 'opacity-40 hover:opacity-70'
-              }`}
-              style={{ backgroundColor: textColor }}
-            />
-          ))}
-        </div>
-
         {/* Current section content */}
         <div
           className={`flex-1 flex items-center h-full overflow-hidden transition-opacity duration-300 ${
@@ -315,20 +290,11 @@ export default function NewsTicker({ dynasty }) {
               }}
             >
             {currentSection.items.map((item, idx) => (
-              <div key={item.id || idx} className="flex items-center gap-2 sm:gap-3 whitespace-nowrap">
-                {idx > 0 && (
-                  <span
-                    className="text-lg opacity-30"
-                    style={{ color: textColor }}
-                  >
-                    •
-                  </span>
-                )}
-
-                <div
-                  className={`flex items-center gap-1.5 sm:gap-2 ${item.link ? 'cursor-pointer hover:opacity-70 transition-opacity' : ''}`}
-                  onClick={() => handleItemClick(item)}
-                >
+              <div
+                key={item.id || idx}
+                className={`flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${item.link ? 'cursor-pointer hover:opacity-70 transition-opacity' : ''}`}
+                onClick={() => handleItemClick(item)}
+              >
                   {item.team && getLogoUrl(item.team) && (
                     <img
                       src={getLogoUrl(item.team)}
@@ -353,7 +319,6 @@ export default function NewsTicker({ dynasty }) {
                   >
                     {item.text}
                   </span>
-                </div>
               </div>
             ))}
             </div>

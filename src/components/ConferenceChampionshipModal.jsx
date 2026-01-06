@@ -470,6 +470,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

@@ -257,7 +257,7 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
           </div>
         )}
       </div>
-      <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} teamColors={teamColors} />
+      <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
     </div>
   )
 }

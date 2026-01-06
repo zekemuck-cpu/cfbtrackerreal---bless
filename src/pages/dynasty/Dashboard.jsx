@@ -4532,10 +4532,11 @@ export default function Dashboard() {
 
                     {/* Task: GP/Snaps Entry */}
                     {(() => {
-                      // Check if the Google Sheet was actually created, not just if data exists from box scores
-                      const hasStatsSheet = !!currentDynasty?.statsEntrySheetId
+                      // Check if user has actually saved GP/Snaps for this year (not just inferred from box scores)
+                      const year = currentDynasty.currentYear
+                      const isCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
                       const playerCount = currentDynasty?.players?.filter(p => {
-                        const yearStats = p.statsByYear?.[currentDynasty.currentYear] || p.statsByYear?.[String(currentDynasty.currentYear)]
+                        const yearStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
                         return yearStats && (yearStats.gamesPlayed || yearStats.snapsPlayed)
                       }).length || 0
                       const taskNumber = !userInCFPChampionship ? 2 : 1
@@ -4543,28 +4544,28 @@ export default function Dashboard() {
                       return (
                         <div
                           className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasStatsSheet ? 'border-green-200 bg-green-50' : ''
+                            isCompleted ? 'border-green-200 bg-green-50' : ''
                           }`}
-                          style={!hasStatsSheet ? { borderColor: `${teamColors.primary}30` } : {}}
+                          style={!isCompleted ? { borderColor: `${teamColors.primary}30` } : {}}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
                               className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                hasStatsSheet ? 'bg-green-500 text-white' : ''
+                                isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasStatsSheet ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
-                              {hasStatsSheet ? (
+                              {isCompleted ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasStatsSheet ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#16a34a' : secondaryBgText }}>
                                 GP/Snaps Entry
                               </div>
-                              {hasStatsSheet && (
+                              {isCompleted && (
                                 <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
                                   ✓ Stats entered for {playerCount} players
                                 </div>
@@ -4576,7 +4577,7 @@ export default function Dashboard() {
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                             style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                           >
-                            {hasStatsSheet ? 'Edit' : 'Enter'}
+                            {isCompleted ? 'Edit' : 'Enter'}
                           </button>
                         </div>
                       )
@@ -4584,27 +4585,28 @@ export default function Dashboard() {
 
                     {/* Task: Detailed Stats Entry */}
                     {(() => {
-                      // Check if the Google Sheets were actually created
-                      const hasStatsSheet = !!currentDynasty?.statsEntrySheetId
-                      const hasDetailedStatsSheet = !!currentDynasty?.detailedStatsSheetId
+                      // Check if user has actually saved Detailed Stats for this year
+                      const year = currentDynasty.currentYear
+                      const gpSnapsCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
+                      const isCompleted = currentDynasty?.detailedStatsCompletedByYear?.[year] || currentDynasty?.detailedStatsCompletedByYear?.[String(year)]
                       const taskNumber = !userInCFPChampionship ? 3 : 2
-                      const isLocked = !hasStatsSheet
+                      const isLocked = !gpSnapsCompleted
 
                       return (
                         <div
                           className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasDetailedStatsSheet ? 'border-green-200 bg-green-50' : ''
+                            isCompleted ? 'border-green-200 bg-green-50' : ''
                           } ${isLocked ? 'opacity-50' : ''}`}
-                          style={!hasDetailedStatsSheet ? { borderColor: `${teamColors.primary}30` } : {}}
+                          style={!isCompleted ? { borderColor: `${teamColors.primary}30` } : {}}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
                               className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                hasDetailedStatsSheet ? 'bg-green-500 text-white' : ''
+                                isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
-                              style={!hasDetailedStatsSheet ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
-                              {hasDetailedStatsSheet ? (
+                              {isCompleted ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
@@ -4615,12 +4617,12 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasDetailedStatsSheet ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#16a34a' : secondaryBgText }}>
                                 Detailed Stats Entry
                               </div>
-                              {(hasDetailedStatsSheet || isLocked) && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasDetailedStatsSheet ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
-                                  {hasDetailedStatsSheet
+                              {(isCompleted || isLocked) && (
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isCompleted ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                                  {isCompleted
                                     ? '✓ Detailed stats entered across all categories'
                                     : 'Complete GP/Snaps Entry first'}
                                 </div>
@@ -4633,7 +4635,7 @@ export default function Dashboard() {
                             className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold text-sm self-end sm:self-auto ${isLocked ? 'cursor-not-allowed' : 'hover:opacity-90'}`}
                             style={{ backgroundColor: teamColors.primary, color: primaryBgText, opacity: isLocked ? 0.5 : 1 }}
                           >
-                            {hasDetailedStatsSheet ? 'Edit' : 'Enter'}
+                            {isCompleted ? 'Edit' : 'Enter'}
                           </button>
                         </div>
                       )
@@ -7695,8 +7697,14 @@ export default function Dashboard() {
             return { ...player, statsByYear: existingStatsByYear }
           })
 
+          // Mark GP/Snaps as completed for this year
+          const existingGpSnapsCompleted = currentDynasty.gpSnapsCompletedByYear || {}
           await updateDynasty(currentDynasty.id, {
-            players: updatedPlayers
+            players: updatedPlayers,
+            gpSnapsCompletedByYear: {
+              ...existingGpSnapsCompleted,
+              [year]: true
+            }
           })
         }}
         currentYear={currentDynasty.currentYear}
@@ -7708,13 +7716,67 @@ export default function Dashboard() {
         isOpen={showDetailedStatsModal}
         onClose={() => setShowDetailedStatsModal(false)}
         onSave={async (detailedStats) => {
-          const year = Number(currentDynasty.currentYear)
+          const year = String(currentDynasty.currentYear)
 
           // Category mapping from sheet names to internal names
           const categoryMapping = {
             'Passing': 'passing', 'Rushing': 'rushing', 'Receiving': 'receiving',
             'Blocking': 'blocking', 'Defensive': 'defense', 'Kicking': 'kicking',
             'Punting': 'punting', 'Kick Return': 'kickReturn', 'Punt Return': 'puntReturn'
+          }
+
+          // Mapping from sheet column names to internal stat keys
+          const SHEET_TO_INTERNAL = {
+            passing: {
+              Completions: 'cmp', Attempts: 'att', Yards: 'yds', Touchdowns: 'td',
+              Interceptions: 'int', 'Passing Long': 'lng', 'Sacks Taken': 'sacks'
+            },
+            rushing: {
+              Carries: 'car', Yards: 'yds', Touchdowns: 'td', 'Rushing Long': 'lng',
+              Fumbles: 'fum', 'Broken Tackles': 'bt', 'Yards After Contact': 'yac'
+            },
+            receiving: {
+              Receptions: 'rec', Yards: 'yds', Touchdowns: 'td', 'Receiving Long': 'lng',
+              Drops: 'drops', 'Yards After Catch': 'rac'
+            },
+            blocking: {
+              'Sacks Allowed': 'sacksAllowed', Pancakes: 'pancakes'
+            },
+            defense: {
+              'Solo Tackles': 'soloTkl', 'Assisted Tackles': 'astTkl', 'Tackles for Loss': 'tfl',
+              Sacks: 'sacks', Interceptions: 'int', 'INT Return Yards': 'intYds',
+              Deflections: 'pd', 'Forced Fumbles': 'ff', 'Fumble Recoveries': 'fr', 'Defensive TDs': 'td'
+            },
+            kicking: {
+              'FG Made': 'fgm', 'FG Attempted': 'fga', 'FG Long': 'lng',
+              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks'
+            },
+            punting: {
+              Punts: 'punts', 'Punting Yards': 'yds', 'Net Punting Yards': 'netYds',
+              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb'
+            },
+            kickReturn: {
+              'Kickoff Returns': 'ret', 'KR Yardage': 'yds', 'KR Touchdowns': 'td', 'KR Long': 'lng'
+            },
+            puntReturn: {
+              'Punt Returns': 'ret', 'PR Yardage': 'yds', 'PR Touchdowns': 'td', 'PR Long': 'lng'
+            }
+          }
+
+          // Convert sheet format to internal format, skipping null values
+          const convertToInternal = (statsOnly, categoryName) => {
+            const mapping = SHEET_TO_INTERNAL[categoryName] || {}
+            const converted = {}
+            Object.entries(statsOnly).forEach(([key, value]) => {
+              // Skip null/undefined - don't overwrite existing stats
+              if (value === null || value === undefined) return
+              const internalKey = mapping[key] || key
+              const numValue = typeof value === 'string' ? parseFloat(value) : value
+              if (!isNaN(numValue)) {
+                converted[internalKey] = numValue
+              }
+            })
+            return converted
           }
 
           // Build a map of player stats by name
@@ -7728,16 +7790,20 @@ export default function Dashboard() {
                 if (!playerStatsMap.has(key)) {
                   playerStatsMap.set(key, {})
                 }
-                // Copy stats without name/pid
+                // Copy stats without name/pid and convert to internal format
                 const statsOnly = { ...playerData }
                 delete statsOnly.name
                 delete statsOnly.pid
-                playerStatsMap.get(key)[internalCat] = statsOnly
+                const convertedStats = convertToInternal(statsOnly, internalCat)
+                // Only add if there are actual stats (not all null/empty)
+                if (Object.keys(convertedStats).length > 0) {
+                  playerStatsMap.get(key)[internalCat] = convertedStats
+                }
               })
             }
           })
 
-          // Update each player's statsByYear
+          // Update each player's statsByYear with DEEP merge
           const updatedPlayers = (currentDynasty.players || []).map(player => {
             const playerNameKey = player.name?.toLowerCase().trim()
             const detailedPlayerStats = playerStatsMap.get(playerNameKey)
@@ -7746,17 +7812,36 @@ export default function Dashboard() {
               return player
             }
 
-            const existingStatsByYear = { ...(player.statsByYear || {}) }
-            existingStatsByYear[year] = {
-              ...(existingStatsByYear[year] || {}),
-              ...detailedPlayerStats
-            }
+            const existingStatsByYear = player.statsByYear || {}
+            const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
 
-            return { ...player, statsByYear: existingStatsByYear }
+            // Deep merge: preserve gamesPlayed, snapsPlayed, and merge each category
+            const mergedYearStats = { ...existingYearStats }
+            Object.entries(detailedPlayerStats).forEach(([category, newCategoryStats]) => {
+              const existingCategoryStats = existingYearStats[category] || {}
+              mergedYearStats[category] = {
+                ...existingCategoryStats,
+                ...newCategoryStats
+              }
+            })
+
+            return {
+              ...player,
+              statsByYear: {
+                ...existingStatsByYear,
+                [year]: mergedYearStats
+              }
+            }
           })
 
+          // Mark Detailed Stats as completed for this year
+          const existingDetailedStatsCompleted = currentDynasty.detailedStatsCompletedByYear || {}
           await updateDynasty(currentDynasty.id, {
-            players: updatedPlayers
+            players: updatedPlayers,
+            detailedStatsCompletedByYear: {
+              ...existingDetailedStatsCompleted,
+              [year]: true
+            }
           })
         }}
         currentYear={currentDynasty.currentYear}

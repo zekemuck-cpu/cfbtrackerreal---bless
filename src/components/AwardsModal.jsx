@@ -76,7 +76,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
-        const existingSheetId = currentDynasty?.awardsSheetId
+        const existingSheetId = currentDynasty?.awardsSheetIdByYear?.[currentYear]
         if (existingSheetId) {
           setSheetId(existingSheetId)
           return
@@ -89,7 +89,10 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
           const awardsByYear = currentDynasty?.awardsByYear || {}
           const sheetInfo = await createAwardsSheet(currentYear, awardsByYear)
           setSheetId(sheetInfo.sheetId)
-          await updateDynasty(currentDynasty.id, { awardsSheetId: sheetInfo.sheetId })
+          const existingByYear = currentDynasty?.awardsSheetIdByYear || {}
+          await updateDynasty(currentDynasty.id, {
+            awardsSheetIdByYear: { ...existingByYear, [currentYear]: sheetInfo.sheetId }
+          })
         } catch (error) {
           console.error('Failed to create awards sheet:', error)
         } finally {
@@ -159,7 +162,10 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
     setRegenerating(true)
     try {
       await deleteGoogleSheet(sheetId)
-      await updateDynasty(currentDynasty.id, { awardsSheetId: null })
+      const existingByYear = currentDynasty?.awardsSheetIdByYear || {}
+      await updateDynasty(currentDynasty.id, {
+        awardsSheetIdByYear: { ...existingByYear, [currentYear]: null }
+      })
       setSheetId(null)
       setRetryCount(c => c + 1)
     } catch (error) {
@@ -265,7 +271,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
           </div>
         )}
       </div>
-      <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} teamColors={teamColors} />
+      <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
     </div>
   )
 }

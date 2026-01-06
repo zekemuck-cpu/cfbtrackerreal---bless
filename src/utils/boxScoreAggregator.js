@@ -229,7 +229,9 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
         td: aggregated.rushing.tD || 0,
         lng: aggregated.rushing.long || 0,
         fum: aggregated.rushing.fumbles || 0,
-        bt: aggregated.rushing.brokenTackles || 0
+        bt: aggregated.rushing.brokenTackles || 0,
+        yac: aggregated.rushing.yAC || 0,
+        twentyPlus: aggregated.rushing['20+'] || 0
       }
     }
 
@@ -239,7 +241,8 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
         yds: aggregated.receiving.yards || 0,
         td: aggregated.receiving.tD || 0,
         lng: aggregated.receiving.long || 0,
-        drops: aggregated.receiving.drops || 0
+        drops: aggregated.receiving.drops || 0,
+        rac: aggregated.receiving.rAC || 0
       }
     }
 

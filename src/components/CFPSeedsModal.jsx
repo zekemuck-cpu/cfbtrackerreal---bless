@@ -460,6 +460,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

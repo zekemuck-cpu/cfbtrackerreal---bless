@@ -631,6 +631,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

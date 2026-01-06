@@ -5275,7 +5275,7 @@ const DETAILED_STATS_TABS = {
     'Yards After Contact', 'Rushing Long', 'Fumbles'
   ],
   'Receiving': [
-    'Receptions', 'Yards', 'Touchdowns', 'Receiving Long', 'Run After Catch', 'Drops'
+    'Receptions', 'Yards', 'Touchdowns', 'Receiving Long', 'Yards After Catch', 'Drops'
   ],
   'Blocking': [
     'Sacks Allowed'
@@ -5418,7 +5418,8 @@ const COLUMN_TO_BOXSCORE_FIELD = {
   // Receiving
   'Receptions': 'receptions',
   'Receiving Long': 'long',
-  'Run After Catch': 'rAC',
+  'Yards After Catch': 'rAC',
+  'Run After Catch': 'rAC', // Legacy support
   'Drops': 'drops',
   // Blocking
   'Sacks Allowed': 'sacksAllowed',

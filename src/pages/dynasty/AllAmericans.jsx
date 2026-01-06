@@ -183,7 +183,7 @@ const cleanPlayerName = (name) => {
 export default function AllAmericans() {
   const { id, year: urlYear } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, isViewOnly, processHonorPlayers } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
@@ -191,16 +191,13 @@ export default function AllAmericans() {
 
   if (!currentDynasty) return null
 
-  // Get available years with all-americans (most recent first)
+  // Get all years from dynasty start to current year (most recent first)
   const allAmericansByYear = currentDynasty.allAmericansByYear || {}
-  const yearsWithData = Object.keys(allAmericansByYear).map(y => parseInt(y))
-
-  // Always include current year so user can view/enter current season's data
-  if (!yearsWithData.includes(currentDynasty.currentYear)) {
-    yearsWithData.push(currentDynasty.currentYear)
+  const startYear = currentDynasty.startYear || currentDynasty.currentYear
+  const availableYears = []
+  for (let year = currentDynasty.currentYear; year >= startYear; year--) {
+    availableYears.push(year)
   }
-
-  const availableYears = yearsWithData.sort((a, b) => b - a)
 
   // Use URL year if provided, otherwise most recent, otherwise current year
   const displayYear = urlYear ? parseInt(urlYear) : (availableYears.length > 0 ? availableYears[0] : currentDynasty.currentYear)
@@ -212,9 +209,45 @@ export default function AllAmericans() {
     navigate(`${pathPrefix}/all-americans/${year}`)
   }
 
-  // Handle save from modal
+  // Handle save from modal with player matching
   const handleAllAmericansSave = async (data) => {
     const year = displayYear
+
+    // Process All-Americans for player matching
+    if (data.allAmericans && data.allAmericans.length > 0) {
+      const aaEntries = data.allAmericans.map(entry => ({
+        ...entry,
+        name: entry.player,
+        honorCategory: 'allAmericans'
+      }))
+
+      await processHonorPlayers(
+        currentDynasty.id,
+        'allAmericans',
+        aaEntries,
+        year,
+        []
+      )
+    }
+
+    // Process All-Conference for player matching
+    if (data.allConference && data.allConference.length > 0) {
+      const acEntries = data.allConference.map(entry => ({
+        ...entry,
+        name: entry.player,
+        honorCategory: 'allConference'
+      }))
+
+      await processHonorPlayers(
+        currentDynasty.id,
+        'allConference',
+        acEntries,
+        year,
+        []
+      )
+    }
+
+    // Save the raw data to allAmericansByYear
     const existingByYear = currentDynasty.allAmericansByYear || {}
     const existingYearData = existingByYear[year] || {}
     await updateDynasty(currentDynasty.id, {
@@ -226,22 +259,6 @@ export default function AllAmericans() {
         }
       }
     })
-  }
-
-  // No data yet
-  if (availableYears.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <h1 className="text-2xl font-bold mb-4 text-white">
-            All-Americans
-          </h1>
-          <p className="text-lg text-gray-400">
-            No All-American selections recorded yet. Complete a season and enter All-American data to see them here.
-          </p>
-        </div>
-      </div>
-    )
   }
 
   // Filter all-americans

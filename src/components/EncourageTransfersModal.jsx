@@ -519,6 +519,7 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

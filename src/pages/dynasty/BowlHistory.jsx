@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
+import { useTeamColors } from '../../hooks/useTeamColors'
 import { bowlLogos, getAllBowlNames } from '../../data/bowlLogos'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
+import { getContrastTextColor } from '../../utils/colorUtils'
+import BowlHistoryEditModal from '../../components/BowlHistoryEditModal'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr) => {
@@ -91,12 +94,16 @@ const getMascotName = (abbr) => {
 
 export default function BowlHistory() {
   const { id } = useParams()
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const teamColors = useTeamColors(currentDynasty?.teamName)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedBowl, setExpandedBowl] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   if (!currentDynasty) return null
+
+  const primaryText = getContrastTextColor(teamColors?.primary || '#1f2937')
 
   // Get all bowl names sorted alphabetically
   const allBowls = getAllBowlNames()
@@ -330,10 +337,22 @@ export default function BowlHistory() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-lg shadow-lg p-6 bg-gray-800 border-2 border-gray-600">
+      <div className="rounded-lg shadow-lg p-6 bg-gray-800 border-2 border-gray-600 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">
           Bowl History
         </h1>
+        {!isViewOnly && (
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center gap-2"
+            style={{ backgroundColor: teamColors.primary, color: primaryText }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -562,6 +581,13 @@ export default function BowlHistory() {
           </p>
         </div>
       )}
+
+      {/* Edit Modal */}
+      <BowlHistoryEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        teamColors={teamColors}
+      />
     </div>
   )
 }

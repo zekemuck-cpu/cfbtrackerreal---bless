@@ -562,6 +562,7 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>

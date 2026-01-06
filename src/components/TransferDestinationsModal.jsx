@@ -500,6 +500,7 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
       <AuthErrorModal
         isOpen={showAuthError}
         onClose={() => setShowAuthError(false)}
+        onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
     </div>
