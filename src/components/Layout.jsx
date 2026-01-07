@@ -296,9 +296,10 @@ export default function Layout({ children }) {
           borderBottom: useTeamTheme ? `3px solid ${teamColors.secondary}` : '3px solid #374151'
         }}
       >
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between py-3 gap-4">
-            <div className="flex items-center gap-3">
+        <div className="w-full px-2 sm:px-4">
+          <div className="flex items-center justify-between py-3">
+            {/* Left: Burger menu - hugging left edge */}
+            <div className="flex items-center w-10 sm:w-12 flex-shrink-0">
               {useTeamTheme && (
                 <button
                   onClick={() => window.toggleDynastySidebar?.()}
@@ -311,77 +312,65 @@ export default function Layout({ children }) {
                   </svg>
                 </button>
               )}
+            </div>
 
-              <Link to="/">
-                <img src={logo} alt="Dynasty Tracker" className="h-10 sm:h-12 object-contain" />
+            {/* Center: Logo + Team info - centered */}
+            <div className="flex-1 flex items-center justify-center gap-2 sm:gap-3 min-w-0">
+              <Link to="/" className="flex-shrink-0">
+                <img src={logo} alt="Dynasty Tracker" className="h-8 sm:h-10 object-contain" />
               </Link>
+
+              {useTeamTheme && (
+                <>
+                  {/* Separator */}
+                  <span className="text-sm" style={{ color: headerText, opacity: 0.3 }}>|</span>
+
+                  {/* Team Logo */}
+                  {getTeamLogo(currentDynasty.teamName) && (
+                    <div
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        border: `2px solid ${teamColors.secondary}`,
+                        padding: '2px'
+                      }}
+                    >
+                      <img
+                        src={getTeamLogo(currentDynasty.teamName)}
+                        alt={`${currentDynasty.teamName} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+
+                  {/* Year and Phase */}
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-semibold text-xs sm:text-sm" style={{ color: headerText }}>
+                      {currentDynasty.currentYear}
+                    </span>
+                    <span className="text-xs" style={{ color: headerText, opacity: 0.5 }}>•</span>
+                    <span className="font-medium text-xs sm:text-sm truncate" style={{ color: headerText }}>
+                      <span className="sm:hidden">
+                        {currentDynasty.currentPhase === 'conference_championship' ? 'CC' :
+                         currentDynasty.currentPhase === 'regular_season' ? `Wk ${currentDynasty.currentWeek}` :
+                         currentDynasty.currentPhase === 'postseason' ? (currentDynasty.currentWeek === 5 ? 'Recap' : (currentDynasty.currentWeek === 4 ? 'Champ' : `Bowl ${currentDynasty.currentWeek}`)) :
+                         currentDynasty.currentPhase === 'preseason' ? `Pre ${currentDynasty.currentWeek}` :
+                         currentDynasty.currentPhase === 'offseason' ? (currentDynasty.currentWeek === 1 ? 'Leaving' : `Off ${currentDynasty.currentWeek}`) : ''}
+                      </span>
+                      <span className="hidden sm:inline">
+                        {getPhaseDisplay(currentDynasty.currentPhase, currentDynasty.currentWeek)}
+                        {currentDynasty.currentPhase !== 'postseason' && currentDynasty.currentPhase !== 'offseason' && currentDynasty.currentPhase !== 'conference_championship' && ` Wk ${currentDynasty.currentWeek}`}
+                      </span>
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {useTeamTheme ? (
               <>
-                <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 flex-1 justify-center min-w-0">
-                  {/* Team Logo and Name */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0">
-                    {getTeamLogo(currentDynasty.teamName) && (
-                      <div
-                        className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{
-                          backgroundColor: '#FFFFFF',
-                          border: `2px solid ${teamColors.secondary}`,
-                          padding: '2px'
-                        }}
-                      >
-                        <img
-                          src={getTeamLogo(currentDynasty.teamName)}
-                          alt={`${currentDynasty.teamName} logo`}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                    )}
-                    <span className="font-bold text-lg hidden xl:inline" style={{ color: headerText }}>
-                      {currentDynasty.teamName}
-                    </span>
-                  </div>
-
-                  {/* Separator - only show when team name is visible */}
-                  <span className="hidden xl:inline" style={{ color: headerText, opacity: 0.5 }}>•</span>
-
-                  {/* Year */}
-                  <div className="flex items-center">
-                    <span className="font-semibold text-xs sm:text-sm md:text-base" style={{ color: headerText }}>
-                      {currentDynasty.currentYear}
-                    </span>
-                  </div>
-
-                  {/* Separator */}
-                  <span className="text-xs sm:text-sm" style={{ color: headerText, opacity: 0.5 }}>•</span>
-
-                  {/* Phase and Week - abbreviated on mobile */}
-                  <div className="flex items-center gap-1 md:gap-2 min-w-0">
-                    <span className="font-medium text-xs sm:text-sm md:text-base truncate" style={{ color: headerText }}>
-                      <span className="sm:hidden">
-                        {currentDynasty.currentPhase === 'conference_championship' ? 'CC' :
-                         currentDynasty.currentPhase === 'regular_season' ? 'Wk' :
-                         currentDynasty.currentPhase === 'postseason' ? (currentDynasty.currentWeek === 5 ? 'Recap' : (currentDynasty.currentWeek === 4 ? 'Champ' : 'Bowl')) :
-                         currentDynasty.currentPhase === 'preseason' ? 'Pre' :
-                         currentDynasty.currentPhase === 'offseason' ? (currentDynasty.currentWeek === 1 ? 'Leaving' : `Rec ${currentDynasty.currentWeek - 1}`) : ''}
-                        {currentDynasty.currentPhase !== 'conference_championship' && currentDynasty.currentPhase !== 'postseason' && currentDynasty.currentPhase !== 'offseason' && ` ${currentDynasty.currentWeek}`}
-                        {currentDynasty.currentPhase === 'postseason' && currentDynasty.currentWeek < 4 && ` ${currentDynasty.currentWeek}`}
-                      </span>
-                      <span className="hidden sm:inline">
-                        {getPhaseDisplay(currentDynasty.currentPhase, currentDynasty.currentWeek)}
-                      </span>
-                    </span>
-                    {currentDynasty.currentPhase !== 'postseason' && currentDynasty.currentPhase !== 'offseason' && currentDynasty.currentPhase !== 'conference_championship' && (
-                      <span className="text-xs md:text-sm hidden sm:inline" style={{ color: headerText, opacity: 0.8 }}>
-                        Week {currentDynasty.currentWeek}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Home and Advance Week Buttons - right side */}
-                <div className="relative flex items-center gap-2">
+                {/* Right: Home and Advance Week Buttons - hugging right edge */}
+                <div className="relative flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   {/* Home Button */}
                   <Link
                     to={`/dynasty/${currentDynasty.id}`}
