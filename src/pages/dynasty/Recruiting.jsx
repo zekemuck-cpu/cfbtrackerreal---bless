@@ -565,8 +565,28 @@ export default function Recruiting() {
       })
     }
 
+    // Deduplicate commitments - if multiple commitment records resolve to the same player, keep only one
+    // This handles cases like "Reheem Ismail" and "Raheem Ismail" both matching the same player
+    const seenPids = new Set()
+    const seenNames = new Set()
+    const dedupedCommitments = commitments.filter(c => {
+      // If we have a pid, use that for deduplication
+      if (c.pid) {
+        if (seenPids.has(c.pid)) return false
+        seenPids.add(c.pid)
+        return true
+      }
+      // Otherwise use normalized name
+      const normalizedName = c.name?.toLowerCase().trim()
+      if (normalizedName) {
+        if (seenNames.has(normalizedName)) return false
+        seenNames.add(normalizedName)
+      }
+      return true
+    })
+
     // Sort by national rank first, then by stars, then by year
-    return commitments.sort((a, b) => {
+    return dedupedCommitments.sort((a, b) => {
       // Primary sort: national rank (lower rank = better)
       const rankA = Number(a.nationalRank) || 9999
       const rankB = Number(b.nationalRank) || 9999
