@@ -298,19 +298,35 @@ export default function Layout({ children }) {
       >
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3">
-            {/* Left: Burger menu - hugging left edge */}
-            <div className="flex items-center w-10 sm:w-12 flex-shrink-0">
+            {/* Left: Burger menu + Home button */}
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {useTeamTheme && (
-                <button
-                  onClick={() => window.toggleDynastySidebar?.()}
-                  className="lg:hidden p-2 rounded-lg hover:opacity-70 transition-opacity"
-                  style={{ color: headerText }}
-                  aria-label="Toggle sidebar"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
+                <>
+                  <button
+                    onClick={() => window.toggleDynastySidebar?.()}
+                    className="lg:hidden p-2 rounded-lg hover:opacity-70 transition-opacity"
+                    style={{ color: headerText }}
+                    aria-label="Toggle sidebar"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  {/* Home Button */}
+                  <Link
+                    to={`/dynasty/${currentDynasty.id}`}
+                    className="p-1.5 md:p-2 rounded-lg font-semibold hover:opacity-90 transition-colors shadow-sm"
+                    style={{
+                      backgroundColor: buttonBg,
+                      color: buttonText
+                    }}
+                    title="Dashboard"
+                  >
+                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                  </Link>
+                </>
               )}
             </div>
 
@@ -369,23 +385,8 @@ export default function Layout({ children }) {
 
             {useTeamTheme ? (
               <>
-                {/* Right: Home and Advance Week Buttons - hugging right edge */}
+                {/* Right: Advance Week Button - hugging right edge */}
                 <div className="relative flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                  {/* Home Button */}
-                  <Link
-                    to={`/dynasty/${currentDynasty.id}`}
-                    className="p-1.5 md:p-2 rounded-lg font-semibold hover:opacity-90 transition-colors shadow-sm"
-                    style={{
-                      backgroundColor: buttonBg,
-                      color: buttonText
-                    }}
-                    title="Dashboard"
-                  >
-                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                  </Link>
-
                   {/* Advance Week Button with Dropdown */}
                   <div className="flex">
                     <button
