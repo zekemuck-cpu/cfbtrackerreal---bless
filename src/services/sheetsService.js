@@ -11905,7 +11905,8 @@ export async function createFringeCaseClassSheet(dynastyName, year, fringeCasePl
       accessToken,
       sheetId,
       sortedPlayers,
-      totalRows
+      totalRows,
+      year
     )
 
     // Share sheet publicly so it can be embedded in iframe
@@ -11942,7 +11943,7 @@ function getFringeCaseClassOptions(currentClass) {
 }
 
 // Initialize the Fringe Case Class sheet with headers, validation, and pre-filled data
-async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetId, players, totalRows) {
+async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetId, players, totalRows, year) {
   // Build pre-filled rows for players
   // Support both 'year'/'currentClass' and 'gamesPlayed'/'gameCount' field names for flexibility
   const dataRows = players.map(player => {

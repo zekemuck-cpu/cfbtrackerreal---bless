@@ -702,8 +702,11 @@ export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
   const playerNameNormalized = normalizePlayerName(playerName)
 
   // Get all games for this year that have box scores
+  // NOTE: Don't filter by userTeam - we want stats from ALL games where the player appeared
+  // This handles cases where the coach has moved to a new team but we're viewing old player stats
+  // The player's appearance in the box score is what matters, not userTeam
   const gamesWithBoxScores = (games || []).filter(g =>
-    Number(g.year) === yearNum && g.boxScore && g.userTeam === userTeam
+    Number(g.year) === yearNum && g.boxScore
   )
 
   if (gamesWithBoxScores.length === 0) return null

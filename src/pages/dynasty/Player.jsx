@@ -899,7 +899,7 @@ export default function Player() {
                   style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
                 >
                   {reason === 'Pro Draft' && draftRound
-                    ? `${year} NFL Draft - ${draftRound}`
+                    ? `${year} NFL Draft - Round ${draftRound}`
                     : reason === 'Pro Draft'
                     ? `${year} NFL Draft`
                     : reason === 'Graduating'
@@ -1078,7 +1078,7 @@ export default function Player() {
                       style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
                     >
                       {reason === 'Pro Draft' && draftRound
-                        ? `${year} NFL Draft - ${draftRound}`
+                        ? `${year} NFL Draft - Round ${draftRound}`
                         : reason === 'Pro Draft'
                         ? `${year} NFL Draft`
                         : reason === 'Graduating'

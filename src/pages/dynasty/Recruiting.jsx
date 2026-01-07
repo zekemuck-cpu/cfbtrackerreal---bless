@@ -297,17 +297,105 @@ export default function Recruiting() {
   if (!currentDynasty) return null
 
   // Build a lookup map of players by normalized name for quick access
+  // Also build a fuzzy lookup that can match partial names
   const playersByName = useMemo(() => {
     const map = {}
-    ;(currentDynasty.players || []).forEach(p => {
+    const players = currentDynasty.players || []
+    players.forEach(p => {
       if (p.name) {
         const normalizedName = p.name.toLowerCase().trim()
         // Store the most recent version (later entries override earlier)
         map[normalizedName] = p
       }
     })
+
+    // Helper to check if a player was on a specific team at a specific year
+    const wasPlayerOnTeam = (player, team, year) => {
+      if (!player || !team) return false
+      // Check teamsByYear for the enrollment year
+      if (year && player.teamsByYear?.[year] === team) return true
+      // Check if player was ever on this team
+      if (player.teamsByYear && Object.values(player.teamsByYear).includes(team)) return true
+      // Fallback to current team
+      return player.team === team
+    }
+
+    // Helper to find player with team context and fallback matching
+    // recruitYear is the commitment year, enrollmentYear = recruitYear + 1
+    map._findPlayer = (name, recruitYear) => {
+      if (!name) return null
+      const normalizedName = name.toLowerCase().trim()
+      const enrollmentYear = recruitYear ? recruitYear + 1 : null
+
+      // Helper to match name (exact or fuzzy)
+      const nameMatches = (playerName) => {
+        if (!playerName) return false
+        const pName = playerName.toLowerCase().trim()
+        // Exact match
+        if (pName === normalizedName) return true
+        // Contains match
+        if (pName.includes(normalizedName) || normalizedName.includes(pName)) return true
+        return false
+      }
+
+      // First: Try to find player with exact name who was on THIS team at enrollment year
+      const exactTeamMatch = players.find(p => {
+        if (!nameMatches(p.name)) return false
+        return wasPlayerOnTeam(p, teamAbbr, enrollmentYear)
+      })
+      if (exactTeamMatch) return exactTeamMatch
+
+      // Second: Try simple exact name match from map
+      if (map[normalizedName]) {
+        // If this player was ever on the team we're viewing, use them
+        if (wasPlayerOnTeam(map[normalizedName], teamAbbr, enrollmentYear)) {
+          return map[normalizedName]
+        }
+      }
+
+      // Third: Fuzzy match with team context - prefer players who were on this team
+      const fuzzyTeamMatch = players.find(p => {
+        const pName = p.name?.toLowerCase().trim()
+        if (!pName) return false
+        if (!(pName.includes(normalizedName) || normalizedName.includes(pName))) return false
+        return wasPlayerOnTeam(p, teamAbbr, enrollmentYear)
+      })
+      if (fuzzyTeamMatch) return fuzzyTeamMatch
+
+      // Fourth: First/last name match with team context
+      const nameParts = normalizedName.split(' ')
+      if (nameParts.length >= 2) {
+        const suffixes = ['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']
+        let lastNameIdx = nameParts.length - 1
+        while (lastNameIdx > 0 && suffixes.includes(nameParts[lastNameIdx])) {
+          lastNameIdx--
+        }
+        const lastName = nameParts[lastNameIdx]
+        const firstName = nameParts[0]
+
+        const lastNameTeamMatch = players.find(p => {
+          const pName = p.name?.toLowerCase().trim()
+          if (!pName) return false
+          const pParts = pName.split(' ')
+          if (pParts.length < 2) return false
+          let pLastIdx = pParts.length - 1
+          while (pLastIdx > 0 && suffixes.includes(pParts[pLastIdx])) {
+            pLastIdx--
+          }
+          if (!(pParts[0] === firstName && pParts[pLastIdx] === lastName)) return false
+          return wasPlayerOnTeam(p, teamAbbr, enrollmentYear)
+        })
+        if (lastNameTeamMatch) return lastNameTeamMatch
+      }
+
+      // Fifth: Fallback to any name match (for edge cases)
+      if (map[normalizedName]) return map[normalizedName]
+
+      return null
+    }
+
     return map
-  }, [currentDynasty.players])
+  }, [currentDynasty.players, teamAbbr])
 
   // Get all commitments for selected year - TEAM-CENTRIC
   // If 'all' is selected, combine all years' data
@@ -335,8 +423,8 @@ export default function Recruiting() {
           if (Array.isArray(weekCommitments)) {
             weekCommitments.forEach(commit => {
               // Find matching player in players array to get latest data
-              const normalizedName = commit.name?.toLowerCase().trim()
-              const currentPlayer = normalizedName ? playersByName[normalizedName] : null
+              // Pass recruitYear for team context matching
+              const currentPlayer = playersByName._findPlayer(commit.name, Number(year))
 
               // Merge: use current player data, but keep commitment-specific fields
               // Wrap with ensurePortalStatus to detect portal by class if previousTeam not set
@@ -381,8 +469,8 @@ export default function Recruiting() {
         if (Array.isArray(weekCommitments)) {
           weekCommitments.forEach(commit => {
             // Find matching player in players array to get latest data
-            const normalizedName = commit.name?.toLowerCase().trim()
-            const currentPlayer = normalizedName ? playersByName[normalizedName] : null
+            // Pass recruitYear for team context matching
+            const currentPlayer = playersByName._findPlayer(commit.name, selectedYear)
 
             // Merge: use current player data, but keep commitment-specific fields
             // Wrap with ensurePortalStatus to detect portal by class if previousTeam not set
@@ -472,15 +560,25 @@ export default function Recruiting() {
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
 
-  // Get player by name to link to player page - filter by team
-  const findPlayerByName = (name) => {
+  // Get player by name to link to player page - check if they were ever on this team
+  const findPlayerByName = (name, recruitYear) => {
     if (!name) return null
-    // Find player by name and team - don't require isRecruit since recruits
-    // become active players when the season advances
-    return currentDynasty.players?.find(p =>
-      p.name?.toLowerCase().trim() === name.toLowerCase().trim() &&
-      p.team === teamAbbr
-    )
+    // Find player by name - check if they were on this team at any point
+    // Use teamsByYear to handle players who have since transferred/left
+    // The enrollment year is recruitYear + 1 (they commit in one year, start the next)
+    const enrollmentYear = recruitYear ? recruitYear + 1 : null
+    return currentDynasty.players?.find(p => {
+      if (p.name?.toLowerCase().trim() !== name.toLowerCase().trim()) return false
+      // Check if player was ever on this team via teamsByYear
+      if (p.teamsByYear) {
+        // If we know the enrollment year, check that specific year
+        if (enrollmentYear && p.teamsByYear[enrollmentYear] === teamAbbr) return true
+        // Otherwise check if they were ever on this team
+        if (Object.values(p.teamsByYear).includes(teamAbbr)) return true
+      }
+      // Fallback to current team (for legacy data)
+      return p.team === teamAbbr
+    })
   }
 
   return (
@@ -727,7 +825,7 @@ export default function Recruiting() {
         {allCommitments.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCommitments.map((recruit, index) => {
-              const player = findPlayerByName(recruit.name)
+              const player = findPlayerByName(recruit.name, recruit.recruitYear)
               const transferTeamFullName = recruit.previousTeam ? (teamAbbreviations[recruit.previousTeam]?.name || recruit.previousTeam) : null
               const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName) : null
               const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName) : null

@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
+import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, updateDynasty, isViewOnly } = useDynasty()
   const { id: dynastyId } = useParams()
   const teamColors = useTeamColors(currentDynasty?.teamName)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -14,6 +15,7 @@ export default function DangerZone() {
   // Status states for each action
   const [rosterCleanupStatus, setRosterCleanupStatus] = useState(null)
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
+  const [recruitingSyncStatus, setRecruitingSyncStatus] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -27,8 +29,8 @@ export default function DangerZone() {
     return (
       <div className="p-6">
         <div className="rounded-lg p-6 text-center" style={{ backgroundColor: teamColors.secondary }}>
-          <h2 className="text-xl font-bold mb-2" style={{ color: secondaryBgText }}>Admin Tools</h2>
-          <p style={{ color: secondaryBgText, opacity: 0.7 }}>Admin tools are not available in view-only mode.</p>
+          <h2 className="text-xl font-bold mb-2" style={{ color: secondaryBgText }}>Danger Zone</h2>
+          <p style={{ color: secondaryBgText, opacity: 0.7 }}>Danger Zone is not available in view-only mode.</p>
         </div>
       </div>
     )
@@ -62,6 +64,120 @@ export default function DangerZone() {
       setClearCacheStatus({ success: true, message: `Cleared ${keysToRemove.length} cached items` })
     } catch (error) {
       setClearCacheStatus({ success: false, message: 'Failed to clear cache: ' + error.message })
+    }
+  }
+
+  // Handle sync recruiting data from player records
+  const handleSyncRecruitingData = async () => {
+    setRecruitingSyncStatus('running')
+    try {
+      const players = currentDynasty.players || []
+      const existingCommitments = currentDynasty.recruitingCommitmentsByTeamYear || {}
+      let updatedCount = 0
+      let addedCount = 0
+
+      // Build updated commitments from player data
+      const updatedCommitments = { ...existingCommitments }
+
+      // Go through all players with recruitment info
+      players.forEach(player => {
+        if (!player.recruitYear || !player.name) return
+
+        const recruitYear = Number(player.recruitYear)
+        // Get the team they were recruited to from teamsByYear
+        const enrollmentYear = recruitYear + 1
+        const recruitedTeam = player.teamsByYear?.[enrollmentYear] || player.team
+        if (!recruitedTeam) return
+
+        // Initialize team/year structure if needed
+        if (!updatedCommitments[recruitedTeam]) {
+          updatedCommitments[recruitedTeam] = {}
+        }
+        if (!updatedCommitments[recruitedTeam][recruitYear]) {
+          updatedCommitments[recruitedTeam][recruitYear] = {}
+        }
+
+        // Find existing commitment for this player
+        let foundExisting = false
+        let commitmentKey = null
+
+        Object.entries(updatedCommitments[recruitedTeam][recruitYear]).forEach(([key, weekCommitments]) => {
+          if (Array.isArray(weekCommitments)) {
+            const idx = weekCommitments.findIndex(c =>
+              c.name?.toLowerCase().trim() === player.name.toLowerCase().trim()
+            )
+            if (idx !== -1) {
+              foundExisting = true
+              commitmentKey = key
+              // Update the commitment with player data
+              // For portal transfers, use player.year as class (not 'HS')
+              const isPortalPlayer = player.isPortal || !!player.previousTeam
+              weekCommitments[idx] = {
+                ...weekCommitments[idx],
+                name: player.name,
+                position: player.position,
+                class: isPortalPlayer ? player.year : (weekCommitments[idx].class || 'HS'),
+                devTrait: player.devTrait,
+                archetype: player.archetype,
+                height: player.height,
+                weight: player.weight,
+                hometown: player.hometown,
+                state: player.state,
+                stars: player.stars,
+                nationalRank: player.nationalRank,
+                stateRank: player.stateRank,
+                positionRank: player.positionRank,
+                gemBust: player.gemBust,
+                previousTeam: player.previousTeam,
+                isPortal: player.isPortal || !!player.previousTeam,
+                pid: player.pid
+              }
+              updatedCount++
+            }
+          }
+        })
+
+        // If no existing commitment found but player has recruitment data, add to 'synced' week
+        const isPortalPlayer = player.isPortal || !!player.previousTeam
+        if (!foundExisting && (player.stars || player.nationalRank || isPortalPlayer)) {
+          if (!updatedCommitments[recruitedTeam][recruitYear]['synced']) {
+            updatedCommitments[recruitedTeam][recruitYear]['synced'] = []
+          }
+          updatedCommitments[recruitedTeam][recruitYear]['synced'].push({
+            name: player.name,
+            position: player.position,
+            class: isPortalPlayer ? player.year : 'HS',
+            devTrait: player.devTrait,
+            archetype: player.archetype,
+            height: player.height,
+            weight: player.weight,
+            hometown: player.hometown,
+            state: player.state,
+            stars: player.stars,
+            nationalRank: player.nationalRank,
+            stateRank: player.stateRank,
+            positionRank: player.positionRank,
+            gemBust: player.gemBust,
+            previousTeam: player.previousTeam,
+            isPortal: player.isPortal || !!player.previousTeam,
+            pid: player.pid
+          })
+          addedCount++
+        }
+      })
+
+      // Save updated commitments
+      await updateDynasty(currentDynasty.id, {
+        recruitingCommitmentsByTeamYear: updatedCommitments
+      })
+
+      setRecruitingSyncStatus({
+        success: true,
+        message: `Updated ${updatedCount} commitments, added ${addedCount} missing`
+      })
+    } catch (error) {
+      console.error('Recruiting sync failed:', error)
+      setRecruitingSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
     }
   }
 
@@ -137,11 +253,27 @@ export default function DangerZone() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-bold" style={{ color: primaryBgText }}>
-              Admin Tools
+              Danger Zone
             </h1>
             <p className="text-sm" style={{ color: primaryBgText, opacity: 0.8 }}>
               Data repair and maintenance utilities
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Warning Banner */}
+      <div
+        className="rounded-lg p-4"
+        style={{ backgroundColor: '#fef3c7', border: '2px solid #f59e0b' }}
+      >
+        <div className="flex gap-3">
+          <svg className="w-6 h-6 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div className="text-amber-800">
+            <p className="font-bold">Be careful!</p>
+            <p className="text-sm mt-1">Always back up your dynasty locally using the <strong>Download Backup</strong> button in the sidebar before doing anything here.</p>
           </div>
         </div>
       </div>
@@ -165,6 +297,14 @@ export default function DangerZone() {
             buttonText="Fix Roster"
             onClick={handleRosterCleanup}
             status={rosterCleanupStatus}
+          />
+
+          <ActionCard
+            title="Sync Recruiting Data"
+            description="Updates recruiting class data from player records. Fixes missing info on recruiting pages when player data exists but commitment data is incomplete."
+            buttonText="Sync Recruiting"
+            onClick={handleSyncRecruitingData}
+            status={recruitingSyncStatus}
           />
         </div>
       </div>
@@ -206,6 +346,7 @@ export default function DangerZone() {
             <p className="font-medium mb-1">When to use these tools:</p>
             <ul className="list-disc list-inside space-y-1 opacity-90">
               <li><strong>Fix Roster:</strong> If departed players still appear on your roster, or recruits aren't showing up</li>
+              <li><strong>Sync Recruiting:</strong> If recruiting class pages show missing data for players who have full info on their player page</li>
               <li><strong>Clear Cache:</strong> If you're experiencing Google Sheets errors or stale data</li>
             </ul>
           </div>

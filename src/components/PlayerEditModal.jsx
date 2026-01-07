@@ -1508,6 +1508,127 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                         >
                           + Add Season
                         </button>
+
+                        {/* Departure Section - appears after last season */}
+                        {(() => {
+                          const maxYear = Math.max(...years)
+                          const lastTeam = teamsByYear[String(maxYear)] || formData.team || ''
+                          const departureMovements = (formData.movements || []).filter(m => m.type === 'departure')
+                          const departureReasons = ['Graduating', 'Pro Draft', 'Transfer', 'Cut']
+
+                          return (
+                            <div className="mt-4 pt-4 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: secondaryText, opacity: 0.6 }}>
+                                  Departure
+                                </span>
+                              </div>
+
+                              {/* Existing departure movements */}
+                              {departureMovements.map((movement, idx) => (
+                                <div key={movement.timestamp || idx} className="flex items-center gap-2 mb-2">
+                                  <div
+                                    className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                                    style={{ backgroundColor: '#6b7280', color: 'white' }}
+                                  >
+                                    ↓
+                                  </div>
+                                  <select
+                                    value={movement.reason || ''}
+                                    onChange={(e) => {
+                                      const newReason = e.target.value
+                                      setFormData(prev => {
+                                        const newMovements = [...(prev.movements || [])]
+                                        const mIdx = newMovements.findIndex(m => m.timestamp === movement.timestamp || (m.type === 'departure' && m.year === movement.year))
+                                        if (mIdx !== -1) {
+                                          newMovements[mIdx] = { ...newMovements[mIdx], reason: newReason }
+                                          // Clear draft round if not Pro Draft
+                                          if (newReason !== 'Pro Draft') {
+                                            delete newMovements[mIdx].extra
+                                          }
+                                        }
+                                        return { ...prev, movements: newMovements }
+                                      })
+                                    }}
+                                    className="px-2 py-1 rounded border text-xs bg-white flex-1"
+                                    style={{ borderColor: '#6b7280' }}
+                                  >
+                                    <option value="">Select reason...</option>
+                                    {departureReasons.map(reason => (
+                                      <option key={reason} value={reason}>{reason}</option>
+                                    ))}
+                                  </select>
+                                  {/* Draft round - only for Pro Draft */}
+                                  {movement.reason === 'Pro Draft' && (
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max="7"
+                                      placeholder="Rd"
+                                      value={movement.extra?.draftRound || ''}
+                                      onChange={(e) => {
+                                        const draftRound = e.target.value ? parseInt(e.target.value) : null
+                                        setFormData(prev => {
+                                          const newMovements = [...(prev.movements || [])]
+                                          const mIdx = newMovements.findIndex(m => m.timestamp === movement.timestamp || (m.type === 'departure' && m.year === movement.year))
+                                          if (mIdx !== -1) {
+                                            newMovements[mIdx] = {
+                                              ...newMovements[mIdx],
+                                              extra: draftRound ? { draftRound } : undefined
+                                            }
+                                          }
+                                          return { ...prev, movements: newMovements }
+                                        })
+                                      }}
+                                      className="w-14 px-2 py-1 rounded border text-xs bg-white text-center"
+                                      style={{ borderColor: '#6b7280' }}
+                                    />
+                                  )}
+                                  <span className="text-xs text-gray-400">{movement.year}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        movements: (prev.movements || []).filter(m =>
+                                          !(m.type === 'departure' && (m.timestamp === movement.timestamp || m.year === movement.year))
+                                        )
+                                      }))
+                                    }}
+                                    className="text-gray-400 hover:text-red-500 p-0.5"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+
+                              {/* Add departure button - only show if no departure exists */}
+                              {departureMovements.length === 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newMovement = {
+                                      year: maxYear,
+                                      type: 'departure',
+                                      from: lastTeam,
+                                      to: null,
+                                      reason: '',
+                                      timestamp: Date.now()
+                                    }
+                                    setFormData(prev => ({ ...prev, movements: [...(prev.movements || []), newMovement] }))
+                                  }}
+                                  className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-dashed hover:border-solid transition-colors"
+                                  style={{ borderColor: '#6b728040', color: '#6b7280' }}
+                                >
+                                  <span>+</span>
+                                  <span>Add departure</span>
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })()}
