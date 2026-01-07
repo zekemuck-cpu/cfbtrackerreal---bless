@@ -6108,9 +6108,13 @@ export default function Dashboard() {
                         const playerTeamThisYear = player.teamsByYear?.[year] || player.team
                         if (playerTeamThisYear !== teamAbbr) return false
 
+                        // Use classByYear to get the PRE-progression class (what they were during the season)
+                        // On Signing Day, player.year is POST-progression, so we need the previous class
+                        const preProgressionClass = player.classByYear?.[year] || player.year
+
                         // ONLY non-redshirt underclassmen (Fr, So, Jr) - NOT RS classes or seniors
                         const validClasses = ['Fr', 'So', 'Jr']
-                        if (!validClasses.includes(player.year)) return false
+                        if (!validClasses.includes(preProgressionClass)) return false
 
                         // Get games from player.statsByYear (the correct source)
                         const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
@@ -6119,10 +6123,12 @@ export default function Dashboard() {
                         return gamesPlayed >= 5 && gamesPlayed <= 9
                       }).map(player => {
                         const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
+                        // Use classByYear to get the PRE-progression class
+                        const preProgressionClass = player.classByYear?.[year] || player.year
                         return {
                           name: player.name,
                           position: player.position,
-                          currentClass: player.year,
+                          currentClass: preProgressionClass,
                           gameCount: gamesPlayed
                         }
                       })
@@ -6237,34 +6243,39 @@ export default function Dashboard() {
               }
 
               // Calculate which players should be in training results:
-              // - Current roster players who are NOT in playersLeavingByYear
-              // - PLUS any portal transfers from recruiting commitments
+              // - Returning players who were on the roster LAST year and are continuing
+              // - PLUS portal transfers who joined this offseason (they need training results too)
+              // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
               const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
-              // Get returning players (not leaving) - use teamRoster which filters by team and excludes recruits
-              const returningPlayers = teamRoster.filter(p => !leavingPids.has(p.pid))
+              const allPlayers = currentDynasty?.players || []
+              const currentYear = currentDynasty.currentYear
 
-              // Get portal transfers from recruiting commitments (from the old year's recruiting)
-              const recruitingCommitments = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
-              const portalTransfers = []
-              Object.values(recruitingCommitments).forEach(weekCommitments => {
-                if (Array.isArray(weekCommitments)) {
-                  weekCommitments.forEach(c => {
-                    if (c.isPortal) {
-                      portalTransfers.push({
-                        name: c.name,
-                        position: c.position,
-                        overall: c.overall || 0,
-                        pid: c.pid || `portal-${c.name}` // Use pid if available
-                      })
-                    }
-                  })
-                }
+              // Get RETURNING players (was on team last year, still on team this year)
+              const returningPlayers = allPlayers.filter(p => {
+                if (leavingPids.has(p.pid)) return false
+                if (p.isRecruit) return false
+                if (p.isHonorOnly) return false
+                const wasOnTeamLastYear = p.teamsByYear?.[offseasonDataYear] === teamAbbr
+                const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+                return wasOnTeamLastYear && isOnTeamThisYear
               })
 
-              // Combine returning players and portal transfers
+              // Get PORTAL TRANSFERS who joined this offseason (need training results too)
+              const portalTransfers = allPlayers.filter(p => {
+                if (leavingPids.has(p.pid)) return false
+                if (p.isHonorOnly) return false
+                // Portal transfer = has previousTeam or isPortal flag, recruited this cycle
+                const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
+                if (!isPortalTransfer) return false
+                // Must be on the team this year
+                const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+                return isOnTeamThisYear
+              })
+
+              // Combine returning players and portal transfers for training results
               const trainingPlayers = [...returningPlayers, ...portalTransfers]
 
               // Training results are stored under the NEW year (the upcoming season)
@@ -6273,7 +6284,6 @@ export default function Dashboard() {
 
               // Get recruits for Recruiting Class Overalls task
               // These are HS and JUCO players from the recruiting cycle (stored under old year)
-              const allPlayers = currentDynasty?.players || []
               const recruitingClassPlayers = allPlayers.filter(p =>
                 p.isRecruit &&
                 p.recruitYear === offseasonDataYear &&
@@ -8010,35 +8020,32 @@ export default function Dashboard() {
         currentYear={currentDynasty?.currentYear}
         teamColors={teamColors}
         players={(() => {
-          // Calculate training players: returning players + portal transfers
-          // Note: playersLeaving and recruitingCommitments use offseasonDataYear (data from before year flip)
+          // Returning players + portal transfers (NOT HS/JUCO recruits)
           const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
+          const currentYear = currentDynasty?.currentYear
 
-          // Get returning players (not leaving) - use teamRoster which filters by team and excludes recruits
-          // Also exclude players with leavingYear set to offseason data year
-          const returningPlayers = teamRoster.filter(p =>
-            !leavingPids.has(p.pid) &&
-            p.leavingYear !== offseasonDataYear
-          )
+          const allPlayers = currentDynasty?.players || []
 
-          // Get portal transfers from recruiting commitments (stored under old year)
-          const recruitingCommitments = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
-          const portalTransfers = []
-          Object.values(recruitingCommitments).forEach(weekCommitments => {
-            if (Array.isArray(weekCommitments)) {
-              weekCommitments.forEach(c => {
-                if (c.isPortal) {
-                  portalTransfers.push({
-                    name: c.name,
-                    position: c.position,
-                    overall: c.overall || 0,
-                    pid: c.pid || `portal-${c.name}`
-                  })
-                }
-              })
-            }
+          // Get RETURNING players (was on team last year, still on team this year)
+          const returningPlayers = allPlayers.filter(p => {
+            if (leavingPids.has(p.pid)) return false
+            if (p.isRecruit) return false
+            if (p.isHonorOnly) return false
+            const wasOnTeamLastYear = p.teamsByYear?.[offseasonDataYear] === teamAbbr
+            const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+            return wasOnTeamLastYear && isOnTeamThisYear
+          })
+
+          // Get PORTAL TRANSFERS who joined this offseason
+          const portalTransfers = allPlayers.filter(p => {
+            if (leavingPids.has(p.pid)) return false
+            if (p.isHonorOnly) return false
+            const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
+            if (!isPortalTransfer) return false
+            const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+            return isOnTeamThisYear
           })
 
           return [...returningPlayers, ...portalTransfers]
@@ -8121,9 +8128,13 @@ export default function Dashboard() {
             const playerTeamThisYear = player.teamsByYear?.[year] || player.team
             if (playerTeamThisYear !== teamAbbr) return false
 
+            // Use classByYear to get the PRE-progression class (what they were during the season)
+            // On Signing Day, player.year is POST-progression, so we need the previous class
+            const preProgressionClass = player.classByYear?.[year] || player.year
+
             // ONLY non-redshirt underclassmen (Fr, So, Jr) - NOT RS classes or seniors
             const validClasses = ['Fr', 'So', 'Jr']
-            if (!validClasses.includes(player.year)) return false
+            if (!validClasses.includes(preProgressionClass)) return false
 
             // Get games from player.statsByYear (the correct source)
             const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
@@ -8132,10 +8143,12 @@ export default function Dashboard() {
             return gamesPlayed >= 5 && gamesPlayed <= 9
           }).map(player => {
             const gamesPlayed = player.statsByYear?.[year]?.gamesPlayed || 0
+            // Use classByYear to get the PRE-progression class
+            const preProgressionClass = player.classByYear?.[year] || player.year
             return {
               name: player.name,
               position: player.position,
-              currentClass: player.year,
+              currentClass: preProgressionClass,
               gameCount: gamesPlayed
             }
           })

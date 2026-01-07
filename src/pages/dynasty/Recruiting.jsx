@@ -320,6 +320,34 @@ export default function Recruiting() {
       return player.team === team
     }
 
+    // Simple Levenshtein distance for typo detection (handles "Reheem" vs "Raheem")
+    const levenshteinDistance = (a, b) => {
+      if (a.length === 0) return b.length
+      if (b.length === 0) return a.length
+      const matrix = []
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i]
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          matrix[i][j] = b[i-1] === a[j-1]
+            ? matrix[i-1][j-1]
+            : Math.min(matrix[i-1][j-1] + 1, matrix[i][j-1] + 1, matrix[i-1][j] + 1)
+        }
+      }
+      return matrix[b.length][a.length]
+    }
+
+    // Check if two names are similar (allows 1-2 character typos)
+    const namesAreSimilar = (name1, name2) => {
+      if (!name1 || !name2) return false
+      const n1 = name1.toLowerCase().trim()
+      const n2 = name2.toLowerCase().trim()
+      if (n1 === n2) return true
+      // For short names, allow 1 typo; for longer names, allow 2
+      const maxDist = Math.max(n1.length, n2.length) > 10 ? 2 : 1
+      return levenshteinDistance(n1, n2) <= maxDist
+    }
+
     // Helper to find player with team context and fallback matching
     // recruitYear is the commitment year, enrollmentYear = recruitYear + 1
     map._findPlayer = (name, recruitYear) => {
@@ -388,7 +416,35 @@ export default function Recruiting() {
         if (lastNameTeamMatch) return lastNameTeamMatch
       }
 
-      // Fifth: Fallback to any name match (for edge cases)
+      // Fifth: Typo-tolerant match - same last name, similar first name (handles "Reheem" vs "Raheem")
+      if (nameParts.length >= 2) {
+        const suffixes = ['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']
+        let lastNameIdx = nameParts.length - 1
+        while (lastNameIdx > 0 && suffixes.includes(nameParts[lastNameIdx])) {
+          lastNameIdx--
+        }
+        const lastName = nameParts[lastNameIdx]
+        const firstName = nameParts[0]
+
+        const typoMatch = players.find(p => {
+          const pName = p.name?.toLowerCase().trim()
+          if (!pName) return false
+          const pParts = pName.split(' ')
+          if (pParts.length < 2) return false
+          let pLastIdx = pParts.length - 1
+          while (pLastIdx > 0 && suffixes.includes(pParts[pLastIdx])) {
+            pLastIdx--
+          }
+          // Last name must match exactly
+          if (pParts[pLastIdx] !== lastName) return false
+          // First name must be similar (allow typos)
+          if (!namesAreSimilar(pParts[0], firstName)) return false
+          return wasPlayerOnTeam(p, teamAbbr, enrollmentYear)
+        })
+        if (typoMatch) return typoMatch
+      }
+
+      // Sixth: Fallback to any name match (for edge cases)
       if (map[normalizedName]) return map[normalizedName]
 
       return null
