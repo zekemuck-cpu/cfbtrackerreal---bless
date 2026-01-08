@@ -3116,9 +3116,16 @@ export function DynastyProvider({ children }) {
         if (playerTeamThisSeason && playerTeamThisSeason !== teamAbbr) return player
         if (!playerTeamThisSeason && player.team && player.team !== teamAbbr) return player
 
+        // Check if player has any FUTURE year on this team (indicates they should still be on the team)
+        const hasFutureYearOnTeam = Object.entries(player.teamsByYear || {}).some(([yearKey, team]) => {
+          const year = Number(yearKey)
+          return team === teamAbbr && year > previousSeasonYear
+        })
+
         // CRITICAL: Skip players who weren't on the team this season (they already left in a prior year)
         // This prevents departed players from being re-added to the roster
-        if (!playerTeamThisSeason && !player.isRecruit) return player
+        // Exception: if they have a future year on this team, they should be processed (data was incomplete)
+        if (!playerTeamThisSeason && !player.isRecruit && !hasFutureYearOnTeam) return player
 
         // Skip recruits (they get converted when advanceToNewSeason runs)
         if (player.isRecruit) return player
@@ -3179,8 +3186,8 @@ export function DynastyProvider({ children }) {
       // With the new system, departures and transfers are handled directly in:
       // - handlePlayersLeavingSave (adds movements, doesn't add next year to teamsByYear)
       // - handleTransferDestinationsSave (updates teamsByYear, adds movements)
-      // Nothing additional needed here - just add draft info if missing
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended
+      const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
       const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
       const players = dynasty.players || []
 
@@ -3192,17 +3199,46 @@ export function DynastyProvider({ children }) {
         if (d.pid) draftByPid[d.pid] = d
       })
 
-      // Add draft info to any pro draft players who don't have it yet
+      // Process all players: add draft info AND convert recruits to active players
+      // Recruits from this class (recruitYear === previousSeasonYear) should now be on the roster
       const updatedPlayers = players.map(player => {
+        let updated = { ...player }
+        let modified = false
+
+        // Add draft info if available
         const draftInfo = draftByPid[player.pid]
         if (draftInfo && (!player.draftRound || !player.draftPick)) {
-          return {
-            ...player,
-            draftRound: draftInfo.draftRound || player.draftRound,
-            draftPick: draftInfo.draftPick || player.draftPick
+          updated.draftRound = draftInfo.draftRound || player.draftRound
+          updated.draftPick = draftInfo.draftPick || player.draftPick
+          modified = true
+        }
+
+        // Convert recruits from this class to active players
+        // This makes them appear on roster and removes "Commitment" badge
+        if (player.isRecruit && Number(player.recruitYear) === previousSeasonYear) {
+          updated.isRecruit = false
+          modified = true
+
+          // Ensure teamsByYear has the current year (in case it's missing)
+          const hasCurrentYear = player.teamsByYear?.[currentSeasonYear] || player.teamsByYear?.[String(currentSeasonYear)]
+          if (!hasCurrentYear) {
+            updated.teamsByYear = {
+              ...(player.teamsByYear || {}),
+              [currentSeasonYear]: player.team || teamAbbr
+            }
+          }
+
+          // Ensure classByYear has the current year
+          const hasClassForCurrentYear = player.classByYear?.[currentSeasonYear] || player.classByYear?.[String(currentSeasonYear)]
+          if (!hasClassForCurrentYear && player.year) {
+            updated.classByYear = {
+              ...(player.classByYear || {}),
+              [currentSeasonYear]: player.year
+            }
           }
         }
-        return player
+
+        return modified ? updated : player
       })
 
       // Only update if there were changes
@@ -3292,10 +3328,17 @@ export function DynastyProvider({ children }) {
       if (playerTeamPrevSeason && playerTeamPrevSeason !== teamAbbr) return player
       if (!playerTeamPrevSeason && player.team && player.team !== teamAbbr) return player
 
+      // Check if player has any FUTURE year on this team (indicates they should still be on the team)
+      const hasFutureYearOnTeam = Object.entries(player.teamsByYear || {}).some(([yearKey, team]) => {
+        const year = Number(yearKey)
+        return team === teamAbbr && year > previousSeasonYear
+      })
+
       // CRITICAL: Skip players who weren't on the team last season (they already left in a prior year)
       // This prevents departed players from being re-added to the roster
       // Exception: recruits are handled separately below
-      if (!playerTeamPrevSeason && !player.isRecruit) return player
+      // Exception: if they have a future year on this team, they should be processed (data was incomplete)
+      if (!playerTeamPrevSeason && !player.isRecruit && !hasFutureYearOnTeam) return player
 
       // Skip players who already have a team for the current season (already processed or transferred)
       const existingTeamForCurrentSeason = player.teamsByYear?.[currentSeasonYear] ?? player.teamsByYear?.[String(currentSeasonYear)]
@@ -5109,12 +5152,63 @@ export function DynastyProvider({ children }) {
       }
 
       // Fix recruits - ensure they have teamsByYear for their enrollment year
+      // Also clear isRecruit if they should already be on the roster (enrollment year <= current year)
+      let updatedIsRecruit = player.isRecruit
+      let updatedClassByYear = { ...(player.classByYear || {}) }
       if (player.isRecruit && player.recruitYear) {
         const enrollmentYear = Number(player.recruitYear) + 1
+
+        // Ensure teamsByYear has enrollment year
         if (!updatedTeamsByYear[enrollmentYear] && !updatedTeamsByYear[String(enrollmentYear)]) {
           updatedTeamsByYear[enrollmentYear] = player.team || teamAbbr
           modified = true
           recruitFixedCount++
+        }
+
+        // Ensure classByYear has enrollment year
+        if (!updatedClassByYear[enrollmentYear] && !updatedClassByYear[String(enrollmentYear)] && player.year) {
+          updatedClassByYear[enrollmentYear] = player.year
+          modified = true
+        }
+
+        // Clear isRecruit if they should already be active (enrollment year has passed)
+        if (enrollmentYear <= currentYear) {
+          updatedIsRecruit = false
+          modified = true
+        }
+      }
+
+      // Fix 3: Fill gaps in teamsByYear for continuing players
+      // If player has entries for years N and N+2 on the same team but is missing N+1, fill it in
+      if (!player.isRecruit) {
+        const teamYears = Object.entries(updatedTeamsByYear)
+          .filter(([, team]) => team === teamAbbr)
+          .map(([year]) => Number(year))
+          .filter(y => !isNaN(y))
+          .sort((a, b) => a - b)
+
+        if (teamYears.length >= 2) {
+          const minYear = teamYears[0]
+          const maxYear = teamYears[teamYears.length - 1]
+
+          // Check if player departed after maxYear (don't fill beyond departure)
+          const hasActiveDeparture = departureMovements.some(m => {
+            const depYear = Number(m.year)
+            // Check for recommit after this departure
+            const hasRecommitAfter = (player.movements || []).some(r =>
+              r.type === 'recommit' && r.to === teamAbbr && Number(r.year) >= depYear
+            )
+            return depYear >= maxYear && !hasRecommitAfter
+          })
+
+          // Fill gaps between min and max year (or current year if no departure)
+          const fillUpToYear = hasActiveDeparture ? maxYear : Math.min(maxYear, currentYear)
+          for (let year = minYear; year <= fillUpToYear; year++) {
+            if (!updatedTeamsByYear[year] && !updatedTeamsByYear[String(year)]) {
+              updatedTeamsByYear[year] = teamAbbr
+              modified = true
+            }
+          }
         }
       }
 
@@ -5122,7 +5216,9 @@ export function DynastyProvider({ children }) {
         fixedCount++
         return {
           ...player,
-          teamsByYear: updatedTeamsByYear
+          teamsByYear: updatedTeamsByYear,
+          classByYear: updatedClassByYear,
+          isRecruit: updatedIsRecruit
         }
       }
       return player
