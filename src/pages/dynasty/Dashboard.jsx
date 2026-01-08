@@ -726,21 +726,17 @@ export default function Dashboard() {
       // Add the game with special flag for conference championship
       // Use userTeamConference which is computed from team data, not currentDynasty.conference which may not be set
       const conferenceForGame = userTeamConference || currentDynasty.conference || ''
-      await addGame(currentDynasty.id, removeUndefined({
+      const gameToSave = removeUndefined({
         ...gameData,
         isConferenceChampionship: true,
         conference: conferenceForGame,
         gameTitle: `${conferenceForGame || 'Conference'} Championship Game`
-      }))
-      // Update CC data with game played flag using year-specific storage
-      const year = currentDynasty.currentYear
-      const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
-      await updateDynasty(currentDynasty.id, {
-        conferenceChampionshipDataByYear: {
-          ...existingByYear,
-          [year]: { ...(existingByYear[year] || {}), gamePlayed: true }
-        }
       })
+
+      // Just add the game - we don't need to update conferenceChampionshipDataByYear
+      // because getCCGame() checks if a CC game exists directly in the games array.
+      // Making a second updateDynasty call caused a race condition that overwrote the game.
+      await addGame(currentDynasty.id, gameToSave)
       setShowCCGameModal(false)
     } catch (error) {
       console.error('Error saving CC game:', error)
@@ -2821,40 +2817,45 @@ export default function Dashboard() {
               (teamCoachingStaff?.ocName || teamCoachingStaff?.dcName)
             const coordinatorTaskComplete = coordinatorToFire !== ''
 
-            // Determine CC task status
-            const ccTaskComplete = ccMadeChampionship === false || ccGame
+            // Task 1: Made championship question (answered = complete)
+            const ccQuestionComplete = ccMadeChampionship !== null
+            // Task 2: Enter game (only when madeChampionship = true, complete when game exists)
+            const showGameEntryTask = ccMadeChampionship === true
+            const ccGameComplete = !!ccGame
+
+            // Calculate task numbers dynamically
+            let taskNum = 1
 
             return (
               <div className="space-y-3 sm:space-y-4">
-                {/* Task 1: Conference Championship */}
+                {/* Task 1: Made Conference Championship? */}
                 <div
                   className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                    ccTaskComplete ? 'border-green-200 bg-green-50' : ''
+                    ccQuestionComplete ? 'border-green-200 bg-green-50' : ''
                   }`}
-                  style={!ccTaskComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                  style={!ccQuestionComplete ? { borderColor: `${teamColors.primary}30` } : {}}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div
                       className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
-                        ccTaskComplete ? 'bg-green-500 text-white' : ''
+                        ccQuestionComplete ? 'bg-green-500 text-white' : ''
                       }`}
-                      style={!ccTaskComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                      style={!ccQuestionComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                     >
-                      {ccTaskComplete ? (
+                      {ccQuestionComplete ? (
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
-                      ) : '1'}
+                      ) : (taskNum)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm sm:text-base font-semibold" style={{ color: ccTaskComplete ? '#16a34a' : secondaryBgText }}>
-                        {userTeamConference} Championship
+                      <div className="text-sm sm:text-base font-semibold" style={{ color: ccQuestionComplete ? '#16a34a' : secondaryBgText }}>
+                        Made {userTeamConference} Championship?
                       </div>
-                      <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccTaskComplete ? '#16a34a' : secondaryBgText, opacity: ccTaskComplete ? 1 : 0.7 }}>
-                        {ccMadeChampionship === null ? 'Did you make the championship?' :
+                      <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccQuestionComplete ? '#16a34a' : secondaryBgText, opacity: ccQuestionComplete ? 1 : 0.7 }}>
+                        {ccMadeChampionship === null ? 'Did you make the championship game?' :
                          ccMadeChampionship === false ? 'Did not make championship' :
-                         ccGame ? `${ccGame.result === 'win' ? 'W' : 'L'} ${Math.max(ccGame.teamScore, ccGame.opponentScore)}-${Math.min(ccGame.teamScore, ccGame.opponentScore)} vs ${getMascotName(ccGame.opponent) || ccGame.opponent}` :
-                         ccOpponent ? `vs ${getMascotName(ccOpponent) || ccOpponent}` : 'Enter game result'}
+                         'Made the championship game'}
                       </div>
                     </div>
                   </div>
@@ -2876,29 +2877,8 @@ export default function Dashboard() {
                           No
                         </button>
                       </>
-                    ) : ccMadeChampionship === true && !ccOpponent && !ccGame ? (
-                      <div className="flex items-center gap-2">
-                        <SearchableSelect
-                          options={teams}
-                          value=""
-                          onChange={(teamName) => {
-                            const abbr = getAbbreviationFromDisplayName(teamName)
-                            if (abbr) handleCCOpponentSelect(abbr)
-                          }}
-                          placeholder="Select opponent..."
-                          teamColors={teamColors}
-                        />
-                      </div>
                     ) : isViewOnly ? (
                       <ViewOnlyBadge />
-                    ) : ccMadeChampionship === true && (ccOpponent || ccGame) ? (
-                      <button
-                        onClick={() => setShowCCGameModal(true)}
-                        className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                        style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                      >
-                        {ccGame ? 'Edit' : 'Enter Game'}
-                      </button>
                     ) : (
                       <button
                         onClick={async () => {
@@ -2923,8 +2903,71 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Task 2: Coordinator Changes (always visible for HC with coordinators) */}
-                {hasCoordinators && (
+                {/* Task 2: Enter Championship Game (only shown when made championship = true) */}
+                {showGameEntryTask && (() => {
+                  taskNum++
+                  return (
+                    <div
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
+                        ccGameComplete ? 'border-green-200 bg-green-50' : ''
+                      }`}
+                      style={!ccGameComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                            ccGameComplete ? 'bg-green-500 text-white' : ''
+                          }`}
+                          style={!ccGameComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                        >
+                          {ccGameComplete ? (
+                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (taskNum)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: ccGameComplete ? '#16a34a' : secondaryBgText }}>
+                            {userTeamConference} Championship
+                          </div>
+                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccGameComplete ? '#16a34a' : secondaryBgText, opacity: ccGameComplete ? 1 : 0.7 }}>
+                            {ccGame ? `${ccGame.result === 'win' ? 'W' : 'L'} ${Math.max(ccGame.teamScore, ccGame.opponentScore)}-${Math.min(ccGame.teamScore, ccGame.opponentScore)} vs ${getMascotName(ccGame.opponent) || ccGame.opponent}` :
+                             ccOpponent ? `vs ${getMascotName(ccOpponent) || ccOpponent}` : 'Select opponent and enter result'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 self-end sm:self-auto">
+                        {!ccOpponent && !ccGame ? (
+                          <SearchableSelect
+                            options={teams}
+                            value=""
+                            onChange={(teamName) => {
+                              const abbr = getAbbreviationFromDisplayName(teamName)
+                              if (abbr) handleCCOpponentSelect(abbr)
+                            }}
+                            placeholder="Select opponent..."
+                            teamColors={teamColors}
+                          />
+                        ) : isViewOnly ? (
+                          <ViewOnlyBadge />
+                        ) : (
+                          <button
+                            onClick={() => setShowCCGameModal(true)}
+                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
+                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          >
+                            {ccGame ? 'Edit' : 'Enter Game'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Task: Coordinator Changes (always visible for HC with coordinators) */}
+                {hasCoordinators && (() => {
+                  taskNum++
+                  return (
                   <div
                     className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
                       coordinatorTaskComplete ? 'border-green-200 bg-green-50' : ''
@@ -2942,7 +2985,7 @@ export default function Dashboard() {
                           <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
-                        ) : '2'}
+                        ) : (taskNum)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm sm:text-base font-semibold" style={{ color: coordinatorTaskComplete ? '#16a34a' : secondaryBgText }}>
@@ -2977,16 +3020,17 @@ export default function Dashboard() {
                       )}
                     </select>
                   </div>
-                )}
+                  )
+                })()}
 
-                {/* Task 3: Recruiting Commitments */}
+                {/* Task: Recruiting Commitments */}
                 {(() => {
+                  taskNum++
                   const commitmentKey = getCommitmentKey()
                   const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
                   const ccCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                   const hasCommitmentsData = ccCommitments !== undefined
                   const commitmentsCount = ccCommitments?.length || 0
-                  const taskNum = hasCoordinators ? 3 : 2
 
                   return (
                     <div
@@ -3006,7 +3050,7 @@ export default function Dashboard() {
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : taskNum}
+                          ) : (taskNum)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
@@ -3068,14 +3112,28 @@ export default function Dashboard() {
           {(() => {
             const week = currentDynasty.currentWeek
             const currentYear = currentDynasty.currentYear
-            // Read from year-specific storage to prevent data carrying over between seasons
-            const ccGames = currentDynasty.conferenceChampionshipsByYear?.[currentYear] || []
+            // Read CC games from UNIFIED games[] array (preferred) with fallback to legacy storage
+            const allGamesForCC = currentDynasty.games || []
+            const ccGamesFromUnified = allGamesForCC.filter(g =>
+              g && g.isConferenceChampionship && Number(g.year) === Number(currentYear)
+            )
+            const ccGamesFromLegacy = currentDynasty.conferenceChampionshipsByYear?.[currentYear] || []
+            // Prefer unified storage, fallback to legacy
+            const ccGames = ccGamesFromUnified.length > 0 ? ccGamesFromUnified : ccGamesFromLegacy
             const hasCCData = ccGames.length > 0
             // Count entered CC games (games with both scores)
-            const ccGamesWithScores = ccGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
+            const ccGamesWithScores = ccGames.filter(g => {
+              if (!g) return false
+              // Check both formats: unified uses team1Score/team2Score, legacy might too
+              const hasTeamScores = g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null
+              // Also check teamScore/opponentScore format used in some game entries
+              const hasGameScores = g.teamScore !== undefined && g.teamScore !== null && g.opponentScore !== undefined && g.opponentScore !== null
+              return hasTeamScores || hasGameScores
+            }).length
             // Read conference championship data from year-specific storage
             const ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentYear] || {}
-            const totalCCGames = ccData.madeChampionship === true ? 9 : 10
+            // Always show /10 since unified games[] includes user's CC game too
+            const totalCCGames = 10
 
             const hasCFPSeedsData = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear]?.length > 0
 
@@ -7300,9 +7358,13 @@ export default function Dashboard() {
         isOpen={showCCModal}
         onClose={() => setShowCCModal(false)}
         onSave={async (championships) => {
+          console.log('[CC Sheet] onSave called with championships:', championships)
           // Store championships by year to preserve history
           const year = currentDynasty.currentYear
+          console.log('[CC Sheet] Current year:', year)
           const existingByYear = currentDynasty.conferenceChampionshipsByYear || {}
+          console.log('[CC Sheet] Existing by year:', existingByYear)
+          console.log('[CC Sheet] Calling updateDynasty...')
           await updateDynasty(currentDynasty.id, {
             conferenceChampionships: championships, // Keep current year for display
             conferenceChampionshipsByYear: {
@@ -7310,8 +7372,10 @@ export default function Dashboard() {
               [year]: championships
             }
           })
+          console.log('[CC Sheet] updateDynasty complete, calling saveCPUConferenceChampionships...')
           // UNIFIED: Also save CPU CC games to games[] array for consistent game recap experience
           await saveCPUConferenceChampionships(currentDynasty.id, championships, year)
+          console.log('[CC Sheet] saveCPUConferenceChampionships complete')
         }}
         currentYear={currentDynasty.currentYear}
         teamColors={teamColors}

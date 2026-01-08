@@ -304,7 +304,7 @@ export default function Layout({ children }) {
                 <>
                   <button
                     onClick={() => window.toggleDynastySidebar?.()}
-                    className="lg:hidden p-2 rounded-lg hover:opacity-70 transition-opacity"
+                    className="p-2 rounded-lg hover:opacity-70 transition-opacity"
                     style={{ color: headerText }}
                     aria-label="Toggle sidebar"
                   >
@@ -312,10 +312,10 @@ export default function Layout({ children }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
                   </button>
-                  {/* Home Button - only show on mobile when burger is visible */}
+                  {/* Home Button */}
                   <Link
                     to={`/dynasty/${currentDynasty.id}`}
-                    className="lg:hidden p-2 rounded-lg hover:opacity-70 transition-opacity"
+                    className="p-2 rounded-lg hover:opacity-70 transition-opacity"
                     style={{ color: headerText }}
                     title="Dashboard"
                   >

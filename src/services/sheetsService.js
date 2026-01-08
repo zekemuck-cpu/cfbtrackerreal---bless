@@ -2574,6 +2574,7 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
 // Read Conference Championship data from sheet
 export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
   try {
+    console.log('[readCCSheet] Reading from spreadsheet:', spreadsheetId)
     const accessToken = await getAccessToken()
 
     const response = await fetch(
@@ -2591,7 +2592,9 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
     }
 
     const data = await response.json()
+    console.log('[readCCSheet] Raw data from API:', data)
     const rows = data.values || []
+    console.log('[readCCSheet] Rows:', rows)
 
     // Parse into structured data
     const championships = rows.map(row => ({
@@ -2608,9 +2611,10 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
         : null
     }))
 
+    console.log('[readCCSheet] Parsed championships:', championships)
     return championships
   } catch (error) {
-    console.error('Error reading CC data:', error)
+    console.error('[readCCSheet] Error reading CC data:', error)
     throw error
   }
 }

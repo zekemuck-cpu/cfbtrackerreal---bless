@@ -93,9 +93,16 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     return location.pathname.startsWith(path)
   }
 
+  // Only close sidebar on nav click for mobile/tablet (below lg breakpoint)
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024) {
+      onClose()
+    }
+  }
+
   return (
     <>
-      {/* Overlay */}
+      {/* Overlay - shown when sidebar is open, but only on mobile/tablet (hidden on lg+) */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -103,27 +110,14 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
         />
       )}
 
-      {/* Sidebar - Fixed on left edge, full height on mobile, below header on desktop */}
+      {/* Sidebar - Fixed on left edge, below header */}
+      {/* On desktop (lg+), it pushes content instead of overlaying */}
       <aside
         className={`fixed left-0 z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 w-56 shadow-lg overflow-y-auto top-0 h-full lg:top-[64px] lg:h-[calc(100vh-64px)]`}
+        } w-56 shadow-lg overflow-y-auto top-[64px] h-[calc(100vh-64px)]`}
         style={{ backgroundColor: teamColors.secondary }}
       >
-        {/* Close button - mobile only */}
-        <div className="lg:hidden flex items-center p-4 border-b" style={{ borderColor: `${secondaryBgText}20` }}>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:opacity-70"
-            style={{ color: secondaryBgText }}
-            aria-label="Close sidebar"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
-
         {/* Navigation - extra bottom padding for ticker (48px) */}
         <nav className="px-4 pt-4 pb-24 lg:pb-16">
           <div className="space-y-1">
@@ -133,7 +127,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                 <Link
                   key={item.name}
                   to={item.path}
-                  onClick={onClose}
+                  onClick={handleNavClick}
                   className={`block px-4 py-2.5 rounded-lg font-medium transition-all ${
                     active ? 'shadow-md' : 'hover:opacity-70'
                   }`}
@@ -144,8 +138,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                           color: primaryBgText
                         }
                       : {
-                          color: secondaryBgText,
-                          opacity: 0.8
+                          color: '#FFFFFF'
                         }
                   }
                 >
@@ -157,14 +150,14 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
           {/* Admin Tools Section - separated at bottom */}
           {!isViewOnly && (
-            <div className="mt-4 pt-4 border-t" style={{ borderColor: `${secondaryBgText}20` }}>
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
               {navItems.filter(item => item.isAdmin).map((item) => {
                 const active = isActive(item.path)
                 return (
                   <Link
                     key={item.name}
                     to={item.path}
-                    onClick={onClose}
+                    onClick={handleNavClick}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
                       active ? 'shadow-md' : 'hover:opacity-70'
                     }`}
@@ -175,8 +168,8 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                             color: primaryBgText
                           }
                         : {
-                            color: secondaryBgText,
-                            opacity: 0.6
+                            color: '#FFFFFF',
+                            opacity: 0.7
                           }
                     }
                   >
@@ -192,7 +185,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
           )}
 
           {/* Bottom section - different for view mode vs edit mode */}
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: `${secondaryBgText}20` }}>
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
             {isViewOnly ? (
               /* View mode - show Copy Dynasty button and Create Your Own Dynasty CTA */
               <>
@@ -233,8 +226,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   onClick={handleExport}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all hover:opacity-70"
                   style={{
-                    color: secondaryBgText,
-                    opacity: 0.8,
+                    color: '#FFFFFF',
                     backgroundColor: 'transparent',
                     border: `2px solid ${teamColors.primary}`
                   }}
@@ -249,8 +241,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   onClick={() => setShowShareModal(true)}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all hover:opacity-70 mt-2"
                   style={{
-                    color: secondaryBgText,
-                    opacity: 0.8,
+                    color: '#FFFFFF',
                     backgroundColor: 'transparent',
                     border: `2px solid ${teamColors.primary}`
                   }}

@@ -9,8 +9,6 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
-import { getTeamConference } from '../data/conferenceTeams'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -93,13 +91,22 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
         setCreatingSheet(true)
         try {
           // Check if user played in a CC game this year - if so, exclude their conference
+          // Debug: log all CC games to help diagnose
+          const allCCGames = currentDynasty?.games?.filter(g => g.isConferenceChampionship) || []
+          console.log('[CC Modal] All CC games:', allCCGames.map(g => ({ year: g.year, yearType: typeof g.year, conf: g.conference, userTeam: g.userTeam })))
+          console.log('[CC Modal] currentYear:', currentYear, 'type:', typeof currentYear)
+
+          // Find user's CC game - must have userTeam set (not just any CC game)
           const userCCGame = currentDynasty?.games?.find(
-            g => g.isConferenceChampionship && g.year === currentYear
+            g => g.isConferenceChampionship && Number(g.year) === Number(currentYear) && g.userTeam
           )
-          // Get user's conference dynamically from their team name
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
-          const userConference = userTeamAbbr ? getTeamConference(userTeamAbbr) : null
+          // Get user's conference from:
+          // 1. The user's CC game itself (most reliable - it has the conference they played in)
+          // 2. Fallback to dynasty.conference
+          const userConference = userCCGame?.conference || currentDynasty?.conference || null
+          console.log('[CC Modal] User conference:', userConference, 'userCCGame exists:', !!userCCGame, 'userCCGame:', userCCGame)
           const excludeConference = userCCGame ? userConference : null
+          console.log('[CC Modal] excludeConference:', excludeConference)
           // Get existing CC data for pre-filling
           const existingCCData = currentDynasty?.conferenceChampionshipsByYear?.[currentYear] || []
 
@@ -136,11 +143,15 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
     setSyncing(true)
     try {
+      console.log('[CC Modal] Reading from sheet:', sheetId)
       const championships = await readConferenceChampionshipsFromSheet(sheetId)
+      console.log('[CC Modal] Read championships from sheet:', championships)
+      console.log('[CC Modal] Calling onSave...')
       await onSave(championships)
+      console.log('[CC Modal] onSave complete, closing modal')
       onClose()
     } catch (error) {
-      console.error(error)
+      console.error('[CC Modal] Error in handleSyncFromSheet:', error)
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
@@ -156,8 +167,12 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
     setDeletingSheet(true)
     try {
+      console.log('[CC Modal] handleSyncAndDelete - Reading from sheet:', sheetId)
       const championships = await readConferenceChampionshipsFromSheet(sheetId)
+      console.log('[CC Modal] handleSyncAndDelete - Read championships:', championships)
+      console.log('[CC Modal] handleSyncAndDelete - Calling onSave...')
       await onSave(championships)
+      console.log('[CC Modal] handleSyncAndDelete - onSave complete')
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
@@ -168,7 +183,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
         onClose()
       }, 2500)
     } catch (error) {
-      console.error(error)
+      console.error('[CC Modal] Error in handleSyncAndDelete:', error)
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
@@ -448,17 +463,6 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   }}
                 >
                   {refreshing ? 'Refreshing...' : 'Refresh Session'}
-                </button>
-                <button
-                  onClick={signOut}
-                  className="px-4 py-2 rounded font-semibold transition-colors border"
-                  style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
-                    backgroundColor: 'transparent'
-                  }}
-                >
-                  Sign Out
                 </button>
               </div>
             </div>

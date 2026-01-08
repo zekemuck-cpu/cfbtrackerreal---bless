@@ -75,8 +75,8 @@ function ViewDynastyContent() {
           <div className="flex items-center justify-between py-3 gap-4">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 rounded-lg hover:opacity-70 transition-opacity"
+                onClick={() => setSidebarOpen(prev => !prev)}
+                className="p-2 rounded-lg hover:opacity-70 transition-opacity"
                 style={{ color: primaryBgText }}
                 aria-label="Toggle sidebar"
               >
@@ -197,8 +197,9 @@ function ViewDynastyContent() {
         dynasty={currentDynasty}
       />
 
-      {/* Main content - offset by sidebar width on desktop, bottom padding for ticker */}
-      <main className="lg:ml-56 min-w-0 flex-1 px-4 py-6 pb-16">
+      {/* Main content - on desktop (lg+), add left margin when sidebar is open to push content */}
+      {/* On mobile/tablet, sidebar overlays so no margin needed */}
+      <main className={`min-w-0 flex-1 px-4 py-6 pb-16 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}>
         <Outlet />
       </main>
 

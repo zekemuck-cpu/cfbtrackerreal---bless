@@ -577,17 +577,6 @@ export default function DetailedStatsEntryModal({
                 >
                   {refreshing ? 'Refreshing...' : 'Refresh Session'}
                 </button>
-                <button
-                  onClick={signOut}
-                  className="px-4 py-2 rounded font-semibold transition-colors border"
-                  style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
-                    backgroundColor: 'transparent'
-                  }}
-                >
-                  Sign Out
-                </button>
               </div>
             </div>
           </div>

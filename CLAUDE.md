@@ -535,6 +535,43 @@ if (!playerTeamPrevSeason && !player.isRecruit) return player
 ```
 This prevents players who departed in earlier years from being re-added to the roster.
 
+## Sidebar Behavior
+
+The sidebar has different behavior based on screen size:
+
+**Desktop (lg+ / 1024px+):**
+- Sidebar **pushes content** to the right (adds `ml-56` margin)
+- No dark overlay backdrop
+- Clicking nav links does NOT close the sidebar (users can browse with it open)
+- Only the burger menu button toggles it open/closed
+
+**Mobile/Tablet (below lg):**
+- Sidebar **overlays** content with dark backdrop
+- Clicking nav links or backdrop closes the sidebar
+- Full-width sidebar takes over the screen
+
+**Implementation:**
+- `Sidebar.jsx` - Overlay hidden on `lg:hidden`, nav links use `handleNavClick()` which only closes on mobile
+- `DynastyDashboard.jsx` / `ViewDynasty.jsx` - Main content has `${sidebarOpen ? 'lg:ml-56' : ''}` for desktop push
+- Sidebar width is `w-56` (224px)
+
+## Conference Championship Google Sheet
+
+When creating the CC Google Sheet, the user's conference is excluded if they already entered their CC game:
+
+```javascript
+// Get conference from user's CC game (most reliable) or dynasty.conference
+const userCCGame = games.find(g => g.isConferenceChampionship && g.year === currentYear && g.userTeam)
+const userConference = userCCGame?.conference || dynasty.conference
+const excludeConference = userCCGame ? userConference : null
+```
+
+**Important:** Do NOT use `getTeamConference()` from `conferenceTeams.js` - it returns the static default conference, not the user's actual conference (which may differ due to custom alignment or job changes).
+
+**CC Game Preservation:** When syncing from the Google Sheet, `saveCPUConferenceChampionships()` preserves the user's manually entered CC game if their conference was excluded from the sheet data.
+
+**Deduplication:** CC games are deduplicated by year + conference to prevent duplicates. User's game (with `userTeam`) takes precedence over CPU version.
+
 ## Hidden Dev Tools
 
 Features hidden with `{false && (...)}` for future use:

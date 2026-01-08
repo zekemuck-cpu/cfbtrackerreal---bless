@@ -2742,6 +2742,7 @@ export function DynastyProvider({ children }) {
   // Add or update CPU conference championship games as proper game entries in the games[] array
   // This ensures ALL games (user and CPU) are stored uniformly
   const saveCPUConferenceChampionships = async (dynastyId, championships, year) => {
+    console.log('[saveCPUCC] Called with:', { dynastyId, championships, year })
     const isDev = import.meta.env.VITE_DEV_MODE === 'true'
     let dynasty
 
@@ -2756,23 +2757,50 @@ export function DynastyProvider({ children }) {
     }
 
     if (!dynasty) {
-      console.error('Dynasty not found:', dynastyId)
+      console.error('[saveCPUCC] Dynasty not found:', dynastyId)
       return
     }
 
+    console.log('[saveCPUCC] Found dynasty:', dynasty.teamName)
     const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
     const existingGames = dynasty.games || []
+    console.log('[saveCPUCC] Existing games count:', existingGames.length)
+    console.log('[saveCPUCC] Existing CC games:', existingGames.filter(g => g.isConferenceChampionship))
+
+    // Find the user's CC game for this year (if any)
+    const userCCGame = existingGames.find(g =>
+      g.isConferenceChampionship &&
+      Number(g.year) === Number(year) &&
+      g.userTeam === userTeamAbbr
+    )
+    console.log('[saveCPUCC] User CC game found:', userCCGame)
+
+    // Check if the incoming championships data includes the user's conference
+    // If not, we need to preserve the user's manually entered CC game
+    const userConference = dynasty.conference
+    const championshipsIncludesUserConf = championships.some(cc =>
+      cc.conference?.toLowerCase() === userConference?.toLowerCase()
+    )
+    console.log('[saveCPUCC] User conference:', userConference)
+    console.log('[saveCPUCC] Championships includes user conf:', championshipsIncludesUserConf)
+    const shouldPreserveUserCCGame = userCCGame && !championshipsIncludesUserConf
 
     // Filter out existing conference championship games for this year to avoid duplicates
-    // (Both CPU and user CC games entered via the modal will be replaced)
+    // EXCEPT preserve user's CC game if it's not in the incoming data
     const filteredGames = existingGames.filter(g => {
       // Keep games from different years
       if (Number(g.year) !== Number(year)) return true
       // Keep non-CC games
       if (!g.isConferenceChampionship) return true
-      // Remove CC games from same year (will be replaced with fresh data)
+      // Preserve user's CC game if their conference was excluded from sheet
+      if (shouldPreserveUserCCGame && g.userTeam === userTeamAbbr) {
+        console.log('[saveCPUCC] Preserving user CC game')
+        return true
+      }
+      // Remove other CC games from same year (will be replaced with fresh data)
       return false
     })
+    console.log('[saveCPUCC] After filtering out CC games for year:', filteredGames.length)
 
     // Create game entries for each conference championship game
     const newGames = championships
@@ -2832,8 +2860,39 @@ export function DynastyProvider({ children }) {
       })
 
     const updatedGames = [...filteredGames, ...newGames]
+    console.log('[saveCPUCC] newGames created:', newGames.length, newGames)
+    console.log('[saveCPUCC] updatedGames total:', updatedGames.length)
 
-    await updateDynasty(dynastyId, { games: updatedGames })
+    // Deduplicate CC games by year + conference (keep the one with userTeam if exists, otherwise first)
+    const deduplicatedGames = []
+    const ccGameKeys = new Set()
+    for (const game of updatedGames) {
+      if (game.isConferenceChampionship) {
+        const key = `cc-${game.year}-${game.conference?.toLowerCase()}`
+        if (ccGameKeys.has(key)) {
+          // Skip duplicate - but if this one has userTeam and previous didn't, swap
+          const existingIdx = deduplicatedGames.findIndex(g =>
+            g.isConferenceChampionship &&
+            g.year === game.year &&
+            g.conference?.toLowerCase() === game.conference?.toLowerCase()
+          )
+          if (existingIdx >= 0 && game.userTeam && !deduplicatedGames[existingIdx].userTeam) {
+            console.log('[saveCPUCC] Replacing CPU CC game with user CC game for:', key)
+            deduplicatedGames[existingIdx] = game
+          } else {
+            console.log('[saveCPUCC] Skipping duplicate CC game:', key)
+          }
+          continue
+        }
+        ccGameKeys.add(key)
+      }
+      deduplicatedGames.push(game)
+    }
+    console.log('[saveCPUCC] After deduplication:', deduplicatedGames.length)
+    console.log('[saveCPUCC] Calling updateDynasty...')
+
+    await updateDynasty(dynastyId, { games: deduplicatedGames })
+    console.log('[saveCPUCC] updateDynasty complete')
 
     return newGames
   }

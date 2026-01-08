@@ -258,7 +258,6 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
               <p className="text-lg mb-4" style={{ color: teamColors.primary }}>Your session has expired.</p>
               <div className="flex gap-3 justify-center">
                 <button onClick={async () => { setRefreshing(true); try { const success = await refreshSession(); if (success) setRetryCount(c => c + 1); } catch (e) { console.error(e); } setRefreshing(false); }} disabled={refreshing} className="px-4 py-2 rounded font-semibold" style={{ backgroundColor: teamColors.primary, color: '#fff', opacity: refreshing ? 0.7 : 1 }}>{refreshing ? 'Refreshing...' : 'Refresh Session'}</button>
-                <button onClick={signOut} className="px-4 py-2 rounded font-semibold border" style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}>Sign Out</button>
               </div>
             </div>
           </div>

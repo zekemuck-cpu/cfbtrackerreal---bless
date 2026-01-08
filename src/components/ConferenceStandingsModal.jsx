@@ -291,7 +291,6 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
                 <button onClick={async () => { setRefreshing(true); try { const success = await refreshSession(); if (success) setRetryCount(c => c + 1); } catch (e) { console.error(e); } setRefreshing(false); }} disabled={refreshing} className="px-4 py-2 rounded font-semibold" style={{ backgroundColor: teamColors.primary, color: '#fff', opacity: refreshing ? 0.7 : 1 }}>
                   {refreshing ? 'Refreshing...' : 'Refresh Session'}
                 </button>
-                <button onClick={signOut} className="px-4 py-2 rounded font-semibold border" style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}>Sign Out</button>
               </div>
             </div>
           </div>

@@ -5,11 +5,20 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
   const [offense, setOffense] = useState('')
   const [defense, setDefense] = useState('')
 
-  // Limit input to 2 digits (0-99)
+  // Limit input to 2 digits (40-99)
   const handleRatingChange = (value, setter) => {
     // Remove non-digits and limit to 2 characters
     const digits = value.replace(/\D/g, '').slice(0, 2)
     setter(digits)
+  }
+
+  // Clamp value to 40-99 range on blur
+  const handleBlur = (value, setter) => {
+    if (!value) return
+    const num = parseInt(value)
+    if (isNaN(num)) return
+    if (num < 40) setter('40')
+    else if (num > 99) setter('99')
   }
 
   // Load current ratings when modal opens
@@ -49,8 +58,8 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
       return
     }
 
-    if (overallNum < 0 || overallNum > 99 || offenseNum < 0 || offenseNum > 99 || defenseNum < 0 || defenseNum > 99) {
-      alert('Ratings must be between 0 and 99')
+    if (overallNum < 40 || overallNum > 99 || offenseNum < 40 || offenseNum > 99 || defenseNum < 40 || defenseNum > 99) {
+      alert('Ratings must be between 40 and 99')
       return
     }
 
@@ -94,7 +103,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
-              Overall Rating (0-99)
+              Overall Rating (40-99)
             </label>
             <input
               type="text"
@@ -102,6 +111,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               maxLength={2}
               value={overall}
               onChange={(e) => handleRatingChange(e.target.value, setOverall)}
+              onBlur={() => handleBlur(overall, setOverall)}
               className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
               style={{
                 borderColor: teamColors.primary,
@@ -113,7 +123,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
-              Offense Rating (0-99)
+              Offense Rating (40-99)
             </label>
             <input
               type="text"
@@ -121,6 +131,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               maxLength={2}
               value={offense}
               onChange={(e) => handleRatingChange(e.target.value, setOffense)}
+              onBlur={() => handleBlur(offense, setOffense)}
               className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
               style={{
                 borderColor: teamColors.primary,
@@ -132,7 +143,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
 
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
-              Defense Rating (0-99)
+              Defense Rating (40-99)
             </label>
             <input
               type="text"
@@ -140,6 +151,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               maxLength={2}
               value={defense}
               onChange={(e) => handleRatingChange(e.target.value, setDefense)}
+              onBlur={() => handleBlur(defense, setDefense)}
               className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
               style={{
                 borderColor: teamColors.primary,
