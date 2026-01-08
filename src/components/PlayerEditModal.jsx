@@ -1262,16 +1262,12 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                           const prevTeam = prevYearKey ? teamsByYear[prevYearKey] : null
                           const teamChanged = prevTeam && team && prevTeam !== team
 
-                          // Movement type configs
+                          // Movement type configs (only types that exist in EA CFB 26)
                           const movementTypeConfig = {
                             'entered_portal': { label: 'Entered Portal', icon: '↗', color: '#f97316' },
                             'recommit': { label: 'Recommitted', icon: '↩', color: '#22c55e' },
                             'transfer': { label: 'Transferred', icon: '→', color: '#3b82f6' },
-                            'departure': { label: 'Departed', icon: '↓', color: '#6b7280' },
-                            'redshirt': { label: 'Redshirted', icon: '○', color: '#8b5cf6' },
-                            'medical': { label: 'Medical RS', icon: '+', color: '#ec4899' },
-                            'suspended': { label: 'Suspended', icon: '!', color: '#ef4444' },
-                            'injury': { label: 'Injured', icon: '✚', color: '#f59e0b' }
+                            'departure': { label: 'Departed', icon: '↓', color: '#6b7280' }
                           }
 
                           // Get movements that happened AFTER the previous season (during offseason before this year)
