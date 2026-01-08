@@ -6622,16 +6622,18 @@ export default function Dashboard() {
 
                         {/* Team Logo */}
                         {opponentLogo && (
-                          <div
-                            className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
+                          <Link
+                            to={`${pathPrefix}/team/${game.opponent}/${currentDynasty.currentYear}`}
+                            className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
                             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <img
                               src={opponentLogo}
                               alt={`${opponentName} logo`}
                               className="w-full h-full object-contain"
                             />
-                          </div>
+                          </Link>
                         )}
 
                         {/* Team Name */}
@@ -6642,9 +6644,14 @@ export default function Dashboard() {
                                 #{playedGame.opponentRank}
                               </span>
                             )}
-                            <span className="text-xs sm:text-base font-semibold truncate" style={{ color: opponentColors.textColor }}>
+                            <Link
+                              to={`${pathPrefix}/team/${game.opponent}/${currentDynasty.currentYear}`}
+                              className="text-xs sm:text-base font-semibold truncate hover:underline"
+                              style={{ color: opponentColors.textColor }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {opponentName}
-                            </span>
+                            </Link>
                           </div>
                         </div>
                       </div>

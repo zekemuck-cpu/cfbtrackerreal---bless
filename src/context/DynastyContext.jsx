@@ -2141,8 +2141,43 @@ export function DynastyProvider({ children }) {
       // WORKAROUND: Also update local state immediately after Firestore update
       // This ensures the UI reflects the changes without waiting for the listener
       // (which sometimes gets stale data due to Firestore caching issues)
+
+      // Helper to expand dot-notation keys into nested objects for local state update
+      // e.g., { "schedulesByTeamYear.UT.2029": [...] } becomes { schedulesByTeamYear: { UT: { 2029: [...] } } }
+      const expandDotNotation = (updates) => {
+        const result = {}
+        for (const [key, value] of Object.entries(updates)) {
+          if (key.includes('.')) {
+            const parts = key.split('.')
+            let current = result
+            for (let i = 0; i < parts.length - 1; i++) {
+              if (!current[parts[i]]) current[parts[i]] = {}
+              current = current[parts[i]]
+            }
+            current[parts[parts.length - 1]] = value
+          } else {
+            result[key] = value
+          }
+        }
+        return result
+      }
+
+      // Helper to deep merge objects (for nested structures like schedulesByTeamYear)
+      const deepMerge = (target, source) => {
+        const result = { ...target }
+        for (const key of Object.keys(source)) {
+          if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+            result[key] = deepMerge(result[key] || {}, source[key])
+          } else {
+            result[key] = source[key]
+          }
+        }
+        return result
+      }
+
+      const expandedUpdates = expandDotNotation(updatesWithTimestamp)
       const updatedDynasties = dynasties.map(d =>
-        String(d.id) === String(dynastyId) ? { ...d, ...updatesWithTimestamp } : d
+        String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
       )
       setDynasties(updatedDynasties)
 
@@ -3090,11 +3125,12 @@ export function DynastyProvider({ children }) {
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 5 && nextWeek === 6) {
       // YEAR FLIP - Happens when entering Signing Day (week 6)
       // The year changes here so that team pages for the new year become available
-      nextYear = dynasty.currentYear + 1
+      // CRITICAL: Use Number() to ensure proper arithmetic (currentYear could be string from Firestore)
+      nextYear = Number(dynasty.currentYear) + 1
 
       // CLASS PROGRESSION - Also happens at year flip
       // Progress all players' classes based on games played in the previous season
-      const previousSeasonYear = dynasty.currentYear // The year that just ended
+      const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
       const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
 
       const players = dynasty.players || []

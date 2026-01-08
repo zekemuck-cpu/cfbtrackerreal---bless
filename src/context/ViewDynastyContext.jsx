@@ -141,12 +141,11 @@ export function ViewDynastyProvider({ shareCode, children }) {
     getCurrentRoster: () => {
       if (!dynasty) return []
       const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const currentYear = dynasty.currentYear
+      // Use unified isPlayerOnRoster check - teamsByYear is the ONLY source of truth
       return (dynasty.players || []).filter(p => {
         if (p.isHonorOnly) return false
-        if (p.isRecruit) return false
-        if (p.leftTeam) return false
-        if (p.team) return p.team === teamAbbr
-        return true
+        return p.teamsByYear?.[currentYear] === teamAbbr
       })
     }
   }

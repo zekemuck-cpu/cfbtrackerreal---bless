@@ -1415,7 +1415,8 @@ export default function GameEntryModal({
       finalTeamScore,
       oppTotal,
       userTeamAbbr,
-      opponentAbbr
+      opponentAbbr,
+      currentDynasty?.currentYear
     )
 
     // Adjust home/away based on actual game location

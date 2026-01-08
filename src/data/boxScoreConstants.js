@@ -135,13 +135,22 @@ const getPlayersByPosition = (players, group) => {
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
 
 // Generate random player stats based on position and game context
-export const generateRandomBoxScore = (players, teamScore, opponentScore, userTeamAbbr, opponentAbbr) => {
+// Note: year parameter is optional for backwards compatibility, but recommended for proper team filtering
+export const generateRandomBoxScore = (players, teamScore, opponentScore, userTeamAbbr, opponentAbbr, year) => {
   if (!players || players.length === 0) {
     return { home: {}, away: {}, scoringSummary: [] }
   }
 
-  // Filter active players
-  const activePlayers = players.filter(p => p.team === userTeamAbbr && !p.leftTeam)
+  // Filter active players using teamsByYear (preferred) or legacy team field
+  const activePlayers = players.filter(p => {
+    if (p.isHonorOnly) return false
+    // Use teamsByYear if year is provided (preferred)
+    if (year && p.teamsByYear) {
+      return p.teamsByYear[year] === userTeamAbbr
+    }
+    // Fallback: use team field for legacy data
+    return p.team === userTeamAbbr
+  })
 
   // Get players by position
   const qbs = getPlayersByPosition(activePlayers, 'qb')

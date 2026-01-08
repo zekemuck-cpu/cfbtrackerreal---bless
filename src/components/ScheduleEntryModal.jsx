@@ -7,7 +7,7 @@ import {
   deleteGoogleSheet,
   getSingleSheetEmbedUrl
 } from '../services/sheetsService'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getCurrentSchedule } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 
 export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
@@ -79,11 +79,15 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Always create a fresh sheet
+          // Get existing schedule to pre-fill the sheet
+          const existingSchedule = getCurrentSchedule(currentDynasty) || []
+
+          // Always create a fresh sheet, but pre-fill with existing data if available
           const sheetInfo = await createScheduleSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            currentDynasty?.teamName || ''
+            currentDynasty?.teamName || '',
+            existingSchedule
           )
           setSheetId(sheetInfo.spreadsheetId)
 

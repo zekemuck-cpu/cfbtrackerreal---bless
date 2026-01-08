@@ -925,7 +925,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
 }
 
 // Create a Schedule-only Google Sheet
-export async function createScheduleSheet(dynastyName, year, userTeamName) {
+export async function createScheduleSheet(dynastyName, year, userTeamName, existingSchedule = []) {
   try {
     const user = auth.currentUser
     if (!user) throw new Error('User not authenticated')
@@ -967,8 +967,8 @@ export async function createScheduleSheet(dynastyName, year, userTeamName) {
     const sheet = await response.json()
     const scheduleSheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize schedule headers
-    await initializeScheduleSheetOnly(sheet.spreadsheetId, accessToken, scheduleSheetId, userTeamName)
+    // Initialize schedule headers and optionally pre-fill with existing schedule
+    await initializeScheduleSheetOnly(sheet.spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -1043,9 +1043,31 @@ export async function createRosterSheet(dynastyName, year) {
 }
 
 // Initialize Schedule-only sheet headers and formatting
-async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleSheetId, userTeamName) {
+async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule = []) {
   try {
     const userTeamAbbr = getAbbreviationFromDisplayName(userTeamName)
+
+    // Build schedule data rows - either from existing schedule or empty
+    const scheduleRows = Array.from({ length: 12 }, (_, i) => {
+      const week = i + 1
+      const existingGame = existingSchedule.find(g => Number(g.week) === week)
+
+      // Convert location to Site format (Home/Road/Neutral)
+      let site = ''
+      if (existingGame?.location) {
+        const loc = existingGame.location.toLowerCase()
+        if (loc === 'home') site = 'Home'
+        else if (loc === 'away') site = 'Road'
+        else if (loc === 'neutral') site = 'Neutral'
+      }
+
+      return {
+        week,
+        userTeam: existingGame?.userTeam || userTeamAbbr || '',
+        opponent: existingGame?.opponent || '',
+        site
+      }
+    })
 
     const requests = [
       // Schedule headers
@@ -1069,7 +1091,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           fields: 'userEnteredValue'
         }
       },
-      // Pre-fill Week column with weeks 1-12
+      // Pre-fill all schedule data (Week, User Team, CPU Team, Site)
       {
         updateCells: {
           range: {
@@ -1077,30 +1099,19 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
             startRowIndex: 1,
             endRowIndex: 13,
             startColumnIndex: 0,
-            endColumnIndex: 1
+            endColumnIndex: 4
           },
-          rows: Array.from({ length: 12 }, (_, i) => ({
-            values: [{ userEnteredValue: { numberValue: i + 1 } }]
+          rows: scheduleRows.map(row => ({
+            values: [
+              { userEnteredValue: { numberValue: row.week } },
+              { userEnteredValue: { stringValue: row.userTeam } },
+              { userEnteredValue: { stringValue: row.opponent } },
+              { userEnteredValue: { stringValue: row.site } }
+            ]
           })),
           fields: 'userEnteredValue'
         }
       },
-      // Pre-fill User Team column with user's team abbreviation
-      ...(userTeamAbbr ? [{
-        updateCells: {
-          range: {
-            sheetId: scheduleSheetId,
-            startRowIndex: 1,
-            endRowIndex: 13,
-            startColumnIndex: 1,
-            endColumnIndex: 2
-          },
-          rows: Array.from({ length: 12 }, () => ({
-            values: [{ userEnteredValue: { stringValue: userTeamAbbr } }]
-          })),
-          fields: 'userEnteredValue'
-        }
-      }] : []),
       // Bold headers
       {
         repeatCell: {
@@ -8010,14 +8021,21 @@ const LEAVING_REASONS = [
 
 // Create Players Leaving sheet for offseason
 // Auto-fills RS Sr (exhausted eligibility) and Sr with 5+ games as "Graduating"
-export async function createPlayersLeavingSheet(dynastyName, year, players) {
+// teamAbbr is optional but recommended for proper team-centric filtering
+export async function createPlayersLeavingSheet(dynastyName, year, players, teamAbbr) {
   try {
     const accessToken = await getAccessToken()
 
-    // Filter to only current roster players (exclude already-left, honor-only, recruits)
-    const currentRosterPlayers = players.filter(p =>
-      !p.leftTeam && !p.isHonorOnly && !p.isRecruit
-    )
+    // Filter to only current roster players using teamsByYear (the ONLY source of truth)
+    const currentRosterPlayers = players.filter(p => {
+      if (p.isHonorOnly) return false
+      // Use teamsByYear for proper team-centric filtering
+      if (teamAbbr && p.teamsByYear) {
+        return p.teamsByYear[year] === teamAbbr
+      }
+      // Fallback for legacy data without teamsByYear
+      return !p.leftTeam && !p.isRecruit
+    })
 
     // Get player names for dropdown (only current roster)
     const playerNames = currentRosterPlayers.map(p => p.name).sort()
