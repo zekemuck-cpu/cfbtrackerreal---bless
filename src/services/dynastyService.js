@@ -265,17 +265,49 @@ export async function savePlayerToSubcollection(dynastyId, player) {
 
 /**
  * Save multiple players to the players subcollection using batch writes
+ * Also deletes any orphaned player documents that are no longer in the array
  * @param {string} dynastyId - The dynasty document ID
  * @param {Array} players - Array of player objects
  */
 export async function savePlayersToSubcollection(dynastyId, players) {
   try {
-    if (!players || players.length === 0) return
+    // Handle empty array case - still need to potentially delete orphans
+    const playersToSave = players || []
+
+    // Get current IDs in subcollection to find orphans
+    const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+    const snapshot = await getDocs(playersRef)
+    const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+
+    // Get IDs we're about to save
+    const newIds = new Set(playersToSave.filter(p => p.pid).map(p => String(p.pid)))
+
+    // Find orphaned IDs (exist in subcollection but not in our save list)
+    const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
+
+    // Delete orphaned documents
+    if (orphanedIds.length > 0) {
+      console.log(`Deleting ${orphanedIds.length} orphaned player documents`)
+      for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
+
+        for (const id of batchIds) {
+          const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id)
+          batch.delete(playerRef)
+        }
+
+        await batch.commit()
+      }
+    }
+
+    // Save players (skip if empty)
+    if (playersToSave.length === 0) return
 
     // Process in batches of BATCH_SIZE
-    for (let i = 0; i < players.length; i += BATCH_SIZE) {
+    for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
-      const batchPlayers = players.slice(i, i + BATCH_SIZE)
+      const batchPlayers = playersToSave.slice(i, i + BATCH_SIZE)
 
       for (const player of batchPlayers) {
         if (!player.pid) {
@@ -334,17 +366,49 @@ export async function saveGameToSubcollection(dynastyId, game) {
 
 /**
  * Save multiple games to the games subcollection using batch writes
+ * Also deletes any orphaned game documents that are no longer in the array
  * @param {string} dynastyId - The dynasty document ID
  * @param {Array} games - Array of game objects
  */
 export async function saveGamesToSubcollection(dynastyId, games) {
   try {
-    if (!games || games.length === 0) return
+    // Handle empty array case - still need to potentially delete orphans
+    const gamesToSave = games || []
+
+    // Get current IDs in subcollection to find orphans
+    const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
+    const snapshot = await getDocs(gamesRef)
+    const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+
+    // Get IDs we're about to save
+    const newIds = new Set(gamesToSave.filter(g => g.id).map(g => String(g.id)))
+
+    // Find orphaned IDs (exist in subcollection but not in our save list)
+    const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
+
+    // Delete orphaned documents
+    if (orphanedIds.length > 0) {
+      console.log(`Deleting ${orphanedIds.length} orphaned game documents`)
+      for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
+
+        for (const id of batchIds) {
+          const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id)
+          batch.delete(gameRef)
+        }
+
+        await batch.commit()
+      }
+    }
+
+    // Save games (skip if empty)
+    if (gamesToSave.length === 0) return
 
     // Process in batches of BATCH_SIZE
-    for (let i = 0; i < games.length; i += BATCH_SIZE) {
+    for (let i = 0; i < gamesToSave.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
-      const batchGames = games.slice(i, i + BATCH_SIZE)
+      const batchGames = gamesToSave.slice(i, i + BATCH_SIZE)
 
       for (const game of batchGames) {
         if (!game.id) {
@@ -397,12 +461,21 @@ export async function getDynastyWithSubcollections(dynastyId) {
 
     if (!mainDoc) return null
 
-    // If subcollections have data, use them
-    // Otherwise fall back to main document arrays (pre-migration data)
-    return {
-      ...mainDoc,
-      players: players.length > 0 ? players : (mainDoc.players || []),
-      games: games.length > 0 ? games : (mainDoc.games || [])
+    // If migrated, always use subcollection data (even if empty)
+    // If not migrated, use main document data
+    if (mainDoc._subcollectionsMigrated) {
+      return {
+        ...mainDoc,
+        players: players,
+        games: games
+      }
+    } else {
+      // Not migrated - use subcollections if they have data, otherwise main doc
+      return {
+        ...mainDoc,
+        players: players.length > 0 ? players : (mainDoc.players || []),
+        games: games.length > 0 ? games : (mainDoc.games || [])
+      }
     }
   } catch (error) {
     console.error('Error fetching dynasty with subcollections:', error)
@@ -427,10 +500,21 @@ export async function getPublicDynastyWithSubcollections(shareCode) {
       getGamesSubcollection(mainDoc.id)
     ])
 
-    return {
-      ...mainDoc,
-      players: players.length > 0 ? players : (mainDoc.players || []),
-      games: games.length > 0 ? games : (mainDoc.games || [])
+    // If migrated, always use subcollection data (even if empty)
+    // If not migrated, use main document data
+    if (mainDoc._subcollectionsMigrated) {
+      return {
+        ...mainDoc,
+        players: players,
+        games: games
+      }
+    } else {
+      // Not migrated - use subcollections if they have data, otherwise main doc
+      return {
+        ...mainDoc,
+        players: players.length > 0 ? players : (mainDoc.players || []),
+        games: games.length > 0 ? games : (mainDoc.games || [])
+      }
     }
   } catch (error) {
     console.error('Error fetching public dynasty with subcollections:', error)

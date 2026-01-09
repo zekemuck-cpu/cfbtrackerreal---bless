@@ -1935,25 +1935,22 @@ export function DynastyProvider({ children }) {
                 getPlayersSubcollection(dynasty.id),
                 getGamesSubcollection(dynasty.id)
               ])
+              // Always use subcollection data for migrated dynasties
+              // Even if empty - that's the source of truth after migration
               return {
                 ...dynasty,
-                players: players.length > 0 ? players : (dynasty.players || []),
-                games: games.length > 0 ? games : (dynasty.games || [])
+                players: players,
+                games: games
               }
             } else {
               // Not yet migrated - use main document data
-              // Check if we need to auto-migrate (has data in main doc)
+              // NOTE: We do NOT auto-migrate here to avoid race conditions
+              // User should manually migrate via Admin Tools when ready
               const hasDataToMigrate = (dynasty.players?.length > 0 || dynasty.games?.length > 0)
               if (hasDataToMigrate) {
-                console.log(`Dynasty ${dynasty.id} needs migration to subcollections`)
-                // Trigger migration in background (don't block loading)
-                migrateDynastyToSubcollections(dynasty.id).then(result => {
-                  console.log('Auto-migration result:', result)
-                }).catch(err => {
-                  console.error('Auto-migration failed:', err)
-                })
+                console.log(`Dynasty ${dynasty.id} needs migration to subcollections (use Admin Tools)`)
               }
-              // Return with existing data for now
+              // Return with existing data from main document
               return dynasty
             }
           } catch (err) {
@@ -2089,10 +2086,14 @@ export function DynastyProvider({ children }) {
     try {
       const newDynasty = await createDynastyInFirestore(user.uid, {
         ...newDynastyData,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        // New dynasties start with subcollections enabled to avoid 1MB limit
+        _subcollectionsMigrated: true
       })
-      setCurrentDynasty(newDynasty)
-      return newDynasty
+      // Mark local state as migrated too
+      const dynastyWithFlag = { ...newDynasty, _subcollectionsMigrated: true }
+      setCurrentDynasty(dynastyWithFlag)
+      return dynastyWithFlag
     } catch (error) {
       console.error('Error creating dynasty:', error)
       throw error
