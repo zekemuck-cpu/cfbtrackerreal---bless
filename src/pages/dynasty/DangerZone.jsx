@@ -455,7 +455,7 @@ export default function DangerZone() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
-          Document Size (Firestore Limit: 1MB)
+          Storage Analysis
         </h2>
 
         <div
@@ -469,11 +469,90 @@ export default function DangerZone() {
                 className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90"
                 style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
               >
-                Analyze Document Size
+                Analyze Storage
               </button>
             </div>
-          ) : (
+          ) : sizeAnalysis.isMigrated ? (
+            /* Migrated to Subcollections View */
             <>
+              {/* Storage Type Badge */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm font-medium text-green-700">Using Subcollection Storage (No Size Limit)</span>
+              </div>
+
+              {/* Main Document */}
+              <div className="p-3 rounded-lg bg-white/50">
+                <h4 className="font-medium text-sm mb-2" style={{ color: secondaryBgText }}>
+                  Main Document
+                </h4>
+                <div className="flex justify-between text-sm mb-1" style={{ color: secondaryBgText }}>
+                  <span>{sizeAnalysis.mainDocTotalKB} KB</span>
+                  <span className="opacity-70">{sizeAnalysis.mainDocPercentUsed}% of 1MB limit</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-green-500"
+                    style={{ width: `${Math.min(100, parseFloat(sizeAnalysis.mainDocPercentUsed))}%` }}
+                  />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-1 text-xs" style={{ color: secondaryBgText }}>
+                  {Object.entries(sizeAnalysis.mainDocSections)
+                    .filter(([, bytes]) => bytes > 100) // Only show sections > 100 bytes
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 8) // Show top 8
+                    .map(([key, bytes]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="opacity-70 truncate">{key.replace(/ByTeamYear|ByYear/g, '')}:</span>
+                        <span className="font-mono">{(bytes / 1024).toFixed(1)} KB</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Subcollections */}
+              <div className="p-3 rounded-lg bg-white/50">
+                <h4 className="font-medium text-sm mb-2" style={{ color: secondaryBgText }}>
+                  Subcollections (Unlimited Storage)
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-2 rounded bg-blue-50">
+                    <div className="text-xs text-blue-600 font-medium">Players</div>
+                    <div className="text-lg font-bold text-blue-800">{sizeAnalysis.subcollections.players.count}</div>
+                    <div className="text-xs text-blue-600">{sizeAnalysis.subcollections.players.sizeKB} KB total</div>
+                  </div>
+                  <div className="p-2 rounded bg-purple-50">
+                    <div className="text-xs text-purple-600 font-medium">Games</div>
+                    <div className="text-lg font-bold text-purple-800">{sizeAnalysis.subcollections.games.count}</div>
+                    <div className="text-xs text-purple-600">
+                      {sizeAnalysis.subcollections.games.sizeKB} KB total
+                      <br />
+                      {sizeAnalysis.subcollections.games.withBoxScores} with box scores
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Refresh Button */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleAnalyzeSize}
+                  className="px-4 py-2 rounded-lg font-medium text-sm border-2 hover:opacity-90"
+                  style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+                >
+                  Refresh
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Legacy Single Document View */
+            <>
+              {/* Storage Type Badge */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-sm font-medium text-yellow-700">Legacy Storage (1MB Limit)</span>
+              </div>
+
               {/* Size Bar */}
               <div>
                 <div className="flex justify-between text-sm mb-1" style={{ color: secondaryBgText }}>
@@ -503,6 +582,7 @@ export default function DangerZone() {
                 <h4 className="font-medium text-sm mb-2" style={{ color: secondaryBgText }}>Size Breakdown:</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm" style={{ color: secondaryBgText }}>
                   {Object.entries(sizeAnalysis.sections)
+                    .filter(([, bytes]) => bytes > 100)
                     .sort(([,a], [,b]) => b - a)
                     .map(([key, bytes]) => (
                       <div key={key} className="flex justify-between">
@@ -514,6 +594,13 @@ export default function DangerZone() {
                 <div className="mt-2 pt-2 border-t border-gray-200 text-sm" style={{ color: secondaryBgText }}>
                   <span className="opacity-70">Players: {sizeAnalysis.counts.players} | Games: {sizeAnalysis.counts.games} | Box Scores: {sizeAnalysis.counts.gamesWithBoxScores}</span>
                 </div>
+              </div>
+
+              {/* Migrate Suggestion */}
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  <strong>Tip:</strong> Migrate to subcollections below to remove the 1MB limit and enable unlimited seasons.
+                </p>
               </div>
 
               {/* Optimize Options */}
@@ -528,7 +615,7 @@ export default function DangerZone() {
                   />
                   Remove box scores older than 2 years (saves significant space)
                 </label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
                     onClick={handleOptimize}
                     disabled={optimizeStatus === 'running'}

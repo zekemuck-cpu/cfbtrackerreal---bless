@@ -3572,12 +3572,14 @@ export function DynastyProvider({ children }) {
       additionalUpdates.conferenceChampionshipData = null
 
       // Clear temporary sheet IDs from offseason
+      // Year already flipped at Signing Day, so previous season = currentYear - 1
+      const previousSeasonYearForCleanup = dynasty.currentYear - 1
       additionalUpdates.trainingResultsSheetId = null
       additionalUpdates.playersLeavingSheetId = null
       additionalUpdates.encourageTransfersSheetId = null
       additionalUpdates.recruitOverallsSheetId = null
       additionalUpdates.conferencesSheetId = null
-      additionalUpdates.portalTransferClassSheetId = null
+      additionalUpdates[`portalTransferClassSheetId_${previousSeasonYearForCleanup}`] = null
       additionalUpdates.fringeCaseClassSheetId = null
       additionalUpdates.transferDestinationsSheetId = null
       additionalUpdates.draftResultsSheetId = null
@@ -5904,23 +5906,80 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    const isMigrated = dynasty._subcollectionsMigrated === true
+
+    // For migrated dynasties, players and games are in subcollections, not the main document
+    // We still track their sizes for informational purposes
+    const playersSize = estimateSize(dynasty.players || [])
+    const gamesSize = estimateSize(dynasty.games || [])
+
+    // Main document sections (always in main doc)
+    const mainDocSections = {
+      schedulesByTeamYear: estimateSize(dynasty.schedulesByTeamYear || {}),
+      recruitingCommitmentsByTeamYear: estimateSize(dynasty.recruitingCommitmentsByTeamYear || {}),
+      customConferencesByYear: estimateSize(dynasty.customConferencesByYear || {}),
+      teamRatingsByTeamYear: estimateSize(dynasty.teamRatingsByTeamYear || {}),
+      coachingStaffByTeamYear: estimateSize(dynasty.coachingStaffByTeamYear || {}),
+      playersLeavingByYear: estimateSize(dynasty.playersLeavingByYear || {}),
+      playersLeavingByTeamYear: estimateSize(dynasty.playersLeavingByTeamYear || {}),
+      draftResultsByYear: estimateSize(dynasty.draftResultsByYear || {}),
+      draftResultsByTeamYear: estimateSize(dynasty.draftResultsByTeamYear || {}),
+      cfpResultsByYear: estimateSize(dynasty.cfpResultsByYear || {}),
+      bowlResultsByYear: estimateSize(dynasty.bowlResultsByYear || {}),
+      rankingsHistoryByYear: estimateSize(dynasty.rankingsHistoryByYear || {}),
+      conferenceChampionshipDataByTeamYear: estimateSize(dynasty.conferenceChampionshipDataByTeamYear || {}),
+      bowlEligibilityDataByTeamYear: estimateSize(dynasty.bowlEligibilityDataByTeamYear || {}),
+      transferDestinationsByTeamYear: estimateSize(dynasty.transferDestinationsByTeamYear || {}),
+      trainingResultsByTeamYear: estimateSize(dynasty.trainingResultsByTeamYear || {}),
+      portalTransferClassByTeamYear: estimateSize(dynasty.portalTransferClassByTeamYear || {}),
+      lockedCoachingStaffByTeamYear: estimateSize(dynasty.lockedCoachingStaffByTeamYear || {}),
+      coachTeamByYear: estimateSize(dynasty.coachTeamByYear || {}),
+      preseasonSetupByTeamYear: estimateSize(dynasty.preseasonSetupByTeamYear || {}),
+      googleSheetsByTeam: estimateSize(dynasty.googleSheetsByTeam || {}),
+    }
+
+    // Calculate main document size
+    const mainDocKnownSize = Object.values(mainDocSections).reduce((a, b) => a + b, 0)
+
+    // For non-migrated dynasties, include players and games in main doc calculation
+    let mainDocTotal
+    if (isMigrated) {
+      // Migrated: players and games are NOT in the main document
+      // Estimate metadata overhead (dynasty name, currentYear, etc.)
+      const metadataEstimate = 2000 // ~2KB for metadata fields
+      mainDocTotal = mainDocKnownSize + metadataEstimate
+    } else {
+      // Not migrated: everything is in the main document
+      mainDocTotal = mainDocKnownSize + playersSize + gamesSize + 2000
+    }
+
     const analysis = {
-      total: estimateSize(dynasty),
-      sections: {
-        players: estimateSize(dynasty.players || []),
-        games: estimateSize(dynasty.games || []),
-        schedulesByTeamYear: estimateSize(dynasty.schedulesByTeamYear || {}),
-        recruitingCommitmentsByTeamYear: estimateSize(dynasty.recruitingCommitmentsByTeamYear || {}),
-        customConferencesByYear: estimateSize(dynasty.customConferencesByYear || {}),
-        teamRatingsByTeamYear: estimateSize(dynasty.teamRatingsByTeamYear || {}),
-        coachingStaffByTeamYear: estimateSize(dynasty.coachingStaffByTeamYear || {}),
-        playersLeavingByYear: estimateSize(dynasty.playersLeavingByYear || {}),
-        draftResultsByYear: estimateSize(dynasty.draftResultsByYear || {}),
-        cfpResultsByYear: estimateSize(dynasty.cfpResultsByYear || {}),
-        bowlResultsByYear: estimateSize(dynasty.bowlResultsByYear || {}),
-        rankingsHistoryByYear: estimateSize(dynasty.rankingsHistoryByYear || {}),
-        other: 0
+      isMigrated,
+      // Main document info
+      mainDocTotal,
+      mainDocTotalKB: (mainDocTotal / 1024).toFixed(1),
+      mainDocPercentUsed: ((mainDocTotal / (1024 * 1024)) * 100).toFixed(1),
+      mainDocSections,
+      // Subcollection info (for migrated dynasties, this is separate storage)
+      subcollections: {
+        players: {
+          size: playersSize,
+          sizeKB: (playersSize / 1024).toFixed(1),
+          count: (dynasty.players || []).length
+        },
+        games: {
+          size: gamesSize,
+          sizeKB: (gamesSize / 1024).toFixed(1),
+          count: (dynasty.games || []).length,
+          withBoxScores: (dynasty.games || []).filter(g => g.boxScore).length
+        }
       },
+      // Legacy format for backwards compatibility with UI
+      total: isMigrated ? mainDocTotal : (mainDocTotal + playersSize + gamesSize),
+      totalKB: isMigrated ? (mainDocTotal / 1024).toFixed(1) : ((mainDocTotal + playersSize + gamesSize) / 1024).toFixed(1),
+      limitKB: 1024,
+      percentUsed: isMigrated ? ((mainDocTotal / (1024 * 1024)) * 100).toFixed(1) : (((mainDocTotal + playersSize + gamesSize) / (1024 * 1024)) * 100).toFixed(1),
+      sections: isMigrated ? mainDocSections : { ...mainDocSections, players: playersSize, games: gamesSize },
       counts: {
         players: (dynasty.players || []).length,
         games: (dynasty.games || []).length,
@@ -5928,14 +5987,11 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // Calculate 'other' as difference
-    const knownSize = Object.values(analysis.sections).reduce((a, b) => a + b, 0)
-    analysis.sections.other = Math.max(0, analysis.total - knownSize)
-
-    // Convert to KB for readability
-    analysis.totalKB = (analysis.total / 1024).toFixed(1)
-    analysis.limitKB = 1024 // Firestore limit
-    analysis.percentUsed = ((analysis.total / (1024 * 1024)) * 100).toFixed(1)
+    // Calculate 'other' for non-migrated
+    if (!isMigrated) {
+      const knownSize = Object.values(analysis.sections).reduce((a, b) => a + b, 0)
+      analysis.sections.other = Math.max(0, analysis.total - knownSize)
+    }
 
     return { success: true, analysis }
   }

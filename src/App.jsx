@@ -117,6 +117,13 @@ function AppRoutes() {
                   </Layout>
                 </ProtectedRoute>
               } />
+              <Route path="/ai-settings" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <AISettings />
+                  </Layout>
+                </ProtectedRoute>
+              } />
               <Route path="/dynasty/:id" element={
                 <ProtectedRoute>
                   <Layout>
@@ -157,7 +164,6 @@ function AppRoutes() {
                 <Route path="game/:gameId" element={<Game />} />
                 <Route path="team-stats/:team/:year" element={<TeamStats />} />
                 <Route path="admin" element={<DangerZone />} />
-                <Route path="ai-settings" element={<AISettings />} />
               </Route>
             </Routes>
           </DynastyProvider>

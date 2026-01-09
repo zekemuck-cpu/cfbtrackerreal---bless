@@ -1,15 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useContext } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { Link } from 'react-router-dom'
 import { db } from '../../config/firebase'
 import { useAuth } from '../../context/AuthContext'
-import { useDynasty } from '../../context/DynastyContext'
+import DynastyContext from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
+import { DEFAULT_GAME_RECAP_INSTRUCTIONS } from '../../services/geminiService'
+
+// Default neutral colors when not in dynasty context
+const NEUTRAL_COLORS = {
+  primary: '#1e40af',    // Blue
+  secondary: '#f1f5f9'   // Light gray
+}
 
 export default function AISettings() {
   const { user } = useAuth()
-  const { currentDynasty, isViewOnly } = useDynasty()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+
+  // Try to get dynasty context (may be null if standalone)
+  const dynastyContext = useContext(DynastyContext)
+  const currentDynasty = dynastyContext?.currentDynasty
+  const isViewOnly = dynastyContext?.isViewOnly
+
+  // Use team colors if in dynasty, otherwise neutral colors
+  const teamColorsFromHook = useTeamColors(currentDynasty?.teamName)
+  const teamColors = currentDynasty?.teamName ? teamColorsFromHook : NEUTRAL_COLORS
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
@@ -21,9 +36,16 @@ export default function AISettings() {
   const [status, setStatus] = useState(null)
   const [showKey, setShowKey] = useState(false)
 
-  // Load existing API key on mount
+  // Custom prompt state
+  const [customInstructions, setCustomInstructions] = useState('')
+  const [savedInstructions, setSavedInstructions] = useState('')
+  const [showPromptEditor, setShowPromptEditor] = useState(false)
+  const [savingPrompt, setSavingPrompt] = useState(false)
+  const [promptStatus, setPromptStatus] = useState(null)
+
+  // Load existing API key and custom instructions on mount
   useEffect(() => {
-    const loadApiKey = async () => {
+    const loadUserSettings = async () => {
       if (!user?.uid) {
         setLoading(false)
         return
@@ -31,18 +53,31 @@ export default function AISettings() {
 
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
-        if (userDoc.exists() && userDoc.data().geminiApiKey) {
-          const key = userDoc.data().geminiApiKey
-          setSavedKey(key)
-          setApiKey(key)
+        if (userDoc.exists()) {
+          const data = userDoc.data()
+          if (data.geminiApiKey) {
+            setSavedKey(data.geminiApiKey)
+            setApiKey(data.geminiApiKey)
+          }
+          if (data.gameRecapInstructions) {
+            setSavedInstructions(data.gameRecapInstructions)
+            setCustomInstructions(data.gameRecapInstructions)
+          } else {
+            // Use default if no custom instructions saved
+            setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
+          }
+        } else {
+          // No user doc yet, use default
+          setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
         }
       } catch (error) {
-        console.error('Error loading API key:', error)
+        console.error('Error loading user settings:', error)
+        setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
       }
       setLoading(false)
     }
 
-    loadApiKey()
+    loadUserSettings()
   }, [user?.uid])
 
   // Save API key to Firebase
@@ -127,15 +162,56 @@ export default function AISettings() {
     setSaving(false)
   }
 
-  if (!currentDynasty) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: teamColors.primary }}></div>
-      </div>
-    )
+  // Save custom instructions
+  const handleSavePrompt = async () => {
+    if (!user?.uid) return
+
+    setSavingPrompt(true)
+    setPromptStatus(null)
+
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        gameRecapInstructions: customInstructions,
+        updatedAt: new Date().toISOString()
+      }, { merge: true })
+
+      setSavedInstructions(customInstructions)
+      setPromptStatus({ success: true, message: 'Prompt saved!' })
+    } catch (error) {
+      console.error('Error saving prompt:', error)
+      setPromptStatus({ success: false, message: 'Failed to save: ' + error.message })
+    }
+
+    setSavingPrompt(false)
   }
 
-  if (isViewOnly) {
+  // Reset to default prompt
+  const handleResetPrompt = async () => {
+    if (!user?.uid) return
+    if (!window.confirm('Reset to default prompt? Your custom changes will be lost.')) return
+
+    setSavingPrompt(true)
+    setPromptStatus(null)
+
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        gameRecapInstructions: null,
+        updatedAt: new Date().toISOString()
+      }, { merge: true })
+
+      setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
+      setSavedInstructions('')
+      setPromptStatus({ success: true, message: 'Reset to default!' })
+    } catch (error) {
+      console.error('Error resetting prompt:', error)
+      setPromptStatus({ success: false, message: 'Failed to reset: ' + error.message })
+    }
+
+    setSavingPrompt(false)
+  }
+
+  // Check if we're in dynasty context and it's view-only
+  if (dynastyContext && isViewOnly) {
     return (
       <div className="p-6">
         <div className="rounded-lg p-6 text-center" style={{ backgroundColor: teamColors.secondary }}>
@@ -146,8 +222,24 @@ export default function AISettings() {
     )
   }
 
+  // Determine if we're in standalone mode (not inside a dynasty)
+  const isStandalone = !dynastyContext || !currentDynasty
+
   return (
     <div className="space-y-6">
+      {/* Back link for standalone mode */}
+      {isStandalone && (
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Dynasties
+        </Link>
+      )}
+
       {/* Header */}
       <div
         className="rounded-xl p-5 sm:p-6"
@@ -170,7 +262,10 @@ export default function AISettings() {
               AI Settings
             </h1>
             <p className="text-sm" style={{ color: primaryBgText, opacity: 0.8 }}>
-              Connect Google Gemini to generate AI-powered content
+              {isStandalone
+                ? 'Configure AI features for all your dynasties'
+                : 'Connect Google Gemini to generate AI-powered content'
+              }
             </p>
           </div>
         </div>
@@ -445,7 +540,7 @@ export default function AISettings() {
           <div>
             <h3 className="font-semibold" style={{ color: secondaryBgText }}>Is my API key secure?</h3>
             <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-              Your key is stored in your private account data and syncs across your devices. It's only used to generate content for your dynasty.
+              Yes, your key is stored in your private account data and syncs across your devices. It's only used to generate content for your dynasty.
             </p>
           </div>
 
@@ -463,6 +558,91 @@ export default function AISettings() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Game Recap Prompt Section */}
+      <div
+        className="rounded-lg p-5"
+        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
+      >
+        <div
+          className="flex items-center justify-between cursor-pointer"
+          onClick={() => setShowPromptEditor(!showPromptEditor)}
+        >
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold" style={{ color: secondaryBgText }}>
+              Game Recap Prompt
+            </h2>
+            {savedInstructions && (
+              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+                Customized
+              </span>
+            )}
+          </div>
+          <svg
+            className={`w-5 h-5 transition-transform ${showPromptEditor ? 'rotate-180' : ''}`}
+            style={{ color: secondaryBgText }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+
+        <p className="text-sm mt-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
+          Customize the instructions given to the AI when generating game recaps.
+        </p>
+
+        {showPromptEditor && (
+          <div className="mt-4 space-y-4">
+            <div className="text-xs p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15`, color: secondaryBgText }}>
+              <strong>Tip:</strong> Use <code className="bg-gray-200 px-1 rounded">[HOME_TEAM]</code> as a placeholder - it will be replaced with the actual home team name when generating.
+            </div>
+
+            <textarea
+              value={customInstructions}
+              onChange={(e) => setCustomInstructions(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg border-2 focus:outline-none transition-colors text-sm font-mono"
+              style={{
+                borderColor: `${teamColors.primary}50`,
+                backgroundColor: '#fff',
+                minHeight: '300px',
+                resize: 'vertical'
+              }}
+              placeholder="Enter custom instructions for the AI..."
+            />
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={handleSavePrompt}
+                disabled={savingPrompt || customInstructions === savedInstructions || (customInstructions === DEFAULT_GAME_RECAP_INSTRUCTIONS && !savedInstructions)}
+                className="px-5 py-2.5 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+              >
+                {savingPrompt ? 'Saving...' : 'Save Prompt'}
+              </button>
+
+              <button
+                onClick={handleResetPrompt}
+                disabled={savingPrompt || (!savedInstructions && customInstructions === DEFAULT_GAME_RECAP_INSTRUCTIONS)}
+                className="px-5 py-2.5 rounded-lg font-medium text-sm border-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+              >
+                Reset to Default
+              </button>
+            </div>
+
+            {/* Prompt status message */}
+            {promptStatus && (
+              <div
+                className={`p-3 rounded-lg text-sm ${promptStatus.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}
+              >
+                {promptStatus.success ? '✓' : '✗'} {promptStatus.message}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

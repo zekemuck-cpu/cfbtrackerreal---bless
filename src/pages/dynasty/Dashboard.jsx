@@ -1373,7 +1373,7 @@ export default function Dashboard() {
         ...existingSelections,
         [year]: classSelections
       },
-      portalTransferClassSheetId: null // Clear sheet ID since task is complete
+      [`portalTransferClassSheetId_${year}`]: null // Clear year-specific sheet ID since task is complete
     })
 
   }
@@ -5934,8 +5934,11 @@ export default function Dashboard() {
                         return true
                       })
                       const hasTransfers = transfers.length > 0
-                      const hasTransferDestinationsData = currentDynasty?.transferDestinationsByYear?.[offseasonDataYear]?.length > 0
-                      const transferDestinationsCount = currentDynasty?.transferDestinationsByYear?.[offseasonDataYear]?.length || 0
+                      // Check team-centric path (where data is actually saved)
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName
+                      const transferDestinationsData = currentDynasty?.transferDestinationsByTeamYear?.[teamAbbr]?.[offseasonDataYear]
+                      const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
+                      const transferDestinationsCount = transferDestinationsData?.length || 0
 
                       return (
                         <div

@@ -433,7 +433,16 @@ export default function Layout({ children }) {
                 </div>
               </>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
+                {user && (
+                  <Link
+                    to="/ai-settings"
+                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-white/20 whitespace-nowrap"
+                    style={{ color: headerText }}
+                  >
+                    AI Settings
+                  </Link>
+                )}
                 {user ? (
                   <button
                     onClick={handleSignOut}

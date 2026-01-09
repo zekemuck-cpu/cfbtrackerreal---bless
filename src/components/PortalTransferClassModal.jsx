@@ -8,6 +8,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -79,12 +80,15 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
     }
   }, [isOpen])
 
+  // Year-specific sheet key (like recruiting sheets) for proper persistence
+  const sheetKey = `portalTransferClassSheetId_${currentYear}`
+
   // Create portal transfer class sheet when modal opens
   useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Check if we have an existing sheet for this year
-        const existingSheetId = currentDynasty?.portalTransferClassSheetId
+        const existingSheetId = currentDynasty?.[sheetKey]
         if (existingSheetId) {
           setSheetId(existingSheetId)
           return
@@ -101,9 +105,9 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
           )
           setSheetId(sheetInfo.spreadsheetId)
 
-          // Save sheet ID to dynasty
+          // Save sheet ID to dynasty with year-specific key
           await updateDynasty(currentDynasty.id, {
-            portalTransferClassSheetId: sheetInfo.spreadsheetId
+            [sheetKey]: sheetInfo.spreadsheetId
           })
         } catch (error) {
           console.error('Failed to create portal transfer class sheet:', error)
@@ -118,7 +122,7 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, portalTransfers, currentYear])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, portalTransfers, currentYear, sheetKey])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -185,7 +189,7 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
     setRegenerating(true)
     try {
       await deleteGoogleSheet(sheetId)
-      await updateDynasty(currentDynasty.id, { portalTransferClassSheetId: null })
+      await updateDynasty(currentDynasty.id, { [sheetKey]: null })
       setSheetId(null)
       setRetryCount(c => c + 1)
     } catch (error) {

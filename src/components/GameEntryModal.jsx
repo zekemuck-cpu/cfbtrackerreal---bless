@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences } from '../context/DynastyContext'
+import { useAuth } from '../context/AuthContext'
 import { getTeamLogo } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 import { getTeamConference } from '../data/conferenceTeams'
 import { generateRandomBoxScore } from '../data/boxScoreConstants'
+import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../services/geminiService'
 import BoxScoreSheetModal from './BoxScoreSheetModal'
 
 export default function GameEntryModal({
@@ -28,8 +30,14 @@ export default function GameEntryModal({
   existingLinks
 }) {
   const { currentDynasty, addGame } = useDynasty()
+  const { user } = useAuth()
   // Get team-centric team ratings
   const teamRatings = getCurrentTeamRatings(currentDynasty)
+
+  // AI Recap generation state
+  const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
+  const [recapError, setRecapError] = useState(null)
+  const [tokenUsage, setTokenUsage] = useState(null)
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
   // In unified model: CPU games have team1/team2 but NO userTeam AND NO opponent
@@ -93,6 +101,7 @@ export default function GameEntryModal({
           opponentOffense: gameData.opponentOffense ? parseInt(gameData.opponentOffense) : latestGame.opponentOffense,
           opponentDefense: gameData.opponentDefense ? parseInt(gameData.opponentDefense) : latestGame.opponentDefense,
           gameNote: gameData.gameNote || latestGame.gameNote,
+          aiRecap: gameData.aiRecap || latestGame.aiRecap,
         }
 
         try {
@@ -287,6 +296,7 @@ export default function GameEntryModal({
     overallRecord: '',
     conferenceRecord: '',
     gameNote: '',
+    aiRecap: '',
     week: actualWeekNumber,
     year: currentYear,
     quarters: {
@@ -894,6 +904,7 @@ export default function GameEntryModal({
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: gameToLoad.gameNote || '',
+          aiRecap: gameToLoad.aiRecap || '',
           week: gameToLoad.week ?? actualWeekNumber,
           year: gameToLoad.year ?? actualYear,
           quarters: gameToLoad.quarters || {
@@ -971,6 +982,7 @@ export default function GameEntryModal({
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: foundGame.gameNote || '',
+          aiRecap: foundGame.aiRecap || '',
           week: actualWeekNumber,
           year: actualYear,
           quarters: foundGame.quarters || {
@@ -1032,6 +1044,7 @@ export default function GameEntryModal({
           overallRecord: '',
           conferenceRecord: '',
           gameNote: '',
+          aiRecap: '',
           quarters: {
             team: { Q1: '', Q2: '', Q3: '', Q4: '' },
             opponent: { Q1: '', Q2: '', Q3: '', Q4: '' }
@@ -1353,6 +1366,7 @@ export default function GameEntryModal({
         overallRecord: '',
         conferenceRecord: '',
         gameNote: '',
+        aiRecap: '',
         week: actualWeekNumber,
         year: currentYear,
         quarters: {
@@ -2776,24 +2790,106 @@ export default function GameEntryModal({
           </>
           )}
 
-          {/* Game Note Section */}
+          {/* AI Game Recap Section */}
           <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
-            <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: teamColors.primary }}>
-              Game Notes & Media
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-bold" style={{ color: teamColors.primary }}>
+                Game Recap
+              </h3>
+              {(existingGame?.id || tempGameId) && (
+                <button
+                  onClick={async () => {
+                    if (!user?.uid || isGeneratingRecap) return
+                    // Confirm before overwriting existing recap
+                    if (gameData.aiRecap && !window.confirm('This will erase the existing recap. Continue?')) {
+                      return
+                    }
+                    setIsGeneratingRecap(true)
+                    setRecapError(null)
+                    setTokenUsage(null)
+                    setGameData(prev => ({ ...prev, aiRecap: '' })) // Clear for fresh streaming
+                    try {
+                      const apiKey = await getGeminiApiKey(user.uid)
+                      if (!apiKey) {
+                        setRecapError('No API key found. Add your Gemini API key in AI Settings.')
+                        setIsGeneratingRecap(false)
+                        return
+                      }
+                      // Fetch custom instructions if user has them
+                      const customInstructions = await getCustomRecapInstructions(user.uid)
+
+                      // Build a game object from current form data for recap generation
+                      const gameForRecap = {
+                        ...existingGame,
+                        ...gameData,
+                        teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
+                        opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
+                        team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
+                        team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
+                      }
+                      // Use streaming to show progress - returns { text, usage }
+                      const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
+                        setGameData(prev => ({ ...prev, aiRecap: partialText }))
+                      }, customInstructions)
+                      // Capture token usage
+                      if (result.usage) {
+                        setTokenUsage(result.usage)
+                      }
+                      // Set final text (may be trimmed version)
+                      setGameData(prev => ({ ...prev, aiRecap: result.text }))
+                    } catch (error) {
+                      console.error('Error generating recap:', error)
+                      setRecapError(error.message || 'Failed to generate recap')
+                    } finally {
+                      setIsGeneratingRecap(false)
+                    }
+                  }}
+                  disabled={isGeneratingRecap}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                  style={{
+                    backgroundColor: `${teamColors.primary}15`,
+                    color: teamColors.primary,
+                    border: `1px solid ${teamColors.primary}30`
+                  }}
+                >
+                  {isGeneratingRecap ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      {gameData.aiRecap ? 'AI Regenerate' : 'AI Generate'}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {recapError && (
+              <div className="mb-3 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                {recapError}
+              </div>
+            )}
 
             <div className="mb-4">
-              <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
-                Game Notes
-              </label>
               <textarea
-                value={gameData.gameNote}
-                onChange={(e) => setGameData({ ...gameData, gameNote: e.target.value })}
-                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
+                value={gameData.aiRecap}
+                onChange={(e) => setGameData({ ...gameData, aiRecap: e.target.value })}
+                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm focus:ring-2 focus:outline-none transition-all"
                 style={{ borderColor: `${teamColors.primary}40` }}
-                rows="3"
-                placeholder="Add notes about the game..."
+                rows="10"
+                placeholder={existingGame?.id || tempGameId ? "Click 'Generate' to create an AI recap, or write your own..." : "Save the game first to generate an AI recap, or write your own..."}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                You can edit the generated recap or write your own.
+              </p>
             </div>
 
             <div>

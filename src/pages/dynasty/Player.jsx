@@ -1268,6 +1268,22 @@ export default function Player() {
           }
         }
 
+        // Build overall history from teamsByYear (years player was on roster)
+        const overallHistory = years.map(year => ({
+          year,
+          team: teamsByYear[year],
+          playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year || '—',
+          overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)] || (year === years[years.length - 1] ? player.overall : null)
+        }))
+
+        const getOverallColor = (ovr) => {
+          if (!ovr) return '#9ca3af'
+          if (ovr >= 85) return '#22c55e'
+          if (ovr >= 75) return '#3b82f6'
+          if (ovr >= 65) return '#f59e0b'
+          return '#ef4444'
+        }
+
         return (
           <div
             className="rounded-lg shadow-lg p-4"
@@ -1276,7 +1292,7 @@ export default function Player() {
             <h3 className="text-sm font-bold mb-3 uppercase tracking-wide" style={{ color: secondaryText, opacity: 0.7 }}>
               Career Timeline
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-4">
               {timelineEntries.map((entry, idx) => {
                 const displayTeam = entry.to || entry.from || entry.team
                 const mascot = displayTeam ? getMascotName(displayTeam) : null
@@ -1295,6 +1311,49 @@ export default function Player() {
                     </span>
                     <span style={{ color: secondaryText, opacity: 0.5 }}>·</span>
                     <span style={{ color: secondaryText, opacity: 0.6 }}>{entry.year}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Overall History - Editable overalls for each season */}
+            <h4 className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: secondaryText, opacity: 0.5 }}>
+              Overall by Season
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {overallHistory.map((entry, idx) => {
+                const prevOverall = idx > 0 ? overallHistory[idx - 1].overall : null
+                const change = (prevOverall && entry.overall) ? parseInt(entry.overall) - parseInt(prevOverall) : null
+
+                return (
+                  <div
+                    key={entry.year}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: `${teamColors.primary}20`, border: `1px solid ${teamColors.primary}40` }}
+                    onClick={() => !isViewOnly && setShowOverallProgressionModal(true)}
+                    title={isViewOnly ? undefined : 'Click to edit overalls'}
+                  >
+                    <div className="text-center">
+                      <div className="text-xs font-semibold" style={{ color: secondaryText }}>{entry.year}</div>
+                      <div className="text-[10px]" style={{ color: secondaryText, opacity: 0.6 }}>{entry.playerClass}</div>
+                    </div>
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm shadow"
+                      style={{ backgroundColor: getOverallColor(entry.overall) }}
+                    >
+                      {entry.overall || '—'}
+                    </div>
+                    {change !== null && change !== 0 && (
+                      <span
+                        className="text-[10px] font-bold px-1 py-0.5 rounded"
+                        style={{
+                          backgroundColor: change > 0 ? '#dcfce7' : '#fee2e2',
+                          color: change > 0 ? '#16a34a' : '#dc2626'
+                        }}
+                      >
+                        {change > 0 ? '+' : ''}{change}
+                      </span>
+                    )}
                   </div>
                 )
               })}
@@ -2688,8 +2747,6 @@ export default function Player() {
         isOpen={showOverallProgressionModal}
         onClose={() => setShowOverallProgressionModal(false)}
         player={player}
-        trainingResultsByYear={currentDynasty?.trainingResultsByYear}
-        recruitOverallsByYear={currentDynasty?.recruitOverallsByYear}
         teamColors={teamColors}
         currentYear={currentDynasty?.currentYear}
         onSave={!isViewOnly ? async (playerToUpdate, updates) => {

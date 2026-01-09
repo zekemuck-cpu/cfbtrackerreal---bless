@@ -1,33 +1,13 @@
 import { useState } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 
-// Class progression order for calculating expected class
-const CLASS_ORDER = ['Fr', 'So', 'Jr', 'Sr', 'RS Sr']
-const RS_CLASS_ORDER = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
-
-function getExpectedClass(baseClass, baseYear, targetYear) {
-  const yearDiff = targetYear - baseYear
-  if (yearDiff === 0) return baseClass
-
-  const isRS = baseClass?.startsWith('RS ')
-  const order = isRS ? RS_CLASS_ORDER : CLASS_ORDER
-  const baseIndex = order.indexOf(baseClass)
-
-  if (baseIndex === -1) return baseClass // Unknown class, return as-is
-
-  const targetIndex = Math.min(baseIndex + yearDiff, order.length - 1)
-  return order[targetIndex]
-}
-
 export default function OverallProgressionModal({
   isOpen,
   onClose,
   player,
-  trainingResultsByYear,
-  recruitOverallsByYear,
   teamColors,
   currentYear,
-  onSave // New prop for saving changes
+  onSave
 }) {
   const [editingYear, setEditingYear] = useState(null)
   const [editValue, setEditValue] = useState('')
@@ -37,116 +17,46 @@ export default function OverallProgressionModal({
 
   const primaryText = getContrastTextColor(teamColors.primary)
 
-  // Build progression history from multiple sources
+  // Build progression history from teamsByYear (the source of truth for roster membership)
   const buildProgressionHistory = () => {
     const history = []
-    const playerName = player.name?.toLowerCase().trim()
-    const addedYears = new Set()
 
-    if (!playerName) return history
+    // teamsByYear is THE source of truth for which years the player was on a roster
+    const teamsByYear = player.teamsByYear || {}
+    const rosterYears = Object.keys(teamsByYear).map(Number).filter(y => !isNaN(y)).sort((a, b) => a - b)
 
-    // PRIMARY SOURCE: player.overallByYear (new canonical storage)
-    if (player.overallByYear) {
-      Object.entries(player.overallByYear).forEach(([year, overall]) => {
-        const yearNum = parseInt(year)
-        if (!isNaN(yearNum) && overall) {
-          history.push({
-            year: yearNum,
-            overall: parseInt(overall),
-            source: 'overallByYear'
-          })
-          addedYears.add(yearNum)
-        }
-      })
-    }
-
-    // FALLBACK: Check recruit overalls
-    if (recruitOverallsByYear) {
-      const sortedYears = Object.keys(recruitOverallsByYear).sort((a, b) => parseInt(a) - parseInt(b))
-      for (const year of sortedYears) {
-        const yearNum = parseInt(year)
-        if (addedYears.has(yearNum)) continue
-
-        const results = recruitOverallsByYear[year] || []
-        const match = results.find(r =>
-          (r.playerName?.toLowerCase().trim() === playerName) ||
-          (r.name?.toLowerCase().trim() === playerName)
-        )
-        if (match && match.overall) {
-          history.push({
-            year: yearNum,
-            overall: parseInt(match.overall),
-            source: 'recruitOveralls'
-          })
-          addedYears.add(yearNum)
-        }
+    if (rosterYears.length === 0) {
+      // Fallback: if no teamsByYear, show current year with current overall
+      if (player.overall && currentYear) {
+        history.push({
+          year: currentYear,
+          overall: parseInt(player.overall),
+          playerClass: player.year || '—',
+          team: null
+        })
       }
+      return history
     }
 
-    // FALLBACK: Check training results
-    if (trainingResultsByYear) {
-      const sortedYears = Object.keys(trainingResultsByYear).sort((a, b) => parseInt(a) - parseInt(b))
-      for (const year of sortedYears) {
-        const results = trainingResultsByYear[year] || []
-        const match = results.find(r =>
-          r.playerName?.toLowerCase().trim() === playerName
-        )
-        if (match) {
-          const yearNum = parseInt(year)
+    // For each year the player was on a roster, get their overall
+    rosterYears.forEach(year => {
+      const team = teamsByYear[year]
+      const playerClass = player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year || '—'
 
-          if (match.pastOverall && !addedYears.has(yearNum)) {
-            history.push({
-              year: yearNum,
-              overall: parseInt(match.pastOverall),
-              source: 'trainingResults'
-            })
-            addedYears.add(yearNum)
-          }
+      // Get overall from overallByYear (single source of truth)
+      let overall = player.overallByYear?.[year] || player.overallByYear?.[String(year)]
 
-          if (match.newOverall) {
-            const nextYear = yearNum + 1
-            if (!addedYears.has(nextYear)) {
-              history.push({
-                year: nextYear,
-                overall: parseInt(match.newOverall),
-                source: 'trainingResults'
-              })
-              addedYears.add(nextYear)
-            }
-          }
-        }
+      // If no overallByYear entry, use current overall for the most recent year only
+      if (!overall && year === rosterYears[rosterYears.length - 1]) {
+        overall = player.overall
       }
-    }
 
-    // Sort by year
-    history.sort((a, b) => a.year - b.year)
-
-    // If no history but player has overall, show current
-    if (history.length === 0 && player.overall) {
       history.push({
-        year: currentYear || new Date().getFullYear(),
-        overall: parseInt(player.overall),
-        source: 'current'
+        year,
+        overall: overall ? parseInt(overall) : null,
+        playerClass,
+        team
       })
-    }
-
-    // Calculate classes based on progression from first known class
-    const firstKnownYear = history.length > 0 ? history[0].year : null
-    const baseClass = firstKnownYear
-      ? (player.classByYear?.[firstKnownYear] || player.classByYear?.[String(firstKnownYear)] || player.year)
-      : player.year
-
-    history.forEach(entry => {
-      // Try to get from classByYear first
-      const storedClass = player.classByYear?.[entry.year] || player.classByYear?.[String(entry.year)]
-      if (storedClass) {
-        entry.playerClass = storedClass
-      } else if (firstKnownYear) {
-        // Calculate expected class based on progression
-        entry.playerClass = getExpectedClass(baseClass, firstKnownYear, entry.year)
-      } else {
-        entry.playerClass = player.year
-      }
     })
 
     return history
@@ -154,16 +64,20 @@ export default function OverallProgressionModal({
 
   const progression = buildProgressionHistory()
 
+  // Filter to only entries with overalls for summary calculation
+  const entriesWithOveralls = progression.filter(p => p.overall !== null)
+
   const getOverallChange = () => {
-    if (progression.length < 2) return null
-    return progression[progression.length - 1].overall - progression[0].overall
+    if (entriesWithOveralls.length < 2) return null
+    return entriesWithOveralls[entriesWithOveralls.length - 1].overall - entriesWithOveralls[0].overall
   }
 
   const overallChange = getOverallChange()
-  const startOverall = progression.length > 0 ? progression[0].overall : null
-  const currentOverall = progression.length > 0 ? progression[progression.length - 1].overall : null
+  const startOverall = entriesWithOveralls.length > 0 ? entriesWithOveralls[0].overall : null
+  const currentOverall = entriesWithOveralls.length > 0 ? entriesWithOveralls[entriesWithOveralls.length - 1].overall : (player.overall ? parseInt(player.overall) : null)
 
   const getOverallColor = (ovr) => {
+    if (!ovr) return '#9ca3af'
     if (ovr >= 85) return '#22c55e'
     if (ovr >= 75) return '#3b82f6'
     if (ovr >= 65) return '#f59e0b'
@@ -172,7 +86,7 @@ export default function OverallProgressionModal({
 
   const handleEdit = (year, overall) => {
     setEditingYear(year)
-    setEditValue(String(overall))
+    setEditValue(overall ? String(overall) : '')
   }
 
   const handleSave = async () => {
@@ -187,7 +101,7 @@ export default function OverallProgressionModal({
       const newOverallByYear = { ...(player.overallByYear || {}) }
       newOverallByYear[editingYear] = newOverall
 
-      // Also update current overall if editing current year
+      // Also update current overall if editing current/most recent year
       const updates = { overallByYear: newOverallByYear }
       if (editingYear === currentYear) {
         updates.overall = newOverall
@@ -207,32 +121,6 @@ export default function OverallProgressionModal({
     setEditingYear(null)
     setEditValue('')
   }
-
-  const handleAddYear = async (year) => {
-    if (!onSave) return
-
-    // Find the closest year's overall as a starting point
-    let defaultOverall = player.overall || 70
-    const closestEntry = progression.find(p => p.year === year - 1) || progression.find(p => p.year === year + 1)
-    if (closestEntry) defaultOverall = closestEntry.overall
-
-    handleEdit(year, defaultOverall)
-  }
-
-  // Check for gaps in years that could be added
-  const getAddableYears = () => {
-    if (progression.length === 0) return []
-    const years = progression.map(p => p.year)
-    const minYear = Math.min(...years)
-    const maxYear = Math.max(...years, currentYear)
-    const addable = []
-    for (let y = minYear; y <= maxYear; y++) {
-      if (!years.includes(y)) addable.push(y)
-    }
-    return addable
-  }
-
-  const addableYears = getAddableYears()
 
   return (
     <div
@@ -278,7 +166,7 @@ export default function OverallProgressionModal({
 
         {/* Content */}
         <div className="p-5">
-          {progression.length > 1 ? (
+          {entriesWithOveralls.length > 1 ? (
             <>
               {/* Summary Card */}
               <div className="flex items-center justify-between mb-5 p-4 rounded-xl bg-gray-50">
@@ -308,23 +196,26 @@ export default function OverallProgressionModal({
                     {currentOverall}
                   </div>
                 </div>
-                <div
-                  className="ml-4 px-3 py-2 rounded-lg font-bold text-lg"
-                  style={{
-                    backgroundColor: overallChange > 0 ? '#dcfce7' : overallChange < 0 ? '#fee2e2' : '#f3f4f6',
-                    color: overallChange > 0 ? '#16a34a' : overallChange < 0 ? '#dc2626' : '#6b7280'
-                  }}
-                >
-                  {overallChange > 0 ? '+' : ''}{overallChange}
-                </div>
+                {overallChange !== null && (
+                  <div
+                    className="ml-4 px-3 py-2 rounded-lg font-bold text-lg"
+                    style={{
+                      backgroundColor: overallChange > 0 ? '#dcfce7' : overallChange < 0 ? '#fee2e2' : '#f3f4f6',
+                      color: overallChange > 0 ? '#16a34a' : overallChange < 0 ? '#dc2626' : '#6b7280'
+                    }}
+                  >
+                    {overallChange > 0 ? '+' : ''}{overallChange}
+                  </div>
+                )}
               </div>
 
               {/* Timeline */}
               <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Progression History</div>
               <div className="space-y-0">
                 {progression.map((entry, idx) => {
-                  const prevOverall = idx > 0 ? progression[idx - 1].overall : null
-                  const change = prevOverall !== null ? entry.overall - prevOverall : null
+                  const prevEntry = progression.slice(0, idx).reverse().find(p => p.overall !== null)
+                  const prevOverall = prevEntry?.overall || null
+                  const change = (prevOverall !== null && entry.overall !== null) ? entry.overall - prevOverall : null
                   const isLast = idx === progression.length - 1
                   const isEditing = editingYear === entry.year
 
@@ -384,12 +275,16 @@ export default function OverallProgressionModal({
                               <div className="text-sm text-gray-500">{entry.playerClass}</div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span
-                                className="text-xl font-bold"
-                                style={{ color: getOverallColor(entry.overall) }}
-                              >
-                                {entry.overall}
-                              </span>
+                              {entry.overall !== null ? (
+                                <span
+                                  className="text-xl font-bold"
+                                  style={{ color: getOverallColor(entry.overall) }}
+                                >
+                                  {entry.overall}
+                                </span>
+                              ) : (
+                                <span className="text-lg text-gray-400">—</span>
+                              )}
                               {change !== null && change !== 0 && (
                                 <span
                                   className="text-xs font-semibold px-1.5 py-0.5 rounded"
@@ -420,24 +315,6 @@ export default function OverallProgressionModal({
                   )
                 })}
               </div>
-
-              {/* Add missing years */}
-              {onSave && addableYears.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <div className="text-xs text-gray-500 mb-2">Add missing year:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {addableYears.map(year => (
-                      <button
-                        key={year}
-                        onClick={() => handleAddYear(year)}
-                        className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600"
-                      >
-                        + {year}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           ) : progression.length === 1 ? (
             <div className="text-center py-6">
@@ -459,7 +336,7 @@ export default function OverallProgressionModal({
                   />
                 ) : (
                   <>
-                    {progression[0].overall}
+                    {progression[0].overall || '—'}
                     {onSave && (
                       <div className="absolute inset-0 bg-black/20 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,7 +368,7 @@ export default function OverallProgressionModal({
                 {progression[0].year ? `${progression[0].playerClass} • ${progression[0].year}` : progression[0].playerClass}
               </div>
               <div className="text-sm text-gray-400 mt-2">
-                {onSave ? 'Click to edit • ' : ''}No progression history yet
+                {onSave ? 'Click to edit' : 'Single season on roster'}
               </div>
             </div>
           ) : (
@@ -499,7 +376,7 @@ export default function OverallProgressionModal({
               <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              No progression history available
+              No roster history available
             </div>
           )}
         </div>

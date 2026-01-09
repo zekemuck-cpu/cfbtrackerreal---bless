@@ -83,7 +83,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
-    { name: 'AI Settings', path: `${pathPrefix}/ai-settings`, isAdmin: true, isAI: true },
+    { name: 'AI Settings', path: '/ai-settings', isAdmin: true, isAI: true },
     { name: 'Admin Tools', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 
