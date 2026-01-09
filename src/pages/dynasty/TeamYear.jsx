@@ -985,6 +985,7 @@ export default function TeamYear() {
     isPlayerOnRoster(p, teamAbbr, selectedYear)
   )
 
+
   // Calculate vs user record
   const vsUserWins = vsUserGames.filter(g => g.result === 'W').length
   const vsUserLosses = vsUserGames.filter(g => g.result === 'L').length

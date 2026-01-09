@@ -812,12 +812,12 @@ export function getCurrentSchedule(dynasty) {
  * @returns {boolean} True if player should appear on roster for this team/year
  */
 export function isPlayerOnRoster(player, teamAbbr, year) {
-  // Honor-only players are never on active roster
-  if (player.isHonorOnly) return false
-
   // teamsByYear is the ONLY source of truth for roster membership
   // If teamsByYear[year] === teamAbbr, player is on roster. Nothing else matters.
-  const teamForYear = player.teamsByYear?.[year] ?? player.teamsByYear?.[String(year)]
+  // Check both number and string keys since data may be stored either way
+  const yearNum = Number(year)
+  const yearStr = String(year)
+  const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
   return teamForYear === teamAbbr
 }
 
@@ -3240,21 +3240,23 @@ export function DynastyProvider({ children }) {
           gamesPlayed = classConfirmations[player.pid] ? 5 : 0 // Treat as 5+ or 0
         }
 
-        const isAlreadyRS = player.year?.startsWith('RS ')
-        let newYear = player.year
+        // Use classByYear as source of truth for player's class in the previous season
+        const currentClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
+        const isAlreadyRS = currentClass?.startsWith('RS ')
+        let newYear = currentClass
 
         // Apply class progression based on games played
         if (gamesPlayed !== null && gamesPlayed !== undefined) {
           if (gamesPlayed <= 4 && !isAlreadyRS) {
             // Redshirt: add RS prefix (played 4 or fewer games)
-            newYear = 'RS ' + player.year
+            newYear = 'RS ' + currentClass
           } else {
             // Normal progression
-            newYear = CLASS_PROGRESSION[player.year] || player.year
+            newYear = CLASS_PROGRESSION[currentClass] || currentClass
           }
         } else {
           // No games data - default to normal progression
-          newYear = CLASS_PROGRESSION[player.year] || player.year
+          newYear = CLASS_PROGRESSION[currentClass] || currentClass
         }
 
         // Update player with new class and ensure teamsByYear is set for the new season
@@ -5303,6 +5305,55 @@ export function DynastyProvider({ children }) {
               updatedTeamsByYear[year] = teamAbbr
               modified = true
             }
+            // Also fill classByYear gaps by inferring from surrounding years
+            if (!updatedClassByYear[year] && !updatedClassByYear[String(year)]) {
+              // Try to infer class from previous or next year
+              const prevYearClass = updatedClassByYear[year - 1] || updatedClassByYear[String(year - 1)]
+              const nextYearClass = updatedClassByYear[year + 1] || updatedClassByYear[String(year + 1)]
+              if (prevYearClass) {
+                // Progress from previous year
+                const CLASS_PROGRESSION = {
+                  'Fr': 'So', 'So': 'Jr', 'Jr': 'Sr', 'Sr': 'RS Sr',
+                  'RS Fr': 'RS So', 'RS So': 'RS Jr', 'RS Jr': 'RS Sr', 'RS Sr': 'RS Sr'
+                }
+                updatedClassByYear[year] = CLASS_PROGRESSION[prevYearClass] || prevYearClass
+                modified = true
+              } else if (nextYearClass) {
+                // Regress from next year
+                const CLASS_REGRESSION = {
+                  'So': 'Fr', 'Jr': 'So', 'Sr': 'Jr',
+                  'RS So': 'RS Fr', 'RS Jr': 'RS So', 'RS Sr': 'RS Jr'
+                }
+                updatedClassByYear[year] = CLASS_REGRESSION[nextYearClass] || nextYearClass
+                modified = true
+              }
+            }
+          }
+        } else if (teamYears.length === 1) {
+          // Fix 4: Player has only one year entry - fill up to current year if no departure
+          const onlyYear = teamYears[0]
+          const hasDeparture = departureMovements.some(m => Number(m.year) >= onlyYear)
+
+          if (!hasDeparture && onlyYear < currentYear) {
+            // Fill years from onlyYear to currentYear
+            for (let year = onlyYear; year <= currentYear; year++) {
+              if (!updatedTeamsByYear[year] && !updatedTeamsByYear[String(year)]) {
+                updatedTeamsByYear[year] = teamAbbr
+                modified = true
+              }
+              // Also fill classByYear gaps
+              if (!updatedClassByYear[year] && !updatedClassByYear[String(year)]) {
+                const prevYearClass = updatedClassByYear[year - 1] || updatedClassByYear[String(year - 1)]
+                if (prevYearClass) {
+                  const CLASS_PROGRESSION = {
+                    'Fr': 'So', 'So': 'Jr', 'Jr': 'Sr', 'Sr': 'RS Sr',
+                    'RS Fr': 'RS So', 'RS So': 'RS Jr', 'RS Jr': 'RS Sr', 'RS Sr': 'RS Sr'
+                  }
+                  updatedClassByYear[year] = CLASS_PROGRESSION[prevYearClass] || prevYearClass
+                  modified = true
+                }
+              }
+            }
           }
         }
       }
@@ -5328,6 +5379,477 @@ export function DynastyProvider({ children }) {
     }
 
     return { success: true, message: 'No roster issues found' }
+  }
+
+  // Emergency cleanup to remove incorrectly added current year entries
+  // This removes teamsByYear[currentYear] for players who don't have the previous year
+  const removeOrphanedRosterEntries = async (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const currentYear = dynasty.currentYear
+    const previousYear = currentYear - 1
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const players = [...(dynasty.players || [])]
+    let removedCount = 0
+
+    const updatedPlayers = players.map(player => {
+      if (player.isHonorOnly) return player
+
+      const teamsByYear = player.teamsByYear || {}
+      const hasCurrentYear = teamsByYear[currentYear] === teamAbbr || teamsByYear[String(currentYear)] === teamAbbr
+      const hasPreviousYear = teamsByYear[previousYear] === teamAbbr || teamsByYear[String(previousYear)] === teamAbbr
+
+      // If player has current year but NOT previous year, remove current year
+      // (Exception: recruits who just enrolled)
+      if (hasCurrentYear && !hasPreviousYear && !player.isRecruit) {
+        const updatedTeamsByYear = { ...teamsByYear }
+        delete updatedTeamsByYear[currentYear]
+        delete updatedTeamsByYear[String(currentYear)]
+
+        // Also remove classByYear for current year if it exists
+        const updatedClassByYear = { ...(player.classByYear || {}) }
+        delete updatedClassByYear[currentYear]
+        delete updatedClassByYear[String(currentYear)]
+
+        removedCount++
+        return {
+          ...player,
+          teamsByYear: updatedTeamsByYear,
+          classByYear: updatedClassByYear
+        }
+      }
+      return player
+    })
+
+    if (removedCount > 0) {
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+      return {
+        success: true,
+        message: `Removed ${removedCount} orphaned roster entries for year ${currentYear}`
+      }
+    }
+
+    return { success: true, message: 'No orphaned entries found' }
+  }
+
+  // Comprehensive migration: Fill ALL gaps in teamsByYear and classByYear for all players
+  // This ensures every player has complete consecutive year data
+  const migratePlayerCareerData = async (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const currentYear = dynasty.currentYear
+    const players = [...(dynasty.players || [])]
+    let migratedCount = 0
+    let totalFixes = 0
+
+    // Class progression mapping
+    const CLASS_PROGRESSION = {
+      'Fr': 'So', 'So': 'Jr', 'Jr': 'Sr', 'Sr': 'RS Sr',
+      'RS Fr': 'RS So', 'RS So': 'RS Jr', 'RS Jr': 'RS Sr', 'RS Sr': 'RS Sr',
+      'HS': 'Fr', 'JUCO Fr': 'Fr', 'JUCO So': 'So', 'JUCO Jr': 'Jr', 'JUCO Sr': 'Sr'
+    }
+
+    const updatedPlayers = players.map(player => {
+      if (player.isHonorOnly) return player
+
+      let modified = false
+      const teamsByYear = { ...(player.teamsByYear || {}) }
+      const classByYear = { ...(player.classByYear || {}) }
+
+      // Get all years from both objects
+      const allYearKeys = [...new Set([
+        ...Object.keys(teamsByYear),
+        ...Object.keys(classByYear)
+      ])].map(y => parseInt(y)).filter(y => !isNaN(y))
+
+      if (allYearKeys.length === 0) return player
+
+      const minYear = Math.min(...allYearKeys)
+      const maxYear = Math.max(...allYearKeys)
+
+      // Check if player has a departure - if so, don't extend past departure year
+      const departureMovement = (player.movements || []).find(m => m.type === 'departure')
+      const departureYear = departureMovement ? parseInt(departureMovement.year) : null
+      const finalYear = departureYear || Math.min(maxYear, currentYear)
+
+      // Build complete year range
+      for (let year = minYear; year <= finalYear; year++) {
+        const yearKey = String(year)
+        const hasTeam = teamsByYear[year] || teamsByYear[yearKey]
+        const hasClass = classByYear[year] || classByYear[yearKey]
+
+        // Fill team if missing
+        if (!hasTeam) {
+          // Look for the most recent team before this year
+          let inferredTeam = null
+          for (let prevYear = year - 1; prevYear >= minYear; prevYear--) {
+            const prevTeam = teamsByYear[prevYear] || teamsByYear[String(prevYear)]
+            if (prevTeam) {
+              inferredTeam = prevTeam
+              break
+            }
+          }
+          // Or look for the next team after this year
+          if (!inferredTeam) {
+            for (let nextYear = year + 1; nextYear <= finalYear; nextYear++) {
+              const nextTeam = teamsByYear[nextYear] || teamsByYear[String(nextYear)]
+              if (nextTeam) {
+                inferredTeam = nextTeam
+                break
+              }
+            }
+          }
+          // Or use player.team as fallback
+          if (!inferredTeam) {
+            inferredTeam = player.team || ''
+          }
+
+          if (inferredTeam) {
+            teamsByYear[yearKey] = inferredTeam
+            modified = true
+            totalFixes++
+          }
+        }
+
+        // Fill class if missing
+        if (!hasClass) {
+          // Try to infer from previous year
+          const prevYearClass = classByYear[year - 1] || classByYear[String(year - 1)]
+          if (prevYearClass) {
+            classByYear[yearKey] = CLASS_PROGRESSION[prevYearClass] || prevYearClass
+            modified = true
+            totalFixes++
+          } else {
+            // Try to infer from next year (regress)
+            const nextYearClass = classByYear[year + 1] || classByYear[String(year + 1)]
+            if (nextYearClass) {
+              const CLASS_REGRESSION = {
+                'So': 'Fr', 'Jr': 'So', 'Sr': 'Jr',
+                'RS So': 'RS Fr', 'RS Jr': 'RS So', 'RS Sr': 'RS Jr'
+              }
+              classByYear[yearKey] = CLASS_REGRESSION[nextYearClass] || nextYearClass
+              modified = true
+              totalFixes++
+            } else if (player.year) {
+              // Use current class as fallback
+              classByYear[yearKey] = player.year
+              modified = true
+              totalFixes++
+            }
+          }
+        }
+      }
+
+      if (modified) {
+        migratedCount++
+        return {
+          ...player,
+          teamsByYear,
+          classByYear
+        }
+      }
+      return player
+    })
+
+    if (migratedCount > 0) {
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+      return {
+        success: true,
+        message: `Migrated ${migratedCount} player(s), filled ${totalFixes} missing entries`
+      }
+    }
+
+    return { success: true, message: 'All player data is complete - no migration needed' }
+  }
+
+  // Fix transferred players: Remove incorrect current-year entries for players who transferred away
+  // Also handles graduating seniors by not adding entries past senior year
+  const fixTransferredPlayers = async (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const currentYear = dynasty.currentYear
+    const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const players = [...(dynasty.players || [])]
+    let fixedCount = 0
+    const fixedPlayers = []
+
+    // Senior classes - these players shouldn't have entries after their senior year
+    const SENIOR_CLASSES = ['Sr', 'RS Sr']
+
+    const updatedPlayers = players.map(player => {
+      const teamsByYear = { ...(player.teamsByYear || {}) }
+      const classByYear = { ...(player.classByYear || {}) }
+      let modified = false
+
+      // Get years sorted chronologically
+      const years = Object.keys(teamsByYear)
+        .map(y => parseInt(y))
+        .filter(y => !isNaN(y))
+        .sort((a, b) => a - b)
+
+      if (years.length < 2) return player
+
+      // Find the most recent year BEFORE current year where they had a team entry
+      const prevYears = years.filter(y => y < currentYear)
+      if (prevYears.length === 0) return player
+
+      const mostRecentPrevYear = Math.max(...prevYears)
+      const mostRecentPrevTeam = teamsByYear[mostRecentPrevYear] || teamsByYear[String(mostRecentPrevYear)]
+      const mostRecentPrevClass = classByYear[mostRecentPrevYear] || classByYear[String(mostRecentPrevYear)]
+      const currentYearTeam = teamsByYear[currentYear] || teamsByYear[String(currentYear)]
+
+      // Check 1: If player was a senior in their most recent year, they graduated - remove current year entry
+      if (mostRecentPrevClass && SENIOR_CLASSES.includes(mostRecentPrevClass)) {
+        if (currentYearTeam) {
+          delete teamsByYear[currentYear]
+          delete teamsByYear[String(currentYear)]
+          delete classByYear[currentYear]
+          delete classByYear[String(currentYear)]
+          modified = true
+          fixedPlayers.push(`${player.name}: Graduated (was ${mostRecentPrevClass} in ${mostRecentPrevYear})`)
+        }
+      }
+      // Check 2: If player transferred AWAY from current team, and now shows back on current team,
+      // that's likely an error - should stay at their transfer destination
+      // BUT: If player has a "recommit" movement, they intentionally came back - don't fix
+      else if (mostRecentPrevTeam && mostRecentPrevTeam !== currentTeamAbbr && currentYearTeam === currentTeamAbbr) {
+        // Check if player has any indication they recommitted (came back intentionally)
+        const movements = player.movements || []
+        const movementsByYear = player.movementsByYear || {}
+        const hasRecommit = movements.some(m =>
+          m.type === 'recommit' ||
+          m.type === 'portal_in' ||
+          (m.to === currentTeamAbbr && m.year >= mostRecentPrevYear)
+        )
+        const hasRecommitMovement = Object.values(movementsByYear).some(m =>
+          m === 'Recommitted' || m === 'Transferred'
+        )
+
+        // Also check if they were originally from this team (came back home)
+        const wasOriginallyOnTeam = Object.values(teamsByYear).filter(t => t === currentTeamAbbr).length > 1
+
+        if (hasRecommit || hasRecommitMovement || wasOriginallyOnTeam) {
+          // Player intentionally came back - don't fix
+          // But let's note this for logging
+          fixedPlayers.push(`${player.name}: Kept on ${currentTeamAbbr} (recommit detected)`)
+        } else {
+          // This player was at another team last year but now shows as being on our team
+          // No recommit detected, so this is probably wrong
+          // Change their current year to match their most recent team
+          teamsByYear[String(currentYear)] = mostRecentPrevTeam
+          // Progress their class
+          const CLASS_PROGRESSION = {
+            'Fr': 'So', 'So': 'Jr', 'Jr': 'Sr', 'Sr': 'RS Sr',
+            'RS Fr': 'RS So', 'RS So': 'RS Jr', 'RS Jr': 'RS Sr', 'RS Sr': 'RS Sr'
+          }
+          if (mostRecentPrevClass && CLASS_PROGRESSION[mostRecentPrevClass]) {
+            classByYear[String(currentYear)] = CLASS_PROGRESSION[mostRecentPrevClass]
+          }
+          modified = true
+          fixedPlayers.push(`${player.name}: Stayed at ${mostRecentPrevTeam} (was incorrectly on ${currentTeamAbbr})`)
+        }
+      }
+
+      if (modified) {
+        fixedCount++
+        return { ...player, teamsByYear, classByYear }
+      }
+      return player
+    })
+
+    if (fixedCount > 0) {
+      await updateDynasty(dynastyId, { players: updatedPlayers })
+      console.log('Fixed players:', fixedPlayers)
+      return {
+        success: true,
+        message: `Fixed ${fixedCount} player(s): ${fixedPlayers.slice(0, 5).join(', ')}${fixedPlayers.length > 5 ? ` and ${fixedPlayers.length - 5} more` : ''}`
+      }
+    }
+
+    return { success: true, message: 'No transferred players needed fixing' }
+  }
+
+  // Analyze and optimize dynasty document size
+  const analyzeDocumentSize = (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    // Estimate size of each section (rough JSON size estimate)
+    const estimateSize = (obj) => {
+      try {
+        return new Blob([JSON.stringify(obj)]).size
+      } catch {
+        return 0
+      }
+    }
+
+    const analysis = {
+      total: estimateSize(dynasty),
+      sections: {
+        players: estimateSize(dynasty.players || []),
+        games: estimateSize(dynasty.games || []),
+        schedulesByTeamYear: estimateSize(dynasty.schedulesByTeamYear || {}),
+        recruitingCommitmentsByTeamYear: estimateSize(dynasty.recruitingCommitmentsByTeamYear || {}),
+        customConferencesByYear: estimateSize(dynasty.customConferencesByYear || {}),
+        teamRatingsByTeamYear: estimateSize(dynasty.teamRatingsByTeamYear || {}),
+        coachingStaffByTeamYear: estimateSize(dynasty.coachingStaffByTeamYear || {}),
+        playersLeavingByYear: estimateSize(dynasty.playersLeavingByYear || {}),
+        draftResultsByYear: estimateSize(dynasty.draftResultsByYear || {}),
+        cfpResultsByYear: estimateSize(dynasty.cfpResultsByYear || {}),
+        bowlResultsByYear: estimateSize(dynasty.bowlResultsByYear || {}),
+        rankingsHistoryByYear: estimateSize(dynasty.rankingsHistoryByYear || {}),
+        other: 0
+      },
+      counts: {
+        players: (dynasty.players || []).length,
+        games: (dynasty.games || []).length,
+        gamesWithBoxScores: (dynasty.games || []).filter(g => g.boxScore).length
+      }
+    }
+
+    // Calculate 'other' as difference
+    const knownSize = Object.values(analysis.sections).reduce((a, b) => a + b, 0)
+    analysis.sections.other = Math.max(0, analysis.total - knownSize)
+
+    // Convert to KB for readability
+    analysis.totalKB = (analysis.total / 1024).toFixed(1)
+    analysis.limitKB = 1024 // Firestore limit
+    analysis.percentUsed = ((analysis.total / (1024 * 1024)) * 100).toFixed(1)
+
+    return { success: true, analysis }
+  }
+
+  // Optimize dynasty document by removing unnecessary data
+  const optimizeDocumentSize = async (dynastyId, options = {}) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    let cleanedItems = []
+    let savedBytes = 0
+    const updates = {}
+
+    // 1. Clean up players - remove empty/null fields and redundant data
+    if (options.cleanPlayers !== false) {
+      const players = dynasty.players || []
+      const cleanedPlayers = players.map(player => {
+        const cleaned = { ...player }
+
+        // Remove empty arrays
+        if (Array.isArray(cleaned.movements) && cleaned.movements.length === 0) {
+          delete cleaned.movements
+        }
+
+        // Remove null/undefined/empty string fields
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] === null || cleaned[key] === undefined || cleaned[key] === '') {
+            delete cleaned[key]
+          }
+        })
+
+        // Remove redundant statsByYear entries with all zeros
+        if (cleaned.statsByYear) {
+          Object.keys(cleaned.statsByYear).forEach(year => {
+            const stats = cleaned.statsByYear[year]
+            if (stats) {
+              // Remove empty sub-objects
+              Object.keys(stats).forEach(statKey => {
+                const statObj = stats[statKey]
+                if (typeof statObj === 'object' && statObj !== null) {
+                  const hasNonZero = Object.values(statObj).some(v => v && v !== 0)
+                  if (!hasNonZero) {
+                    delete stats[statKey]
+                  }
+                }
+              })
+              // If only gamesPlayed and snapsPlayed remain and both are 0, remove the year
+              const remainingKeys = Object.keys(stats)
+              if (remainingKeys.length <= 2 &&
+                  (!stats.gamesPlayed || stats.gamesPlayed === 0) &&
+                  (!stats.snapsPlayed || stats.snapsPlayed === 0)) {
+                delete cleaned.statsByYear[year]
+              }
+            }
+          })
+          if (Object.keys(cleaned.statsByYear).length === 0) {
+            delete cleaned.statsByYear
+          }
+        }
+
+        return cleaned
+      })
+
+      const originalSize = new Blob([JSON.stringify(players)]).size
+      const newSize = new Blob([JSON.stringify(cleanedPlayers)]).size
+      if (newSize < originalSize) {
+        updates.players = cleanedPlayers
+        savedBytes += originalSize - newSize
+        cleanedItems.push(`Players: saved ${((originalSize - newSize) / 1024).toFixed(1)}KB`)
+      }
+    }
+
+    // 2. Clean up games - optionally remove old box scores
+    if (options.removeOldBoxScores) {
+      const games = dynasty.games || []
+      const currentYear = dynasty.currentYear
+      const keepYears = options.keepBoxScoreYears || 2 // Keep last 2 years by default
+
+      const cleanedGames = games.map(game => {
+        // Keep box scores for recent years only
+        if (game.boxScore && game.year && game.year < currentYear - keepYears) {
+          const { boxScore, ...gameWithoutBoxScore } = game
+          return gameWithoutBoxScore
+        }
+        return game
+      })
+
+      const originalSize = new Blob([JSON.stringify(games)]).size
+      const newSize = new Blob([JSON.stringify(cleanedGames)]).size
+      if (newSize < originalSize) {
+        updates.games = cleanedGames
+        savedBytes += originalSize - newSize
+        cleanedItems.push(`Old box scores: saved ${((originalSize - newSize) / 1024).toFixed(1)}KB`)
+      }
+    }
+
+    // 3. Remove empty ByYear objects
+    const byYearFields = [
+      'schedulesByTeamYear', 'recruitingCommitmentsByTeamYear', 'teamRatingsByTeamYear',
+      'coachingStaffByTeamYear', 'playersLeavingByYear', 'draftResultsByYear',
+      'cfpResultsByYear', 'bowlResultsByYear', 'rankingsHistoryByYear'
+    ]
+
+    byYearFields.forEach(field => {
+      if (dynasty[field]) {
+        const cleaned = {}
+        Object.entries(dynasty[field]).forEach(([key, value]) => {
+          // Keep if not empty
+          if (value && typeof value === 'object') {
+            if (Array.isArray(value) && value.length > 0) {
+              cleaned[key] = value
+            } else if (!Array.isArray(value) && Object.keys(value).length > 0) {
+              cleaned[key] = value
+            }
+          }
+        })
+        if (Object.keys(cleaned).length !== Object.keys(dynasty[field]).length) {
+          updates[field] = cleaned
+        }
+      }
+    })
+
+    // Apply updates if any
+    if (Object.keys(updates).length > 0) {
+      await updateDynasty(dynastyId, updates)
+      return {
+        success: true,
+        message: `Optimized document. Saved approximately ${(savedBytes / 1024).toFixed(1)}KB. ${cleanedItems.join('; ')}`
+      }
+    }
+
+    return { success: true, message: 'Document already optimized, no changes needed' }
   }
 
   const value = {
@@ -5361,7 +5883,12 @@ export function DynastyProvider({ children }) {
     exportDynasty,
     importDynasty,
     processHonorPlayers,
-    cleanupRosterData
+    cleanupRosterData,
+    removeOrphanedRosterEntries,
+    migratePlayerCareerData,
+    fixTransferredPlayers,
+    analyzeDocumentSize,
+    optimizeDocumentSize
   }
 
   return (

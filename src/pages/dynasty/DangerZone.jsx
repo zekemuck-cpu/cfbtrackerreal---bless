@@ -6,7 +6,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, updateDynasty, isViewOnly } = useDynasty()
   const { id: dynastyId } = useParams()
   const teamColors = useTeamColors(currentDynasty?.teamName)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -14,8 +14,14 @@ export default function DangerZone() {
 
   // Status states for each action
   const [rosterCleanupStatus, setRosterCleanupStatus] = useState(null)
+  const [orphanCleanupStatus, setOrphanCleanupStatus] = useState(null)
+  const [migrationStatus, setMigrationStatus] = useState(null)
+  const [transferFixStatus, setTransferFixStatus] = useState(null)
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
   const [recruitingSyncStatus, setRecruitingSyncStatus] = useState(null)
+  const [sizeAnalysis, setSizeAnalysis] = useState(null)
+  const [optimizeStatus, setOptimizeStatus] = useState(null)
+  const [removeOldBoxScores, setRemoveOldBoxScores] = useState(false)
 
   if (!currentDynasty) {
     return (
@@ -45,6 +51,42 @@ export default function DangerZone() {
     } catch (error) {
       console.error('Roster cleanup failed:', error)
       setRosterCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  // Handle orphan roster entry removal
+  const handleOrphanCleanup = async () => {
+    setOrphanCleanupStatus('running')
+    try {
+      const result = await removeOrphanedRosterEntries(currentDynasty.id)
+      setOrphanCleanupStatus(result)
+    } catch (error) {
+      console.error('Orphan cleanup failed:', error)
+      setOrphanCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  // Handle career data migration
+  const handleMigration = async () => {
+    setMigrationStatus('running')
+    try {
+      const result = await migratePlayerCareerData(currentDynasty.id)
+      setMigrationStatus(result)
+    } catch (error) {
+      console.error('Migration failed:', error)
+      setMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
+    }
+  }
+
+  // Handle fix transferred players
+  const handleFixTransfers = async () => {
+    setTransferFixStatus('running')
+    try {
+      const result = await fixTransferredPlayers(currentDynasty.id)
+      setTransferFixStatus(result)
+    } catch (error) {
+      console.error('Transfer fix failed:', error)
+      setTransferFixStatus({ success: false, message: 'Fix failed: ' + error.message })
     }
   }
 
@@ -181,6 +223,34 @@ export default function DangerZone() {
     }
   }
 
+  // Handle analyze document size
+  const handleAnalyzeSize = () => {
+    const result = analyzeDocumentSize(currentDynasty.id)
+    if (result.success) {
+      setSizeAnalysis(result.analysis)
+    }
+  }
+
+  // Handle optimize document
+  const handleOptimize = async () => {
+    setOptimizeStatus('running')
+    try {
+      const result = await optimizeDocumentSize(currentDynasty.id, {
+        cleanPlayers: true,
+        removeOldBoxScores: removeOldBoxScores,
+        keepBoxScoreYears: 2
+      })
+      setOptimizeStatus(result)
+      // Re-analyze after optimization
+      if (result.success) {
+        handleAnalyzeSize()
+      }
+    } catch (error) {
+      console.error('Optimization failed:', error)
+      setOptimizeStatus({ success: false, message: 'Optimization failed: ' + error.message })
+    }
+  }
+
   const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'normal' }) => {
     const isRunning = status === 'running'
     const isDone = status && status !== 'running'
@@ -300,6 +370,32 @@ export default function DangerZone() {
           />
 
           <ActionCard
+            title="Remove Orphaned Roster Entries"
+            description="Emergency fix: Removes current year roster entries for players who don't have the previous year. Use this if old players suddenly appeared on your current roster."
+            buttonText="Remove Orphans"
+            onClick={handleOrphanCleanup}
+            status={orphanCleanupStatus}
+            variant="danger"
+          />
+
+          <ActionCard
+            title="Migrate Career Data"
+            description="Fills ALL gaps in player career timelines. Ensures every player has complete year-by-year team and class data with no missing seasons."
+            buttonText="Run Migration"
+            onClick={handleMigration}
+            status={migrationStatus}
+          />
+
+          <ActionCard
+            title="Fix Transferred Players"
+            description="Fixes players who transferred away but incorrectly appear on current roster. Also removes entries for players who graduated (were seniors last year)."
+            buttonText="Fix Transfers"
+            onClick={handleFixTransfers}
+            status={transferFixStatus}
+            variant="danger"
+          />
+
+          <ActionCard
             title="Sync Recruiting Data"
             description="Updates recruiting class data from player records. Fixes missing info on recruiting pages when player data exists but commitment data is incomplete."
             buttonText="Sync Recruiting"
@@ -333,6 +429,116 @@ export default function DangerZone() {
         </div>
       </div>
 
+      {/* Document Size Section */}
+      <div>
+        <h2
+          className="text-lg font-bold mb-3 flex items-center gap-2"
+          style={{ color: secondaryBgText }}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Document Size (Firestore Limit: 1MB)
+        </h2>
+
+        <div
+          className="rounded-lg p-4 sm:p-5 space-y-4"
+          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
+        >
+          {!sizeAnalysis ? (
+            <div className="text-center">
+              <button
+                onClick={handleAnalyzeSize}
+                className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90"
+                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+              >
+                Analyze Document Size
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Size Bar */}
+              <div>
+                <div className="flex justify-between text-sm mb-1" style={{ color: secondaryBgText }}>
+                  <span className="font-medium">{sizeAnalysis.totalKB} KB used</span>
+                  <span className={parseFloat(sizeAnalysis.percentUsed) > 90 ? 'text-red-600 font-bold' : ''}>
+                    {sizeAnalysis.percentUsed}% of 1MB limit
+                  </span>
+                </div>
+                <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      parseFloat(sizeAnalysis.percentUsed) > 95 ? 'bg-red-500' :
+                      parseFloat(sizeAnalysis.percentUsed) > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(100, parseFloat(sizeAnalysis.percentUsed))}%` }}
+                  />
+                </div>
+                {parseFloat(sizeAnalysis.percentUsed) > 95 && (
+                  <p className="text-red-600 text-sm mt-2 font-medium">
+                    Warning: Document near size limit! Saving may fail.
+                  </p>
+                )}
+              </div>
+
+              {/* Breakdown */}
+              <div>
+                <h4 className="font-medium text-sm mb-2" style={{ color: secondaryBgText }}>Size Breakdown:</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm" style={{ color: secondaryBgText }}>
+                  {Object.entries(sizeAnalysis.sections)
+                    .sort(([,a], [,b]) => b - a)
+                    .map(([key, bytes]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="opacity-70">{key}:</span>
+                        <span className="font-mono">{(bytes / 1024).toFixed(1)} KB</span>
+                      </div>
+                    ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-gray-200 text-sm" style={{ color: secondaryBgText }}>
+                  <span className="opacity-70">Players: {sizeAnalysis.counts.players} | Games: {sizeAnalysis.counts.games} | Box Scores: {sizeAnalysis.counts.gamesWithBoxScores}</span>
+                </div>
+              </div>
+
+              {/* Optimize Options */}
+              <div className="pt-2 border-t border-gray-200">
+                <h4 className="font-medium text-sm mb-2" style={{ color: secondaryBgText }}>Optimization Options:</h4>
+                <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer" style={{ color: secondaryBgText }}>
+                  <input
+                    type="checkbox"
+                    checked={removeOldBoxScores}
+                    onChange={(e) => setRemoveOldBoxScores(e.target.checked)}
+                    className="w-4 h-4 rounded"
+                  />
+                  Remove box scores older than 2 years (saves significant space)
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleOptimize}
+                    disabled={optimizeStatus === 'running'}
+                    className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50"
+                    style={{ backgroundColor: '#dc2626', color: '#fff' }}
+                  >
+                    {optimizeStatus === 'running' ? 'Optimizing...' : 'Optimize Document'}
+                  </button>
+                  <button
+                    onClick={handleAnalyzeSize}
+                    className="px-4 py-2 rounded-lg font-medium text-sm border-2 hover:opacity-90"
+                    style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+                  >
+                    Refresh
+                  </button>
+                  {optimizeStatus && optimizeStatus !== 'running' && (
+                    <span className={`text-sm ${optimizeStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                      {optimizeStatus.success ? '✓' : '✗'} {optimizeStatus.message}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Info Section */}
       <div
         className="rounded-lg p-4 text-sm"
@@ -348,6 +554,7 @@ export default function DangerZone() {
               <li><strong>Fix Roster:</strong> If departed players still appear on your roster, or recruits aren't showing up</li>
               <li><strong>Sync Recruiting:</strong> If recruiting class pages show missing data for players who have full info on their player page</li>
               <li><strong>Clear Cache:</strong> If you're experiencing Google Sheets errors or stale data</li>
+              <li><strong>Document Size:</strong> If you're getting "exceeds maximum size" errors when saving</li>
             </ul>
           </div>
         </div>

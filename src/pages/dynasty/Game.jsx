@@ -178,7 +178,7 @@ const defaultColors = {
 export default function Game() {
   const { id, gameId } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, addGame } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   // Get team-centric team ratings
   const teamRatings = getCurrentTeamRatings(currentDynasty)
@@ -815,7 +815,7 @@ export default function Game() {
             )}
           </div>
 
-          {!pathPrefix.startsWith('/view/') ? (
+          {!isViewOnly ? (
             <button
               onClick={() => setShowEditModal(true)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs sm:text-sm bg-black/20 text-white hover:bg-black/30 transition-colors"

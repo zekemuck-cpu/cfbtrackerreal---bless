@@ -468,6 +468,7 @@ export default function Layout({ children }) {
         onConfirm={handleClassAdvancementConfirm}
         players={playersNeedingConfirmation}
         teamColors={teamColors}
+        year={currentDynasty?.currentYear}
       />
     </div>
   )

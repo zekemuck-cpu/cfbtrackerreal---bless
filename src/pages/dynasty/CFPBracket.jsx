@@ -115,7 +115,7 @@ const getShortName = (abbr) => {
 export default function CFPBracket() {
   const { id, year: urlYear } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, addGame } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName)
   const [showEditModal, setShowEditModal] = useState(false)

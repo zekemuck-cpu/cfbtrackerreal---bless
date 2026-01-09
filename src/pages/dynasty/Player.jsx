@@ -858,7 +858,7 @@ export default function Player() {
               )}
               <span className="truncate max-w-[140px]">{playerTeamName}</span>
             </Link>
-            <span className="text-sm font-medium" style={{ opacity: 0.85 }}>{player.year}</span>
+            <span className="text-sm font-medium" style={{ opacity: 0.85 }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
           </div>
 
           {/* Archetype and Physical */}
@@ -1126,7 +1126,7 @@ export default function Player() {
                 <span className="font-semibold">{player.position}</span>
                 {player.archetype && <><span className="opacity-50">|</span><span>{player.archetype}</span></>}
                 <span className="opacity-50">|</span>
-                <span>{player.year}</span>
+                <span>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
                 {player.devTrait && <><span className="opacity-50">|</span><span>{player.devTrait}</span></>}
                 {(player.height || player.weight) && (
                   <><span className="opacity-50">|</span><span>{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
