@@ -4,7 +4,7 @@ import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, getCurrentTeamRatings } from '../../context/DynastyContext'
+import { useDynasty } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../../services/geminiService'
@@ -182,8 +182,6 @@ export default function Game() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  // Get team-centric team ratings
-  const teamRatings = getCurrentTeamRatings(currentDynasty)
   // Use neutral colors for game recap pages instead of user's team colors
   const teamColors = defaultColors
 
@@ -1645,15 +1643,21 @@ export default function Game() {
 
           {/* Team Matchup Card */}
           {!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
+            // Get user's team ratings for this specific game's year
+            // Look up from teamRatingsByTeamYear using the game's userTeam and year
+            const gameUserTeam = game.userTeam
+            const gameYear = game.year
+            const userTeamRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
+
             // Get ratings for both teams to compare
             const leftIsOpponent = leftTeam !== 'user'
             const rightIsOpponent = rightTeam !== 'user'
             const leftRatings = leftIsOpponent
               ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: teamRatings?.overall, off: teamRatings?.offense, def: teamRatings?.defense }
+              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
             const rightRatings = rightIsOpponent
               ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: teamRatings?.overall, off: teamRatings?.offense, def: teamRatings?.defense }
+              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
 
             // Determine which team has better ratings
             const leftOvrBetter = (leftRatings.ovr || 0) > (rightRatings.ovr || 0)

@@ -1061,6 +1061,25 @@ function formatEnhancedPlayerLine(p, category) {
 export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `CRITICAL RULE - READ THIS FIRST:
 You may ONLY write about facts explicitly provided in the data above. If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
 
+**UNDERSTANDING GAME FLOW FROM SCORING SUMMARY - EXTREMELY IMPORTANT:**
+If a SCORING SUMMARY is provided, it is your PRIMARY source of truth for understanding how the game unfolded. You MUST:
+1. Track the RUNNING SCORE after each scoring play to understand who was ahead/behind at each moment
+2. Pay close attention to WHEN leads changed - a team that fell behind 3-14 in Q1 but took the lead 17-14 by Q2 completed their comeback in Q2, NOT at the end of the game
+3. Accurately identify WHO was "coming back" at each point - it's the team that was BEHIND trying to catch up
+4. If Team A led most of the game and Team B tied it late, Team B almost completed a comeback, not Team A
+5. A "comeback win" means a team was losing and then won - NOT that they held on after being ahead
+6. Read the scoring summary CHRONOLOGICALLY and note every lead change before writing your narrative
+
+Example of CORRECT analysis:
+- Q1: Team A 3, Team B 0 (A leads)
+- Q1: Team A 3, Team B 14 (B takes lead - A is now behind and needs to come back)
+- Q2: Team A 17, Team B 14 (A completes comeback, takes lead)
+- Q4: Team A 24, Team B 24 (B ties it - B almost completed THEIR comeback)
+- Q4: Team A 27, Team B 24 (A wins)
+Correct headline: "Team A holds off late Team B rally" NOT "Team A completes comeback"
+
+If NO scoring summary is provided, do NOT invent game flow narratives about comebacks, lead changes, or clutch moments. Simply report the final score and focus on what it means.
+
 **SCALING LENGTH BASED ON DATA:**
 - If you have: scoring summary, box scores, quarter scores → Write 6-10 detailed paragraphs
 - If you have: quarter scores but no scoring summary → Write 3-5 paragraphs, describe flow by quarters only
@@ -1083,6 +1102,31 @@ You may ONLY write about facts explicitly provided in the data above. If specifi
 4. ONLY describe quarter-by-quarter flow if QUARTER-BY-QUARTER SCORES are provided
 5. You CAN use historical data (head-to-head, bowl history, season results) - that context is always valuable
 6. Reference team stats like turnovers only if they appear in the TEAM STATISTICS section
+
+**FEATURING PLAYER STATISTICS - VERY IMPORTANT:**
+Real sports articles prominently feature player performances. If INDIVIDUAL STATS are provided, you MUST include them:
+
+1. QUARTERBACK STATS: Always mention the starting QB's stat line when available
+   - Example: "Jaylen Raynor completed 31 of 38 passes for 271 yards and two touchdowns"
+   - Include passer rating if notable (above 140 is excellent, below 100 is poor)
+   - Mention interceptions if any were thrown
+
+2. RUSHING LEADERS: Highlight the top rushers from each team
+   - Example: "Kenyon Clay led the ground attack with 85 yards on 12 carries and a touchdown"
+   - Mention yards per carry if impressive (5+ YPC is good)
+
+3. RECEIVING LEADERS: Feature top receivers
+   - Example: "Hunter Summers hauled in 8 catches for 112 yards and a score"
+   - Mention big plays (long receptions of 30+ yards)
+
+4. DEFENSIVE STANDOUTS: Highlight defensive performances
+   - Example: "Devyn Curtis led all defenders with 16 tackles"
+   - Mention sacks, interceptions, forced fumbles, and tackles for loss
+
+5. SPECIAL TEAMS: Mention kickers for game-winning/clutch field goals
+   - Example: "Clune Van Andel connected on field goals of 32 and 41 yards, including the game-winner"
+
+Include at least 2-3 specific player stat lines in every recap where the data is available. This makes the article feel like real sports journalism, not just a generic summary.
 
 **NARRATIVE STYLE:**
 1. Lead with the most compelling storyline - the result, the upset, the implications
