@@ -18,6 +18,18 @@ import {
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
 import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
+import {
+  TEAMS,
+  initializeDynastyTeams,
+  setTeambuilderTeam,
+  getTeam,
+  getTidFromAbbr,
+  getTeamYear,
+  setTeamYear,
+  getTeamYearField,
+  setTeamYearField,
+  migrateDynastyToTidStructure
+} from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
 
@@ -2053,6 +2065,13 @@ export function DynastyProvider({ children }) {
         migrated = migrateLegacyDepartureFields(migrated)
       }
 
+      // Apply tid-based team structure migration
+      // Converts old abbr-keyed data to new tid-based dynasty.teams structure
+      if (!migrated._tidMigrated) {
+        migrated = migrateDynastyToTidStructure(migrated)
+        migrated._tidMigrated = true
+      }
+
       return migrated
     })
   }
@@ -2219,6 +2238,27 @@ export function DynastyProvider({ children }) {
       initialConferences = getConferencesWithCustomTeams(dynastyData.customTeams)
     }
 
+    // Initialize the teams map from the master TEAMS list
+    // This is the single source of truth for all team data in this dynasty
+    const teams = initializeDynastyTeams()
+
+    // If there's a teambuilder team, replace the corresponding slot
+    if (dynastyData.customTeams) {
+      for (const [abbr, customTeam] of Object.entries(dynastyData.customTeams)) {
+        // Find the tid of the team being replaced
+        const replacedTid = getTidFromAbbr(customTeam.replacesTeam)
+        if (replacedTid) {
+          setTeambuilderTeam(teams, replacedTid, {
+            abbr: abbr,
+            name: customTeam.name,
+            logo: customTeam.logoUrl,
+            primaryColor: customTeam.backgroundColor || customTeam.primaryColor,
+            secondaryColor: customTeam.textColor || customTeam.secondaryColor
+          })
+        }
+      }
+    }
+
     const newDynastyData = {
       ...dynastyData,
       currentYear: startYear,
@@ -2231,6 +2271,9 @@ export function DynastyProvider({ children }) {
       schedule: [],
       rankings: [],
       nextPID: 1, // Initialize player ID counter
+      // Teams map - single source of truth for all team data (tid-keyed)
+      teams,
+      _tidMigrated: true, // Mark as already using new tid structure
       preseasonSetup: {
         scheduleEntered: false,
         rosterEntered: false,
