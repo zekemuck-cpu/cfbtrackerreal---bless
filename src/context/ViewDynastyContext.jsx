@@ -11,24 +11,23 @@ const ViewDynastyContext = createContext()
  */
 export function useDynastyCompat() {
   const viewContext = useContext(ViewDynastyContext)
+  const dynastyContext = useContext(DynastyContext)
 
   // If we're in view mode, use the view context
   if (viewContext) {
     return viewContext
   }
 
-  // Otherwise, try to use the regular dynasty context
-  // This will throw if not in a DynastyProvider, which is expected
-  try {
-    const dynastyContext = useDynastyContext()
+  // Otherwise, use the regular dynasty context
+  if (dynastyContext) {
     return {
       ...dynastyContext,
       isViewOnly: false
     }
-  } catch (e) {
-    // Not in any context
-    return null
   }
+
+  // Not in any context
+  return null
 }
 
 /**
