@@ -6,7 +6,16 @@ import {
   createDynasty as createDynastyInFirestore,
   updateDynasty as updateDynastyInFirestore,
   deleteDynasty as deleteDynastyFromFirestore,
-  migrateLocalStorageData
+  deleteDynastyWithSubcollections,
+  migrateLocalStorageData,
+  // Subcollection functions
+  getPlayersSubcollection,
+  getGamesSubcollection,
+  savePlayersToSubcollection,
+  saveGamesToSubcollection,
+  deletePlayerFromSubcollection,
+  deleteGameFromSubcollection,
+  migrateDynastyToSubcollections
 } from '../services/dynastyService'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
@@ -1907,15 +1916,53 @@ export function DynastyProvider({ children }) {
     migrateData()
 
     // Subscribe to real-time updates
-    const unsubscribe = subscribeToDynasties(user.uid, (firestoreDynasties) => {
+    const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties) => {
       // Check if we should skip this update (we just manually updated local state)
       if (skipListenerUpdatesCountRef.current > 0) {
         skipListenerUpdatesCountRef.current--
         return
       }
 
+      // Load subcollections for each dynasty in parallel
+      // This fetches players and games from their subcollections
+      const dynastiesWithSubcollections = await Promise.all(
+        firestoreDynasties.map(async (dynasty) => {
+          try {
+            // Check if this dynasty has been migrated to subcollections
+            if (dynasty._subcollectionsMigrated) {
+              // Fetch from subcollections
+              const [players, games] = await Promise.all([
+                getPlayersSubcollection(dynasty.id),
+                getGamesSubcollection(dynasty.id)
+              ])
+              // Always use subcollection data for migrated dynasties
+              // Even if empty - that's the source of truth after migration
+              return {
+                ...dynasty,
+                players: players,
+                games: games
+              }
+            } else {
+              // Not yet migrated - use main document data
+              // NOTE: We do NOT auto-migrate here to avoid race conditions
+              // User should manually migrate via Admin Tools when ready
+              const hasDataToMigrate = (dynasty.players?.length > 0 || dynasty.games?.length > 0)
+              if (hasDataToMigrate) {
+                console.log(`Dynasty ${dynasty.id} needs migration to subcollections (use Admin Tools)`)
+              }
+              // Return with existing data from main document
+              return dynasty
+            }
+          } catch (err) {
+            console.error(`Error loading subcollections for dynasty ${dynasty.id}:`, err)
+            // Fall back to main document data
+            return dynasty
+          }
+        })
+      )
+
       // Apply all migrations to dynasties from Firestore
-      const migratedDynasties = applyMigrations(firestoreDynasties)
+      const migratedDynasties = applyMigrations(dynastiesWithSubcollections)
 
       setDynasties(migratedDynasties)
       setLoading(false)
@@ -2039,10 +2086,14 @@ export function DynastyProvider({ children }) {
     try {
       const newDynasty = await createDynastyInFirestore(user.uid, {
         ...newDynastyData,
-        lastModified: Date.now()
+        lastModified: Date.now(),
+        // New dynasties start with subcollections enabled to avoid 1MB limit
+        _subcollectionsMigrated: true
       })
-      setCurrentDynasty(newDynasty)
-      return newDynasty
+      // Mark local state as migrated too
+      const dynastyWithFlag = { ...newDynasty, _subcollectionsMigrated: true }
+      setCurrentDynasty(dynastyWithFlag)
+      return dynastyWithFlag
     } catch (error) {
       console.error('Error creating dynasty:', error)
       throw error
@@ -2136,7 +2187,45 @@ export function DynastyProvider({ children }) {
       // (the listener fires during updateDoc, not after)
       skipListenerUpdatesCountRef.current = 2
 
-      await updateDynastyInFirestore(dynastyId, updatesWithTimestamp)
+      // Check if dynasty is migrated to subcollections
+      const dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      const isMigrated = dynasty?._subcollectionsMigrated === true
+
+      // SUBCOLLECTION ROUTING: If migrated, route players/games to subcollections
+      let mainDocUpdates = { ...updatesWithTimestamp }
+      const subcollectionPromises = []
+
+      if (isMigrated) {
+        // Route players to subcollection
+        if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
+          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection`)
+          subcollectionPromises.push(
+            savePlayersToSubcollection(dynastyId, mainDocUpdates.players)
+          )
+          // Don't save players to main doc - they're in subcollection now
+          delete mainDocUpdates.players
+        }
+
+        // Route games to subcollection
+        if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games)) {
+          console.log(`Saving ${mainDocUpdates.games.length} games to subcollection`)
+          subcollectionPromises.push(
+            saveGamesToSubcollection(dynastyId, mainDocUpdates.games)
+          )
+          // Don't save games to main doc - they're in subcollection now
+          delete mainDocUpdates.games
+        }
+      }
+
+      // Execute subcollection writes and main doc update in parallel
+      const writePromises = [...subcollectionPromises]
+
+      // Only update main doc if there are non-subcollection updates
+      if (Object.keys(mainDocUpdates).length > 0) {
+        writePromises.push(updateDynastyInFirestore(dynastyId, mainDocUpdates))
+      }
+
+      await Promise.all(writePromises)
 
       // WORKAROUND: Also update local state immediately after Firestore update
       // This ensures the UI reflects the changes without waiting for the listener
@@ -2175,6 +2264,7 @@ export function DynastyProvider({ children }) {
         return result
       }
 
+      // Use original updatesWithTimestamp for local state (includes players/games)
       const expandedUpdates = expandDotNotation(updatesWithTimestamp)
       const updatedDynasties = dynasties.map(d =>
         String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
@@ -2218,9 +2308,10 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // Production: delete from Firestore
+    // Production: delete from Firestore (including subcollections)
     try {
-      await deleteDynastyFromFirestore(dynastyId)
+      // Use the new function that also deletes players/games subcollections
+      await deleteDynastyWithSubcollections(dynastyId)
       if (String(currentDynasty?.id) === String(dynastyId)) {
         setCurrentDynasty(null)
       }
@@ -5852,6 +5943,36 @@ export function DynastyProvider({ children }) {
     return { success: true, message: 'Document already optimized, no changes needed' }
   }
 
+  // Manual migration to subcollections - can be triggered from Admin Tools
+  const migrateToSubcollections = async (dynastyId) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    if (dynasty._subcollectionsMigrated) {
+      return { success: true, message: 'Already migrated to subcollections', alreadyMigrated: true }
+    }
+
+    try {
+      const result = await migrateDynastyToSubcollections(dynastyId)
+
+      // Update local state to reflect migration
+      if (result.success) {
+        const updatedDynasties = dynasties.map(d =>
+          d.id === dynastyId ? { ...d, _subcollectionsMigrated: true } : d
+        )
+        setDynasties(updatedDynasties)
+        if (currentDynasty?.id === dynastyId) {
+          setCurrentDynasty({ ...currentDynasty, _subcollectionsMigrated: true })
+        }
+      }
+
+      return result
+    } catch (error) {
+      console.error('Migration error:', error)
+      return { success: false, message: error.message || 'Migration failed' }
+    }
+  }
+
   const value = {
     dynasties,
     currentDynasty,
@@ -5888,7 +6009,8 @@ export function DynastyProvider({ children }) {
     migratePlayerCareerData,
     fixTransferredPlayers,
     analyzeDocumentSize,
-    optimizeDocumentSize
+    optimizeDocumentSize,
+    migrateToSubcollections
   }
 
   return (
