@@ -89,7 +89,7 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
 
           // Get current roster for this team and pre-fill the sheet
           // Use unified isPlayerOnRoster for consistent filtering across all components
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const currentRoster = (currentDynasty?.players || []).filter(p =>
             isPlayerOnRoster(p, teamAbbr, currentYear)
           )

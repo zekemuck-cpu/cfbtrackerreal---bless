@@ -281,15 +281,58 @@ export const teams = [
   "Wyoming Cowboys"
 ]
 
-// Helper function to get mascot/full team name from abbreviation
-export function getMascotName(abbr) {
+// Helper function to get mascot/full team name from abbreviation (checks teambuilder teams first)
+export function getMascotName(abbr, customTeams = null) {
   if (!abbr) return null
+
+  // Check if this IS a teambuilder team abbreviation
+  if (customTeams?.[abbr.toUpperCase()]) {
+    return customTeams[abbr.toUpperCase()].name
+  }
+
+  // Check if this abbreviation was replaced by a teambuilder team
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr.toUpperCase())
+    if (teambuilderTeam) {
+      return teambuilderTeam.name
+    }
+  }
+
   const teamData = teamAbbreviations[abbr.toUpperCase()]
   return teamData?.name || null
 }
 
-// Helper function to get team logo URL
-export function getTeamLogo(teamName) {
+// Helper function to get team logo URL (checks teambuilder teams first)
+export function getTeamLogo(teamName, customTeams = null) {
+  // Check if teamName matches a teambuilder team name, abbreviation, or replaces a team
+  if (customTeams) {
+    // Check by name
+    const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
+    if (teambuilderByName?.logoUrl) {
+      return teambuilderByName.logoUrl
+    }
+
+    // Check by abbreviation (if teamName is actually an abbreviation)
+    if (customTeams[teamName]?.logoUrl) {
+      return customTeams[teamName].logoUrl
+    }
+
+    // Check if teamName is the replaced team's abbreviation
+    const teambuilderReplacing = Object.values(customTeams).find(t => t.replacesTeam === teamName)
+    if (teambuilderReplacing?.logoUrl) {
+      return teambuilderReplacing.logoUrl
+    }
+
+    // Check if teamName is the replaced team's full name
+    const abbr = getAbbreviationFromDisplayName(teamName)
+    if (abbr) {
+      const teambuilderReplacingByAbbr = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+      if (teambuilderReplacingByAbbr?.logoUrl) {
+        return teambuilderReplacingByAbbr.logoUrl
+      }
+    }
+  }
+
   // Check if this is an FCS team with a custom logo
   // First try to get abbreviation from display name
   const abbr = getAbbreviationFromDisplayName(teamName)
@@ -317,6 +360,35 @@ export function getTeamLogo(teamName) {
     if (fullName && teamLogos[fullName]) {
       return teamLogos[fullName]
     }
+  }
+
+  return null
+}
+
+// Helper function to get team logo by abbreviation (more direct for teambuilder teams)
+export function getTeamLogoByAbbr(abbr, customTeams = null) {
+  if (!abbr) return null
+
+  // Check if this IS a teambuilder team abbreviation
+  if (customTeams?.[abbr]?.logoUrl) {
+    return customTeams[abbr].logoUrl
+  }
+
+  // Check if this abbreviation was replaced by a teambuilder team
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+    if (teambuilderTeam?.logoUrl) {
+      return teambuilderTeam.logoUrl
+    }
+  }
+
+  // Fall back to standard logo lookup
+  const teamData = teamAbbreviations[abbr]
+  if (teamData?.isFCS && teamData?.logo) {
+    return teamData.logo
+  }
+  if (teamData?.name && teamLogos[teamData.name]) {
+    return teamLogos[teamData.name]
   }
 
   return null

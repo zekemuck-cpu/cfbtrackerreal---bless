@@ -88,7 +88,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
         try {
           // Get existing data for pre-filling (if any)
           const existingStandings = currentDynasty?.conferenceStandingsByYear?.[currentYear] || {}
-          const sheetInfo = await createConferenceStandingsSheet(currentYear, existingStandings)
+          const sheetInfo = await createConferenceStandingsSheet(currentYear, existingStandings, currentDynasty?.customTeams)
           setSheetId(sheetInfo.sheetId)
         } catch (error) {
           console.error('Failed to create conference standings sheet:', error)

@@ -61,7 +61,7 @@ export default function BoxScoreSheetModal({
   // Determine teams based on game type (CPU vs user game)
   // CPU games are identified by having team1/team2 but no userTeam field
   const isCPUGame = !game?.userTeam && game?.team1 && game?.team2
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName || ''
+  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
   // Ensure opponent is an abbreviation (convert full name if needed)
   const rawOpponent = game?.opponent || ''
   const opponentAbbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
@@ -86,7 +86,7 @@ export default function BoxScoreSheetModal({
   // Uses unified isPlayerOnRoster for consistent filtering across all components
   const roster = useMemo(() => {
     if (!currentDynasty?.players) return []
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const currentYear = currentDynasty.currentYear
     return currentDynasty.players
       .filter(p => isPlayerOnRoster(p, teamAbbr, currentYear))

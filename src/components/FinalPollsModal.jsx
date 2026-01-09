@@ -82,7 +82,7 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
         try {
           // Get existing polls data for pre-filling (if any)
           const existingPolls = currentDynasty?.finalPollsByYear?.[currentYear] || {}
-          const sheetInfo = await createFinalPollsSheet(currentYear, existingPolls)
+          const sheetInfo = await createFinalPollsSheet(currentYear, existingPolls, currentDynasty?.customTeams)
           setSheetId(sheetInfo.sheetId)
         } catch (error) {
           console.error('Failed to create final polls sheet:', error)

@@ -187,7 +187,7 @@ export default function AllAmericans() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 

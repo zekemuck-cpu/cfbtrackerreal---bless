@@ -222,7 +222,7 @@ export default function Player() {
   // Determine the player's team - use their team field (which gets updated on transfer)
   const playerTeamAbbr = player?.team
     || player?.teams?.[0]
-    || getAbbreviationFromDisplayName(dynasty?.teamName)
+    || getAbbreviationFromDisplayName(dynasty?.teamName, dynasty?.customTeams)
     || ''
 
   // For outgoing transfers, get the team they transferred FROM
@@ -237,7 +237,7 @@ export default function Player() {
     || ''
 
   // IMPORTANT: All hooks must be called before any early returns
-  const teamColors = useTeamColors(playerTeamName)
+  const teamColors = useTeamColors(playerTeamName, dynasty?.customTeams)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -430,7 +430,7 @@ export default function Player() {
       const yearTeam = player.teamsByYear?.[year]
         || player.teamsByYear?.[String(year)]
         || player.team
-        || getAbbreviationFromDisplayName(dynasty?.teamName)
+        || getAbbreviationFromDisplayName(dynasty?.teamName, dynasty?.customTeams)
         || ''
 
       // Build year stats object from player.statsByYear (single source of truth)

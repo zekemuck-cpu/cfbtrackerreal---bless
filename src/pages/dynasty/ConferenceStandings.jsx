@@ -136,7 +136,7 @@ export default function ConferenceStandings() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const [expandedConference, setExpandedConference] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConferencesModal, setShowConferencesModal] = useState(false)

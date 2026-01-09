@@ -27,7 +27,7 @@ export default function Layout({ children }) {
     }
   }
 
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
   const isHomePage = location.pathname === '/' || location.pathname === '/home'

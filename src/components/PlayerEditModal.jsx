@@ -152,7 +152,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
   }
 
   // Calculate box score totals for this player for the selected year
-  const userTeamAbbr = dynasty ? (getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName) : null
+  const userTeamAbbr = dynasty ? (getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName) : null
   const boxScoreTotals = useMemo(() => {
     if (!player?.name || !dynasty?.games || !selectedStatsYear || !userTeamAbbr) return null
     return getPlayerBoxScoreTotals(player.name, dynasty.games, selectedStatsYear, userTeamAbbr)

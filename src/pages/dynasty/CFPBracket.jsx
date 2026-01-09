@@ -117,7 +117,7 @@ export default function CFPBracket() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingGameData, setEditingGameData] = useState(null)
 
@@ -151,7 +151,7 @@ export default function CFPBracket() {
   const getTeamBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.team || null
 
   // UNIFIED: Get CFP results from games[] array with gameType filter
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
   // Helper to normalize a game from games[] to bracket display format
   const normalizeGame = (game) => {

@@ -17,7 +17,7 @@ import {
 } from '../services/dynastyService'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
-import { getTeamConference } from '../data/conferenceTeams'
+import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
 
@@ -773,6 +773,63 @@ export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
 // These functions get/set data specific to the current team and year
 // ============================================================================
 
+// ============================================================================
+// CUSTOM TEAMS (TEAMBUILDER) SUPPORT
+// Custom teams replace FBS teams with user-created teams
+// ============================================================================
+
+/**
+ * Get custom teams from dynasty (for Teambuilder feature)
+ * @param {Object} dynasty - Dynasty object
+ * @returns {Object|null} Custom teams object or null
+ */
+export function getCustomTeams(dynasty) {
+  return dynasty?.customTeams || null
+}
+
+/**
+ * Check if the dynasty has any custom teams
+ * @param {Object} dynasty - Dynasty object
+ * @returns {boolean} True if dynasty has custom teams
+ */
+export function hasCustomTeams(dynasty) {
+  return dynasty?.customTeams && Object.keys(dynasty.customTeams).length > 0
+}
+
+/**
+ * Get custom team by abbreviation
+ * @param {Object} dynasty - Dynasty object
+ * @param {string} abbr - Team abbreviation (custom or replaced)
+ * @returns {Object|null} Custom team data or null
+ */
+export function getCustomTeam(dynasty, abbr) {
+  if (!dynasty?.customTeams) return null
+
+  // Direct match on custom abbreviation
+  if (dynasty.customTeams[abbr]) {
+    return dynasty.customTeams[abbr]
+  }
+
+  // Check if this abbreviation was replaced by a custom team
+  const replaced = Object.values(dynasty.customTeams).find(t => t.replacesTeam === abbr)
+  return replaced || null
+}
+
+/**
+ * Get the abbreviation to use for a team (resolves replaced teams to custom team abbr)
+ * @param {Object} dynasty - Dynasty object
+ * @param {string} abbr - Original team abbreviation
+ * @returns {string} Custom team abbreviation if replaced, otherwise original
+ */
+export function resolveTeamAbbr(dynasty, abbr) {
+  if (!dynasty?.customTeams) return abbr
+
+  const customTeam = Object.values(dynasty.customTeams).find(t => t.replacesTeam === abbr)
+  return customTeam ? customTeam.abbreviation : abbr
+}
+
+// ============================================================================
+
 /**
  * Get the current team's schedule for the current year
  * Falls back to legacy dynasty.schedule for backwards compatibility
@@ -780,7 +837,7 @@ export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
 export function getCurrentSchedule(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try new team-centric structure first
@@ -835,7 +892,7 @@ export function isPlayerOnRoster(player, teamAbbr, year) {
 export function getCurrentRoster(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const currentYear = dynasty.currentYear
   const allPlayers = dynasty.players || []
 
@@ -861,7 +918,7 @@ export function getAllPlayers(dynasty) {
 export function getCurrentTeamGames(dynasty, year = null) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const allGames = dynasty.games || []
 
   return allGames.filter(g => {
@@ -911,7 +968,7 @@ export function getCurrentPreseasonSetup(dynasty) {
 
   if (!dynasty) return defaultSetup
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try new team-centric structure first
@@ -938,7 +995,7 @@ export function getCurrentTeamRatings(dynasty) {
 
   if (!dynasty) return defaultRatings
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try new team-centric structure first
@@ -965,7 +1022,7 @@ export function getCurrentCoachingStaff(dynasty) {
 
   if (!dynasty) return defaultStaff
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try new team-centric structure first
@@ -994,7 +1051,7 @@ export function getCurrentCoachingStaff(dynasty) {
 export function getCurrentGoogleSheet(dynasty) {
   if (!dynasty) return { googleSheetId: null, googleSheetUrl: null }
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
   // Try new team-centric structure first
   const teamSheet = dynasty.googleSheetsByTeam?.[teamAbbr]
@@ -1015,7 +1072,7 @@ export function getCurrentGoogleSheet(dynasty) {
 export function getCurrentRecruits(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try new team-centric structure first
@@ -1057,7 +1114,7 @@ const CLASS_PROGRESSION = {
 export function getPlayersNeedingClassConfirmation(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
   const players = dynasty.players || []
 
@@ -1092,7 +1149,7 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
 export function isFirstYearOnTeam(dynasty) {
   if (!dynasty) return false
 
-  const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const previousYearTeam = dynasty.coachTeamByYear?.[dynasty.currentYear]?.team
 
   // If no previous year record, check if this is the dynasty start year
@@ -1124,7 +1181,7 @@ export function getCoachTeamForYear(dynasty, year) {
   // - If it's the current year and we haven't started the season yet, use current team
   // - Otherwise return null (data not available)
   if (year === dynasty.currentYear && dynasty.currentPhase === 'preseason') {
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     return {
       team: teamAbbr,
       teamName: dynasty.teamName,
@@ -1134,7 +1191,7 @@ export function getCoachTeamForYear(dynasty, year) {
 
   // For the start year, assume the current team if no record exists
   if (year === dynasty.startYear) {
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     return {
       team: teamAbbr,
       teamName: dynasty.teamName,
@@ -1188,7 +1245,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
 
   if (!teamAbbr) {
     // Fallback to current team
-    teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   }
 
   // Check locked coaching staff first (set at end of Week 12)
@@ -1201,7 +1258,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
 
   // ONLY fall back to legacy coaching staff if this is the user's CURRENT team
   // This prevents showing the user's coordinators on other teams' pages
-  const userCurrentTeam = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const userCurrentTeam = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   if (!staff && teamAbbr === userCurrentTeam) {
     staff = dynasty.coachingStaff || { hcName: null, ocName: null, dcName: null }
   }
@@ -1469,7 +1526,7 @@ export function migrateRosterData(dynasty) {
   }
 
   const currentYear = dynasty.currentYear
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
   let needsUpdate = false
   const fixedPlayers = dynasty.players.map(player => {
@@ -1861,7 +1918,7 @@ export function migrateToMovementsSystem(dynasty) {
     return { ...dynasty, _movementsMigrated: true }
   }
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
   const migratedPlayers = dynasty.players.map(player => {
     // Skip if already has movements array
@@ -2154,9 +2211,17 @@ export function DynastyProvider({ children }) {
   }, [dynasties, loading])
 
   const createDynasty = async (dynastyData) => {
+    const startYear = parseInt(dynastyData.startYear)
+
+    // If custom teams exist, initialize conference data with replacement applied
+    let initialConferences = null
+    if (dynastyData.customTeams && Object.keys(dynastyData.customTeams).length > 0) {
+      initialConferences = getConferencesWithCustomTeams(dynastyData.customTeams)
+    }
+
     const newDynastyData = {
       ...dynastyData,
-      currentYear: parseInt(dynastyData.startYear),
+      currentYear: startYear,
       currentWeek: 0,
       currentPhase: 'preseason',
       seasons: [],
@@ -2182,7 +2247,14 @@ export function DynastyProvider({ children }) {
         hcName: null,
         ocName: null,
         dcName: null
-      }
+      },
+      // Initialize custom conferences if custom teams exist (replaces old team in conference)
+      ...(initialConferences ? {
+        customConferencesByYear: {
+          [startYear]: initialConferences
+        },
+        customConferences: initialConferences // Legacy field for backwards compatibility
+      } : {})
     }
 
     const isDev = import.meta.env.VITE_DEV_MODE === 'true'
@@ -2496,7 +2568,7 @@ export function DynastyProvider({ children }) {
     // This ensures games are correctly attributed when user switches teams
     // CPU games are identified by having team1/team2 but NO userTeam AND NO opponent
     // User games (incl. CFP/bowl) always have opponent field, even if they also have team1/team2 for unified format
-    const currentUserTeam = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const currentUserTeam = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const isCPUGame = cleanGameData.team1 && cleanGameData.team2 && !cleanGameData.userTeam && !cleanGameData.opponent
     if (!isCPUGame) {
       cleanGameData.userTeam = currentUserTeam
@@ -2617,7 +2689,7 @@ export function DynastyProvider({ children }) {
       // Check if this is a CFP game that needs ID correction
       if (cleanGameData.isCFPFirstRound || existingGame.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year || existingGame.year] || []
-        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
         const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
@@ -2665,7 +2737,7 @@ export function DynastyProvider({ children }) {
 
       if (cleanGameData.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year] || []
-        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
         const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
@@ -2760,7 +2832,7 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
     const existingGames = dynasty.games || []
 
     // Filter out existing bowl games for this year and week to avoid duplicates
@@ -2863,7 +2935,7 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
     const existingGames = dynasty.games || []
 
     // Determine which legacy flag to check based on round type
@@ -2980,7 +3052,7 @@ export function DynastyProvider({ children }) {
     }
 
     console.log('[saveCPUCC] Found dynasty:', dynasty.teamName)
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
     const existingGames = dynasty.games || []
     console.log('[saveCPUCC] Existing games count:', existingGames.length)
     console.log('[saveCPUCC] Existing CC games:', existingGames.filter(g => g.isConferenceChampionship))
@@ -3131,7 +3203,7 @@ export function DynastyProvider({ children }) {
 
       // COACH HISTORY: Record which team the coach is coaching this year
       // This is locked in at season start and does NOT change even if user switches teams later
-      const coachTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const coachTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
       const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
       additionalUpdates.coachTeamByYear = {
         ...existingCoachTeamByYear,
@@ -3168,7 +3240,7 @@ export function DynastyProvider({ children }) {
       // LOCK IN COACHING STAFF: Save the full coaching staff at end of regular season
       // This preserves them for historical display even if they're fired in CC week
       // Also includes the user's position so their name shows in historical views
-      const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
       const currentStaff = dynasty.coachingStaff || getCurrentCoachingStaff(dynasty)
 
       // Build complete staff including user's position
@@ -3253,7 +3325,7 @@ export function DynastyProvider({ children }) {
         // Calculate record at current team for this stint
         const currentTeamGames = (dynasty.games || []).filter(g =>
           g.userTeam === dynasty.teamName ||
-          g.userTeam === getAbbreviationFromDisplayName(dynasty.teamName) ||
+          g.userTeam === getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) ||
           (!g.userTeam && !g.team1 && !g.team2) // Legacy games without userTeam (not CPU games which have team1/team2)
         )
         const currentStintGames = currentTeamGames.filter(g => {
@@ -3295,7 +3367,7 @@ export function DynastyProvider({ children }) {
 
         // TEAM-CENTRIC FIX: Tag all legacy players (without team field) with their current team
         // before switching. This ensures they stay associated with their original team.
-        const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+        const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
         const existingPlayers = dynasty.players || []
         const taggedPlayers = existingPlayers.map(p => {
           // If player already has team field, keep it
@@ -3408,7 +3480,7 @@ export function DynastyProvider({ children }) {
       // CLASS PROGRESSION - Also happens at year flip
       // Progress all players' classes based on games played in the previous season
       const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
       const players = dynasty.players || []
 
@@ -3538,7 +3610,7 @@ export function DynastyProvider({ children }) {
       // NOW convert recruits to active players (after user had chance to enter Recruit Overalls)
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended (recruitYear)
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
       const players = dynasty.players || []
 
       // Convert recruits from this class to active players
@@ -3626,7 +3698,7 @@ export function DynastyProvider({ children }) {
     // All offseason data (playersLeaving, playerStats, recruits, etc.) is stored under the PREVIOUS year (2026).
     const previousSeasonYear = Number(dynasty.currentYear) - 1  // The season that just ended (e.g., 2026)
     const currentSeasonYear = Number(dynasty.currentYear)       // The upcoming season (e.g., 2027)
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const players = [...(dynasty.players || [])]
 
     // Helper to get data by year (handles both string and numeric keys)
@@ -4136,7 +4208,7 @@ export function DynastyProvider({ children }) {
       }
     } else if (dynasty.currentPhase === 'offseason') {
       // Reverting within offseason - handle different week transitions
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
@@ -4272,7 +4344,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
 
     // Build team-centric schedule storage
@@ -4345,7 +4417,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get team abbreviation - use provided teamAbbr or fall back to user's current team
-    const teamAbbr = options.teamAbbr || getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = options.teamAbbr || getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     // Get year - use provided year or fall back to current year
     const year = options.year || dynasty.currentYear
 
@@ -4563,7 +4635,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
 
     // Build team-centric preseason setup storage
@@ -4695,7 +4767,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
 
     // Build team-centric preseason setup storage
@@ -4889,7 +4961,7 @@ export function DynastyProvider({ children }) {
 
     // Find the player being deleted to add a removal movement
     const playerToDelete = (dynasty.players || []).find(p => p.pid === playerPid)
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
 
     // If player exists and has movements, add a 'removed' movement before deleting
     if (playerToDelete) {
@@ -4943,7 +5015,7 @@ export function DynastyProvider({ children }) {
       throw new Error('Dynasty not found')
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     console.log('Syncing stats for team:', userTeamAbbr, 'year:', year)
     console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
 
@@ -5021,7 +5093,7 @@ export function DynastyProvider({ children }) {
 
 
       // Get user team abbreviation
-      const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+      const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
 
       // Write existing schedule and roster data to the sheet
       await writeExistingDataToSheet(
@@ -5086,7 +5158,9 @@ export function DynastyProvider({ children }) {
     try {
       const sheetInfo = await createConferencesSheet(
         dynasty.teamName,
-        dynasty.currentYear
+        dynasty.currentYear,
+        null,
+        dynasty.customTeams
       )
 
 
@@ -5174,7 +5248,7 @@ export function DynastyProvider({ children }) {
     const link = document.createElement('a')
 
     // Get team abbreviation
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName.replace(/\s+/g, '')
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName.replace(/\s+/g, '')
 
     // Format phase for filename
     const phaseNames = {
@@ -5618,7 +5692,7 @@ export function DynastyProvider({ children }) {
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
     const currentYear = dynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let fixedCount = 0
     let recruitFixedCount = 0
@@ -5800,7 +5874,7 @@ export function DynastyProvider({ children }) {
 
     const currentYear = dynasty.currentYear
     const previousYear = currentYear - 1
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let removedCount = 0
 
@@ -5982,7 +6056,7 @@ export function DynastyProvider({ children }) {
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
     const currentYear = dynasty.currentYear
-    const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+    const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let fixedCount = 0
     const fixedPlayers = []
@@ -6347,9 +6421,13 @@ export function DynastyProvider({ children }) {
     }
   }
 
+  // Get custom teams from current dynasty for easy access
+  const customTeams = currentDynasty?.customTeams || null
+
   const value = {
     dynasties,
     currentDynasty,
+    customTeams,
     loading,
     createDynasty,
     updateDynasty,

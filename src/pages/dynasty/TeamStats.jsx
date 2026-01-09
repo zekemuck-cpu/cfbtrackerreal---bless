@@ -227,7 +227,7 @@ export default function TeamStats() {
   })
 
   // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   // Use URL params or defaults
   const selectedTeam = urlTeam || currentTeamAbbr
@@ -430,7 +430,7 @@ export default function TeamStats() {
   // Read player stats from player.statsByYear (primary for games/snaps) and box scores (for detailed stats)
   const playerStats = useMemo(() => {
     const allPlayers = currentDynasty?.players || []
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
     const yearKey = String(selectedYear)
     const numKey = Number(selectedYear)
 

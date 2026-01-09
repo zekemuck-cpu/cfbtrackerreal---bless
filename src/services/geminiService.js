@@ -977,7 +977,7 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
  * Handles both user games (with opponent/teamScore) and CPU games (with team1/team2)
  */
 export function buildGameRecapContext(dynasty, game) {
-  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = game.year
   const allGames = dynasty.games || []
 

@@ -116,7 +116,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
               // If this is a user game (has opponent field), derive unified format
               if (g.opponent && !winner) {
-                const userTeam = g.userTeam || getAbbreviationFromDisplayName(currentDynasty?.teamName)
+                const userTeam = g.userTeam || getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
                 const oppTeam = g.opponent
                 const userWon = g.result === 'win' || g.result === 'W'
                 winner = userWon ? userTeam : oppTeam
@@ -161,7 +161,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP (seeds 1-12)
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
 
           if (userCFPSeed) {
@@ -261,7 +261,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             firstRoundResults,
             excludeGames,
             existingBowlWeek2,
-            existingCFPQuarterfinals
+            existingCFPQuarterfinals,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

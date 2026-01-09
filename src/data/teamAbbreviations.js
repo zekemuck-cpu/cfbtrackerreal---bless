@@ -148,26 +148,107 @@ export function getTeamAbbreviationsList() {
   return Object.keys(teamAbbreviations).sort()
 }
 
-// Get team info by abbreviation
-export function getTeamByAbbreviation(abbr) {
+// Get team info by abbreviation (checks teambuilder teams first)
+export function getTeamByAbbreviation(abbr, customTeams = null) {
+  // Check if this IS a teambuilder team abbreviation
+  if (customTeams?.[abbr]) {
+    const ct = customTeams[abbr]
+    return {
+      name: ct.name,
+      backgroundColor: ct.backgroundColor || ct.primaryColor,
+      textColor: ct.textColor || ct.secondaryColor,
+      isTeambuilder: true,
+      logo: ct.logoUrl
+    }
+  }
+  // Check if this abbreviation was replaced by a teambuilder team
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+    if (teambuilderTeam) {
+      return {
+        name: teambuilderTeam.name,
+        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
+        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
+        isTeambuilder: true,
+        logo: teambuilderTeam.logoUrl,
+        replacedBy: teambuilderTeam.abbreviation
+      }
+    }
+  }
   return teamAbbreviations[abbr] || null
 }
 
-// Convert abbreviation to full name
-export function getTeamName(abbr) {
+// Convert abbreviation to full name (checks teambuilder teams first)
+export function getTeamName(abbr, customTeams = null) {
+  // Check if this IS a teambuilder team abbreviation
+  if (customTeams?.[abbr]) {
+    return customTeams[abbr].name
+  }
+  // Check if this abbreviation was replaced by a teambuilder team
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+    if (teambuilderTeam) {
+      return teambuilderTeam.name
+    }
+  }
   return teamAbbreviations[abbr]?.name || abbr
 }
 
+// Get the resolved abbreviation (teambuilder team abbr if replaced, otherwise original)
+export function getResolvedAbbreviation(abbr, customTeams = null) {
+  if (!customTeams) return abbr
+  // Check if this abbreviation was replaced by a teambuilder team
+  const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+  if (teambuilderTeam) {
+    return teambuilderTeam.abbreviation
+  }
+  return abbr
+}
+
+// Check if an abbreviation is a teambuilder team or replaced by one
+export function isTeambuilderTeam(abbr, customTeams = null) {
+  if (!customTeams) return false
+  // Is this a teambuilder team abbreviation?
+  if (customTeams[abbr]) return true
+  // Is this replaced by a teambuilder team?
+  return Object.values(customTeams).some(t => t.replacesTeam === abbr)
+}
+
 // Get sorted array of FBS team abbreviations only (for team selection - excludes FCS teams)
-export function getSelectableTeamsList() {
-  return Object.keys(teamAbbreviations)
+export function getSelectableTeamsList(customTeams = null) {
+  const replacedTeamAbbrs = customTeams
+    ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
+    : new Set()
+
+  // Get FBS teams excluding replaced teams
+  const fbsTeams = Object.keys(teamAbbreviations)
     .filter(abbr => !teamAbbreviations[abbr].isFCS)
-    .sort()
+    .filter(abbr => !replacedTeamAbbrs.has(abbr))
+
+  // Add teambuilder team abbreviations
+  const teambuilderAbbrs = customTeams
+    ? Object.values(customTeams).map(t => t.abbreviation)
+    : []
+
+  return [...fbsTeams, ...teambuilderAbbrs].sort()
 }
 
 // Get sorted array of all team abbreviations including FCS (for scheduling opponents)
-export function getSchedulableTeamsList() {
-  return Object.keys(teamAbbreviations).sort()
+export function getSchedulableTeamsList(customTeams = null) {
+  const replacedTeamAbbrs = customTeams
+    ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
+    : new Set()
+
+  // Get all teams excluding replaced teams
+  const allTeams = Object.keys(teamAbbreviations)
+    .filter(abbr => !replacedTeamAbbrs.has(abbr))
+
+  // Add teambuilder team abbreviations
+  const teambuilderAbbrs = customTeams
+    ? Object.values(customTeams).map(t => t.abbreviation)
+    : []
+
+  return [...allTeams, ...teambuilderAbbrs].sort()
 }
 
 // Check if a team is an FCS team
@@ -328,7 +409,14 @@ export const teamDisplayNameToAbbr = {
   "Wyoming Cowboys": "WYO"
 }
 
-// Get abbreviation from display name
-export function getAbbreviationFromDisplayName(displayName) {
+// Get abbreviation from display name (checks teambuilder teams first)
+export function getAbbreviationFromDisplayName(displayName, customTeams = null) {
+  // Check teambuilder teams first
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.name === displayName)
+    if (teambuilderTeam) {
+      return teambuilderTeam.abbreviation
+    }
+  }
   return teamDisplayNameToAbbr[displayName] || null
 }

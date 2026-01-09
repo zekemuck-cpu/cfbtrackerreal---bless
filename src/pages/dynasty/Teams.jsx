@@ -176,22 +176,43 @@ export default function Teams() {
   // Get custom conferences for current year
   const customConferences = getCurrentCustomConferences(currentDynasty)
 
+  // Get teambuilder teams and the teams they replace
+  const customTeams = currentDynasty.customTeams || {}
+  const replacedTeamAbbrs = new Set(Object.values(customTeams).map(t => t.replacesTeam))
+
   // Get all FBS teams with their info, sorted alphabetically by mascot name
   // Filter out FCS teams (abbreviations starting with 'FCS')
-  const allTeams = Object.entries(teamAbbreviations)
+  // Filter out teams that have been replaced by teambuilder teams
+  const fbsTeams = Object.entries(teamAbbreviations)
     .filter(([abbr]) => !abbr.startsWith('FCS'))
+    .filter(([abbr]) => !replacedTeamAbbrs.has(abbr))  // Exclude replaced teams
     .map(([abbr, team]) => ({
       abbr,
       name: team.name,
       backgroundColor: team.backgroundColor,
       textColor: team.textColor,
-      conference: getTeamConference(abbr, customConferences),
+      conference: getTeamConference(abbr, customConferences, customTeams),
       mascotName: getMascotName(abbr)
-    })).sort((a, b) => {
-      const nameA = a.mascotName || a.name
-      const nameB = b.mascotName || b.name
-      return nameA.localeCompare(nameB)
-    })
+    }))
+
+  // Add teambuilder teams to the list
+  const teambuilderTeamsList = Object.values(customTeams).map(team => ({
+    abbr: team.abbreviation,
+    name: team.name,
+    backgroundColor: team.backgroundColor || team.primaryColor,
+    textColor: team.textColor || team.secondaryColor,
+    conference: getTeamConference(team.abbreviation, customConferences, customTeams),
+    mascotName: team.name,
+    logoUrl: team.logoUrl,
+    isTeambuilder: true
+  }))
+
+  // Combine FBS teams with teambuilder teams and sort alphabetically
+  const allTeams = [...fbsTeams, ...teambuilderTeamsList].sort((a, b) => {
+    const nameA = a.mascotName || a.name
+    const nameB = b.mascotName || b.name
+    return nameA.localeCompare(nameB)
+  })
 
   // Filter teams by search
   const filteredTeams = allTeams.filter(team => {
@@ -257,7 +278,8 @@ export default function Teams() {
       <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredTeams.map(team => {
-            const logo = team.mascotName ? getTeamLogo(team.mascotName) : null
+            // For teambuilder teams, use logoUrl; otherwise lookup by mascot name
+            const logo = team.isTeambuilder ? team.logoUrl : (team.mascotName ? getTeamLogo(team.mascotName) : null)
 
             return (
               <Link

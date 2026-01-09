@@ -136,7 +136,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
           const sheetInfo = await createConferencesSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentDynasty?.currentYear || new Date().getFullYear(),
-            conferencesByYear
+            conferencesByYear,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
 

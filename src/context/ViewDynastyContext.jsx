@@ -133,14 +133,14 @@ export function ViewDynastyProvider({ shareCode, children }) {
     // Helper functions that work in view mode (read-only)
     getCurrentSchedule: () => {
       if (!dynasty) return []
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
       const year = dynasty.currentYear
       return dynasty.schedulesByTeamYear?.[teamAbbr]?.[year] || dynasty.schedule || []
     },
 
     getCurrentRoster: () => {
       if (!dynasty) return []
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
       const currentYear = dynasty.currentYear
       // Use unified isPlayerOnRoster check - teamsByYear is the ONLY source of truth
       return (dynasty.players || []).filter(p => {

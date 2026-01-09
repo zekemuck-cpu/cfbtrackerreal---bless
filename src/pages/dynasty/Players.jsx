@@ -34,7 +34,7 @@ export default function Players() {
   const { id } = useParams()
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [positionFilter, setPositionFilter] = useState('All')
   const [sortBy, setSortBy] = useState('overall')

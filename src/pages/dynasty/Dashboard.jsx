@@ -60,7 +60,7 @@ export default function Dashboard() {
   const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   // Build path prefix for links based on view mode
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
@@ -92,7 +92,7 @@ export default function Dashboard() {
   const aggregatedTeamStats = useMemo(() => {
     if (!currentDynasty?.games) return {}
 
-    const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+    const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
     const year = currentDynasty.currentYear
 
     // Offense stats
@@ -406,7 +406,7 @@ export default function Dashboard() {
   const customConferences = getCurrentCustomConferences(currentDynasty)
 
   const getUserTeamConference = () => {
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
     if (!teamAbbr) return null
 
     // Use getTeamConference with custom conferences
@@ -597,8 +597,8 @@ export default function Dashboard() {
       }
     }
 
-    const mascotName = getMascotName(abbr)
-    const colors = mascotName ? getTeamColors(mascotName) : null
+    const mascotName = getMascotName(abbr, currentDynasty?.customTeams)
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.customTeams) : null
 
     if (team && typeof team === 'object') {
       return {
@@ -687,7 +687,7 @@ export default function Dashboard() {
   const handleCCAnswer = async (madeChampionship) => {
     setCCMadeChampionship(madeChampionship)
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
@@ -707,7 +707,7 @@ export default function Dashboard() {
     setCCOpponentSearch('')
     setShowCCOpponentDropdown(false)
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
@@ -811,7 +811,7 @@ export default function Dashboard() {
     setFiringCoordinators(selection !== 'none')
 
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
@@ -1005,7 +1005,7 @@ export default function Dashboard() {
       if (p.pid) reasonByPid[p.pid] = p.reason
     })
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
 
     // Get previous list to detect removals
     const previousLeavingPids = new Set(
@@ -1090,7 +1090,7 @@ export default function Dashboard() {
   // Handle draft results save (Offseason - Recruiting Week 1) - team-centric
   const handleDraftResultsSave = async (draftResults) => {
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
 
     // Map player names to PIDs and store draft info
@@ -1123,7 +1123,7 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
@@ -1207,7 +1207,7 @@ export default function Dashboard() {
     // On Signing Day (week 6) or Training Camp (week 7), year has already flipped, so use previous year
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
 
     await updateDynasty(currentDynasty.id, {
@@ -1227,7 +1227,7 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const existingChangesAll = currentDynasty.positionChangesByYear || {}
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
 
     // Update player positions in the players array for any NEW changes
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -1445,7 +1445,7 @@ export default function Dashboard() {
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingPlayers = currentDynasty.players || []
 
     // Track players who left (leftTeam: true) OR are pending departure
@@ -1511,7 +1511,7 @@ export default function Dashboard() {
 
   // Process recruiting save after all confirmations are complete
   const processRecruitingCommitmentsSave = async (recruits, year, commitmentKey, confirmedReturning, confirmedNew) => {
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
 
     // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -1885,7 +1885,7 @@ export default function Dashboard() {
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
 
     // Use TEAM-CENTRIC structure
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -1910,7 +1910,7 @@ export default function Dashboard() {
   // Get all previous commitments for the current team/year (to pre-populate sheet) - TEAM-CENTRIC
   const getAllPreviousCommitments = () => {
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
 
     // Use TEAM-CENTRIC structure
     const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[year] || {}
@@ -2133,7 +2133,7 @@ export default function Dashboard() {
       {takingNewJob === true && newJobTeam && newJobPosition && (() => {
         // newJobTeam is already the full display name (e.g., "Delaware Fightin' Blue Hens")
         const newTeamLogo = getTeamLogo(newJobTeam)
-        const newTeamColors = getTeamColors(newJobTeam) || { primary: '#333', secondary: '#fff' }
+        const newTeamColors = getTeamColors(newJobTeam, currentDynasty?.customTeams) || { primary: '#333', secondary: '#fff' }
         const newTeamPrimaryText = getContrastTextColor(newTeamColors.primary)
 
         return (
@@ -2202,25 +2202,34 @@ export default function Dashboard() {
             }}
           >
             <Link
-              to={`${pathPrefix}/team/${getAbbreviationFromDisplayName(currentDynasty.teamName)}/${currentDynasty.currentYear}`}
+              to={`${pathPrefix}/team/${getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty?.customTeams)}/${currentDynasty.currentYear}`}
               className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0"
             >
-              {getTeamLogo(currentDynasty.teamName) && (
-                <div
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                    padding: '4px'
-                  }}
-                >
-                  <img
-                    src={getTeamLogo(currentDynasty.teamName)}
-                    alt={`${currentDynasty.teamName} logo`}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              )}
+              {(() => {
+                // Get logo - check teambuilder teams first
+                let logoUrl = null
+                if (currentDynasty.customTeams) {
+                  const teambuilderTeam = Object.values(currentDynasty.customTeams).find(t => t.name === currentDynasty.teamName)
+                  if (teambuilderTeam) logoUrl = teambuilderTeam.logoUrl
+                }
+                if (!logoUrl) logoUrl = getTeamLogo(currentDynasty.teamName, currentDynasty?.customTeams)
+                return logoUrl ? (
+                  <div
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      padding: '4px'
+                    }}
+                  >
+                    <img
+                      src={logoUrl}
+                      alt={`${currentDynasty.teamName} logo`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : null
+              })()}
               <div className="min-w-0">
                 <h2 className="text-lg sm:text-2xl font-bold truncate tracking-tight" style={{ color: primaryBgText }}>
                   {currentRank && <span className="mr-1.5 sm:mr-2 opacity-90">#{currentRank}</span>}
@@ -2463,7 +2472,7 @@ export default function Dashboard() {
               })(),
               // Optional: Recruiting Commitments - TEAM-CENTRIC
               (() => {
-                const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+                const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
                 const preseasonCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.['preseason']
                 const isFirstYear = Number(currentDynasty.currentYear) === Number(currentDynasty.startYear)
                 const isFirstYearOnTeam = currentDynasty.isFirstYearOnCurrentTeam
@@ -2684,7 +2693,7 @@ export default function Dashboard() {
 
               // Check for recruiting commitments this week - TEAM-CENTRIC
               const commitmentKey = `regular_${currentDynasty.currentWeek}`
-              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
               const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[currentDynasty.currentYear] || {}
               const commitmentsForWeek = commitmentsForTeamYear[commitmentKey]
               const hasCommitmentsData = commitmentsForWeek !== undefined
@@ -3050,7 +3059,7 @@ export default function Dashboard() {
                 {(() => {
                   taskNum++
                   const commitmentKey = getCommitmentKey()
-                  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+                  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
                   const ccCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                   const hasCommitmentsData = ccCommitments !== undefined
                   const commitmentsCount = ccCommitments?.length || 0
@@ -3216,7 +3225,7 @@ export default function Dashboard() {
             const allBowlGames = getAllBowlGamesList()
 
             // Check if user's team is in the CFP
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear] || []
             const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
 
@@ -3532,7 +3541,7 @@ export default function Dashboard() {
                                   setBowlOpponent('')
                                   // Remove any existing bowl game from games array (team-centric)
                                   const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)
-                                  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+                                  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                                   const updatedGames = existingBowlGame
                                     ? currentDynasty.games.filter(g => !(g.isBowlGame && g.year === currentDynasty.currentYear && (g.userTeam === currentTeamAbbr || !g.userTeam)))
                                     : currentDynasty.games
@@ -3875,7 +3884,7 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 1) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
                       const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
@@ -4475,7 +4484,7 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 2) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
                       const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
@@ -5566,7 +5575,7 @@ export default function Dashboard() {
                   {/* Task: Recruiting Commitments (Bowl Weeks 3-4) */}
                   {(() => {
                     const commitmentKey = getCommitmentKey()
-                    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+                    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
                     const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                     const hasCommitmentsData = weekCommitments !== undefined
                     const commitmentsCount = weekCommitments?.length || 0
@@ -5664,7 +5673,7 @@ export default function Dashboard() {
             if (week === 1) {
               // Check if user switched teams - if so, skip Players Leaving
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[currentDynasty.currentYear]?.team
-              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
 
               const hasPlayersLeavingData = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length > 0
@@ -5772,7 +5781,7 @@ export default function Dashboard() {
               const draftResultsCount = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length || 0
 
               // Check recruiting commitments for this week - TEAM-CENTRIC with signing_ key
-              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
               const recruitingCommitmentsForTeamYear = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[offseasonDataYear] || {}
               const commitmentsForWeek = recruitingCommitmentsForTeamYear[`signing_${recruitingWeekNum}`]
               const hasCommitmentsData = commitmentsForWeek !== undefined // undefined = not answered, [] = no commitments, array with items = has commitments
@@ -5935,7 +5944,7 @@ export default function Dashboard() {
                       })
                       const hasTransfers = transfers.length > 0
                       // Check team-centric path (where data is actually saved)
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
                       const transferDestinationsData = currentDynasty?.transferDestinationsByTeamYear?.[teamAbbr]?.[offseasonDataYear]
                       const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
                       const transferDestinationsCount = transferDestinationsData?.length || 0
@@ -5992,7 +6001,7 @@ export default function Dashboard() {
 
                     {/* Task 2: Recruiting Class Rank (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                       const classRank = currentDynasty.recruitingClassRankByTeamYear?.[teamAbbr]?.[offseasonDataYear]
                       const hasClassRank = !!classRank
 
@@ -6096,7 +6105,7 @@ export default function Dashboard() {
                     {/* Task 5: Portal Transfer Class Assignment (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
                       // Get portal transfers from recruiting commitments for this year
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                       const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
                       const portalTransfersForClass = []
                       Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
@@ -6182,7 +6191,7 @@ export default function Dashboard() {
                     {recruitingWeekNum === 5 && (() => {
                       // Get players with 5-9 games who might be fringe cases for redshirting
                       // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                       const year = offseasonDataYear
 
                       // Get all players and filter for fringe cases
@@ -6291,7 +6300,7 @@ export default function Dashboard() {
 
               // Check if user switched teams this offseason
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[offseasonDataYear]?.team
-              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
 
               // If user switched teams, show skipped state
@@ -6330,7 +6339,7 @@ export default function Dashboard() {
               // - Returning players who were on the roster LAST year and are continuing
               // - PLUS portal transfers who joined this offseason (they need training results too)
               // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
-              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
@@ -6480,7 +6489,7 @@ export default function Dashboard() {
 
             // Offseason Week 8: Offseason (Custom Conferences & Encourage Transfers)
             if (week === 8) {
-              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
               // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
               const upcomingSeasonYear = currentDynasty.currentYear
 
@@ -7441,7 +7450,7 @@ export default function Dashboard() {
         onSave={async (bowlGames) => {
           try {
             const year = currentDynasty.currentYear
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
             // Helper to sanitize game data for Firestore (replace null/undefined with valid defaults)
             const sanitizeGame = (game) => ({
@@ -7509,7 +7518,7 @@ export default function Dashboard() {
         onSave={async (bowlGames) => {
           try {
             const year = currentDynasty.currentYear
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
             // Helper to sanitize game data for Firestore (replace null/undefined with valid defaults)
             const sanitizeGame = (game) => ({
@@ -7667,7 +7676,7 @@ export default function Dashboard() {
         onClose={() => setShowBowlScoreModal(false)}
         onSave={async (cfpGames, week) => {
           const year = currentDynasty.currentYear
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
           const existingByYear = currentDynasty.cfpResultsByYear || {}
           const existingYearData = existingByYear[year] || {}
 
@@ -7729,7 +7738,7 @@ export default function Dashboard() {
       <CFPSemifinalsModal
         isOpen={showCFPSemifinalsModal}
         onClose={() => setShowCFPSemifinalsModal(false)}
-        userTeamAbbr={getAbbreviationFromDisplayName(currentDynasty.teamName)}
+        userTeamAbbr={getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)}
         onSave={async (cfpGames) => {
           const year = currentDynasty.currentYear
 
@@ -8106,7 +8115,7 @@ export default function Dashboard() {
         isOpen={showRecruitingClassRankModal}
         onClose={() => setShowRecruitingClassRankModal(false)}
         onSave={handleRecruitingClassRankSave}
-        currentRank={currentDynasty?.recruitingClassRankByTeamYear?.[getAbbreviationFromDisplayName(currentDynasty?.teamName)]?.[offseasonDataYear]}
+        currentRank={currentDynasty?.recruitingClassRankByTeamYear?.[getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)]?.[offseasonDataYear]}
         teamColors={teamColors}
       />
 
@@ -8119,7 +8128,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         players={(() => {
           // Returning players + portal transfers (NOT HS/JUCO recruits)
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
           const currentYear = currentDynasty?.currentYear
@@ -8160,7 +8169,7 @@ export default function Dashboard() {
         recruits={(() => {
           // Get recruits from this recruiting cycle (HS and JUCO only - exclude transfer portal)
           // Recruits have recruitYear from when they committed (before year flip)
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(p =>
             p.isRecruit &&
@@ -8180,7 +8189,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         portalTransfers={(() => {
           // Get portal transfers from recruiting commitments for this year
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
           const transfers = []
           Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
@@ -8216,7 +8225,7 @@ export default function Dashboard() {
         fringeCasePlayers={(() => {
           // Get players with 5-9 games who might be fringe cases for redshirting
           // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const year = offseasonDataYear
 
           // Get all players and filter for fringe cases
@@ -8258,7 +8267,7 @@ export default function Dashboard() {
         isOpen={showEncourageTransfersModal}
         onClose={() => setShowEncourageTransfersModal(false)}
         onSave={async (transferPlayers) => {
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
@@ -8347,7 +8356,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         players={(() => {
           // Players for encourage transfers: current roster after training results
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[currentDynasty?.currentYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 

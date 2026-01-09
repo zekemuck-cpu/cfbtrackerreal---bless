@@ -100,7 +100,7 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP First Round (seeds 5-12)
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
           if (userCFPSeed >= 5 && userCFPSeed <= 12) {
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
@@ -186,7 +186,8 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
             cfpSeeds,
             excludeGames,
             existingBowlWeek1,
-            existingCFPFirstRound
+            existingCFPFirstRound,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

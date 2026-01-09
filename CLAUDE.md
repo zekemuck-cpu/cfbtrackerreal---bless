@@ -91,6 +91,105 @@ Can add more section types later if needed (awards, all-americans, rankings, etc
 
 ---
 
+## 🔧 IN PROGRESS: Teambuilder Feature (January 2026)
+
+**Status**: Core implementation complete, integration fixes in progress
+
+Users can create teambuilder teams that replace FBS teams in their dynasty. The teambuilder team takes over the replaced team's slot in conferences, schedules, and throughout the app.
+
+### Critical Fix Applied (Session 2)
+
+**Problem**: Rosters not showing for teambuilder teams. After entering 85 players, TeamYear page showed "No roster data."
+
+**Root Cause**: `getAbbreviationFromDisplayName()` was called without `customTeams` parameter in 100+ places throughout the codebase. For teambuilder teams like "Murray State Races", it returned `null` instead of "MSR", causing:
+1. `saveRoster` saved players with wrong `teamsByYear` values
+2. `isPlayerOnRoster(p, "MSR", year)` found no matches
+
+**Fix Applied**: Updated all critical `getAbbreviationFromDisplayName(dynasty.teamName)` calls to include `getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)` across:
+- `DynastyContext.jsx` (40+ calls)
+- `Dashboard.jsx` (30+ calls)
+- All modal components (RosterEntryModal, GameEntryModal, BoxScoreSheetModal, etc.)
+- All page components (TeamYear, Team, Game, Player, etc.)
+- Utility files (boxScoreAggregator.js, geminiService.js)
+
+### Google Sheets Teambuilder Support (Session 2)
+
+All Google Sheet functions now support teambuilder teams:
+- Team dropdowns show teambuilder teams, hide replaced teams
+- Conditional formatting uses correct teambuilder team colors
+
+**Functions updated**:
+- `getTeamsWithCustom(customTeams)` - builds combined team list
+- `getTeamAbbreviationsListWithCustom(customTeams)` - sorted abbreviation list
+- `generateTeamFormattingRules()`, `generateTeamValidation()` - accept customTeams
+- All sheet creation functions: Schedule, CFP Seeds, Conference Championship, Bowl Weeks, Conference Standings, Final Polls, Awards, All-Americans, Conference Alignment, CFP First Round, Roster History
+
+### Still TODO
+
+1. **Opponent lookups**: Some `getAbbreviationFromDisplayName(opponent)` calls don't pass `customTeams`. Only matters if user plays AGAINST another teambuilder team (rare case).
+
+2. **Testing needed**: Full end-to-end test of teambuilder dynasty through all phases.
+
+### Data Structure (Matches FBS Format Exactly)
+
+```javascript
+dynasty.customTeams = {
+  "SPFD": {  // Teambuilder abbreviation IS the key
+    name: "Springfield Tigers",       // Full name like "Alabama Crimson Tide"
+    abbreviation: "SPFD",             // 2-4 chars
+    logoUrl: "https://...",           // User-uploaded via imgBB
+    backgroundColor: "#FF5500",       // Primary color (same as FBS teams)
+    textColor: "#FFFFFF",             // Secondary color (same as FBS teams)
+    replacesTeam: "ARST"              // FBS team slot taken
+  }
+}
+```
+
+### How It Works
+
+1. **Helper Function Interception**: All team lookups (`getTeamName`, `getTeamLogo`, `getTeamColors`, `getMascotName`) accept optional `customTeams` parameter and check teambuilder teams FIRST before falling back to static data.
+
+2. **Conference Replacement**: When dynasty created with teambuilder team, `customConferencesByYear` is initialized with the teambuilder abbreviation replacing the old team in its conference.
+
+3. **Context Integration**: `useDynasty()` exposes `customTeams` from current dynasty for easy access.
+
+### Key Files
+
+- `src/pages/CreateDynasty.jsx` - Teambuilder creation UI with color pickers, logo upload
+- `src/data/teamAbbreviations.js` - `getTeamName()`, `getTeamByAbbreviation()`, `getResolvedAbbreviation()`, `isTeambuilderTeam()`
+- `src/data/teams.js` - `getTeamLogo()`, `getTeamLogoByAbbr()`, `getMascotName()`
+- `src/data/teamColors.js` - `getTeamColors()`, `getTeamColorsByAbbr()`
+- `src/data/conferenceTeams.js` - `getConferencesWithCustomTeams()`, updated `getTeamConference()`
+- `src/hooks/useTeamColors.js` - Updated to accept `customTeams` parameter
+- `src/context/DynastyContext.jsx` - `getCustomTeams()`, `getCustomTeam()`, `resolveTeamAbbr()`, `hasCustomTeams()`
+
+### Usage Pattern
+
+When displaying team info, pass `customTeams` from context:
+
+```javascript
+const { customTeams } = useDynasty()
+
+// Get team name (checks teambuilder teams first)
+const teamName = getTeamName(abbr, customTeams)
+
+// Get team logo
+const logo = getTeamLogo(abbr, customTeams)
+
+// Use hook with teambuilder teams
+const colors = useTeamColors(teamName, customTeams)
+```
+
+### Notes
+
+- Teambuilder teams are stored per-dynasty (not global)
+- The replaced team's abbreviation still works as a lookup key (resolves to teambuilder team)
+- Conference data is automatically initialized with the replacement on dynasty creation
+- Logo upload uses existing imgBB API integration
+- Data structure matches FBS teams exactly (`name`, `backgroundColor`, `textColor`)
+
+---
+
 ## CRITICAL: Team-Centric Coding Requirement
 
 **ALWAYS store data at the TEAM level, NOT the user/dynasty level.**

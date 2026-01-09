@@ -95,7 +95,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName
+          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
           const sheetInfo = await createPlayersLeavingSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,

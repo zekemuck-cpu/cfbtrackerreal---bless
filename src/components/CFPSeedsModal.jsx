@@ -98,7 +98,8 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
           const sheetInfo = await createCFPSeedsSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            existingSeeds
+            existingSeeds,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

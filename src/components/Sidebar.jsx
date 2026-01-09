@@ -27,7 +27,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
   // Get current team abbreviation for recruiting link
-  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName || ''
+  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
 
   // Get user's conference for all-conference link (using custom conferences if available)
   const customConferences = getCurrentCustomConferences(currentDynasty)

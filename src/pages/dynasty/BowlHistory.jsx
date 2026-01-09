@@ -96,7 +96,7 @@ export default function BowlHistory() {
   const { id } = useParams()
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedBowl, setExpandedBowl] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)

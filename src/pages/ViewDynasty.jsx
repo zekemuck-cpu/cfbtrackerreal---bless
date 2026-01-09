@@ -12,7 +12,7 @@ function ViewDynastyContent() {
   const { shareCode } = useParams()
   const { currentDynasty, loading, error } = useViewDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   // Expose sidebar toggle (similar to DynastyDashboard)
   useEffect(() => {

@@ -188,7 +188,7 @@ export default function AllConference() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 
@@ -205,7 +205,7 @@ export default function AllConference() {
   const yearData = allAmericansByYear[displayYear] || {}
 
   // Get the user's team abbreviation
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
   // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
   const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)

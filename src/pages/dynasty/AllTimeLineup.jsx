@@ -4,7 +4,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 
 export default function AllTimeLineup() {
   const { currentDynasty } = useDynasty()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
   if (!currentDynasty) return null

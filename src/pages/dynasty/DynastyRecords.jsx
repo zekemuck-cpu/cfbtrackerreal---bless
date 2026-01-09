@@ -122,7 +122,7 @@ export default function DynastyRecords() {
   const { id: dynastyId } = useParams()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   const [mode, setMode] = useState(() => {
     return localStorage.getItem('leaderboard-mode') || 'career'

@@ -114,7 +114,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             excludeConference,
-            existingCCData
+            existingCCData,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

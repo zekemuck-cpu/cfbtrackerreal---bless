@@ -87,7 +87,8 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             currentDynasty?.teamName || '',
-            existingSchedule
+            existingSchedule,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
 

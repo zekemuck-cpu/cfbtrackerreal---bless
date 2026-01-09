@@ -39,22 +39,71 @@ export const conferenceTeams = {
 
 // Get conference for a team abbreviation
 // If customConferences is provided, it will be checked first before falling back to defaults
-export function getTeamConference(abbr, customConferences = null) {
+// customTeams object is used to resolve replaced team lookups (teambuilder teams)
+export function getTeamConference(abbr, customConferences = null, customTeams = null) {
+  // Check if this is a teambuilder team - if so, look up the conference of the team it replaced
+  let lookupAbbr = abbr
+  if (customTeams) {
+    // Check if abbr is a teambuilder team's abbreviation
+    const teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === abbr)
+    if (teambuilderTeam && teambuilderTeam.replacesTeam) {
+      // Use the replaced team's abbreviation to find the conference
+      lookupAbbr = teambuilderTeam.replacesTeam
+    }
+  }
+
   // Check custom conferences first if provided
   if (customConferences) {
     for (const [conference, teams] of Object.entries(customConferences)) {
-      if (teams && teams.includes(abbr)) {
+      // Check for both the original abbr and the lookup abbr (in case custom conferences already has the teambuilder team)
+      if (teams && (teams.includes(abbr) || teams.includes(lookupAbbr))) {
         return conference
       }
     }
   }
-  // Fall back to default conferences
+  // Fall back to default conferences using the lookup abbreviation
   for (const [conference, teams] of Object.entries(conferenceTeams)) {
-    if (teams.includes(abbr)) {
+    if (teams.includes(lookupAbbr)) {
       return conference
     }
   }
   return null
+}
+
+/**
+ * Get initial conference data with teambuilder team replacement applied
+ * Used when creating a dynasty with a teambuilder team
+ *
+ * @param {Object} customTeams - Teambuilder teams object from dynasty
+ * @returns {Object} Conference data with teambuilder team abbreviations replacing original teams
+ */
+export function getConferencesWithCustomTeams(customTeams) {
+  if (!customTeams || Object.keys(customTeams).length === 0) {
+    return null // No teambuilder teams, use defaults
+  }
+
+  // Deep copy the default conferences
+  const conferences = {}
+  for (const [conf, teams] of Object.entries(conferenceTeams)) {
+    conferences[conf] = [...teams]
+  }
+
+  // Replace each replaced team with the teambuilder team abbreviation
+  for (const teambuilderTeam of Object.values(customTeams)) {
+    const replacedAbbr = teambuilderTeam.replacesTeam
+    const teambuilderAbbr = teambuilderTeam.abbreviation
+
+    // Find which conference has the replaced team and swap it
+    for (const [conf, teams] of Object.entries(conferences)) {
+      const idx = teams.indexOf(replacedAbbr)
+      if (idx !== -1) {
+        teams[idx] = teambuilderAbbr
+        break
+      }
+    }
+  }
+
+  return conferences
 }
 
 // Get all teams in a conference

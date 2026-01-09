@@ -16,7 +16,7 @@ function getDynastyTeamConference(dynasty) {
   if (!dynasty.teamName) return null
 
   // Get team abbreviation from display name
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName)
+  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
   if (!teamAbbr) return null
 
   // Check custom conferences first (if user has set them)
@@ -360,8 +360,18 @@ export default function Home() {
 
           <div className="grid gap-3 sm:gap-4">
             {sortedDynasties.map((dynasty) => {
-              const colors = getTeamColors(dynasty.teamName)
-              const logoUrl = getTeamLogo(dynasty.teamName)
+              const colors = getTeamColors(dynasty.teamName, dynasty.customTeams)
+              // For teambuilder teams, get logo from customTeams; otherwise use standard lookup
+              let logoUrl = null
+              if (dynasty.customTeams) {
+                const teambuilderTeam = Object.values(dynasty.customTeams).find(t => t.name === dynasty.teamName)
+                if (teambuilderTeam) {
+                  logoUrl = teambuilderTeam.logoUrl
+                }
+              }
+              if (!logoUrl) {
+                logoUrl = getTeamLogo(dynasty.teamName, dynasty.customTeams)
+              }
               const relativeTime = getRelativeTime(dynasty.lastModified)
               const weekPhase = getWeekPhaseDisplay(dynasty)
               const conference = getDynastyTeamConference(dynasty)
@@ -674,7 +684,7 @@ export default function Home() {
             setShowShareModal(false)
             setShareDynasty(null)
           }}
-          teamColors={getTeamColors(shareDynasty.teamName) || { primary: '#1e40af', secondary: '#dbeafe' }}
+          teamColors={getTeamColors(shareDynasty.teamName, shareDynasty.customTeams) || { primary: '#1e40af', secondary: '#dbeafe' }}
           dynasty={shareDynasty}
         />
       )}

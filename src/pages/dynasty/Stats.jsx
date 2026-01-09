@@ -24,7 +24,7 @@ const STAT_DISPLAY = {
 
 export default function Stats() {
   const { currentDynasty } = useDynasty()
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const [selectedYear, setSelectedYear] = useState(null)
 
   if (!currentDynasty) return null

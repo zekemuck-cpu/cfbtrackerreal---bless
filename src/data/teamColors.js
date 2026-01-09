@@ -141,6 +141,62 @@ export const teamColors = {
   "Wyoming Cowboys": { primary: "#492f24", secondary: "#ffc425" }
 }
 
-export function getTeamColors(teamName) {
+// Get team colors (checks teambuilder teams first by name or abbreviation)
+export function getTeamColors(teamName, customTeams = null) {
+  // Check if teamName matches a teambuilder team name or abbreviation
+  if (customTeams) {
+    // Check by name
+    const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
+    if (teambuilderByName) {
+      return {
+        primary: teambuilderByName.backgroundColor || teambuilderByName.primaryColor,
+        secondary: teambuilderByName.textColor || teambuilderByName.secondaryColor,
+        isTeambuilder: true
+      }
+    }
+    // Check by abbreviation
+    if (customTeams[teamName]) {
+      const t = customTeams[teamName]
+      return {
+        primary: t.backgroundColor || t.primaryColor,
+        secondary: t.textColor || t.secondaryColor,
+        isTeambuilder: true
+      }
+    }
+  }
   return teamColors[teamName] || { primary: "#ea580c", secondary: "#FFFFFF" }
+}
+
+// Get team colors by abbreviation (more reliable for teambuilder teams)
+export function getTeamColorsByAbbr(abbr, customTeams = null) {
+  // Check if this IS a teambuilder team abbreviation
+  if (customTeams?.[abbr]) {
+    const t = customTeams[abbr]
+    return {
+      primary: t.backgroundColor || t.primaryColor,
+      secondary: t.textColor || t.secondaryColor,
+      isTeambuilder: true
+    }
+  }
+  // Check if this abbreviation was replaced by a teambuilder team
+  if (customTeams) {
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
+    if (teambuilderTeam) {
+      return {
+        primary: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
+        secondary: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
+        isTeambuilder: true
+      }
+    }
+  }
+  // Fall back to static colors by looking up team name
+  // Import would create circular dependency, so we do direct lookup here
+  const teamName = Object.entries(teamColors).find(([name]) => {
+    // This is a simplified check - full name lookup happens elsewhere
+    return name.includes(abbr)
+  })?.[0]
+  if (teamName) {
+    return teamColors[teamName]
+  }
+  return { primary: "#ea580c", secondary: "#FFFFFF" }
 }

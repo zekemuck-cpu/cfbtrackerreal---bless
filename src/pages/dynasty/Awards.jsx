@@ -216,8 +216,8 @@ export default function Awards() {
   const [showAwardsModal, setShowAwardsModal] = useState(false)
 
   // Get team colors for the modal
-  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || ''
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || ''
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 

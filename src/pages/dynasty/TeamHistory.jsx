@@ -26,12 +26,12 @@ export default function TeamHistory() {
   if (!currentDynasty) return null
 
   // Get team colors for styling
-  const teamColors = useTeamColors(currentDynasty.teamName)
+  const teamColors = useTeamColors(currentDynasty.teamName, currentDynasty?.customTeams)
   const primaryText = getContrastTextColor(teamColors.primary)
   const secondaryText = getContrastTextColor(teamColors.secondary)
 
   // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
   // Helper functions for win/loss detection
   const isWin = (game) => game.result === 'win' || game.result === 'W'

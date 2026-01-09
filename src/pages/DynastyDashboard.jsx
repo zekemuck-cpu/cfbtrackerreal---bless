@@ -11,7 +11,7 @@ export default function DynastyDashboard() {
   const { dynasties, currentDynasty, selectDynasty } = useDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
 
   useEffect(() => {
     if (id && (!currentDynasty || currentDynasty.id !== id)) {

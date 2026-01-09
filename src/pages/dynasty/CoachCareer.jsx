@@ -133,7 +133,7 @@ export default function CoachCareer() {
   if (!currentDynasty) return null
 
   // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
   // Helper to check for win (handles both 'win' and 'W' formats)
   const isWin = (g) => g.result === 'win' || g.result === 'W'
@@ -365,7 +365,7 @@ export default function CoachCareer() {
   }, { wins: 0, losses: 0, teams: 0 })
 
   // Get team colors for current team (used for header)
-  const teamColors = useTeamColors(currentDynasty?.teamName)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
   const primaryText = getContrastTextColor(teamColors?.primary || '#4B5563')
   const secondaryText = getContrastTextColor(teamColors?.secondary || '#FFFFFF')
 

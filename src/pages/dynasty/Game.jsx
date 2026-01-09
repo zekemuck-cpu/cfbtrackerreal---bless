@@ -385,7 +385,7 @@ export default function Game() {
       }
 
       if (cfpGame) {
-        const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+        const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
         const isUserGame = cfpGame.team1 === userTeamAbbr || cfpGame.team2 === userTeamAbbr
         return {
           ...cfpGame,

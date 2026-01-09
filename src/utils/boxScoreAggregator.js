@@ -388,7 +388,7 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
     // For games with userTeam/opponent format (regular games, user postseason)
     if (game.opponent) {
       const isUserHome = game.location === 'home' || game.location === 'neutral'
-      const userTeam = game.userTeam || getAbbreviationFromDisplayName(dynasty.teamName) || ''
+      const userTeam = game.userTeam || getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || ''
 
       if (playerFoundIn === 'home') {
         // Player is on home team

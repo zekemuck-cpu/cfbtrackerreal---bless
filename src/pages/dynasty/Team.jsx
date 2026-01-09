@@ -238,9 +238,43 @@ export default function Team() {
     })
     .sort((a, b) => a.sortName.localeCompare(b.sortName))
 
-  // Get team info
-  const teamInfo = teamAbbreviations[teamAbbr]
+  // Get team info - check teambuilder teams first
+  const customTeams = currentDynasty.customTeams
+  // Debug: Log customTeams state
+  console.log('Team.jsx customTeams check:', { teamAbbr, customTeams, dynastyTeamName: currentDynasty.teamName })
+
+  // Check by key first, then search by abbreviation field
+  let teambuilderTeam = customTeams?.[teamAbbr]
+  if (!teambuilderTeam && customTeams) {
+    teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === teamAbbr)
+  }
+
+  // If no customTeams but the URL abbreviation matches a link generated from dashboard,
+  // and it's the user's current team (teambuilder), create team info from dynasty data
+  if (!teambuilderTeam && !teamAbbreviations[teamAbbr]) {
+    // Check if this might be the user's teambuilder team by checking if teamAbbr
+    // was derived from dynasty.teamName (which would be the teambuilder team name)
+    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, customTeams)
+    console.log('Checking if user team:', { userTeamAbbr, teamAbbr, match: userTeamAbbr === teamAbbr })
+  }
+
+  const teamInfo = teambuilderTeam
+    ? {
+        name: teambuilderTeam.name,
+        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
+        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
+        isTeambuilder: true
+      }
+    : teamAbbreviations[teamAbbr]
+
   if (!teamInfo) {
+    // Debug info
+    console.log('Team not found debug:', {
+      teamAbbr,
+      customTeams,
+      customTeamsKeys: customTeams ? Object.keys(customTeams) : null,
+      dynastyTeamName: currentDynasty.teamName
+    })
     return (
       <div className="space-y-6">
         <div
@@ -252,6 +286,11 @@ export default function Team() {
           <p className="mt-2 text-gray-600">
             The team "{teamAbbr}" was not found.
           </p>
+          {customTeams && Object.keys(customTeams).length > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              Teambuilder teams: {Object.keys(customTeams).join(', ')}
+            </p>
+          )}
           <Link
             to={`${pathPrefix}/teams`}
             className="inline-block mt-4 px-4 py-2 rounded-lg font-semibold bg-gray-700 text-white hover:bg-gray-800"
@@ -265,13 +304,13 @@ export default function Team() {
 
   const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr)
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
-  const mascotName = getMascotName(teamAbbr)
-  const teamLogo = mascotName ? getTeamLogo(mascotName) : null
+  const mascotName = teambuilderTeam ? teambuilderTeam.name : getMascotName(teamAbbr)
+  const teamLogo = teambuilderTeam ? teambuilderTeam.logoUrl : (mascotName ? getTeamLogo(mascotName) : null)
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
 
   // Get user's team abbreviation
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
 
   // Get all games against this team (user's games across all teams they've coached)
   const gamesAgainst = (currentDynasty.games || [])

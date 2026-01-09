@@ -284,14 +284,29 @@ export default function TeamYear() {
 
   if (!currentDynasty) return null
 
-  // Get all teams sorted alphabetically by mascot name
-  const allTeams = Object.entries(teamAbbreviations)
+  // Get teambuilder teams and the teams they replace
+  const teambuilderTeams = currentDynasty.customTeams || {}
+  const replacedTeamAbbrs = new Set(Object.values(teambuilderTeams).map(t => t.replacesTeam))
+
+  // Get all FBS teams, excluding replaced teams
+  const fbsTeams = Object.entries(teamAbbreviations)
+    .filter(([abbr]) => !abbr.startsWith('FCS'))
+    .filter(([abbr]) => !replacedTeamAbbrs.has(abbr))  // Exclude replaced teams
     .map(([abbr, info]) => ({
       abbr,
       name: getMascotName(abbr) || info.name,
       sortName: (getMascotName(abbr) || info.name).toLowerCase()
     }))
-    .sort((a, b) => a.sortName.localeCompare(b.sortName))
+
+  // Add teambuilder teams to the list
+  const teambuilderTeamsList = Object.values(teambuilderTeams).map(team => ({
+    abbr: team.abbreviation,
+    name: team.name,
+    sortName: team.name.toLowerCase()
+  }))
+
+  // Combine and sort all teams alphabetically
+  const allTeams = [...fbsTeams, ...teambuilderTeamsList].sort((a, b) => a.sortName.localeCompare(b.sortName))
 
   // Get available years (most recent first)
   const availableYears = []
@@ -299,8 +314,23 @@ export default function TeamYear() {
     availableYears.push(y)
   }
 
-  // Get team info
-  const teamInfo = teamAbbreviations[teamAbbr]
+  // Get team info - check teambuilder teams first
+  const customTeams = currentDynasty.customTeams
+  let teambuilderTeam = customTeams?.[teamAbbr]
+  // Also check by abbreviation field in case the key doesn't match
+  if (!teambuilderTeam && customTeams) {
+    teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === teamAbbr)
+  }
+
+  const teamInfo = teambuilderTeam
+    ? {
+        name: teambuilderTeam.name,
+        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
+        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
+        isTeambuilder: true
+      }
+    : teamAbbreviations[teamAbbr]
+
   if (!teamInfo) {
     return (
       <div className="space-y-6">
@@ -337,18 +367,19 @@ export default function TeamYear() {
 
   // Conference with custom conferences support (year-specific)
   const customConferences = getCustomConferencesForYear(currentDynasty, selectedYear)
-  const baseConference = getTeamConference(teamAbbr, customConferences)
+  const baseConference = getTeamConference(teamAbbr, customConferences, customTeams)
   const manualConference = currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear]
   const conference = manualConference || baseConference
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
-  const mascotName = getMascotName(teamAbbr)
-  const teamLogo = mascotName ? getTeamLogo(mascotName) : null
+  // For teambuilder teams, use the team name as mascotName and logoUrl; otherwise use static lookup
+  const mascotName = teambuilderTeam ? teambuilderTeam.name : getMascotName(teamAbbr)
+  const teamLogo = teambuilderTeam ? teambuilderTeam.logoUrl : (mascotName ? getTeamLogo(mascotName) : null)
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)
 
   // Check if this is the user's team
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, customTeams)
   const isUserTeam = teamAbbr === userTeamAbbr
 
   // Get locked coaching staff for this team/year (preserves coordinators even if fired later)
@@ -2484,7 +2515,7 @@ export default function TeamYear() {
               } else if (game.isCFPFirstRound) {
                 // For first round, use seeds to determine slot
                 const cfpSeeds = currentDynasty.cfpSeedsByYear?.[selectedYear] || []
-                const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
+                const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                 const userSeed = cfpSeeds.find(s => s && s.team === userTeamAbbr)?.seed
                 const oppSeed = userSeed ? 17 - userSeed : null
                 const slotId = getFirstRoundSlotId(userSeed, oppSeed)

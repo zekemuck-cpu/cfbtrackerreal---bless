@@ -110,7 +110,8 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
           // Create fresh sheet
           const sheetInfo = await createRosterHistorySheet(
             currentDynasty?.dynastyName || 'Dynasty',
-            years
+            years,
+            currentDynasty?.customTeams
           )
 
           // Prefill with all non-honor-only players

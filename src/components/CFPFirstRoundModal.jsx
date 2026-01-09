@@ -96,7 +96,8 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
           const sheetInfo = await createCFPFirstRoundSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            existingFirstRound
+            existingFirstRound,
+            currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

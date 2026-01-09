@@ -880,7 +880,7 @@ export default function GameEntryModal({
         // For CFP First Round without location, determine from seeds
         let effectiveLocation = gameToLoad.location || 'neutral'
         if (!gameToLoad.location && (gameToLoad.isCFPFirstRound || gameToLoad.gameType === 'cfp_first_round' || bowlName === 'CFP First Round')) {
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
           const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
           const opponentAbbr = getAbbreviationFromDisplayName(gameToLoad.opponent) || gameToLoad.opponent
@@ -1020,7 +1020,7 @@ export default function GameEntryModal({
         // For CFP First Round, higher seed hosts (lower number = higher seed)
         let cfpLocation = 'neutral'
         if (bowlName === 'CFP First Round') {
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
           const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
           const opponentAbbr = getAbbreviationFromDisplayName(passedOpponent) || passedOpponent
@@ -1230,7 +1230,7 @@ export default function GameEntryModal({
     const favoriteStatus = calculateFavoriteStatus()
 
     // Determine if this is a conference game
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName)
+    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
     const rawOpponent = gameData.opponent || scheduledGame?.opponent
     const opponentAbbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
 
@@ -1463,7 +1463,7 @@ export default function GameEntryModal({
     }
 
     // Generate random box score stats based on player positions
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName || ''
+    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
     const rawOpp = gameData.opponent || scheduledGame?.opponent || 'OPP'
     const opponentAbbr = getAbbreviationFromDisplayName(rawOpp) || rawOpp
 
@@ -1518,7 +1518,7 @@ export default function GameEntryModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: getContrastTextColor(teamColors.primary) }}>
               {isConferenceChampionship || effectiveGame?.isConferenceChampionship
-                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(getAbbreviationFromDisplayName(currentDynasty?.teamName)) || 'Conference'} Championship`
+                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)) || 'Conference'} Championship`
                 : effectiveGame?.isCFPChampionship
                   ? 'National Championship'
                   : effectiveGame?.isCFPSemifinal
@@ -1612,7 +1612,7 @@ export default function GameEntryModal({
                 {(() => {
                   // Determine team order based on location
                   // For CPU vs CPU games, use passed team1 and team2
-                  const team1Abbr = isCPUGame ? effectiveGame?.team1 : getAbbreviationFromDisplayName(currentDynasty?.teamName)
+                  const team1Abbr = isCPUGame ? effectiveGame?.team1 : getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
                   // Ensure opponent is an abbreviation (convert full name if needed)
                   const rawOpponent = isCPUGame ? effectiveGame?.team2 : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
                   const team2Abbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
@@ -2926,7 +2926,7 @@ export default function GameEntryModal({
                 homeAbbr = effectiveGame?.team1 || passedTeam1 || 'Team 1'
                 awayAbbr = effectiveGame?.team2 || passedTeam2 || 'Team 2'
               } else {
-                const userAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName || ''
+                const userAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
                 const rawOppAbbr = gameData.opponent || existingGame?.opponent || ''
                 const oppAbbr = getAbbreviationFromDisplayName(rawOppAbbr) || rawOppAbbr
                 const isUserHome = gameData.location === 'home' || gameData.location === 'neutral'

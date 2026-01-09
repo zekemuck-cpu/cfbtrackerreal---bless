@@ -108,7 +108,7 @@ export default function Recruiting() {
   }
 
   // Get current team abbreviation (for redirect if no URL params)
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName) || currentDynasty?.teamName
+  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
 
   // Use URL params if provided, otherwise use current team/year
   const teamAbbr = urlTeamAbbr || currentTeamAbbr
