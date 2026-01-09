@@ -40,6 +40,57 @@ Can add more section types later if needed (awards, all-americans, rankings, etc
 
 ---
 
+## ✅ COMPLETED: Offseason Phase Fixes (January 2026)
+
+**Issues Fixed:**
+1. **Missing Offseason Week 8**: Week 8 (Custom Conferences & Encourage Transfers) was being skipped
+2. **Custom Conferences Year**: Was showing year+1 instead of currentYear (year already flipped at Week 6)
+3. **Recruit Overalls Task Missing**: Recruits were converted at Week 6→7, now converted at Week 7→8
+4. **Revert Week Issues**: Reverting from preseason broke rosters
+
+**Offseason Week Structure (after fixes):**
+- Week 1: Players Leaving
+- Weeks 2-5: Recruiting Weeks 1-4
+- Week 6: National Signing Day (YEAR FLIP + class progression happens here)
+- Week 7: Training Camp (Training Results, Recruit Overalls) - recruits still have `isRecruit: true`
+- Week 8: Offseason (Custom Conferences, Encourage Transfers) - recruits converted to `isRecruit: false`
+- Then advances to Preseason
+
+**Revert Week Logic:**
+- Preseason → Offseason 8: Year goes back, restores `isRecruit: true` on recruits
+- Offseason 8 → 7: Restores `isRecruit: true` on recruits
+- Offseason 6 → 5: Year goes back, undoes class progression, removes `teamsByYear[newYear]` entries
+
+---
+
+## ✅ COMPLETED: Import Dynasty Progress Modal (January 2026)
+
+**Problem**: Users could click into dynasty before import finished, seeing empty rosters.
+
+**Solution**: Full-screen modal blocks all interaction during import with:
+- Progress bar (0-100%)
+- Stage indicators with checkmarks (Reading file, Creating dynasty, Importing players, Importing games)
+- Live detail like "45 of 150 players"
+- Warning message to not close page
+
+**Files**: `src/pages/Home.jsx`, `src/context/DynastyContext.jsx` (importDynasty now accepts progress callback)
+
+---
+
+## ✅ COMPLETED: AI Recap Error Handling (January 2026)
+
+**Problem**: API quota errors only showed in console, not to users.
+
+**Solution**: User-friendly error display with:
+- Error message box with countdown timer
+- "Ready in X seconds" live countdown
+- Generate/Regenerate buttons disabled during countdown
+- Auto-clears when countdown finishes
+
+**File**: `src/pages/dynasty/Game.jsx`
+
+---
+
 ## CRITICAL: Team-Centric Coding Requirement
 
 **ALWAYS store data at the TEAM level, NOT the user/dynasty level.**
@@ -263,8 +314,8 @@ dynasty = {
      4. Position Changes
      5. Portal Transfer Class Assignment (if portal transfers exist)
      6. Fringe Case Class Assignment (if players with 5-9 games exist)
-   - Week 7: Training Camp (Training Results, Recruit Overalls, Encourage Transfers)
-   - Week 8: Offseason Complete (triggers `advanceToNewSeason()`)
+   - Week 7: Training Camp (Training Results, Recruit Overalls)
+   - Week 8: Offseason (Custom Conferences, Encourage Transfers) → then advances to preseason
 
 ### Key Files
 

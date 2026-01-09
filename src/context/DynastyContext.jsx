@@ -3501,9 +3501,8 @@ export function DynastyProvider({ children }) {
       // With the new system, departures and transfers are handled directly in:
       // - handlePlayersLeavingSave (adds movements, doesn't add next year to teamsByYear)
       // - handleTransferDestinationsSave (updates teamsByYear, adds movements)
+      // NOTE: Recruits stay as isRecruit=true until Week 7→8 so users can enter Recruit Overalls
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended
-      const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
       const players = dynasty.players || []
 
       // Get draft results for draft round info
@@ -3514,8 +3513,7 @@ export function DynastyProvider({ children }) {
         if (d.pid) draftByPid[d.pid] = d
       })
 
-      // Process all players: add draft info AND convert recruits to active players
-      // Recruits from this class (recruitYear === previousSeasonYear) should now be on the roster
+      // Process all players: add draft info only (recruit conversion moved to Week 7→8)
       const updatedPlayers = players.map(player => {
         let updated = { ...player }
         let modified = false
@@ -3528,11 +3526,25 @@ export function DynastyProvider({ children }) {
           modified = true
         }
 
-        // Convert recruits from this class to active players
-        // This makes them appear on roster and removes "Commitment" badge
+        return modified ? updated : player
+      })
+
+      // Only update if there were changes
+      if (updatedPlayers.some((p, i) => p !== players[i])) {
+        additionalUpdates.players = updatedPlayers
+      }
+    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 7 && nextWeek === 8) {
+      // Week 7→8 transition (after Training Camp tasks complete)
+      // NOW convert recruits to active players (after user had chance to enter Recruit Overalls)
+      const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended (recruitYear)
+      const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+      const players = dynasty.players || []
+
+      // Convert recruits from this class to active players
+      const updatedPlayers = players.map(player => {
         if (player.isRecruit && Number(player.recruitYear) === previousSeasonYear) {
-          updated.isRecruit = false
-          modified = true
+          let updated = { ...player, isRecruit: false }
 
           // Ensure teamsByYear has the current year (in case it's missing)
           const hasCurrentYear = player.teamsByYear?.[currentSeasonYear] || player.teamsByYear?.[String(currentSeasonYear)]
@@ -3551,18 +3563,20 @@ export function DynastyProvider({ children }) {
               [currentSeasonYear]: player.year
             }
           }
-        }
 
-        return modified ? updated : player
+          return updated
+        }
+        return player
       })
 
       // Only update if there were changes
       if (updatedPlayers.some((p, i) => p !== players[i])) {
         additionalUpdates.players = updatedPlayers
       }
-    } else if (dynasty.currentPhase === 'offseason' && nextWeek > 7) {
+    } else if (dynasty.currentPhase === 'offseason' && nextWeek > 8) {
       // SEASON ADVANCEMENT to preseason - year already flipped when entering Signing Day
       // Just transition to preseason phase, no year change needed
+      // Note: Week 8 is "Offseason" phase with Custom Conferences & Encourage Transfers
 
       nextPhase = 'preseason'
       nextWeek = 0
@@ -3871,19 +3885,35 @@ export function DynastyProvider({ children }) {
     // - Regular Season: Weeks 1-12
     // - Conference Championship: Week 1
     // - Postseason: Weeks 1-5
-    // - Offseason: Weeks 1-7
+    // - Offseason: Weeks 1-8
 
     // Determine the previous phase/week based on current state
     if (currentPhase === 'preseason') {
-      // Preseason Week 0 → Previous Year's Offseason Week 7
+      // Preseason Week 0 → Previous Year's Offseason Week 8
       if (currentYear <= startYear) {
         // Can't go back before the dynasty started
         // Cannot revert: at start of dynasty
         return
       }
       prevPhase = 'offseason'
-      prevWeek = 7
+      prevWeek = 8
       prevYear = currentYear - 1
+
+      // CRITICAL: Restore recruits to isRecruit: true
+      // At Week 7→8, recruits were converted. We need to undo that.
+      // recruitYear will be prevYear (the year the recruiting happened)
+      const players = dynasty.players || []
+      const recruitingYear = prevYear
+      const updatedPlayers = players.map(player => {
+        // Restore isRecruit for players recruited this cycle
+        if (player.recruitYear === recruitingYear || player.recruitYear === String(recruitingYear)) {
+          return { ...player, isRecruit: true }
+        }
+        return player
+      })
+      if (updatedPlayers.some((p, i) => p !== players[i])) {
+        additionalUpdates.players = updatedPlayers
+      }
     } else if (currentPhase === 'regular_season') {
       if (currentWeek <= 1) {
         // Regular Season Week 1 → Preseason Week 0
@@ -4093,7 +4123,9 @@ export function DynastyProvider({ children }) {
         }
       }
     } else if (dynasty.currentPhase === 'offseason') {
-      // Reverting within offseason
+      // Reverting within offseason - handle different week transitions
+      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
+
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
         // If user switched teams, restore the previous team
@@ -4118,6 +4150,82 @@ export function DynastyProvider({ children }) {
           }
           // Clear previousJobData since we've restored it
           additionalUpdates.previousJobData = null
+        }
+      } else if (dynasty.currentWeek === 6 && prevWeek === 5) {
+        // Reverting FROM Signing Day (week 6) TO week 5
+        // CRITICAL: Undo year flip and class progression
+        // currentYear is the NEW year (post-flip), prevYear will be currentYear - 1
+        prevYear = currentYear - 1
+        const newSeasonYear = currentYear // The year we're leaving
+        const previousSeasonYear = prevYear // The year we're going back to
+
+        const players = dynasty.players || []
+
+        // Reverse class progression for all players
+        // Remove teamsByYear[newSeasonYear] and classByYear[newSeasonYear] entries
+        // Restore player.year to previous class
+        const REVERSE_CLASS_PROGRESSION = {
+          'So': 'Fr', 'Jr': 'So', 'Sr': 'Jr',
+          'RS So': 'RS Fr', 'RS Jr': 'RS So', 'RS Sr': 'RS Jr',
+          'RS Fr': 'Fr' // Redshirt was added, remove it
+        }
+
+        const updatedPlayers = players.map(player => {
+          if (player.isHonorOnly) return player
+          if (player.isRecruit) return player // Recruits weren't processed
+
+          // Check if this player was on the team and had class progression applied
+          const hadNewYearEntry = player.teamsByYear?.[newSeasonYear] === teamAbbr ||
+                                   player.teamsByYear?.[String(newSeasonYear)] === teamAbbr
+
+          if (!hadNewYearEntry) return player
+
+          // Get the class from the previous season to determine original class
+          const previousClass = player.classByYear?.[previousSeasonYear] ||
+                                player.classByYear?.[String(previousSeasonYear)]
+
+          // Remove the new season entries from teamsByYear and classByYear
+          const newTeamsByYear = { ...player.teamsByYear }
+          delete newTeamsByYear[newSeasonYear]
+          delete newTeamsByYear[String(newSeasonYear)]
+
+          const newClassByYear = { ...player.classByYear }
+          delete newClassByYear[newSeasonYear]
+          delete newClassByYear[String(newSeasonYear)]
+
+          // Restore player.year to the previous class
+          return {
+            ...player,
+            year: previousClass || player.year,
+            teamsByYear: newTeamsByYear,
+            classByYear: newClassByYear
+          }
+        })
+
+        if (updatedPlayers.some((p, i) => p !== players[i])) {
+          additionalUpdates.players = updatedPlayers
+        }
+
+        // Clear class progression marker
+        additionalUpdates.classProgressionDoneForYear = null
+      } else if (dynasty.currentWeek === 8 && prevWeek === 7) {
+        // Reverting FROM week 8 TO week 7
+        // CRITICAL: Restore recruits to isRecruit: true
+        // At Week 7→8, recruits were converted. We need to undo that.
+        // Year is already post-flip, so recruitYear = currentYear - 1
+        const players = dynasty.players || []
+        const recruitingYear = currentYear - 1
+
+        const updatedPlayers = players.map(player => {
+          // Restore isRecruit for players recruited this cycle
+          if (player.recruitYear === recruitingYear || player.recruitYear === String(recruitingYear)) {
+            return { ...player, isRecruit: true }
+          }
+          return player
+        })
+
+        if (updatedPlayers.some((p, i) => p !== players[i])) {
+          additionalUpdates.players = updatedPlayers
         }
       }
     }
@@ -5078,15 +5186,30 @@ export function DynastyProvider({ children }) {
 
   }
 
-  const importDynasty = async (jsonFile) => {
+  /**
+   * Import a dynasty from a JSON file
+   * @param {File} jsonFile - The JSON file to import
+   * @param {Function} onProgress - Optional callback for progress updates
+   *   Called with: { stage: string, message: string, progress: number (0-100), detail?: string }
+   *   Stages: 'parsing', 'creating', 'players', 'games', 'complete'
+   */
+  const importDynasty = async (jsonFile, onProgress = null) => {
+
+    const reportProgress = (stage, message, progress, detail = null) => {
+      if (onProgress) {
+        onProgress({ stage, message, progress, detail })
+      }
+    }
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
 
       reader.onload = async (e) => {
         try {
-          // Parse the JSON file
+          // Stage 1: Parse the JSON file
+          reportProgress('parsing', 'Reading file...', 5)
           const dynastyData = JSON.parse(e.target.result)
+          reportProgress('parsing', 'File parsed successfully', 10)
 
           // Remove fields that would link this to the original dynasty
           // This ensures the imported dynasty is a completely separate entity
@@ -5114,6 +5237,7 @@ export function DynastyProvider({ children }) {
 
           if (isDev || !user) {
             // Dev mode: localStorage - needs an ID
+            reportProgress('creating', 'Creating dynasty...', 20)
             const newId = Date.now().toString()
             const importedDynasty = {
               ...cleanDynastyData,
@@ -5124,9 +5248,64 @@ export function DynastyProvider({ children }) {
             const updatedDynasties = [...currentDynasties, importedDynasty]
             localStorage.setItem('cfb-dynasties', JSON.stringify(updatedDynasties))
             setDynasties(updatedDynasties)
+            reportProgress('complete', 'Import complete!', 100)
           } else {
-            // Production mode: Firestore - let Firestore generate the ID
-            const result = await createDynastyInFirestore(user.uid, cleanDynastyData)
+            // Production mode: Firestore - use subcollections for players and games
+            // This avoids the 1MB document size limit
+
+            // Extract players and games for subcollections
+            const { players, games, ...mainDocData } = cleanDynastyData
+            const playerCount = players?.length || 0
+            const gameCount = games?.length || 0
+
+            // Mark as using subcollections
+            mainDocData._subcollectionsMigrated = true
+
+            // Stage 2: Create the main dynasty document (without players/games)
+            reportProgress('creating', 'Creating dynasty record...', 15)
+            const result = await createDynastyInFirestore(user.uid, mainDocData)
+            reportProgress('creating', 'Dynasty record created', 20)
+
+            // Stage 3: Save players to subcollection if there are any
+            if (playerCount > 0) {
+              reportProgress('players', `Importing players (0/${playerCount})...`, 25)
+
+              // Import players in batches and report progress
+              const BATCH_SIZE = 500
+              for (let i = 0; i < playerCount; i += BATCH_SIZE) {
+                const batchPlayers = players.slice(i, i + BATCH_SIZE)
+                const batchEnd = Math.min(i + BATCH_SIZE, playerCount)
+
+                // Save this batch
+                await savePlayersToSubcollection(result.id, players.slice(0, batchEnd))
+
+                // Calculate progress (players are 25-60% of total)
+                const playerProgress = 25 + Math.round((batchEnd / playerCount) * 35)
+                reportProgress('players', `Importing players (${batchEnd}/${playerCount})...`, playerProgress, `${batchEnd} of ${playerCount} players`)
+              }
+            }
+
+            // Stage 4: Save games to subcollection if there are any
+            if (gameCount > 0) {
+              reportProgress('games', `Importing games (0/${gameCount})...`, 65)
+
+              // Import games in batches and report progress
+              const BATCH_SIZE = 500
+              for (let i = 0; i < gameCount; i += BATCH_SIZE) {
+                const batchEnd = Math.min(i + BATCH_SIZE, gameCount)
+
+                // Save this batch
+                await saveGamesToSubcollection(result.id, games.slice(0, batchEnd))
+
+                // Calculate progress (games are 65-95% of total)
+                const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
+                reportProgress('games', `Importing games (${batchEnd}/${gameCount})...`, gameProgress, `${batchEnd} of ${gameCount} games`)
+              }
+            }
+
+            // For local state, include players and games
+            cleanDynastyData._subcollectionsMigrated = true
+            reportProgress('complete', 'Import complete!', 100)
           }
 
           resolve(cleanDynastyData)

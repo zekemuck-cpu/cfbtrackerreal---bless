@@ -6481,10 +6481,11 @@ export default function Dashboard() {
             // Offseason Week 8: Offseason (Custom Conferences & Encourage Transfers)
             if (week === 8) {
               const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName)
-              const nextYear = currentDynasty.currentYear + 1
+              // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
+              const upcomingSeasonYear = currentDynasty.currentYear
 
-              // Check if conferences have been set for next year
-              const hasNextYearConferences = currentDynasty?.customConferencesByYear?.[nextYear] != null
+              // Check if conferences have been set for the upcoming season
+              const hasConferencesSet = currentDynasty?.customConferencesByYear?.[upcomingSeasonYear] != null
 
               // Check if encourage transfers has been completed
               const hasEncourageTransfers = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear] != null
@@ -6499,31 +6500,31 @@ export default function Dashboard() {
                     {/* Task 1: Custom Conferences */}
                     <div
                       className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasNextYearConferences ? 'border-green-200 bg-green-50' : ''
+                        hasConferencesSet ? 'border-green-200 bg-green-50' : ''
                       }`}
-                      style={!hasNextYearConferences ? { borderColor: `${teamColors.primary}30` } : {}}
+                      style={!hasConferencesSet ? { borderColor: `${teamColors.primary}30` } : {}}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasNextYearConferences ? 'bg-green-500 text-white' : ''
+                            hasConferencesSet ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!hasNextYearConferences ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!hasConferencesSet ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
-                          {hasNextYearConferences ? (
+                          {hasConferencesSet ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasNextYearConferences ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasConferencesSet ? '#16a34a' : secondaryBgText }}>
                             Custom Conferences
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasNextYearConferences ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
-                            {hasNextYearConferences
-                              ? `✓ Conference alignment set for ${nextYear}`
-                              : `Set conference alignment for ${nextYear} season`}
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasConferencesSet ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            {hasConferencesSet
+                              ? `✓ Conference alignment set for ${upcomingSeasonYear}`
+                              : `Set conference alignment for ${upcomingSeasonYear} season`}
                           </div>
                         </div>
                       </div>
@@ -6533,7 +6534,7 @@ export default function Dashboard() {
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                         >
-                          {hasNextYearConferences ? 'Edit' : 'Set'}
+                          {hasConferencesSet ? 'Edit' : 'Set'}
                         </button>
                       ) : (
                         <ViewOnlyBadge />
@@ -8252,7 +8253,7 @@ export default function Dashboard() {
         })()}
       />
 
-      {/* Encourage Transfers Modal (Offseason Week 7) */}
+      {/* Encourage Transfers Modal (Offseason Week 8) */}
       <EncourageTransfersModal
         isOpen={showEncourageTransfersModal}
         onClose={() => setShowEncourageTransfersModal(false)}
@@ -8345,12 +8346,13 @@ export default function Dashboard() {
         })()}
       />
 
-      {/* Offseason Conferences Modal (Offseason Week 7) - applies to NEXT season */}
+      {/* Offseason Conferences Modal (Offseason Week 8) - year already flipped, so currentYear IS the upcoming season */}
       <ConferencesModal
         isOpen={showOffseasonConferencesModal}
         onClose={() => setShowOffseasonConferencesModal(false)}
         onSave={async (data) => {
-          const nextYear = currentDynasty.currentYear + 1
+          // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
+          const upcomingSeasonYear = currentDynasty.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
           // Check if data is multi-year format (keys are years like "2025", "2026")
@@ -8365,7 +8367,7 @@ export default function Dashboard() {
               })
             } else {
               await updateDynasty(currentDynasty.id, {
-                customConferencesByYear: { ...existingByYear, [nextYear]: data }
+                customConferencesByYear: { ...existingByYear, [upcomingSeasonYear]: data }
               })
             }
           } else {
@@ -8378,7 +8380,7 @@ export default function Dashboard() {
               await updateDynasty(currentDynasty.id, updates)
             } else {
               await updateDynasty(currentDynasty.id, {
-                [`customConferencesByYear.${nextYear}`]: data
+                [`customConferencesByYear.${upcomingSeasonYear}`]: data
               })
             }
           }

@@ -1802,6 +1802,12 @@ export async function prefillRosterSheet(spreadsheetId, players) {
       ]
     })
 
+    // Add 5 extra empty rows for adding new players
+    const EXTRA_ROWS = 5
+    for (let i = 0; i < EXTRA_ROWS; i++) {
+      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', ''])
+    }
+
     if (rosterValues.length === 0) return
 
     // Write roster data starting at row 2 (after header)
@@ -2159,6 +2165,12 @@ export async function writeExistingDataToSheet(spreadsheetId, schedule, players,
         player.pictureUrl || ''               // M: Image URL
       ]
     }) || []
+
+    // Add 5 extra empty rows for adding new players
+    const EXTRA_ROWS = 5
+    for (let i = 0; i < EXTRA_ROWS; i++) {
+      rosterValues.push(['', '', '', '', '', '', '', '', '', '', '', '', ''])
+    }
 
     // Batch update both sheets
     const requests = []

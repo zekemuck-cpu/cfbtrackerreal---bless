@@ -99,6 +99,7 @@ export default function Home() {
   const [showFinalConfirm, setShowFinalConfirm] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(null) // { stage, message, progress, detail }
   const [showDeleteAllConfirm1, setShowDeleteAllConfirm1] = useState(false)
   const [showDeleteAllConfirm2, setShowDeleteAllConfirm2] = useState(false)
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
@@ -207,9 +208,16 @@ export default function Home() {
     if (!file) return
 
     setImporting(true)
+    setImportProgress({ stage: 'starting', message: 'Starting import...', progress: 0 })
+
     try {
-      await importDynasty(file)
-      alert('Dynasty imported successfully!')
+      await importDynasty(file, (progress) => {
+        setImportProgress(progress)
+      })
+
+      // Brief pause to show 100% complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -219,6 +227,7 @@ export default function Home() {
       alert(error.message || 'Failed to import dynasty. Please check the file and try again.')
     } finally {
       setImporting(false)
+      setImportProgress(null)
     }
   }
 
@@ -668,6 +677,104 @@ export default function Home() {
           teamColors={getTeamColors(shareDynasty.teamName) || { primary: '#1e40af', secondary: '#dbeafe' }}
           dynasty={shareDynasty}
         />
+      )}
+
+      {/* Import Progress Modal - blocks all interaction until complete */}
+      {importing && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]">
+          <div className="bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-3">
+                <svg className="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Importing Dynasty
+              </h2>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-300 font-medium">
+                    {importProgress?.message || 'Starting...'}
+                  </span>
+                  <span className="text-orange-400 font-bold">
+                    {importProgress?.progress || 0}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300 ease-out bg-gradient-to-r from-orange-500 to-orange-400"
+                    style={{ width: `${importProgress?.progress || 0}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Stage indicator */}
+              <div className="space-y-2">
+                {['parsing', 'creating', 'players', 'games', 'complete'].map((stage, index) => {
+                  const stageLabels = {
+                    parsing: 'Reading file',
+                    creating: 'Creating dynasty',
+                    players: 'Importing players',
+                    games: 'Importing games',
+                    complete: 'Complete'
+                  }
+                  const currentStageIndex = ['parsing', 'creating', 'players', 'games', 'complete'].indexOf(importProgress?.stage || 'starting')
+                  const isComplete = index < currentStageIndex
+                  const isCurrent = importProgress?.stage === stage
+                  const isPending = index > currentStageIndex
+
+                  return (
+                    <div key={stage} className={`flex items-center gap-3 ${isPending ? 'opacity-40' : ''}`}>
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isComplete ? 'bg-green-500' :
+                        isCurrent ? 'bg-orange-500' :
+                        'bg-gray-600'
+                      }`}>
+                        {isComplete ? (
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : isCurrent ? (
+                          <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <span className="w-2 h-2 bg-gray-400 rounded-full" />
+                        )}
+                      </div>
+                      <span className={`text-sm ${
+                        isComplete ? 'text-green-400' :
+                        isCurrent ? 'text-white font-medium' :
+                        'text-gray-500'
+                      }`}>
+                        {stageLabels[stage]}
+                        {isCurrent && importProgress?.detail && (
+                          <span className="text-gray-400 ml-2">({importProgress.detail})</span>
+                        )}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Warning message */}
+              <div className="mt-6 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                <p className="text-yellow-300 text-xs flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Please wait until import completes. Do not close this page.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

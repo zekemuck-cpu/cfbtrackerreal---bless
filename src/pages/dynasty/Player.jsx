@@ -1315,49 +1315,6 @@ export default function Player() {
                 )
               })}
             </div>
-
-            {/* Overall History - Editable overalls for each season */}
-            <h4 className="text-xs font-bold mb-2 uppercase tracking-wide" style={{ color: secondaryText, opacity: 0.5 }}>
-              Overall by Season
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {overallHistory.map((entry, idx) => {
-                const prevOverall = idx > 0 ? overallHistory[idx - 1].overall : null
-                const change = (prevOverall && entry.overall) ? parseInt(entry.overall) - parseInt(prevOverall) : null
-
-                return (
-                  <div
-                    key={entry.year}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: `${teamColors.primary}20`, border: `1px solid ${teamColors.primary}40` }}
-                    onClick={() => !isViewOnly && setShowOverallProgressionModal(true)}
-                    title={isViewOnly ? undefined : 'Click to edit overalls'}
-                  >
-                    <div className="text-center">
-                      <div className="text-xs font-semibold" style={{ color: secondaryText }}>{entry.year}</div>
-                      <div className="text-[10px]" style={{ color: secondaryText, opacity: 0.6 }}>{entry.playerClass}</div>
-                    </div>
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm shadow"
-                      style={{ backgroundColor: getOverallColor(entry.overall) }}
-                    >
-                      {entry.overall || '—'}
-                    </div>
-                    {change !== null && change !== 0 && (
-                      <span
-                        className="text-[10px] font-bold px-1 py-0.5 rounded"
-                        style={{
-                          backgroundColor: change > 0 ? '#dcfce7' : '#fee2e2',
-                          color: change > 0 ? '#16a34a' : '#dc2626'
-                        }}
-                      >
-                        {change > 0 ? '+' : ''}{change}
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
           </div>
         )
       })()}

@@ -195,8 +195,27 @@ export default function Game() {
   const { user } = useAuth()
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
   const [recapError, setRecapError] = useState(null)
+  const [quotaRetrySeconds, setQuotaRetrySeconds] = useState(null) // Countdown for quota errors
   const [streamingRecap, setStreamingRecap] = useState('')
   const [tokenUsage, setTokenUsage] = useState(null)
+
+  // Countdown timer for quota errors
+  useEffect(() => {
+    if (quotaRetrySeconds === null || quotaRetrySeconds <= 0) return
+
+    const timer = setInterval(() => {
+      setQuotaRetrySeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          setRecapError(null) // Clear error when countdown finishes
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [quotaRetrySeconds])
 
   // Reset sort when changing stat tabs
   useEffect(() => {
@@ -684,6 +703,7 @@ export default function Game() {
 
     setIsGeneratingRecap(true)
     setRecapError(null)
+    setQuotaRetrySeconds(null) // Clear any previous countdown
     setStreamingRecap('') // Clear for fresh streaming
     setTokenUsage(null)
 
@@ -726,7 +746,24 @@ export default function Game() {
       setStreamingRecap('') // Clear streaming state after save
     } catch (error) {
       console.error('Error generating recap:', error)
-      setRecapError(error.message || 'Failed to generate recap')
+      const errorMsg = error.message || 'Failed to generate recap'
+
+      // Check if it's a quota/rate limit error and extract retry time
+      const retryMatch = errorMsg.match(/retry in (\d+(?:\.\d+)?)/i)
+      if (errorMsg.toLowerCase().includes('quota') || errorMsg.includes('429') || errorMsg.includes('Too Many Requests')) {
+        if (retryMatch) {
+          const retrySeconds = Math.ceil(parseFloat(retryMatch[1]))
+          setQuotaRetrySeconds(retrySeconds)
+          setRecapError(`Rate limit reached. Please wait ${retrySeconds} seconds before trying again.`)
+        } else {
+          // Quota error but no retry time - default to 60 seconds
+          setQuotaRetrySeconds(60)
+          setRecapError('Rate limit reached. Please wait about a minute before trying again.')
+        }
+      } else {
+        setRecapError(errorMsg)
+        setQuotaRetrySeconds(null)
+      }
     }
 
     setIsGeneratingRecap(false)
@@ -1054,19 +1091,35 @@ export default function Game() {
             {game.aiRecap && (
               <button
                 onClick={handleGenerateRecap}
-                disabled={isGeneratingRecap}
+                disabled={isGeneratingRecap || quotaRetrySeconds > 0}
                 className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors disabled:opacity-50"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                AI Regenerate
+                {isGeneratingRecap ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                {isGeneratingRecap ? 'Generating...' : 'AI Regenerate'}
               </button>
             )}
           </div>
           <div className="p-4">
-            {/* Show streaming text while generating */}
-            {isGeneratingRecap && streamingRecap ? (
+            {/* Show loading state while waiting for stream to start */}
+            {isGeneratingRecap && !streamingRecap ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <svg className="w-8 h-8 animate-spin text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-yellow-500 text-sm font-medium">Generating recap...</p>
+                <p className="text-gray-500 text-xs mt-1">This may take a few seconds</p>
+              </div>
+            ) : isGeneratingRecap && streamingRecap ? (
               <div className="space-y-4">
                 <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
                   {streamingRecap}
@@ -1081,8 +1134,35 @@ export default function Game() {
                 </div>
               </div>
             ) : game.aiRecap ? (
-              <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
-                {game.aiRecap}
+              <div className="space-y-4">
+                <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
+                  {game.aiRecap}
+                </div>
+                {recapError && (
+                  <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-red-300 text-sm font-medium">
+                          {quotaRetrySeconds ? 'AI Generation Temporarily Unavailable' : 'Regeneration Failed'}
+                        </p>
+                        <p className="text-red-400/80 text-sm mt-1">{recapError}</p>
+                        {quotaRetrySeconds && quotaRetrySeconds > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-yellow-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-yellow-500 text-sm font-medium">
+                              Ready in {quotaRetrySeconds} second{quotaRetrySeconds !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-6">
@@ -1091,7 +1171,7 @@ export default function Game() {
                 </p>
                 <button
                   onClick={handleGenerateRecap}
-                  disabled={isGeneratingRecap}
+                  disabled={isGeneratingRecap || quotaRetrySeconds > 0}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all disabled:opacity-50 bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400"
                 >
                   {isGeneratingRecap ? (
@@ -1112,7 +1192,29 @@ export default function Game() {
                   )}
                 </button>
                 {recapError && (
-                  <p className="text-red-400 text-sm mt-3">{recapError}</p>
+                  <div className="mt-4 p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-red-300 text-sm font-medium">
+                          {quotaRetrySeconds ? 'AI Generation Temporarily Unavailable' : 'Error'}
+                        </p>
+                        <p className="text-red-400/80 text-sm mt-1">{recapError}</p>
+                        {quotaRetrySeconds && quotaRetrySeconds > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <svg className="w-4 h-4 text-yellow-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span className="text-yellow-500 text-sm font-medium">
+                              Ready in {quotaRetrySeconds} second{quotaRetrySeconds !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
