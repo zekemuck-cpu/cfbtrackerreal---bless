@@ -190,15 +190,30 @@ All implemented in `DynastyContext.jsx` with helper functions:
 | Games | `games[]` with `userTeam` field | Filter by `userTeam` |
 | Commitments | `recruitingCommitmentsByTeamYear[team][year][key]` | See Dashboard.jsx |
 
-**Special structures:**
+**Special structures (coach-level, year-only):**
 - `coachTeamByYear[year]` - Locked at Week 1 of regular season
-- `lockedCoachingStaffByYear[team][year]` - Locked at end of regular season (Week 12)
-- `playersLeavingByYear[year]` - Players graduating/transferring/declaring
-- `portalTransferClassByYear[year]` - Portal transfer class assignments
-- `fringeCaseClassByYear[year]` - Fringe case (5-9 games) class assignments
-- `conferenceChampionshipDataByYear[year]` - CC week answers (madeChampionship, opponent, pendingFiring)
-- `bowlEligibilityDataByYear[year]` - Bowl eligibility answers
-- `cfpResultsByYear[year]` - CFP game results (firstRound, quarterfinals, semifinals, championship)
+- `cfpResultsByYear[year]` - CFP game results (national tournament, not team-specific)
+
+**Team-centric special structures (January 2026 migration):**
+- `lockedCoachingStaffByTeamYear[team][year]` - Locked coaching staff
+- `playersLeavingByTeamYear[team][year]` - Players graduating/transferring/declaring
+- `conferenceChampionshipDataByTeamYear[team][year]` - CC week answers (madeChampionship, opponent, pendingFiring)
+- `draftResultsByTeamYear[team][year]` - Draft results for players
+- `transferDestinationsByTeamYear[team][year]` - Where transfers went
+- `portalTransferClassByTeamYear[team][year]` - Portal transfer class assignments
+- `fringeCaseClassByTeamYear[team][year]` - Fringe case (5-9 games) class assignments
+- `bowlEligibilityDataByTeamYear[team][year]` - Bowl eligibility answers
+- `trainingResultsByTeamYear[team][year]` - Training camp results
+
+**Helper functions** (in DynastyContext.jsx with backward compatibility):
+- `getPlayersLeaving(dynasty, teamAbbr, year)` - Checks team-centric first, falls back to year-only
+- `getConferenceChampionshipData(dynasty, teamAbbr, year)`
+- `getBowlEligibilityData(dynasty, teamAbbr, year)`
+- `getDraftResults(dynasty, teamAbbr, year)`
+- `getTransferDestinations(dynasty, teamAbbr, year)`
+- `getTrainingResults(dynasty, teamAbbr, year)`
+- `getPortalTransferClass(dynasty, teamAbbr, year)`
+- `getFringeCaseClass(dynasty, teamAbbr, year)`
 
 ### Custom Conference Alignment
 

@@ -1702,12 +1702,141 @@ export function createMovement(year, type, from, to, reason = null, extra = {}) 
 }
 
 /**
- * Get players with pending departures for a given year
- * Uses playersLeavingByYear as source of truth
+ * Get players with pending departures for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * @param {Object} dynasty - The dynasty object
+ * @param {string} teamAbbr - Team abbreviation
+ * @param {number|string} year - The year
  */
-export function getPlayersLeaving(dynasty, year) {
-  if (!dynasty?.playersLeavingByYear) return []
-  return dynasty.playersLeavingByYear[year] || dynasty.playersLeavingByYear[String(year)] || []
+export function getPlayersLeaving(dynasty, teamAbbr, year) {
+  if (!dynasty) return []
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.playersLeavingByYear?.[year] || dynasty.playersLeavingByYear?.[String(year)] || []
+}
+
+/**
+ * Get conference championship data for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getConferenceChampionshipData(dynasty, teamAbbr, year) {
+  if (!dynasty) return null
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.conferenceChampionshipDataByYear?.[year] ||
+         dynasty.conferenceChampionshipDataByYear?.[String(year)] || null
+}
+
+/**
+ * Get bowl eligibility data for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getBowlEligibilityData(dynasty, teamAbbr, year) {
+  if (!dynasty) return null
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.bowlEligibilityDataByYear?.[year] ||
+         dynasty.bowlEligibilityDataByYear?.[String(year)] || null
+}
+
+/**
+ * Get draft results for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getDraftResults(dynasty, teamAbbr, year) {
+  if (!dynasty) return []
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.draftResultsByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.draftResultsByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.draftResultsByYear?.[year] ||
+         dynasty.draftResultsByYear?.[String(year)] || []
+}
+
+/**
+ * Get transfer destinations for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getTransferDestinations(dynasty, teamAbbr, year) {
+  if (!dynasty) return {}
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.transferDestinationsByYear?.[year] ||
+         dynasty.transferDestinationsByYear?.[String(year)] || {}
+}
+
+/**
+ * Get training results for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getTrainingResults(dynasty, teamAbbr, year) {
+  if (!dynasty) return {}
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.trainingResultsByYear?.[year] ||
+         dynasty.trainingResultsByYear?.[String(year)] || {}
+}
+
+/**
+ * Get portal transfer class assignments for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getPortalTransferClass(dynasty, teamAbbr, year) {
+  if (!dynasty) return {}
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.portalTransferClassByYear?.[year] ||
+         dynasty.portalTransferClassByYear?.[String(year)] || {}
+}
+
+/**
+ * Get fringe case class assignments for a given team and year
+ * Checks team-centric structure first, falls back to year-only for backward compatibility
+ */
+export function getFringeCaseClass(dynasty, teamAbbr, year) {
+  if (!dynasty) return {}
+
+  // Check team-centric structure first (new format)
+  const teamYear = dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[year] ||
+                   dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[String(year)]
+  if (teamYear) return teamYear
+
+  // Fall back to year-only structure (legacy format)
+  return dynasty.fringeCaseClassByYear?.[year] ||
+         dynasty.fringeCaseClassByYear?.[String(year)] || {}
 }
 
 /**
@@ -3283,11 +3412,11 @@ export function DynastyProvider({ children }) {
 
       const players = dynasty.players || []
 
-      // Get helper to check data by year
+      // Get helper to check data by year (for legacy structures)
       const getByYearHelper = (obj, year) => obj?.[year] ?? obj?.[String(year)] ?? obj?.[Number(year)]
 
-      // Get players leaving data to skip them during class progression
-      const playersLeavingThisYear = getByYearHelper(dynasty.playersLeavingByYear, previousSeasonYear) || []
+      // Get players leaving data to skip them during class progression (team-aware with fallback)
+      const playersLeavingThisYear = getPlayersLeaving(dynasty, teamAbbr, previousSeasonYear)
       const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
 
       // Progress each player's class
@@ -3487,9 +3616,8 @@ export function DynastyProvider({ children }) {
     // Helper to get data by year (handles both string and numeric keys)
     const getByYear = (obj, year) => obj?.[year] ?? obj?.[String(year)] ?? obj?.[Number(year)]
 
-    // Get players leaving data (stored under previous season year)
-    // CRITICAL: Check both string and numeric keys to handle any data format
-    const playersLeavingThisYear = getByYear(dynasty.playersLeavingByYear, previousSeasonYear) || []
+    // Get players leaving data (stored under previous season year) - team-aware with fallback
+    const playersLeavingThisYear = getPlayersLeaving(dynasty, teamAbbr, previousSeasonYear)
     const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
 
     // Get encouraged transfers data (stored under previous season year)
@@ -3497,8 +3625,8 @@ export function DynastyProvider({ children }) {
     const encouragedTransfers = getByYear(encouragedTransfersForTeam, previousSeasonYear) || []
     const encouragedNames = new Set(encouragedTransfers.map(t => t.name?.toLowerCase().trim()))
 
-    // Get draft results for draft round info (stored under previous season year)
-    const draftResults = getByYear(dynasty.draftResultsByYear, previousSeasonYear) || []
+    // Get draft results for draft round info (stored under previous season year) - team-aware with fallback
+    const draftResults = getDraftResults(dynasty, teamAbbr, previousSeasonYear)
     const draftByPid = {}
     draftResults.forEach(d => {
       if (d.pid) draftByPid[d.pid] = d
@@ -3592,9 +3720,10 @@ export function DynastyProvider({ children }) {
       if (player.isRecruit && Number(player.recruitYear) === previousSeasonYear) {
         let newYear
 
-        // Check if this is a portal transfer with a manually assigned class
+        // Check if this is a portal transfer with a manually assigned class (team-aware with fallback)
         if (player.isPortal) {
-          const portalClassSelections = getByYear(dynasty.portalTransferClassByYear, previousSeasonYear) || []
+          const portalClassSelectionsObj = getPortalTransferClass(dynasty, teamAbbr, previousSeasonYear)
+          const portalClassSelections = Array.isArray(portalClassSelectionsObj) ? portalClassSelectionsObj : []
           const classSelection = portalClassSelections.find(s =>
             s.playerName?.toLowerCase().trim() === player.name?.toLowerCase().trim()
           )
