@@ -32,48 +32,94 @@ export async function getGeminiApiKey(userId) {
 
 /**
  * Build comprehensive context for a game recap
+ * Handles both user games (with opponent/teamScore) and CPU games (with team1/team2)
  */
 export function buildGameRecapContext(dynasty, game) {
   const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName) || dynasty.teamName
   const year = game.year
   const allGames = dynasty.games || []
 
-  // Get all user games for the season up to this point
-  const seasonGames = allGames.filter(g =>
-    Number(g.year) === Number(year) &&
-    (g.userTeam === userTeamAbbr || g.opponent)
-  )
+  // Detect if this is a CPU vs CPU game
+  const isCPUGame = !game.userTeam && game.team1 && game.team2
 
-  // Calculate record before this game
-  const getGameOrder = (g) => {
-    if (g.isConferenceChampionship) return 100
-    if (g.isCFPFirstRound) return 101
-    if (g.isCFPQuarterfinal) return 102
-    if (g.isCFPSemifinal) return 103
-    if (g.isCFPChampionship) return 104
-    if (g.isBowlGame) return 100 + (parseInt(String(g.bowlWeek).replace('week', '') || '1'))
-    return g.week || 0
+  // Determine teams and scores based on game type
+  let team1, team2, team1Score, team2Score
+  if (isCPUGame) {
+    team1 = game.team1
+    team2 = game.team2
+    team1Score = game.team1Score
+    team2Score = game.team2Score
+  } else {
+    team1 = game.userTeam || userTeamAbbr
+    team2 = game.opponent
+    team1Score = game.teamScore
+    team2Score = game.opponentScore
   }
 
-  const thisGameOrder = getGameOrder(game)
-  const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
+  const scoreDiff = Math.abs(team1Score - team2Score)
+  const team1Won = team1Score > team2Score
 
-  const winsBefore = gamesBefore.filter(g => g.result === 'win' || g.result === 'W').length
-  const lossesBefore = gamesBefore.filter(g => g.result === 'loss' || g.result === 'L').length
+  // For user games, get season context
+  let recordBefore = null
+  let recordAfter = null
+  let streak = null
 
-  // Determine if this is a win or loss
-  const isWin = game.result === 'win' || game.result === 'W'
-  const userScore = game.teamScore
-  const oppScore = game.opponentScore
-  const scoreDiff = Math.abs(userScore - oppScore)
+  if (!isCPUGame) {
+    const seasonGames = allGames.filter(g =>
+      Number(g.year) === Number(year) &&
+      (g.userTeam === userTeamAbbr || g.opponent)
+    )
+
+    const getGameOrder = (g) => {
+      if (g.isConferenceChampionship) return 100
+      if (g.isCFPFirstRound) return 101
+      if (g.isCFPQuarterfinal) return 102
+      if (g.isCFPSemifinal) return 103
+      if (g.isCFPChampionship) return 104
+      if (g.isBowlGame) return 100 + (parseInt(String(g.bowlWeek).replace('week', '') || '1'))
+      return g.week || 0
+    }
+
+    const thisGameOrder = getGameOrder(game)
+    const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
+
+    const winsBefore = gamesBefore.filter(g => g.result === 'win' || g.result === 'W').length
+    const lossesBefore = gamesBefore.filter(g => g.result === 'loss' || g.result === 'L').length
+
+    const isWin = game.result === 'win' || game.result === 'W'
+    recordBefore = `${winsBefore}-${lossesBefore}`
+    recordAfter = isWin ? `${winsBefore + 1}-${lossesBefore}` : `${winsBefore}-${lossesBefore + 1}`
+
+    // Calculate streak
+    const gamesUpToThis = [...gamesBefore, game].sort((a, b) => getGameOrder(a) - getGameOrder(b))
+    let streakCount = 0
+    const streakType = isWin ? 'win' : 'loss'
+    for (let i = gamesUpToThis.length - 1; i >= 0; i--) {
+      const g = gamesUpToThis[i]
+      const gWin = g.result === 'win' || g.result === 'W'
+      if (gWin === isWin) {
+        streakCount++
+      } else {
+        break
+      }
+    }
+    if (streakCount > 1) {
+      streak = `${streakCount}-game ${streakType} streak`
+    }
+  }
 
   // Determine game significance
   const isBlowout = scoreDiff >= 21
   const isCloseGame = scoreDiff <= 7
-  const isShutout = oppScore === 0 || userScore === 0
+  const isShutout = team2Score === 0 || team1Score === 0
   const isOvertime = game.overtime || game.isOvertime
-  const isUpset = game.opponentRank && game.opponentRank <= 10 && isWin
-  const isRankedMatchup = game.ranking && game.opponentRank
+
+  // Check for ranked matchup and upset
+  const team1Ranking = isCPUGame ? game.team1Rank : game.ranking
+  const team2Ranking = isCPUGame ? game.team2Rank : game.opponentRank
+  const isRankedMatchup = team1Ranking && team2Ranking
+  const isUpset = (team2Ranking && team2Ranking <= 10 && team1Won) ||
+                  (team1Ranking && team1Ranking <= 10 && !team1Won)
 
   // Get game type info
   let gameTypeDescription = 'regular season game'
@@ -85,42 +131,34 @@ export function buildGameRecapContext(dynasty, game) {
   else if (game.isBowlGame && game.bowlName) gameTypeDescription = `${game.bowlName}`
   else if (game.isBowlGame) gameTypeDescription = 'bowl game'
 
-  // Extract box score stats if available
+  // Extract box score stats if available - get for both teams
   let boxScoreContext = null
   if (game.boxScore) {
-    boxScoreContext = extractBoxScoreHighlights(game.boxScore, userTeamAbbr, game)
-  }
-
-  // Get win/loss streak
-  const gamesUpToThis = [...gamesBefore, game].sort((a, b) => getGameOrder(a) - getGameOrder(b))
-  let streak = 0
-  let streakType = isWin ? 'win' : 'loss'
-  for (let i = gamesUpToThis.length - 1; i >= 0; i--) {
-    const g = gamesUpToThis[i]
-    const gWin = g.result === 'win' || g.result === 'W'
-    if (gWin === isWin) {
-      streak++
-    } else {
-      break
-    }
+    boxScoreContext = extractBoxScoreHighlightsForBothTeams(game.boxScore, team1, team2, game)
   }
 
   return {
+    // Game type flag
+    isCPUGame,
+
     // Team info
-    userTeam: dynasty.teamName,
-    userTeamAbbr,
-    opponent: game.opponent,
+    team1,
+    team2,
+    team1Score,
+    team2Score,
+    team1Won,
+    winner: team1Won ? team1 : team2,
+    loser: team1Won ? team2 : team1,
+    winnerScore: team1Won ? team1Score : team2Score,
+    loserScore: team1Won ? team2Score : team1Score,
 
     // Game basics
     week: game.week,
     year: game.year,
     gameType: gameTypeDescription,
-    location: game.location, // home, away, neutral
+    location: game.location,
 
-    // Score
-    userScore,
-    opponentScore: oppScore,
-    isWin,
+    // Score details
     scoreDifferential: scoreDiff,
     isOvertime,
 
@@ -132,19 +170,19 @@ export function buildGameRecapContext(dynasty, game) {
     isRankedMatchup,
 
     // Rankings
-    userRanking: game.ranking,
-    opponentRanking: game.opponentRank,
+    team1Ranking,
+    team2Ranking,
 
-    // Season context
-    recordBefore: `${winsBefore}-${lossesBefore}`,
-    recordAfter: isWin ? `${winsBefore + 1}-${lossesBefore}` : `${winsBefore}-${lossesBefore + 1}`,
-    streak: streak > 1 ? `${streak}-game ${streakType} streak` : null,
+    // Season context (only for user games)
+    recordBefore,
+    recordAfter,
+    streak,
 
     // Conference info
     conference: dynasty.conference,
     isConferenceGame: game.isConferenceGame,
 
-    // Box score highlights
+    // Box score highlights for both teams
     boxScore: boxScoreContext,
 
     // Bowl/CFP info
@@ -157,9 +195,9 @@ export function buildGameRecapContext(dynasty, game) {
 }
 
 /**
- * Extract key highlights from box score data
+ * Extract highlights from one side of a box score
  */
-function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
+function extractHighlightsForSide(boxScore, side) {
   const highlights = {
     passing: [],
     rushing: [],
@@ -168,15 +206,9 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
     kicking: []
   }
 
-  // Determine which side is user's team
-  const location = game.location || 'home'
-  const userIsHome = location === 'home' || location === 'neutral'
-  const userSide = userIsHome ? 'home' : 'away'
-  const oppSide = userIsHome ? 'away' : 'home'
-
   // Extract passing leaders
-  if (boxScore[userSide]?.passing?.length > 0) {
-    const passers = boxScore[userSide].passing.filter(p => p.att > 0)
+  if (boxScore[side]?.passing?.length > 0) {
+    const passers = boxScore[side].passing.filter(p => p.att > 0)
     passers.forEach(p => {
       highlights.passing.push({
         player: p.playerName,
@@ -186,8 +218,8 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
   }
 
   // Extract rushing leaders
-  if (boxScore[userSide]?.rushing?.length > 0) {
-    const rushers = boxScore[userSide].rushing.filter(p => p.car > 0).slice(0, 3)
+  if (boxScore[side]?.rushing?.length > 0) {
+    const rushers = boxScore[side].rushing.filter(p => p.car > 0).slice(0, 3)
     rushers.forEach(p => {
       highlights.rushing.push({
         player: p.playerName,
@@ -197,8 +229,8 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
   }
 
   // Extract receiving leaders
-  if (boxScore[userSide]?.receiving?.length > 0) {
-    const receivers = boxScore[userSide].receiving.filter(p => p.rec > 0).slice(0, 3)
+  if (boxScore[side]?.receiving?.length > 0) {
+    const receivers = boxScore[side].receiving.filter(p => p.rec > 0).slice(0, 3)
     receivers.forEach(p => {
       highlights.receiving.push({
         player: p.playerName,
@@ -208,8 +240,8 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
   }
 
   // Extract defensive standouts
-  if (boxScore[userSide]?.defense?.length > 0) {
-    const defenders = boxScore[userSide].defense
+  if (boxScore[side]?.defense?.length > 0) {
+    const defenders = boxScore[side].defense
       .map(p => ({
         ...p,
         totalTackles: (parseFloat(p.solo) || 0) + (parseFloat(p.assists) || 0)
@@ -234,8 +266,8 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
   }
 
   // Extract kicking
-  if (boxScore[userSide]?.kicking?.length > 0) {
-    boxScore[userSide].kicking.forEach(p => {
+  if (boxScore[side]?.kicking?.length > 0) {
+    boxScore[side].kicking.forEach(p => {
       if (p.fgm > 0 || p.fga > 0) {
         highlights.kicking.push({
           player: p.playerName,
@@ -248,29 +280,48 @@ function extractBoxScoreHighlights(boxScore, userTeamAbbr, game) {
   return highlights
 }
 
+/**
+ * Extract box score highlights for both teams
+ * team1 is home (or user team for user games), team2 is away (or opponent)
+ */
+function extractBoxScoreHighlightsForBothTeams(boxScore, team1, team2, game) {
+  // For user games, determine sides based on location
+  // For CPU games, home/away is already correct
+  const location = game.location || 'home'
+  const team1IsHome = location === 'home' || location === 'neutral' || game.team1
+
+  const team1Side = team1IsHome ? 'home' : 'away'
+  const team2Side = team1IsHome ? 'away' : 'home'
+
+  return {
+    team1: extractHighlightsForSide(boxScore, team1Side),
+    team2: extractHighlightsForSide(boxScore, team2Side),
+    team1Name: team1,
+    team2Name: team2
+  }
+}
+
 // ============================================
 // PROMPT TEMPLATES
 // ============================================
 
 /**
  * Build the prompt for a game recap
+ * Works with both user games and CPU vs CPU games
  */
 function buildGameRecapPrompt(ctx) {
+  // Build the game result line
+  const resultLine = `${ctx.winner} defeated ${ctx.loser} ${ctx.winnerScore}-${ctx.loserScore}`
+
   let prompt = `You are a college football beat writer for a major sports publication like ESPN or The Athletic. Write a compelling 2-3 paragraph game recap in a professional, engaging sports journalism style.
 
 GAME INFORMATION:
-- ${ctx.userTeam} ${ctx.isWin ? 'defeated' : 'lost to'} ${ctx.opponent} ${ctx.userScore}-${ctx.opponentScore}
+- ${resultLine}
 - Game Type: ${ctx.gameType}
 - Location: ${ctx.location === 'home' ? 'Home' : ctx.location === 'away' ? 'Away' : 'Neutral Site'}
 ${ctx.isOvertime ? '- This game went to overtime' : ''}
-${ctx.userRanking ? `- ${ctx.userTeam} was ranked #${ctx.userRanking}` : ''}
-${ctx.opponentRanking ? `- ${ctx.opponent} was ranked #${ctx.opponentRanking}` : ''}
-
-SEASON CONTEXT:
-- Record entering the game: ${ctx.recordBefore}
-- Record after the game: ${ctx.recordAfter}
-${ctx.streak ? `- Currently on a ${ctx.streak}` : ''}
-${ctx.isConferenceGame ? `- This was a ${ctx.conference} conference game` : ''}
+${ctx.team1Ranking ? `- ${ctx.team1} was ranked #${ctx.team1Ranking}` : ''}
+${ctx.team2Ranking ? `- ${ctx.team2} was ranked #${ctx.team2Ranking}` : ''}
 
 GAME CHARACTER:
 ${ctx.isBlowout ? '- This was a dominant, one-sided victory' : ''}
@@ -279,36 +330,75 @@ ${ctx.isShutout ? '- One team was held scoreless (shutout)' : ''}
 ${ctx.isUpset ? '- This was an upset victory over a top-10 opponent' : ''}
 ${ctx.isRankedMatchup ? '- This was a ranked vs ranked matchup' : ''}`
 
-  // Add box score stats if available
+  // Add season context only for user games (not available for CPU games)
+  if (!ctx.isCPUGame && ctx.recordBefore) {
+    prompt += `\n\nSEASON CONTEXT FOR ${ctx.team1}:
+- Record entering the game: ${ctx.recordBefore}
+- Record after the game: ${ctx.recordAfter}
+${ctx.streak ? `- Currently on a ${ctx.streak}` : ''}
+${ctx.isConferenceGame ? `- This was a ${ctx.conference} conference game` : ''}`
+  }
+
+  // Add box score stats for both teams if available
   if (ctx.boxScore) {
-    prompt += `\n\nKEY STATISTICS FOR ${ctx.userTeam.toUpperCase()}:`
-
-    if (ctx.boxScore.passing.length > 0) {
-      prompt += `\nPassing:`
-      ctx.boxScore.passing.forEach(p => {
-        prompt += `\n  - ${p.player}: ${p.stats}`
-      })
+    // Add stats for team1 (winner focus or first team)
+    const team1Stats = ctx.boxScore.team1
+    if (team1Stats) {
+      prompt += `\n\nKEY STATISTICS FOR ${ctx.boxScore.team1Name.toUpperCase()}:`
+      if (team1Stats.passing.length > 0) {
+        prompt += `\nPassing:`
+        team1Stats.passing.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team1Stats.rushing.length > 0) {
+        prompt += `\nRushing:`
+        team1Stats.rushing.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team1Stats.receiving.length > 0) {
+        prompt += `\nReceiving:`
+        team1Stats.receiving.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team1Stats.defense.length > 0) {
+        prompt += `\nDefense:`
+        team1Stats.defense.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
     }
 
-    if (ctx.boxScore.rushing.length > 0) {
-      prompt += `\nRushing:`
-      ctx.boxScore.rushing.forEach(p => {
-        prompt += `\n  - ${p.player}: ${p.stats}`
-      })
-    }
-
-    if (ctx.boxScore.receiving.length > 0) {
-      prompt += `\nReceiving:`
-      ctx.boxScore.receiving.forEach(p => {
-        prompt += `\n  - ${p.player}: ${p.stats}`
-      })
-    }
-
-    if (ctx.boxScore.defense.length > 0) {
-      prompt += `\nDefense:`
-      ctx.boxScore.defense.forEach(p => {
-        prompt += `\n  - ${p.player}: ${p.stats}`
-      })
+    // Add stats for team2
+    const team2Stats = ctx.boxScore.team2
+    if (team2Stats) {
+      prompt += `\n\nKEY STATISTICS FOR ${ctx.boxScore.team2Name.toUpperCase()}:`
+      if (team2Stats.passing.length > 0) {
+        prompt += `\nPassing:`
+        team2Stats.passing.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team2Stats.rushing.length > 0) {
+        prompt += `\nRushing:`
+        team2Stats.rushing.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team2Stats.receiving.length > 0) {
+        prompt += `\nReceiving:`
+        team2Stats.receiving.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
+      if (team2Stats.defense.length > 0) {
+        prompt += `\nDefense:`
+        team2Stats.defense.forEach(p => {
+          prompt += `\n  - ${p.player}: ${p.stats}`
+        })
+      }
     }
   }
 
@@ -320,13 +410,11 @@ ${ctx.isRankedMatchup ? '- This was a ranked vs ranked matchup' : ''}`
 1. Write 2-3 paragraphs in an engaging, professional sports journalism style
 2. Lead with the most compelling storyline (upset, dominant performance, close finish, etc.)
 3. Highlight standout individual performances using the stats provided
-4. Reference the season context and what this game means going forward
-5. Use vivid, active language - avoid passive voice
-6. Don't use generic phrases like "in an exciting game" - be specific
-7. If box score stats are provided, weave them naturally into the narrative
-8. End with forward-looking context about what's next for the team
-9. Do NOT include a headline or title - just the article paragraphs
-10. Do NOT use quotation marks for made-up quotes`
+4. Use vivid, active language - avoid passive voice
+5. Don't use generic phrases like "in an exciting game" - be specific
+6. If box score stats are provided, weave them naturally into the narrative
+7. Do NOT include a headline or title - just the article paragraphs
+8. Do NOT use quotation marks for made-up quotes`
 
   return prompt
 }

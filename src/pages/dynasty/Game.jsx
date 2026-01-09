@@ -1740,8 +1740,8 @@ export default function Game() {
         </div>
       ) : null}
 
-      {/* AI Recap Section - only show for user games, not CPU games */}
-      {!isCPUGame && !isViewOnly && (
+      {/* AI Recap Section */}
+      {!isViewOnly && (
         <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
           <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
