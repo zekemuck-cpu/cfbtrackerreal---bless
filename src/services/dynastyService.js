@@ -11,7 +11,8 @@ import {
   query,
   where,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  deleteField
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 
@@ -625,13 +626,15 @@ export async function migrateDynastyToSubcollections(dynastyId) {
       console.log(`Migrated ${games.length} games to subcollection`)
     }
 
-    // Mark dynasty as migrated and clear the arrays from main document
-    // We use FieldValue.delete() equivalent by setting to empty and marking migrated
-    // But for safety, we'll keep empty arrays rather than delete
-    await updateDynasty(dynastyId, {
+    // Mark dynasty as migrated and DELETE the arrays from main document
+    // Using deleteField() to completely remove the fields and reduce document size
+    // This is crucial for documents that are at or over the 1MB limit
+    const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+    await updateDoc(docRef, {
       _subcollectionsMigrated: true,
-      players: [], // Clear from main doc to save space
-      games: []    // Clear from main doc to save space
+      players: deleteField(), // Delete field to reduce document size
+      games: deleteField(),   // Delete field to reduce document size
+      updatedAt: serverTimestamp()
     })
 
     console.log(`Migration complete for dynasty ${dynastyId}`)
