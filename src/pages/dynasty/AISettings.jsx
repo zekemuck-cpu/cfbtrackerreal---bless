@@ -228,6 +228,32 @@ export default function AISettings() {
               1
             </div>
             <div>
+              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Create a Google Cloud Project</h3>
+              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
+                First, go to{' '}
+                <a
+                  href="https://console.cloud.google.com/projectcreate"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline font-medium"
+                  style={{ color: teamColors.primary }}
+                >
+                  console.cloud.google.com/projectcreate
+                </a>
+                {' '}and create a new project. Give it any name (like "Dynasty Tracker AI") and click <strong>Create</strong>.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="flex gap-4">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
+              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+            >
+              2
+            </div>
+            <div>
               <h3 className="font-semibold" style={{ color: secondaryBgText }}>Go to Google AI Studio</h3>
               <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
                 Visit{' '}
@@ -245,22 +271,6 @@ export default function AISettings() {
             </div>
           </div>
 
-          {/* Step 2 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              2
-            </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Create an API Key</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Click the blue <strong>"Create API key"</strong> button. If prompted, you can create a new project or use an existing one - either works fine.
-              </p>
-            </div>
-          </div>
-
           {/* Step 3 */}
           <div className="flex gap-4">
             <div
@@ -270,9 +280,9 @@ export default function AISettings() {
               3
             </div>
             <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Copy Your Key</h3>
+              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Create an API Key</h3>
               <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Your API key will appear (it starts with "AIza..."). Click the copy button next to it.
+                Click the blue <strong>"Create API key"</strong> button, then select the project you just created from the dropdown.
               </p>
             </div>
           </div>
@@ -284,6 +294,22 @@ export default function AISettings() {
               style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
             >
               4
+            </div>
+            <div>
+              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Copy Your Key</h3>
+              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
+                Your API key will appear (it starts with "AIza..."). Click the copy button next to it.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="flex gap-4">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
+              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+            >
+              5
             </div>
             <div>
               <h3 className="font-semibold" style={{ color: secondaryBgText }}>Paste It Below</h3>
