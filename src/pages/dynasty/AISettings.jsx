@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import DynastyContext from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { DEFAULT_GAME_RECAP_INSTRUCTIONS } from '../../services/geminiService'
+import { DEFAULT_GAME_RECAP_INSTRUCTIONS, getApiUsageStats } from '../../services/geminiService'
 
 // Default neutral colors when not in dynasty context
 const NEUTRAL_COLORS = {
@@ -42,6 +42,10 @@ export default function AISettings() {
   const [showPromptEditor, setShowPromptEditor] = useState(false)
   const [savingPrompt, setSavingPrompt] = useState(false)
   const [promptStatus, setPromptStatus] = useState(null)
+
+  // Usage stats state
+  const [usageStats, setUsageStats] = useState(null)
+  const [loadingUsage, setLoadingUsage] = useState(false)
 
   // Load existing API key and custom instructions on mount
   useEffect(() => {
@@ -79,6 +83,35 @@ export default function AISettings() {
 
     loadUserSettings()
   }, [user?.uid])
+
+  // Load usage stats
+  useEffect(() => {
+    const loadUsageStats = async () => {
+      if (!user?.uid) return
+      setLoadingUsage(true)
+      try {
+        const stats = await getApiUsageStats(user.uid)
+        setUsageStats(stats)
+      } catch (error) {
+        console.error('Error loading usage stats:', error)
+      }
+      setLoadingUsage(false)
+    }
+    loadUsageStats()
+  }, [user?.uid])
+
+  // Refresh usage stats
+  const refreshUsageStats = async () => {
+    if (!user?.uid) return
+    setLoadingUsage(true)
+    try {
+      const stats = await getApiUsageStats(user.uid)
+      setUsageStats(stats)
+    } catch (error) {
+      console.error('Error refreshing usage stats:', error)
+    }
+    setLoadingUsage(false)
+  }
 
   // Save API key to Firebase
   const handleSave = async () => {
@@ -284,6 +317,127 @@ export default function AISettings() {
           {savedKey ? 'API Key Connected - AI features are enabled!' : 'No API Key - Follow the steps below to enable AI features'}
         </span>
       </div>
+
+      {/* Usage Stats Section */}
+      {savedKey && (
+        <div
+          className="rounded-lg p-5"
+          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold" style={{ color: secondaryBgText }}>
+              API Usage
+            </h2>
+            <button
+              onClick={refreshUsageStats}
+              disabled={loadingUsage}
+              className="text-xs px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}
+            >
+              {loadingUsage ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {loadingUsage && !usageStats ? (
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: teamColors.primary }}></div>
+              <span style={{ color: secondaryBgText, opacity: 0.7 }}>Loading usage data...</span>
+            </div>
+          ) : usageStats ? (
+            <div className="space-y-4">
+              {/* Today's Usage */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium" style={{ color: secondaryBgText }}>Today's Requests</span>
+                  <span className="text-sm font-bold" style={{ color: secondaryBgText }}>
+                    {usageStats.today.requests} / {usageStats.limits.requestsPerDay}
+                  </span>
+                </div>
+                <div className="w-full h-3 rounded-full overflow-hidden" style={{ backgroundColor: `${teamColors.primary}20` }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min((usageStats.today.requests / usageStats.limits.requestsPerDay) * 100, 100)}%`,
+                      backgroundColor: usageStats.today.requests > usageStats.limits.requestsPerDay * 0.8 ? '#ef4444' : teamColors.primary
+                    }}
+                  />
+                </div>
+                <p className="text-xs mt-1" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                  {((usageStats.today.requests / usageStats.limits.requestsPerDay) * 100).toFixed(1)}% of daily limit used
+                </p>
+              </div>
+
+              {/* Token Usage */}
+              {usageStats.today.totalTokens > 0 && (
+                <div className="p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}10` }}>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.promptTokens.toLocaleString()}</p>
+                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Input Tokens</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.outputTokens.toLocaleString()}</p>
+                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Output Tokens</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.totalTokens.toLocaleString()}</p>
+                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Total Tokens</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Last 7 Days */}
+              {usageStats.last7Days.some(d => d.requests > 0) && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: secondaryBgText }}>Last 7 Days</h3>
+                  <div className="space-y-1">
+                    {usageStats.last7Days.map((day, idx) => (
+                      <div key={day.date} className="flex items-center justify-between text-xs">
+                        <span style={{ color: secondaryBgText, opacity: 0.8 }}>
+                          {idx === 0 ? 'Today' : idx === 1 ? 'Yesterday' : new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </span>
+                        <span style={{ color: secondaryBgText }}>
+                          {day.requests} request{day.requests !== 1 ? 's' : ''}
+                          {day.totalTokens > 0 && ` (${(day.totalTokens / 1000).toFixed(1)}k tokens)`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All-Time Stats */}
+              <div className="pt-3 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
+                <div className="flex items-center justify-between text-sm">
+                  <span style={{ color: secondaryBgText, opacity: 0.8 }}>All-Time Usage</span>
+                  <span style={{ color: secondaryBgText }}>
+                    {usageStats.allTime.requests.toLocaleString()} requests
+                    {usageStats.allTime.totalTokens > 0 && ` / ${(usageStats.allTime.totalTokens / 1000).toFixed(1)}k tokens`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Manage Link */}
+              <div className="pt-2">
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs underline"
+                  style={{ color: teamColors.primary }}
+                >
+                  View detailed usage in Google AI Studio
+                </a>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.7 }}>
+              No usage data yet. Generate some AI content to see your stats!
+            </p>
+          )}
+        </div>
+      )}
 
       {/* What is this section */}
       <div

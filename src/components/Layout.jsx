@@ -235,11 +235,19 @@ export default function Layout({ children }) {
     }
 
     // Check if advancing from offseason week 7 (season advancement)
+    console.log('=== ADVANCE WEEK DEBUG ===')
+    console.log('currentPhase:', currentDynasty.currentPhase)
+    console.log('currentWeek:', currentDynasty.currentWeek)
+    console.log('Will trigger advanceToNewSeason?', currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7)
+
     if (currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7) {
       // No more class confirmation needed here - it happens at Signing Day (week 5→6)
       // CRITICAL: Must await both to ensure players are processed before week advances
+      console.log('DEBUG: Calling advanceToNewSeason...')
       await advanceToNewSeason(currentDynasty.id)
+      console.log('DEBUG: advanceToNewSeason complete, calling advanceWeek...')
       await advanceWeek(currentDynasty.id)
+      console.log('DEBUG: advanceWeek complete')
       setShowWeekDropdown(false)
       return
     }
@@ -298,9 +306,9 @@ export default function Layout({ children }) {
       >
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3">
-            {/* Left: Burger menu + Home button */}
+            {/* Left: Burger menu + Home button (dynasty) OR AI Settings (home page) */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              {useTeamTheme && (
+              {useTeamTheme ? (
                 <>
                   <button
                     onClick={() => window.toggleDynastySidebar?.()}
@@ -324,6 +332,17 @@ export default function Layout({ children }) {
                     </svg>
                   </Link>
                 </>
+              ) : (
+                /* AI Settings on left side of home page header */
+                user && (
+                  <Link
+                    to="/ai-settings"
+                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-white/20 whitespace-nowrap"
+                    style={{ color: headerText }}
+                  >
+                    AI Settings
+                  </Link>
+                )
               )}
             </div>
 
@@ -434,15 +453,6 @@ export default function Layout({ children }) {
               </>
             ) : (
               <div className="flex items-center gap-1 sm:gap-2">
-                {user && (
-                  <Link
-                    to="/ai-settings"
-                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-white/20 whitespace-nowrap"
-                    style={{ color: headerText }}
-                  >
-                    AI Settings
-                  </Link>
-                )}
                 {user ? (
                   <button
                     onClick={handleSignOut}

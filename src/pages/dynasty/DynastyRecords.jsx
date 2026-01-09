@@ -46,15 +46,6 @@ const STAT_CATEGORIES = {
       { key: 'tds', label: 'Receiving TDs', abbr: 'TD', field: 'td' }
     ]
   },
-  scrimmage: {
-    name: 'Scrimmage',
-    minNote: 'Combined rushing and receiving stats',
-    stats: [
-      { key: 'plays', label: 'Scrimmage Plays', abbr: 'PLY', calculated: true },
-      { key: 'yards', label: 'Scrimmage Yards', abbr: 'YDS', calculated: true },
-      { key: 'tds', label: 'Scrimmage TDs', abbr: 'TD', calculated: true }
-    ]
-  },
   allPurpose: {
     name: 'All-Purpose',
     minNote: 'Rate stats require minimum 1,500 yards (career) / 300 yards (season)',
@@ -125,7 +116,7 @@ const STAT_CATEGORIES = {
 }
 
 // Category order for tabs
-const CATEGORY_ORDER = ['passing', 'rushing', 'receiving', 'scrimmage', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
+const CATEGORY_ORDER = ['passing', 'rushing', 'receiving', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
 
 export default function DynastyRecords() {
   const { id: dynastyId } = useParams()
@@ -255,37 +246,6 @@ export default function DynastyRecords() {
       return Object.values(playerTotals)
     }
 
-    const calcScrimmageStats = () => {
-      const playerTotals = {}
-
-      allPlayerStats.forEach(ps => {
-        const playerKey = mode === 'career' ? ps.pid : `${ps.pid}-${ps.year}`
-
-        if (!playerTotals[playerKey]) {
-          playerTotals[playerKey] = { pid: ps.pid, year: ps.year, years: [], plays: 0, yards: 0, tds: 0 }
-        }
-
-        if (!playerTotals[playerKey].years.includes(ps.year)) {
-          playerTotals[playerKey].years.push(ps.year)
-        }
-
-        // Internal format: rushing uses car, yds, td
-        if (ps.rushing) {
-          playerTotals[playerKey].plays += ps.rushing.car || 0
-          playerTotals[playerKey].yards += ps.rushing.yds || 0
-          playerTotals[playerKey].tds += ps.rushing.td || 0
-        }
-        // Internal format: receiving uses rec, yds, td
-        if (ps.receiving) {
-          playerTotals[playerKey].plays += ps.receiving.rec || 0
-          playerTotals[playerKey].yards += ps.receiving.yds || 0
-          playerTotals[playerKey].tds += ps.receiving.td || 0
-        }
-      })
-
-      return Object.values(playerTotals).filter(p => p.plays > 0 || p.yards > 0)
-    }
-
     const calcAllPurposeStats = () => {
       const playerTotals = {}
 
@@ -334,9 +294,7 @@ export default function DynastyRecords() {
     Object.entries(STAT_CATEGORIES).forEach(([catKey, category]) => {
       let baseStats
 
-      if (catKey === 'scrimmage') {
-        baseStats = calcScrimmageStats()
-      } else if (catKey === 'allPurpose') {
+      if (catKey === 'allPurpose') {
         baseStats = calcAllPurposeStats()
       } else {
         baseStats = aggregateStats(catKey)
@@ -404,12 +362,6 @@ export default function DynastyRecords() {
                     if (rec < minReq) value = null
                   }
                 }
-                break
-
-              case 'scrimmage':
-                if (stat.key === 'plays') value = p.plays
-                else if (stat.key === 'yards') value = p.yards
-                else if (stat.key === 'tds') value = p.tds
                 break
 
               case 'allPurpose':

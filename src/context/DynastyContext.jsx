@@ -3636,10 +3636,20 @@ export function DynastyProvider({ children }) {
     const playersLeavingThisYear = getPlayersLeaving(dynasty, teamAbbr, previousSeasonYear)
     const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
 
-    // Get encouraged transfers data (stored under previous season year)
+    // Get encouraged transfers data (stored under current season year - after year flip)
     const encouragedTransfersForTeam = dynasty.encourageTransfersByTeamYear?.[teamAbbr]
-    const encouragedTransfers = getByYear(encouragedTransfersForTeam, previousSeasonYear) || []
+    const encouragedTransfers = getByYear(encouragedTransfersForTeam, currentSeasonYear) || []
     const encouragedNames = new Set(encouragedTransfers.map(t => t.name?.toLowerCase().trim()))
+
+    // DEBUG: Log encouraged transfers info
+    console.log('=== ADVANCE TO NEW SEASON DEBUG ===')
+    console.log('teamAbbr:', teamAbbr)
+    console.log('previousSeasonYear:', previousSeasonYear)
+    console.log('currentSeasonYear:', currentSeasonYear)
+    console.log('encourageTransfersByTeamYear:', dynasty.encourageTransfersByTeamYear)
+    console.log('encouragedTransfersForTeam:', encouragedTransfersForTeam)
+    console.log('encouragedTransfers:', encouragedTransfers)
+    console.log('encouragedNames:', [...encouragedNames])
 
     // Get draft results for draft round info (stored under previous season year) - team-aware with fallback
     const draftResults = getDraftResults(dynasty, teamAbbr, previousSeasonYear)
@@ -3670,6 +3680,24 @@ export function DynastyProvider({ children }) {
       // Exception: if they have a future year on this team, they should be processed (data was incomplete)
       if (!playerTeamPrevSeason && !player.isRecruit && !hasFutureYearOnTeam) return player
 
+      // Check if player is an encouraged transfer FIRST (before any early returns)
+      // They don't get teamsByYear[newYear] - their career with this team ends
+      // CRITICAL: Must REMOVE teamsByYear[currentSeasonYear] if it was set by saveRoster earlier
+      // The encourageTransfersByTeamYear data is the source of truth for Career Timeline display
+      const playerNameLower = player.name?.toLowerCase().trim()
+      if (!player.isRecruit && encouragedNames.has(playerNameLower)) {
+        console.log('DEBUG: Processing encouraged transfer:', player.name, 'nameMatch:', playerNameLower)
+        // Remove current season year from teamsByYear (may have been set by earlier roster operations)
+        const updatedTeamsByYear = { ...(player.teamsByYear || {}) }
+        delete updatedTeamsByYear[currentSeasonYear]
+        delete updatedTeamsByYear[String(currentSeasonYear)]
+        console.log('DEBUG: Removed year from teamsByYear. Before:', player.teamsByYear, 'After:', updatedTeamsByYear)
+        return {
+          ...player,
+          teamsByYear: updatedTeamsByYear
+        }
+      }
+
       // Skip players who already have a team for the current season (already processed or transferred)
       const existingTeamForCurrentSeason = player.teamsByYear?.[currentSeasonYear] ?? player.teamsByYear?.[String(currentSeasonYear)]
       if (existingTeamForCurrentSeason) {
@@ -3693,22 +3721,6 @@ export function DynastyProvider({ children }) {
           ...player,
           draftRound: draftInfo?.draftRound || player.draftRound || null,
           draftPick: draftInfo?.draftPick || player.draftPick || null
-        }
-      }
-
-      // Check if player is an encouraged transfer
-      if (!player.isRecruit && encouragedNames.has(player.name?.toLowerCase().trim())) {
-        // Player is leaving - add movement if not already present
-        const hasEncourageMovement = (player.movements || []).some(m =>
-          m.type === 'departure' && m.year === previousSeasonYear && m.reason === 'Encouraged Transfer'
-        )
-        const updatedMovements = hasEncourageMovement ? player.movements : [
-          ...(player.movements || []),
-          { year: previousSeasonYear, type: 'departure', from: teamAbbr, reason: 'Encouraged Transfer' }
-        ]
-        return {
-          ...player,
-          movements: updatedMovements
         }
       }
 

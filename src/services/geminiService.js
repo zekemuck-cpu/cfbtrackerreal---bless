@@ -3,9 +3,9 @@
  * Handles context building and API calls for AI-generated content
  */
 
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
 
 // ============================================
 // API KEY MANAGEMENT
@@ -22,6 +22,111 @@ export async function getGeminiApiKey(userId) {
     return userDoc.exists() ? userDoc.data().geminiApiKey : null
   } catch (error) {
     console.error('Error fetching Gemini API key:', error)
+    return null
+  }
+}
+
+// ============================================
+// USAGE TRACKING
+// ============================================
+
+/**
+ * Get today's date string in YYYY-MM-DD format
+ */
+function getTodayDateString() {
+  return new Date().toISOString().split('T')[0]
+}
+
+/**
+ * Track API usage after a successful call
+ * Stores: requests count, tokens used, by date
+ */
+export async function trackApiUsage(userId, usage) {
+  if (!userId) return
+
+  try {
+    const today = getTodayDateString()
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    const existingData = userDoc.exists() ? userDoc.data() : {}
+    const existingUsage = existingData.geminiUsage || {}
+
+    // Get today's usage or initialize
+    const todayUsage = existingUsage[today] || { requests: 0, promptTokens: 0, outputTokens: 0, totalTokens: 0 }
+
+    // Update counts
+    todayUsage.requests += 1
+    if (usage) {
+      todayUsage.promptTokens += usage.promptTokens || 0
+      todayUsage.outputTokens += usage.outputTokens || 0
+      todayUsage.totalTokens += usage.totalTokens || 0
+    }
+    todayUsage.lastRequest = new Date().toISOString()
+
+    // Save back
+    await setDoc(doc(db, 'users', userId), {
+      geminiUsage: {
+        ...existingUsage,
+        [today]: todayUsage
+      }
+    }, { merge: true })
+  } catch (error) {
+    console.error('Error tracking API usage:', error)
+    // Don't throw - usage tracking shouldn't break the main flow
+  }
+}
+
+/**
+ * Get usage statistics for the user
+ * Returns today's usage and historical data
+ */
+export async function getApiUsageStats(userId) {
+  if (!userId) return null
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    if (!userDoc.exists()) return null
+
+    const data = userDoc.data()
+    const usage = data.geminiUsage || {}
+    const today = getTodayDateString()
+    const todayUsage = usage[today] || { requests: 0, promptTokens: 0, outputTokens: 0, totalTokens: 0 }
+
+    // Calculate totals for last 7 days
+    const last7Days = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      last7Days.push({
+        date: dateStr,
+        ...(usage[dateStr] || { requests: 0, totalTokens: 0 })
+      })
+    }
+
+    // Calculate all-time totals
+    let allTimeRequests = 0
+    let allTimeTokens = 0
+    Object.values(usage).forEach(day => {
+      allTimeRequests += day.requests || 0
+      allTimeTokens += day.totalTokens || 0
+    })
+
+    return {
+      today: todayUsage,
+      last7Days,
+      allTime: {
+        requests: allTimeRequests,
+        totalTokens: allTimeTokens
+      },
+      // Free tier limits
+      limits: {
+        requestsPerDay: 1500,
+        requestsPerMinute: 15,
+        tokensPerMinute: 1000000
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching API usage:', error)
     return null
   }
 }
@@ -672,6 +777,197 @@ function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
   return history.sort((a, b) => b.year - a.year).slice(0, maxGames)
 }
 
+/**
+ * Get a team's season history (past years' records)
+ * Returns records for previous seasons where this team was coached
+ */
+function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
+  const seasonsByYear = {}
+
+  for (const g of allGames) {
+    const gYear = Number(g.year)
+    if (gYear >= Number(currentYear)) continue
+
+    // Check if this game involved the team
+    const teamInGame = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
+    if (!teamInGame) continue
+
+    if (!seasonsByYear[gYear]) {
+      seasonsByYear[gYear] = { year: gYear, wins: 0, losses: 0, confWins: 0, confLosses: 0 }
+    }
+
+    // Determine if team won
+    let won
+    if (g.userTeam === teamAbbr) {
+      won = g.result === 'win' || g.result === 'W'
+    } else if (g.team1 === teamAbbr) {
+      won = g.team1Score > g.team2Score
+    } else {
+      won = g.team2Score > g.team1Score
+    }
+
+    if (won) {
+      seasonsByYear[gYear].wins++
+      if (g.isConferenceGame) seasonsByYear[gYear].confWins++
+    } else {
+      seasonsByYear[gYear].losses++
+      if (g.isConferenceGame) seasonsByYear[gYear].confLosses++
+    }
+  }
+
+  return Object.values(seasonsByYear)
+    .sort((a, b) => b.year - a.year)
+    .slice(0, maxSeasons)
+}
+
+/**
+ * Get opponent's season results (their games this year)
+ * Shows how the opponent has performed leading up to this matchup
+ */
+function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder) {
+  const results = []
+
+  for (const g of allGames) {
+    if (Number(g.year) !== Number(year)) continue
+    if (getGameOrder(g) >= currentGameOrder) continue
+
+    // Check if opponent was in this game
+    let opponentWon, oppScore, otherTeam, otherScore
+
+    if (g.userTeam === opponentAbbr) {
+      // Opponent was the user team in this game (job change scenario)
+      opponentWon = g.result === 'win' || g.result === 'W'
+      oppScore = g.teamScore
+      otherTeam = g.opponent
+      otherScore = g.opponentScore
+    } else if (g.opponent === opponentAbbr) {
+      // Opponent was our opponent in a previous game
+      opponentWon = g.result !== 'win' && g.result !== 'W'
+      oppScore = g.opponentScore
+      otherTeam = g.userTeam
+      otherScore = g.teamScore
+    } else if (g.team1 === opponentAbbr) {
+      // CPU game where opponent was team1
+      opponentWon = g.team1Score > g.team2Score
+      oppScore = g.team1Score
+      otherTeam = g.team2
+      otherScore = g.team2Score
+    } else if (g.team2 === opponentAbbr) {
+      // CPU game where opponent was team2
+      opponentWon = g.team2Score > g.team1Score
+      oppScore = g.team2Score
+      otherTeam = g.team1
+      otherScore = g.team1Score
+    } else {
+      continue // Opponent not in this game
+    }
+
+    results.push({
+      week: g.week,
+      result: opponentWon ? 'W' : 'L',
+      score: `${oppScore}-${otherScore}`,
+      opponent: otherTeam,
+      isConferenceGame: g.isConferenceGame
+    })
+  }
+
+  return results.sort((a, b) => (a.week || 0) - (b.week || 0))
+}
+
+/**
+ * Get performance trends for players in the box score
+ * Shows if players are on hot streaks, bouncing back, etc.
+ */
+function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, currentGameOrder) {
+  const trends = []
+
+  // Get all players from this side of the box score
+  const playerNames = new Set()
+  for (const category of ['passing', 'rushing', 'receiving', 'defense']) {
+    const entries = boxScore?.[side]?.[category] || []
+    entries.forEach(p => {
+      if (p.playerName) playerNames.add(p.playerName)
+    })
+  }
+
+  // For each player, check their recent performances
+  for (const playerName of playerNames) {
+    const recentGames = []
+    const normalized = normalizePlayerName(playerName)
+
+    // Find this player's stats in previous games this season
+    const prevGames = allGames
+      .filter(g => Number(g.year) === Number(year) && getGameOrder(g) < currentGameOrder && g.boxScore)
+      .sort((a, b) => getGameOrder(b) - getGameOrder(a))
+      .slice(0, 3)
+
+    for (const g of prevGames) {
+      for (const gameSide of ['home', 'away']) {
+        for (const category of ['passing', 'rushing', 'receiving', 'defense']) {
+          const entries = g.boxScore?.[gameSide]?.[category] || []
+          const playerEntry = entries.find(p => normalizePlayerName(p.playerName) === normalized)
+          if (playerEntry) {
+            recentGames.push({
+              week: g.week,
+              opponent: g.opponent || (gameSide === 'home' ? g.team2 : g.team1),
+              category,
+              stats: playerEntry
+            })
+          }
+        }
+      }
+    }
+
+    if (recentGames.length >= 2) {
+      // Analyze trend
+      const player = players.find(p => normalizePlayerName(p.name) === normalized)
+      let trendDescription = null
+
+      // Check for passing trends
+      const passingGames = recentGames.filter(g => g.category === 'passing')
+      if (passingGames.length >= 2) {
+        const ydsRecent = passingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        if (ydsRecent > 250) trendDescription = 'on a hot streak'
+        else if (passingGames[0]?.stats?.yds > passingGames[1]?.stats?.yds + 50) trendDescription = 'bouncing back'
+      }
+
+      // Check for rushing trends
+      const rushingGames = recentGames.filter(g => g.category === 'rushing')
+      if (rushingGames.length >= 2) {
+        const ydsRecent = rushingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        if (ydsRecent > 100) trendDescription = 'running hot'
+        else if (rushingGames[0]?.stats?.yds > rushingGames[1]?.stats?.yds + 30) trendDescription = 'finding his stride'
+      }
+
+      // Check for receiving trends
+      const receivingGames = recentGames.filter(g => g.category === 'receiving')
+      if (receivingGames.length >= 2) {
+        const ydsRecent = receivingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        if (ydsRecent > 80) trendDescription = 'red hot'
+      }
+
+      if (trendDescription || recentGames.length >= 2) {
+        trends.push({
+          player: playerName,
+          position: player?.position || null,
+          trend: trendDescription,
+          recentGames: recentGames.slice(0, 3).map(g => ({
+            week: g.week,
+            opponent: g.opponent,
+            category: g.category,
+            stats: g.category === 'passing' ? `${g.stats.cmp}/${g.stats.att}, ${g.stats.yds} yds, ${g.stats.td} TD` :
+                   g.category === 'rushing' ? `${g.stats.car} car, ${g.stats.yds} yds` :
+                   g.category === 'receiving' ? `${g.stats.rec} rec, ${g.stats.yds} yds` :
+                   `${(g.stats.solo || 0) + (g.stats.assists || 0)} tkl`
+          }))
+        })
+      }
+    }
+  }
+
+  return trends.slice(0, 5) // Top 5 players with trends
+}
+
 // ============================================
 // CONTEXT BUILDERS
 // ============================================
@@ -787,31 +1083,56 @@ export function buildGameRecapContext(dynasty, game) {
   // Extract box score stats with enhanced player context
   let boxScoreContext = null
   if (game.boxScore) {
-    const location = game.location || 'home'
-    const team1IsHome = location === 'home' || location === 'neutral' || game.team1
-    const team1Side = team1IsHome ? 'home' : 'away'
-    const team2Side = team1IsHome ? 'away' : 'home'
+    // IMPORTANT: For user games, boxScore.home ALWAYS contains user's stats regardless of location
+    // For CPU games, team1 is always in boxScore.home
+    // So team1Side is always 'home' and team2Side is always 'away'
+    const team1Side = 'home'
+    const team2Side = 'away'
 
     boxScoreContext = {
       team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
       team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
-      team1Name: team1,
-      team2Name: team2
+      team1Name: getTeamName(team1) || team1,
+      team2Name: getTeamName(team2) || team2
     }
+  }
+
+  // Get full team names for clarity in the prompt
+  const team1FullName = getTeamName(team1) || team1
+  const team2FullName = getTeamName(team2) || team2
+
+  // NEW: Get past season history for both teams
+  const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year)
+  const team2SeasonHistory = getTeamSeasonHistory(allGames, team2, year)
+
+  // NEW: Get opponent's season results (how they've done this year)
+  const team2SeasonResults = !isCPUGame
+    ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder)
+    : []
+
+  // NEW: Get player performance trends from box score
+  let team1PlayerTrends = []
+  let team2PlayerTrends = []
+  if (game.boxScore) {
+    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'home', players, allGames, year, thisGameOrder)
+    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'away', players, allGames, year, thisGameOrder)
   }
 
   return {
     // Game type flag
     isCPUGame,
 
-    // Team info
+    // Team info (abbreviations)
     team1,
     team2,
+    // Team info (full names) - USE THESE IN PROMPTS
+    team1FullName,
+    team2FullName,
     team1Score,
     team2Score,
     team1Won,
-    winner: team1Won ? team1 : team2,
-    loser: team1Won ? team2 : team1,
+    winner: team1Won ? team1FullName : team2FullName,
+    loser: team1Won ? team2FullName : team1FullName,
     winnerScore: team1Won ? team1Score : team2Score,
     loserScore: team1Won ? team2Score : team1Score,
 
@@ -888,6 +1209,17 @@ export function buildGameRecapContext(dynasty, game) {
     team2BowlHistory: (game.isBowlGame || game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship)
       ? getBowlHistory(allGames, team2, year)
       : [],
+
+    // NEW: Past season records for both teams
+    team1SeasonHistory,
+    team2SeasonHistory,
+
+    // NEW: Opponent's season results (their games this year)
+    team2SeasonResults,
+
+    // NEW: Player performance trends (hot streaks, bounce backs)
+    team1PlayerTrends,
+    team2PlayerTrends,
 
     // Player of the week awards
     awards: {
@@ -991,21 +1323,19 @@ function extractHighlightsForSide(boxScore, side) {
 /**
  * Extract box score highlights for both teams
  * team1 is home (or user team for user games), team2 is away (or opponent)
+ * IMPORTANT: For user games, boxScore.home ALWAYS contains user's stats regardless of location
  */
 function extractBoxScoreHighlightsForBothTeams(boxScore, team1, team2, game) {
-  // For user games, determine sides based on location
-  // For CPU games, home/away is already correct
-  const location = game.location || 'home'
-  const team1IsHome = location === 'home' || location === 'neutral' || game.team1
-
-  const team1Side = team1IsHome ? 'home' : 'away'
-  const team2Side = team1IsHome ? 'away' : 'home'
+  // boxScore.home always contains team1 (user's team for user games, team1 for CPU games)
+  // boxScore.away always contains team2 (opponent for user games, team2 for CPU games)
+  const team1Side = 'home'
+  const team2Side = 'away'
 
   return {
     team1: extractHighlightsForSide(boxScore, team1Side),
     team2: extractHighlightsForSide(boxScore, team2Side),
-    team1Name: team1,
-    team2Name: team2
+    team1Name: getTeamName(team1) || team1,
+    team2Name: getTeamName(team2) || team2
   }
 }
 
@@ -1165,9 +1495,9 @@ function buildGameRecapPrompt(ctx, customInstructions = null) {
   // Build the game result line
   const resultLine = `${ctx.winner} defeated ${ctx.loser} ${ctx.winnerScore}-${ctx.loserScore}`
 
-  // Determine home/away teams explicitly
-  const homeTeam = ctx.location === 'home' ? ctx.team1 : ctx.location === 'away' ? ctx.team2 : null
-  const awayTeam = ctx.location === 'home' ? ctx.team2 : ctx.location === 'away' ? ctx.team1 : null
+  // Determine home/away teams explicitly - USE FULL NAMES
+  const homeTeam = ctx.location === 'home' ? ctx.team1FullName : ctx.location === 'away' ? ctx.team2FullName : null
+  const awayTeam = ctx.location === 'home' ? ctx.team2FullName : ctx.location === 'away' ? ctx.team1FullName : null
 
   let prompt = `You are a college football writer for a major sports publication like ESPN or The Athletic. Write a comprehensive, professional game recap article.
 
@@ -1181,8 +1511,8 @@ ${homeTeam ? `HOME TEAM: ${homeTeam}` : ''}
 ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
-${ctx.team1Ranking ? `${ctx.team1} Ranking: #${ctx.team1Ranking}` : ''}
-${ctx.team2Ranking ? `${ctx.team2} Ranking: #${ctx.team2Ranking}` : ''}`
+${ctx.team1Ranking ? `${ctx.team1FullName} Ranking: #${ctx.team1Ranking}` : ''}
+${ctx.team2Ranking ? `${ctx.team2FullName} Ranking: #${ctx.team2Ranking}` : ''}`
 
   // Add quarter-by-quarter scores if available
   if (ctx.quarters) {
@@ -1193,8 +1523,8 @@ ${ctx.team2Ranking ? `${ctx.team2} Ranking: #${ctx.team2Ranking}` : ''}`
 QUARTER-BY-QUARTER SCORES
 ===========================================
          Q1   Q2   Q3   Q4   ${ctx.overtimes ? 'OT   ' : ''}Final
-${ctx.team1}:  ${team1Quarters.Q1 ?? '-'}    ${team1Quarters.Q2 ?? '-'}    ${team1Quarters.Q3 ?? '-'}    ${team1Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.team ?? '-') + '    ' : ''}${ctx.team1Score}
-${ctx.team2}:  ${team2Quarters.Q1 ?? '-'}    ${team2Quarters.Q2 ?? '-'}    ${team2Quarters.Q3 ?? '-'}    ${team2Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.opponent ?? '-') + '    ' : ''}${ctx.team2Score}`
+${ctx.team1FullName}:  ${team1Quarters.Q1 ?? '-'}    ${team1Quarters.Q2 ?? '-'}    ${team1Quarters.Q3 ?? '-'}    ${team1Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.team ?? '-') + '    ' : ''}${ctx.team1Score}
+${ctx.team2FullName}:  ${team2Quarters.Q1 ?? '-'}    ${team2Quarters.Q2 ?? '-'}    ${team2Quarters.Q3 ?? '-'}    ${team2Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.opponent ?? '-') + '    ' : ''}${ctx.team2Score}`
   }
 
   // Add scoring summary (CRITICAL for game flow narrative)
@@ -1223,7 +1553,7 @@ SCORING SUMMARY (in chronological order)
         points = 2
       }
 
-      // Update running score
+      // Update running score - check against abbreviation since play.team uses abbr
       const isTeam1 = play.team?.toUpperCase() === ctx.team1?.toUpperCase()
       if (isTeam1) team1Running += points
       else team2Running += points
@@ -1232,8 +1562,10 @@ SCORING SUMMARY (in chronological order)
       const timeLeft = play.timeLeft || ''
       const scorer = play.scorer || 'Unknown'
       const passer = play.passer ? ` from ${play.passer}` : ''
+      // Convert team abbreviation to full name in the output
+      const playTeamFullName = play.team?.toUpperCase() === ctx.team1?.toUpperCase() ? ctx.team1FullName : ctx.team2FullName
 
-      prompt += `\n${idx + 1}. Q${quarter} ${timeLeft} - ${play.team}: ${scorer}${passer} (${scoreType}${patResult ? ', ' + patResult : ''}) → Score: ${ctx.team1} ${team1Running}, ${ctx.team2} ${team2Running}`
+      prompt += `\n${idx + 1}. Q${quarter} ${timeLeft} - ${playTeamFullName}: ${scorer}${passer} (${scoreType}${patResult ? ', ' + patResult : ''}) → Score: ${ctx.team1FullName} ${team1Running}, ${ctx.team2FullName} ${team2Running}`
     })
   }
 
@@ -1241,11 +1573,14 @@ SCORING SUMMARY (in chronological order)
   if (ctx.teamStats) {
     const home = ctx.teamStats.home || {}
     const away = ctx.teamStats.away || {}
+    // For user games, home side is always user's stats regardless of location
+    const homeTeamName = ctx.isCPUGame ? (getTeamName(home.teamAbbr) || home.teamAbbr || ctx.team1FullName) : ctx.team1FullName
+    const awayTeamName = ctx.isCPUGame ? (getTeamName(away.teamAbbr) || away.teamAbbr || ctx.team2FullName) : ctx.team2FullName
     prompt += `\n
 ===========================================
 TEAM STATISTICS
 ===========================================
-                        ${home.teamAbbr || ctx.team1}    ${away.teamAbbr || ctx.team2}
+                        ${homeTeamName}    ${awayTeamName}
 First Downs:            ${home.firstDowns ?? '-'}         ${away.firstDowns ?? '-'}
 Total Yards:            ${home.totalYards ?? home.totalOffense ?? '-'}       ${away.totalYards ?? away.totalOffense ?? '-'}
 Rushing (ATT-YDS):      ${home.rushAttempts ?? '-'}-${home.rushYards ?? '-'}     ${away.rushAttempts ?? '-'}-${away.rushYards ?? '-'}
@@ -1259,7 +1594,7 @@ Possession:             ${home.possMinutes ?? ''}:${String(home.possSeconds ?? '
   if (!ctx.isCPUGame && ctx.recordBefore) {
     prompt += `\n
 ===========================================
-SEASON CONTEXT FOR ${ctx.team1}
+SEASON CONTEXT FOR ${ctx.team1FullName}
 ===========================================
 Record entering game: ${ctx.recordBefore}
 Record after game: ${ctx.recordAfter}
@@ -1274,47 +1609,51 @@ ${ctx.isConferenceGame ? `Conference game: ${ctx.conference}` : ''}`
       const resultChar = g.result === 'win' || g.result === 'W' ? 'W' : 'L'
       const locationChar = g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs'
       const rankStr = g.opponentRank ? `#${g.opponentRank} ` : ''
-      prompt += `\n  Week ${g.week}: ${resultChar} ${g.teamScore}-${g.opponentScore} ${locationChar} ${rankStr}${g.opponent}`
+      const opponentName = getTeamName(g.opponent) || g.opponent
+      prompt += `\n  Week ${g.week}: ${resultChar} ${g.teamScore}-${g.opponentScore} ${locationChar} ${rankStr}${opponentName}`
     })
   }
 
-  // Add player stats for both teams
+  // Add player stats for both teams - CRITICAL: Include team name with each player for clarity
   if (ctx.boxScore) {
+    const team1Name = ctx.boxScore.team1Name
+    const team2Name = ctx.boxScore.team2Name
     const team1Stats = ctx.boxScore.team1
     if (team1Stats) {
       prompt += `\n
 ===========================================
-${ctx.boxScore.team1Name.toUpperCase()} INDIVIDUAL STATS
+${team1Name.toUpperCase()} INDIVIDUAL STATS
+(All players below play for ${team1Name})
 ===========================================`
 
       if (team1Stats.passing.length > 0) {
-        prompt += `\n\nPASSING:`
+        prompt += `\n\n${team1Name.toUpperCase()} PASSING:`
         team1Stats.passing.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
         })
       }
       if (team1Stats.rushing.length > 0) {
-        prompt += `\n\nRUSHING:`
+        prompt += `\n\n${team1Name.toUpperCase()} RUSHING:`
         team1Stats.rushing.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
         })
       }
       if (team1Stats.receiving.length > 0) {
-        prompt += `\n\nRECEIVING:`
+        prompt += `\n\n${team1Name.toUpperCase()} RECEIVING:`
         team1Stats.receiving.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
         })
       }
       if (team1Stats.defense.length > 0) {
-        prompt += `\n\nDEFENSE:`
+        prompt += `\n\n${team1Name.toUpperCase()} DEFENSE:`
         team1Stats.defense.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
         })
       }
       if (team1Stats.kicking.length > 0) {
-        prompt += `\n\nKICKING:`
+        prompt += `\n\n${team1Name.toUpperCase()} KICKING:`
         team1Stats.kicking.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
         })
       }
     }
@@ -1323,31 +1662,32 @@ ${ctx.boxScore.team1Name.toUpperCase()} INDIVIDUAL STATS
     if (team2Stats) {
       prompt += `\n
 ===========================================
-${ctx.boxScore.team2Name.toUpperCase()} INDIVIDUAL STATS
+${team2Name.toUpperCase()} INDIVIDUAL STATS
+(All players below play for ${team2Name})
 ===========================================`
 
       if (team2Stats.passing.length > 0) {
-        prompt += `\n\nPASSING:`
+        prompt += `\n\n${team2Name.toUpperCase()} PASSING:`
         team2Stats.passing.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
         })
       }
       if (team2Stats.rushing.length > 0) {
-        prompt += `\n\nRUSHING:`
+        prompt += `\n\n${team2Name.toUpperCase()} RUSHING:`
         team2Stats.rushing.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
         })
       }
       if (team2Stats.receiving.length > 0) {
-        prompt += `\n\nRECEIVING:`
+        prompt += `\n\n${team2Name.toUpperCase()} RECEIVING:`
         team2Stats.receiving.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
         })
       }
       if (team2Stats.defense.length > 0) {
-        prompt += `\n\nDEFENSE:`
+        prompt += `\n\n${team2Name.toUpperCase()} DEFENSE:`
         team2Stats.defense.forEach(p => {
-          prompt += `\n  ${p.player}: ${p.stats}`
+          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
         })
       }
     }
@@ -1357,10 +1697,13 @@ ${ctx.boxScore.team2Name.toUpperCase()} INDIVIDUAL STATS
   if (ctx.headToHead && ctx.headToHead.length > 0) {
     prompt += `\n
 ===========================================
-HEAD-TO-HEAD HISTORY (${ctx.team1} vs ${ctx.team2})
+HEAD-TO-HEAD HISTORY (${ctx.team1FullName} vs ${ctx.team2FullName})
 ===========================================`
     ctx.headToHead.forEach(h => {
-      prompt += `\n  ${h.year}: ${h.winner} def. ${h.loser} ${h.winnerScore}-${h.loserScore} (${h.gameType})`
+      // Convert abbreviations to full names
+      const winnerName = getTeamName(h.winner) || h.winner
+      const loserName = getTeamName(h.loser) || h.loser
+      prompt += `\n  ${h.year}: ${winnerName} def. ${loserName} ${h.winnerScore}-${h.loserScore} (${h.gameType})`
     })
   }
 
@@ -1401,15 +1744,80 @@ Current Round: ${ctx.cfpBracket.round}`
 POSTSEASON HISTORY
 ===========================================`
     if (ctx.team1BowlHistory && ctx.team1BowlHistory.length > 0) {
-      prompt += `\n${ctx.team1} Recent Bowl/CFP History:`
+      prompt += `\n${ctx.team1FullName} Recent Bowl/CFP History:`
       ctx.team1BowlHistory.forEach(h => {
-        prompt += `\n  ${h.year}: ${h.result} vs ${h.opponent} ${h.score} (${h.gameName})`
+        const opponentName = getTeamName(h.opponent) || h.opponent
+        prompt += `\n  ${h.year}: ${h.result} vs ${opponentName} ${h.score} (${h.gameName})`
       })
     }
     if (ctx.team2BowlHistory && ctx.team2BowlHistory.length > 0) {
-      prompt += `\n${ctx.team2} Recent Bowl/CFP History:`
+      prompt += `\n${ctx.team2FullName} Recent Bowl/CFP History:`
       ctx.team2BowlHistory.forEach(h => {
-        prompt += `\n  ${h.year}: ${h.result} vs ${h.opponent} ${h.score} (${h.gameName})`
+        const opponentName = getTeamName(h.opponent) || h.opponent
+        prompt += `\n  ${h.year}: ${h.result} vs ${opponentName} ${h.score} (${h.gameName})`
+      })
+    }
+  }
+
+  // Add past season records for both teams
+  if ((ctx.team1SeasonHistory && ctx.team1SeasonHistory.length > 0) || (ctx.team2SeasonHistory && ctx.team2SeasonHistory.length > 0)) {
+    prompt += `\n
+===========================================
+PAST SEASON RECORDS
+===========================================`
+    if (ctx.team1SeasonHistory && ctx.team1SeasonHistory.length > 0) {
+      prompt += `\n${ctx.team1FullName} Past Seasons:`
+      ctx.team1SeasonHistory.forEach(s => {
+        prompt += `\n  ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conference` : ''}`
+      })
+    }
+    if (ctx.team2SeasonHistory && ctx.team2SeasonHistory.length > 0) {
+      prompt += `\n${ctx.team2FullName} Past Seasons:`
+      ctx.team2SeasonHistory.forEach(s => {
+        prompt += `\n  ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conference` : ''}`
+      })
+    }
+  }
+
+  // Add opponent's current season results (how they've done this year)
+  if (ctx.team2SeasonResults && ctx.team2SeasonResults.length > 0) {
+    const oppWins = ctx.team2SeasonResults.filter(g => g.result === 'W').length
+    const oppLosses = ctx.team2SeasonResults.filter(g => g.result === 'L').length
+    prompt += `\n
+===========================================
+${ctx.team2FullName.toUpperCase()}'S SEASON (${oppWins}-${oppLosses} entering this game)
+===========================================`
+    ctx.team2SeasonResults.forEach(g => {
+      const oppName = getTeamName(g.opponent) || g.opponent
+      prompt += `\n  Week ${g.week}: ${g.result} ${g.score} vs ${oppName}${g.isConferenceGame ? ' (conf)' : ''}`
+    })
+  }
+
+  // Add player performance trends (hot streaks, bounce backs)
+  if ((ctx.team1PlayerTrends && ctx.team1PlayerTrends.length > 0) || (ctx.team2PlayerTrends && ctx.team2PlayerTrends.length > 0)) {
+    prompt += `\n
+===========================================
+PLAYER PERFORMANCE TRENDS
+===========================================
+Use these to add narrative about players "keeping it rolling" or "bouncing back"`
+    if (ctx.team1PlayerTrends && ctx.team1PlayerTrends.length > 0) {
+      prompt += `\n\n${ctx.team1FullName} Players:`
+      ctx.team1PlayerTrends.forEach(p => {
+        prompt += `\n  ${p.player}${p.position ? ` (${p.position})` : ''}${p.trend ? ` - ${p.trend}` : ''}:`
+        p.recentGames.forEach(g => {
+          const oppName = getTeamName(g.opponent) || g.opponent
+          prompt += `\n    Week ${g.week} vs ${oppName}: ${g.stats}`
+        })
+      })
+    }
+    if (ctx.team2PlayerTrends && ctx.team2PlayerTrends.length > 0) {
+      prompt += `\n\n${ctx.team2FullName} Players:`
+      ctx.team2PlayerTrends.forEach(p => {
+        prompt += `\n  ${p.player}${p.position ? ` (${p.position})` : ''}${p.trend ? ` - ${p.trend}` : ''}:`
+        p.recentGames.forEach(g => {
+          const oppName = getTeamName(g.opponent) || g.opponent
+          prompt += `\n    Week ${g.week} vs ${oppName}: ${g.stats}`
+        })
       })
     }
   }
@@ -1635,17 +2043,30 @@ export async function getCustomRecapInstructions(userId) {
  * @param {string} apiKey - Gemini API key
  * @param {function} onChunk - Optional callback for streaming (receives accumulated text)
  * @param {string} customInstructions - Optional custom writing instructions
+ * @param {string} userId - Optional user ID for usage tracking
  * @returns {object} { text, usage } - The generated text and token usage info (when streaming)
  */
-export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null) {
+export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null, userId = null) {
   const context = buildGameRecapContext(dynasty, game)
   const prompt = buildGameRecapPrompt(context, customInstructions)
 
+  let result
   if (onChunk) {
     // Streaming returns { text, usage }
-    return generateWithGeminiStreaming(apiKey, prompt, onChunk)
+    result = await generateWithGeminiStreaming(apiKey, prompt, onChunk)
+  } else {
+    // Non-streaming returns just text
+    const text = await generateWithGemini(apiKey, prompt)
+    result = { text, usage: null }
   }
-  // Non-streaming returns just text
-  const text = await generateWithGemini(apiKey, prompt)
-  return { text, usage: null }
+
+  // Track usage if userId provided
+  if (userId && result.usage) {
+    trackApiUsage(userId, result.usage)
+  } else if (userId) {
+    // Still track the request even without detailed usage
+    trackApiUsage(userId, null)
+  }
+
+  return result
 }

@@ -8262,34 +8262,63 @@ export default function Dashboard() {
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
-          // Update players with entered_portal movement and pending departure
-          const encouragedNames = new Set(transferPlayers.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+          // DEBUG: Log what's being saved
+          console.log('=== ENCOURAGE TRANSFERS SAVE DEBUG ===')
+          console.log('teamAbbr:', teamAbbr)
+          console.log('year:', year)
+          console.log('transferPlayers:', transferPlayers)
+          console.log('transferPlayers count:', transferPlayers?.length)
+
+          // Get previously encouraged transfers (to restore them first if user is editing)
+          const previouslyEncouraged = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[year] || []
+          const previousNames = new Set(previouslyEncouraged.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+          console.log('previouslyEncouraged count:', previouslyEncouraged.length)
+          console.log('previousNames:', [...previousNames])
+
+          // New encouraged transfers
+          const newEncouragedNames = new Set(transferPlayers.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+          console.log('newEncouragedNames:', [...newEncouragedNames])
+
+          // Update players:
+          // 1. RESTORE players who were previously encouraged but are NOT in the new list (add back teamsByYear)
+          // 2. REMOVE players who are in the new encouraged list (remove teamsByYear)
           const updatedPlayers = (currentDynasty?.players || []).map(player => {
             const nameLower = player.name?.toLowerCase().trim()
-            if (encouragedNames.has(nameLower)) {
-              // Add entered_portal movement
-              const portalMovement = {
-                year: Number(year),
-                type: 'entered_portal',
-                from: player.team || teamAbbr,
-                to: null,
-                reason: 'Encouraged Transfer',
-                timestamp: Date.now()
+            const wasPreviouslyEncouraged = previousNames.has(nameLower)
+            const isNowEncouraged = newEncouragedNames.has(nameLower)
+
+            // Case 1: Was encouraged before, but NOT anymore - RESTORE them
+            if (wasPreviouslyEncouraged && !isNowEncouraged) {
+              console.log('DEBUG: Restoring player:', player.name)
+              const restoredTeamsByYear = {
+                ...(player.teamsByYear || {}),
+                [year]: teamAbbr
               }
               return {
                 ...player,
-                pendingDeparture: {
-                  year: Number(year),
-                  reason: 'Encouraged Transfer',
-                  destination: null
-                },
-                leavingYear: year,
-                leavingReason: 'Encouraged Transfer',
-                movements: [...(player.movements || []), portalMovement]
+                teamsByYear: restoredTeamsByYear
               }
             }
+
+            // Case 2: Is NOW encouraged - REMOVE from roster (delete teamsByYear entry)
+            if (isNowEncouraged) {
+              console.log('DEBUG: Removing player from roster:', player.name)
+              const updatedTeamsByYear = { ...(player.teamsByYear || {}) }
+              delete updatedTeamsByYear[year]
+              delete updatedTeamsByYear[String(year)]
+              return {
+                ...player,
+                teamsByYear: updatedTeamsByYear
+              }
+            }
+
+            // Case 3: Not involved - return unchanged
             return player
           })
+
+          const removedCount = [...newEncouragedNames].length
+          const restoredCount = [...previousNames].filter(n => !newEncouragedNames.has(n)).length
+          console.log('DEBUG: Removed', removedCount, 'players, Restored', restoredCount, 'players')
 
           if (isDev || !user) {
             // Dev mode - store encouraged transfers using team-centric pattern
@@ -8312,6 +8341,7 @@ export default function Dashboard() {
               players: updatedPlayers
             })
           }
+          console.log('DEBUG: Encourage transfers save complete!')
         }}
         currentYear={currentDynasty?.currentYear}
         teamColors={teamColors}

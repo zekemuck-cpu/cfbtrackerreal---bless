@@ -1242,10 +1242,34 @@ export default function Player() {
 
         // Check for departure movement after last year in teamsByYear
         const lastYear = years[years.length - 1]
+        const lastTeam = teamsByYear[lastYear]
         const afterLastYearMovements = movements.filter(m =>
           m.year > lastYear && (m.type === 'departure' || m.type === 'transfer')
         )
         afterLastYearMovements.forEach(m => timelineEntries.push(m))
+
+        // Check if player was an encouraged transfer (check dynasty.encourageTransfersByTeamYear)
+        // This is the source of truth - not the movements array
+        // Note: Encourage transfers data is stored under the NEW season year (after year flip)
+        // So if player's last year on team was 2026, check 2027 for encouraged transfer data
+        const nextYear = lastYear + 1
+        const encouragedTransfers = dynasty?.encourageTransfersByTeamYear?.[lastTeam]?.[nextYear] || []
+        const wasEncouragedTransfer = encouragedTransfers.some(t =>
+          t.name?.toLowerCase().trim() === player.name?.toLowerCase().trim()
+        )
+        if (wasEncouragedTransfer) {
+          // Add encouraged transfer entry if not already present
+          const hasEncouragedEntry = timelineEntries.some(e =>
+            e.type === 'encouraged_transfer' && e.year === lastYear
+          )
+          if (!hasEncouragedEntry) {
+            timelineEntries.push({
+              year: lastYear,
+              type: 'encouraged_transfer',
+              from: lastTeam
+            })
+          }
+        }
 
         if (timelineEntries.length === 0) return null
 
@@ -1259,6 +1283,7 @@ export default function Player() {
             case 'juco_in': return 'JUCO Transfer'
             case 'entered_portal': return 'Entered Portal'
             case 'transfer': return 'Transferred'
+            case 'encouraged_transfer': return 'Encouraged Transfer'
             case 'departure': return m.reason || 'Left Team'
             case 'recommit': return 'Returned'
             case 'added': return 'Added'

@@ -2830,7 +2830,7 @@ export default function GameEntryModal({
                       // Use streaming to show progress - returns { text, usage }
                       const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
                         setGameData(prev => ({ ...prev, aiRecap: partialText }))
-                      }, customInstructions)
+                      }, customInstructions, user.uid)
                       // Capture token usage
                       if (result.usage) {
                         setTokenUsage(result.usage)
@@ -2871,6 +2871,11 @@ export default function GameEntryModal({
                 </button>
               )}
             </div>
+
+            {/* Tip for better AI results */}
+            <p className="text-xs text-gray-500 mb-3 italic">
+              Tip: Fill in all game data (score, box score, quarters, scoring summary) before generating for the best results. The AI uses this data plus historical context to write the recap.
+            </p>
 
             {recapError && (
               <div className="mb-3 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">

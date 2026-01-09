@@ -9370,8 +9370,20 @@ export async function createEncourageTransfersSheet(dynastyName, year, players) 
 
 // Initialize the Encourage Transfers sheet with headers and player data
 async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, sheetId, players) {
-  // Sort players by overall rating (highest first)
-  const sortedPlayers = [...players].sort((a, b) => (b.overall || 0) - (a.overall || 0))
+  // Sort players by position order (QB -> P), then by overall within each position
+  const positionOrder = [
+    'QB', 'HB', 'FB', 'WR', 'TE',
+    'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
+    'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
+    'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
+    'CB', 'FS', 'SS', 'S', 'K', 'P'
+  ]
+  const sortedPlayers = [...players].sort((a, b) => {
+    const posA = positionOrder.indexOf(a.position) !== -1 ? positionOrder.indexOf(a.position) : 999
+    const posB = positionOrder.indexOf(b.position) !== -1 ? positionOrder.indexOf(b.position) : 999
+    if (posA !== posB) return posA - posB
+    return (b.overall || 0) - (a.overall || 0)
+  })
   const rowCount = sortedPlayers.length + 1
 
   const requests = [
@@ -9496,6 +9508,20 @@ async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, she
         },
         properties: { pixelSize: 140 },
         fields: 'pixelSize'
+      }
+    },
+    // Add filter to header row
+    {
+      setBasicFilter: {
+        filter: {
+          range: {
+            sheetId: sheetId,
+            startRowIndex: 0,
+            endRowIndex: rowCount,
+            startColumnIndex: 0,
+            endColumnIndex: 4
+          }
+        }
       }
     }
   ]

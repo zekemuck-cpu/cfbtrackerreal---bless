@@ -722,7 +722,7 @@ export default function Game() {
       // Generate the recap with streaming - returns { text, usage }
       const result = await generateGameRecap(currentDynasty, game, apiKey, (partialText) => {
         setStreamingRecap(partialText)
-      }, customInstructions)
+      }, customInstructions, user.uid)
 
       // Capture token usage
       if (result.usage) {

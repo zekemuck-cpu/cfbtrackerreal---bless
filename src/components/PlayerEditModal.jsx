@@ -1295,7 +1295,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                     // Entry types and movement types
                     const entryTypes = ['Recruited', 'Portal Transfer', 'Created']
                     const movementTypes = ['Stayed', 'Transferred', 'Entered Portal', 'Recommitted']
-                    const exitTypes = ['Active', 'Graduating', 'Pro Draft', 'Transfer Out', 'Cut']
+                    const exitTypes = ['Active', 'Graduating', 'Pro Draft', 'Transfer Out', 'Encouraged Transfer', 'Cut']
 
                     // Get entry type based on player data
                     const getEntryType = () => {
@@ -1304,9 +1304,17 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                       return 'Created'
                     }
 
-                    // Get exit info
+                    // Get exit info - check encourageTransfersByTeamYear first (source of truth), then legacy movements
+                    // Note: Encourage transfers data is stored under the NEW season year (maxYear + 1)
+                    const lastTeamForExit = teamsByYear[String(maxYear)] || teamsByYear[maxYear] || ''
+                    const nextYearForExit = maxYear + 1
+                    const encouragedTransfers = dynasty?.encourageTransfersByTeamYear?.[lastTeamForExit]?.[nextYearForExit] || []
+                    const wasEncouragedTransfer = encouragedTransfers.some(t =>
+                      t.name?.toLowerCase().trim() === player?.name?.toLowerCase().trim()
+                    )
                     const departureMovement = (formData.movements || []).find(m => m.type === 'departure')
                     const getExitType = () => {
+                      if (wasEncouragedTransfer) return 'Encouraged Transfer'
                       if (!departureMovement) return 'Active'
                       return departureMovement.reason || 'Active'
                     }
