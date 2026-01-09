@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getPublicDynastyByShareCode } from '../services/dynastyService'
+import { getPublicDynastyWithSubcollections } from '../services/dynastyService'
 import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 import DynastyContext from './DynastyContext'
 
@@ -51,7 +51,8 @@ export function ViewDynastyProvider({ shareCode, children }) {
       try {
         setLoading(true)
         setError(null)
-        const dynastyData = await getPublicDynastyByShareCode(shareCode)
+        // Use the new function that also fetches from subcollections
+        const dynastyData = await getPublicDynastyWithSubcollections(shareCode)
 
         if (!dynastyData) {
           setError('Dynasty not found or sharing is disabled')

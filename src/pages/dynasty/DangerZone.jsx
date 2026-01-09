@@ -6,7 +6,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, isViewOnly } = useDynasty()
   const { id: dynastyId } = useParams()
   const teamColors = useTeamColors(currentDynasty?.teamName)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -22,6 +22,7 @@ export default function DangerZone() {
   const [sizeAnalysis, setSizeAnalysis] = useState(null)
   const [optimizeStatus, setOptimizeStatus] = useState(null)
   const [removeOldBoxScores, setRemoveOldBoxScores] = useState(false)
+  const [subcollectionMigrationStatus, setSubcollectionMigrationStatus] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -248,6 +249,22 @@ export default function DangerZone() {
     } catch (error) {
       console.error('Optimization failed:', error)
       setOptimizeStatus({ success: false, message: 'Optimization failed: ' + error.message })
+    }
+  }
+
+  // Handle subcollection migration
+  const handleSubcollectionMigration = async () => {
+    setSubcollectionMigrationStatus('running')
+    try {
+      const result = await migrateToSubcollections(currentDynasty.id)
+      setSubcollectionMigrationStatus(result)
+      // Re-analyze size after migration
+      if (result.success) {
+        handleAnalyzeSize()
+      }
+    } catch (error) {
+      console.error('Subcollection migration failed:', error)
+      setSubcollectionMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
     }
   }
 
@@ -539,6 +556,65 @@ export default function DangerZone() {
         </div>
       </div>
 
+      {/* Subcollection Migration Section */}
+      <div>
+        <h2
+          className="text-lg font-bold mb-3 flex items-center gap-2"
+          style={{ color: secondaryBgText }}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+          </svg>
+          Database Structure Migration
+        </h2>
+
+        <div
+          className="rounded-lg p-4 sm:p-5"
+          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
+        >
+          {/* Migration Status */}
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className={`w-3 h-3 rounded-full ${currentDynasty._subcollectionsMigrated ? 'bg-green-500' : 'bg-yellow-500'}`}
+            />
+            <span className="font-medium" style={{ color: secondaryBgText }}>
+              Status: {currentDynasty._subcollectionsMigrated ? 'Migrated to Subcollections ✓' : 'Legacy Structure (Single Document)'}
+            </span>
+          </div>
+
+          {!currentDynasty._subcollectionsMigrated ? (
+            <>
+              <p className="text-sm mb-4" style={{ color: secondaryBgText, opacity: 0.8 }}>
+                Your dynasty data is stored in a single document. Migrate to subcollections to remove the 1MB size limit and enable unlimited seasons.
+                This is safe and can be done at any time. Your data will be preserved.
+              </p>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSubcollectionMigration}
+                  disabled={subcollectionMigrationStatus === 'running'}
+                  className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: '#059669', color: '#fff' }}
+                >
+                  {subcollectionMigrationStatus === 'running' ? 'Migrating...' : 'Migrate to Subcollections'}
+                </button>
+
+                {subcollectionMigrationStatus && subcollectionMigrationStatus !== 'running' && (
+                  <span className={`text-sm ${subcollectionMigrationStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                    {subcollectionMigrationStatus.success ? '✓' : '✗'} {subcollectionMigrationStatus.message}
+                  </span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.8 }}>
+              Your dynasty is using the new subcollection structure. Players and games are stored in separate collections,
+              removing the 1MB document size limit. You can now track unlimited seasons!
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Info Section */}
       <div
         className="rounded-lg p-4 text-sm"
@@ -555,6 +631,7 @@ export default function DangerZone() {
               <li><strong>Sync Recruiting:</strong> If recruiting class pages show missing data for players who have full info on their player page</li>
               <li><strong>Clear Cache:</strong> If you're experiencing Google Sheets errors or stale data</li>
               <li><strong>Document Size:</strong> If you're getting "exceeds maximum size" errors when saving</li>
+              <li><strong>Database Migration:</strong> If you're hitting the 1MB size limit and need unlimited storage</li>
             </ul>
           </div>
         </div>

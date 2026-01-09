@@ -111,6 +111,50 @@ When committing:
 **Dev Mode** (`VITE_DEV_MODE=true`): localStorage, no auth required
 **Production Mode**: Firebase Firestore, requires Google OAuth
 
+### Firestore Subcollection Architecture (January 2026)
+
+**Problem Solved**: Firestore has a 1MB document limit. After ~5 seasons, dynasties were hitting this limit.
+
+**Solution**: Players and games are now stored in subcollections instead of the main document:
+
+```
+/dynasties/{dynastyId}                    (< 100 KB - metadata only)
+  ├── /players/{playerId}                 (individual player docs, ~1.5 KB each)
+  └── /games/{gameId}                     (individual game docs, ~3-8 KB each)
+```
+
+**What stays in main document:**
+- Dynasty metadata (name, team, currentYear, currentPhase, etc.)
+- `schedulesByTeamYear`, `teamRatingsByTeamYear`, `coachingStaffByTeamYear`
+- `customConferencesByYear`, `playersLeavingByYear`, `cfpResultsByYear`
+- `recruitingCommitmentsByTeamYear`, `draftResultsByYear`
+- All preseason setup flags, `coachTeamByYear`, `nextPID`
+
+**What moves to subcollections:**
+- `players[]` → `/dynasties/{id}/players/{pid}`
+- `games[]` → `/dynasties/{id}/games/{gameId}`
+
+**Migration:**
+- Automatic on load (background migration when `_subcollectionsMigrated` is false)
+- Manual via Admin Tools page "Migrate to Subcollections" button
+- Flag `_subcollectionsMigrated: true` prevents re-migration
+
+**Key files:**
+- `src/services/dynastyService.js` - All subcollection CRUD functions
+- `src/context/DynastyContext.jsx` - Routes players/games to subcollections when saving
+- `src/pages/dynasty/DangerZone.jsx` - Migration UI in Admin Tools
+
+**Important functions in dynastyService.js:**
+- `getPlayersSubcollection(dynastyId)` / `getGamesSubcollection(dynastyId)`
+- `savePlayersToSubcollection(dynastyId, players)` / `saveGamesToSubcollection(dynastyId, games)`
+- `migrateDynastyToSubcollections(dynastyId)` - One-time migration
+- `deleteDynastyWithSubcollections(dynastyId)` - Cascade delete
+
+**Behavior in DynastyContext.jsx:**
+- Loading: If `_subcollectionsMigrated`, fetches from subcollections in parallel
+- Saving: If `_subcollectionsMigrated` and `updates.players`/`updates.games`, routes to subcollections
+- Local state still has `players[]` and `games[]` arrays (merged from subcollections on load)
+
 ### Team-Centric Data Structures
 
 All implemented in `DynastyContext.jsx` with helper functions:
@@ -523,6 +567,14 @@ The Admin Tools page (`/dynasty/:id/admin`) provides data repair utilities:
   - Handles recommit cases (players who returned after entering portal)
 
 - **Clear Local Cache** - Clears localStorage items related to dynasty data and Google Sheets tokens
+
+- **Document Size Analysis** - Shows current document size breakdown and warns when approaching 1MB limit
+
+- **Migrate to Subcollections** (`migrateToSubcollections()` in DynastyContext) - One-click migration:
+  - Moves `players[]` and `games[]` to Firestore subcollections
+  - Removes the 1MB document size limit
+  - Shows green status indicator when migrated
+  - Safe to use - data is preserved and migration is idempotent
 
 Access via sidebar: "Admin Tools" link at the bottom (only visible to dynasty owners, not in view-only mode).
 
