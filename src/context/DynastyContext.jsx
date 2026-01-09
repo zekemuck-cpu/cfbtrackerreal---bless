@@ -13,8 +13,6 @@ import {
   getGamesSubcollection,
   savePlayersToSubcollection,
   saveGamesToSubcollection,
-  deletePlayerFromSubcollection,
-  deleteGameFromSubcollection,
   migrateDynastyToSubcollections
 } from '../services/dynastyService'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'

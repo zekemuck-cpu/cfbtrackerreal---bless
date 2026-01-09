@@ -135,9 +135,10 @@ When committing:
 - `games[]` → `/dynasties/{id}/games/{gameId}`
 
 **Migration:**
-- Automatic on load (background migration when `_subcollectionsMigrated` is false)
 - Manual via Admin Tools page "Migrate to Subcollections" button
 - Flag `_subcollectionsMigrated: true` prevents re-migration
+- New dynasties created in production automatically start with `_subcollectionsMigrated: true`
+- Uses `deleteField()` to remove players/games from main doc (works even when doc is over 1MB)
 
 **Key files:**
 - `src/services/dynastyService.js` - All subcollection CRUD functions
@@ -154,6 +155,24 @@ When committing:
 - Loading: If `_subcollectionsMigrated`, fetches from subcollections in parallel
 - Saving: If `_subcollectionsMigrated` and `updates.players`/`updates.games`, routes to subcollections
 - Local state still has `players[]` and `games[]` arrays (merged from subcollections on load)
+
+**Firestore Security Rules Required:**
+Subcollections need explicit rules in Firebase Console → Firestore → Rules:
+```
+match /dynasties/{dynastyId} {
+  // ... existing dynasty rules ...
+
+  match /players/{playerId} {
+    allow read, write: if request.auth != null &&
+      get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+  }
+
+  match /games/{gameId} {
+    allow read, write: if request.auth != null &&
+      get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+  }
+}
+```
 
 ### Team-Centric Data Structures
 
