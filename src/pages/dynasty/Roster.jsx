@@ -197,7 +197,7 @@ export default function Roster() {
                         <div className="text-xs flex items-center gap-2 flex-wrap" style={{ color: secondaryBgText, opacity: 0.8 }}>
                           <span>{player.position}</span>
                           <span>•</span>
-                          <span>{player.year}</span>
+                          <span>{player.classByYear?.[currentDynasty.currentYear] || player.year}</span>
                           {player.devTrait && player.devTrait !== 'Normal' && (
                             <>
                               <span>•</span>
@@ -250,7 +250,7 @@ export default function Roster() {
                         {player.position}
                       </td>
                       <td className="py-2 px-3" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                        {player.year}
+                        {player.classByYear?.[currentDynasty.currentYear] || player.year}
                       </td>
                       <td className="py-2 px-3" style={{ color: secondaryBgText, opacity: 0.8 }}>
                         {player.devTrait || 'Normal'}

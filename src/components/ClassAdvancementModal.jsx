@@ -4,7 +4,7 @@ import { useState } from 'react'
  * Modal to confirm class advancement for players with unknown games played.
  * Shows when advancing from offseason to preseason if any players have null gamesPlayed.
  */
-export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, players, teamColors }) {
+export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, players, teamColors, year }) {
   // Track which players played 5+ games (true = yes, false = no/redshirt)
   const [playedFiveOrMore, setPlayedFiveOrMore] = useState(() => {
     // Default all to true (assume they played)
@@ -91,7 +91,9 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
             <tbody>
               {players.map(player => {
                 const played5Plus = playedFiveOrMore[player.pid]
-                const isAlreadyRS = player.year?.startsWith('RS ')
+                // Use classByYear as source of truth, with fallback to player.year
+                const playerClass = player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year
+                const isAlreadyRS = playerClass?.startsWith('RS ')
 
                 // Calculate next class
                 let nextClass
@@ -103,10 +105,10 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
                     'Jr': 'Sr', 'RS Jr': 'RS Sr',
                     'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
                   }
-                  nextClass = progression[player.year] || player.year
+                  nextClass = progression[playerClass] || playerClass
                 } else {
                   // Redshirt - add RS prefix
-                  nextClass = 'RS ' + player.year
+                  nextClass = 'RS ' + playerClass
                 }
 
                 return (
@@ -118,7 +120,7 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
                       {player.position}
                     </td>
                     <td className="py-2 px-2 text-sm text-center" style={{ color: teamColors.primary }}>
-                      {player.year}
+                      {playerClass}
                     </td>
                     <td className="py-2 px-2 text-center">
                       {isAlreadyRS ? (

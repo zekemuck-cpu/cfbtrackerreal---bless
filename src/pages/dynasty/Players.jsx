@@ -324,7 +324,7 @@ export default function Players() {
                         {player.position}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-700">
-                        {player.year}
+                        {player.classByYear?.[currentDynasty.currentYear] || player.year}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="inline-block px-2 py-1 rounded font-bold text-sm bg-gray-700 text-white">

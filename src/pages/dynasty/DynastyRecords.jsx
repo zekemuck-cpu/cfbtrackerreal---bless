@@ -158,7 +158,8 @@ export default function DynastyRecords() {
       position: player?.position || '',
       team: teamFullName,
       teamAbbr,
-      teamLogo
+      teamLogo,
+      pictureUrl: player?.pictureUrl || null
     }
   }
 
@@ -496,6 +497,7 @@ export default function DynastyRecords() {
             team: playerInfo.team,
             teamAbbr: playerInfo.teamAbbr,
             teamLogo: playerInfo.teamLogo,
+            pictureUrl: playerInfo.pictureUrl,
             value,
             year: p.year,
             years: p.years?.sort((a, b) => a - b) || []
@@ -687,11 +689,11 @@ export default function DynastyRecords() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              {leader.teamLogo && (
+                              {(leader.pictureUrl || leader.teamLogo) && (
                                 <img
-                                  src={leader.teamLogo}
-                                  alt={leader.teamAbbr}
-                                  className="w-5 h-5 object-contain flex-shrink-0"
+                                  src={leader.pictureUrl || leader.teamLogo}
+                                  alt={leader.pictureUrl ? leader.name : leader.teamAbbr}
+                                  className={`flex-shrink-0 ${leader.pictureUrl ? 'w-6 h-6 rounded-full object-cover' : 'w-5 h-5 object-contain'}`}
                                 />
                               )}
                               <Link
@@ -732,11 +734,11 @@ export default function DynastyRecords() {
                               {idx + 2}
                             </div>
                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                              {entry.teamLogo && (
+                              {(entry.pictureUrl || entry.teamLogo) && (
                                 <img
-                                  src={entry.teamLogo}
-                                  alt={entry.teamAbbr}
-                                  className="w-4 h-4 object-contain flex-shrink-0"
+                                  src={entry.pictureUrl || entry.teamLogo}
+                                  alt={entry.pictureUrl ? entry.name : entry.teamAbbr}
+                                  className={`flex-shrink-0 ${entry.pictureUrl ? 'w-5 h-5 rounded-full object-cover' : 'w-4 h-4 object-contain'}`}
                                 />
                               )}
                               <div className="min-w-0">
@@ -756,15 +758,6 @@ export default function DynastyRecords() {
                             </div>
                           </div>
                         ))}
-
-                        {/* Show more indicator if there are more entries */}
-                        {statLeaderboard.length > 5 && (
-                          <div className="px-3 py-2 text-center">
-                            <span className="text-xs text-gray-500">
-                              +{statLeaderboard.length - 5} more
-                            </span>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

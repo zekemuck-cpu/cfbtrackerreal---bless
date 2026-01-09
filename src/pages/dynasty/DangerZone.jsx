@@ -6,7 +6,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, updateDynasty, isViewOnly } = useDynasty()
   const { id: dynastyId } = useParams()
   const teamColors = useTeamColors(currentDynasty?.teamName)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -14,6 +14,9 @@ export default function DangerZone() {
 
   // Status states for each action
   const [rosterCleanupStatus, setRosterCleanupStatus] = useState(null)
+  const [orphanCleanupStatus, setOrphanCleanupStatus] = useState(null)
+  const [migrationStatus, setMigrationStatus] = useState(null)
+  const [transferFixStatus, setTransferFixStatus] = useState(null)
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
   const [recruitingSyncStatus, setRecruitingSyncStatus] = useState(null)
 
@@ -45,6 +48,42 @@ export default function DangerZone() {
     } catch (error) {
       console.error('Roster cleanup failed:', error)
       setRosterCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  // Handle orphan roster entry removal
+  const handleOrphanCleanup = async () => {
+    setOrphanCleanupStatus('running')
+    try {
+      const result = await removeOrphanedRosterEntries(currentDynasty.id)
+      setOrphanCleanupStatus(result)
+    } catch (error) {
+      console.error('Orphan cleanup failed:', error)
+      setOrphanCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  // Handle career data migration
+  const handleMigration = async () => {
+    setMigrationStatus('running')
+    try {
+      const result = await migratePlayerCareerData(currentDynasty.id)
+      setMigrationStatus(result)
+    } catch (error) {
+      console.error('Migration failed:', error)
+      setMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
+    }
+  }
+
+  // Handle fix transferred players
+  const handleFixTransfers = async () => {
+    setTransferFixStatus('running')
+    try {
+      const result = await fixTransferredPlayers(currentDynasty.id)
+      setTransferFixStatus(result)
+    } catch (error) {
+      console.error('Transfer fix failed:', error)
+      setTransferFixStatus({ success: false, message: 'Fix failed: ' + error.message })
     }
   }
 
@@ -297,6 +336,32 @@ export default function DangerZone() {
             buttonText="Fix Roster"
             onClick={handleRosterCleanup}
             status={rosterCleanupStatus}
+          />
+
+          <ActionCard
+            title="Remove Orphaned Roster Entries"
+            description="Emergency fix: Removes current year roster entries for players who don't have the previous year. Use this if old players suddenly appeared on your current roster."
+            buttonText="Remove Orphans"
+            onClick={handleOrphanCleanup}
+            status={orphanCleanupStatus}
+            variant="danger"
+          />
+
+          <ActionCard
+            title="Migrate Career Data"
+            description="Fills ALL gaps in player career timelines. Ensures every player has complete year-by-year team and class data with no missing seasons."
+            buttonText="Run Migration"
+            onClick={handleMigration}
+            status={migrationStatus}
+          />
+
+          <ActionCard
+            title="Fix Transferred Players"
+            description="Fixes players who transferred away but incorrectly appear on current roster. Also removes entries for players who graduated (were seniors last year)."
+            buttonText="Fix Transfers"
+            onClick={handleFixTransfers}
+            status={transferFixStatus}
+            variant="danger"
           />
 
           <ActionCard

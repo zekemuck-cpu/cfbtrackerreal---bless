@@ -8047,12 +8047,16 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
     // Find seniors who are graduating:
     // - RS Sr: Always graduating (exhausted eligibility, no games requirement)
     // - Sr: Only if 5+ games played (the 5+ games rule applies)
+    // Use classByYear as the source of truth for player class, with fallback to player.year
     const seniorsGraduating = currentRosterPlayers.filter(player => {
+      // Get player's class for this year - classByYear is the source of truth
+      const playerClass = player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year
+
       // RS Sr always graduates - they've exhausted eligibility
-      if (player.year === 'RS Sr') return true
+      if (playerClass === 'RS Sr') return true
 
       // Sr needs 5+ games to auto-graduate
-      if (player.year === 'Sr') {
+      if (playerClass === 'Sr') {
         // Read from player's own statsByYear (check both number and string keys)
         const yearStats = player.statsByYear?.[year] || player.statsByYear?.[String(year)]
         const gamesPlayed = yearStats?.gamesPlayed || 0
