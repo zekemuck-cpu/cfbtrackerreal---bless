@@ -683,32 +683,40 @@ export default function Dashboard() {
     }
   }
 
-  // Handle CC championship answer
+  // Handle CC championship answer - team-centric
   const handleCCAnswer = async (madeChampionship) => {
     setCCMadeChampionship(madeChampionship)
-    // Save to dynasty using year-specific storage
     const year = currentDynasty.currentYear
-    const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
+    const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
-      conferenceChampionshipDataByYear: {
-        ...existingByYear,
-        [year]: { ...(existingByYear[year] || {}), madeChampionship }
+      conferenceChampionshipDataByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...existingForTeam,
+          [year]: { ...(existingForTeam[year] || {}), madeChampionship }
+        }
       }
     })
   }
 
-  // Handle CC opponent selection
+  // Handle CC opponent selection - team-centric
   const handleCCOpponentSelect = async (opponent) => {
     setCCOpponent(opponent)
     setCCOpponentSearch('')
     setShowCCOpponentDropdown(false)
-    // Save to dynasty using year-specific storage
     const year = currentDynasty.currentYear
-    const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
+    const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
-      conferenceChampionshipDataByYear: {
-        ...existingByYear,
-        [year]: { ...(existingByYear[year] || {}), opponent }
+      conferenceChampionshipDataByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...existingForTeam,
+          [year]: { ...(existingForTeam[year] || {}), opponent }
+        }
       }
     })
   }
@@ -797,18 +805,22 @@ export default function Dashboard() {
   }
 
   // Handle coordinator firing dropdown selection
-  // Only saves to pendingFiring - actual firing happens on advance
+  // Only saves to pendingFiring - actual firing happens on advance - team-centric
   const handleFiringSelection = async (selection) => {
     setCoordinatorToFire(selection)
     setFiringCoordinators(selection !== 'none')
 
-    // Save pending firing decision using year-specific storage
     const year = currentDynasty.currentYear
-    const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
+    const existingForTeam = existingByTeamYear[teamAbbr] || {}
     await updateDynasty(currentDynasty.id, {
-      conferenceChampionshipDataByYear: {
-        ...existingByYear,
-        [year]: { ...(existingByYear[year] || {}), pendingFiring: selection }
+      conferenceChampionshipDataByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...existingForTeam,
+          [year]: { ...(existingForTeam[year] || {}), pendingFiring: selection }
+        }
       }
     })
   }
@@ -1060,21 +1072,26 @@ export default function Dashboard() {
       return player
     })
 
-    // playersLeavingByYear is the source of truth for who is leaving
-    const existingByYear = currentDynasty.playersLeavingByYear || {}
+    // playersLeavingByTeamYear is the source of truth for who is leaving (team-centric)
+    // teamAbbr already defined above
+    const existingByTeamYear = currentDynasty.playersLeavingByTeamYear || {}
     await updateDynasty(currentDynasty.id, {
-      playersLeavingByYear: {
-        ...existingByYear,
-        [year]: playersWithPids
+      playersLeavingByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...(existingByTeamYear[teamAbbr] || {}),
+          [year]: playersWithPids
+        }
       },
       players: updatedPlayers
     })
   }
 
-  // Handle draft results save (Offseason - Recruiting Week 1)
+  // Handle draft results save (Offseason - Recruiting Week 1) - team-centric
   const handleDraftResultsSave = async (draftResults) => {
     const year = currentDynasty.currentYear
-    const existingByYear = currentDynasty.draftResultsByYear || {}
+    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
 
     // Map player names to PIDs and store draft info
     const resultsWithPids = draftResults.map(entry => {
@@ -1089,9 +1106,12 @@ export default function Dashboard() {
     })
 
     await updateDynasty(currentDynasty.id, {
-      draftResultsByYear: {
-        ...existingByYear,
-        [year]: resultsWithPids
+      draftResultsByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...(existingByTeamYear[teamAbbr] || {}),
+          [year]: resultsWithPids
+        }
       }
     })
   }
@@ -1103,8 +1123,8 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
-    const existingByYear = currentDynasty.transferDestinationsByYear || {}
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName) || currentDynasty.teamName
+    const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -1171,9 +1191,12 @@ export default function Dashboard() {
     })
 
     await updateDynasty(currentDynasty.id, {
-      transferDestinationsByYear: {
-        ...existingByYear,
-        [year]: destinations
+      transferDestinationsByTeamYear: {
+        ...existingByTeamYear,
+        [teamAbbr]: {
+          ...(existingByTeamYear[teamAbbr] || {}),
+          [year]: destinations
+        }
       },
       players: updatedPlayers
     })
