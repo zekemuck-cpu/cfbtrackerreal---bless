@@ -4,16 +4,50 @@
  * TID (Team ID) is the primary identifier for all teams.
  *
  * How it works:
- * 1. TEAMS defines all 134 FBS/FCS teams with permanent tids (1-134)
+ * 1. TEAMS defines all 140 teams with permanent tids (1-136 FBS, 137-140 FCS)
  * 2. When a dynasty is created, dynasty.teams is initialized from TEAMS
  * 3. To create a teambuilder team, replace the data at that tid
  * 4. All app code references teams by tid, never by abbreviation
+ * 5. All season-by-season data is stored under dynasty.teams[tid].byYear[year]
+ *
+ * Dynasty Team Structure:
+ *   dynasty.teams[tid] = {
+ *     // Static team info (can be replaced by teambuilder)
+ *     tid: 122,
+ *     abbr: "UT",
+ *     name: "Tennessee Volunteers",
+ *     primaryColor: "#FF8200",
+ *     secondaryColor: "#FFFFFF",
+ *     logo: "https://...",
+ *     isCustom: false,  // true for teambuilder teams
+ *
+ *     // All season data lives here
+ *     byYear: {
+ *       2025: {
+ *         schedule: [...],
+ *         teamRatings: { power: 85, apRank: 12 },
+ *         coachingStaff: [...],
+ *         lockedCoachingStaff: [...],
+ *         preseasonSetup: { scheduleEntered: true, rosterEntered: true, ... },
+ *         recruitingCommitments: { ... },
+ *         recruitingClassRank: 15,
+ *         playersLeaving: [...],
+ *         draftResults: [...],
+ *         transferDestinations: { ... },
+ *         portalTransferClass: { ... },
+ *         fringeCaseClass: { ... },
+ *         trainingResults: { ... },
+ *         conferenceChampionshipData: { ... },
+ *         bowlEligibilityData: { ... },
+ *       },
+ *       2026: { ... }
+ *     }
+ *   }
  *
  * Usage:
  *   const team = dynasty.teams[tid]
  *   const logo = team.logo
- *   const name = team.name
- *   const colors = { primary: team.primaryColor, secondary: team.secondaryColor }
+ *   const schedule = team.byYear[2025]?.schedule
  */
 
 // ============================================================================
@@ -1211,13 +1245,16 @@ export function getTidFromName(name) {
  * Initialize a dynasty's team map from the master TEAMS list.
  * Call this when creating a new dynasty.
  *
- * @returns {Object} A copy of TEAMS for the dynasty to own
+ * @returns {Object} A copy of TEAMS for the dynasty to own, with byYear initialized
  */
 export function initializeDynastyTeams() {
   // Deep copy so each dynasty has its own team data
   const teams = {}
   for (const [tid, team] of Object.entries(TEAMS)) {
-    teams[tid] = { ...team }
+    teams[tid] = {
+      ...team,
+      byYear: {}  // Initialize empty season data
+    }
   }
   return teams
 }
@@ -1306,6 +1343,79 @@ export function isCustomTeam(teams, tid) {
 }
 
 // ============================================================================
+// SEASON DATA HELPERS
+// ============================================================================
+
+/**
+ * Get a team's data for a specific year.
+ * Returns the byYear[year] object, or empty object if not set.
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID
+ * @param {number} year - Season year
+ * @returns {Object} Season data object (may be empty)
+ */
+export function getTeamYear(teams, tid, year) {
+  if (!teams || !tid || !year) return {}
+  const team = teams[tid]
+  if (!team) return {}
+  return team.byYear?.[year] || {}
+}
+
+/**
+ * Set a team's data for a specific year.
+ * Merges with existing data.
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID
+ * @param {number} year - Season year
+ * @param {Object} data - Data to merge into the season
+ * @returns {Object} Updated teams object
+ */
+export function setTeamYear(teams, tid, year, data) {
+  if (!teams || !tid || !year || !data) return teams
+
+  if (!teams[tid]) return teams
+  if (!teams[tid].byYear) teams[tid].byYear = {}
+  if (!teams[tid].byYear[year]) teams[tid].byYear[year] = {}
+
+  teams[tid].byYear[year] = {
+    ...teams[tid].byYear[year],
+    ...data
+  }
+
+  return teams
+}
+
+/**
+ * Get a specific field from a team's season data.
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID
+ * @param {number} year - Season year
+ * @param {string} field - Field name (e.g., 'schedule', 'teamRatings')
+ * @returns {*} The field value or undefined
+ */
+export function getTeamYearField(teams, tid, year, field) {
+  const seasonData = getTeamYear(teams, tid, year)
+  return seasonData[field]
+}
+
+/**
+ * Set a specific field in a team's season data.
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID
+ * @param {number} year - Season year
+ * @param {string} field - Field name
+ * @param {*} value - Value to set
+ * @returns {Object} Updated teams object
+ */
+export function setTeamYearField(teams, tid, year, field, value) {
+  return setTeamYear(teams, tid, year, { [field]: value })
+}
+
+// ============================================================================
 // MIGRATION HELPERS
 // ============================================================================
 
@@ -1334,4 +1444,56 @@ export function migrateAbbrToTid(abbr, dynastyTeams = null) {
   }
 
   return null
+}
+
+/**
+ * Migrate old dynasty data structure to new tid-based structure.
+ * Converts all *ByTeamYear[abbr][year] to teams[tid].byYear[year].
+ *
+ * @param {Object} dynasty - The old dynasty object
+ * @returns {Object} Dynasty with migrated teams structure
+ */
+export function migrateDynastyToTidStructure(dynasty) {
+  if (!dynasty) return dynasty
+
+  // Initialize teams if not present
+  if (!dynasty.teams) {
+    dynasty.teams = initializeDynastyTeams()
+  }
+
+  // List of old structures to migrate
+  const oldStructures = [
+    { old: 'schedulesByTeamYear', new: 'schedule' },
+    { old: 'teamRatingsByTeamYear', new: 'teamRatings' },
+    { old: 'coachingStaffByTeamYear', new: 'coachingStaff' },
+    { old: 'lockedCoachingStaffByTeamYear', new: 'lockedCoachingStaff' },
+    { old: 'preseasonSetupByTeamYear', new: 'preseasonSetup' },
+    { old: 'recruitingCommitmentsByTeamYear', new: 'recruitingCommitments' },
+    { old: 'recruitingClassRankByTeamYear', new: 'recruitingClassRank' },
+    { old: 'playersLeavingByTeamYear', new: 'playersLeaving' },
+    { old: 'draftResultsByTeamYear', new: 'draftResults' },
+    { old: 'transferDestinationsByTeamYear', new: 'transferDestinations' },
+    { old: 'portalTransferClassByTeamYear', new: 'portalTransferClass' },
+    { old: 'fringeCaseClassByTeamYear', new: 'fringeCaseClass' },
+    { old: 'trainingResultsByTeamYear', new: 'trainingResults' },
+    { old: 'conferenceChampionshipDataByTeamYear', new: 'conferenceChampionshipData' },
+    { old: 'bowlEligibilityDataByTeamYear', new: 'bowlEligibilityData' },
+  ]
+
+  for (const { old: oldKey, new: newKey } of oldStructures) {
+    if (dynasty[oldKey]) {
+      for (const [abbr, yearData] of Object.entries(dynasty[oldKey])) {
+        const tid = migrateAbbrToTid(abbr, dynasty.teams)
+        if (tid && yearData) {
+          for (const [year, data] of Object.entries(yearData)) {
+            setTeamYearField(dynasty.teams, tid, parseInt(year), newKey, data)
+          }
+        }
+      }
+      // Optionally delete old structure after migration
+      // delete dynasty[oldKey]
+    }
+  }
+
+  return dynasty
 }
