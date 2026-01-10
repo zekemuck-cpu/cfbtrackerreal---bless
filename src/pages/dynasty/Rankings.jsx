@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr) => {
@@ -221,7 +222,7 @@ export default function Rankings() {
 
     return (
       <Link
-        to={`${pathPrefix}/team/${teamAbbr}/${year}`}
+        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
         className="flex items-center gap-3 p-3 rounded-lg hover:scale-[1.02] transition-transform"
         style={{
           backgroundColor: bgColor,

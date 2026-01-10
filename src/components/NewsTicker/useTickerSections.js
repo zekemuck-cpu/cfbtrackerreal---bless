@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import { getCurrentSchedule } from '../../context/DynastyContext'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
 // Get abbreviation - handles both full names and abbreviations
 function getTeamAbbr(teamIdentifier) {
@@ -564,7 +565,7 @@ export function useTickerSections(dynasty) {
           team: s.team,
           label: String(s.year),
           text: `${s.wins}-${s.losses}`,
-          link: `/team/${s.team}/${s.year}`
+          link: `/team/${resolveTid(s.team, dynasty?.teams || TEAMS)}/${s.year}`
         }))
 
         sections.push({

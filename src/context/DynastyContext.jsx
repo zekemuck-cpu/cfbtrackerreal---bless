@@ -844,7 +844,7 @@ export function resolveTeamAbbr(dynasty, abbr) {
 
 /**
  * Get the current team's schedule for the current year
- * Falls back to legacy dynasty.schedule for backwards compatibility
+ * Falls back to legacy structures for backwards compatibility
  */
 export function getCurrentSchedule(dynasty) {
   if (!dynasty) return []
@@ -852,7 +852,13 @@ export function getCurrentSchedule(dynasty) {
   const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
-  // Try new team-centric structure first
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.schedule) {
+    return dynasty.teams[tid].byYear[year].schedule
+  }
+
+  // Try old team-centric structure (schedulesByTeamYear)
   const teamYearSchedule = dynasty.schedulesByTeamYear?.[teamAbbr]?.[year]
   if (teamYearSchedule) {
     return teamYearSchedule
@@ -983,7 +989,13 @@ export function getCurrentPreseasonSetup(dynasty) {
   const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
-  // Try new team-centric structure first
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.preseasonSetup) {
+    return dynasty.teams[tid].byYear[year].preseasonSetup
+  }
+
+  // Try old team-centric structure (preseasonSetupByTeamYear)
   const teamYearSetup = dynasty.preseasonSetupByTeamYear?.[teamAbbr]?.[year]
   if (teamYearSetup) {
     return teamYearSetup
@@ -1010,7 +1022,13 @@ export function getCurrentTeamRatings(dynasty) {
   const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
-  // Try new team-centric structure first
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.teamRatings) {
+    return dynasty.teams[tid].byYear[year].teamRatings
+  }
+
+  // Try old team-centric structure (teamRatingsByTeamYear)
   const teamYearRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[year]
   if (teamYearRatings) {
     return teamYearRatings
@@ -1036,14 +1054,24 @@ export function getCurrentCoachingStaff(dynasty) {
 
   const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
+  const tid = getTidFromAbbr(teamAbbr)
 
-  // Try new team-centric structure first
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.coachingStaff) {
+    return dynasty.teams[tid].byYear[year].coachingStaff
+  }
+
+  // Try old team-centric structure (coachingStaffByTeamYear)
   const teamYearStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
   if (teamYearStaff) {
     return teamYearStaff
   }
 
-  // For coaching staff, try previous year's staff (staff carries over)
+  // For coaching staff, try previous year's data (staff carries over)
+  // Check new structure first for previous year
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year - 1]?.coachingStaff) {
+    return dynasty.teams[tid].byYear[year - 1].coachingStaff
+  }
   const previousYearStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year - 1]
   if (previousYearStaff) {
     return previousYearStaff
@@ -1087,7 +1115,13 @@ export function getCurrentRecruits(dynasty) {
   const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const year = dynasty.currentYear
 
-  // Try new team-centric structure first
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.recruits) {
+    return dynasty.teams[tid].byYear[year].recruits
+  }
+
+  // Try old team-centric structure (recruitsByTeamYear)
   const teamYearRecruits = dynasty.recruitsByTeamYear?.[teamAbbr]?.[year]
   if (teamYearRecruits) {
     return teamYearRecruits
@@ -1260,10 +1294,21 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   }
 
-  // Check locked coaching staff first (set at end of Week 12)
-  let staff = dynasty.lockedCoachingStaffByYear?.[teamAbbr]?.[year]
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  let staff = tid && dynasty.teams?.[tid]?.byYear?.[year]?.lockedCoachingStaff
 
-  // Fall back to team-centric coaching staff (may have been updated after firings)
+  // Fall back to locked coaching staff (old format, set at end of Week 12)
+  if (!staff) {
+    staff = dynasty.lockedCoachingStaffByYear?.[teamAbbr]?.[year]
+  }
+
+  // Fall back to team-centric coaching staff from new structure
+  if (!staff && tid) {
+    staff = dynasty.teams?.[tid]?.byYear?.[year]?.coachingStaff
+  }
+
+  // Fall back to team-centric coaching staff (old format, may have been updated after firings)
   if (!staff) {
     staff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
   }
@@ -1772,7 +1817,7 @@ export function createMovement(year, type, from, to, reason = null, extra = {}) 
 
 /**
  * Get players with pending departures for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  * @param {Object} dynasty - The dynasty object
  * @param {string} teamAbbr - Team abbreviation
  * @param {number|string} year - The year
@@ -1780,7 +1825,13 @@ export function createMovement(year, type, from, to, reason = null, extra = {}) 
 export function getPlayersLeaving(dynasty, teamAbbr, year) {
   if (!dynasty) return []
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.playersLeaving) {
+    return dynasty.teams[tid].byYear[year].playersLeaving
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1791,12 +1842,18 @@ export function getPlayersLeaving(dynasty, teamAbbr, year) {
 
 /**
  * Get conference championship data for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getConferenceChampionshipData(dynasty, teamAbbr, year) {
   if (!dynasty) return null
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.conferenceChampionshipData) {
+    return dynasty.teams[tid].byYear[year].conferenceChampionshipData
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1808,12 +1865,18 @@ export function getConferenceChampionshipData(dynasty, teamAbbr, year) {
 
 /**
  * Get bowl eligibility data for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getBowlEligibilityData(dynasty, teamAbbr, year) {
   if (!dynasty) return null
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.bowlEligibilityData) {
+    return dynasty.teams[tid].byYear[year].bowlEligibilityData
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1825,12 +1888,18 @@ export function getBowlEligibilityData(dynasty, teamAbbr, year) {
 
 /**
  * Get draft results for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getDraftResults(dynasty, teamAbbr, year) {
   if (!dynasty) return []
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.draftResults) {
+    return dynasty.teams[tid].byYear[year].draftResults
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.draftResultsByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.draftResultsByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1842,12 +1911,18 @@ export function getDraftResults(dynasty, teamAbbr, year) {
 
 /**
  * Get transfer destinations for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getTransferDestinations(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.transferDestinations) {
+    return dynasty.teams[tid].byYear[year].transferDestinations
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1859,12 +1934,18 @@ export function getTransferDestinations(dynasty, teamAbbr, year) {
 
 /**
  * Get training results for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getTrainingResults(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.trainingResults) {
+    return dynasty.teams[tid].byYear[year].trainingResults
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1876,12 +1957,18 @@ export function getTrainingResults(dynasty, teamAbbr, year) {
 
 /**
  * Get portal transfer class assignments for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getPortalTransferClass(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.portalTransferClass) {
+    return dynasty.teams[tid].byYear[year].portalTransferClass
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -1893,12 +1980,18 @@ export function getPortalTransferClass(dynasty, teamAbbr, year) {
 
 /**
  * Get fringe case class assignments for a given team and year
- * Checks team-centric structure first, falls back to year-only for backward compatibility
+ * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
  */
 export function getFringeCaseClass(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
-  // Check team-centric structure first (new format)
+  // Try NEW tid-based byYear structure first (Phase 7 migration)
+  const tid = getTidFromAbbr(teamAbbr)
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.fringeCaseClass) {
+    return dynasty.teams[tid].byYear[year].fringeCaseClass
+  }
+
+  // Check team-centric structure (old format)
   const teamYear = dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[year] ||
                    dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[String(year)]
   if (teamYear) return teamYear
@@ -3437,6 +3530,44 @@ export function DynastyProvider({ children }) {
 
         // TEAM-CENTRIC FIX: Store current schedule in team-centric structure before clearing
         const currentSchedule = dynasty.schedule || []
+        const currentTeamTid = getTidFromAbbr(currentTeamAbbr)
+
+        // Initialize byYear structure for the current team
+        if (currentTeamTid) {
+          const existingTeams = dynasty.teams || {}
+          const existingTeamData = existingTeams[currentTeamTid] || {}
+          const existingByYear = existingTeamData.byYear || {}
+          const existingYearData = existingByYear[dynasty.currentYear] || {}
+
+          // Build byYear updates for schedule, teamRatings, and coachingStaff
+          const byYearUpdates = { ...existingYearData }
+
+          if (currentSchedule.length > 0) {
+            byYearUpdates.schedule = currentSchedule
+          }
+
+          const currentRatingsForByYear = dynasty.teamRatings
+          if (currentRatingsForByYear && (currentRatingsForByYear.overall || currentRatingsForByYear.offense || currentRatingsForByYear.defense)) {
+            byYearUpdates.teamRatings = currentRatingsForByYear
+          }
+
+          const currentStaffForByYear = dynasty.coachingStaff
+          if (currentStaffForByYear && (currentStaffForByYear.hcName || currentStaffForByYear.ocName || currentStaffForByYear.dcName)) {
+            byYearUpdates.coachingStaff = currentStaffForByYear
+          }
+
+          additionalUpdates.teams = {
+            ...existingTeams,
+            [currentTeamTid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [dynasty.currentYear]: byYearUpdates
+              }
+            }
+          }
+        }
+
         if (currentSchedule.length > 0) {
           const existingSchedulesByTeamYear = dynasty.schedulesByTeamYear || {}
           const teamSchedules = existingSchedulesByTeamYear[currentTeamAbbr] || {}
@@ -3963,6 +4094,9 @@ export function DynastyProvider({ children }) {
     const existingCoachingStaffByTeamYear = dynasty.coachingStaffByTeamYear || {}
     const teamCoachingStaff = existingCoachingStaffByTeamYear[teamAbbr] || {}
 
+    // Get tid for new byYear structure
+    const teamTid = getTidFromAbbr(teamAbbr)
+
     // Prepare updates
     const updates = {
       players: updatedPlayers,
@@ -3985,6 +4119,29 @@ export function DynastyProvider({ children }) {
         [teamAbbr]: {
           ...teamPreseasonSetup,
           [currentSeasonYear]: newYearPreseasonSetup
+        }
+      }
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (teamTid) {
+      const existingTeams = dynasty.teams || {}
+      const existingTeamData = existingTeams[teamTid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[currentSeasonYear] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [teamTid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [currentSeasonYear]: {
+              ...existingYearData,
+              coachingStaff: currentCoachingStaff,
+              preseasonSetup: newYearPreseasonSetup
+            }
+          }
         }
       }
     }
@@ -4389,19 +4546,45 @@ export function DynastyProvider({ children }) {
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
+    const tid = getTidFromAbbr(teamAbbr)
 
-    // Build team-centric schedule storage
+    // Build team-centric schedule storage (old structure)
     const existingSchedulesByTeamYear = dynasty.schedulesByTeamYear || {}
     const teamSchedules = existingSchedulesByTeamYear[teamAbbr] || {}
 
-    // Build team-centric preseason setup storage
+    // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
     const teamSetups = existingPreseasonSetupByTeamYear[teamAbbr] || {}
     const currentSetup = teamSetups[year] || dynasty.preseasonSetup || {}
 
+    // Build NEW tid-based byYear structure updates
+    const existingTeams = dynasty.teams || {}
+    const existingTeamData = existingTeams[tid] || {}
+    const existingByYear = existingTeamData.byYear || {}
+    const existingYearData = existingByYear[year] || {}
+    const existingYearSetup = existingYearData.preseasonSetup || {}
+
     const scheduleUpdates = isDev || !user
       ? {
-          // Store in team-centric structure
+          // Store in NEW tid-based byYear structure
+          teams: {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  schedule,
+                  preseasonSetup: {
+                    ...existingYearSetup,
+                    scheduleEntered: true
+                  }
+                }
+              }
+            }
+          },
+          // Store in old team-centric structure (for backward compatibility)
           schedulesByTeamYear: {
             ...existingSchedulesByTeamYear,
             [teamAbbr]: {
@@ -4411,7 +4594,7 @@ export function DynastyProvider({ children }) {
           },
           // Also update legacy schedule for backwards compatibility
           schedule,
-          // Update team-centric preseason setup
+          // Update old team-centric preseason setup
           preseasonSetupByTeamYear: {
             ...existingPreseasonSetupByTeamYear,
             [teamAbbr]: {
@@ -4430,6 +4613,10 @@ export function DynastyProvider({ children }) {
         }
       : {
           // Firestore: use dot notation for nested updates
+          // NEW tid-based byYear structure
+          [`teams.${tid}.byYear.${year}.schedule`]: schedule,
+          [`teams.${tid}.byYear.${year}.preseasonSetup.scheduleEntered`]: true,
+          // Old structures (for backward compatibility)
           [`schedulesByTeamYear.${teamAbbr}.${year}`]: schedule,
           schedule,
           [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true,
@@ -4622,16 +4809,41 @@ export function DynastyProvider({ children }) {
     finalPlayers = [...filteredPlayersToKeep, ...filteredTeamPlayersNotInSheet, ...playersWithPIDs]
     newNextPID = nextPIDCounter  // Use the counter which only incremented for new players
 
-    // Build team-centric preseason setup storage
+    // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
     const teamSetups = existingPreseasonSetupByTeamYear[teamAbbr] || {}
     const currentSetup = teamSetups[year] || dynasty.preseasonSetup || {}
+
+    // Build NEW tid-based byYear structure updates
+    const tid = getTidFromAbbr(teamAbbr)
+    const existingTeams = dynasty.teams || {}
+    const existingTeamData = existingTeams[tid] || {}
+    const existingByYear = existingTeamData.byYear || {}
+    const existingYearData = existingByYear[year] || {}
+    const existingYearSetup = existingYearData.preseasonSetup || {}
 
     const rosterUpdates = isDev || !user
       ? {
           players: finalPlayers,
           nextPID: newNextPID,
-          // Update team-centric preseason setup
+          // Update NEW tid-based byYear structure
+          teams: {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  preseasonSetup: {
+                    ...existingYearSetup,
+                    rosterEntered: true
+                  }
+                }
+              }
+            }
+          },
+          // Update old team-centric preseason setup (for backward compatibility)
           preseasonSetupByTeamYear: {
             ...existingPreseasonSetupByTeamYear,
             [teamAbbr]: {
@@ -4651,6 +4863,9 @@ export function DynastyProvider({ children }) {
       : {
           players: finalPlayers,
           nextPID: newNextPID,
+          // NEW tid-based byYear structure
+          [`teams.${tid}.byYear.${year}.preseasonSetup.rosterEntered`]: true,
+          // Old structures (for backward compatibility)
           [`preseasonSetupByTeamYear.${teamAbbr}.${year}.rosterEntered`]: true,
           'preseasonSetup.rosterEntered': true
         }
@@ -4680,19 +4895,45 @@ export function DynastyProvider({ children }) {
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
+    const tid = getTidFromAbbr(teamAbbr)
 
-    // Build team-centric preseason setup storage
+    // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
     const teamSetups = existingPreseasonSetupByTeamYear[teamAbbr] || {}
     const currentSetup = teamSetups[year] || dynasty.preseasonSetup || {}
 
-    // Build team-centric ratings storage
+    // Build team-centric ratings storage (old structure)
     const existingTeamRatingsByTeamYear = dynasty.teamRatingsByTeamYear || {}
     const teamRatingsForTeam = existingTeamRatingsByTeamYear[teamAbbr] || {}
 
+    // Build NEW tid-based byYear structure updates
+    const existingTeams = dynasty.teams || {}
+    const existingTeamData = existingTeams[tid] || {}
+    const existingByYear = existingTeamData.byYear || {}
+    const existingYearData = existingByYear[year] || {}
+    const existingYearSetup = existingYearData.preseasonSetup || {}
+
     const teamRatingsUpdates = isDev || !user
       ? {
-          // Store in team-centric structure
+          // Store in NEW tid-based byYear structure
+          teams: {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  teamRatings: ratings,
+                  preseasonSetup: {
+                    ...existingYearSetup,
+                    teamRatingsEntered: true
+                  }
+                }
+              }
+            }
+          },
+          // Store in old team-centric structure (for backward compatibility)
           teamRatingsByTeamYear: {
             ...existingTeamRatingsByTeamYear,
             [teamAbbr]: {
@@ -4718,6 +4959,11 @@ export function DynastyProvider({ children }) {
           }
         }
       : {
+          // Firestore: use dot notation for nested updates
+          // NEW tid-based byYear structure
+          [`teams.${tid}.byYear.${year}.teamRatings`]: ratings,
+          [`teams.${tid}.byYear.${year}.preseasonSetup.teamRatingsEntered`]: true,
+          // Old structures (for backward compatibility)
           [`teamRatingsByTeamYear.${teamAbbr}.${year}`]: ratings,
           teamRatings: ratings,
           [`preseasonSetupByTeamYear.${teamAbbr}.${year}.teamRatingsEntered`]: true,
@@ -4747,23 +4993,53 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // Get tid for new byYear structure
+    const tid = getTidFromAbbr(teamAbbr)
+
     const updates = {}
 
     // Handle record update
     if (info.wins !== undefined && info.losses !== undefined) {
       const existingRecords = dynasty.teamRecordsByTeamYear || {}
       const teamRecords = existingRecords[teamAbbr] || {}
+      const recordData = { wins: info.wins, losses: info.losses }
 
       if (isDev || !user) {
+        // NEW tid-based byYear structure
+        if (tid) {
+          const existingTeams = dynasty.teams || {}
+          const existingTeamData = existingTeams[tid] || {}
+          const existingByYear = existingTeamData.byYear || {}
+          const existingYearData = existingByYear[year] || {}
+
+          updates.teams = {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  teamRecord: recordData
+                }
+              }
+            }
+          }
+        }
+        // Old structure (for backward compatibility)
         updates.teamRecordsByTeamYear = {
           ...existingRecords,
           [teamAbbr]: {
             ...teamRecords,
-            [year]: { wins: info.wins, losses: info.losses }
+            [year]: recordData
           }
         }
       } else {
-        updates[`teamRecordsByTeamYear.${teamAbbr}.${year}`] = { wins: info.wins, losses: info.losses }
+        // Firestore dot notation
+        if (tid) {
+          updates[`teams.${tid}.byYear.${year}.teamRecord`] = recordData
+        }
+        updates[`teamRecordsByTeamYear.${teamAbbr}.${year}`] = recordData
       }
     }
 
@@ -4773,6 +5049,28 @@ export function DynastyProvider({ children }) {
       const teamConferences = existingConferences[teamAbbr] || {}
 
       if (isDev || !user) {
+        // NEW tid-based byYear structure
+        if (tid) {
+          const existingTeams = updates.teams || dynasty.teams || {}
+          const existingTeamData = existingTeams[tid] || {}
+          const existingByYear = existingTeamData.byYear || {}
+          const existingYearData = existingByYear[year] || {}
+
+          updates.teams = {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  conference: info.conference
+                }
+              }
+            }
+          }
+        }
+        // Old structure (for backward compatibility)
         updates.conferenceByTeamYear = {
           ...existingConferences,
           [teamAbbr]: {
@@ -4781,6 +5079,10 @@ export function DynastyProvider({ children }) {
           }
         }
       } else {
+        // Firestore dot notation
+        if (tid) {
+          updates[`teams.${tid}.byYear.${year}.conference`] = info.conference
+        }
         updates[`conferenceByTeamYear.${teamAbbr}.${year}`] = info.conference
       }
     }
@@ -4812,19 +5114,45 @@ export function DynastyProvider({ children }) {
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
     const year = dynasty.currentYear
+    const tid = getTidFromAbbr(teamAbbr)
 
-    // Build team-centric preseason setup storage
+    // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
     const teamSetups = existingPreseasonSetupByTeamYear[teamAbbr] || {}
     const currentSetup = teamSetups[year] || dynasty.preseasonSetup || {}
 
-    // Build team-centric coaching staff storage
+    // Build team-centric coaching staff storage (old structure)
     const existingCoachingStaffByTeamYear = dynasty.coachingStaffByTeamYear || {}
     const coachingStaffForTeam = existingCoachingStaffByTeamYear[teamAbbr] || {}
 
+    // Build NEW tid-based byYear structure updates
+    const existingTeams = dynasty.teams || {}
+    const existingTeamData = existingTeams[tid] || {}
+    const existingByYear = existingTeamData.byYear || {}
+    const existingYearData = existingByYear[year] || {}
+    const existingYearSetup = existingYearData.preseasonSetup || {}
+
     const coachingStaffUpdates = isDev || !user
       ? {
-          // Store in team-centric structure
+          // Store in NEW tid-based byYear structure
+          teams: {
+            ...existingTeams,
+            [tid]: {
+              ...existingTeamData,
+              byYear: {
+                ...existingByYear,
+                [year]: {
+                  ...existingYearData,
+                  coachingStaff: staff,
+                  preseasonSetup: {
+                    ...existingYearSetup,
+                    coachingStaffEntered: true
+                  }
+                }
+              }
+            }
+          },
+          // Store in old team-centric structure (for backward compatibility)
           coachingStaffByTeamYear: {
             ...existingCoachingStaffByTeamYear,
             [teamAbbr]: {
@@ -4850,6 +5178,11 @@ export function DynastyProvider({ children }) {
           }
         }
       : {
+          // Firestore: use dot notation for nested updates
+          // NEW tid-based byYear structure
+          [`teams.${tid}.byYear.${year}.coachingStaff`]: staff,
+          [`teams.${tid}.byYear.${year}.preseasonSetup.coachingStaffEntered`]: true,
+          // Old structures (for backward compatibility)
           [`coachingStaffByTeamYear.${teamAbbr}.${year}`]: staff,
           coachingStaff: staff,
           [`preseasonSetupByTeamYear.${teamAbbr}.${year}.coachingStaffEntered`]: true,

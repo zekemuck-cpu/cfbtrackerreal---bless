@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty } from '../../context/DynastyContext'
@@ -943,7 +944,7 @@ export default function Game() {
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-center gap-4 sm:gap-8">
             {/* Left Team */}
-            <Link to={`${pathPrefix}/team/${leftData.abbr}/${game.year}`} className="group flex-1">
+            <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div
                   className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center p-1.5 sm:p-2 group-hover:scale-105 transition-transform shadow-lg flex-shrink-0 bg-white"
@@ -989,7 +990,7 @@ export default function Game() {
             </div>
 
             {/* Right Team */}
-            <Link to={`${pathPrefix}/team/${rightData.abbr}/${game.year}`} className="group flex-1">
+            <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
               <div className="flex items-center justify-end gap-2 sm:gap-3">
                 <div className="text-right">
                   <div className="text-white font-bold text-xs sm:text-sm md:text-base group-hover:underline">
@@ -1044,7 +1045,7 @@ export default function Game() {
                   return (
                     <tr key={idx} className={idx === 0 ? 'border-b border-gray-700' : ''}>
                       <td className="py-3 px-3 sm:px-4">
-                        <Link to={`${pathPrefix}/team/${team.abbr}/${game.year}`} className="group">
+                        <Link to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group">
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
                               className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center p-1 flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
@@ -1263,7 +1264,7 @@ export default function Game() {
                   {game.boxScore.home?.[activeStatTab]?.length > 0 && (
                     <div>
                       {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${boxScoreHomeTeamData.abbr}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
+                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreHomeTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
                             src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr) || boxScoreHomeTeamData.abbr)}
@@ -1338,7 +1339,7 @@ export default function Game() {
                   {game.boxScore.away?.[activeStatTab]?.length > 0 && (
                     <div>
                       {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${boxScoreAwayTeamData.abbr}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
+                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreAwayTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
                             src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr) || boxScoreAwayTeamData.abbr)}
@@ -1531,7 +1532,7 @@ export default function Game() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <Link
-                                to={`${pathPrefix}/team/${play.team}/${game.year}`}
+                                to={`${pathPrefix}/team/${resolveTid(play.team, currentDynasty?.teams || TEAMS)}/${game.year}`}
                                 className="font-bold text-sm text-white hover:underline"
                               >
                                 {getMascotName(play.team) || play.team}
@@ -1696,7 +1697,7 @@ export default function Game() {
             </div>
             {/* Team headers - Left = away team, Right = home team */}
             <div className="flex items-center border-b border-gray-800 bg-gray-800/50">
-              <Link to={`${pathPrefix}/team/${awayTeamAbbrForLink}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
+              <Link to={`${pathPrefix}/team/${resolveTid(awayTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
                 {getTeamLogoRobust(awayTeamAbbrForLink) && (
                   <img src={getTeamLogoRobust(awayTeamAbbrForLink)} alt="" className="w-6 h-6 object-contain group-hover:scale-105 transition-transform" />
                 )}
@@ -1706,7 +1707,7 @@ export default function Game() {
                 </span>
               </Link>
               <div className="w-28 text-center text-xs font-bold text-gray-400 uppercase">Stat</div>
-              <Link to={`${pathPrefix}/team/${homeTeamAbbrForLink}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
+              <Link to={`${pathPrefix}/team/${resolveTid(homeTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
                 <span className="font-bold text-sm text-white group-hover:underline">
                   <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink) || homeTeamAbbrForLink}</span>
                   <span className="sm:hidden">{homeTeamAbbrForLink}</span>
@@ -1786,7 +1787,7 @@ export default function Game() {
                     if (!ratings.ovr && !ratings.off && !ratings.def) return null
 
                     return (
-                      <Link key={idx} to={`${pathPrefix}/team/${team.abbr}/${game.year}`} className="group flex items-center gap-3">
+                      <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3">
                         <div
                           className="w-10 h-10 rounded-lg flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
                         >

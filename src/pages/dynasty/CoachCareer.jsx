@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 
@@ -481,7 +482,7 @@ export default function CoachCareer() {
               <div>
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`${pathPrefix}/team/${stint.teamAbbr}`}
+                    to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}`}
                     className="text-2xl font-bold hover:underline"
                     style={{ color: stintPrimaryText }}
                   >
@@ -742,7 +743,7 @@ export default function CoachCareer() {
                       return (
                         <Link
                           key={yr.year}
-                          to={`${pathPrefix}/team/${stint.teamAbbr}/${yr.year}`}
+                          to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`}
                           className="p-3 rounded-lg text-center transition-transform hover:scale-[1.02]"
                           style={{
                             backgroundColor: yr.isNationalChamp

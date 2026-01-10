@@ -6,6 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId } from '../../data/cfpConstants'
 // GameDetailModal removed - now using game pages instead
@@ -312,7 +313,7 @@ export default function CFPBracket() {
         <div className="flex-1 truncate">
           {team ? (
             <Link
-              to={`${pathPrefix}/team/${team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               onClick={(e) => e.stopPropagation()}
               className="text-xl font-semibold hover:underline"
               style={{ color: txtColor }}

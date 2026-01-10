@@ -4,6 +4,7 @@ import { teamAbbreviations, getAbbreviationFromDisplayName } from '../data/teamA
 import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty } from '../context/DynastyContext'
+import { TEAMS, resolveTid } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
 import { getConferenceLogo } from '../data/conferenceLogos'
 import { getTeamConference } from '../data/conferenceTeams'
@@ -172,7 +173,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
     // Get team abbreviation for linking
     const teamAbbr = isDisplayTeam ? displayTeamAbbr : game.opponent
-    const teamLink = `/dynasty/${currentDynasty?.id}/team/${teamAbbr}/${game.year}`
+    const teamLink = `/dynasty/${currentDynasty?.id}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`
 
     // For user's team, show record. For CPU games, don't show record
     let recordDisplay = null

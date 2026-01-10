@@ -8,6 +8,7 @@ import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr) => {
@@ -351,7 +352,7 @@ export default function ConferenceStandings() {
                                   </td>
                                   <td className="py-2 px-1">
                                     <Link
-                                      to={`${pathPrefix}/team/${teamAbbr}/${displayYear}`}
+                                      to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
                                       className="flex items-center gap-1 sm:gap-2 hover:opacity-80"
                                     >
                                       {logo && (

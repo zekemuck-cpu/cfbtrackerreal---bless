@@ -6,6 +6,7 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogo } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
+import { TEAMS } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
@@ -36,10 +37,27 @@ export default function Layout({ children }) {
   const isGamePage = location.pathname.includes('/game/')
   const isCoachCareerPage = location.pathname.includes('/coach-career')
 
-  // Check if we're on a team history page and get the viewed team's colors
-  const teamPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team\/([^/]+)/)
-  const viewedTeamAbbr = teamPageMatch ? teamPageMatch[1] : null
-  const viewedTeamInfo = viewedTeamAbbr ? teamAbbreviations[viewedTeamAbbr] : null
+  // Check if we're on a team-related page and get the viewed team's colors
+  // Now uses tid-based URLs like /team/7/2027, /recruiting/7/2027, /team-stats/7/2027
+  const teamsSource = currentDynasty?.teams || TEAMS
+
+  // Match team page: /team/:tid or /team/:tid/:year
+  const teamPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team\/(\d+)/)
+  // Match recruiting page: /recruiting/:tid/:year
+  const recruitingPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/recruiting\/(\d+)/)
+  // Match team-stats page: /team-stats/:tid/:year
+  const teamStatsPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team-stats\/(\d+)/)
+
+  const viewedTeamTid = teamPageMatch ? parseInt(teamPageMatch[1], 10)
+    : recruitingPageMatch ? parseInt(recruitingPageMatch[1], 10)
+    : teamStatsPageMatch ? parseInt(teamStatsPageMatch[1], 10)
+    : null
+  const viewedTeamData = viewedTeamTid ? teamsSource[viewedTeamTid] : null
+  const viewedTeamInfo = viewedTeamData ? {
+    backgroundColor: viewedTeamData.primaryColor,
+    textColor: viewedTeamData.secondaryColor,
+    name: viewedTeamData.name
+  } : null
   const isTeamPage = !!viewedTeamInfo
 
   // Check if we're on a player profile page and get the player's team colors

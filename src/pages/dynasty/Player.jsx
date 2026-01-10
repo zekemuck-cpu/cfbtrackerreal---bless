@@ -6,6 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
 import { getAbbreviationFromDisplayName, teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
@@ -847,7 +848,7 @@ export default function Player() {
           {/* Team and Class */}
           <div className="flex items-center justify-between">
             <Link
-              to={`${pathPrefix}/team/${teamAbbr}`}
+              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}`}
               className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
               style={{ color: primaryText, opacity: 0.9 }}
             >
@@ -925,7 +926,7 @@ export default function Player() {
               const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
               return (
                 <Link
-                  to={`${pathPrefix}/team/${transferredFromTeam}`}
+                  to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                 >
@@ -1048,7 +1049,7 @@ export default function Player() {
 
               <div className="flex items-center gap-2 mb-2">
                 <Link
-                  to={`${pathPrefix}/team/${teamAbbr}`}
+                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}`}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
                   style={{ color: primaryText, opacity: 0.9 }}
                 >
@@ -1104,7 +1105,7 @@ export default function Player() {
                   const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
                   return (
                     <Link
-                      to={`${pathPrefix}/team/${transferredFromTeam}`}
+                      to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold hover:opacity-80 transition-opacity"
                       style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                     >
@@ -1408,7 +1409,7 @@ export default function Player() {
                   <div className="text-sm flex items-center gap-1.5" style={{ color: primaryText }}>
                     <span style={{ opacity: 0.6 }}>from</span>
                     <Link
-                      to={`${pathPrefix}/team/${prevTeamAbbr}/${transferYear}`}
+                      to={`${pathPrefix}/team/${resolveTid(prevTeamAbbr, currentDynasty?.teams || TEAMS)}/${transferYear}`}
                       className="font-semibold hover:underline flex items-center gap-1.5"
                       style={{ color: primaryText }}
                     >
@@ -1439,7 +1440,7 @@ export default function Player() {
           {/* Link to recruiting class if applicable - use original recruiting team, not current team */}
           {player.recruitYear && (
             <Link
-              to={`${pathPrefix}/recruiting/${player.teamsByYear?.[player.recruitYear] || playerTeamAbbr}/${player.recruitYear}`}
+              to={`${pathPrefix}/recruiting/${resolveTid(player.teamsByYear?.[player.recruitYear] || playerTeamAbbr, currentDynasty?.teams || TEAMS)}/${player.recruitYear}`}
               className="block px-4 py-2 text-sm font-medium hover:opacity-80 transition-opacity text-center"
               style={{ backgroundColor: `${teamColors.secondary}50`, color: primaryText }}
             >
@@ -1519,7 +1520,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -1629,7 +1630,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -1731,7 +1732,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -1822,7 +1823,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -1913,7 +1914,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -2021,7 +2022,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -2119,7 +2120,7 @@ export default function Player() {
                                 </td>
                                 <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -2210,7 +2211,7 @@ export default function Player() {
                             </td>
                             <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -2295,7 +2296,7 @@ export default function Player() {
                             </td>
                             <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${rowTeam}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>

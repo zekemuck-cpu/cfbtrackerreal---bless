@@ -4,11 +4,12 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import TeamStatsModal from '../../components/TeamStatsModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
+import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { getTeamLogo } from '../../data/teams'
 // Stats are read directly from player.statsByYear (single source of truth)
 
 // Mapping from internal format (player.statsByYear) to box score display format
@@ -193,16 +194,16 @@ const mascotMap = {
 
 const getMascotName = (abbr) => mascotMap[abbr] || null
 
-const getTeamColorsFromAbbr = (abbr) => {
-  const team = teamAbbreviations[abbr]
+const getTeamColorsFromAbbr = (abbr, teamsSource) => {
+  const team = getTeamByAbbr(teamsSource, abbr)
   return {
-    primary: team?.backgroundColor || '#4B5563',
-    secondary: team?.textColor || '#FFFFFF'
+    primary: team?.primaryColor || '#4B5563',
+    secondary: team?.secondaryColor || '#FFFFFF'
   }
 }
 
 export default function TeamStats() {
-  const { team: urlTeam, year: urlYear } = useParams()
+  const { tid: tidParam, year: urlYear } = useParams()
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
@@ -226,26 +227,36 @@ export default function TeamStats() {
     puntReturn: { column: 'yards', direction: 'desc' }
   })
 
-  // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
-
-  // Use URL params or defaults
-  const selectedTeam = urlTeam || currentTeamAbbr
-  const selectedYear = urlYear ? parseInt(urlYear) : currentDynasty?.currentYear
-
-  // Get team colors for selected team
-  const teamColors = getTeamColorsFromAbbr(selectedTeam)
-  const primaryText = getContrastTextColor(teamColors.primary)
-  const secondaryText = getContrastTextColor(teamColors.secondary)
-
-  // Get team logo and name
-  const teamMascot = getMascotName(selectedTeam)
-  const teamLogo = teamMascot ? getTeamLogo(teamMascot) : null
-  const teamFullName = teamMascot || teamAbbreviations[selectedTeam]?.name || selectedTeam
-
   if (!currentDynasty) {
     return <div className="p-6">Loading...</div>
   }
+
+  // Use dynasty.teams if available, otherwise fall back to TEAMS
+  const teamsSource = currentDynasty.teams || TEAMS
+
+  // Get current user's team tid
+  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
+
+  // Parse tid from URL or use current user's team
+  const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
+  const selectedYear = urlYear ? parseInt(urlYear) : currentDynasty?.currentYear
+
+  // Get team from tid
+  const team = teamsSource[selectedTid]
+  const selectedTeam = team?.abbr  // Keep abbr for backwards compatibility with data lookups
+
+  // Get team colors and info from team data
+  const teamColors = {
+    primary: team?.primaryColor || '#4B5563',
+    secondary: team?.secondaryColor || '#FFFFFF'
+  }
+  const primaryText = getContrastTextColor(teamColors.primary)
+  const secondaryText = getContrastTextColor(teamColors.secondary)
+
+  // Get team logo and name from team data
+  const teamLogo = team?.logo || null
+  const teamFullName = team?.name || selectedTeam
 
   // Get all years with data
   const availableYears = useMemo(() => {
@@ -661,11 +672,11 @@ export default function TeamStats() {
   }, [sortConfig])
 
   const handleTeamChange = (newTeam) => {
-    navigate(`${pathPrefix}/team-stats/${newTeam}/${selectedYear}`)
+    navigate(`${pathPrefix}/team-stats/${resolveTid(newTeam, teamsSource)}/${selectedYear}`)
   }
 
   const handleYearChange = (newYear) => {
-    navigate(`${pathPrefix}/team-stats/${selectedTeam}/${newYear}`)
+    navigate(`${pathPrefix}/team-stats/${selectedTid}/${newYear}`)
   }
 
   const handleSaveStats = async (stats) => {
@@ -1093,7 +1104,7 @@ export default function TeamStats() {
             )}
             <div className="flex-1 min-w-0">
               <Link
-                to={`${pathPrefix}/team/${selectedTeam}/${selectedYear}`}
+                to={`${pathPrefix}/team/${selectedTid}/${selectedYear}`}
                 className="text-lg font-bold truncate hover:underline block"
                 style={{ color: primaryText }}
               >
@@ -1158,7 +1169,7 @@ export default function TeamStats() {
 
             <div className="flex-1 min-w-0">
               <Link
-                to={`${pathPrefix}/team/${selectedTeam}/${selectedYear}`}
+                to={`${pathPrefix}/team/${selectedTid}/${selectedYear}`}
                 className="text-2xl font-bold truncate hover:underline block"
                 style={{ color: primaryText }}
               >
@@ -1521,7 +1532,7 @@ export default function TeamStats() {
                   const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
                   const won = isWin(game)
                   const lost = isLoss(game)
-                  const oppColors = getTeamColorsFromAbbr(game.opponent)
+                  const oppColors = getTeamColorsFromAbbr(game.opponent, teamsSource)
                   const oppPrimaryText = getContrastTextColor(oppColors.primary)
 
                   return (

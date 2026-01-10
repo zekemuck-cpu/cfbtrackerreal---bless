@@ -1497,3 +1497,163 @@ export function migrateDynastyToTidStructure(dynasty) {
 
   return dynasty
 }
+
+// ============================================================================
+// URL HELPERS - For generating team URLs with tid
+// ============================================================================
+
+/**
+ * Resolve a team reference to a tid.
+ * Accepts either a tid (number), tid string, or abbreviation.
+ * This is the key function for URL generation - it normalizes any team reference to a tid.
+ *
+ * @param {number|string} tidOrAbbr - Team ID (number or string) or abbreviation
+ * @param {Object} dynastyTeams - Optional dynasty.teams for custom team lookup
+ * @returns {number|null} The tid, or null if not found
+ */
+export function resolveTid(tidOrAbbr, dynastyTeams = null) {
+  if (tidOrAbbr == null) return null
+
+  // If it's already a number, return it
+  if (typeof tidOrAbbr === 'number') {
+    return tidOrAbbr
+  }
+
+  // If it's a string that looks like a number (e.g., "122" from URL param), parse it
+  if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
+    return parseInt(tidOrAbbr, 10)
+  }
+
+  // Otherwise treat as abbreviation and convert
+  // First try the static lookup
+  const tid = getTidFromAbbr(tidOrAbbr)
+  if (tid) return tid
+
+  // If not found in static map, check dynasty teams for custom abbreviations
+  if (dynastyTeams) {
+    for (const [teamTid, team] of Object.entries(dynastyTeams)) {
+      if (team.abbr?.toUpperCase() === tidOrAbbr.toUpperCase()) {
+        return parseInt(teamTid, 10)
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Get team abbreviation from tid.
+ * Useful for backwards compatibility where abbreviations are still needed.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {number} tid - Team ID
+ * @returns {string|null} Team abbreviation or null
+ */
+export function getAbbrFromTid(teams, tid) {
+  if (!teams || tid == null) return null
+  const team = teams[tid]
+  return team?.abbr || null
+}
+
+/**
+ * Get team name from tid.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {number} tid - Team ID
+ * @returns {string|null} Team name or null
+ */
+export function getNameFromTid(teams, tid) {
+  if (!teams || tid == null) return null
+  const team = teams[tid]
+  return team?.name || null
+}
+
+/**
+ * Get team logo from tid.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {number} tid - Team ID
+ * @returns {string|null} Team logo URL or null
+ */
+export function getLogoFromTid(teams, tid) {
+  if (!teams || tid == null) return null
+  const team = teams[tid]
+  return team?.logo || null
+}
+
+/**
+ * Get team colors from tid.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {number} tid - Team ID
+ * @returns {Object} { primary, secondary } colors or defaults
+ */
+export function getColorsFromTid(teams, tid) {
+  if (!teams || tid == null) {
+    return { primary: '#374151', secondary: '#FFFFFF' }
+  }
+  const team = teams[tid]
+  return {
+    primary: team?.primaryColor || '#374151',
+    secondary: team?.secondaryColor || '#FFFFFF'
+  }
+}
+
+/**
+ * Get team by abbreviation from dynasty.teams structure.
+ * Useful for looking up opponent teams when you have an abbreviation.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {string} abbr - Team abbreviation
+ * @returns {Object|null} Team object or null
+ */
+export function getTeamByAbbr(teams, abbr) {
+  if (!teams || !abbr) return null
+  // First try direct ABBR_TO_TID lookup for efficiency
+  const tid = ABBR_TO_TID[abbr]
+  if (tid && teams[tid]) return teams[tid]
+  // Fall back to scanning (handles teambuilder teams with custom abbrs)
+  return Object.values(teams).find(t => t.abbr === abbr) || null
+}
+
+/**
+ * Get team logo by abbreviation from dynasty.teams structure.
+ * Convenience function for opponent logo display.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {string} abbr - Team abbreviation
+ * @returns {string|null} Logo URL or null
+ */
+export function getLogoByAbbr(teams, abbr) {
+  const team = getTeamByAbbr(teams, abbr)
+  return team?.logo || null
+}
+
+/**
+ * Get team colors by abbreviation from dynasty.teams structure.
+ * Convenience function for opponent colors display.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {string} abbr - Team abbreviation
+ * @returns {Object} { primary, secondary } colors or defaults
+ */
+export function getColorsByAbbr(teams, abbr) {
+  const team = getTeamByAbbr(teams, abbr)
+  return {
+    primary: team?.primaryColor || '#374151',
+    secondary: team?.secondaryColor || '#FFFFFF'
+  }
+}
+
+/**
+ * Get team name by abbreviation from dynasty.teams structure.
+ * Convenience function for opponent name display.
+ *
+ * @param {Object} teams - The dynasty.teams object (or TEAMS)
+ * @param {string} abbr - Team abbreviation
+ * @returns {string|null} Team name or null
+ */
+export function getNameByAbbr(teams, abbr) {
+  const team = getTeamByAbbr(teams, abbr)
+  return team?.name || null
+}

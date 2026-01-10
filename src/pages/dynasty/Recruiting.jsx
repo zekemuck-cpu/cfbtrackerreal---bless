@@ -5,9 +5,10 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamColors } from '../../data/teamColors'
-import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
+import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { getTeamLogo } from '../../data/teams'
 
 // Star display helper
 const StarRating = ({ stars, size = 'md' }) => {
@@ -80,7 +81,7 @@ const GemBustBadge = ({ value }) => {
 
 export default function Recruiting() {
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
-  const { teamAbbr: urlTeamAbbr, year: urlYear } = useParams()
+  const { tid: tidParam, year: urlYear } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
   const location = useLocation()
@@ -107,28 +108,37 @@ export default function Recruiting() {
     )
   }
 
+  // Use dynasty.teams if available, otherwise fall back to TEAMS
+  const teamsSource = currentDynasty?.teams || TEAMS
+
   // Get current team abbreviation (for redirect if no URL params)
   const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
+  const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
 
-  // Use URL params if provided, otherwise use current team/year
-  const teamAbbr = urlTeamAbbr || currentTeamAbbr
+  // Parse tid from URL or use current user's team
+  const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
+
+  // Get team from tid
+  const team = teamsSource[selectedTid]
+  const teamAbbr = team?.abbr || currentTeamAbbr  // Keep for backwards compatibility with data lookups
   const selectedYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : currentDynasty?.currentYear)
 
-  // Get team info for display
-  const teamData = teamAbbreviations[teamAbbr]
-  const teamFullName = teamData?.name || teamAbbr
-  const teamLogo = getTeamLogo(teamFullName)
+  // Get team info for display from team data
+  const teamFullName = team?.name || teamAbbr
+  const teamLogo = team?.logo || null
 
-  // Use the viewed team's colors (pass full team name, not abbreviation)
-  const viewedTeamColors = getTeamColors(teamFullName)
-  const teamColors = viewedTeamColors || { primary: '#1F2937', secondary: '#F3F4F6' }
+  // Use the viewed team's colors from team data
+  const teamColors = {
+    primary: team?.primaryColor || '#1F2937',
+    secondary: team?.secondaryColor || '#F3F4F6'
+  }
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Redirect to team-specific URL if on base /recruiting route
   // Default to previous year if no recruits for current year (unless it's the first year)
   useEffect(() => {
-    if (!urlTeamAbbr && currentTeamAbbr && currentDynasty?.currentYear) {
+    if (!tidParam && currentTeamTid && currentDynasty?.currentYear) {
       const currentYear = currentDynasty.currentYear
       const startYear = currentDynasty.startYear || currentYear
       const isFirstYear = currentYear === startYear
@@ -140,9 +150,9 @@ export default function Recruiting() {
       // If no recruits for current year and not first year, show previous year
       const targetYear = (!hasCurrentYearRecruits && !isFirstYear) ? currentYear - 1 : currentYear
 
-      navigate(`${pathPrefix}/recruiting/${currentTeamAbbr}/${targetYear}`, { replace: true })
+      navigate(`${pathPrefix}/recruiting/${currentTeamTid}/${targetYear}`, { replace: true })
     }
-  }, [urlTeamAbbr, currentTeamAbbr, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.recruitingCommitmentsByTeamYear, navigate, pathPrefix])
+  }, [tidParam, currentTeamTid, currentTeamAbbr, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.recruitingCommitmentsByTeamYear, navigate, pathPrefix])
 
   // Get all years with recruiting commitments for this team - TEAM-CENTRIC
   // Always include current year so user can view/enter current season's recruits
@@ -161,7 +171,7 @@ export default function Recruiting() {
 
   // Handle year change - navigate to new URL
   const handleYearChange = (newYear) => {
-    navigate(`${pathPrefix}/recruiting/${teamAbbr}/${newYear}`)
+    navigate(`${pathPrefix}/recruiting/${selectedTid}/${newYear}`)
   }
 
   // Check if viewing all seasons
@@ -688,7 +698,7 @@ export default function Recruiting() {
             )}
             <div>
               <Link
-                to={`${pathPrefix}/team/${teamAbbr}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
+                to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
                 className="text-2xl font-bold hover:underline"
                 style={{ color: secondaryBgText }}
               >

@@ -4,15 +4,15 @@ import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCust
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamConference } from '../../data/conferenceTeams'
+import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import { getConferenceLogo } from '../../data/conferenceLogos'
-import { getTeamLogo } from '../../data/teams'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
 // GameDetailModal removed - now using game pages
 import GameEntryModal from '../../components/GameEntryModal'
 import RosterEditModal from '../../components/RosterEditModal'
+import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { getTeamLogo } from '../../data/teams'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr) => {
@@ -209,12 +209,15 @@ const AWARD_ORDER = [
 ]
 
 export default function TeamYear() {
-  const { id, teamAbbr, year } = useParams()
+  const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo } = useDynasty()
   const pathPrefix = usePathPrefix()
   // Note: We use the viewed team's colors, not the user's team colors
   const selectedYear = parseInt(year)
+
+  // Convert tid param to number
+  const tid = parseInt(tidParam, 10)
 
   // Game state for editing
   const [selectedGame, setSelectedGame] = useState(null)
@@ -284,29 +287,18 @@ export default function TeamYear() {
 
   if (!currentDynasty) return null
 
-  // Get teambuilder teams and the teams they replace
-  const teambuilderTeams = currentDynasty.customTeams || {}
-  const replacedTeamAbbrs = new Set(Object.values(teambuilderTeams).map(t => t.replacesTeam))
+  // Use dynasty.teams if available, otherwise fall back to TEAMS
+  const teamsSource = currentDynasty.teams || TEAMS
 
-  // Get all FBS teams, excluding replaced teams
-  const fbsTeams = Object.entries(teamAbbreviations)
-    .filter(([abbr]) => !abbr.startsWith('FCS'))
-    .filter(([abbr]) => !replacedTeamAbbrs.has(abbr))  // Exclude replaced teams
-    .map(([abbr, info]) => ({
-      abbr,
-      name: getMascotName(abbr) || info.name,
-      sortName: (getMascotName(abbr) || info.name).toLowerCase()
+  // Get all FBS teams for dropdown (sorted alphabetically)
+  const allTeams = Object.values(teamsSource)
+    .filter(team => !team.isFCS)
+    .map(team => ({
+      tid: team.tid,
+      abbr: team.abbr,
+      name: team.name
     }))
-
-  // Add teambuilder teams to the list
-  const teambuilderTeamsList = Object.values(teambuilderTeams).map(team => ({
-    abbr: team.abbreviation,
-    name: team.name,
-    sortName: team.name.toLowerCase()
-  }))
-
-  // Combine and sort all teams alphabetically
-  const allTeams = [...fbsTeams, ...teambuilderTeamsList].sort((a, b) => a.sortName.localeCompare(b.sortName))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   // Get available years (most recent first)
   const availableYears = []
@@ -314,24 +306,10 @@ export default function TeamYear() {
     availableYears.push(y)
   }
 
-  // Get team info - check teambuilder teams first
-  const customTeams = currentDynasty.customTeams
-  let teambuilderTeam = customTeams?.[teamAbbr]
-  // Also check by abbreviation field in case the key doesn't match
-  if (!teambuilderTeam && customTeams) {
-    teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === teamAbbr)
-  }
+  // Get team info from tid
+  const team = teamsSource[tid]
 
-  const teamInfo = teambuilderTeam
-    ? {
-        name: teambuilderTeam.name,
-        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
-        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
-        isTeambuilder: true
-      }
-    : teamAbbreviations[teamAbbr]
-
-  if (!teamInfo) {
+  if (!team) {
     return (
       <div className="space-y-6">
         <div
@@ -359,6 +337,16 @@ export default function TeamYear() {
     )
   }
 
+  // Extract team data - using new tid-based structure
+  const teamAbbr = team.abbr  // Keep for backwards compatibility with data lookups
+  const teamInfo = {
+    name: team.name,
+    backgroundColor: team.primaryColor,
+    textColor: team.secondaryColor,
+    isTeambuilder: team.isCustom || false
+  }
+  const customTeams = currentDynasty.customTeams  // Still needed for some lookups
+
   // Use viewed team's colors for the page
   const viewedTeamColors = {
     primary: teamInfo.textColor || '#1f2937',
@@ -367,13 +355,22 @@ export default function TeamYear() {
 
   // Conference with custom conferences support (year-specific)
   const customConferences = getCustomConferencesForYear(currentDynasty, selectedYear)
-  const baseConference = getTeamConference(teamAbbr, customConferences, customTeams)
+  // Get conference for the team - check manual override first
   const manualConference = currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear]
+  // Fall back to checking custom conferences
+  let baseConference = null
+  if (customConferences) {
+    for (const [conf, teams] of Object.entries(customConferences)) {
+      if (teams.includes(teamAbbr)) {
+        baseConference = conf
+        break
+      }
+    }
+  }
   const conference = manualConference || baseConference
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
-  // For teambuilder teams, use the team name as mascotName and logoUrl; otherwise use static lookup
-  const mascotName = teambuilderTeam ? teambuilderTeam.name : getMascotName(teamAbbr)
-  const teamLogo = teambuilderTeam ? teambuilderTeam.logoUrl : (mascotName ? getTeamLogo(mascotName) : null)
+  const mascotName = team.name
+  const teamLogo = team.logo
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)
@@ -1339,7 +1336,7 @@ export default function TeamYear() {
         <div className="flex items-center gap-2">
           {/* History Link */}
           <Link
-            to={`${pathPrefix}/team/${teamAbbr}`}
+            to={`${pathPrefix}/team/${tid}`}
             className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm sm:text-base"
             style={{
               backgroundColor: teamInfo.backgroundColor,
@@ -1376,7 +1373,7 @@ export default function TeamYear() {
         <div className="flex items-center gap-2 sm:ml-auto">
           {/* Team Dropdown */}
           <select
-            value={teamAbbr}
+            value={tid}
             onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
             className="flex-1 sm:flex-none px-2 sm:px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-sm sm:text-base"
             style={{
@@ -1385,9 +1382,9 @@ export default function TeamYear() {
               border: `2px solid ${teamBgText}40`
             }}
           >
-            {allTeams.map((team) => (
-              <option key={team.abbr} value={team.abbr}>
-                {team.name}
+            {allTeams.map((t) => (
+              <option key={t.tid} value={t.tid}>
+                {t.name}
               </option>
             ))}
           </select>
@@ -1395,7 +1392,7 @@ export default function TeamYear() {
           {/* Year Dropdown */}
           <select
             value={selectedYear}
-            onChange={(e) => navigate(`${pathPrefix}/team/${teamAbbr}/${e.target.value}`)}
+            onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
             className="px-2 sm:px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-sm sm:text-base"
             style={{
               backgroundColor: teamInfo.backgroundColor,
@@ -2497,9 +2494,13 @@ export default function TeamYear() {
               const displayTeamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
               const displayOpponentScore = game._isFlippedPerspective ? game._displayOpponentScore : game.opponentScore
 
-              const oppMascot = getMascotName(displayOpponent)
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
-              const oppColors = teamAbbreviations[displayOpponent] || { backgroundColor: '#6b7280', textColor: '#ffffff' }
+              // Use tid-based lookup for opponent data (supports teambuilder teams)
+              const oppTeam = getTeamByAbbr(teamsSource, displayOpponent)
+              const oppMascot = oppTeam?.name || getMascotName(displayOpponent)
+              const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot) : null)
+              const oppColors = oppTeam
+                ? { backgroundColor: oppTeam.primaryColor, textColor: oppTeam.secondaryColor }
+                : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const isWin = displayResult === 'win' || displayResult === 'W'
               const isLoss = displayResult === 'loss' || displayResult === 'L'
               const hasResult = isWin || isLoss
@@ -2567,18 +2568,16 @@ export default function TeamYear() {
 
                       {/* Team Logo */}
                       {oppLogo && (
-                        <Link
-                          to={`${pathPrefix}/team/${displayOpponent}/${selectedYear}`}
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
+                        <div
+                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
                           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                          onClick={(e) => e.stopPropagation()}
                         >
                           <img
                             src={oppLogo}
                             alt={`${oppMascot} logo`}
                             className="w-full h-full object-contain"
                           />
-                        </Link>
+                        </div>
                       )}
 
                       {/* Team Name */}
@@ -2589,14 +2588,12 @@ export default function TeamYear() {
                               #{game.opponentRank}
                             </span>
                           )}
-                          <Link
-                            to={`${pathPrefix}/team/${displayOpponent}/${selectedYear}`}
-                            className="font-semibold hover:underline text-xs sm:text-base truncate"
+                          <span
+                            className="font-semibold text-xs sm:text-base truncate"
                             style={{ color: oppColors.textColor }}
-                            onClick={(e) => e.stopPropagation()}
                           >
                             {oppMascot || displayOpponent}
-                          </Link>
+                          </span>
                         </div>
                         {hasResult && (
                           <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: oppColors.textColor }}>
@@ -2671,19 +2668,13 @@ export default function TeamYear() {
               const ccOpponentAbbr = ccData?.opponent || (teamCCGame ? (teamCCGame.team1 === teamAbbr ? teamCCGame.team2 : teamCCGame.team1) : null)
               if (!ccOpponentAbbr) return null
 
-              // Handle both abbreviation and mascot name formats
-              const ccOppMascotFromAbbr = getMascotName(ccOpponentAbbr)
-              const ccOppMascot = ccOppMascotFromAbbr || (getTeamLogo(ccOpponentAbbr) ? ccOpponentAbbr : null)
-              const ccOppLogo = ccOppMascot ? getTeamLogo(ccOppMascot) : null
-
-              // Get opponent colors
-              let ccOppColors = teamAbbreviations[ccOpponentAbbr]
-              if (typeof ccOppColors === 'string') {
-                ccOppColors = teamAbbreviations[ccOppColors]
-              }
-              ccOppColors = ccOppColors || { backgroundColor: '#6b7280', textColor: '#ffffff' }
-
-              const ccOpponentDisplayName = ccOppMascot || ccOpponentAbbr
+              // Use tid-based lookup for CC opponent data (supports teambuilder teams)
+              const ccOppTeam = getTeamByAbbr(teamsSource, ccOpponentAbbr)
+              const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr) ? getTeamLogo(getMascotName(ccOpponentAbbr)) : null)
+              const ccOppColors = ccOppTeam
+                ? { backgroundColor: ccOppTeam.primaryColor, textColor: ccOppTeam.secondaryColor }
+                : { backgroundColor: '#6b7280', textColor: '#ffffff' }
+              const ccOpponentDisplayName = ccOppTeam?.name || getMascotName(ccOpponentAbbr) || ccOpponentAbbr
 
               // Determine if we have a result
               const hasResult = teamCCGame && teamCCGame.team1Score !== null && teamCCGame.team2Score !== null
@@ -2800,20 +2791,13 @@ export default function TeamYear() {
               if (!hasBowlScheduled || bowlGamePlayed || selectedYear !== currentDynasty.currentYear) return null
 
               const bowlOpponentValue = bowlData.opponent
-              // Handle both abbreviation and mascot name formats
-              const oppMascotFromAbbr = getMascotName(bowlOpponentValue)
-              const oppMascot = oppMascotFromAbbr || (getTeamLogo(bowlOpponentValue) ? bowlOpponentValue : null)
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
-
-              // Get opponent colors - handle both abbreviation and mascot name
-              let oppColors = teamAbbreviations[bowlOpponentValue]
-              if (typeof oppColors === 'string') {
-                // It was a mascot name that returned an abbreviation
-                oppColors = teamAbbreviations[oppColors]
-              }
-              oppColors = oppColors || { backgroundColor: '#6b7280', textColor: '#ffffff' }
-
-              const opponentDisplayName = oppMascot || bowlOpponentValue
+              // Use tid-based lookup for bowl opponent data (supports teambuilder teams)
+              const bowlOppTeam = getTeamByAbbr(teamsSource, bowlOpponentValue)
+              const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue) ? getTeamLogo(getMascotName(bowlOpponentValue)) : null)
+              const oppColors = bowlOppTeam
+                ? { backgroundColor: bowlOppTeam.primaryColor, textColor: bowlOppTeam.secondaryColor }
+                : { backgroundColor: '#6b7280', textColor: '#ffffff' }
+              const opponentDisplayName = bowlOppTeam?.name || getMascotName(bowlOpponentValue) || bowlOpponentValue
 
               return (
                 <div

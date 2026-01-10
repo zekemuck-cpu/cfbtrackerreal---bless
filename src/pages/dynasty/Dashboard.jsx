@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, setTeamYearField } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -581,33 +582,38 @@ export default function Dashboard() {
   }
 
   const getOpponentColors = (abbr) => {
-    let team = teamAbbreviations[abbr]
+    // Use tid-based lookup from dynasty.teams (supports teambuilder teams)
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const team = getTeamByAbbr(teamsSource, abbr)
 
-    // If team is a string, it means abbr was a mascot name and we got back the abbreviation
-    // Look up again with the actual abbreviation
-    if (typeof team === 'string') {
-      team = teamAbbreviations[team]
+    if (team) {
+      return {
+        backgroundColor: team.primaryColor,
+        textColor: team.secondaryColor,
+        secondaryColor: team.secondaryColor
+      }
     }
 
-    // If still not found, try to get abbreviation from display name (for full mascot names)
-    if (!team || typeof team !== 'object') {
+    // Fallback to old approach for backward compatibility
+    let legacyTeam = teamAbbreviations[abbr]
+    if (typeof legacyTeam === 'string') {
+      legacyTeam = teamAbbreviations[legacyTeam]
+    }
+    if (!legacyTeam || typeof legacyTeam !== 'object') {
       const actualAbbr = getAbbreviationFromDisplayName(abbr)
       if (actualAbbr) {
-        team = teamAbbreviations[actualAbbr]
+        legacyTeam = teamAbbreviations[actualAbbr]
       }
     }
-
-    const mascotName = getMascotName(abbr, currentDynasty?.customTeams)
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.customTeams) : null
-
-    if (team && typeof team === 'object') {
+    if (legacyTeam && typeof legacyTeam === 'object') {
       return {
-        backgroundColor: team.backgroundColor,
-        textColor: team.textColor,
-        secondaryColor: colors?.secondary || team.textColor
+        backgroundColor: legacyTeam.backgroundColor,
+        textColor: legacyTeam.textColor,
+        secondaryColor: legacyTeam.textColor
       }
     }
-    // Fallback to white background with dark text
+
+    // Final fallback
     return {
       backgroundColor: '#ffffff',
       textColor: '#1f2937',
@@ -690,15 +696,42 @@ export default function Dashboard() {
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    await updateDynasty(currentDynasty.id, {
+    const tid = getTidFromAbbr(teamAbbr)
+    const ccData = { ...(existingForTeam[year] || {}), madeChampionship }
+
+    const updates = {
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
-          [year]: { ...(existingForTeam[year] || {}), madeChampionship }
+          [year]: ccData
         }
       }
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              conferenceChampionshipData: ccData
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle CC opponent selection - team-centric
@@ -710,15 +743,42 @@ export default function Dashboard() {
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    await updateDynasty(currentDynasty.id, {
+    const tid = getTidFromAbbr(teamAbbr)
+    const ccData = { ...(existingForTeam[year] || {}), opponent }
+
+    const updates = {
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
-          [year]: { ...(existingForTeam[year] || {}), opponent }
+          [year]: ccData
         }
       }
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              conferenceChampionshipData: ccData
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle CC game save
@@ -814,15 +874,42 @@ export default function Dashboard() {
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    await updateDynasty(currentDynasty.id, {
+    const tid = getTidFromAbbr(teamAbbr)
+    const ccData = { ...(existingForTeam[year] || {}), pendingFiring: selection }
+
+    const updates = {
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
-          [year]: { ...(existingForTeam[year] || {}), pendingFiring: selection }
+          [year]: ccData
         }
       }
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              conferenceChampionshipData: ccData
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle awards data save with player matching
@@ -1075,7 +1162,10 @@ export default function Dashboard() {
     // playersLeavingByTeamYear is the source of truth for who is leaving (team-centric)
     // teamAbbr already defined above
     const existingByTeamYear = currentDynasty.playersLeavingByTeamYear || {}
-    await updateDynasty(currentDynasty.id, {
+    const tid = getTidFromAbbr(teamAbbr)
+
+    // Build updates object
+    const updates = {
       playersLeavingByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
@@ -1084,7 +1174,31 @@ export default function Dashboard() {
         }
       },
       players: updatedPlayers
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              playersLeaving: playersWithPids
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle draft results save (Offseason - Recruiting Week 1) - team-centric
@@ -1092,6 +1206,7 @@ export default function Dashboard() {
     const year = currentDynasty.currentYear
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
+    const tid = getTidFromAbbr(teamAbbr)
 
     // Map player names to PIDs and store draft info
     const resultsWithPids = draftResults.map(entry => {
@@ -1105,7 +1220,7 @@ export default function Dashboard() {
       }
     })
 
-    await updateDynasty(currentDynasty.id, {
+    const updates = {
       draftResultsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
@@ -1113,7 +1228,31 @@ export default function Dashboard() {
           [year]: resultsWithPids
         }
       }
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              draftResults: resultsWithPids
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle transfer destinations save (Offseason - National Signing Day)
@@ -1190,7 +1329,9 @@ export default function Dashboard() {
       }
     })
 
-    await updateDynasty(currentDynasty.id, {
+    const tid = getTidFromAbbr(teamAbbr)
+
+    const updates = {
       transferDestinationsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
@@ -1199,7 +1340,31 @@ export default function Dashboard() {
         }
       },
       players: updatedPlayers
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              transferDestinations: destinations
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle recruiting class rank save (National Signing Day)
@@ -1209,8 +1374,9 @@ export default function Dashboard() {
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
+    const tid = getTidFromAbbr(teamAbbr)
 
-    await updateDynasty(currentDynasty.id, {
+    const updates = {
       recruitingClassRankByTeamYear: {
         ...existingRanks,
         [teamAbbr]: {
@@ -1218,7 +1384,31 @@ export default function Dashboard() {
           [year]: rank
         }
       }
-    })
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              recruitingClassRank: rank
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle position changes save (National Signing Day)
@@ -1803,21 +1993,48 @@ export default function Dashboard() {
     // Save if there are any recruits to record OR if player data changed
     const hasPlayerChanges = returningPlayerRecruits.length > 0 || newPlayers.length > 0
     if (allCommittedRecruits.length > 0 || hasPlayerChanges) {
+      const tid = getTidFromAbbr(teamAbbr)
+      const commitmentData = {
+        ...existingForYear,
+        [commitmentKey]: allCommittedRecruits
+      }
+
       // Store in TEAM-CENTRIC structure - store all commits for this commitment key
-      await updateDynasty(currentDynasty.id, {
+      const updates = {
         recruitingCommitmentsByTeamYear: {
           ...existingByTeamYear,
           [teamAbbr]: {
             ...existingForTeam,
-            [year]: {
-              ...existingForYear,
-              [commitmentKey]: allCommittedRecruits
-            }
+            [year]: commitmentData
           }
         },
         players: updatedPlayers,
         nextPID: nextPID
-      })
+      }
+
+      // Also write to NEW tid-based byYear structure
+      if (tid && currentDynasty.teams) {
+        const existingTeams = currentDynasty.teams
+        const existingTeamData = existingTeams[tid] || {}
+        const existingByYear = existingTeamData.byYear || {}
+        const existingYearData = existingByYear[year] || {}
+
+        updates.teams = {
+          ...existingTeams,
+          [tid]: {
+            ...existingTeamData,
+            byYear: {
+              ...existingByYear,
+              [year]: {
+                ...existingYearData,
+                recruitingCommitments: commitmentData
+              }
+            }
+          }
+        }
+      }
+
+      await updateDynasty(currentDynasty.id, updates)
     }
   }
 
@@ -1886,25 +2103,52 @@ export default function Dashboard() {
     if (!commitmentKey) return
 
     const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const tid = getTidFromAbbr(teamAbbr)
 
     // Use TEAM-CENTRIC structure
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     const existingForYear = existingForTeam[year] || {}
 
+    const commitmentData = {
+      ...existingForYear,
+      [commitmentKey]: []
+    }
+
     // Store empty array to mark as completed
-    await updateDynasty(currentDynasty.id, {
+    const updates = {
       recruitingCommitmentsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
-          [year]: {
-            ...existingForYear,
-            [commitmentKey]: []
+          [year]: commitmentData
+        }
+      }
+    }
+
+    // Also write to NEW tid-based byYear structure
+    if (tid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[tid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [tid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              recruitingCommitments: commitmentData
+            }
           }
         }
       }
-    })
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Get all previous commitments for the current team/year (to pre-populate sheet) - TEAM-CENTRIC
@@ -2202,7 +2446,7 @@ export default function Dashboard() {
             }}
           >
             <Link
-              to={`${pathPrefix}/team/${getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty?.customTeams)}/${currentDynasty.currentYear}`}
+              to={`${pathPrefix}/team/${resolveTid(getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty?.customTeams), currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
               className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0"
             >
               {(() => {
@@ -6717,7 +6961,7 @@ export default function Dashboard() {
                         {/* Team Logo */}
                         {opponentLogo && (
                           <Link
-                            to={`${pathPrefix}/team/${game.opponent}/${currentDynasty.currentYear}`}
+                            to={`${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
                             className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
                             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
                             onClick={(e) => e.stopPropagation()}
@@ -6739,7 +6983,7 @@ export default function Dashboard() {
                               </span>
                             )}
                             <Link
-                              to={`${pathPrefix}/team/${game.opponent}/${currentDynasty.currentYear}`}
+                              to={`${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
                               className="text-xs sm:text-base font-semibold truncate hover:underline"
                               style={{ color: opponentColors.textColor }}
                               onClick={(e) => e.stopPropagation()}

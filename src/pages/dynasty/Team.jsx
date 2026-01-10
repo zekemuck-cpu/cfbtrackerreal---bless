@@ -4,8 +4,8 @@ import { useDynasty, detectGameType, GAME_TYPES, getTeamConferenceForDynasty } f
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamConference } from '../../data/conferenceTeams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
+import { TEAMS, resolveTid, getAbbrFromTid } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 
 // Map abbreviation to mascot name for logo lookup
@@ -202,7 +202,7 @@ const getSchoolName = (mascotName) => {
 }
 
 export default function Team() {
-  const { id, teamAbbr } = useParams()
+  const { id, tid: tidParam } = useParams()
   const navigate = useNavigate()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
@@ -218,63 +218,34 @@ export default function Team() {
   const [showStreakModal, setShowStreakModal] = useState(false)
   const [showAllTimeModal, setShowAllTimeModal] = useState(false)
 
+  // Convert tid param to number
+  const tid = parseInt(tidParam, 10)
+
   // Scroll to top when navigating to this page
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [teamAbbr])
+  }, [tid])
 
   if (!currentDynasty) return null
 
-  // Get all teams sorted alphabetically by mascot name
-  const allTeams = Object.entries(teamAbbreviations)
-    .map(([abbr, info]) => {
-      const fullName = getMascotName(abbr) || info.name
-      return {
-        abbr,
-        name: fullName,
-        shortName: getSchoolName(fullName),
-        sortName: fullName.toLowerCase()
-      }
-    })
-    .sort((a, b) => a.sortName.localeCompare(b.sortName))
+  // Use dynasty.teams if available, otherwise fall back to TEAMS
+  const teamsSource = currentDynasty.teams || TEAMS
 
-  // Get team info - check teambuilder teams first
-  const customTeams = currentDynasty.customTeams
-  // Debug: Log customTeams state
-  console.log('Team.jsx customTeams check:', { teamAbbr, customTeams, dynastyTeamName: currentDynasty.teamName })
+  // Get all teams sorted alphabetically by name (for dropdown)
+  const allTeams = Object.values(teamsSource)
+    .filter(team => !team.isFCS)
+    .map(team => ({
+      tid: team.tid,
+      abbr: team.abbr,
+      name: team.name,
+      shortName: getSchoolName(team.name)
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
-  // Check by key first, then search by abbreviation field
-  let teambuilderTeam = customTeams?.[teamAbbr]
-  if (!teambuilderTeam && customTeams) {
-    teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === teamAbbr)
-  }
+  // Get team info from tid
+  const team = teamsSource[tid]
 
-  // If no customTeams but the URL abbreviation matches a link generated from dashboard,
-  // and it's the user's current team (teambuilder), create team info from dynasty data
-  if (!teambuilderTeam && !teamAbbreviations[teamAbbr]) {
-    // Check if this might be the user's teambuilder team by checking if teamAbbr
-    // was derived from dynasty.teamName (which would be the teambuilder team name)
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, customTeams)
-    console.log('Checking if user team:', { userTeamAbbr, teamAbbr, match: userTeamAbbr === teamAbbr })
-  }
-
-  const teamInfo = teambuilderTeam
-    ? {
-        name: teambuilderTeam.name,
-        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
-        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
-        isTeambuilder: true
-      }
-    : teamAbbreviations[teamAbbr]
-
-  if (!teamInfo) {
-    // Debug info
-    console.log('Team not found debug:', {
-      teamAbbr,
-      customTeams,
-      customTeamsKeys: customTeams ? Object.keys(customTeams) : null,
-      dynastyTeamName: currentDynasty.teamName
-    })
+  if (!team) {
     return (
       <div className="space-y-6">
         <div
@@ -284,13 +255,8 @@ export default function Team() {
             Team Not Found
           </h1>
           <p className="mt-2 text-gray-600">
-            The team "{teamAbbr}" was not found.
+            The team with ID "{tidParam}" was not found.
           </p>
-          {customTeams && Object.keys(customTeams).length > 0 && (
-            <p className="mt-1 text-xs text-gray-500">
-              Teambuilder teams: {Object.keys(customTeams).join(', ')}
-            </p>
-          )}
           <Link
             to={`${pathPrefix}/teams`}
             className="inline-block mt-4 px-4 py-2 rounded-lg font-semibold bg-gray-700 text-white hover:bg-gray-800"
@@ -302,10 +268,19 @@ export default function Team() {
     )
   }
 
+  // Extract team data - using new tid-based structure
+  const teamAbbr = team.abbr  // Keep for backwards compatibility with data lookups
+  const teamInfo = {
+    name: team.name,
+    backgroundColor: team.primaryColor,
+    textColor: team.secondaryColor,
+    isTeambuilder: team.isCustom || false
+  }
+
   const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr)
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
-  const mascotName = teambuilderTeam ? teambuilderTeam.name : getMascotName(teamAbbr)
-  const teamLogo = teambuilderTeam ? teambuilderTeam.logoUrl : (mascotName ? getTeamLogo(mascotName) : null)
+  const mascotName = team.name
+  const teamLogo = team.logo
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
 
@@ -533,20 +508,58 @@ export default function Team() {
   const getCFPAppearances = () => {
     const cfpSeeds = currentDynasty.cfpSeedsByYear || {}
     const cfpResults = currentDynasty.cfpResultsByYear || {}
+    const allGames = currentDynasty.games || []
     const appearances = []
+
+    // Helper to get CFP game type
+    const getCfpRound = (g) => {
+      if (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) return 'First Round'
+      if (g.gameType === 'cfp_quarterfinal' || g.isCFPQuarterfinal) return 'Quarterfinals'
+      if (g.gameType === 'cfp_semifinal' || g.isCFPSemifinal) return 'Semifinals'
+      if (g.gameType === 'cfp_championship' || g.isCFPChampionship) return 'Championship'
+      return null
+    }
+
+    // Round order for sorting
+    const roundOrder = { 'First Round': 1, 'Quarterfinals': 2, 'Semifinals': 3, 'Championship': 4 }
 
     Object.entries(cfpSeeds).forEach(([year, yearSeeds]) => {
       if (!Array.isArray(yearSeeds)) return
       const teamSeed = yearSeeds.find(s => s.team === teamAbbr)
       if (!teamSeed) return
 
+      const yearNum = parseInt(year)
       const yearResults = cfpResults[year] || {}
       const games = []
 
-      // Check first round games
+      // First, check user games from games[] array for this team and year
+      const userCfpGames = allGames.filter(g =>
+        g.year === yearNum &&
+        g.userTeam === teamAbbr &&
+        getCfpRound(g)
+      )
+
+      userCfpGames.forEach(g => {
+        const round = getCfpRound(g)
+        const won = g.result === 'W' || g.result === 'win'
+        games.push({
+          round,
+          opponent: g.opponent,
+          teamScore: g.teamScore,
+          opponentScore: g.opponentScore,
+          won,
+          gameId: g.id
+        })
+      })
+
+      // Also check cfpResultsByYear for CPU games involving this team (when user wasn't coaching this team)
+      // Only add if we don't already have a user game for that round
+      const existingRounds = new Set(games.map(g => g.round))
+
+      // Check first round games from CPU results
       const firstRound = yearResults.firstRound || []
       firstRound.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) {
+        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('First Round')) {
           const isTeam1 = g.team1 === teamAbbr
           games.push({
             round: 'First Round',
@@ -558,10 +571,10 @@ export default function Team() {
         }
       })
 
-      // Check quarterfinals
+      // Check quarterfinals from CPU results
       const quarterfinals = yearResults.quarterfinals || []
       quarterfinals.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) {
+        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('Quarterfinals')) {
           const isTeam1 = g.team1 === teamAbbr
           games.push({
             round: 'Quarterfinals',
@@ -573,10 +586,10 @@ export default function Team() {
         }
       })
 
-      // Check semifinals
+      // Check semifinals from CPU results
       const semifinals = yearResults.semifinals || []
       semifinals.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) {
+        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('Semifinals')) {
           const isTeam1 = g.team1 === teamAbbr
           games.push({
             round: 'Semifinals',
@@ -588,9 +601,9 @@ export default function Team() {
         }
       })
 
-      // Check championship
+      // Check championship from CPU results
       const championship = yearResults.championship?.[0]
-      if (championship && (championship.team1 === teamAbbr || championship.team2 === teamAbbr)) {
+      if (championship && (championship.team1 === teamAbbr || championship.team2 === teamAbbr) && !existingRounds.has('Championship')) {
         const isTeam1 = championship.team1 === teamAbbr
         games.push({
           round: 'Championship',
@@ -601,15 +614,26 @@ export default function Team() {
         })
       }
 
+      // Sort games by round order
+      games.sort((a, b) => (roundOrder[a.round] || 0) - (roundOrder[b.round] || 0))
+
+      // Determine result based on last game played
+      let result = 'Pending'
+      if (games.length > 0) {
+        const lastGame = games[games.length - 1]
+        if (lastGame.won && lastGame.round === 'Championship') {
+          result = 'Champion'
+        } else if (!lastGame.won) {
+          result = `Lost ${lastGame.round}`
+        }
+        // If won but not championship, still pending (more games to play)
+      }
+
       appearances.push({
-        year: parseInt(year),
+        year: yearNum,
         seed: teamSeed.seed,
         games,
-        result: games.length > 0 && games[games.length - 1].won && games[games.length - 1].round === 'Championship'
-          ? 'Champion'
-          : games.length > 0 && !games[games.length - 1].won
-            ? `Lost ${games[games.length - 1].round}`
-            : 'Pending'
+        result
       })
     })
 
@@ -912,7 +936,7 @@ export default function Team() {
       <div className="flex flex-wrap items-center gap-3">
         {/* Team Dropdown */}
         <select
-          value={teamAbbr}
+          value={tid}
           onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}`)}
           className="px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 ml-auto"
           style={{
@@ -921,9 +945,9 @@ export default function Team() {
             border: `2px solid ${teamBgText}40`
           }}
         >
-          {allTeams.map((team) => (
-            <option key={team.abbr} value={team.abbr}>
-              {team.shortName}
+          {allTeams.map((t) => (
+            <option key={t.tid} value={t.tid}>
+              {t.shortName}
             </option>
           ))}
         </select>
@@ -1008,7 +1032,7 @@ export default function Team() {
             return (
               <Link
                 key={yr.year}
-                to={`${pathPrefix}/team/${teamAbbr}/${yr.year}`}
+                to={`${pathPrefix}/team/${tid}/${yr.year}`}
                 className="p-4 rounded-lg text-center transition-transform hover:scale-[1.02]"
                 style={{
                   backgroundColor: isNationalChamp
@@ -1600,7 +1624,7 @@ export default function Team() {
                 {apTop25Finishes.map((finish, idx) => (
                   <Link
                     key={idx}
-                    to={`${pathPrefix}/team/${teamAbbr}/${finish.year}`}
+                    to={`${pathPrefix}/team/${tid}/${finish.year}`}
                     className="flex items-center justify-between p-3 rounded-lg hover:scale-[1.01] transition-transform"
                     style={{ backgroundColor: `${teamBgText}10`, border: `2px solid ${teamBgText}20` }}
                     onClick={() => setShowApTop25Modal(false)}
@@ -1666,7 +1690,7 @@ export default function Team() {
                   return (
                   <Link
                     key={idx}
-                    to={`${pathPrefix}/team/${teamAbbr}/${title.year}`}
+                    to={`${pathPrefix}/team/${tid}/${title.year}`}
                     className="flex items-center gap-3 p-3 rounded-lg hover:scale-[1.01] transition-transform"
                     style={{ backgroundColor: oppBgColor, border: `3px solid #16a34a` }}
                     onClick={() => setShowConfTitlesModal(false)}
@@ -1759,7 +1783,7 @@ export default function Team() {
                   return (
                   <Link
                     key={idx}
-                    to={`${pathPrefix}/team/${teamAbbr}/${game.year}`}
+                    to={`${pathPrefix}/team/${tid}/${game.year}`}
                     className="flex items-center p-3 rounded-lg hover:scale-[1.01] transition-transform gap-3"
                     style={{
                       backgroundColor: oppBgColor,
@@ -1846,7 +1870,7 @@ export default function Team() {
                 {cfpAppearances.map((app, idx) => (
                   <div key={idx} className="rounded-lg overflow-hidden" style={{ backgroundColor: `${teamBgText}10`, border: `2px solid ${teamBgText}20` }}>
                     <Link
-                      to={`${pathPrefix}/team/${teamAbbr}/${app.year}`}
+                      to={`${pathPrefix}/team/${tid}/${app.year}`}
                       className="flex items-center justify-between p-3 hover:bg-black/5 transition-colors"
                       onClick={() => setShowCfpAppsModal(false)}
                     >
@@ -1854,11 +1878,11 @@ export default function Team() {
                       <div
                         className="text-sm font-semibold px-2 py-1 rounded"
                         style={{
-                          backgroundColor: app.result === 'Champion' ? '#16a34a' : app.result.includes('Lost') ? '#dc2626' : `${teamBgText}30`,
-                          color: app.result === 'Champion' || app.result.includes('Lost') ? '#FFFFFF' : teamBgText
+                          backgroundColor: app.result === 'Champion' ? '#16a34a' : app.result?.includes('Lost') ? '#dc2626' : `${teamBgText}30`,
+                          color: app.result === 'Champion' || app.result?.includes('Lost') ? '#FFFFFF' : teamBgText
                         }}
                       >
-                        {app.result}
+                        {app.result || 'Pending'}
                       </div>
                     </Link>
                     {app.games.length > 0 && (
@@ -1964,7 +1988,7 @@ export default function Team() {
                   return (
                   <Link
                     key={idx}
-                    to={`${pathPrefix}/team/${teamAbbr}/${title.year}`}
+                    to={`${pathPrefix}/team/${tid}/${title.year}`}
                     className="flex items-center gap-3 p-3 rounded-lg hover:scale-[1.01] transition-transform"
                     style={{ backgroundColor: oppBgColor, border: '3px solid #fbbf24' }}
                     onClick={() => setShowNatlTitlesModal(false)}
@@ -2048,11 +2072,11 @@ export default function Team() {
                     <div
                       className="text-sm font-semibold px-2 py-1 rounded"
                       style={{
-                        backgroundColor: aa.team.includes('1st') || aa.team.includes('First') ? '#fbbf24' : `${teamBgText}20`,
-                        color: aa.team.includes('1st') || aa.team.includes('First') ? '#000000' : teamBgText
+                        backgroundColor: (aa.team?.includes('1st') || aa.team?.includes('First')) ? '#fbbf24' : `${teamBgText}20`,
+                        color: (aa.team?.includes('1st') || aa.team?.includes('First')) ? '#000000' : teamBgText
                       }}
                     >
-                      {aa.team}
+                      {aa.team || 'All-American'}
                     </div>
                   </Link>
                 ))}

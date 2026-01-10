@@ -6,6 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 
 // Map abbreviation to mascot name for logo lookup
@@ -311,7 +312,7 @@ export default function Awards() {
           {/* Team Logo */}
           {teamLogo && (
             <Link
-              to={`${pathPrefix}/team/${awardData.team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
               style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
             >
@@ -344,7 +345,7 @@ export default function Awards() {
               </div>
             )}
             <Link
-              to={`${pathPrefix}/team/${awardData.team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               className="text-sm hover:underline"
               style={{ color: textColor, opacity: 0.7 }}
             >

@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import AllAmericansModal from '../../components/AllAmericansModal'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
@@ -324,7 +325,7 @@ export default function AllAmericans() {
         {/* Team Logo */}
         {teamLogo && (
           <Link
-            to={`${pathPrefix}/team/${player.school}`}
+            to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}`}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
             style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
           >
