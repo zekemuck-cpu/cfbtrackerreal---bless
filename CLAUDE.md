@@ -91,102 +91,214 @@ Can add more section types later if needed (awards, all-americans, rankings, etc
 
 ---
 
-## 🔧 IN PROGRESS: Teambuilder Feature (January 2026)
+## 🔧 IN PROGRESS: Teambuilder Refactor - tid-Based Team Registry (January 2026)
 
-**Status**: Core implementation complete, integration fixes in progress
+**Status**: Foundation complete, UI integration pending
 
-Users can create teambuilder teams that replace FBS teams in their dynasty. The teambuilder team takes over the replaced team's slot in conferences, schedules, and throughout the app.
+**Branch**: `claude/teambuilder-single-source-DjnIC`
 
-### Critical Fix Applied (Session 2)
+### The Problem with the Old Approach
 
-**Problem**: Rosters not showing for teambuilder teams. After entering 85 players, TeamYear page showed "No roster data."
+The original teambuilder implementation required passing `customTeams` parameter through 90+ files with 100+ call sites. This was:
+- **Fragile**: Forgetting `customTeams` anywhere caused silent fallback to wrong team data
+- **Tedious**: Every helper function needed optional `customTeams` param
+- **Error-prone**: Easy to miss call sites, causing bugs like rosters not showing
 
-**Root Cause**: `getAbbreviationFromDisplayName()` was called without `customTeams` parameter in 100+ places throughout the codebase. For teambuilder teams like "Murray State Races", it returned `null` instead of "MSR", causing:
-1. `saveRoster` saved players with wrong `teamsByYear` values
-2. `isPlayerOnRoster(p, "MSR", year)` found no matches
+### The New Approach: tid-Based Single Source of Truth
 
-**Fix Applied**: Updated all critical `getAbbreviationFromDisplayName(dynasty.teamName)` calls to include `getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)` across:
-- `DynastyContext.jsx` (40+ calls)
-- `Dashboard.jsx` (30+ calls)
-- All modal components (RosterEntryModal, GameEntryModal, BoxScoreSheetModal, etc.)
-- All page components (TeamYear, Team, Game, Player, etc.)
-- Utility files (boxScoreAggregator.js, geminiService.js)
+Instead of passing `customTeams` everywhere, we now use **numeric Team IDs (tid)** as the primary identifier:
 
-### Google Sheets Teambuilder Support (Session 2)
+1. Every team has a permanent `tid` (1-140)
+2. Dynasty stores `teams` map where tid → all team data
+3. Teambuilder simply **replaces the data at a tid slot**
+4. All app code references teams by tid, never needs `customTeams` param
 
-All Google Sheet functions now support teambuilder teams:
-- Team dropdowns show teambuilder teams, hide replaced teams
-- Conditional formatting uses correct teambuilder team colors
+### Team ID (tid) Assignments
 
-**Functions updated**:
-- `getTeamsWithCustom(customTeams)` - builds combined team list
-- `getTeamAbbreviationsListWithCustom(customTeams)` - sorted abbreviation list
-- `generateTeamFormattingRules()`, `generateTeamValidation()` - accept customTeams
-- All sheet creation functions: Schedule, CFP Seeds, Conference Championship, Bowl Weeks, Conference Standings, Final Polls, Awards, All-Americans, Conference Alignment, CFP First Round, Roster History
+| Range | Type | Count |
+|-------|------|-------|
+| 1-136 | FBS Teams | 136 teams |
+| 137-140 | FCS Teams | 4 placeholder teams |
 
-### Still TODO
+FCS Teams:
+- 137: FCS East
+- 138: FCS MW (Midwest)
+- 139: FCS South
+- 140: FCS West
 
-1. **Opponent lookups**: Some `getAbbreviationFromDisplayName(opponent)` calls don't pass `customTeams`. Only matters if user plays AGAINST another teambuilder team (rare case).
-
-2. **Testing needed**: Full end-to-end test of teambuilder dynasty through all phases.
-
-### Data Structure (Matches FBS Format Exactly)
+### Data Structure
 
 ```javascript
-dynasty.customTeams = {
-  "SPFD": {  // Teambuilder abbreviation IS the key
-    name: "Springfield Tigers",       // Full name like "Alabama Crimson Tide"
-    abbreviation: "SPFD",             // 2-4 chars
-    logoUrl: "https://...",           // User-uploaded via imgBB
-    backgroundColor: "#FF5500",       // Primary color (same as FBS teams)
-    textColor: "#FFFFFF",             // Secondary color (same as FBS teams)
-    replacesTeam: "ARST"              // FBS team slot taken
+// Master team registry (static, in teamRegistry.js)
+TEAMS = {
+  1: { tid: 1, abbr: "AFA", name: "Air Force Falcons", primaryColor: "#003087", secondaryColor: "#B2B4B2", logo: "..." },
+  11: { tid: 11, abbr: "BAMA", name: "Alabama Crimson Tide", ... },
+  // ... 136 FBS teams
+  137: { tid: 137, abbr: "FCSE", name: "FCS East", isFCS: true, ... },
+  // ... 4 FCS teams
+}
+
+// Dynasty-specific team data (includes teambuilder overrides + per-season data)
+dynasty.teams = {
+  1: {
+    tid: 1,
+    abbr: "AFA",
+    name: "Air Force Falcons",
+    primaryColor: "#003087",
+    secondaryColor: "#B2B4B2",
+    logo: "...",
+    byYear: {
+      2025: { schedule: [...], teamRatings: {...}, coachingStaff: {...} },
+      2026: { schedule: [...], ... }
+    }
+  },
+  // For teambuilder: data is simply replaced at the tid slot
+  45: {  // Was "Arkansas State", now teambuilder team
+    tid: 45,
+    abbr: "SPFD",  // New abbreviation
+    name: "Springfield Tigers",  // New name
+    primaryColor: "#FF5500",
+    secondaryColor: "#FFFFFF",
+    logo: "https://...",  // User-uploaded logo
+    isTeambuilder: true,
+    replacedTeam: { abbr: "ARST", name: "Arkansas State Red Wolves" },
+    byYear: { ... }
   }
 }
 ```
 
-### How It Works
+### What's Completed (Phase 1-2)
 
-1. **Helper Function Interception**: All team lookups (`getTeamName`, `getTeamLogo`, `getTeamColors`, `getMascotName`) accept optional `customTeams` parameter and check teambuilder teams FIRST before falling back to static data.
+**Phase 1: Team Registry** (`src/data/teamRegistry.js`)
+- ✅ `TEAMS` - Master team list keyed by tid (1-140)
+- ✅ `ABBR_TO_TID` - Lookup map from abbreviation to tid
+- ✅ `NAME_TO_TID` - Lookup map from full name to tid
+- ✅ `getTeam(teams, tid)` - Get team data by tid
+- ✅ `getTidFromAbbr(abbr)` - Get tid from abbreviation
+- ✅ `getTidFromName(name)` - Get tid from full name
+- ✅ `initializeDynastyTeams()` - Create initial teams object for new dynasty
+- ✅ `setTeambuilderTeam(teams, tid, data)` - Replace team slot with teambuilder data
+- ✅ `getTeamYear(teams, tid, year)` - Get season-specific data
+- ✅ `setTeamYear(teams, tid, year, data)` - Set season-specific data
+- ✅ `getTeamYearField(teams, tid, year, field)` - Get specific field from season
+- ✅ `setTeamYearField(teams, tid, year, field, value)` - Set specific field in season
 
-2. **Conference Replacement**: When dynasty created with teambuilder team, `customConferencesByYear` is initialized with the teambuilder abbreviation replacing the old team in its conference.
+**Phase 2: DynastyContext Integration** (`src/context/DynastyContext.jsx`)
+- ✅ Import team registry functions
+- ✅ `createDynasty()` initializes `dynasty.teams` with all 140 teams
+- ✅ If teambuilder team exists, swaps data at the replaced team's tid slot
+- ✅ Migration in `applyMigrations()` for existing dynasties
+- ✅ `_tidMigrated: true` flag prevents re-migration
 
-3. **Context Integration**: `useDynasty()` exposes `customTeams` from current dynasty for easy access.
+### What's Remaining (Phase 3-6)
+
+**Phase 3: URL Routes** - Change from `:teamAbbr` to `:tid`
+- Update routes in `App.jsx`
+- Update navigation links throughout app
+
+**Phase 4: Page Components** - Use tid instead of abbr
+- `Team.jsx`, `TeamYear.jsx`, `Recruiting.jsx`, etc.
+- Get team data from `dynasty.teams[tid]` instead of helper functions
+
+**Phase 5: Helper Functions** - Deprecate `customTeams` param
+- Update all team lookup functions to use tid
+- Eventually remove `customTeams` parameter from all helpers
+
+**Phase 6: Google Sheets** - Update team references
+- Update `sheetsService.js` to use tid-based lookups
+
+### Migration System
+
+Existing dynasties are automatically migrated when loaded:
+
+```javascript
+// In applyMigrations()
+if (!migrated._tidMigrated) {
+  migrated = migrateDynastyToTidStructure(migrated)
+  migrated._tidMigrated = true
+}
+```
+
+The migration:
+1. Creates `dynasty.teams` with all 140 teams
+2. Copies existing per-team data into `byYear` structure:
+   - `schedulesByTeamYear[abbr][year]` → `teams[tid].byYear[year].schedule`
+   - `teamRatingsByTeamYear[abbr][year]` → `teams[tid].byYear[year].teamRatings`
+   - `coachingStaffByTeamYear[abbr][year]` → `teams[tid].byYear[year].coachingStaff`
+   - etc.
+3. Handles teambuilder teams by replacing data at the correct tid slot
+
+### Testing the Feature Branch
+
+Since this is on a feature branch, test before merging:
+
+**Option 1: Vercel Preview**
+- Branch is auto-deployed to Vercel preview URL
+- Need to add `VITE_DEV_MODE=true` as Preview-only env var (to skip Google OAuth)
+
+**Option 2: Replit**
+```bash
+git fetch origin
+git checkout claude/teambuilder-single-source-DjnIC
+npm install
+# Create .env with VITE_DEV_MODE=true
+npm run dev
+```
+
+**Option 3: Local**
+```bash
+git checkout claude/teambuilder-single-source-DjnIC
+npm install
+npm run dev
+# Access http://localhost:5000
+```
 
 ### Key Files
 
-- `src/pages/CreateDynasty.jsx` - Teambuilder creation UI with color pickers, logo upload
-- `src/data/teamAbbreviations.js` - `getTeamName()`, `getTeamByAbbreviation()`, `getResolvedAbbreviation()`, `isTeambuilderTeam()`
-- `src/data/teams.js` - `getTeamLogo()`, `getTeamLogoByAbbr()`, `getMascotName()`
-- `src/data/teamColors.js` - `getTeamColors()`, `getTeamColorsByAbbr()`
-- `src/data/conferenceTeams.js` - `getConferencesWithCustomTeams()`, updated `getTeamConference()`
-- `src/hooks/useTeamColors.js` - Updated to accept `customTeams` parameter
-- `src/context/DynastyContext.jsx` - `getCustomTeams()`, `getCustomTeam()`, `resolveTeamAbbr()`, `hasCustomTeams()`
-
-### Usage Pattern
-
-When displaying team info, pass `customTeams` from context:
-
-```javascript
-const { customTeams } = useDynasty()
-
-// Get team name (checks teambuilder teams first)
-const teamName = getTeamName(abbr, customTeams)
-
-// Get team logo
-const logo = getTeamLogo(abbr, customTeams)
-
-// Use hook with teambuilder teams
-const colors = useTeamColors(teamName, customTeams)
-```
+- `src/data/teamRegistry.js` - **NEW** Single source of truth for team data
+- `src/context/DynastyContext.jsx` - Integration with migration and creation
 
 ### Notes
 
-- Teambuilder teams are stored per-dynasty (not global)
-- The replaced team's abbreviation still works as a lookup key (resolves to teambuilder team)
-- Conference data is automatically initialized with the replacement on dynasty creation
-- Logo upload uses existing imgBB API integration
-- Data structure matches FBS teams exactly (`name`, `backgroundColor`, `textColor`)
+- The old `customTeams` approach still works during transition
+- Both systems coexist until migration is complete
+- Once all phases are done, `customTeams` parameter can be removed from all functions
+- tid is permanent - teambuilder just swaps the data at a slot, doesn't create new tids
+
+---
+
+## 📦 DEPRECATED: Old Teambuilder Approach (customTeams parameter)
+
+> **Note**: This approach is being replaced by the tid-based system above. Kept for reference during transition.
+
+The old approach required passing `customTeams` through all helper functions:
+
+```javascript
+// OLD - Required customTeams everywhere
+const teamName = getTeamName(abbr, customTeams)
+const logo = getTeamLogo(abbr, customTeams)
+const colors = useTeamColors(teamName, customTeams)
+
+// NEW - Just use tid, data is already in dynasty.teams
+const team = dynasty.teams[tid]
+const teamName = team.name
+const logo = team.logo
+const colors = { primary: team.primaryColor, secondary: team.secondaryColor }
+```
+
+Old data structure (still exists during transition):
+```javascript
+dynasty.customTeams = {
+  "SPFD": {
+    name: "Springfield Tigers",
+    abbreviation: "SPFD",
+    logoUrl: "https://...",
+    backgroundColor: "#FF5500",
+    textColor: "#FFFFFF",
+    replacesTeam: "ARST"
+  }
+}
+```
 
 ---
 
