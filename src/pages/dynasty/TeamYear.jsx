@@ -1066,7 +1066,18 @@ export default function TeamYear() {
 
   // Find players associated with this team for the selected year
   // Uses the unified isPlayerOnRoster() helper - teamsByYear is the source of truth
-  const teamPlayers = (currentDynasty.players || []).filter(p =>
+  const allPlayers = currentDynasty.players || []
+
+  // DEBUG: Log player count and first few players
+  if (!window._debuggedTeamYear) {
+    window._debuggedTeamYear = true
+    console.log(`[TeamYear] Total players in dynasty: ${allPlayers.length}, teamAbbr: ${teamAbbr}, selectedYear: ${selectedYear}`)
+    allPlayers.slice(0, 3).forEach((p, i) => {
+      console.log(`[TeamYear] Player ${i}: ${p.name}, teamsByYear:`, p.teamsByYear)
+    })
+  }
+
+  const teamPlayers = allPlayers.filter(p =>
     isPlayerOnRoster(p, teamAbbr, selectedYear)
   )
 

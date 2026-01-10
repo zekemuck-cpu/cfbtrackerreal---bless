@@ -5161,6 +5161,9 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // DEBUG: Log dynasty flags
+    console.log(`[saveRoster] Dynasty flags: _tidFullyMigrated=${dynasty._tidFullyMigrated}, _tidMigrated=${dynasty._tidMigrated}, _subcollectionsMigrated=${dynasty._subcollectionsMigrated}`)
+
     // Get team abbreviation - use provided teamAbbr or fall back to user's current team
     const teamAbbr = options.teamAbbr || getCurrentTeamAbbr(dynasty) || dynasty.teamName
     // Get year - use provided year or fall back to current year
@@ -5333,6 +5336,12 @@ export function DynastyProvider({ children }) {
     // This ensures we never lose players just because they weren't in the sheet
     finalPlayers = [...filteredPlayersToKeep, ...filteredTeamPlayersNotInSheet, ...playersWithPIDs]
     newNextPID = nextPIDCounter  // Use the counter which only incremented for new players
+
+    // DEBUG: Log first 3 players from final array with their teamsByYear
+    console.log(`[saveRoster] Final players count: ${finalPlayers.length}`)
+    finalPlayers.slice(0, 3).forEach((p, i) => {
+      console.log(`[saveRoster] Player ${i}: ${p.name}, team: ${p.team}, teamsByYear:`, p.teamsByYear)
+    })
 
     // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
