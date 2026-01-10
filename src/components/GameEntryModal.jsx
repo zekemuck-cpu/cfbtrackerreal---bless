@@ -809,32 +809,73 @@ export default function GameEntryModal({
       }
 
       // No existingGame - check if we can find one in dynasty's games array
+      // Get user's current team tid for filtering
+      const userTeamTid = getCurrentTeamTid(currentDynasty)
+
       const foundGame = minimalMode ? null : (isConferenceChampionship
-        ? currentDynasty?.games?.find(g => g.isConferenceChampionship && g.year === actualYear)
-        : currentDynasty?.games?.find(g => g.week === actualWeekNumber && g.year === actualYear))
+        ? currentDynasty?.games?.find(g =>
+            g.isConferenceChampionship &&
+            Number(g.year) === Number(actualYear) &&
+            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam))
+        : currentDynasty?.games?.find(g =>
+            Number(g.week) === Number(actualWeekNumber) &&
+            Number(g.year) === Number(actualYear) &&
+            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam)))
 
       if (foundGame) {
+        // Handle both unified format (team1Score/team2Score) and legacy format (teamScore/opponentScore)
+        const isUnifiedFormat = foundGame.team1Tid !== undefined && foundGame.team2Tid !== undefined
+        const teamScore = isUnifiedFormat ? foundGame.team1Score : foundGame.teamScore
+        const oppScore = isUnifiedFormat ? foundGame.team2Score : foundGame.opponentScore
+
         // Parse opponent record into parts
         let overallRecord = ''
         let conferenceRecord = ''
-        if (foundGame.opponentRecord) {
-          const overallMatch = foundGame.opponentRecord.match(/^(\d+-\d+)/)
-          const confMatch = foundGame.opponentRecord.match(/\((\d+-\d+)\)/)
+        const opponentRecord = foundGame.opponentRecord || foundGame.team2Record
+        if (opponentRecord) {
+          const overallMatch = opponentRecord.match(/^(\d+-\d+)/)
+          const confMatch = opponentRecord.match(/\((\d+-\d+)\)/)
           overallRecord = overallMatch ? overallMatch[1] : ''
           conferenceRecord = confMatch ? confMatch[1] : ''
         }
 
+        // For unified format, derive location from homeTeamTid
+        let effectiveLocation = foundGame.location
+        if (!effectiveLocation && isUnifiedFormat) {
+          if (foundGame.homeTeamTid === null) {
+            effectiveLocation = 'neutral'
+          } else if (foundGame.homeTeamTid === userTeamTid) {
+            effectiveLocation = 'home'
+          } else {
+            effectiveLocation = 'away'
+          }
+        }
+
+        // For unified format, team1 is user and team2 is opponent
+        const userRank = isUnifiedFormat ? foundGame.team1Rank : foundGame.userRank
+        const oppRank = isUnifiedFormat ? foundGame.team2Rank : foundGame.opponentRank
+        const oppOverall = isUnifiedFormat ? foundGame.team2Overall : foundGame.opponentOverall
+        const oppOffense = isUnifiedFormat ? foundGame.team2Offense : foundGame.opponentOffense
+        const oppDefense = isUnifiedFormat ? foundGame.team2Defense : foundGame.opponentDefense
+
+        // For unified format, derive opponent name from team2Tid
+        let opponentName = foundGame.opponent
+        if (!opponentName && isUnifiedFormat && foundGame.team2Tid) {
+          const oppTeam = currentDynasty?.teams?.[foundGame.team2Tid]
+          opponentName = oppTeam?.name || ''
+        }
+
         setGameData({
-          opponent: foundGame.opponent || '',
-          location: foundGame.location || 'home',
-          teamScore: foundGame.teamScore?.toString() || '',
-          opponentScore: foundGame.opponentScore?.toString() || '',
+          opponent: opponentName || '',
+          location: effectiveLocation || 'home',
+          teamScore: teamScore?.toString() || '',
+          opponentScore: oppScore?.toString() || '',
           isConferenceGame: foundGame.isConferenceGame || isConferenceChampionship || false,
-          userRank: foundGame.userRank?.toString() || '',
-          opponentRank: foundGame.opponentRank?.toString() || '',
-          opponentOverall: foundGame.opponentOverall?.toString() || '',
-          opponentOffense: foundGame.opponentOffense?.toString() || '',
-          opponentDefense: foundGame.opponentDefense?.toString() || '',
+          userRank: userRank?.toString() || '',
+          opponentRank: oppRank?.toString() || '',
+          opponentOverall: oppOverall?.toString() || '',
+          opponentOffense: oppOffense?.toString() || '',
+          opponentDefense: oppDefense?.toString() || '',
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: foundGame.gameNote || '',
