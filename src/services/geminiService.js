@@ -1026,6 +1026,21 @@ export function buildGameRecapContext(dynasty, game) {
     }
   }
 
+  // Derive location for unified format games from homeTeamTid
+  let gameLocation = game.location
+  if (!gameLocation && hasUnifiedFormat) {
+    // For unified format, derive location from homeTeamTid
+    if (game.homeTeamTid === null) {
+      gameLocation = 'neutral'
+    } else if (game.homeTeamTid === game.team1Tid) {
+      // team1 (user's team for user games) is home
+      gameLocation = 'home'
+    } else if (game.homeTeamTid === game.team2Tid) {
+      // team2 (opponent for user games) is home, so user is away
+      gameLocation = 'away'
+    }
+  }
+
   const scoreDiff = Math.abs(team1Score - team2Score)
   const team1Won = team1Score > team2Score
 
@@ -1184,7 +1199,7 @@ export function buildGameRecapContext(dynasty, game) {
     week: game.week,
     year: game.year,
     gameType: gameTypeDescription,
-    location: game.location,
+    location: gameLocation,
 
     // Score details
     scoreDifferential: scoreDiff,
