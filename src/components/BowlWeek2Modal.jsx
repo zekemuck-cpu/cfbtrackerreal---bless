@@ -123,6 +123,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                 team2 = t2Info?.abbr || g.team2
               }
 
+              // Derive winner from winnerTid if not already set (for CPU games in unified format)
+              if (!winner && g.winnerTid) {
+                const winnerInfo = getGameTeamInfo(teams, g.winnerTid)
+                winner = winnerInfo?.abbr
+              }
+
               // Get perspective for user games
               const perspective = getUserGamePerspective(g, currentDynasty)
 
@@ -236,6 +242,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               return isBowlInWeek2(g.bowlName)
             })
             .map(g => {
+              // Handle unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              const t1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+              const t2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+
               // Convert to the format expected by the sheet (team1/team2 style)
               if (g.opponent) {
                 // User game - convert from opponent format
@@ -247,11 +258,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                   team2Score: g.opponentScore
                 }
               } else {
-                // CPU game format
+                // CPU game format - handle both legacy (team1/team2) and unified (team1Tid/team2Tid) formats
                 return {
                   bowlName: g.bowlName,
-                  team1: g.team1,
-                  team2: g.team2,
+                  team1: g.team1 || t1Info?.abbr,
+                  team2: g.team2 || t2Info?.abbr,
                   team1Score: g.team1Score,
                   team2Score: g.team2Score
                 }
@@ -274,14 +285,20 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             .filter(g => g &&
               (g.gameType === 'cfp_quarterfinal' || g.isCFPQuarterfinal) &&
               Number(g.year) === Number(currentYear))
-            .map(g => ({
-              bowl: g.bowlName,
-              team1: g.team1,
-              team2: g.team2,
-              score1: g.team1Score,
-              score2: g.team2Score,
-              winner: g.winner
-            }))
+            .map(g => {
+              // Handle unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              const t1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+              const t2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+              return {
+                bowl: g.bowlName,
+                team1: g.team1 || t1Info?.abbr,
+                team2: g.team2 || t2Info?.abbr,
+                score1: g.team1Score,
+                score2: g.team2Score,
+                winner: g.winner || (g.winnerTid ? getGameTeamInfo(teams, g.winnerTid)?.abbr : null)
+              }
+            })
 
           const sheetInfo = await createBowlWeek2Sheet(
             currentDynasty?.teamName || 'Dynasty',

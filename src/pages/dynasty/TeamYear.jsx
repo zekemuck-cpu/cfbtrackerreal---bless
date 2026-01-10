@@ -458,7 +458,25 @@ export default function TeamYear() {
       // Detect CPU games:
       // - Unified format: neither team is user's coached team for this year
       // - Legacy format: has team1/team2 but no userTeam
-      const userTidForYear = currentDynasty.coachTeamByYear?.[g.year]?.tid
+      // Use fallback logic to get userTid for the game year (same as getUserGamePerspective)
+      const yearNum = Number(g.year)
+      const yearStr = String(g.year)
+      let userTidForYear = currentDynasty.coachTeamByYear?.[yearNum]?.tid ?? currentDynasty.coachTeamByYear?.[yearStr]?.tid
+      // Fallback 1: Derive tid from coachTeamByYear[year].team abbr
+      if (!userTidForYear) {
+        const userTeamAbbrForYear = currentDynasty.coachTeamByYear?.[yearNum]?.team ?? currentDynasty.coachTeamByYear?.[yearStr]?.team
+        if (userTeamAbbrForYear) {
+          userTidForYear = resolveTid(userTeamAbbrForYear, currentDynasty.teams)
+        }
+      }
+      // Fallback 2: If this is the current year, use current team tid
+      if (!userTidForYear && yearNum === Number(currentDynasty.currentYear)) {
+        userTidForYear = resolveTid(getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName, currentDynasty.teams)
+      }
+      // Fallback 3: For dynasties without coachTeamByYear, derive from teamName
+      if (!userTidForYear && currentDynasty.teamName) {
+        userTidForYear = resolveTid(currentDynasty.teamName, currentDynasty.teams)
+      }
       const isCPUGame = hasUnifiedFormat
         ? (g.team1Tid !== userTidForYear && g.team2Tid !== userTidForYear)
         : (!g.userTeam && g.team1 && g.team2)
@@ -1422,7 +1440,7 @@ export default function TeamYear() {
           {/* Stats Button - only show if we have team stats from games for this year */}
           {seasonStats.gamesWithStats > 0 && (
             <Link
-              to={`${pathPrefix}/team-stats/${teamAbbr}/${selectedYear}`}
+              to={`${pathPrefix}/team-stats/${tid}/${selectedYear}`}
               className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm sm:text-base"
               style={{
                 backgroundColor: teamInfo.backgroundColor,

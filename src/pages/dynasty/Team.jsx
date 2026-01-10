@@ -1482,14 +1482,26 @@ export default function Team() {
                     return (b.week || 0) - (a.week || 0)
                   })
                   .map((game, idx) => {
-                    const isWin = game.result === 'W' || game.result === 'win'
+                    // Use perspective for unified format, fallback to legacy fields
+                    const isWin = game.perspective?.userWon ?? (game.result === 'W' || game.result === 'win')
                     // Get user's team for this game (they may have coached different teams)
-                    const userTeamForGame = game.userTeam || userTeamAbbr
+                    const userTeamInfoFromPerspective = game.perspective?.userTid
+                      ? getGameTeamInfo(teams, game.perspective.userTid)
+                      : null
+                    const userTeamForGame = userTeamInfoFromPerspective?.abbr || game.userTeam || userTeamAbbr
                     const userTeamInfo = teamAbbreviations[userTeamForGame] || {}
-                    const userTeamBgColor = userTeamInfo.backgroundColor || '#4B5563'
+                    const userTeamBgColor = userTeamInfoFromPerspective?.primaryColor || userTeamInfo.backgroundColor || '#4B5563'
                     const userTeamTextColor = getContrastTextColor(userTeamBgColor)
                     const userTeamMascotName = getMascotName(userTeamForGame)
                     const userTeamLogo = userTeamMascotName ? getTeamLogo(userTeamMascotName) : null
+
+                    // Get scores from perspective or legacy fields
+                    const userScore = game.perspective?.userScore ?? game.teamScore
+                    const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                    const hasScores = userScore != null && opponentScore != null
+
+                    // Get location from perspective or legacy
+                    const isHome = game.perspective?.isHome ?? (game.location === 'home')
 
                     return (
                       <Link
@@ -1517,7 +1529,7 @@ export default function Team() {
                           {userTeamLogo && (
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${userTeamInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${userTeamInfoFromPerspective?.secondaryColor || userTeamInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
                             >
                               <img src={userTeamLogo} alt={userTeamForGame} className="w-full h-full object-contain" />
                             </div>
@@ -1527,7 +1539,7 @@ export default function Team() {
                               {game.year} {game.week ? `Week ${game.week}` : game.bowlName || ''}
                             </div>
                             <div className="text-sm" style={{ color: userTeamTextColor, opacity: 0.8 }}>
-                              {game.location === 'home' ? 'vs' : game.location === 'away' ? '@' : 'vs'} {teamAbbr}
+                              {isHome ? 'vs' : '@'} {teamAbbr}
                               {userTeamForGame !== userTeamAbbr && (
                                 <span className="ml-1 opacity-70">(as {userTeamForGame})</span>
                               )}
@@ -1536,7 +1548,7 @@ export default function Team() {
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-lg" style={{ color: userTeamTextColor }}>
-                            {Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}
+                            {hasScores ? `${Math.max(userScore, opponentScore)}-${Math.min(userScore, opponentScore)}` : '-'}
                           </div>
                         </div>
                       </Link>
@@ -1610,13 +1622,25 @@ export default function Team() {
                           {yearGames
                             .sort((a, b) => (b.week || 0) - (a.week || 0))
                             .map((game, idx) => {
-                              const isWin = game.result === 'W' || game.result === 'win'
-                              const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
+                              // Use perspective for unified format, fallback to legacy fields
+                              const isWin = game.perspective?.userWon ?? (game.result === 'W' || game.result === 'win')
+                              const oppTeamInfo = game.perspective?.opponentTid
+                                ? getGameTeamInfo(teams, game.perspective.opponentTid)
+                                : null
+                              const oppAbbr = oppTeamInfo?.abbr || (teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent))
                               const oppInfo = teamAbbreviations[oppAbbr] || {}
-                              const oppBgColor = oppInfo.backgroundColor || '#4B5563'
+                              const oppBgColor = oppTeamInfo?.primaryColor || oppInfo.backgroundColor || '#4B5563'
                               const oppTextColor = getContrastTextColor(oppBgColor)
-                              const oppMascotName = getMascotName(game.opponent)
+                              const oppMascotName = getMascotName(oppAbbr)
                               const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
+
+                              // Get scores from perspective or legacy fields
+                              const userScore = game.perspective?.userScore ?? game.teamScore
+                              const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                              const hasScores = userScore != null && opponentScore != null
+
+                              // Get location from perspective or legacy
+                              const isHome = game.perspective?.isHome ?? (game.location === 'home')
 
                               return (
                                 <Link
@@ -1639,9 +1663,9 @@ export default function Team() {
                                     {oppLogo && (
                                       <div
                                         className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                                        style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                                        style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
                                       >
-                                        <img src={oppLogo} alt={game.opponent} className="w-full h-full object-contain" />
+                                        <img src={oppLogo} alt={oppAbbr} className="w-full h-full object-contain" />
                                       </div>
                                     )}
                                     <div>
@@ -1649,13 +1673,13 @@ export default function Team() {
                                         {game.week ? `Week ${game.week}` : game.bowlName || 'Game'}
                                       </div>
                                       <div className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}>
-                                        {game.location === 'home' ? 'vs' : game.location === 'away' ? '@' : 'vs'} {getSchoolName(oppMascotName) || getSchoolName(game.opponent) || game.opponent}
+                                        {isHome ? 'vs' : '@'} {getSchoolName(oppMascotName) || oppAbbr}
                                       </div>
                                     </div>
                                   </div>
                                   <div className="text-right">
                                     <div className="font-bold text-lg" style={{ color: oppTextColor }}>
-                                      {Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}
+                                      {hasScores ? `${Math.max(userScore, opponentScore)}-${Math.min(userScore, opponentScore)}` : '-'}
                                     </div>
                                   </div>
                                 </Link>
@@ -1805,10 +1829,10 @@ export default function Team() {
                         <div className="font-semibold truncate" style={{ color: oppTextColor }}>{title.conference} Champions</div>
                         <div className="text-sm flex flex-wrap items-center gap-x-2" style={{ color: oppTextColor, opacity: 0.8 }}>
                           <span>{title.year}</span>
-                          <span>vs {getSchoolName(oppMascotName) || getSchoolName(title.opponent) || title.opponent}</span>
+                          <span>vs {getSchoolName(oppMascotName) || oppAbbr}</span>
                         </div>
                       </div>
-                      {title.teamScore !== null && (
+                      {title.teamScore != null && title.opponentScore != null && (
                         <div className="text-xl font-bold flex-shrink-0" style={{ color: oppTextColor }}>{Math.max(title.teamScore, title.opponentScore)}-{Math.min(title.teamScore, title.opponentScore)}</div>
                       )}
                   </Link>
@@ -1902,10 +1926,10 @@ export default function Team() {
                         <div className="font-semibold truncate" style={{ color: oppTextColor }}>{game.bowlName}</div>
                         <div className="text-sm flex flex-wrap items-center gap-x-2" style={{ color: oppTextColor, opacity: 0.8 }}>
                           <span>{game.year}</span>
-                          <span>vs {getSchoolName(oppMascotName) || getSchoolName(game.opponent) || game.opponent}</span>
+                          <span>vs {getSchoolName(oppMascotName) || oppAbbr}</span>
                         </div>
                       </div>
-                      {game.hasScore && (
+                      {game.hasScore && game.teamScore != null && game.opponentScore != null && (
                         <div className="text-xl font-bold flex-shrink-0" style={{ color: oppTextColor }}>{Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}</div>
                       )}
                   </Link>
@@ -2009,10 +2033,10 @@ export default function Team() {
                             )}
                             <div className="flex-1 min-w-0">
                               <span className="font-medium text-sm" style={{ color: oppTextColor }}>{game.round}</span>
-                              <span className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}> vs {getSchoolName(oppMascotName) || getSchoolName(game.opponent) || game.opponent}</span>
+                              <span className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}> vs {getSchoolName(oppMascotName) || oppAbbr}</span>
                             </div>
                             <div className="font-semibold text-sm" style={{ color: oppTextColor }}>
-                              {game.teamScore !== null ? `${Math.max(game.teamScore, game.opponentScore)}-${Math.min(game.teamScore, game.opponentScore)}` : '-'}
+                              {game.teamScore != null && game.opponentScore != null ? `${Math.max(game.teamScore, game.opponentScore)}-${Math.min(game.teamScore, game.opponentScore)}` : '-'}
                             </div>
                           </div>
                           )
@@ -2095,9 +2119,11 @@ export default function Team() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold" style={{ color: oppTextColor }}>{title.year} National Champions</div>
-                        <div className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}>vs {getSchoolName(oppMascotName) || getSchoolName(title.opponent) || title.opponent}</div>
+                        <div className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}>vs {getSchoolName(oppMascotName) || oppAbbr}</div>
                       </div>
-                    <div className="text-xl font-bold flex-shrink-0" style={{ color: oppTextColor }}>{Math.max(title.teamScore, title.opponentScore)}-{Math.min(title.teamScore, title.opponentScore)}</div>
+                    {title.teamScore != null && title.opponentScore != null && (
+                      <div className="text-xl font-bold flex-shrink-0" style={{ color: oppTextColor }}>{Math.max(title.teamScore, title.opponentScore)}-{Math.min(title.teamScore, title.opponentScore)}</div>
+                    )}
                   </Link>
                   )
                 })}
@@ -2231,13 +2257,25 @@ export default function Team() {
                     return (b.week || 0) - (a.week || 0)
                   })
                   .map((game, idx) => {
-                    const isWin = game.result === 'W' || game.result === 'win'
-                    const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
+                    // Use perspective for unified format, fallback to legacy fields
+                    const isWin = game.perspective?.userWon ?? (game.result === 'W' || game.result === 'win')
+                    const oppTeamInfo = game.perspective?.opponentTid
+                      ? getGameTeamInfo(teams, game.perspective.opponentTid)
+                      : null
+                    const oppAbbr = oppTeamInfo?.abbr || (teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent))
                     const oppInfo = teamAbbreviations[oppAbbr] || {}
-                    const oppBgColor = oppInfo.backgroundColor || '#4B5563'
+                    const oppBgColor = oppTeamInfo?.primaryColor || oppInfo.backgroundColor || '#4B5563'
                     const oppTextColor = getContrastTextColor(oppBgColor)
-                    const oppMascotName = getMascotName(game.opponent)
+                    const oppMascotName = getMascotName(oppAbbr)
                     const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
+
+                    // Get scores from perspective or legacy fields
+                    const userScore = game.perspective?.userScore ?? game.teamScore
+                    const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                    const hasScores = userScore != null && opponentScore != null
+
+                    // Get location from perspective or legacy
+                    const isHome = game.perspective?.isHome ?? (game.location === 'home')
 
                     return (
                       <Link
@@ -2262,9 +2300,9 @@ export default function Team() {
                           {oppLogo && (
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
                             >
-                              <img src={oppLogo} alt={game.opponent} className="w-full h-full object-contain" />
+                              <img src={oppLogo} alt={oppAbbr} className="w-full h-full object-contain" />
                             </div>
                           )}
                           <div>
@@ -2272,13 +2310,13 @@ export default function Team() {
                               {game.year} {game.week ? `Week ${game.week}` : game.bowlName || ''}
                             </div>
                             <div className="text-sm" style={{ color: oppTextColor, opacity: 0.8 }}>
-                              {game.location === 'home' ? 'vs' : game.location === 'away' ? '@' : 'vs'} {getSchoolName(oppMascotName) || getSchoolName(game.opponent) || game.opponent}
+                              {isHome ? 'vs' : '@'} {getSchoolName(oppMascotName) || oppAbbr}
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-lg" style={{ color: oppTextColor }}>
-                            {Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}
+                            {hasScores ? `${Math.max(userScore, opponentScore)}-${Math.min(userScore, opponentScore)}` : '-'}
                           </div>
                         </div>
                       </Link>

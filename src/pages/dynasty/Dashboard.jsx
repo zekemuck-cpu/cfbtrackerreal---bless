@@ -2398,8 +2398,21 @@ export default function Dashboard() {
                   {currentRank && <span className="mr-1.5 sm:mr-2 opacity-90">#{currentRank}</span>}
                   {currentDynasty.teamName}
                 </h2>
-                <p className="text-sm sm:text-base font-medium mt-0.5" style={{ color: primaryBgText, opacity: 0.85 }}>
-                  {headerWins}-{headerLosses}{currentDynasty.currentPhase !== 'preseason' && userTeamConference && ` • ${userTeamConference}`}
+                <p className="text-sm sm:text-base font-medium mt-0.5 flex items-center gap-1.5" style={{ color: primaryBgText, opacity: 0.85 }}>
+                  <span>{headerWins}-{headerLosses}</span>
+                  {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
+                    <>
+                      <span>•</span>
+                      {getConferenceLogo(userTeamConference) && (
+                        <img
+                          src={getConferenceLogo(userTeamConference)}
+                          alt={userTeamConference}
+                          className="h-4 sm:h-5 w-auto object-contain"
+                        />
+                      )}
+                      <span>{userTeamConference}</span>
+                    </>
+                  )}
                 </p>
               </div>
             </Link>
@@ -7047,16 +7060,24 @@ export default function Dashboard() {
 
                     {/* Score / Status */}
                     <div className="flex-shrink-0 text-right ml-1">
-                      {ccGame ? (
-                        <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: ccOpponentColors.textColor }}>
-                          {Math.max(ccGame.teamScore, ccGame.opponentScore)}-{Math.min(ccGame.teamScore, ccGame.opponentScore)}
-                          {ccGame.overtimes && ccGame.overtimes.length > 0 && (
-                            <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
-                              {ccGame.overtimes.length > 1 ? `${ccGame.overtimes.length}OT` : 'OT'}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
+                      {ccGame ? (() => {
+                        // Get scores from perspective (unified) or legacy fields
+                        const userScore = ccGame.perspective?.userScore ?? ccGame.teamScore
+                        const opponentScore = ccGame.perspective?.opponentScore ?? ccGame.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: ccOpponentColors.textColor }}>
+                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
+                            {ccGame.overtimes && ccGame.overtimes.length > 0 && (
+                              <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
+                                {ccGame.overtimes.length > 1 ? `${ccGame.overtimes.length}OT` : 'OT'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: ccOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })() : (
                         <span className="text-xs sm:text-sm font-medium" style={{ color: hasOpponent ? ccOpponentColors.textColor : '#fff', opacity: 0.5 }}>
                           —
                         </span>
@@ -7186,16 +7207,24 @@ export default function Dashboard() {
 
                     {/* Score / Status */}
                     <div className="flex-shrink-0 text-right ml-1">
-                      {userBowlGameData ? (
-                        <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: bowlOpponentColors.textColor }}>
-                          {Math.max(userBowlGameData.teamScore, userBowlGameData.opponentScore)}-{Math.min(userBowlGameData.teamScore, userBowlGameData.opponentScore)}
-                          {userBowlGameData.overtimes && userBowlGameData.overtimes.length > 0 && (
-                            <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
-                              {userBowlGameData.overtimes.length > 1 ? `${userBowlGameData.overtimes.length}OT` : 'OT'}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
+                      {userBowlGameData ? (() => {
+                        // Get scores from perspective (unified) or legacy fields
+                        const userScore = userBowlGameData.perspective?.userScore ?? userBowlGameData.teamScore
+                        const opponentScore = userBowlGameData.perspective?.opponentScore ?? userBowlGameData.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: bowlOpponentColors.textColor }}>
+                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
+                            {userBowlGameData.overtimes && userBowlGameData.overtimes.length > 0 && (
+                              <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
+                                {userBowlGameData.overtimes.length > 1 ? `${userBowlGameData.overtimes.length}OT` : 'OT'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: bowlOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })() : (
                         <span className="text-xs sm:text-sm font-medium" style={{ color: hasOpponent ? bowlOpponentColors.textColor : '#fff', opacity: 0.5 }}>
                           —
                         </span>
@@ -7302,9 +7331,19 @@ export default function Dashboard() {
 
                     {/* Score */}
                     <div className="flex-shrink-0 text-right ml-1">
-                      <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>
-                        {Math.max(cfpFirstRoundGame.teamScore, cfpFirstRoundGame.opponentScore)}-{Math.min(cfpFirstRoundGame.teamScore, cfpFirstRoundGame.opponentScore)}
-                      </div>
+                      {(() => {
+                        // Get scores from perspective (unified) or legacy fields
+                        const userScore = cfpFirstRoundGame.perspective?.userScore ?? cfpFirstRoundGame.teamScore
+                        const opponentScore = cfpFirstRoundGame.perspective?.opponentScore ?? cfpFirstRoundGame.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>
+                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
+                          </div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -7363,7 +7402,16 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right ml-1">
-                      <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(cfpQFGame.teamScore, cfpQFGame.opponentScore)}-{Math.min(cfpQFGame.teamScore, cfpQFGame.opponentScore)}</div>
+                      {(() => {
+                        const userScore = cfpQFGame.perspective?.userScore ?? cfpQFGame.teamScore
+                        const opponentScore = cfpQFGame.perspective?.opponentScore ?? cfpQFGame.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -7418,7 +7466,16 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right ml-1">
-                      <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(cfpSFGame.teamScore, cfpSFGame.opponentScore)}-{Math.min(cfpSFGame.teamScore, cfpSFGame.opponentScore)}</div>
+                      {(() => {
+                        const userScore = cfpSFGame.perspective?.userScore ?? cfpSFGame.teamScore
+                        const opponentScore = cfpSFGame.perspective?.opponentScore ?? cfpSFGame.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -7472,7 +7529,16 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex-shrink-0 text-right ml-1">
-                      <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(cfpChampGame.teamScore, cfpChampGame.opponentScore)}-{Math.min(cfpChampGame.teamScore, cfpChampGame.opponentScore)}</div>
+                      {(() => {
+                        const userScore = cfpChampGame.perspective?.userScore ?? cfpChampGame.teamScore
+                        const opponentScore = cfpChampGame.perspective?.opponentScore ?? cfpChampGame.opponentScore
+                        const hasScores = userScore != null && opponentScore != null
+                        return hasScores ? (
+                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>

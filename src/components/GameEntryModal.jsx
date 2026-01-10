@@ -41,10 +41,10 @@ export default function GameEntryModal({
   const [tokenUsage, setTokenUsage] = useState(null)
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
-  // In unified model: CPU games have team1/team2 but NO userTeam AND NO opponent
+  // In unified model: CPU games have team1/team2 or team1Tid/team2Tid but NO userTeam AND NO opponent
   // User games always have opponent field (even CFP/bowl games with team1/team2 for unified format)
   const isCPUGame =
-    (!existingGame?.userTeam && !existingGame?.opponent && existingGame?.team1 && existingGame?.team2) || // Has team1/team2 but no userTeam/opponent
+    (!existingGame?.userTeam && !existingGame?.opponent && (existingGame?.team1 && existingGame?.team2 || existingGame?.team1Tid && existingGame?.team2Tid)) || // Has team1/team2 or tid but no userTeam/opponent
     (passedTeam1 && passedTeam2 && !existingGame?.userTeam && !existingGame?.opponent) // Passed as CPU game via props
 
   // Merge existingGame with backward compat props (existingGame takes priority)
@@ -718,10 +718,21 @@ export default function GameEntryModal({
       // SIMPLE APPROACH: If existingGame or effectiveGame is provided, use it directly
       const gameToLoad = effectiveGame
       if (gameToLoad) {
-        // CPU games (!userTeam AND !opponent with team1/team2) use team1Score/team2Score; user games use teamScore/opponentScore
-        const isCPUGameData = !gameToLoad.userTeam && !gameToLoad.opponent && gameToLoad.team1 && gameToLoad.team2
+        // Get teams source for tid lookups
+        const teamsSource = currentDynasty?.teams || TEAMS
+
+        // CPU games (!userTeam AND !opponent with team1/team2 or team1Tid/team2Tid) use team1Score/team2Score; user games use teamScore/opponentScore
+        const isCPUGameData = !gameToLoad.userTeam && !gameToLoad.opponent &&
+          ((gameToLoad.team1 && gameToLoad.team2) || (gameToLoad.team1Tid && gameToLoad.team2Tid))
         const teamScore = isCPUGameData ? gameToLoad.team1Score : gameToLoad.teamScore
         const oppScore = isCPUGameData ? gameToLoad.team2Score : gameToLoad.opponentScore
+
+        // Derive team abbreviations from tids if needed (for unified format games)
+        const team1FromTid = gameToLoad.team1Tid ? getGameTeamInfo(teamsSource, gameToLoad.team1Tid)?.abbr : null
+        const team2FromTid = gameToLoad.team2Tid ? getGameTeamInfo(teamsSource, gameToLoad.team2Tid)?.abbr : null
+        const derivedTeam1 = gameToLoad.team1 || team1FromTid
+        const derivedTeam2 = gameToLoad.team2 || team2FromTid
+        const derivedOpponent = gameToLoad.opponent || derivedTeam2 || ''
 
         // Parse opponent record into parts
         let overallRecord = ''
@@ -739,7 +750,7 @@ export default function GameEntryModal({
           const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
           const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
-          const opponentAbbr = getAbbrFromTeamName(gameToLoad.opponent) || gameToLoad.opponent
+          const opponentAbbr = getAbbrFromTeamName(derivedOpponent) || derivedOpponent
           const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
           if (userSeed && oppSeed) {
             effectiveLocation = userSeed < oppSeed ? 'home' : 'away'
@@ -747,7 +758,7 @@ export default function GameEntryModal({
         }
 
         setGameData({
-          opponent: gameToLoad.opponent || gameToLoad.team2 || '',
+          opponent: derivedOpponent,
           location: effectiveLocation,
           teamScore: teamScore?.toString() || '',
           opponentScore: oppScore?.toString() || '',
@@ -1542,10 +1553,13 @@ export default function GameEntryModal({
                 <div className="space-y-2 min-w-[360px]">
                 {(() => {
                   // Determine team order based on location
-                  // For CPU vs CPU games, use passed team1 and team2
-                  const team1Abbr = isCPUGame ? effectiveGame?.team1 : getCurrentTeamAbbr(currentDynasty)
+                  // For CPU vs CPU games, use passed team1 and team2 (or derive from tid for unified format)
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
+                  const team1Abbr = isCPUGame ? (effectiveGame?.team1 || team1AbbrFromTid) : getCurrentTeamAbbr(currentDynasty)
                   // Ensure opponent is an abbreviation (convert full name if needed)
-                  const rawOpponent = isCPUGame ? effectiveGame?.team2 : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
+                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
+                  const rawOpponent = isCPUGame ? (effectiveGame?.team2 || team2AbbrFromTid) : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
                   const team2Abbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
                   const team1MascotName = team1Abbr ? getMascotName(team1Abbr) : null
@@ -2485,7 +2499,10 @@ export default function GameEntryModal({
             <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
-                  const team1Abbr = effectiveGame?.team1 || passedTeam1
+                  // Derive team abbr from tid for unified format games
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
+                  const team1Abbr = effectiveGame?.team1 || team1AbbrFromTid || passedTeam1
                   const team1MascotName = team1Abbr ? getMascotName(team1Abbr) : null
                   const team1DisplayName = team1MascotName || (team1Abbr ? getOpponentTeamName(team1Abbr) : 'Team 1')
                   const team1Logo = team1MascotName ? getTeamLogo(team1MascotName) : null
@@ -2604,7 +2621,10 @@ export default function GameEntryModal({
             <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
-                  const team2Abbr = effectiveGame?.team2 || passedTeam2
+                  // Derive team abbr from tid for unified format games
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
+                  const team2Abbr = effectiveGame?.team2 || team2AbbrFromTid || passedTeam2
                   const team2MascotName = team2Abbr ? getMascotName(team2Abbr) : null
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
                   const team2Logo = team2MascotName ? getTeamLogo(team2MascotName) : null

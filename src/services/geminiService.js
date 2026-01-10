@@ -6,7 +6,7 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { getTeamName } from '../data/teamAbbreviations'
-import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr } from '../data/teamRegistry'
 import { getUserGamePerspective } from '../context/DynastyContext'
 
 // ============================================
@@ -1136,14 +1136,14 @@ export function buildGameRecapContext(dynasty, game) {
     boxScoreContext = {
       team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
       team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
-      team1Name: getTeamName(team1) || team1,
-      team2Name: getTeamName(team2) || team2
+      team1Name: getNameByAbbr(teams, team1) || getTeamName(team1) || team1,
+      team2Name: getNameByAbbr(teams, team2) || getTeamName(team2) || team2
     }
   }
 
-  // Get full team names for clarity in the prompt
-  const team1FullName = getTeamName(team1) || team1
-  const team2FullName = getTeamName(team2) || team2
+  // Get full team names for clarity in the prompt (use tid-based lookup first, then fallback)
+  const team1FullName = getNameByAbbr(teams, team1) || getTeamName(team1) || team1
+  const team2FullName = getNameByAbbr(teams, team2) || getTeamName(team2) || team2
 
   // NEW: Get past season history for both teams
   const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year)

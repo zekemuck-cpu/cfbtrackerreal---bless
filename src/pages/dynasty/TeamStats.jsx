@@ -238,7 +238,17 @@ export default function TeamStats() {
   const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
 
   // Parse tid from URL or use current user's team
-  const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
+  // Handle both numeric tid and string abbr for backwards compatibility
+  let selectedTid = currentTeamTid
+  if (tidParam) {
+    const parsedTid = parseInt(tidParam, 10)
+    if (!isNaN(parsedTid)) {
+      selectedTid = parsedTid
+    } else {
+      // tidParam is an abbreviation, resolve to tid
+      selectedTid = resolveTid(tidParam, teamsSource)
+    }
+  }
   const selectedYear = urlYear ? parseInt(urlYear) : currentDynasty?.currentYear
 
   // Get team from tid
@@ -348,15 +358,45 @@ export default function TeamStats() {
     const confWins = conferenceGames.filter(isWin).length
     const confLosses = conferenceGames.filter(isLoss).length
 
-    const homeGames = games.filter(g => g.location === 'Home' || g.location === 'home')
+    // Home/away/neutral detection - handle both legacy location field and unified homeTeamTid
+    const isHomeGame = (g) => {
+      // Legacy format
+      if (g.location === 'Home' || g.location === 'home') return true
+      // Unified format: check if user's team is the home team
+      if (g.perspective?.isHome) return true
+      if (g.homeTeamTid !== undefined && g.perspective?.userTid) {
+        return g.homeTeamTid === g.perspective.userTid
+      }
+      return false
+    }
+    const isAwayGame = (g) => {
+      // Legacy format
+      if (g.location === 'Road' || g.location === 'Away' || g.location === 'road' || g.location === 'away') return true
+      // Unified format: check if user's team is NOT home and there IS a home team
+      if (g.perspective?.isAway) return true
+      if (g.homeTeamTid !== undefined && g.perspective?.userTid) {
+        return g.homeTeamTid !== null && g.homeTeamTid !== g.perspective.userTid
+      }
+      return false
+    }
+    const isNeutralGame = (g) => {
+      // Legacy format
+      if (g.location === 'Neutral' || g.location === 'neutral') return true
+      // Unified format: neutral if homeTeamTid is null
+      if (g.perspective?.isNeutral) return true
+      if (g.homeTeamTid === null) return true
+      return false
+    }
+
+    const homeGames = games.filter(isHomeGame)
     const homeWins = homeGames.filter(isWin).length
     const homeLosses = homeGames.filter(isLoss).length
 
-    const awayGames = games.filter(g => g.location === 'Road' || g.location === 'Away' || g.location === 'road' || g.location === 'away')
+    const awayGames = games.filter(isAwayGame)
     const awayWins = awayGames.filter(isWin).length
     const awayLosses = awayGames.filter(isLoss).length
 
-    const neutralGames = games.filter(g => g.location === 'Neutral' || g.location === 'neutral')
+    const neutralGames = games.filter(isNeutralGame)
     const neutralWins = neutralGames.filter(isWin).length
     const neutralLosses = neutralGames.filter(isLoss).length
 
@@ -1554,12 +1594,25 @@ export default function TeamStats() {
             <div className="flex-1 overflow-y-auto p-3">
               <div className="space-y-2">
                 {modalData.games.map((game, idx) => {
-                  const oppMascot = getMascotName(game.opponent)
+                  // Get opponent info from perspective (unified format) or legacy fields
+                  const oppInfo = game.perspective?.opponentTid
+                    ? getGameTeamInfo(teamsSource, game.perspective.opponentTid)
+                    : null
+                  const oppAbbr = oppInfo?.abbr || game.opponent
+                  const oppMascot = getMascotName(oppAbbr)
                   const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
                   const won = isWin(game)
                   const lost = isLoss(game)
-                  const oppColors = getTeamColorsFromAbbr(game.opponent, teamsSource)
+                  const oppColors = getTeamColorsFromAbbr(oppAbbr, teamsSource)
                   const oppPrimaryText = getContrastTextColor(oppColors.primary)
+
+                  // Get scores from perspective (unified) or legacy fields
+                  const userScore = game.perspective?.userScore ?? game.teamScore
+                  const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                  const hasScores = userScore != null && opponentScore != null
+
+                  // Get location from perspective or legacy
+                  const isHome = game.perspective?.isHome ?? (game.location === 'Home' || game.location === 'home')
 
                   return (
                     <Link
@@ -1586,7 +1639,7 @@ export default function TeamStats() {
                       </div>
 
                       <div className="w-6 text-center text-xs font-medium" style={{ color: oppPrimaryText, opacity: 0.7 }}>
-                        {game.location === 'Home' || game.location === 'home' ? 'vs' : '@'}
+                        {isHome ? 'vs' : '@'}
                       </div>
 
                       {oppLogo && (
@@ -1596,11 +1649,11 @@ export default function TeamStats() {
                       )}
 
                       <div className="flex-1 font-medium text-sm truncate" style={{ color: oppPrimaryText }}>
-                        {oppMascot || game.opponent}
+                        {oppMascot || oppAbbr}
                       </div>
 
                       <div className="font-bold text-sm" style={{ color: oppPrimaryText }}>
-                        {Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}
+                        {hasScores ? `${Math.max(userScore, opponentScore)}-${Math.min(userScore, opponentScore)}` : '-'}
                       </div>
                     </Link>
                   )

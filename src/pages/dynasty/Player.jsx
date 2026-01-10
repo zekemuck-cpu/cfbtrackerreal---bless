@@ -340,8 +340,61 @@ export default function Player() {
       }
 
       if (playerStats) {
+        // Derive scores based on game format and which side the player was on
+        let playerTeamScore, opponentTeamScore, opponentAbbr
+        const teams = dynasty?.teams || {}
+
+        if (game.team1Tid && game.team2Tid) {
+          // Unified format with tid
+          const team1Info = teams[game.team1Tid] || {}
+          const team2Info = teams[game.team2Tid] || {}
+          if (foundInTeam === 'home') {
+            playerTeamScore = game.team1Score
+            opponentTeamScore = game.team2Score
+            opponentAbbr = team2Info.abbr || game.team2
+          } else {
+            playerTeamScore = game.team2Score
+            opponentTeamScore = game.team1Score
+            opponentAbbr = team1Info.abbr || game.team1
+          }
+        } else if (game.opponent) {
+          // Legacy user game format
+          const isUserHome = game.location === 'home' || game.location === 'neutral'
+          if (foundInTeam === 'home') {
+            playerTeamScore = isUserHome ? game.teamScore : game.opponentScore
+            opponentTeamScore = isUserHome ? game.opponentScore : game.teamScore
+            opponentAbbr = isUserHome ? game.opponent : game.userTeam
+          } else {
+            playerTeamScore = isUserHome ? game.opponentScore : game.teamScore
+            opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
+            opponentAbbr = isUserHome ? game.userTeam : game.opponent
+          }
+        } else if (game.team1 && game.team2) {
+          // CPU game format
+          if (foundInTeam === 'home') {
+            playerTeamScore = game.team1Score
+            opponentTeamScore = game.team2Score
+            opponentAbbr = game.team2
+          } else {
+            playerTeamScore = game.team2Score
+            opponentTeamScore = game.team1Score
+            opponentAbbr = game.team1
+          }
+        }
+
+        const result = playerTeamScore != null && opponentTeamScore != null
+          ? (Number(playerTeamScore) > Number(opponentTeamScore) ? 'W' : 'L')
+          : null
+
         gameLog.push({
-          game,
+          game: {
+            ...game,
+            // Add derived fields for display
+            teamScore: playerTeamScore,
+            opponentScore: opponentTeamScore,
+            opponent: opponentAbbr || game.opponent,
+            result: result || game.result
+          },
           stats: playerStats,
           team: foundInTeam
         })
@@ -722,7 +775,7 @@ export default function Player() {
                             <div className="flex items-center gap-1.5">
                               {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain" />}
                               <span className="font-medium text-gray-700 truncate max-w-[120px]">{oppMascot || game.opponent}</span>
-                              <span className="text-gray-400 text-[10px]">{game.teamScore}-{game.opponentScore}</span>
+                              <span className="text-gray-400 text-[10px]">{game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}</span>
                             </div>
                           </td>
                           {columns.map(col => (
@@ -2715,7 +2768,7 @@ export default function Player() {
                       <div className="text-sm font-bold px-2 py-0.5 rounded" style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#ffffff' }}>
                         {isWin ? 'W' : 'L'}
                       </div>
-                      <div className="text-sm font-bold" style={{ color: opponentTextColor }}>{Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}</div>
+                      <div className="text-sm font-bold" style={{ color: opponentTextColor }}>{game.teamScore != null && game.opponentScore != null ? `${Math.max(game.teamScore, game.opponentScore)}-${Math.min(game.teamScore, game.opponentScore)}` : '-'}</div>
                     </div>
                   </Link>
                 )
@@ -2844,7 +2897,7 @@ export default function Player() {
                         <div className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#ffffff' }}>
                           {isWin ? 'W' : 'L'}
                         </div>
-                        <div className="text-sm font-bold" style={{ color: opponentTextColor }}>{Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}</div>
+                        <div className="text-sm font-bold" style={{ color: opponentTextColor }}>{game.teamScore != null && game.opponentScore != null ? `${Math.max(game.teamScore, game.opponentScore)}-${Math.min(game.teamScore, game.opponentScore)}` : '-'}</div>
                       </div>
                     </div>
                     <div className="mt-2 text-xs font-medium px-2 py-1 rounded" style={{ backgroundColor: `${opponentTextColor}20`, color: opponentTextColor }}>
