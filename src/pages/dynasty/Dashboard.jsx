@@ -2403,6 +2403,7 @@ export default function Dashboard() {
                   {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
                     <>
                       <span>•</span>
+                      <span>{userTeamConference}</span>
                       {getConferenceLogo(userTeamConference) && (
                         <img
                           src={getConferenceLogo(userTeamConference)}
@@ -2410,7 +2411,6 @@ export default function Dashboard() {
                           className="h-4 sm:h-5 w-auto object-contain"
                         />
                       )}
-                      <span>{userTeamConference}</span>
                     </>
                   )}
                 </p>
