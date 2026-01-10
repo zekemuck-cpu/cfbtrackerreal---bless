@@ -87,8 +87,11 @@ export function getUserGamePerspective(game, dynasty) {
 
   // Get user's team tid for this game's year
   // Primary source: coachTeamByYear[year].tid
-  let userTid = dynasty.coachTeamByYear?.[game.year]?.tid
-  const userTeamAbbr = dynasty.coachTeamByYear?.[game.year]?.team
+  // Try both number and string year keys for robustness
+  const yearNum = Number(game.year)
+  const yearStr = String(game.year)
+  let userTid = dynasty.coachTeamByYear?.[yearNum]?.tid ?? dynasty.coachTeamByYear?.[yearStr]?.tid
+  const userTeamAbbr = dynasty.coachTeamByYear?.[yearNum]?.team ?? dynasty.coachTeamByYear?.[yearStr]?.team
 
   // Fallback 1: Derive tid from coachTeamByYear[year].team abbr
   if (!userTid && userTeamAbbr) {
@@ -96,7 +99,7 @@ export function getUserGamePerspective(game, dynasty) {
   }
 
   // Fallback 2: If this is the current year, use current team tid
-  if (!userTid && Number(game.year) === Number(dynasty.currentYear)) {
+  if (!userTid && yearNum === Number(dynasty.currentYear)) {
     userTid = getCurrentTeamTid(dynasty)
   }
 
@@ -2194,27 +2197,59 @@ export function migrateCoachTeamByYear(dynasty) {
   let migrated = { ...dynasty }
   const initCoachTeamByYear = {}
 
-  // First, try to infer from games data (userTeam field tells us what team we were coaching)
+  // First, try to infer from games data
   if (migrated.games && Array.isArray(migrated.games)) {
     for (const game of migrated.games) {
-      if (game.userTeam && game.year && !initCoachTeamByYear[game.year]) {
+      const year = game.year
+      if (!year || initCoachTeamByYear[year]) continue
+
+      // LEGACY FORMAT: Check userTeam field
+      if (game.userTeam) {
         const tid = getTidFromAbbr(game.userTeam)
         const team = migrated.teams?.[tid]
-        initCoachTeamByYear[game.year] = {
+        initCoachTeamByYear[year] = {
           tid: tid,
           team: game.userTeam,
           teamName: team?.name || game.userTeam
         }
+        continue
+      }
+
+      // UNIFIED FORMAT: Check userTid field (if game was saved with user's tid)
+      if (game.userTid) {
+        const team = migrated.teams?.[game.userTid]
+        initCoachTeamByYear[year] = {
+          tid: game.userTid,
+          team: team?.abbr,
+          teamName: team?.name
+        }
+        continue
       }
     }
   }
 
-  // Ensure at least the current year is set using dynasty's team info
+  // CRITICAL: Ensure at least the current year is set using dynasty's team info
+  // This is the primary fallback for newly created dynasties
   const currentYear = migrated.currentYear
   if (currentYear && !initCoachTeamByYear[currentYear]) {
-    const currentTid = migrated.currentTid || getTidFromTeamName(migrated.teamName, migrated.teams)
-    const currentTeam = migrated.teams?.[currentTid]
+    // Try multiple ways to get the team tid
+    let currentTid = migrated.currentTid
+
+    // Fallback 1: Try to get tid from teamName
+    if (!currentTid && migrated.teamName) {
+      currentTid = getTidFromTeamName(migrated.teamName, migrated.teams)
+    }
+
+    // Fallback 2: Try to get tid from any game in the current year
+    if (!currentTid && migrated.games) {
+      const currentYearGame = migrated.games.find(g => g.year === currentYear || g.year === String(currentYear))
+      if (currentYearGame) {
+        currentTid = currentYearGame.userTid || getTidFromAbbr(currentYearGame.userTeam)
+      }
+    }
+
     if (currentTid) {
+      const currentTeam = migrated.teams?.[currentTid]
       initCoachTeamByYear[currentYear] = {
         tid: currentTid,
         team: currentTeam?.abbr,

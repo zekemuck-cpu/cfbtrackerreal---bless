@@ -1158,6 +1158,10 @@ export default function GameEntryModal({
       team1Score: teamScore,
       team2Score: opponentScore,
 
+      // User team identifier - explicitly marks which team the user was coaching
+      // For user games only, not CPU games
+      ...(!isCPUGame && userTeamTid && { userTid: userTeamTid }),
+
       // Home/Away - who is home? (null = neutral)
       homeTeamTid: isCPUGame ? null : homeTeamTid,
 
