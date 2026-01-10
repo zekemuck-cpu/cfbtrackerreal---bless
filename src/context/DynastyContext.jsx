@@ -5123,6 +5123,12 @@ export function DynastyProvider({ children }) {
     // Get year - use provided year or fall back to current year
     const year = options.year || dynasty.currentYear
 
+    // For tid-based storage: get tid from abbreviation
+    // After full tid migration, teamsByYear should store tid (number) not abbr (string)
+    const teamTid = getTidFromAbbr(teamAbbr)
+    const useFullTidSystem = dynasty._tidFullyMigrated === true
+    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+
     // ALWAYS use merge mode - never delete existing players that aren't in the sheet
     // This prevents accidental data loss if the sheet has fewer players than expected
     const existingPlayers = dynasty.players || []
@@ -5199,7 +5205,7 @@ export function DynastyProvider({ children }) {
         const updatedTeamsByYear = shouldAddToTeamsByYear
           ? {
               ...(existingPlayer.teamsByYear || {}),
-              [year]: teamAbbr
+              [year]: teamsByYearValue
             }
           : existingPlayer.teamsByYear || {}
 
@@ -5258,7 +5264,8 @@ export function DynastyProvider({ children }) {
         team: teamAbbr,
         yearStarted: player.yearStarted || year,
         // IMMUTABLE roster history - this player is on this team this year
-        teamsByYear: { [year]: teamAbbr },
+        // Use tid (number) for fully migrated dynasties, abbr (string) for legacy
+        teamsByYear: { [year]: teamsByYearValue },
         // IMMUTABLE class history - record this player's class for this year
         classByYear: { [year]: player.year },
         // Movement history for tracking career path
