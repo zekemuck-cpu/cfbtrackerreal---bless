@@ -2811,6 +2811,9 @@ export function DynastyProvider({ children }) {
       })
       // Mark local state as migrated too
       const dynastyWithFlag = { ...newDynasty, _subcollectionsMigrated: true }
+      // CRITICAL: Update both dynasties array AND currentDynasty
+      // Without this, updateDynasty can't find the dynasty and routes players incorrectly
+      setDynasties(prev => [...prev, dynastyWithFlag])
       setCurrentDynasty(dynastyWithFlag)
       return dynastyWithFlag
     } catch (error) {
@@ -2910,7 +2913,11 @@ export function DynastyProvider({ children }) {
       skipListenerUpdatesCountRef.current = 2
 
       // Check if dynasty is migrated to subcollections
-      const dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      // Also check currentDynasty as fallback (in case dynasties array hasn't updated yet)
+      let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      if (!dynasty && String(currentDynasty?.id) === String(dynastyId)) {
+        dynasty = currentDynasty
+      }
       const isMigrated = dynasty?._subcollectionsMigrated === true
 
       // SUBCOLLECTION ROUTING: If migrated, route players/games to subcollections
