@@ -965,7 +965,7 @@ export default function Game() {
               </Link>
             ) : game.isConferenceChampionship ? (
               <Link
-                to={`${pathPrefix}/conference-championship-history/${game.year}`}
+                to={`${pathPrefix}/conference-championship-history`}
                 className="text-white text-center hover:underline"
               >
                 <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
