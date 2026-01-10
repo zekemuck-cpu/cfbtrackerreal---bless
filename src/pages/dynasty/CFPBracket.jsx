@@ -179,11 +179,22 @@ export default function CFPBracket() {
 
     let team1Score, team2Score, winner
 
+    // Derive winner from winnerTid if available (for unified format)
+    if (game.winnerTid) {
+      const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+      winner = winnerInfo?.abbr || game.winner
+    } else {
+      winner = game.winner
+    }
+
     // Prefer unified format scores
     if (game.team1Score !== undefined) {
       team1Score = game.team1Score
       team2Score = game.team2Score
-      winner = game.winner || (team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null)
+      // Only compute winner from scores if not already set
+      if (!winner) {
+        winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
+      }
     } else if (perspective) {
       // Use perspective for user games with unified format
       // Determine which team is team1 based on perspective
@@ -196,18 +207,21 @@ export default function CFPBracket() {
         team1Score = perspective.opponentScore
         team2Score = perspective.userScore
       }
-      winner = perspective.userWon ? userAbbr : (team1 === userAbbr ? team2 : team1)
+      // Only set winner if not already derived from winnerTid
+      if (!winner) {
+        winner = perspective.userWon ? userAbbr : (team1 === userAbbr ? team2 : team1)
+      }
     } else if (game.teamScore !== undefined) {
       // Legacy user game format
       const userWon = game.result === 'W' || game.result === 'win'
       if (game.userTeam === team1) {
         team1Score = parseInt(game.teamScore)
         team2Score = parseInt(game.opponentScore)
-        winner = userWon ? team1 : team2
+        if (!winner) winner = userWon ? team1 : team2
       } else {
         team1Score = parseInt(game.opponentScore)
         team2Score = parseInt(game.teamScore)
-        winner = userWon ? team2 : team1
+        if (!winner) winner = userWon ? team2 : team1
       }
     }
 
