@@ -9,6 +9,7 @@ import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
 import { getContrastTextColor } from '../../utils/colorUtils'
+import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 import BowlHistoryEditModal from '../../components/BowlHistoryEditModal'
 
 // Map abbreviation to mascot name for logo lookup
@@ -96,7 +97,7 @@ export default function BowlHistory() {
   const { id } = useParams()
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedBowl, setExpandedBowl] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -131,16 +132,31 @@ export default function BowlHistory() {
              g.team1Score !== null && g.team1Score !== undefined
     })
 
+    const teams = currentDynasty?.teams || TEAMS
     bowlGamesFromArray.forEach(game => {
       const gameType = detectGameType(game)
       const isCFP = gameType === GAME_TYPES.CFP_QUARTERFINAL ||
                     gameType === GAME_TYPES.CFP_SEMIFINAL ||
                     gameType === GAME_TYPES.CFP_CHAMPIONSHIP
+      // Get team abbreviations - prefer tid-based lookup for unified format
+      let team1, team2
+      if (game.team1Tid) {
+        const team1Info = getGameTeamInfo(teams, game.team1Tid)
+        team1 = team1Info?.abbr || game.team1
+      } else {
+        team1 = game.team1 || game.userTeam
+      }
+      if (game.team2Tid) {
+        const team2Info = getGameTeamInfo(teams, game.team2Tid)
+        team2 = team2Info?.abbr || game.team2
+      } else {
+        team2 = game.team2 || game.opponent
+      }
       results.push({
         year: game.year,
         bowlName: game.bowlName,
-        team1: game.team1 || game.userTeam,
-        team2: game.team2 || game.opponent,
+        team1,
+        team2,
         team1Score: game.team1Score,
         team2Score: game.team2Score,
         winner: game.winner,

@@ -6,7 +6,7 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogo } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
-import { TEAMS } from '../data/teamRegistry'
+import { TEAMS, getCurrentTeamAbbr } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
@@ -28,7 +28,7 @@ export default function Layout({ children }) {
     }
   }
 
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
   const isHomePage = location.pathname === '/' || location.pathname === '/home'
@@ -144,8 +144,13 @@ export default function Layout({ children }) {
 
     // In conference championship phase, check if user has answered the question
     if (currentDynasty.currentPhase === 'conference_championship') {
-      // Use year-specific CC data
-      const ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      // Check team-centric structure first, then fall back to year-only structure
+      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+      let ccData = currentDynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]
+      if (!ccData) {
+        ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      }
+
       // If they haven't answered whether they made the championship yet
       if (ccData?.madeChampionship === undefined || ccData?.madeChampionship === null) {
         alert('Please answer whether you made the conference championship before advancing.')
@@ -168,7 +173,14 @@ export default function Layout({ children }) {
     if (currentDynasty.currentPhase === 'postseason' && currentDynasty.currentWeek === 1) {
       const ccResults = currentDynasty.conferenceChampionships?.filter(cc => cc.team1 && cc.team2) || []
       const enteredCount = ccResults.length
-      const userMadeCC = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]?.madeChampionship === true
+
+      // Check team-centric structure first, then fall back to year-only structure
+      const postTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+      let postCCData = currentDynasty.conferenceChampionshipDataByTeamYear?.[postTeamAbbr]?.[currentDynasty.currentYear]
+      if (!postCCData) {
+        postCCData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      }
+      const userMadeCC = postCCData?.madeChampionship === true
       const expectedCount = userMadeCC ? 9 : 10
 
       if (enteredCount < expectedCount) {

@@ -5,7 +5,9 @@
 
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
+import { getTeamName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getUserGamePerspective } from '../context/DynastyContext'
 
 // ============================================
 // API KEY MANAGEMENT
@@ -977,31 +979,57 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
  * Handles both user games (with opponent/teamScore) and CPU games (with team1/team2)
  */
 export function buildGameRecapContext(dynasty, game) {
-  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = game.year
   const allGames = dynasty.games || []
+  const teams = dynasty?.teams || TEAMS
 
-  // Detect if this is a CPU vs CPU game
-  const isCPUGame = !game.userTeam && game.team1 && game.team2
+  // Helper to get abbr from tid
+  const getAbbrFromTid = (tid) => {
+    if (!tid) return null
+    const teamInfo = getGameTeamInfo(teams, tid)
+    return teamInfo?.abbr || null
+  }
+
+  // Check for unified format first, then detect CPU vs user games
+  const hasUnifiedFormat = game.team1Tid && game.team2Tid
+  const isCPUGame = !hasUnifiedFormat && !game.userTeam && game.team1 && game.team2
 
   // Determine teams and scores based on game type
   let team1, team2, team1Score, team2Score
-  if (isCPUGame) {
+  if (hasUnifiedFormat) {
+    // Unified format with tids
+    team1 = getAbbrFromTid(game.team1Tid) || game.team1
+    team2 = getAbbrFromTid(game.team2Tid) || game.team2
+    team1Score = game.team1Score
+    team2Score = game.team2Score
+  } else if (isCPUGame) {
     team1 = game.team1
     team2 = game.team2
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else {
-    team1 = game.userTeam || userTeamAbbr
-    team2 = game.opponent
-    team1Score = game.teamScore
-    team2Score = game.opponentScore
+    // User game - check perspective first
+    const perspective = getUserGamePerspective(game, dynasty)
+    if (perspective) {
+      const userInfo = getGameTeamInfo(teams, perspective.userTid)
+      const oppInfo = getGameTeamInfo(teams, perspective.opponentTid)
+      team1 = userInfo?.abbr || game.userTeam || userTeamAbbr
+      team2 = oppInfo?.abbr || game.opponent
+      team1Score = perspective.userScore ?? game.teamScore
+      team2Score = perspective.opponentScore ?? game.opponentScore
+    } else {
+      team1 = game.userTeam || userTeamAbbr
+      team2 = game.opponent
+      team1Score = game.teamScore
+      team2Score = game.opponentScore
+    }
   }
 
   const scoreDiff = Math.abs(team1Score - team2Score)
   const team1Won = team1Score > team2Score
 
-  // For user games, get season context
+  // For user games (including unified format user games), get season context
   let recordBefore = null
   let recordAfter = null
   let streak = null
@@ -1009,18 +1037,34 @@ export function buildGameRecapContext(dynasty, game) {
   // Calculate game order for this game (used for filtering previous games)
   const thisGameOrder = getGameOrder(game)
 
-  if (!isCPUGame) {
+  // Helper to check if user was coaching in a game
+  const isUserGame = (g) => {
+    const perspective = getUserGamePerspective(g, dynasty)
+    return perspective !== null
+  }
+
+  // Helper to check win from game
+  const getGameWin = (g) => {
+    const perspective = getUserGamePerspective(g, dynasty)
+    if (perspective) return perspective.userWon
+    return g.result === 'win' || g.result === 'W'
+  }
+
+  // Check if current game is a user game (via perspective or unified format)
+  const currentGamePerspective = getUserGamePerspective(game, dynasty)
+  const isCurrentUserGame = currentGamePerspective !== null || (hasUnifiedFormat && !isCPUGame)
+
+  if (isCurrentUserGame) {
     const seasonGames = allGames.filter(g =>
-      Number(g.year) === Number(year) &&
-      (g.userTeam === userTeamAbbr || g.opponent)
+      Number(g.year) === Number(year) && isUserGame(g)
     )
 
     const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
 
-    const winsBefore = gamesBefore.filter(g => g.result === 'win' || g.result === 'W').length
-    const lossesBefore = gamesBefore.filter(g => g.result === 'loss' || g.result === 'L').length
+    const winsBefore = gamesBefore.filter(g => getGameWin(g) === true).length
+    const lossesBefore = gamesBefore.filter(g => getGameWin(g) === false).length
 
-    const isWin = game.result === 'win' || game.result === 'W'
+    const isWin = currentGamePerspective?.userWon ?? (game.result === 'win' || game.result === 'W') ?? team1Won
     recordBefore = `${winsBefore}-${lossesBefore}`
     recordAfter = isWin ? `${winsBefore + 1}-${lossesBefore}` : `${winsBefore}-${lossesBefore + 1}`
 
@@ -1030,7 +1074,7 @@ export function buildGameRecapContext(dynasty, game) {
     const streakType = isWin ? 'win' : 'loss'
     for (let i = gamesUpToThis.length - 1; i >= 0; i--) {
       const g = gamesUpToThis[i]
-      const gWin = g.result === 'win' || g.result === 'W'
+      const gWin = getGameWin(g)
       if (gWin === isWin) {
         streakCount++
       } else {

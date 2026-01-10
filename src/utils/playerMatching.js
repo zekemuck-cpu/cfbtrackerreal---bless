@@ -10,7 +10,8 @@
  * - Same name + ≥6 seasons apart = New player (impossible to be same due to eligibility rules)
  */
 
-import { getAbbreviationFromDisplayName, teamAbbreviations } from '../data/teamAbbreviations'
+import { teamAbbreviations } from '../data/teamAbbreviations'
+import { getAbbrFromTeamName } from '../data/teamRegistry'
 
 // Normalize player name for comparison - handles whitespace, case, and special characters
 export const normalizePlayerName = (name) => {
@@ -35,7 +36,7 @@ const normalizeTeamForComparison = (team) => {
   }
 
   // Try to get abbreviation from display name
-  const abbr = getAbbreviationFromDisplayName(team)
+  const abbr = getAbbrFromTeamName(team)
   if (abbr) {
     return abbr.toUpperCase()
   }

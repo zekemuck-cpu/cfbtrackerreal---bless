@@ -2,9 +2,8 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 import { getTeamConference } from '../data/conferenceTeams'
-import { TEAMS, resolveTid } from '../data/teamRegistry'
+import { TEAMS, resolveTid, getTidFromTeamName, getAbbrFromTid } from '../data/teamRegistry'
 import ShareDynastyModal from './ShareDynastyModal'
 
 export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, currentYear, isViewOnly, shareCode, dynasty: dynastyProp }) {
@@ -27,14 +26,21 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
-  // Get current team abbreviation and tid for recruiting link
-  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
+  // Get current team tid - prefer currentTid (new), fallback to lookup (old)
   const teamsSource = currentDynasty?.teams || TEAMS
-  const teamTid = resolveTid(teamAbbr, teamsSource)
+  const teamTid = currentDynasty?.currentTid || getTidFromTeamName(currentDynasty?.teamName, teamsSource)
+
+  // Get team abbreviation from tid - this will be the custom abbr for teambuilder teams
+  const team = teamsSource[teamTid]
+  const teamAbbr = team?.abbr || ''
+
+  // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
+  // This ensures teambuilder teams inherit the replaced team's conference position
+  const originalTeamAbbr = TEAMS[teamTid]?.abbr || teamAbbr
 
   // Get user's conference for all-conference link (using custom conferences if available)
   const customConferences = getCurrentCustomConferences(currentDynasty)
-  const userConference = getTeamConference(teamAbbr, customConferences) || 'SEC'
+  const userConference = getTeamConference(originalTeamAbbr, customConferences) || 'SEC'
   const conferenceUrlParam = encodeURIComponent(userConference.replace(/\s+/g, '-'))
 
   const handleExport = () => {

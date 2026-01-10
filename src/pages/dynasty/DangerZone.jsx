@@ -1,14 +1,18 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { getTeamName } from '../../data/teamAbbreviations'
+import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, isViewOnly } = useDynasty()
   const { id: dynastyId } = useParams()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const pathPrefix = usePathPrefix()
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
@@ -23,6 +27,8 @@ export default function DangerZone() {
   const [optimizeStatus, setOptimizeStatus] = useState(null)
   const [removeOldBoxScores, setRemoveOldBoxScores] = useState(false)
   const [subcollectionMigrationStatus, setSubcollectionMigrationStatus] = useState(null)
+  const [showTeambuilderEditModal, setShowTeambuilderEditModal] = useState(false)
+  const [selectedTeambuilderTid, setSelectedTeambuilderTid] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -701,6 +707,165 @@ export default function DangerZone() {
           )}
         </div>
       </div>
+
+      {/* Teambuilder Section */}
+      {(() => {
+        // Find all teambuilder teams in dynasty.teams
+        const teams = currentDynasty?.teams || {}
+        const teambuilderTeams = Object.values(teams).filter(t => t.isCustom)
+
+        if (teambuilderTeams.length === 0) return null
+
+        return (
+          <div>
+            <h2
+              className="text-lg font-bold mb-3 flex items-center gap-2"
+              style={{ color: secondaryBgText }}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+              </svg>
+              Teambuilder Teams
+            </h2>
+
+            <div className="space-y-4">
+              {teambuilderTeams.map(team => {
+                const originalAbbr = getOriginalTeamAbbr(team.tid)
+                const originalName = originalAbbr ? getTeamName(originalAbbr) : TEAMS[team.tid]?.name || 'Unknown'
+
+                return (
+                  <div
+                    key={team.tid}
+                    className="rounded-lg p-4 sm:p-5"
+                    style={{
+                      backgroundColor: team.secondaryColor || teamColors.secondary,
+                      border: `3px solid ${team.primaryColor || teamColors.primary}`
+                    }}
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Team Logo/Badge */}
+                      {team.logo ? (
+                        <img
+                          src={team.logo}
+                          alt={team.name}
+                          className="w-16 h-16 object-contain rounded-lg flex-shrink-0"
+                          style={{
+                            backgroundColor: '#fff',
+                            padding: '4px',
+                            border: `2px solid ${team.primaryColor}`
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="w-16 h-16 rounded-lg flex items-center justify-center font-bold text-xl flex-shrink-0"
+                          style={{
+                            backgroundColor: team.primaryColor,
+                            color: team.secondaryColor
+                          }}
+                        >
+                          {team.abbr}
+                        </div>
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className="font-bold text-lg truncate"
+                          style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary) }}
+                        >
+                          {team.name}
+                        </h3>
+                        <p
+                          className="text-sm"
+                          style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary), opacity: 0.7 }}
+                        >
+                          Abbreviation: <span className="font-mono font-bold">{team.abbr}</span>
+                        </p>
+                        <p
+                          className="text-sm"
+                          style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary), opacity: 0.7 }}
+                        >
+                          Replaces: {originalName} ({originalAbbr})
+                        </p>
+
+                        {/* Color swatches */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-1">
+                            <div
+                              className="w-5 h-5 rounded border border-gray-300"
+                              style={{ backgroundColor: team.primaryColor }}
+                              title={`Primary: ${team.primaryColor}`}
+                            />
+                            <span className="text-xs font-mono" style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary), opacity: 0.6 }}>
+                              {team.primaryColor}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div
+                              className="w-5 h-5 rounded border border-gray-300"
+                              style={{ backgroundColor: team.secondaryColor }}
+                              title={`Secondary: ${team.secondaryColor}`}
+                            />
+                            <span className="text-xs font-mono" style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary), opacity: 0.6 }}>
+                              {team.secondaryColor}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <button
+                        onClick={() => {
+                          setSelectedTeambuilderTid(team.tid)
+                          setShowTeambuilderEditModal(true)
+                        }}
+                        className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity"
+                        style={{
+                          backgroundColor: team.primaryColor,
+                          color: getContrastTextColor(team.primaryColor)
+                        }}
+                      >
+                        Edit Team
+                      </button>
+                      <Link
+                        to={`${pathPrefix}/team/${team.tid}`}
+                        className="px-4 py-2 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity border-2"
+                        style={{
+                          borderColor: team.primaryColor,
+                          color: team.primaryColor,
+                          backgroundColor: 'transparent'
+                        }}
+                      >
+                        View Team Page
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Teambuilder Edit Modal */}
+      {selectedTeambuilderTid && (
+        <TeambuilderEditModal
+          isOpen={showTeambuilderEditModal}
+          onClose={() => {
+            setShowTeambuilderEditModal(false)
+            setSelectedTeambuilderTid(null)
+          }}
+          team={currentDynasty?.teams?.[selectedTeambuilderTid]}
+          tid={selectedTeambuilderTid}
+          onSave={async (updates) => {
+            const result = await updateTeambuilderTeam(currentDynasty.id, selectedTeambuilderTid, updates)
+            if (!result.success) {
+              throw new Error(result.message)
+            }
+          }}
+        />
+      )}
 
       {/* Info Section */}
       <div

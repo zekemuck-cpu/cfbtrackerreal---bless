@@ -4,9 +4,9 @@ import { useDynasty } from '../context/DynastyContext'
 import { getTeamColors } from '../data/teamColors'
 import { getTeamLogo } from '../data/teams'
 import { getConferenceLogo } from '../data/conferenceLogos'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 import { getTeamConference } from '../data/conferenceTeams'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import ConfirmModal from '../components/ConfirmModal'
 import ShareDynastyModal from '../components/ShareDynastyModal'
 import BouncingLogos from '../components/BouncingLogos'
@@ -15,21 +15,33 @@ import BouncingLogos from '../components/BouncingLogos'
 function getDynastyTeamConference(dynasty) {
   if (!dynasty.teamName) return null
 
-  // Get team abbreviation from display name
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
-  if (!teamAbbr) return null
+  // FIRST: Use the actual dynasty.conference field - this is the source of truth
+  // It gets updated when the coach changes teams
+  if (dynasty.conference) {
+    return dynasty.conference
+  }
+
+  // FALLBACK: Look up conference if dynasty.conference isn't set (legacy data)
+  // Get tid - prefer currentTid, fallback to lookup from teamName
+  const tid = dynasty.currentTid || getTidFromTeamName(dynasty.teamName, dynasty.teams)
+  if (!tid) return null
+
+  // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
+  // This ensures teambuilder teams inherit the replaced team's conference position
+  const originalTeamAbbr = TEAMS[tid]?.abbr
+  if (!originalTeamAbbr) return null
 
   // Check custom conferences first (if user has set them)
   if (dynasty.conferences && Object.keys(dynasty.conferences).length > 0) {
     for (const [confName, teams] of Object.entries(dynasty.conferences)) {
-      if (teams.includes(teamAbbr)) {
+      if (teams.includes(originalTeamAbbr)) {
         return confName
       }
     }
   }
 
   // Fall back to default conference mapping
-  return getTeamConference(teamAbbr)
+  return getTeamConference(originalTeamAbbr)
 }
 
 // Helper to format relative time (e.g., "2 hours ago")
@@ -360,17 +372,24 @@ export default function Home() {
 
           <div className="grid gap-3 sm:gap-4">
             {sortedDynasties.map((dynasty) => {
-              const colors = getTeamColors(dynasty.teamName, dynasty.customTeams)
-              // For teambuilder teams, get logo from customTeams; otherwise use standard lookup
+              const teams = dynasty.teams || dynasty.customTeams
+              const colors = getTeamColors(dynasty.teamName, teams)
+              // For teambuilder teams, get logo from teams/customTeams; otherwise use standard lookup
               let logoUrl = null
-              if (dynasty.customTeams) {
-                const teambuilderTeam = Object.values(dynasty.customTeams).find(t => t.name === dynasty.teamName)
-                if (teambuilderTeam) {
-                  logoUrl = teambuilderTeam.logoUrl
+              if (teams) {
+                // Try tid-based lookup first
+                if (dynasty.currentTid && dynasty.teams?.[dynasty.currentTid]) {
+                  logoUrl = dynasty.teams[dynasty.currentTid].logo
+                } else {
+                  // Legacy lookup by name
+                  const teambuilderTeam = Object.values(teams).find(t => t.name === dynasty.teamName)
+                  if (teambuilderTeam) {
+                    logoUrl = teambuilderTeam.logoUrl || teambuilderTeam.logo
+                  }
                 }
               }
               if (!logoUrl) {
-                logoUrl = getTeamLogo(dynasty.teamName, dynasty.customTeams)
+                logoUrl = getTeamLogo(dynasty.teamName, teams)
               }
               const relativeTime = getRelativeTime(dynasty.lastModified)
               const weekPhase = getWeekPhaseDisplay(dynasty)
@@ -684,7 +703,7 @@ export default function Home() {
             setShowShareModal(false)
             setShareDynasty(null)
           }}
-          teamColors={getTeamColors(shareDynasty.teamName, shareDynasty.customTeams) || { primary: '#1e40af', secondary: '#dbeafe' }}
+          teamColors={getTeamColors(shareDynasty.teamName, shareDynasty.teams || shareDynasty.customTeams) || { primary: '#1e40af', secondary: '#dbeafe' }}
           dynasty={shareDynasty}
         />
       )}

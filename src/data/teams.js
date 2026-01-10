@@ -1,4 +1,5 @@
-import { teamAbbreviations, getAbbreviationFromDisplayName } from './teamAbbreviations'
+import { teamAbbreviations } from './teamAbbreviations'
+import { getAbbrFromTeamName } from './teamRegistry'
 import { espnTeamIds } from './espnTeamIds'
 
 // Team logo URLs (Imgur hosted)
@@ -303,9 +304,32 @@ export function getMascotName(abbr, customTeams = null) {
 }
 
 // Helper function to get team logo URL (checks teambuilder teams first)
-export function getTeamLogo(teamName, customTeams = null) {
-  // Check if teamName matches a teambuilder team name, abbreviation, or replaces a team
-  if (customTeams) {
+// Helper to detect if teams object is tid-based (keys are numbers)
+function isTidBasedTeams(teams) {
+  if (!teams) return false
+  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
+}
+
+export function getTeamLogo(teamName, teamsOrCustomTeams = null) {
+  if (!teamName) return null
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeams(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by name or abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.name === teamName || team.abbr === teamName) {
+        // Return custom logo if available, otherwise fall through to static lookup
+        if (team.logo) return team.logo
+        break
+      }
+    }
+    // Fall through to static logo lookup
+  }
+
+  // Legacy path: customTeams object keyed by abbreviation
+  const customTeams = teamsOrCustomTeams
+  if (customTeams && !isTidBasedTeams(customTeams)) {
     // Check by name
     const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
     if (teambuilderByName?.logoUrl) {
@@ -324,7 +348,7 @@ export function getTeamLogo(teamName, customTeams = null) {
     }
 
     // Check if teamName is the replaced team's full name
-    const abbr = getAbbreviationFromDisplayName(teamName)
+    const abbr = getAbbrFromTeamName(teamName)
     if (abbr) {
       const teambuilderReplacingByAbbr = Object.values(customTeams).find(t => t.replacesTeam === abbr)
       if (teambuilderReplacingByAbbr?.logoUrl) {
@@ -335,7 +359,7 @@ export function getTeamLogo(teamName, customTeams = null) {
 
   // Check if this is an FCS team with a custom logo
   // First try to get abbreviation from display name
-  const abbr = getAbbreviationFromDisplayName(teamName)
+  const abbr = getAbbrFromTeamName(teamName)
   if (abbr) {
     const teamData = teamAbbreviations[abbr]
     if (teamData?.isFCS && teamData?.logo) {
@@ -366,16 +390,31 @@ export function getTeamLogo(teamName, customTeams = null) {
 }
 
 // Helper function to get team logo by abbreviation (more direct for teambuilder teams)
-export function getTeamLogoByAbbr(abbr, customTeams = null) {
+export function getTeamLogoByAbbr(abbr, teamsOrCustomTeams = null) {
   if (!abbr) return null
 
-  // Check if this IS a teambuilder team abbreviation
-  if (customTeams?.[abbr]?.logoUrl) {
-    return customTeams[abbr].logoUrl
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeams(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.abbr === abbr) {
+        if (team.logo) return team.logo
+        break
+      }
+    }
+    // Fall through to static logo lookup
   }
 
-  // Check if this abbreviation was replaced by a teambuilder team
-  if (customTeams) {
+  // Legacy path: customTeams object keyed by abbreviation
+  const customTeams = teamsOrCustomTeams
+  if (customTeams && !isTidBasedTeams(customTeams)) {
+    // Check if this IS a teambuilder team abbreviation
+    if (customTeams[abbr]?.logoUrl) {
+      return customTeams[abbr].logoUrl
+    }
+
+    // Check if this abbreviation was replaced by a teambuilder team
     const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
     if (teambuilderTeam?.logoUrl) {
       return teambuilderTeam.logoUrl

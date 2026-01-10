@@ -1242,6 +1242,65 @@ export function getTidFromName(name) {
 }
 
 /**
+ * Get tid from team display name, checking dynasty.teams first for custom teams.
+ * This is the PRIMARY function for converting teamName → tid.
+ * Replaces the old getAbbreviationFromDisplayName() → getTidFromAbbr() chain.
+ *
+ * @param {string} teamName - Team display name (e.g., "Alabama Crimson Tide" or custom "Springfield Tigers")
+ * @param {Object} dynastyTeams - The dynasty.teams object (to check for custom team names)
+ * @returns {number|null} Team ID or null
+ */
+export function getTidFromTeamName(teamName, dynastyTeams = null) {
+  if (!teamName) return null
+
+  // First check dynasty.teams for custom teams (they may have replaced the default name)
+  if (dynastyTeams) {
+    for (const [tid, team] of Object.entries(dynastyTeams)) {
+      if (team.name === teamName) {
+        return parseInt(tid, 10)
+      }
+    }
+  }
+
+  // Fall back to static NAME_TO_TID lookup for default teams
+  return NAME_TO_TID[teamName] || null
+}
+
+/**
+ * Get abbreviation from team display name.
+ * This is a convenience function that replaces getAbbreviationFromDisplayName().
+ *
+ * @param {string} teamName - Team display name (e.g., "Alabama Crimson Tide")
+ * @param {Object} dynastyTeams - The dynasty.teams object (optional, for custom teams)
+ * @returns {string|null} Team abbreviation or null
+ */
+export function getAbbrFromTeamName(teamName, dynastyTeams = null) {
+  if (!teamName) return null
+
+  // First check dynasty.teams for custom teams
+  if (dynastyTeams) {
+    for (const [, team] of Object.entries(dynastyTeams)) {
+      if (team.name === teamName) {
+        return team.abbr
+      }
+    }
+  }
+
+  // Fall back to static lookup
+  const tid = NAME_TO_TID[teamName]
+  if (tid) {
+    return TEAMS[tid]?.abbr || null
+  }
+
+  // Also check if teamName is actually an abbreviation already
+  if (ABBR_TO_TID[teamName]) {
+    return teamName
+  }
+
+  return null
+}
+
+/**
  * Initialize a dynasty's team map from the master TEAMS list.
  * Call this when creating a new dynasty.
  *
@@ -1656,4 +1715,156 @@ export function getColorsByAbbr(teams, abbr) {
 export function getNameByAbbr(teams, abbr) {
   const team = getTeamByAbbr(teams, abbr)
   return team?.name || null
+}
+
+// ============================================================================
+// DYNASTY HELPERS - For getting current team info from a dynasty object
+// ============================================================================
+
+/**
+ * Get the current team's tid from a dynasty.
+ * Uses dynasty.currentTid if available, otherwise derives from teamName.
+ * This is the PRIMARY function for getting the user's current team tid.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {number|null} The current team's tid
+ */
+export function getCurrentTeamTid(dynasty) {
+  if (!dynasty) return null
+
+  // Prefer currentTid (new field)
+  if (dynasty.currentTid) return dynasty.currentTid
+
+  // Fall back to deriving from teamName (for old dynasties)
+  return getTidFromTeamName(dynasty.teamName, dynasty.teams)
+}
+
+/**
+ * Get the current team's abbreviation from a dynasty.
+ * Uses tid-based lookup for proper teambuilder support.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {string|null} The current team's abbreviation
+ */
+export function getCurrentTeamAbbr(dynasty) {
+  const tid = getCurrentTeamTid(dynasty)
+  if (!tid) return null
+  const teams = dynasty?.teams || TEAMS
+  return teams[tid]?.abbr || TEAMS[tid]?.abbr || null
+}
+
+/**
+ * Get the current team object from a dynasty.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {Object|null} The current team object
+ */
+export function getCurrentTeam(dynasty) {
+  const tid = getCurrentTeamTid(dynasty)
+  if (!tid) return null
+  const teams = dynasty?.teams || TEAMS
+  return teams[tid] || TEAMS[tid] || null
+}
+
+/**
+ * Get the ORIGINAL team's abbreviation for a tid (from static TEAMS).
+ * Use this for conference lookup where teambuilder teams inherit position.
+ *
+ * @param {number} tid - Team ID
+ * @returns {string|null} The original team's abbreviation
+ */
+export function getOriginalTeamAbbr(tid) {
+  if (!tid) return null
+  return TEAMS[tid]?.abbr || null
+}
+
+// ============================================================================
+// GAME TEAM HELPERS - For displaying team info from game records
+// ============================================================================
+
+/**
+ * Get team info for a game's team by tid.
+ * Falls back to abbr lookup if tid not available.
+ *
+ * @param {Object} teams - dynasty.teams object
+ * @param {number|string} tidOrAbbr - Team ID or abbreviation
+ * @returns {Object} Team info { tid, abbr, name, logo, primaryColor, secondaryColor }
+ */
+export function getGameTeamInfo(teams, tidOrAbbr) {
+  if (!tidOrAbbr) return null
+
+  // Try as tid first
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : null
+  if (!tid && typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
+    tid = parseInt(tidOrAbbr, 10)
+  }
+
+  // If not a number, try as abbreviation
+  if (!tid) {
+    tid = getTidFromAbbr(tidOrAbbr)
+  }
+
+  if (!tid) return null
+
+  const team = teams?.[tid] || TEAMS[tid]
+  if (!team) return null
+
+  return {
+    tid: team.tid,
+    abbr: team.abbr,
+    name: team.name,
+    logo: team.logo,
+    primaryColor: team.primaryColor,
+    secondaryColor: team.secondaryColor
+  }
+}
+
+/**
+ * Get opponent team info from a game record.
+ * Prefers tid-based lookup (opponentTid), falls back to abbr (opponent).
+ *
+ * @param {Object} teams - dynasty.teams object
+ * @param {Object} game - Game record
+ * @returns {Object|null} Team info
+ */
+export function getGameOpponentInfo(teams, game) {
+  if (!game) return null
+  return getGameTeamInfo(teams, game.opponentTid || game.opponent)
+}
+
+/**
+ * Get user team info from a game record.
+ * Prefers tid-based lookup (userTid), falls back to abbr (userTeam).
+ *
+ * @param {Object} teams - dynasty.teams object
+ * @param {Object} game - Game record
+ * @returns {Object|null} Team info
+ */
+export function getGameUserTeamInfo(teams, game) {
+  if (!game) return null
+  return getGameTeamInfo(teams, game.userTid || game.userTeam)
+}
+
+/**
+ * Get team1 info from a game record (for CPU games or unified format).
+ *
+ * @param {Object} teams - dynasty.teams object
+ * @param {Object} game - Game record
+ * @returns {Object|null} Team info
+ */
+export function getGameTeam1Info(teams, game) {
+  if (!game) return null
+  return getGameTeamInfo(teams, game.team1Tid || game.team1)
+}
+
+/**
+ * Get team2 info from a game record (for CPU games or unified format).
+ *
+ * @param {Object} teams - dynasty.teams object
+ * @param {Object} game - Game record
+ * @returns {Object|null} Team info
+ */
+export function getGameTeam2Info(teams, game) {
+  if (!game) return null
+  return getGameTeamInfo(teams, game.team2Tid || game.team2)
 }

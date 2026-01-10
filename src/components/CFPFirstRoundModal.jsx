@@ -97,7 +97,7 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             existingFirstRound,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

@@ -5,9 +5,9 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamColors } from '../../data/teamColors'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
-import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 
 // Star display helper
@@ -112,7 +112,7 @@ export default function Recruiting() {
   const teamsSource = currentDynasty?.teams || TEAMS
 
   // Get current team abbreviation (for redirect if no URL params)
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
+  const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
   const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
 
   // Parse tid from URL or use current user's team

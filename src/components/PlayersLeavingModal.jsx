@@ -8,7 +8,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -95,7 +95,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
           const sheetInfo = await createPlayersLeavingSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,

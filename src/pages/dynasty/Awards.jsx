@@ -4,9 +4,9 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 
 // Map abbreviation to mascot name for logo lookup
@@ -217,8 +217,8 @@ export default function Awards() {
   const [showAwardsModal, setShowAwardsModal] = useState(false)
 
   // Get team colors for the modal
-  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || ''
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamAbbr = getCurrentTeamAbbr(currentDynasty) || ''
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 

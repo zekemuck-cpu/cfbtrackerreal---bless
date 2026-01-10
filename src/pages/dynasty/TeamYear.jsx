@@ -1,17 +1,16 @@
 import { useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
 // GameDetailModal removed - now using game pages
 import GameEntryModal from '../../components/GameEntryModal'
 import RosterEditModal from '../../components/RosterEditModal'
-import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 
 // Map abbreviation to mascot name for logo lookup
@@ -376,15 +375,30 @@ export default function TeamYear() {
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)
 
   // Check if this is the user's team
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, customTeams)
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
   const isUserTeam = teamAbbr === userTeamAbbr
 
   // Get locked coaching staff for this team/year (preserves coordinators even if fired later)
   const teamCoachingStaff = getLockedCoachingStaff(currentDynasty, selectedYear, teamAbbr)
 
   // Get games against this team for this specific year (user's games vs this opponent)
+  // Uses perspective to find games where user's team played against this team
+  const teams = currentDynasty?.teams || TEAMS
   const vsUserGames = (currentDynasty.games || [])
-    .filter(g => g.opponent === teamAbbr && g.year === selectedYear)
+    .filter(g => g.year === selectedYear)
+    .map(g => {
+      const perspective = getUserGamePerspective(g, currentDynasty)
+      return perspective ? { ...g, perspective } : null
+    })
+    .filter(g => {
+      if (!g) return false
+      // Check if opponent is the team we're viewing (by tid or abbr)
+      const opponentInfo = g.perspective?.opponentTid
+        ? getGameTeamInfo(teams, g.perspective.opponentTid)
+        : null
+      const opponentAbbr = opponentInfo?.abbr || g.opponent
+      return opponentAbbr === teamAbbr
+    })
     .sort((a, b) => a.week - b.week)
 
   // Get user's team record for this year (if viewing user's team page)
@@ -409,8 +423,8 @@ export default function TeamYear() {
     return 99
   }
   // Get games for THIS TEAM from games array
-  // Includes games where team was the userTeam OR the opponent
-  // Also includes postseason games (CC, Bowl, CFP) where team is team1 or team2
+  // Includes games where team was involved (as team1 or team2 in unified format)
+  // Also handles legacy format (userTeam/opponent) during transition
   const teamGamesFromArray = (() => {
     const games = currentDynasty.games || []
     const result = []
@@ -418,84 +432,114 @@ export default function TeamYear() {
     games.forEach(g => {
       if (Number(g.year) !== Number(selectedYear)) return
 
-      // Convert opponent to abbreviation for comparison (might be full name like "Sam Houston State Bearkats")
-      const opponentAbbr = getAbbreviationFromDisplayName(g.opponent) || g.opponent
+      // UNIFIED FORMAT: Check team1Tid/team2Tid
+      const hasUnifiedFormat = g.team1Tid && g.team2Tid
+      const isTeam1ByTid = g.team1Tid === tid
+      const isTeam2ByTid = g.team2Tid === tid
+      const isInGameByTid = isTeam1ByTid || isTeam2ByTid
 
-      // Check if this team is involved via team1/team2 fields (used in postseason games)
-      const isTeam1 = g.team1 === teamAbbr
-      const isTeam2 = g.team2 === teamAbbr
-      const isInTeam1Team2 = isTeam1 || isTeam2
+      // LEGACY FORMAT: Check team1/team2 abbreviations or userTeam/opponent
+      const opponentAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
+      const isTeam1ByAbbr = g.team1 === teamAbbr
+      const isTeam2ByAbbr = g.team2 === teamAbbr
+      const isInTeam1Team2 = isTeam1ByAbbr || isTeam2ByAbbr
+
+      // Combined check: team is involved in this game
+      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : isTeam1ByAbbr
+      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : isTeam2ByAbbr
+      const teamInGame = hasUnifiedFormat ? isInGameByTid : (isInTeam1Team2 || g.userTeam === teamAbbr || opponentAbbr === teamAbbr)
+
+      if (!teamInGame) return
 
       // Check if this is a postseason game
       const isPostseason = g.isConferenceChampionship || g.isBowlGame || g.isPlayoff ||
                            g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship
 
-      // For CPU games (have team1/team2 but no userTeam), only include if this team is involved
-      const isCPUGame = !g.userTeam && g.team1 && g.team2
+      // Detect CPU games:
+      // - Unified format: neither team is user's coached team for this year
+      // - Legacy format: has team1/team2 but no userTeam
+      const userTidForYear = currentDynasty.coachTeamByYear?.[g.year]?.tid
+      const isCPUGame = hasUnifiedFormat
+        ? (g.team1Tid !== userTidForYear && g.team2Tid !== userTidForYear)
+        : (!g.userTeam && g.team1 && g.team2)
+
+      // Calculate scores from unified or legacy format
+      const team1Score = g.team1Score
+      const team2Score = g.team2Score
+      const thisTeamScore = isTeam1 ? team1Score : team2Score
+      const otherTeamScore = isTeam1 ? team2Score : team1Score
+
+      // Determine winner (unified or legacy format)
+      const teamWon = hasUnifiedFormat
+        ? (g.winnerTid === tid || thisTeamScore > otherTeamScore)
+        : (g.winner === teamAbbr || (g.result === 'win' && g.userTeam === teamAbbr) ||
+           (g.result === 'loss' && opponentAbbr === teamAbbr))
+
+      // Get opponent tid/abbr
+      const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
+      const opponentAbbrResolved = hasUnifiedFormat
+        ? (getTeam(currentDynasty.teams, opponentTid)?.abbr || opponentAbbr)
+        : (isTeam1ByAbbr ? g.team2 : (isTeam2ByAbbr ? g.team1 : opponentAbbr))
+
       if (isCPUGame) {
-        if (isInTeam1Team2) {
-          // Convert to display format for this team's perspective
-          const teamWon = g.winner === teamAbbr
+        // CPU game - convert to display format for this team's perspective
+        result.push({
+          ...g,
+          // For display compatibility with legacy UI code
+          userTeam: teamAbbr,
+          opponent: opponentAbbrResolved,
+          teamScore: thisTeamScore,
+          opponentScore: otherTeamScore,
+          result: teamWon ? 'win' : 'loss',
+          _fromCPUPostseason: true
+        })
+        return
+      }
+
+      // User game - check if this team was the user's team or opponent
+      const wasUserTeam = hasUnifiedFormat
+        ? (isInGameByTid && (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) && (isTeam1ByTid === (g.team1Tid === userTidForYear)))
+        : (g.userTeam === teamAbbr || (!g.userTeam && isUserTeam))
+
+      if (wasUserTeam) {
+        // Game played AS this team - use as-is or convert from unified
+        if (hasUnifiedFormat && !g.userTeam) {
+          // Convert unified format to display format
           result.push({
             ...g,
             userTeam: teamAbbr,
-            opponent: isTeam1 ? g.team2 : g.team1,
-            teamScore: isTeam1 ? g.team1Score : g.team2Score,
-            opponentScore: isTeam1 ? g.team2Score : g.team1Score,
+            opponent: opponentAbbrResolved,
+            teamScore: thisTeamScore,
+            opponentScore: otherTeamScore,
             result: teamWon ? 'win' : 'loss',
-            _fromCPUPostseason: true
+            location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral')
           })
-        }
-        return
-      }
-
-      // Games played AS this team
-      if (g.userTeam === teamAbbr) {
-        result.push(g)
-        return
-      }
-
-      // Legacy fallback: if no userTeam field and this is the current user's team
-      if (!g.userTeam && isUserTeam) {
-        result.push(g)
-        return
-      }
-
-      // Games played AGAINST this team - check both opponent field AND team1/team2 fields
-      // Need to check team1/team2 because user postseason games now have those for Bowl History
-      // BUT: Don't include if this game was already added as the user's own game above
-      const wasAlreadyAddedAsOwnGame = g.userTeam === teamAbbr || (!g.userTeam && isUserTeam)
-      const isOpponent = !wasAlreadyAddedAsOwnGame && (opponentAbbr === teamAbbr || isInTeam1Team2)
-
-      if (isOpponent) {
-        // Flip the result
-        const flippedResult = g.result === 'win' || g.result === 'W' ? 'loss' :
-                              g.result === 'loss' || g.result === 'L' ? 'win' : g.result
-        // Flip the location
-        const flippedLocation = g.location === 'home' ? 'away' :
-                                g.location === 'away' ? 'home' : g.location
-
-        // For postseason games with team1/team2, calculate scores from those fields
-        let displayTeamScore, displayOpponentScore
-        if (isInTeam1Team2 && g.team1Score !== undefined) {
-          displayTeamScore = isTeam1 ? g.team1Score : g.team2Score
-          displayOpponentScore = isTeam1 ? g.team2Score : g.team1Score
         } else {
-          displayTeamScore = g.opponentScore
-          displayOpponentScore = g.teamScore
+          result.push(g)
         }
-
-        result.push({
-          ...g,
-          // Keep original ID so game page link works
-          _displayOpponent: g.userTeam, // For display: show who they played against
-          _displayResult: flippedResult,
-          _displayLocation: flippedLocation,
-          _displayTeamScore: displayTeamScore,
-          _displayOpponentScore: displayOpponentScore,
-          _isFlippedPerspective: true // Flag to identify flipped games
-        })
+        return
       }
+
+      // Game played AGAINST this team - flip perspective
+      const flippedResult = teamWon ? 'win' : 'loss'
+      const flippedLocation = hasUnifiedFormat
+        ? (g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'))
+        : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
+
+      // Get the other team's info for display
+      const otherTeamAbbr = hasUnifiedFormat
+        ? (getTeam(currentDynasty.teams, isTeam1 ? g.team2Tid : g.team1Tid)?.abbr || g.userTeam)
+        : g.userTeam
+
+      result.push({
+        ...g,
+        _displayOpponent: otherTeamAbbr,
+        _displayResult: flippedResult,
+        _displayLocation: flippedLocation,
+        _displayTeamScore: thisTeamScore,
+        _displayOpponentScore: otherTeamScore,
+        _isFlippedPerspective: true
+      })
     })
 
     return result
@@ -595,10 +639,10 @@ export default function TeamYear() {
 
     // Helper to check if a game already exists (handles abbr vs full name comparison)
     const gameAlreadyExists = (convGame, cfpFlag) => {
-      const convOppAbbr = getAbbreviationFromDisplayName(convGame.opponent) || convGame.opponent
+      const convOppAbbr = getAbbrFromTeamName(convGame.opponent) || convGame.opponent
       return teamGamesFromArray.some(g => {
         if (!g[cfpFlag]) return false
-        const existingOppAbbr = getAbbreviationFromDisplayName(g.opponent) || g.opponent
+        const existingOppAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
         return existingOppAbbr === convOppAbbr
       })
     }
@@ -697,12 +741,25 @@ export default function TeamYear() {
 
   // Get the last known opponent record from games where this team was the opponent
   // This gives us the most recent record entered by the user during game input
+  // Uses perspective to find games where user played against this team
   const getLastKnownOpponentRecord = () => {
     const games = currentDynasty.games || []
     // Find games where this team was the opponent (not the user's team)
-    // Exclude CPU games (have team1/team2 but no userTeam)
     const gamesAsOpponent = games
-      .filter(g => g.userTeam && Number(g.year) === Number(selectedYear) && g.opponent === teamAbbr && g.opponentRecord)
+      .filter(g => Number(g.year) === Number(selectedYear))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => {
+        if (!g || !g.opponentRecord) return false
+        // Check if opponent is the team we're viewing (by tid or abbr)
+        const opponentInfo = g.perspective?.opponentTid
+          ? getGameTeamInfo(teams, g.perspective.opponentTid)
+          : null
+        const opponentAbbr = opponentInfo?.abbr || g.opponent
+        return opponentAbbr === teamAbbr
+      })
       .sort((a, b) => {
         // Sort by week/game order to get the most recent
         const getOrder = (g) => {
@@ -1015,8 +1072,9 @@ export default function TeamYear() {
 
 
   // Calculate vs user record
-  const vsUserWins = vsUserGames.filter(g => g.result === 'W').length
-  const vsUserLosses = vsUserGames.filter(g => g.result === 'L').length
+  // Use perspective for win/loss (vsUserGames already has perspective attached)
+  const vsUserWins = vsUserGames.filter(g => g.perspective?.userWon).length
+  const vsUserLosses = vsUserGames.filter(g => g.perspective && !g.perspective.userWon).length
 
   // Sort roster based on current sort settings
   const posOrder = [
@@ -2488,7 +2546,7 @@ export default function TeamYear() {
               // Use display values for flipped games, otherwise use original values
               const rawDisplayOpponent = game._isFlippedPerspective ? game._displayOpponent : game.opponent
               // Convert full team name to abbreviation if needed
-              const displayOpponent = getAbbreviationFromDisplayName(rawDisplayOpponent) || rawDisplayOpponent
+              const displayOpponent = getAbbrFromTeamName(rawDisplayOpponent) || rawDisplayOpponent
               const displayResult = game._isFlippedPerspective ? game._displayResult : game.result
               const displayLocation = game._isFlippedPerspective ? game._displayLocation : game.location
               const displayTeamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
@@ -2516,7 +2574,7 @@ export default function TeamYear() {
               } else if (game.isCFPFirstRound) {
                 // For first round, use seeds to determine slot
                 const cfpSeeds = currentDynasty.cfpSeedsByYear?.[selectedYear] || []
-                const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+                const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
                 const userSeed = cfpSeeds.find(s => s && s.team === userTeamAbbr)?.seed
                 const oppSeed = userSeed ? 17 - userSeed : null
                 const slotId = getFirstRoundSlotId(userSeed, oppSeed)

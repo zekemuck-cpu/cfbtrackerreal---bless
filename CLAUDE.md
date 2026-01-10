@@ -301,13 +301,50 @@ npm run dev
 - `src/data/teamRegistry.js` - **NEW** Single source of truth for team data
 - `src/context/DynastyContext.jsx` - Integration with migration and creation
 
-### Next Steps (Optional Cleanup)
+### Phase 9: Full tid Migration (IN PROGRESS)
 
-The tid-based system is fully functional. These are optional cleanup tasks for the future:
+Extending the tid system to ALL team references throughout the app:
 
-1. **Remove `customTeams` parameter** - Once confident the new system is stable, remove the `customTeams` parameter from all helper functions (currently kept for backward compatibility)
-2. **Migrate Google Sheets** - Update `sheetsService.js` to use tid-based lookups instead of `customTeams`
-3. **Remove old data structures** - After sufficient testing, could remove the old `*ByTeamYear` structures and only use `teams[tid].byYear`
+**New Dynasty Fields:**
+- ✅ `dynasty.currentTid` - Primary team identifier (replaces `teamName` lookups)
+- ✅ `coachTeamByYear[year].tid` - Coach history now includes tid
+
+**Player Data Migration:**
+- ✅ `player.teamsByYear[year]` - Values now store tid (number) instead of abbr (string)
+- ✅ `isPlayerOnRoster(player, tidOrAbbr, year)` - Accepts either tid or abbr
+- ✅ `getCurrentRoster()` - Uses `dynasty.currentTid`
+
+**Game Records Migration:**
+- ✅ Games now have both tid and abbr fields during transition:
+  - `userTid` / `userTeam`
+  - `opponentTid` / `opponent`
+  - `team1Tid` / `team1` (CPU games)
+  - `team2Tid` / `team2` (CPU games)
+- ✅ Auto-normalization in `updateDynasty()` ensures both fields are always present
+- ✅ `recalculateStatsFromBoxScores()` - Uses tid-based filtering with abbr fallback
+
+**New Helper Functions:**
+- ✅ `getTidFromTeamName(teamName, dynastyTeams)` - Convert display name to tid
+- ✅ `migrateToFullTidSystem()` - Migration function for existing dynasties
+
+**Migration Flag:** `_tidFullyMigrated: true`
+
+### Completed Cleanup (January 2026)
+
+1. ✅ **Replaced `getAbbreviationFromDisplayName()` calls** - Created new `getAbbrFromTeamName()` helper in teamRegistry.js and migrated all 55+ usages across 25+ files to use it
+2. ✅ **Google Sheets** - Updated sheetsService.js to use `getAbbrFromTeamName()` from teamRegistry.js. Updated `getTeamsWithCustom()`, `getSelectableTeamsList()`, `getSchedulableTeamsList()` to auto-detect and handle both tid-based `dynasty.teams` and old `customTeams` formats.
+3. ✅ **useTeamColors hook** - Updated to auto-detect tid-based `dynasty.teams` vs old `customTeams` structure. Added `useCurrentTeamColors(dynasty)` hook for cleaner usage. Updated 20+ files to pass `dynasty.teams || customTeams`.
+4. ✅ **Data helper files** - Updated `getTeamColors()`, `getTeamColorsByAbbr()`, `getTeamLogo()`, `getTeamLogoByAbbr()` to auto-detect tid-based `dynasty.teams` structure
+5. ✅ **Modal components** - Updated 12 modal components to pass `dynasty.teams || customTeams` to sheet services (ScheduleEntryModal, CFPSeedsModal, ConferenceStandingsModal, FinalPollsModal, AwardsModal, AllAmericansModal, ConferenceChampionshipModal, CFPFirstRoundModal, ConferencesModal, RosterHistoryModal, BowlWeek1Modal, BowlWeek2Modal)
+6. ✅ **Page components** - Updated Dashboard.jsx and Home.jsx to use tid-based logo/color lookups with fallback to customTeams
+7. ✅ **getUserGamePerspective fallbacks** - Added fallback logic to derive `userTid` when `coachTeamByYear[year].tid` is not set: (1) derive from `coachTeamByYear[year].team` abbr, (2) use `getCurrentTeamTid(dynasty)` for current year, (3) derive from `dynasty.teamName`
+8. ✅ **News Ticker tid support** - Updated `useTickerSections.js` to use `getCurrentTeamTid()` for current team, pass `teams` parameter to all `getTeamAbbr()` calls, and handle both tid and abbr in `player.teamsByYear` for season leaders filtering
+9. ✅ **CC phase advancement fix** - Fixed mismatch where CC answers were saved to `conferenceChampionshipDataByTeamYear` but read from `conferenceChampionshipDataByYear`. Updated Dashboard.jsx handlers to write to BOTH structures, and Layout.jsx to check team-centric structure first.
+10. ✅ **CC sheet auto-fill** - Updated ConferenceChampionshipModal.jsx to pre-fill existing CC game data from `games[]` array when creating the sheet, handling both unified and legacy game formats
+
+### Remaining Optional Cleanup
+
+1. **Remove abbr fields from games** - Game data still has both tid and abbr fields (userTeam, opponent, team1, team2). The unified format uses team1Tid/team2Tid/winnerTid/homeTeamTid. Once all read code is updated to use tid fields exclusively, the abbr fields can be removed.
 
 ### Notes
 
@@ -315,6 +352,7 @@ The tid-based system is fully functional. These are optional cleanup tasks for t
 - Both systems coexist - reads try new structure first, fall back to old
 - Writes go to both structures for safety
 - tid is permanent - teambuilder just swaps the data at a slot, doesn't create new tids
+- During transition, games have BOTH tid and abbr fields for maximum compatibility
 
 ---
 

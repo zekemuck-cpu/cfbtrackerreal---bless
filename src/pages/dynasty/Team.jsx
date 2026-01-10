@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, detectGameType, GAME_TYPES, getTeamConferenceForDynasty } from '../../context/DynastyContext'
+import { useDynasty, detectGameType, GAME_TYPES, getTeamConferenceForDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getConferenceLogo } from '../../data/conferenceLogos'
-import { TEAMS, resolveTid, getAbbrFromTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getAbbrFromTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
+import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr) => {
@@ -169,7 +170,7 @@ const getMascotName = (abbr) => {
   // Try direct lookup first (for abbreviations)
   if (mascotMap[abbr]) return mascotMap[abbr]
   // If abbr is already a full name, try to get abbreviation and return the full name
-  const actualAbbr = getAbbreviationFromDisplayName(abbr)
+  const actualAbbr = getAbbrFromTeamName(abbr)
   if (actualAbbr) return mascotMap[actualAbbr] || abbr
   return null
 }
@@ -204,7 +205,7 @@ const getSchoolName = (mascotName) => {
 export default function Team() {
   const { id, tid: tidParam } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, isViewOnly, updateTeambuilderTeam } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [showGamesModal, setShowGamesModal] = useState(false)
   const [showApTop25Modal, setShowApTop25Modal] = useState(false)
@@ -217,6 +218,7 @@ export default function Team() {
   const [showSeasonsModal, setShowSeasonsModal] = useState(false)
   const [showStreakModal, setShowStreakModal] = useState(false)
   const [showAllTimeModal, setShowAllTimeModal] = useState(false)
+  const [showTeambuilderEditModal, setShowTeambuilderEditModal] = useState(false)
 
   // Convert tid param to number
   const tid = parseInt(tidParam, 10)
@@ -284,25 +286,30 @@ export default function Team() {
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
 
-  // Get user's team abbreviation
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  // Get user's team abbreviation and teams reference
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+  const teams = currentDynasty?.teams || TEAMS
 
   // Get all games against this team (user's games across all teams they've coached)
+  // Uses perspective to find games where user played against this team
   const gamesAgainst = (currentDynasty.games || [])
+    .map(g => {
+      const perspective = getUserGamePerspective(g, currentDynasty)
+      return perspective ? { ...g, perspective } : null
+    })
     .filter(g => {
-      // Exclude CPU vs CPU games (have team1/team2 but no userTeam)
-      if (!g.userTeam && g.team1 && g.team2) return false
-
-      // Must be against the team we're viewing
-      if (g.opponent !== teamAbbr) return false
-
-      // Include all user games regardless of which team they were coaching
-      return true
+      if (!g) return false
+      // Check if opponent matches the team we're viewing (by tid or abbr)
+      const opponentInfo = g.perspective?.opponentTid
+        ? getGameTeamInfo(teams, g.perspective.opponentTid)
+        : null
+      const opponentAbbr = opponentInfo?.abbr || g.opponent
+      return opponentAbbr === teamAbbr
     })
 
-  // Calculate all-time record vs this team (handle both W/L and win/loss formats)
-  const allTimeWins = gamesAgainst.filter(g => g.result === 'W' || g.result === 'win').length
-  const allTimeLosses = gamesAgainst.filter(g => g.result === 'L' || g.result === 'loss').length
+  // Calculate all-time record vs this team using perspective
+  const allTimeWins = gamesAgainst.filter(g => g.perspective?.userWon).length
+  const allTimeLosses = gamesAgainst.filter(g => g.perspective && !g.perspective.userWon).length
   const winPctVs = gamesAgainst.length > 0
     ? ((allTimeWins / gamesAgainst.length) * 100).toFixed(1)
     : null
@@ -357,6 +364,17 @@ export default function Team() {
     const bowlGames = []
     const seenGames = new Set() // Prevent duplicates
 
+    // Helper to get team abbreviation from game (supports tid or legacy fields)
+    const getTeamAbbrFromGame = (game, isTeam1) => {
+      const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+      const legacyField = isTeam1 ? 'team1' : 'team2'
+      if (game[tidField]) {
+        const info = getGameTeamInfo(teams, game[tidField])
+        return info?.abbr || game[legacyField]
+      }
+      return game[legacyField]
+    }
+
     // 1. Check unified games[] array for bowl games where this team played
     const allGames = currentDynasty.games || []
     allGames.forEach(game => {
@@ -364,43 +382,50 @@ export default function Team() {
       const gameType = detectGameType(game)
       if (gameType !== GAME_TYPES.BOWL) return
 
-      // Check if this team played in this game
-      const isUserTeam = game.userTeam === teamAbbr
-      // CPU games have no opponent AND no userTeam (just team1/team2)
-      const isCpuGame = !game.opponent && !game.userTeam && game.team1 && game.team2
-      const isCpuTeam1 = isCpuGame && game.team1 === teamAbbr
-      const isCpuTeam2 = isCpuGame && game.team2 === teamAbbr
+      // Get perspective to check if user played in this game
+      const perspective = getUserGamePerspective(game, currentDynasty)
 
-      if (!isUserTeam && !isCpuTeam1 && !isCpuTeam2) return
+      // Get team abbreviations from the game (supports both tid and legacy format)
+      const team1Abbr = getTeamAbbrFromGame(game, true)
+      const team2Abbr = getTeamAbbrFromGame(game, false)
+
+      // Check if user coached the team we're viewing in this game
+      const userInfo = perspective?.userTid ? getGameTeamInfo(teams, perspective.userTid) : null
+      const isUserTeam = userInfo?.abbr === teamAbbr || game.userTeam === teamAbbr
+
+      // Check if team participated (as team1 or team2)
+      const isTeam1 = team1Abbr === teamAbbr
+      const isTeam2 = team2Abbr === teamAbbr
+
+      if (!isUserTeam && !isTeam1 && !isTeam2) return
 
       const gameKey = `${game.year}-${game.bowlName || game.week}`
       if (seenGames.has(gameKey)) return
       seenGames.add(gameKey)
 
-      if (isUserTeam) {
-        // User game
-        const isWin = game.result === 'W' || game.result === 'win'
+      if (isUserTeam && perspective) {
+        // User game - use perspective for scores
+        const oppInfo = getGameTeamInfo(teams, perspective.opponentTid)
         bowlGames.push({
           year: parseInt(game.year),
           bowlName: game.bowlName || 'Bowl Game',
-          opponent: game.opponent,
-          teamScore: game.teamScore,
-          opponentScore: game.opponentScore,
-          won: isWin,
-          hasScore: game.teamScore !== null && game.opponentScore !== null
+          opponent: oppInfo?.abbr || game.opponent,
+          teamScore: perspective.userScore,
+          opponentScore: perspective.opponentScore,
+          won: perspective.userWon,
+          hasScore: perspective.userScore !== null && perspective.opponentScore !== null
         })
       } else {
-        // CPU game where this team participated
-        const isTeam1 = game.team1 === teamAbbr
+        // CPU game or team participated but not as user - use team1/team2 format
         const hasScore = game.team1Score !== null && game.team2Score !== null
         const teamWon = hasScore && (
           (isTeam1 && game.team1Score > game.team2Score) ||
-          (!isTeam1 && game.team2Score > game.team1Score)
+          (isTeam2 && game.team2Score > game.team1Score)
         )
         bowlGames.push({
           year: parseInt(game.year),
           bowlName: game.bowlName || 'Bowl Game',
-          opponent: isTeam1 ? game.team2 : game.team1,
+          opponent: isTeam1 ? team2Abbr : team1Abbr,
           teamScore: isTeam1 ? game.team1Score : game.team2Score,
           opponentScore: isTeam1 ? game.team2Score : game.team1Score,
           won: teamWon,
@@ -450,22 +475,28 @@ export default function Team() {
   const bowlLosses = bowlGames.filter(g => g.hasScore && !g.won)
 
   // Calculate "Games As" - games where user played AS this team
+  // Uses perspective to find games where user coached this specific team
   const getGamesAsTeam = () => {
     const games = currentDynasty.games || []
-    return games.filter(g => {
-      // Skip CPU games (have team1/team2 but no userTeam)
-      if (!g.userTeam && g.team1 && g.team2) return false
-      // Check if this game was played by the team we're viewing
-      if (g.userTeam === teamAbbr) return true
-      // Legacy fallback: if no userTeam and this is the current user's team
-      if (!g.userTeam && teamAbbr === userTeamAbbr) return true
-      return false
-    })
+    return games
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => {
+        if (!g) return false
+        // Check if user was coaching this team in this game's year
+        const userTeamInfo = g.perspective?.userTid
+          ? getGameTeamInfo(teams, g.perspective.userTid)
+          : null
+        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
+        return userGameTeamAbbr === teamAbbr
+      })
   }
 
   const gamesAsTeam = getGamesAsTeam()
-  const gamesAsWins = gamesAsTeam.filter(g => g.result === 'W' || g.result === 'win').length
-  const gamesAsLosses = gamesAsTeam.filter(g => g.result === 'L' || g.result === 'loss').length
+  const gamesAsWins = gamesAsTeam.filter(g => g.perspective?.userWon).length
+  const gamesAsLosses = gamesAsTeam.filter(g => g.perspective && !g.perspective.userWon).length
   const winPctAs = gamesAsTeam.length > 0
     ? ((gamesAsWins / gamesAsTeam.length) * 100).toFixed(1)
     : null
@@ -473,7 +504,7 @@ export default function Team() {
   // Calculate seasons coached as this team
   const seasonsAsTeam = [...new Set(gamesAsTeam.map(g => g.year))].length
 
-  // Calculate current streak vs this team
+  // Calculate current streak vs this team using perspective
   const getStreakVsTeam = () => {
     if (gamesAgainst.length === 0) return null
     // Sort by year descending, then by week descending to get most recent first
@@ -482,19 +513,23 @@ export default function Team() {
       return (b.week || 0) - (a.week || 0)
     })
 
-    // Normalize result to W or L
-    const normalizeResult = (result) => {
-      if (result === 'W' || result === 'win') return 'W'
-      if (result === 'L' || result === 'loss') return 'L'
+    // Get win/loss from perspective, fallback to result field
+    const getResult = (game) => {
+      if (game.perspective) {
+        return game.perspective.userWon ? 'W' : 'L'
+      }
+      // Legacy fallback
+      if (game.result === 'W' || game.result === 'win') return 'W'
+      if (game.result === 'L' || game.result === 'loss') return 'L'
       return null
     }
 
-    const firstResult = normalizeResult(sortedGames[0]?.result)
+    const firstResult = getResult(sortedGames[0])
     if (!firstResult) return null
 
     let streak = 0
     for (const game of sortedGames) {
-      if (normalizeResult(game.result) === firstResult) {
+      if (getResult(game) === firstResult) {
         streak++
       } else {
         break
@@ -533,20 +568,36 @@ export default function Team() {
       const games = []
 
       // First, check user games from games[] array for this team and year
-      const userCfpGames = allGames.filter(g =>
-        g.year === yearNum &&
-        g.userTeam === teamAbbr &&
-        getCfpRound(g)
-      )
+      // Use perspective to find games where user coached this team
+      const userCfpGames = allGames
+        .filter(g => g.year === yearNum && getCfpRound(g))
+        .map(g => {
+          const perspective = getUserGamePerspective(g, currentDynasty)
+          return perspective ? { ...g, perspective } : null
+        })
+        .filter(g => {
+          if (!g) return false
+          // Check if user was coaching this team in this game
+          const userTeamInfo = g.perspective?.userTid
+            ? getGameTeamInfo(teams, g.perspective.userTid)
+            : null
+          const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
+          return userGameTeamAbbr === teamAbbr
+        })
 
       userCfpGames.forEach(g => {
         const round = getCfpRound(g)
-        const won = g.result === 'W' || g.result === 'win'
+        const won = g.perspective?.userWon ?? (g.result === 'W' || g.result === 'win')
+        // Get opponent info from perspective or fallback
+        const opponentInfo = g.perspective?.opponentTid
+          ? getGameTeamInfo(teams, g.perspective.opponentTid)
+          : null
+        const opponent = opponentInfo?.abbr || g.opponent
         games.push({
           round,
-          opponent: g.opponent,
-          teamScore: g.teamScore,
-          opponentScore: g.opponentScore,
+          opponent,
+          teamScore: g.perspective?.userScore ?? g.teamScore,
+          opponentScore: g.perspective?.opponentScore ?? g.opponentScore,
           won,
           gameId: g.id
         })
@@ -770,25 +821,30 @@ export default function Team() {
   }
 
   // Get team record from games played for a specific year (fallback when standings not available)
+  // Uses perspective to find games where user coached this team
   const getTeamRecordFromGames = (year) => {
     const games = currentDynasty.games || []
     // Filter games where user played AS this team in this year
-    const teamGames = games.filter(g => {
-      // Skip CPU games (have team1/team2 but no userTeam)
-      if (!g.userTeam && g.team1 && g.team2) return false
-      // Compare as numbers to handle string/number mismatch
-      if (Number(g.year) !== Number(year)) return false
-      // Check if this game was played by the team we're viewing
-      if (g.userTeam === teamAbbr) return true
-      // Legacy fallback
-      if (!g.userTeam && teamAbbr === userTeamAbbr) return true
-      return false
-    })
+    const teamGames = games
+      .filter(g => Number(g.year) === Number(year))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => {
+        if (!g) return false
+        // Check if user was coaching this team in this game
+        const userTeamInfo = g.perspective?.userTid
+          ? getGameTeamInfo(teams, g.perspective.userTid)
+          : null
+        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
+        return userGameTeamAbbr === teamAbbr
+      })
 
     if (teamGames.length === 0) return null
 
-    const wins = teamGames.filter(g => g.result === 'win' || g.result === 'W').length
-    const losses = teamGames.filter(g => g.result === 'loss' || g.result === 'L').length
+    const wins = teamGames.filter(g => g.perspective?.userWon).length
+    const losses = teamGames.filter(g => g.perspective && !g.perspective.userWon).length
 
     return { wins, losses }
   }
@@ -905,10 +961,11 @@ export default function Team() {
     : null
 
   // Calculate vs user record (for Your History section)
+  // gamesAgainst already has perspective attached
   const vsUserYearRecords = years.map(year => {
     const yearGames = gamesAgainst.filter(g => g.year === year)
-    const wins = yearGames.filter(g => g.result === 'W').length
-    const losses = yearGames.filter(g => g.result === 'L').length
+    const wins = yearGames.filter(g => g.perspective?.userWon).length
+    const losses = yearGames.filter(g => g.perspective && !g.perspective.userWon).length
     return { year, wins, losses, hasGames: yearGames.length > 0 }
   })
   const vsUserYearsWithGames = vsUserYearRecords.filter(yr => yr.hasGames)
@@ -982,12 +1039,30 @@ export default function Team() {
             <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.7 }}>
               Team History
             </p>
-            <h1 className="text-2xl font-bold" style={{ color: teamBgText }}>
-              {finalRanking && (
-                <span className="text-yellow-400 mr-2">#{finalRanking.rank}</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold" style={{ color: teamBgText }}>
+                {finalRanking && (
+                  <span className="text-yellow-400 mr-2">#{finalRanking.rank}</span>
+                )}
+                {mascotName || teamInfo.name}
+              </h1>
+              {/* Edit button for teambuilder teams */}
+              {teamInfo.isTeambuilder && !isViewOnly && (
+                <button
+                  onClick={() => setShowTeambuilderEditModal(true)}
+                  className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: `${teamBgText}20`,
+                    color: teamBgText
+                  }}
+                  title="Edit teambuilder team"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
               )}
-              {mascotName || teamInfo.name}
-            </h1>
+            </div>
             {conference && (
               <div className="flex items-center gap-2 mt-2">
                 {conferenceLogo && (
@@ -1000,6 +1075,21 @@ export default function Team() {
                 <span className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.8 }}>
                   {conference}
                 </span>
+              </div>
+            )}
+            {/* Teambuilder badge */}
+            {teamInfo.isTeambuilder && (
+              <div
+                className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: `${teamBgText}20`,
+                  color: teamBgText
+                }}
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+                Teambuilder
               </div>
             )}
           </div>
@@ -1521,7 +1611,7 @@ export default function Team() {
                             .sort((a, b) => (b.week || 0) - (a.week || 0))
                             .map((game, idx) => {
                               const isWin = game.result === 'W' || game.result === 'win'
-                              const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbreviationFromDisplayName(game.opponent)
+                              const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
                               const oppInfo = teamAbbreviations[oppAbbr] || {}
                               const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                               const oppTextColor = getContrastTextColor(oppBgColor)
@@ -1680,7 +1770,7 @@ export default function Team() {
               ) : (
               <div className="space-y-2">
                 {conferenceTitlesDetails.map((title, idx) => {
-                  const oppAbbr = teamAbbreviations[title.opponent] ? title.opponent : getAbbreviationFromDisplayName(title.opponent)
+                  const oppAbbr = teamAbbreviations[title.opponent] ? title.opponent : getAbbrFromTeamName(title.opponent)
                   const oppInfo = teamAbbreviations[oppAbbr] || {}
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
@@ -1772,7 +1862,7 @@ export default function Team() {
               <div className="space-y-2">
                 {bowlGames.map((game, idx) => {
                   // Handle both abbreviation and full team name for opponent lookup
-                  const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbreviationFromDisplayName(game.opponent)
+                  const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
                   const oppInfo = teamAbbreviations[oppAbbr] || teamAbbreviations[game.opponent] || {}
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
@@ -1888,7 +1978,7 @@ export default function Team() {
                     {app.games.length > 0 && (
                       <div className="px-3 pb-3 space-y-2">
                         {app.games.map((game, gIdx) => {
-                          const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbreviationFromDisplayName(game.opponent)
+                          const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
                           const oppInfo = teamAbbreviations[oppAbbr] || {}
                           const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                           const oppTextColor = getContrastTextColor(oppBgColor)
@@ -1978,7 +2068,7 @@ export default function Team() {
               ) : (
               <div className="space-y-2">
                 {nationalTitles.map((title, idx) => {
-                  const oppAbbr = teamAbbreviations[title.opponent] ? title.opponent : getAbbreviationFromDisplayName(title.opponent)
+                  const oppAbbr = teamAbbreviations[title.opponent] ? title.opponent : getAbbrFromTeamName(title.opponent)
                   const oppInfo = teamAbbreviations[oppAbbr] || {}
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
@@ -2142,7 +2232,7 @@ export default function Team() {
                   })
                   .map((game, idx) => {
                     const isWin = game.result === 'W' || game.result === 'win'
-                    const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbreviationFromDisplayName(game.opponent)
+                    const oppAbbr = teamAbbreviations[game.opponent] ? game.opponent : getAbbrFromTeamName(game.opponent)
                     const oppInfo = teamAbbreviations[oppAbbr] || {}
                     const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                     const oppTextColor = getContrastTextColor(oppBgColor)
@@ -2199,6 +2289,20 @@ export default function Team() {
           </div>
         </div>
       )}
+
+      {/* Teambuilder Edit Modal */}
+      <TeambuilderEditModal
+        isOpen={showTeambuilderEditModal}
+        onClose={() => setShowTeambuilderEditModal(false)}
+        team={team}
+        tid={tid}
+        onSave={async (updates) => {
+          const result = await updateTeambuilderTeam(currentDynasty.id, tid, updates)
+          if (!result.success) {
+            throw new Error(result.message)
+          }
+        }}
+      />
 
     </div>
   )

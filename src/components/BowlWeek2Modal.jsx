@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
@@ -11,7 +11,7 @@ import {
   getCFPQuarterfinalGameName,
   isBowlInWeek2
 } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -114,9 +114,38 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               let seed1 = g.seed1
               let seed2 = g.seed2
 
-              // If this is a user game (has opponent field), derive unified format
-              if (g.opponent && !winner) {
-                const userTeam = g.userTeam || getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+              // Check for unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              if (g.team1Tid && g.team2Tid && !team1) {
+                const t1Info = getGameTeamInfo(teams, g.team1Tid)
+                const t2Info = getGameTeamInfo(teams, g.team2Tid)
+                team1 = t1Info?.abbr || g.team1
+                team2 = t2Info?.abbr || g.team2
+              }
+
+              // Get perspective for user games
+              const perspective = getUserGamePerspective(g, currentDynasty)
+
+              // If this is a user game, derive winner from perspective or result
+              if (perspective && !winner) {
+                const userTeamInfo = perspective.userTid
+                  ? getGameTeamInfo(teams, perspective.userTid)
+                  : null
+                const oppTeamInfo = perspective.opponentTid
+                  ? getGameTeamInfo(teams, perspective.opponentTid)
+                  : null
+                const userTeam = userTeamInfo?.abbr || g.userTeam || getCurrentTeamAbbr(currentDynasty)
+                const oppTeam = oppTeamInfo?.abbr || g.opponent
+                winner = perspective.userWon ? userTeam : oppTeam
+
+                // Set team1/team2 if not already set
+                if (!team1 || !team2) {
+                  team1 = userTeam
+                  team2 = oppTeam
+                }
+              } else if (g.opponent && !winner) {
+                // Fallback for legacy user games
+                const userTeam = g.userTeam || getCurrentTeamAbbr(currentDynasty)
                 const oppTeam = g.opponent
                 const userWon = g.result === 'win' || g.result === 'W'
                 winner = userWon ? userTeam : oppTeam
@@ -161,7 +190,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP (seeds 1-12)
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
 
           if (userCFPSeed) {
@@ -262,7 +291,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             excludeGames,
             existingBowlWeek2,
             existingCFPQuarterfinals,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

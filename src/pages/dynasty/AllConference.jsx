@@ -3,9 +3,9 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty, getCurrentCustomConferences, getCustomConferencesForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamConference, conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllAmericansModal from '../../components/AllAmericansModal'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -189,7 +189,7 @@ export default function AllConference() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 
@@ -206,7 +206,7 @@ export default function AllConference() {
   const yearData = allAmericansByYear[displayYear] || {}
 
   // Get the user's team abbreviation
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
   // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
   const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)

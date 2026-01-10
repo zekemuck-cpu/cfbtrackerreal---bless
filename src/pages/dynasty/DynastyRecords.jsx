@@ -4,7 +4,8 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo } from '../../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName, getTeamName } from '../../data/teamAbbreviations'
+import { teamAbbreviations, getTeamName } from '../../data/teamAbbreviations'
+import { getAbbrFromTeamName } from '../../data/teamRegistry'
 
 // Stat category definitions using internal field names
 const STAT_CATEGORIES = {
@@ -122,7 +123,7 @@ export default function DynastyRecords() {
   const { id: dynastyId } = useParams()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   const [mode, setMode] = useState(() => {
     return localStorage.getItem('leaderboard-mode') || 'career'
@@ -141,7 +142,7 @@ export default function DynastyRecords() {
   const getPlayerInfo = (pid) => {
     const player = currentDynasty?.players?.find(p => p.pid === pid)
     const playerTeamRaw = player?.team || currentDynasty?.teamName
-    const teamAbbr = getAbbreviationFromDisplayName(playerTeamRaw) || playerTeamRaw
+    const teamAbbr = getAbbrFromTeamName(playerTeamRaw) || playerTeamRaw
     const teamFullName = getTeamName(teamAbbr) || playerTeamRaw
     const teamLogo = getTeamLogo(teamFullName)
     return {

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, setTeamYearField } from '../../data/teamRegistry'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -61,7 +61,7 @@ export default function Dashboard() {
   const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   // Build path prefix for links based on view mode
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
@@ -77,10 +77,22 @@ export default function Dashboard() {
   const teamGoogleSheet = getCurrentGoogleSheet(currentDynasty)
 
   // Calculate wins/losses for schedule section header from actual game results
-  const allUserGamesThisYear = (currentDynasty?.games || [])
-    .filter(g => Number(g.year) === Number(currentDynasty?.currentYear) && g.userTeam)
-  const wins = allUserGamesThisYear.filter(g => g.result === 'win').length
-  const losses = allUserGamesThisYear.filter(g => g.result === 'loss').length
+  // Uses unified game format: games have team1Tid/team2Tid, user perspective derived from coachTeamByYear
+  const { userGamesThisYear, wins, losses } = useMemo(() => {
+    const games = (currentDynasty?.games || [])
+      .filter(g => Number(g.year) === Number(currentDynasty?.currentYear))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(Boolean)
+
+    return {
+      userGamesThisYear: games,
+      wins: games.filter(g => g.perspective.userWon).length,
+      losses: games.filter(g => !g.perspective.userWon && g.perspective.userScore !== g.perspective.opponentScore).length
+    }
+  }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
 
   // IMPORTANT: On Signing Day (week 6) and Training Camp (week 7), the year has already flipped.
   // Use offseasonDataYear for data that was entered during weeks 1-5 (playersLeaving, recruiting, etc.)
@@ -93,7 +105,7 @@ export default function Dashboard() {
   const aggregatedTeamStats = useMemo(() => {
     if (!currentDynasty?.games) return {}
 
-    const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+    const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
     const year = currentDynasty.currentYear
 
     // Offense stats
@@ -119,19 +131,21 @@ export default function Dashboard() {
     let gamesWithStats = 0
 
     currentDynasty.games.forEach(game => {
-      // Skip CPU games (have team1/team2 but no userTeam)
-      if (!game.userTeam && game.team1 && game.team2) return
       if (parseInt(game.year) !== year) return
-      if (game.userTeam !== currentTeamAbbr) return
+
+      // Use unified game perspective to determine if user's team is in this game
+      const perspective = getUserGamePerspective(game, currentDynasty)
+      if (!perspective) return // Not a user game
 
       // Always count points from game scores
-      pointsFor += game.teamScore || 0
-      pointsAgainst += game.opponentScore || 0
+      pointsFor += perspective.userScore || 0
+      pointsAgainst += perspective.opponentScore || 0
 
       if (!game.boxScore) return
 
-      // Determine which side we are on (home or away) based on location
-      const isHome = game.location === 'home' || game.location === 'Home'
+      // Determine which side we are on (home or away) based on homeTeamTid
+      const userTid = perspective.userTid
+      const isHome = game.homeTeamTid === userTid
 
       // Get our player box score (for defensive stats like sacks, INTs)
       const ourPlayerBoxScore = isHome ? game.boxScore.home : game.boxScore.away
@@ -183,11 +197,10 @@ export default function Dashboard() {
     })
 
     // Count total games played (for per-game calculations)
-    // Exclude CPU games (have team1/team2 but no userTeam)
+    // Uses unified format: check if user's team is in the game via perspective
     const totalGamesPlayed = currentDynasty.games.filter(game =>
-      game.userTeam && // Has userTeam = user game
       parseInt(game.year) === year &&
-      game.userTeam === currentTeamAbbr
+      getUserGamePerspective(game, currentDynasty) !== null
     ).length
 
     if (totalGamesPlayed === 0) return {}
@@ -321,9 +334,19 @@ export default function Dashboard() {
   )
 
   // Restore CC state from saved dynasty data (year-specific)
+  // Checks team-centric structure first, then falls back to year-only structure
   useEffect(() => {
     const year = currentDynasty?.currentYear
-    const ccData = currentDynasty?.conferenceChampionshipDataByYear?.[year]
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
+
+    // Try team-centric structure first
+    let ccData = currentDynasty?.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[year]
+
+    // Fall back to year-only structure for backward compatibility
+    if (!ccData) {
+      ccData = currentDynasty?.conferenceChampionshipDataByYear?.[year]
+    }
+
     if (ccData) {
       setCCMadeChampionship(ccData.madeChampionship ?? null)
       setCCOpponent(ccData.opponent || '')
@@ -343,7 +366,7 @@ export default function Dashboard() {
       setFiringCoordinators(null)
       setCoordinatorToFire('')
     }
-  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.conferenceChampionshipDataByYear])
+  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.conferenceChampionshipDataByYear, currentDynasty?.conferenceChampionshipDataByTeamYear, currentDynasty?.teamName])
 
   // Restore bowl eligibility state from saved dynasty data (year-specific)
   useEffect(() => {
@@ -407,209 +430,49 @@ export default function Dashboard() {
   const customConferences = getCurrentCustomConferences(currentDynasty)
 
   const getUserTeamConference = () => {
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
-    if (!teamAbbr) return null
+    // Get the team's tid
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const tid = currentDynasty?.currentTid || getTidFromTeamName(currentDynasty?.teamName, teamsSource)
+    if (!tid) return null
+
+    // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
+    // This ensures teambuilder teams inherit the replaced team's conference position
+    const originalTeamAbbr = TEAMS[tid]?.abbr
+    if (!originalTeamAbbr) return null
 
     // Use getTeamConference with custom conferences
-    return getTeamConference(teamAbbr, customConferences)
+    return getTeamConference(originalTeamAbbr, customConferences)
   }
 
   const userTeamConference = getUserTeamConference()
 
-  const getTeamNameFromAbbr = (abbr) => {
-    return teamAbbreviations[abbr]?.name || abbr
+  // Get team name from tid or abbreviation using tid-based lookup
+  const getTeamNameFromAbbr = (tidOrAbbr) => {
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
+    if (teamInfo) return teamInfo.name
+    // Fallback to old lookup
+    return teamAbbreviations[tidOrAbbr]?.name || tidOrAbbr
   }
 
-  // Map abbreviations to mascot names for logo lookup
-  const getMascotName = (abbr) => {
-    const mascotMap = {
-      'AFA': 'Air Force Falcons',
-      'AKR': 'Akron Zips',
-      'APP': 'Appalachian State Mountaineers',
-      'ARIZ': 'Arizona Wildcats',
-      'ARK': 'Arkansas Razorbacks',
-      'ARMY': 'Army Black Knights',
-      'ARST': 'Arkansas State Red Wolves',
-      'ASU': 'Arizona State Sun Devils',
-      'AUB': 'Auburn Tigers',
-      'BALL': 'Ball State Cardinals',
-      'BAMA': 'Alabama Crimson Tide',
-      'BC': 'Boston College Eagles',
-      'BGSU': 'Bowling Green Falcons',
-      'BOIS': 'Boise State Broncos',
-      'BU': 'Baylor Bears',
-      'BUFF': 'Buffalo Bulls',
-      'BYU': 'Brigham Young Cougars',
-      'CAL': 'California Golden Bears',
-      'CCU': 'Coastal Carolina Chanticleers',
-      'CHAR': 'Charlotte 49ers',
-      'CLEM': 'Clemson Tigers',
-      'CMU': 'Central Michigan Chippewas',
-      'COLO': 'Colorado Buffaloes',
-      'CONN': 'Connecticut Huskies',
-      'CSU': 'Colorado State Rams',
-      'DUKE': 'Duke Blue Devils',
-      'ECU': 'East Carolina Pirates',
-      'EMU': 'Eastern Michigan Eagles',
-      'FIU': 'Florida International Panthers',
-      'FSU': 'Florida State Seminoles',
-      'FAU': 'Florida Atlantic Owls',
-      'FRES': 'Fresno State Bulldogs',
-      'UF': 'Florida Gators',
-      'GASO': 'Georgia Southern Eagles',
-      'GAST': 'Georgia State Panthers',
-      'GT': 'Georgia Tech Yellow Jackets',
-      'UGA': 'Georgia Bulldogs',
-      'HAW': 'Hawaii Rainbow Warriors',
-      'HOU': 'Houston Cougars',
-      'ILL': 'Illinois Fighting Illini',
-      'IU': 'Indiana Hoosiers',
-      'IOWA': 'Iowa Hawkeyes',
-      'ISU': 'Iowa State Cyclones',
-      'JKST': 'Jacksonville State Gamecocks',
-      'JMU': 'James Madison Dukes',
-      'KU': 'Kansas Jayhawks',
-      'KSU': 'Kansas State Wildcats',
-      'KENT': 'Kent State Golden Flashes',
-      'UK': 'Kentucky Wildcats',
-      'LIB': 'Liberty Flames',
-      'ULL': 'Lafayette Ragin\' Cajuns',
-      'LT': 'Louisiana Tech Bulldogs',
-      'LOU': 'Louisville Cardinals',
-      'LSU': 'LSU Tigers',
-      'UM': 'Miami Hurricanes',
-      'M-OH': 'Miami Redhawks',
-      'UMD': 'Maryland Terrapins',
-      'MASS': 'Massachusetts Minutemen',
-      'MEM': 'Memphis Tigers',
-      'MICH': 'Michigan Wolverines',
-      'MSU': 'Michigan State Spartans',
-      'MTSU': 'Middle Tennessee State Blue Raiders',
-      'MINN': 'Minnesota Golden Gophers',
-      'MISS': 'Ole Miss Rebels',
-      'MSST': 'Mississippi State Bulldogs',
-      'MZST': 'Missouri State Bears',
-      'MRSH': 'Marshall Thundering Herd',
-      'NAVY': 'Navy Midshipmen',
-      'NEB': 'Nebraska Cornhuskers',
-      'NEV': 'Nevada Wolf Pack',
-      'UNM': 'New Mexico Lobos',
-      'NMSU': 'New Mexico State Aggies',
-      'UNC': 'North Carolina Tar Heels',
-      'NCST': 'North Carolina State Wolfpack',
-      'UNT': 'North Texas Mean Green',
-      'NU': 'Northwestern Wildcats',
-      'ND': 'Notre Dame Fighting Irish',
-      'NIU': 'Northern Illinois Huskies',
-      'OHIO': 'Ohio Bobcats',
-      'OSU': 'Ohio State Buckeyes',
-      'OKLA': 'Oklahoma Sooners',
-      'OKST': 'Oklahoma State Cowboys',
-      'ODU': 'Old Dominion Monarchs',
-      'ORE': 'Oregon Ducks',
-      'ORST': 'Oregon State Beavers',
-      'PSU': 'Penn State Nittany Lions',
-      'PITT': 'Pittsburgh Panthers',
-      'PUR': 'Purdue Boilermakers',
-      'RICE': 'Rice Owls',
-      'RUT': 'Rutgers Scarlet Knights',
-      'SDSU': 'San Diego State Aztecs',
-      'SJSU': 'San Jose State Spartans',
-      'SAM': 'Sam Houston State Bearkats',
-      'USF': 'South Florida Bulls',
-      'SMU': 'SMU Mustangs',
-      'USC': 'USC Trojans',
-      'SCAR': 'South Carolina Gamecocks',
-      'STAN': 'Stanford Cardinal',
-      'SYR': 'Syracuse Orange',
-      'TCU': 'TCU Horned Frogs',
-      'TEM': 'Temple Owls',
-      'TENN': 'Tennessee Volunteers',
-      'TEX': 'Texas Longhorns',
-      'TXAM': 'Texas A&M Aggies',
-      'TXST': 'Texas State Bobcats',
-      'TXTECH': 'Texas Tech Red Raiders',
-      'TOL': 'Toledo Rockets',
-      'TROY': 'Troy Trojans',
-      'TUL': 'Tulane Green Wave',
-      'TLSA': 'Tulsa Golden Hurricane',
-      'UAB': 'UAB Blazers',
-      'UCF': 'UCF Knights',
-      'UCLA': 'UCLA Bruins',
-      'UNLV': 'UNLV Rebels',
-      'UTEP': 'UTEP Miners',
-      'USA': 'South Alabama Jaguars',
-      'USU': 'Utah State Aggies',
-      'UTAH': 'Utah Utes',
-      'UTSA': 'UTSA Roadrunners',
-      'VAN': 'Vanderbilt Commodores',
-      'UVA': 'Virginia Cavaliers',
-      'VT': 'Virginia Tech Hokies',
-      'WAKE': 'Wake Forest Demon Deacons',
-      'WASH': 'Washington Huskies',
-      'WSU': 'Washington State Cougars',
-      'WVU': 'West Virginia Mountaineers',
-      'WMU': 'Western Michigan Broncos',
-      'WKU': 'Western Kentucky Hilltoppers',
-      'WIS': 'Wisconsin Badgers',
-      'WYO': 'Wyoming Cowboys',
-      // Additional/alternative abbreviations
-      'DEL': 'Delaware Fightin\' Blue Hens',
-      'FLA': 'Florida Gators',
-      'KENN': 'Kennesaw State Owls',
-      'ULM': 'Monroe Warhawks',
-      'UC': 'Cincinnati Bearcats',
-      'RUTG': 'Rutgers Scarlet Knights',
-      'SHSU': 'Sam Houston State Bearkats',
-      'TAMU': 'Texas A&M Aggies',
-      'TTU': 'Texas Tech Red Raiders',
-      'TULN': 'Tulane Green Wave',
-      'UH': 'Houston Cougars',
-      'UL': 'Lafayette Ragin\' Cajuns',
-      'UT': 'Tennessee Volunteers',
-      'MIA': 'Miami Hurricanes',
-      'MIZ': 'Missouri Tigers',
-      'OU': 'Oklahoma Sooners',
-      'GSU': 'Georgia State Panthers',
-      'USM': 'Southern Mississippi Golden Eagles',
-      // FCS teams
-      'FCSE': 'FCS East Judicials',
-      'FCSM': 'FCS Midwest Rebels',
-      'FCSN': 'FCS Northwest Stallions',
-      'FCSW': 'FCS West Titans'
-    }
-    return mascotMap[abbr] || null
+  // Get team mascot name (full team name) for logo lookup using tid-based lookup
+  const getMascotName = (tidOrAbbr) => {
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
+    if (teamInfo) return teamInfo.name
+    return null
   }
 
-  const getOpponentColors = (abbr) => {
+  const getOpponentColors = (tidOrAbbr) => {
     // Use tid-based lookup from dynasty.teams (supports teambuilder teams)
     const teamsSource = currentDynasty?.teams || TEAMS
-    const team = getTeamByAbbr(teamsSource, abbr)
+    const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
 
-    if (team) {
+    if (teamInfo) {
       return {
-        backgroundColor: team.primaryColor,
-        textColor: team.secondaryColor,
-        secondaryColor: team.secondaryColor
-      }
-    }
-
-    // Fallback to old approach for backward compatibility
-    let legacyTeam = teamAbbreviations[abbr]
-    if (typeof legacyTeam === 'string') {
-      legacyTeam = teamAbbreviations[legacyTeam]
-    }
-    if (!legacyTeam || typeof legacyTeam !== 'object') {
-      const actualAbbr = getAbbreviationFromDisplayName(abbr)
-      if (actualAbbr) {
-        legacyTeam = teamAbbreviations[actualAbbr]
-      }
-    }
-    if (legacyTeam && typeof legacyTeam === 'object') {
-      return {
-        backgroundColor: legacyTeam.backgroundColor,
-        textColor: legacyTeam.textColor,
-        secondaryColor: legacyTeam.textColor
+        backgroundColor: teamInfo.primaryColor,
+        textColor: teamInfo.secondaryColor,
+        secondaryColor: teamInfo.secondaryColor
       }
     }
 
@@ -693,19 +556,28 @@ export default function Dashboard() {
   const handleCCAnswer = async (madeChampionship) => {
     setCCMadeChampionship(madeChampionship)
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     const tid = getTidFromAbbr(teamAbbr)
     const ccData = { ...(existingForTeam[year] || {}), madeChampionship }
 
+    // Also get existing year-only structure for backward compatibility
+    const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
+
     const updates = {
+      // Write to team-centric structure
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
           [year]: ccData
         }
+      },
+      // Also write to year-only structure for backward compatibility with restore useEffect
+      conferenceChampionshipDataByYear: {
+        ...existingByYear,
+        [year]: ccData
       }
     }
 
@@ -713,15 +585,15 @@ export default function Dashboard() {
     if (tid && currentDynasty.teams) {
       const existingTeams = currentDynasty.teams
       const existingTeamData = existingTeams[tid] || {}
-      const existingByYear = existingTeamData.byYear || {}
-      const existingYearData = existingByYear[year] || {}
+      const existingByYearTid = existingTeamData.byYear || {}
+      const existingYearData = existingByYearTid[year] || {}
 
       updates.teams = {
         ...existingTeams,
         [tid]: {
           ...existingTeamData,
           byYear: {
-            ...existingByYear,
+            ...existingByYearTid,
             [year]: {
               ...existingYearData,
               conferenceChampionshipData: ccData
@@ -740,19 +612,28 @@ export default function Dashboard() {
     setCCOpponentSearch('')
     setShowCCOpponentDropdown(false)
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     const tid = getTidFromAbbr(teamAbbr)
     const ccData = { ...(existingForTeam[year] || {}), opponent }
 
+    // Also get existing year-only structure for backward compatibility
+    const existingByYearOnly = currentDynasty.conferenceChampionshipDataByYear || {}
+
     const updates = {
+      // Write to team-centric structure
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
           [year]: ccData
         }
+      },
+      // Also write to year-only structure for backward compatibility
+      conferenceChampionshipDataByYear: {
+        ...existingByYearOnly,
+        [year]: ccData
       }
     }
 
@@ -871,19 +752,28 @@ export default function Dashboard() {
     setFiringCoordinators(selection !== 'none')
 
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.conferenceChampionshipDataByTeamYear || {}
     const existingForTeam = existingByTeamYear[teamAbbr] || {}
     const tid = getTidFromAbbr(teamAbbr)
     const ccData = { ...(existingForTeam[year] || {}), pendingFiring: selection }
 
+    // Also get existing year-only structure for backward compatibility
+    const existingByYearOnly = currentDynasty.conferenceChampionshipDataByYear || {}
+
     const updates = {
+      // Write to team-centric structure
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...existingForTeam,
           [year]: ccData
         }
+      },
+      // Also write to year-only structure for backward compatibility
+      conferenceChampionshipDataByYear: {
+        ...existingByYearOnly,
+        [year]: ccData
       }
     }
 
@@ -1092,7 +982,7 @@ export default function Dashboard() {
       if (p.pid) reasonByPid[p.pid] = p.reason
     })
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
 
     // Get previous list to detect removals
     const previousLeavingPids = new Set(
@@ -1204,7 +1094,7 @@ export default function Dashboard() {
   // Handle draft results save (Offseason - Recruiting Week 1) - team-centric
   const handleDraftResultsSave = async (draftResults) => {
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.draftResultsByTeamYear || {}
     const tid = getTidFromAbbr(teamAbbr)
 
@@ -1262,7 +1152,7 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
@@ -1372,7 +1262,7 @@ export default function Dashboard() {
     // On Signing Day (week 6) or Training Camp (week 7), year has already flipped, so use previous year
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
     const tid = getTidFromAbbr(teamAbbr)
 
@@ -1417,7 +1307,7 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const existingChangesAll = currentDynasty.positionChangesByYear || {}
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
 
     // Update player positions in the players array for any NEW changes
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -1635,7 +1525,7 @@ export default function Dashboard() {
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingPlayers = currentDynasty.players || []
 
     // Track players who left (leftTeam: true) OR are pending departure
@@ -1701,7 +1591,7 @@ export default function Dashboard() {
 
   // Process recruiting save after all confirmations are complete
   const processRecruitingCommitmentsSave = async (recruits, year, commitmentKey, confirmedReturning, confirmedNew) => {
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
 
     // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -2102,7 +1992,7 @@ export default function Dashboard() {
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
 
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const tid = getTidFromAbbr(teamAbbr)
 
     // Use TEAM-CENTRIC structure
@@ -2154,7 +2044,7 @@ export default function Dashboard() {
   // Get all previous commitments for the current team/year (to pre-populate sheet) - TEAM-CENTRIC
   const getAllPreviousCommitments = () => {
     const year = currentDynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
 
     // Use TEAM-CENTRIC structure
     const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[year] || {}
@@ -2364,10 +2254,17 @@ export default function Dashboard() {
     return phases[phase] || phase
   }
 
-  // Get user games for current year (games with userTeam set, not CPU games)
-  const currentYearGames = (currentDynasty.games || [])
-    .filter(g => Number(g.year) === Number(currentDynasty.currentYear) && g.userTeam)
-    .sort((a, b) => a.week - b.week)
+  // Get user games for current year with perspective (unified game format)
+  const currentYearGames = useMemo(() => {
+    return (currentDynasty?.games || [])
+      .filter(g => Number(g.year) === Number(currentDynasty?.currentYear))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.week - b.week)
+  }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
 
   return (
     <div className="space-y-6">
@@ -2377,7 +2274,7 @@ export default function Dashboard() {
       {takingNewJob === true && newJobTeam && newJobPosition && (() => {
         // newJobTeam is already the full display name (e.g., "Delaware Fightin' Blue Hens")
         const newTeamLogo = getTeamLogo(newJobTeam)
-        const newTeamColors = getTeamColors(newJobTeam, currentDynasty?.customTeams) || { primary: '#333', secondary: '#fff' }
+        const newTeamColors = getTeamColors(newJobTeam, currentDynasty?.teams || currentDynasty?.customTeams) || { primary: '#333', secondary: '#fff' }
         const newTeamPrimaryText = getContrastTextColor(newTeamColors.primary)
 
         return (
@@ -2430,12 +2327,12 @@ export default function Dashboard() {
 
       {/* Team Info Header */}
       {(() => {
-        // Calculate team record from current year games
-        const wins = currentYearGames.filter(g => g.result === 'win').length
-        const losses = currentYearGames.filter(g => g.result === 'loss').length
+        // Calculate team record from current year games (using unified game perspective)
+        const headerWins = currentYearGames.filter(g => g.perspective?.userWon).length
+        const headerLosses = currentYearGames.filter(g => g.perspective && !g.perspective.userWon && g.perspective.userScore !== g.perspective.opponentScore).length
         // Get rank from the most recent game (if unranked, userRank will be null/undefined)
         const lastGame = currentYearGames.length > 0 ? currentYearGames[currentYearGames.length - 1] : null
-        const currentRank = lastGame?.userRank
+        const currentRank = lastGame?.perspective?.userRank
 
         return (
           <div
@@ -2446,17 +2343,24 @@ export default function Dashboard() {
             }}
           >
             <Link
-              to={`${pathPrefix}/team/${resolveTid(getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty?.customTeams), currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
+              to={`${pathPrefix}/team/${getCurrentTeamTid(currentDynasty)}/${currentDynasty.currentYear}`}
               className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0"
             >
               {(() => {
-                // Get logo - check teambuilder teams first
+                // Get logo - check dynasty.teams first (tid-based), then fallback
                 let logoUrl = null
-                if (currentDynasty.customTeams) {
-                  const teambuilderTeam = Object.values(currentDynasty.customTeams).find(t => t.name === currentDynasty.teamName)
-                  if (teambuilderTeam) logoUrl = teambuilderTeam.logoUrl
+                const teams = currentDynasty.teams || currentDynasty.customTeams
+                if (teams) {
+                  // Try tid-based lookup first
+                  if (currentDynasty.currentTid && currentDynasty.teams?.[currentDynasty.currentTid]) {
+                    logoUrl = currentDynasty.teams[currentDynasty.currentTid].logo
+                  } else {
+                    // Legacy customTeams lookup
+                    const teambuilderTeam = Object.values(teams).find(t => t.name === currentDynasty.teamName)
+                    if (teambuilderTeam) logoUrl = teambuilderTeam.logoUrl || teambuilderTeam.logo
+                  }
                 }
-                if (!logoUrl) logoUrl = getTeamLogo(currentDynasty.teamName, currentDynasty?.customTeams)
+                if (!logoUrl) logoUrl = getTeamLogo(currentDynasty.teamName, teams)
                 return logoUrl ? (
                   <div
                     className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
@@ -2480,7 +2384,7 @@ export default function Dashboard() {
                   {currentDynasty.teamName}
                 </h2>
                 <p className="text-sm sm:text-base font-medium mt-0.5" style={{ color: primaryBgText, opacity: 0.85 }}>
-                  {wins}-{losses}{currentDynasty.currentPhase !== 'preseason' && currentDynasty.conference && ` • ${currentDynasty.conference}`}
+                  {headerWins}-{headerLosses}{currentDynasty.currentPhase !== 'preseason' && userTeamConference && ` • ${userTeamConference}`}
                 </p>
               </div>
             </Link>
@@ -2716,7 +2620,7 @@ export default function Dashboard() {
               })(),
               // Optional: Recruiting Commitments - TEAM-CENTRIC
               (() => {
-                const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+                const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                 const preseasonCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.['preseason']
                 const isFirstYear = Number(currentDynasty.currentYear) === Number(currentDynasty.startYear)
                 const isFirstYearOnTeam = currentDynasty.isFirstYearOnCurrentTeam
@@ -2937,7 +2841,7 @@ export default function Dashboard() {
 
               // Check for recruiting commitments this week - TEAM-CENTRIC
               const commitmentKey = `regular_${currentDynasty.currentWeek}`
-              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+              const teamAbbrForCommitments = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
               const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[currentDynasty.currentYear] || {}
               const commitmentsForWeek = commitmentsForTeamYear[commitmentKey]
               const hasCommitmentsData = commitmentsForWeek !== undefined
@@ -2985,7 +2889,7 @@ export default function Dashboard() {
                             className="text-sm mt-1 font-medium"
                             style={{ color: '#16a34a' }}
                           >
-                            {playedGame.result === 'win' ? 'W' : 'L'} {Math.max(playedGame.teamScore, playedGame.opponentScore)}-{Math.min(playedGame.teamScore, playedGame.opponentScore)}
+                            {playedGame.perspective?.userWon ? 'W' : 'L'} {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
                             <span className="ml-2">✓ Complete</span>
                           </div>
                         )}
@@ -3207,7 +3111,7 @@ export default function Dashboard() {
                             {userTeamConference} Championship
                           </div>
                           <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccGameComplete ? '#16a34a' : secondaryBgText, opacity: ccGameComplete ? 1 : 0.7 }}>
-                            {ccGame ? `${ccGame.result === 'win' ? 'W' : 'L'} ${Math.max(ccGame.teamScore, ccGame.opponentScore)}-${Math.min(ccGame.teamScore, ccGame.opponentScore)} vs ${getMascotName(ccGame.opponent) || ccGame.opponent}` :
+                            {ccGame ? `${ccGame.perspective?.userWon ? 'W' : 'L'} ${Math.max(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)}-${Math.min(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)} vs ${(() => { const oppInfo = getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective?.opponentTid); return getMascotName(oppInfo?.abbr) || oppInfo?.name || 'Unknown' })()}` :
                              ccOpponent ? `vs ${getMascotName(ccOpponent) || ccOpponent}` : 'Select opponent and enter result'}
                           </div>
                         </div>
@@ -3218,7 +3122,7 @@ export default function Dashboard() {
                             options={teams}
                             value=""
                             onChange={(teamName) => {
-                              const abbr = getAbbreviationFromDisplayName(teamName)
+                              const abbr = getAbbrFromTeamName(teamName, currentDynasty?.teams)
                               if (abbr) handleCCOpponentSelect(abbr)
                             }}
                             placeholder="Select opponent..."
@@ -3303,7 +3207,7 @@ export default function Dashboard() {
                 {(() => {
                   taskNum++
                   const commitmentKey = getCommitmentKey()
-                  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+                  const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                   const ccCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                   const hasCommitmentsData = ccCommitments !== undefined
                   const commitmentsCount = ccCommitments?.length || 0
@@ -3469,7 +3373,7 @@ export default function Dashboard() {
             const allBowlGames = getAllBowlGamesList()
 
             // Check if user's team is in the CFP
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+            const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear] || []
             const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
 
@@ -3489,8 +3393,8 @@ export default function Dashboard() {
             const firstRoundResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.firstRound || []
 
             // User is in QF if they have a bye (seed 1-4) OR won their First Round game (seed 5-12)
-            // Note: result can be 'W' or 'win' depending on how game was saved
-            const userWonFirstRound = userCFPFirstRoundGame?.result === 'W' || userCFPFirstRoundGame?.result === 'win'
+            // Uses unified format: check perspective for win
+            const userWonFirstRound = userCFPFirstRoundGame?.perspective?.userWon
             const userInCFPQuarterfinal = userHasCFPBye || (userInCFPFirstRound && userWonFirstRound)
 
             // Calculate QF opponent based on bracket matchups
@@ -3545,8 +3449,8 @@ export default function Dashboard() {
 
             // CFP Semifinals tracking
             const userCFPSemifinalGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && g.year === currentDynasty.currentYear)
-            // Note: result can be 'W' or 'win' depending on how game was saved
-            const userWonQuarterfinal = userCFPQuarterfinalGame?.result === 'W' || userCFPQuarterfinalGame?.result === 'win'
+            // Uses unified format: check perspective for win
+            const userWonQuarterfinal = userCFPQuarterfinalGame?.perspective?.userWon
             const userInCFPSemifinal = userInCFPQuarterfinal && userWonQuarterfinal
 
             // Get quarterfinal results to calculate SF opponent
@@ -3610,8 +3514,8 @@ export default function Dashboard() {
 
             // CFP Championship tracking
             const userCFPChampionshipGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && g.year === currentDynasty.currentYear)
-            // Note: result can be 'W' or 'win' depending on how game was saved
-            const userWonSemifinal = userCFPSemifinalGame?.result === 'W' || userCFPSemifinalGame?.result === 'win'
+            // Uses unified format: check perspective for win
+            const userWonSemifinal = userCFPSemifinalGame?.perspective?.userWon
             const userInCFPChampionship = userInCFPSemifinal && userWonSemifinal
 
             // Get semifinal results to calculate Championship opponent
@@ -3784,10 +3688,10 @@ export default function Dashboard() {
                                   setSelectedBowl('')
                                   setBowlOpponent('')
                                   // Remove any existing bowl game from games array (team-centric)
+                                  // Uses unified format: check if user's team is in the game via perspective
                                   const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)
-                                  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
                                   const updatedGames = existingBowlGame
-                                    ? currentDynasty.games.filter(g => !(g.isBowlGame && g.year === currentDynasty.currentYear && (g.userTeam === currentTeamAbbr || !g.userTeam)))
+                                    ? currentDynasty.games.filter(g => !(g.isBowlGame && g.year === currentDynasty.currentYear && getUserGamePerspective(g, currentDynasty)))
                                     : currentDynasty.games
                                   // Clear year-specific bowl eligibility data
                                   const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
@@ -3931,7 +3835,7 @@ export default function Dashboard() {
                               Enter Your CFP First Round Game
                             </div>
                             <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
-                              {userCFPFirstRoundGame ? `✓ ${userCFPFirstRoundGame.result === 'W' || userCFPFirstRoundGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.teamScore, userCFPFirstRoundGame.opponentScore)}-${Math.min(userCFPFirstRoundGame.teamScore, userCFPFirstRoundGame.opponentScore)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
+                              {userCFPFirstRoundGame ? `✓ ${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
                             </div>
                           </div>
                         </div>
@@ -3979,7 +3883,7 @@ export default function Dashboard() {
                               Enter Your {selectedBowl} Game
                             </div>
                             <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
-                              {userBowlGame ? `✓ ${userBowlGame.result === 'W' || userBowlGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userBowlGame.teamScore, userBowlGame.opponentScore)}-${Math.min(userBowlGame.teamScore, userBowlGame.opponentScore)}` : `vs ${bowlOpponent}`}
+                              {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
                             </div>
                           </div>
                         </div>
@@ -4128,7 +4032,7 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 1) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                       const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
@@ -4277,7 +4181,7 @@ export default function Dashboard() {
                               Enter Your {selectedBowl} Game
                             </div>
                             <div className="text-xs sm:text-sm mt-0.5" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
-                              {userBowlGame ? `✓ ${userBowlGame.result === 'W' || userBowlGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userBowlGame.teamScore, userBowlGame.opponentScore)}-${Math.min(userBowlGame.teamScore, userBowlGame.opponentScore)}` : `vs ${bowlOpponent}`}
+                              {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
                             </div>
                           </div>
                         </div>
@@ -4321,7 +4225,7 @@ export default function Dashboard() {
                             </div>
                             <div className="text-xs sm:text-sm mt-0.5" style={{ color: userCFPQuarterfinalGame ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
                               {userCFPQuarterfinalGame
-                                ? `✓ ${userCFPQuarterfinalGame.result === 'W' || userCFPQuarterfinalGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.teamScore, userCFPQuarterfinalGame.opponentScore)}-${Math.min(userCFPQuarterfinalGame.teamScore, userCFPQuarterfinalGame.opponentScore)}`
+                                ? `✓ ${userCFPQuarterfinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}`
                                 : `#${userCFPSeed} vs ${userQFOpponent ? getMascotName(userQFOpponent) : 'TBD'}`}
                             </div>
                           </div>
@@ -4728,7 +4632,7 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 2) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                       const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
@@ -5299,7 +5203,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPSemifinalGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
                             {userCFPSemifinalGame
-                              ? `✓ ${userCFPSemifinalGame.result === 'W' || userCFPSemifinalGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.teamScore, userCFPSemifinalGame.opponentScore)}-${Math.min(userCFPSemifinalGame.teamScore, userCFPSemifinalGame.opponentScore)}`
+                              ? `✓ ${userCFPSemifinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}`
                               : `${userSFBowlName || 'CFP Semifinal'} vs ${userSFOpponent ? getMascotName(userSFOpponent) || userSFOpponent : 'TBD'}`}
                           </div>
                         </div>
@@ -5417,7 +5321,7 @@ export default function Dashboard() {
                           </div>
                           <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPChampionshipGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
                             {userCFPChampionshipGame
-                              ? `✓ ${userCFPChampionshipGame.result === 'W' || userCFPChampionshipGame.result === 'win' ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.teamScore, userCFPChampionshipGame.opponentScore)}-${Math.min(userCFPChampionshipGame.teamScore, userCFPChampionshipGame.opponentScore)}`
+                              ? `✓ ${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
                               : allSFComplete
                                 ? `National Championship vs ${userChampOpponent ? getMascotName(userChampOpponent) || userChampOpponent : 'TBD'}`
                                 : 'Enter SF results first to determine opponent'}
@@ -5819,7 +5723,7 @@ export default function Dashboard() {
                   {/* Task: Recruiting Commitments (Bowl Weeks 3-4) */}
                   {(() => {
                     const commitmentKey = getCommitmentKey()
-                    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+                    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                     const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
                     const hasCommitmentsData = weekCommitments !== undefined
                     const commitmentsCount = weekCommitments?.length || 0
@@ -5917,7 +5821,7 @@ export default function Dashboard() {
             if (week === 1) {
               // Check if user switched teams - if so, skip Players Leaving
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[currentDynasty.currentYear]?.team
-              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+              const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
 
               const hasPlayersLeavingData = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length > 0
@@ -6025,7 +5929,7 @@ export default function Dashboard() {
               const draftResultsCount = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length || 0
 
               // Check recruiting commitments for this week - TEAM-CENTRIC with signing_ key
-              const teamAbbrForCommitments = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+              const teamAbbrForCommitments = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
               const recruitingCommitmentsForTeamYear = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[offseasonDataYear] || {}
               const commitmentsForWeek = recruitingCommitmentsForTeamYear[`signing_${recruitingWeekNum}`]
               const hasCommitmentsData = commitmentsForWeek !== undefined // undefined = not answered, [] = no commitments, array with items = has commitments
@@ -6188,7 +6092,7 @@ export default function Dashboard() {
                       })
                       const hasTransfers = transfers.length > 0
                       // Check team-centric path (where data is actually saved)
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
                       const transferDestinationsData = currentDynasty?.transferDestinationsByTeamYear?.[teamAbbr]?.[offseasonDataYear]
                       const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
                       const transferDestinationsCount = transferDestinationsData?.length || 0
@@ -6245,7 +6149,7 @@ export default function Dashboard() {
 
                     {/* Task 2: Recruiting Class Rank (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
                       const classRank = currentDynasty.recruitingClassRankByTeamYear?.[teamAbbr]?.[offseasonDataYear]
                       const hasClassRank = !!classRank
 
@@ -6349,7 +6253,7 @@ export default function Dashboard() {
                     {/* Task 5: Portal Transfer Class Assignment (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
                       // Get portal transfers from recruiting commitments for this year
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
                       const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
                       const portalTransfersForClass = []
                       Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
@@ -6435,7 +6339,7 @@ export default function Dashboard() {
                     {recruitingWeekNum === 5 && (() => {
                       // Get players with 5-9 games who might be fringe cases for redshirting
                       // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-                      const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
                       const year = offseasonDataYear
 
                       // Get all players and filter for fringe cases
@@ -6544,7 +6448,7 @@ export default function Dashboard() {
 
               // Check if user switched teams this offseason
               const previousTeamAbbr = currentDynasty.coachTeamByYear?.[offseasonDataYear]?.team
-              const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+              const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
               const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
 
               // If user switched teams, show skipped state
@@ -6583,7 +6487,7 @@ export default function Dashboard() {
               // - Returning players who were on the roster LAST year and are continuing
               // - PLUS portal transfers who joined this offseason (they need training results too)
               // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
-              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+              const teamAbbr = getCurrentTeamAbbr(currentDynasty)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
@@ -6733,7 +6637,7 @@ export default function Dashboard() {
 
             // Offseason Week 8: Offseason (Custom Conferences & Encourage Transfers)
             if (week === 8) {
-              const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+              const teamAbbr = getCurrentTeamAbbr(currentDynasty)
               // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
               const upcomingSeasonYear = currentDynasty.currentYear
 
@@ -6921,8 +6825,8 @@ export default function Dashboard() {
                 const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
                 const isCurrentWeek = currentDynasty.currentPhase === 'regular_season' &&
                   Number(game.week) === Number(currentDynasty.currentWeek) && !playedGame
-                const isWin = playedGame?.result === 'win'
-                const isLoss = playedGame?.result === 'loss' || (playedGame && playedGame.result !== 'win')
+                const isWin = playedGame?.perspective?.userWon
+                const isLoss = playedGame?.perspective && !playedGame.perspective.userWon
 
                 const gameContent = (
                   <div className="flex items-center w-full overflow-hidden">
@@ -6977,9 +6881,9 @@ export default function Dashboard() {
                         {/* Team Name */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1">
-                            {playedGame?.opponentRank && (
+                            {playedGame?.perspective?.opponentRank && (
                               <span className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${opponentColors.textColor}15`, color: opponentColors.textColor }}>
-                                #{playedGame.opponentRank}
+                                #{playedGame.perspective.opponentRank}
                               </span>
                             )}
                             <Link
@@ -6998,7 +6902,7 @@ export default function Dashboard() {
                       <div className="flex-shrink-0 text-right ml-1">
                         {playedGame ? (
                           <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: opponentColors.textColor }}>
-                            {Math.max(playedGame.teamScore, playedGame.opponentScore)}-{Math.min(playedGame.teamScore, playedGame.opponentScore)}
+                            {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
                             {playedGame.overtimes && playedGame.overtimes.length > 0 && (
                               <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
                                 {playedGame.overtimes.length > 1 ? `${playedGame.overtimes.length}OT` : 'OT'}
@@ -7050,7 +6954,9 @@ export default function Dashboard() {
             })() && (() => {
               const ccGame = getCCGame()
               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-              const ccOpponentAbbr = ccGame?.opponent || ccOpponent || ccDataForYear.opponent
+              // Get opponent abbr from perspective (unified format) or fall back to state/saved data
+              const ccOpponentInfo = ccGame?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective.opponentTid) : null
+              const ccOpponentAbbr = ccOpponentInfo?.abbr || ccOpponent || ccDataForYear.opponent
               const hasOpponent = !!ccOpponentAbbr
               const ccOpponentColors = hasOpponent ? getOpponentColors(ccOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const ccMascotFromAbbr = hasOpponent ? getMascotName(ccOpponentAbbr) : null
@@ -7058,8 +6964,8 @@ export default function Dashboard() {
               const ccOpponentName = ccMascotName || (hasOpponent ? getTeamNameFromAbbr(ccOpponentAbbr) : 'Opponent Unknown')
               const ccOpponentLogo = ccMascotName ? getTeamLogo(ccMascotName) : null
               const isCurrentCCWeek = currentDynasty.currentPhase === 'conference_championship' && !ccGame
-              const isWin = ccGame?.result === 'win'
-              const isLoss = ccGame && ccGame.result !== 'win'
+              const isWin = ccGame?.perspective?.userWon
+              const isLoss = ccGame?.perspective && !ccGame.perspective.userWon
 
               const ccContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7187,7 +7093,9 @@ export default function Dashboard() {
               // Only show if user has a bowl game (either played or scheduled via eligibility)
               if (!userBowlGameData && !hasBowlEligibility) return null
 
-              const bowlOpponentAbbr = userBowlGameData?.opponent || bowlData?.opponent
+              // Get opponent abbr from perspective (unified format) or fall back to bowl data
+              const bowlOpponentInfo = userBowlGameData?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, userBowlGameData.perspective.opponentTid) : null
+              const bowlOpponentAbbr = bowlOpponentInfo?.abbr || bowlData?.opponent
               const bowlGameName = userBowlGameData?.bowlName || bowlData?.bowlGame
               const hasOpponent = !!bowlOpponentAbbr
               const bowlOpponentColors = hasOpponent ? getOpponentColors(bowlOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
@@ -7195,7 +7103,7 @@ export default function Dashboard() {
               const bowlMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(bowlOpponentAbbr) ? bowlOpponentAbbr : null)
               const bowlOpponentName = bowlMascotName || (hasOpponent ? getTeamNameFromAbbr(bowlOpponentAbbr) : 'Opponent Unknown')
               const bowlOpponentLogo = bowlMascotName ? getTeamLogo(bowlMascotName) : null
-              const isWin = userBowlGameData?.result === 'win'
+              const isWin = userBowlGameData?.perspective?.userWon
 
               const bowlContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7309,14 +7217,16 @@ export default function Dashboard() {
               const cfpFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && g.year === currentDynasty.currentYear)
               if (!cfpFirstRoundGame) return null
 
-              const cfpOpponentAbbr = cfpFirstRoundGame.opponent
+              // Get opponent abbr from perspective (unified format)
+              const cfpOpponentInfo = cfpFirstRoundGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpFirstRoundGame.perspective.opponentTid) : null
+              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
               const hasOpponent = !!cfpOpponentAbbr
               const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
               const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
               const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
               const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const isWin = cfpFirstRoundGame.result === 'win' || cfpFirstRoundGame.result === 'W'
+              const isWin = cfpFirstRoundGame.perspective?.userWon
 
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7401,7 +7311,9 @@ export default function Dashboard() {
               const cfpQFGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && g.year === currentDynasty.currentYear)
               if (!cfpQFGame) return null
 
-              const cfpOpponentAbbr = cfpQFGame.opponent
+              // Get opponent abbr from perspective (unified format)
+              const cfpOpponentInfo = cfpQFGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpQFGame.perspective.opponentTid) : null
+              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
               const hasOpponent = !!cfpOpponentAbbr
               const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
@@ -7409,7 +7321,7 @@ export default function Dashboard() {
               const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
               const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
               const bowlName = cfpQFGame.bowlName || 'CFP Quarterfinal'
-              const isWin = cfpQFGame.result === 'win' || cfpQFGame.result === 'W'
+              const isWin = cfpQFGame.perspective?.userWon
 
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7454,7 +7366,9 @@ export default function Dashboard() {
               const cfpSFGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && g.year === currentDynasty.currentYear)
               if (!cfpSFGame) return null
 
-              const cfpOpponentAbbr = cfpSFGame.opponent
+              // Get opponent abbr from perspective (unified format)
+              const cfpOpponentInfo = cfpSFGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpSFGame.perspective.opponentTid) : null
+              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
               const hasOpponent = !!cfpOpponentAbbr
               const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
@@ -7462,7 +7376,7 @@ export default function Dashboard() {
               const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
               const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
               const bowlName = cfpSFGame.bowlName || 'CFP Semifinal'
-              const isWin = cfpSFGame.result === 'win' || cfpSFGame.result === 'W'
+              const isWin = cfpSFGame.perspective?.userWon
 
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7507,14 +7421,16 @@ export default function Dashboard() {
               const cfpChampGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && g.year === currentDynasty.currentYear)
               if (!cfpChampGame) return null
 
-              const cfpOpponentAbbr = cfpChampGame.opponent
+              // Get opponent abbr from perspective (unified format)
+              const cfpOpponentInfo = cfpChampGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpChampGame.perspective.opponentTid) : null
+              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
               const hasOpponent = !!cfpOpponentAbbr
               const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
               const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
               const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
               const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const isWin = cfpChampGame.result === 'win' || cfpChampGame.result === 'W'
+              const isWin = cfpChampGame.perspective?.userWon
 
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
@@ -7694,7 +7610,7 @@ export default function Dashboard() {
         onSave={async (bowlGames) => {
           try {
             const year = currentDynasty.currentYear
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+            const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
             // Helper to sanitize game data for Firestore (replace null/undefined with valid defaults)
             const sanitizeGame = (game) => ({
@@ -7762,7 +7678,7 @@ export default function Dashboard() {
         onSave={async (bowlGames) => {
           try {
             const year = currentDynasty.currentYear
-            const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+            const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
             // Helper to sanitize game data for Firestore (replace null/undefined with valid defaults)
             const sanitizeGame = (game) => ({
@@ -7810,11 +7726,13 @@ export default function Dashboard() {
 
             // UNIFIED STORAGE: Read user's existing games from games[] array
             const existingGames = currentDynasty.games || []
+            const userTeamTid = getCurrentTeamTid(currentDynasty)
 
             // Find user's existing Week 2 bowl game (if any) from games[]
+            // Uses unified format: check if user's team is in the game via perspective
             const userExistingBowlGame = existingGames.find(g =>
               g && g.isBowlGame && g.bowlWeek === 'week2' && Number(g.year) === Number(year) &&
-              (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr || g.userTeam === userTeamAbbr)
+              (isTeamInGame(g, userTeamTid) || g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
             )
             // Check if user's game is already in the new data from the sheet
             const userGameInSheet = sanitizedBowlGames.some(g =>
@@ -7826,10 +7744,11 @@ export default function Dashboard() {
               : sanitizedBowlGames
 
             // Find user's existing CFP Quarterfinal game (if any) from games[]
+            // Uses unified format: check if user's team is in the game via perspective
             const userExistingCFPGame = existingGames.find(g =>
               g && (g.gameType === GAME_TYPES.CFP_QUARTERFINAL || g.isCFPQuarterfinal) &&
               Number(g.year) === Number(year) &&
-              (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr || g.userTeam === userTeamAbbr)
+              (isTeamInGame(g, userTeamTid) || g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
             )
             // Check if user's CFP game is already in the new data from the sheet
             const userCFPGameInSheet = cfpQuarterfinals.some(g =>
@@ -7920,7 +7839,7 @@ export default function Dashboard() {
         onClose={() => setShowBowlScoreModal(false)}
         onSave={async (cfpGames, week) => {
           const year = currentDynasty.currentYear
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const existingByYear = currentDynasty.cfpResultsByYear || {}
           const existingYearData = existingByYear[year] || {}
 
@@ -7982,7 +7901,7 @@ export default function Dashboard() {
       <CFPSemifinalsModal
         isOpen={showCFPSemifinalsModal}
         onClose={() => setShowCFPSemifinalsModal(false)}
-        userTeamAbbr={getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)}
+        userTeamAbbr={getCurrentTeamAbbr(currentDynasty)}
         onSave={async (cfpGames) => {
           const year = currentDynasty.currentYear
 
@@ -8359,7 +8278,7 @@ export default function Dashboard() {
         isOpen={showRecruitingClassRankModal}
         onClose={() => setShowRecruitingClassRankModal(false)}
         onSave={handleRecruitingClassRankSave}
-        currentRank={currentDynasty?.recruitingClassRankByTeamYear?.[getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)]?.[offseasonDataYear]}
+        currentRank={currentDynasty?.recruitingClassRankByTeamYear?.[getCurrentTeamAbbr(currentDynasty)]?.[offseasonDataYear]}
         teamColors={teamColors}
       />
 
@@ -8372,7 +8291,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         players={(() => {
           // Returning players + portal transfers (NOT HS/JUCO recruits)
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
           const currentYear = currentDynasty?.currentYear
@@ -8413,7 +8332,7 @@ export default function Dashboard() {
         recruits={(() => {
           // Get recruits from this recruiting cycle (HS and JUCO only - exclude transfer portal)
           // Recruits have recruitYear from when they committed (before year flip)
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(p =>
             p.isRecruit &&
@@ -8433,7 +8352,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         portalTransfers={(() => {
           // Get portal transfers from recruiting commitments for this year
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
           const transfers = []
           Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
@@ -8469,7 +8388,7 @@ export default function Dashboard() {
         fringeCasePlayers={(() => {
           // Get players with 5-9 games who might be fringe cases for redshirting
           // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const year = offseasonDataYear
 
           // Get all players and filter for fringe cases
@@ -8511,7 +8430,7 @@ export default function Dashboard() {
         isOpen={showEncourageTransfersModal}
         onClose={() => setShowEncourageTransfersModal(false)}
         onSave={async (transferPlayers) => {
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
@@ -8600,7 +8519,7 @@ export default function Dashboard() {
         teamColors={teamColors}
         players={(() => {
           // Players for encourage transfers: current roster after training results
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[currentDynasty?.currentYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 

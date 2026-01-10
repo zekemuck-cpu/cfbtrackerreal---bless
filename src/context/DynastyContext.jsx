@@ -16,7 +16,7 @@ import {
   migrateDynastyToSubcollections
 } from '../services/dynastyService'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
+import { getTeamName } from '../data/teamAbbreviations'
 import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
 import {
   TEAMS,
@@ -24,11 +24,18 @@ import {
   setTeambuilderTeam,
   getTeam,
   getTidFromAbbr,
+  getTidFromTeamName,
+  getAbbrFromTeamName,
   getTeamYear,
   setTeamYear,
   getTeamYearField,
   setTeamYearField,
-  migrateDynastyToTidStructure
+  migrateDynastyToTidStructure,
+  getAbbrFromTid,
+  getNameFromTid,
+  getCurrentTeamTid,
+  getCurrentTeamAbbr,
+  getOriginalTeamAbbr
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
@@ -61,6 +68,153 @@ export function detectGameType(game) {
   if (game.isConferenceChampionship) return GAME_TYPES.CONFERENCE_CHAMPIONSHIP
   if (game.isBowlGame) return GAME_TYPES.BOWL
   return GAME_TYPES.REGULAR
+}
+
+/**
+ * Get user's perspective on a game based on which team they were coaching that year
+ * Returns null if user wasn't coaching or their team didn't play in this game
+ *
+ * HANDLES BOTH FORMATS:
+ * - Unified format: team1Tid, team2Tid, team1Score, team2Score, homeTeamTid
+ * - Legacy format: userTeam, opponent, teamScore, opponentScore, location, result
+ *
+ * @param {Object} game - The game object (either format)
+ * @param {Object} dynasty - The dynasty object with coachTeamByYear
+ * @returns {Object|null} User's perspective on the game
+ */
+export function getUserGamePerspective(game, dynasty) {
+  if (!game || !dynasty) return null
+
+  // Get user's team tid for this game's year
+  // Primary source: coachTeamByYear[year].tid
+  let userTid = dynasty.coachTeamByYear?.[game.year]?.tid
+  const userTeamAbbr = dynasty.coachTeamByYear?.[game.year]?.team
+
+  // Fallback 1: Derive tid from coachTeamByYear[year].team abbr
+  if (!userTid && userTeamAbbr) {
+    userTid = getTidFromAbbr(userTeamAbbr)
+  }
+
+  // Fallback 2: If this is the current year, use current team tid
+  if (!userTid && Number(game.year) === Number(dynasty.currentYear)) {
+    userTid = getCurrentTeamTid(dynasty)
+  }
+
+  // Fallback 3: For dynasties without coachTeamByYear, derive from teamName
+  // This handles older dynasties that haven't been fully migrated
+  if (!userTid && dynasty.teamName) {
+    userTid = getTidFromTeamName(dynasty.teamName, dynasty.teams)
+  }
+
+  // UNIFIED FORMAT: Check if game has team1Tid/team2Tid
+  if (game.team1Tid && game.team2Tid) {
+    // Check if user's team played in this game (by tid)
+    const isUserGame = game.team1Tid === userTid || game.team2Tid === userTid
+    if (!isUserGame) return null  // User's team didn't play
+
+    const isUserTeam1 = game.team1Tid === userTid
+    const userScore = isUserTeam1 ? game.team1Score : game.team2Score
+    const opponentScore = isUserTeam1 ? game.team2Score : game.team1Score
+
+    return {
+      userTid,
+      opponentTid: isUserTeam1 ? game.team2Tid : game.team1Tid,
+      userScore,
+      opponentScore,
+      userWon: userScore > opponentScore,
+      userRank: isUserTeam1 ? game.team1Rank : game.team2Rank,
+      opponentRank: isUserTeam1 ? game.team2Rank : game.team1Rank,
+      userOverall: isUserTeam1 ? game.team1Overall : game.team2Overall,
+      opponentOverall: isUserTeam1 ? game.team2Overall : game.team1Overall,
+      isHome: game.homeTeamTid === userTid,
+      isAway: game.homeTeamTid !== null && game.homeTeamTid !== userTid,
+      isNeutral: game.homeTeamTid === null
+    }
+  }
+
+  // LEGACY FORMAT: Check userTeam/opponent fields
+  // Only match if userTeam matches the team user was coaching that year
+  if (game.userTeam) {
+    // Get tid from userTeam abbreviation to compare
+    const gameUserTid = getTidFromAbbr(game.userTeam)
+
+    // Check if this game's userTeam matches what we coached that year
+    if (userTid && gameUserTid !== userTid) return null  // Different team
+    if (!userTid && userTeamAbbr && game.userTeam !== userTeamAbbr) return null
+
+    // Get opponent tid for the perspective
+    const opponentTid = game.opponentTid || getTidFromAbbr(game.opponent)
+
+    // Determine win/loss from result field or scores
+    let userWon = false
+    if (game.result) {
+      userWon = game.result === 'win' || game.result === 'W'
+    } else if (game.teamScore !== undefined && game.opponentScore !== undefined) {
+      userWon = Number(game.teamScore) > Number(game.opponentScore)
+    }
+
+    return {
+      userTid: gameUserTid || userTid,
+      opponentTid,
+      userScore: game.teamScore,
+      opponentScore: game.opponentScore,
+      userWon,
+      userRank: game.userRank,
+      opponentRank: game.opponentRank,
+      userOverall: null,  // Not stored in legacy format
+      opponentOverall: game.opponentOverall,
+      isHome: game.location === 'home',
+      isAway: game.location === 'away',
+      isNeutral: game.location === 'neutral' || (!game.location && (game.isBowlGame || game.isConferenceChampionship || game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship))
+    }
+  }
+
+  // CPU-only game (no user involvement) - check legacy team1/team2 format
+  if (game.team1 && game.team2 && !game.userTeam && !game.opponent) {
+    // This is a CPU game in legacy format - user didn't play
+    return null
+  }
+
+  return null  // Unknown format or user didn't play
+}
+
+/**
+ * Check if a game involves a specific team (by tid)
+ * @param {Object} game - The game object
+ * @param {number} tid - Team ID to check
+ * @returns {boolean} True if team played in this game
+ */
+export function isTeamInGame(game, tid) {
+  if (!game || !tid) return false
+  return game.team1Tid === tid || game.team2Tid === tid
+}
+
+/**
+ * Get a team's perspective on a game (for TeamYear page, etc.)
+ * @param {Object} game - The game object
+ * @param {number} tid - Team ID to get perspective for
+ * @returns {Object|null} Team's perspective
+ */
+export function getTeamGamePerspective(game, tid) {
+  if (!game || !tid) return null
+  if (!isTeamInGame(game, tid)) return null
+
+  const isTeam1 = game.team1Tid === tid
+  const teamScore = isTeam1 ? game.team1Score : game.team2Score
+  const opponentScore = isTeam1 ? game.team2Score : game.team1Score
+
+  return {
+    teamTid: tid,
+    opponentTid: isTeam1 ? game.team2Tid : game.team1Tid,
+    teamScore,
+    opponentScore,
+    won: teamScore > opponentScore,
+    teamRank: isTeam1 ? game.team1Rank : game.team2Rank,
+    opponentRank: isTeam1 ? game.team2Rank : game.team1Rank,
+    isHome: game.homeTeamTid === tid,
+    isAway: game.homeTeamTid !== null && game.homeTeamTid !== tid,
+    isNeutral: game.homeTeamTid === null
+  }
 }
 
 /**
@@ -608,16 +762,24 @@ export function processBoxScoreDelete(players, oldContribution, year) {
  * @param {Array} players - Current players array
  * @param {Array} games - All games array
  * @param {number} year - The year to recalculate
- * @param {string} userTeam - The user's team abbreviation (only count stats for user's team players)
+ * @param {number|string} userTeamTidOrAbbr - The user's team tid or abbreviation
  * @returns {Array} Updated players array with recalculated stats
  */
-export function recalculateStatsFromBoxScores(players, games, year, userTeam) {
+export function recalculateStatsFromBoxScores(players, games, year, userTeamTidOrAbbr) {
   const yearNum = Number(year)
 
+  // Convert to tid for consistent comparison
+  const userTid = typeof userTeamTidOrAbbr === 'number' ? userTeamTidOrAbbr : getTidFromAbbr(userTeamTidOrAbbr)
+
   // Get all games for this year that have box scores
-  const gamesWithBoxScores = (games || []).filter(g =>
-    Number(g.year) === yearNum && g.boxScore && g.userTeam === userTeam
-  )
+  // Support both new (userTid) and old (userTeam) fields
+  const gamesWithBoxScores = (games || []).filter(g => {
+    if (Number(g.year) !== yearNum || !g.boxScore) return false
+    // Prefer tid comparison, fall back to abbr comparison
+    if (g.userTid) return g.userTid === userTid
+    if (g.userTeam) return g.userTeam === userTeamTidOrAbbr || getTidFromAbbr(g.userTeam) === userTid
+    return false
+  })
 
   // Build aggregated stats for each player from all box scores
   const aggregatedStats = {} // { normalizedPlayerName: { category: { field: value } } }
@@ -849,7 +1011,7 @@ export function resolveTeamAbbr(dynasty, abbr) {
 export function getCurrentSchedule(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -882,25 +1044,48 @@ export function getCurrentSchedule(dynasty) {
 
 /**
  * UNIFIED ROSTER MEMBERSHIP CHECK - Single source of truth
- * Determines if a player belongs on a team's roster for a given year.
+ * Check if a player is on a specific team's roster for a given year.
+ * Uses teamsByYear as the ONLY source of truth for roster membership.
  * All components should use this function for consistent roster filtering.
  *
- * Uses the new movements-based system where teamsByYear is the source of truth.
- * Players with pendingDeparture are still shown on roster for their departure year.
+ * After full tid migration, teamsByYear stores tid values (numbers).
+ * This function accepts either tid (number) or abbreviation (string) for backward compatibility.
  *
- * @param {Object} player - Player object
- * @param {string} teamAbbr - Team abbreviation to check
- * @param {number|string} year - Season year to check
- * @returns {boolean} True if player should appear on roster for this team/year
+ * @param {Object} player - The player object
+ * @param {number|string} tidOrAbbr - Team ID (tid) or abbreviation (for backward compatibility)
+ * @param {number|string} year - The year to check
+ * @returns {boolean} True if player is on the team's roster
  */
-export function isPlayerOnRoster(player, teamAbbr, year) {
+export function isPlayerOnRoster(player, tidOrAbbr, year) {
   // teamsByYear is the ONLY source of truth for roster membership
-  // If teamsByYear[year] === teamAbbr, player is on roster. Nothing else matters.
+  // After full tid migration, teamsByYear values are tids (numbers)
   // Check both number and string keys since data may be stored either way
   const yearNum = Number(year)
   const yearStr = String(year)
   const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
-  return teamForYear === teamAbbr
+
+  // If tidOrAbbr is a number, compare directly (new tid-based)
+  if (typeof tidOrAbbr === 'number') {
+    return teamForYear === tidOrAbbr
+  }
+
+  // If tidOrAbbr is a string that looks like a number (tid from URL param), parse and compare
+  if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
+    return teamForYear === parseInt(tidOrAbbr, 10)
+  }
+
+  // If tidOrAbbr is an abbreviation string (backward compatibility during transition)
+  // Convert abbr to tid and compare
+  if (typeof tidOrAbbr === 'string') {
+    const tid = getTidFromAbbr(tidOrAbbr)
+    if (tid) {
+      return teamForYear === tid
+    }
+    // Fallback: direct string comparison (for unmigrated data)
+    return teamForYear === tidOrAbbr
+  }
+
+  return false
 }
 
 /**
@@ -910,12 +1095,13 @@ export function isPlayerOnRoster(player, teamAbbr, year) {
 export function getCurrentRoster(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  // Use currentTid if available (new system), fallback to abbr lookup (old system)
+  const tid = dynasty.currentTid || getTidFromTeamName(dynasty.teamName, dynasty.teams)
   const currentYear = dynasty.currentYear
   const allPlayers = dynasty.players || []
 
   // Use unified isPlayerOnRoster for consistent filtering across all components
-  return allPlayers.filter(p => isPlayerOnRoster(p, teamAbbr, currentYear))
+  return allPlayers.filter(p => isPlayerOnRoster(p, tid, currentYear))
 }
 
 /**
@@ -936,21 +1122,13 @@ export function getAllPlayers(dynasty) {
 export function getCurrentTeamGames(dynasty, year = null) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
   const allGames = dynasty.games || []
 
   return allGames.filter(g => {
-    // CPU games (team1/team2 without userTeam) are not tied to a specific user team
-    // Skip games that have team1/team2 but no userTeam - these are CPU vs CPU games
-    if (!g.userTeam && g.team1 && g.team2) return false
-
-    // Check if game belongs to current team
-    const gameTeam = g.userTeam
-    const belongsToCurrentTeam = gameTeam === teamAbbr ||
-      gameTeam === dynasty.teamName ||
-      (!gameTeam) // Legacy games without userTeam belong to current team if user hasn't switched
-
-    if (!belongsToCurrentTeam) return false
+    // Use unified game perspective to check if user's team is in this game
+    // getUserGamePerspective checks coachTeamByYear[game.year].tid against team1Tid/team2Tid
+    const perspective = getUserGamePerspective(g, dynasty)
+    if (!perspective) return false // Not a user game
 
     // Optionally filter by year
     if (year !== null) {
@@ -958,6 +1136,10 @@ export function getCurrentTeamGames(dynasty, year = null) {
     }
 
     return true
+  }).map(g => {
+    // Attach perspective for convenience
+    const perspective = getUserGamePerspective(g, dynasty)
+    return { ...g, perspective }
   })
 }
 
@@ -986,7 +1168,7 @@ export function getCurrentPreseasonSetup(dynasty) {
 
   if (!dynasty) return defaultSetup
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -1019,7 +1201,7 @@ export function getCurrentTeamRatings(dynasty) {
 
   if (!dynasty) return defaultRatings
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -1052,7 +1234,7 @@ export function getCurrentCoachingStaff(dynasty) {
 
   if (!dynasty) return defaultStaff
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
   const tid = getTidFromAbbr(teamAbbr)
 
@@ -1091,7 +1273,7 @@ export function getCurrentCoachingStaff(dynasty) {
 export function getCurrentGoogleSheet(dynasty) {
   if (!dynasty) return { googleSheetId: null, googleSheetUrl: null }
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
   // Try new team-centric structure first
   const teamSheet = dynasty.googleSheetsByTeam?.[teamAbbr]
@@ -1112,7 +1294,7 @@ export function getCurrentGoogleSheet(dynasty) {
 export function getCurrentRecruits(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -1160,7 +1342,7 @@ const CLASS_PROGRESSION = {
 export function getPlayersNeedingClassConfirmation(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
   const players = dynasty.players || []
 
@@ -1195,7 +1377,7 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
 export function isFirstYearOnTeam(dynasty) {
   if (!dynasty) return false
 
-  const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const previousYearTeam = dynasty.coachTeamByYear?.[dynasty.currentYear]?.team
 
   // If no previous year record, check if this is the dynasty start year
@@ -1227,7 +1409,7 @@ export function getCoachTeamForYear(dynasty, year) {
   // - If it's the current year and we haven't started the season yet, use current team
   // - Otherwise return null (data not available)
   if (year === dynasty.currentYear && dynasty.currentPhase === 'preseason') {
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     return {
       team: teamAbbr,
       teamName: dynasty.teamName,
@@ -1237,7 +1419,7 @@ export function getCoachTeamForYear(dynasty, year) {
 
   // For the start year, assume the current team if no record exists
   if (year === dynasty.startYear) {
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     return {
       team: teamAbbr,
       teamName: dynasty.teamName,
@@ -1291,7 +1473,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
 
   if (!teamAbbr) {
     // Fallback to current team
-    teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   }
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -1315,7 +1497,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
 
   // ONLY fall back to legacy coaching staff if this is the user's CURRENT team
   // This prevents showing the user's coordinators on other teams' pages
-  const userCurrentTeam = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const userCurrentTeam = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   if (!staff && teamAbbr === userCurrentTeam) {
     staff = dynasty.coachingStaff || { hcName: null, ocName: null, dcName: null }
   }
@@ -1583,7 +1765,7 @@ export function migrateRosterData(dynasty) {
   }
 
   const currentYear = dynasty.currentYear
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
   let needsUpdate = false
   const fixedPlayers = dynasty.players.map(player => {
@@ -1779,6 +1961,185 @@ export function migrateLegacyDepartureFields(dynasty) {
     players: migratedPlayers,
     _legacyDepartureFieldsMigrated: true
   }
+}
+
+/**
+ * Migrate dynasty to full tid-based system.
+ * This migration:
+ * 1. Adds currentTid (derived from teamName)
+ * 2. Adds tid to coachTeamByYear records
+ * 3. Converts player.teamsByYear values from abbr to tid
+ * 4. Converts game records from abbr fields (userTeam, opponent, team1, team2) to tid fields
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {Object} Migrated dynasty
+ */
+export function migrateToFullTidSystem(dynasty) {
+  if (!dynasty) return dynasty
+  if (dynasty._tidFullyMigrated) return dynasty
+
+  let migrated = { ...dynasty }
+
+  // Ensure teams exists (should be created by earlier _tidMigrated migration)
+  if (!migrated.teams) {
+    // This shouldn't happen, but just in case
+    migrated = migrateDynastyToTidStructure(migrated)
+    migrated._tidMigrated = true
+  }
+
+  // Phase 1: Add currentTid
+  if (!migrated.currentTid && migrated.teamName) {
+    // For custom teams, the name is stored in dynasty.teams
+    // For default teams, use NAME_TO_TID lookup
+    const tid = getTidFromTeamName(migrated.teamName, migrated.teams)
+    if (tid) {
+      migrated.currentTid = tid
+    } else {
+      // Fallback: try abbreviation approach
+      const abbr = getAbbrFromTeamName(migrated.teamName, migrated.teams)
+      const fallbackTid = getTidFromAbbr(abbr)
+      if (fallbackTid) {
+        migrated.currentTid = fallbackTid
+      }
+    }
+  }
+
+  // Phase 2: Migrate coachTeamByYear records
+  if (migrated.coachTeamByYear) {
+    const migratedCoachTeamByYear = {}
+    for (const [year, record] of Object.entries(migrated.coachTeamByYear)) {
+      if (record && !record.tid && record.team) {
+        // Convert team abbr to tid
+        const tid = getTidFromAbbr(record.team)
+        migratedCoachTeamByYear[year] = {
+          ...record,
+          tid: tid || null
+        }
+      } else {
+        migratedCoachTeamByYear[year] = record
+      }
+    }
+    migrated.coachTeamByYear = migratedCoachTeamByYear
+  }
+
+  // Phase 3: Migrate player.teamsByYear values from abbr to tid
+  if (migrated.players && Array.isArray(migrated.players)) {
+    migrated.players = migrated.players.map(player => {
+      if (!player.teamsByYear) return player
+
+      const migratedTeamsByYear = {}
+      let needsMigration = false
+
+      for (const [year, value] of Object.entries(player.teamsByYear)) {
+        if (typeof value === 'number') {
+          // Already a tid
+          migratedTeamsByYear[year] = value
+        } else if (typeof value === 'string') {
+          // Convert abbr to tid
+          const tid = getTidFromAbbr(value)
+          migratedTeamsByYear[year] = tid || null
+          needsMigration = true
+        } else {
+          migratedTeamsByYear[year] = value
+        }
+      }
+
+      if (!needsMigration) return player
+
+      return {
+        ...player,
+        teamsByYear: migratedTeamsByYear
+      }
+    })
+  }
+
+  // Phase 4: Migrate game records to UNIFIED format
+  // All games become team1Tid vs team2Tid with homeTeamTid for location
+  // User's perspective is determined by coachTeamByYear, not stored on games
+  if (migrated.games && Array.isArray(migrated.games)) {
+    migrated.games = migrated.games.map(game => {
+      // Skip if already migrated (has team1Tid but no userTeam/opponent fields)
+      if (game.team1Tid && game.team2Tid && !game.userTeam && !game.opponent) {
+        return game
+      }
+
+      const newGame = { ...game }
+
+      if (game.userTeam || game.userTid || game.opponent || game.opponentTid) {
+        // User game format - convert to unified format
+        const userTid = game.userTid || getTidFromAbbr(game.userTeam)
+        const oppTid = game.opponentTid || getTidFromAbbr(game.opponent)
+        const userScore = parseInt(game.teamScore) || 0
+        const oppScore = parseInt(game.opponentScore) || 0
+
+        newGame.team1Tid = userTid
+        newGame.team2Tid = oppTid
+        newGame.team1Score = userScore
+        newGame.team2Score = oppScore
+        newGame.team1Rank = game.userRank || null
+        newGame.team2Rank = game.opponentRank || null
+        newGame.team2Overall = game.opponentOverall || null
+        newGame.team2Offense = game.opponentOffense || null
+        newGame.team2Defense = game.opponentDefense || null
+
+        // Add winnerTid
+        if (userScore > 0 || oppScore > 0) {
+          newGame.winnerTid = userScore > oppScore ? userTid : oppTid
+        }
+
+        // Convert location to homeTeamTid
+        if (game.location === 'home') {
+          newGame.homeTeamTid = userTid
+        } else if (game.location === 'away') {
+          newGame.homeTeamTid = oppTid
+        } else {
+          newGame.homeTeamTid = null  // neutral
+        }
+
+        // Remove old fields
+        delete newGame.userTeam
+        delete newGame.userTid
+        delete newGame.opponent
+        delete newGame.opponentTid
+        delete newGame.teamScore
+        delete newGame.opponentScore
+        delete newGame.result
+        delete newGame.location
+        delete newGame.userRank
+        delete newGame.opponentRank
+        delete newGame.opponentOverall
+        delete newGame.opponentOffense
+        delete newGame.opponentDefense
+        delete newGame.opponentRecord
+      } else if (game.team1 || game.team1Tid) {
+        // Already has team1/team2 format (CPU game or postseason)
+        newGame.team1Tid = game.team1Tid || getTidFromAbbr(game.team1)
+        newGame.team2Tid = game.team2Tid || getTidFromAbbr(game.team2)
+
+        // Add winnerTid if scores exist
+        const score1 = parseInt(newGame.team1Score) || 0
+        const score2 = parseInt(newGame.team2Score) || 0
+        if (!newGame.winnerTid && (score1 > 0 || score2 > 0)) {
+          newGame.winnerTid = score1 > score2 ? newGame.team1Tid : newGame.team2Tid
+        }
+
+        // Postseason games are typically neutral
+        if (newGame.homeTeamTid === undefined) {
+          newGame.homeTeamTid = null
+        }
+
+        // Remove abbr fields
+        delete newGame.team1
+        delete newGame.team2
+        delete newGame.winner  // Remove string-based winner field
+      }
+
+      return newGame
+    })
+  }
+
+  migrated._tidFullyMigrated = true
+  return migrated
 }
 
 // ============================================================================
@@ -2023,7 +2384,7 @@ export function migrateToMovementsSystem(dynasty) {
     return { ...dynasty, _movementsMigrated: true }
   }
 
-  const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
   const migratedPlayers = dynasty.players.map(player => {
     // Skip if already has movements array
@@ -2165,6 +2526,13 @@ export function DynastyProvider({ children }) {
         migrated._tidMigrated = true
       }
 
+      // Apply full tid migration
+      // Converts currentTid, player.teamsByYear, game records, coachTeamByYear to tid
+      if (!migrated._tidFullyMigrated) {
+        migrated = migrateToFullTidSystem(migrated)
+        migrated._tidFullyMigrated = true
+      }
+
       return migrated
     })
   }
@@ -2295,6 +2663,16 @@ export function DynastyProvider({ children }) {
         if (migrated._legacyDepartureFieldsMigrated && !raw._legacyDepartureFieldsMigrated) {
           flagsToSave._legacyDepartureFieldsMigrated = true
         }
+        if (migrated._tidMigrated && !raw._tidMigrated) {
+          flagsToSave._tidMigrated = true
+        }
+        if (migrated._tidFullyMigrated && !raw._tidFullyMigrated) {
+          flagsToSave._tidFullyMigrated = true
+          // Also persist currentTid since it's added during migration
+          if (migrated.currentTid) {
+            flagsToSave.currentTid = migrated.currentTid
+          }
+        }
 
         // If any flags need saving, update Firestore
         if (Object.keys(flagsToSave).length > 0) {
@@ -2352,8 +2730,13 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Get the currentTid for the user's team
+    // This is the single source of truth for which team the user is coaching
+    const currentTid = getTidFromTeamName(dynastyData.teamName, teams)
+
     const newDynastyData = {
       ...dynastyData,
+      currentTid, // Primary team identifier (tid)
       currentYear: startYear,
       currentWeek: 0,
       currentPhase: 'preseason',
@@ -2366,7 +2749,8 @@ export function DynastyProvider({ children }) {
       nextPID: 1, // Initialize player ID counter
       // Teams map - single source of truth for all team data (tid-keyed)
       teams,
-      _tidMigrated: true, // Mark as already using new tid structure
+      _tidMigrated: true, // Mark as already using tid-based team registry
+      _tidFullyMigrated: true, // Mark as using full tid system (currentTid, player.teamsByYear as tid, game.userTid, etc.)
       preseasonSetup: {
         scheduleEntered: false,
         rosterEntered: false,
@@ -2485,6 +2869,9 @@ export function DynastyProvider({ children }) {
         return true
       })
     }
+
+    // NOTE: Games now use unified format (team1Tid, team2Tid, homeTeamTid)
+    // No normalization needed - migration handles conversion from old format
 
     // Add lastModified timestamp to updates (unless skipLastModified is true)
     const updatesWithTimestamp = removeUndefined({
@@ -2700,15 +3087,31 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // CRITICAL: Always store the actual team abbreviation for user games
-    // This ensures games are correctly attributed when user switches teams
-    // CPU games are identified by having team1/team2 but NO userTeam AND NO opponent
-    // User games (incl. CFP/bowl) always have opponent field, even if they also have team1/team2 for unified format
-    const currentUserTeam = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
-    const isCPUGame = cleanGameData.team1 && cleanGameData.team2 && !cleanGameData.userTeam && !cleanGameData.opponent
-    if (!isCPUGame) {
-      cleanGameData.userTeam = currentUserTeam
+    // Detect game format and CPU games
+    // UNIFIED FORMAT: has team1Tid/team2Tid
+    // LEGACY FORMAT: has team1/team2 (abbr) or userTeam/opponent
+    const hasUnifiedFormat = cleanGameData.team1Tid && cleanGameData.team2Tid
+    const hasLegacyTeamFormat = cleanGameData.team1 && cleanGameData.team2 && !hasUnifiedFormat
+    const hasLegacyUserFormat = cleanGameData.opponent || cleanGameData.userTeam
+
+    // CPU games: have team identifiers but no user involvement marker
+    // In unified format: has team1Tid/team2Tid but user's tid is not involved
+    // In legacy format: has team1/team2 but no userTeam/opponent
+    const currentUserTid = getCurrentTeamTid(dynasty)
+    const currentUserTeam = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+
+    let isCPUGame = false
+    if (hasUnifiedFormat) {
+      // Unified format: CPU game if neither team is the user's current team
+      isCPUGame = cleanGameData.team1Tid !== currentUserTid && cleanGameData.team2Tid !== currentUserTid
+    } else if (hasLegacyTeamFormat && !hasLegacyUserFormat) {
+      // Legacy format: CPU game if has team1/team2 but no userTeam/opponent
+      isCPUGame = true
     }
+
+    // NOTE: We no longer add userTeam field for non-CPU games
+    // User's team is derived from coachTeamByYear[game.year].tid at read time
+    // This makes games team-neutral and supports job changes correctly
 
     // UNIFIED GAME TYPES: Set gameType field based on game flags
     // This ensures all games (user and CPU) have consistent gameType for filtering
@@ -2730,51 +3133,97 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // UNIFIED CFP FORMAT: For CFP games, always set unified team1/team2/winner fields
-    // This ensures bracket reads games[] directly without needing to normalize user vs CPU formats
+    // LEGACY FORMAT CONVERSION: If game has legacy fields, convert to unified format
+    // This handles any code still passing legacy format (backward compatibility)
     const isCFPGame = cleanGameData.isCFPFirstRound || cleanGameData.isCFPQuarterfinal ||
                       cleanGameData.isCFPSemifinal || cleanGameData.isCFPChampionship
 
-    if (isCFPGame && !isCPUGame) {
+    if (!hasUnifiedFormat && hasLegacyUserFormat && !isCPUGame) {
+      // Convert legacy user game format to unified format
       const userTeamAbbr = cleanGameData.userTeam || currentUserTeam
       const opponentAbbr = cleanGameData.opponent
-      const userScore = parseInt(cleanGameData.teamScore)
-      const oppScore = parseInt(cleanGameData.opponentScore)
-      const userWon = cleanGameData.result === 'win' || cleanGameData.result === 'W'
+      const userTid = getTidFromAbbr(userTeamAbbr) || currentUserTid
+      const opponentTid = getTidFromAbbr(opponentAbbr)
 
-      // For First Round, determine seeds and ensure higher seed is team1
-      if (cleanGameData.isCFPFirstRound) {
+      // Determine scores from legacy fields
+      const userScore = cleanGameData.team1Score ?? parseInt(cleanGameData.teamScore) ?? null
+      const oppScore = cleanGameData.team2Score ?? parseInt(cleanGameData.opponentScore) ?? null
+      const userWon = cleanGameData.result === 'win' || cleanGameData.result === 'W' ||
+                      (userScore !== null && oppScore !== null && userScore > oppScore)
+
+      // For CFP First Round, determine seeds and correct team ordering
+      if (isCFPGame && cleanGameData.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year] || []
         const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
         const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed || (userSeed ? 17 - userSeed : null)
 
-        // Higher seed (lower number) should be team1 (home team)
+        // Higher seed (lower number) should be team1 (home team in first round)
         if (userSeed && oppSeed && userSeed > oppSeed) {
-          // Opponent has higher seed - they are team1 (home)
-          cleanGameData.team1 = opponentAbbr
-          cleanGameData.team2 = userTeamAbbr
+          // Opponent has higher seed - they are team1
+          cleanGameData.team1Tid = opponentTid
+          cleanGameData.team2Tid = userTid
           cleanGameData.team1Score = oppScore
           cleanGameData.team2Score = userScore
           cleanGameData.seed1 = oppSeed
           cleanGameData.seed2 = userSeed
-          cleanGameData.winner = userWon ? userTeamAbbr : opponentAbbr
+          cleanGameData.homeTeamTid = opponentTid // Higher seed hosts
         } else {
-          // User has higher seed - they are team1 (home)
-          cleanGameData.team1 = userTeamAbbr
-          cleanGameData.team2 = opponentAbbr
+          // User has higher seed - they are team1
+          cleanGameData.team1Tid = userTid
+          cleanGameData.team2Tid = opponentTid
           cleanGameData.team1Score = userScore
           cleanGameData.team2Score = oppScore
           cleanGameData.seed1 = userSeed
           cleanGameData.seed2 = oppSeed
-          cleanGameData.winner = userWon ? userTeamAbbr : opponentAbbr
+          cleanGameData.homeTeamTid = userTid // Higher seed hosts
         }
-      } else {
-        // For QF/SF/Championship, user is always team1
-        cleanGameData.team1 = userTeamAbbr
-        cleanGameData.team2 = opponentAbbr
+        // Also set winner tid for bracket display
+        const winnerTid = userWon ? userTid : opponentTid
+        cleanGameData.winnerTid = winnerTid
+      } else if (isCFPGame) {
+        // For QF/SF/Championship (neutral site), user team1 is arbitrary but consistent
+        cleanGameData.team1Tid = userTid
+        cleanGameData.team2Tid = opponentTid
         cleanGameData.team1Score = userScore
         cleanGameData.team2Score = oppScore
-        cleanGameData.winner = userWon ? userTeamAbbr : opponentAbbr
+        cleanGameData.homeTeamTid = null // Neutral site
+        cleanGameData.winnerTid = userWon ? userTid : opponentTid
+      } else {
+        // Regular/CC/Bowl user games
+        cleanGameData.team1Tid = userTid
+        cleanGameData.team2Tid = opponentTid
+        cleanGameData.team1Score = userScore
+        cleanGameData.team2Score = oppScore
+
+        // Set homeTeamTid based on location
+        if (cleanGameData.location === 'home') {
+          cleanGameData.homeTeamTid = userTid
+        } else if (cleanGameData.location === 'away') {
+          cleanGameData.homeTeamTid = opponentTid
+        } else {
+          cleanGameData.homeTeamTid = null // Neutral
+        }
+      }
+
+      // Transfer ranks and ratings to unified format if not already set
+      if (!cleanGameData.team1Rank && cleanGameData.userRank) {
+        cleanGameData.team1Rank = cleanGameData.userRank
+      }
+      if (!cleanGameData.team2Rank && cleanGameData.opponentRank) {
+        cleanGameData.team2Rank = cleanGameData.opponentRank
+      }
+      if (!cleanGameData.team2Overall && cleanGameData.opponentOverall) {
+        cleanGameData.team2Overall = cleanGameData.opponentOverall
+      }
+    }
+
+    // ENSURE winnerTid is set for all games with scores
+    // This is important for bracket display and game history
+    if (!cleanGameData.winnerTid && cleanGameData.team1Tid && cleanGameData.team2Tid) {
+      const score1 = parseInt(cleanGameData.team1Score) || 0
+      const score2 = parseInt(cleanGameData.team2Score) || 0
+      if (score1 > 0 || score2 > 0) {
+        cleanGameData.winnerTid = score1 > score2 ? cleanGameData.team1Tid : cleanGameData.team2Tid
       }
     }
 
@@ -2825,7 +3274,7 @@ export function DynastyProvider({ children }) {
       // Check if this is a CFP game that needs ID correction
       if (cleanGameData.isCFPFirstRound || existingGame.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year || existingGame.year] || []
-        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
+        const userTeamAbbr = getCurrentTeamAbbr(dynasty)
         const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
@@ -2873,7 +3322,7 @@ export function DynastyProvider({ children }) {
 
       if (cleanGameData.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year] || []
-        const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
+        const userTeamAbbr = getCurrentTeamAbbr(dynasty)
         const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
@@ -2968,7 +3417,7 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
+    const userTeamAbbr = getCurrentTeamAbbr(dynasty)
     const existingGames = dynasty.games || []
 
     // Filter out existing bowl games for this year and week to avoid duplicates
@@ -2984,57 +3433,50 @@ export function DynastyProvider({ children }) {
       return false
     })
 
-    // Create game entries for each bowl game
+    // Create game entries for each bowl game in UNIFIED FORMAT
+    const userTid = getCurrentTeamTid(dynasty)
     const newGames = bowlGames
       .filter(bowl => {
         // Only process games with valid data
-        if (!bowl.team1 || !bowl.team2) return false
+        // Support both tid-based and abbr-based input
+        const hasTeam1 = bowl.team1Tid || bowl.team1
+        const hasTeam2 = bowl.team2Tid || bowl.team2
+        if (!hasTeam1 || !hasTeam2) return false
         if (bowl.team1Score === null || bowl.team1Score === undefined) return false
         if (bowl.team2Score === null || bowl.team2Score === undefined) return false
         return true
       })
       .map(bowl => {
-        // Determine winner
+        // Get tids (support both input formats)
+        const team1Tid = bowl.team1Tid || getTidFromAbbr(bowl.team1)
+        const team2Tid = bowl.team2Tid || getTidFromAbbr(bowl.team2)
+
+        // Determine scores and winner
         const team1Score = parseInt(bowl.team1Score)
         const team2Score = parseInt(bowl.team2Score)
-        const winner = team1Score > team2Score ? bowl.team1 : bowl.team2
-        const winnerIsTeam1 = winner === bowl.team1
-
-        // Check if this is the user's bowl game
-        const isUserBowlGame = bowl.team1 === userTeamAbbr || bowl.team2 === userTeamAbbr
+        const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
         return {
           id: `bowl-${year}-${bowl.bowlName?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
-          // No isCPUGame flag - CPU games identified by absence of userTeam
           isBowlGame: true,
           bowlName: bowl.bowlName,
           bowlWeek: week,
           year: Number(year),
           week: 'Bowl',
-          location: 'neutral',
           gameType: GAME_TYPES.BOWL,
-          // Store both teams' data
-          team1: bowl.team1,
-          team2: bowl.team2,
-          team1Score: team1Score,
-          team2Score: team2Score,
-          winner: winner,
-          // For user's game, set userTeam properly; CPU games have no userTeam
-          ...(isUserBowlGame && { userTeam: userTeamAbbr }),
-          // For display purposes
-          viewingTeamAbbr: isUserBowlGame ? userTeamAbbr : winner,
-          opponent: isUserBowlGame
-            ? (bowl.team1 === userTeamAbbr ? bowl.team2 : bowl.team1)
-            : (winnerIsTeam1 ? bowl.team2 : bowl.team1),
-          teamScore: isUserBowlGame
-            ? (bowl.team1 === userTeamAbbr ? team1Score : team2Score)
-            : (winnerIsTeam1 ? team1Score : team2Score),
-          opponentScore: isUserBowlGame
-            ? (bowl.team1 === userTeamAbbr ? team2Score : team1Score)
-            : (winnerIsTeam1 ? team2Score : team1Score),
-          result: isUserBowlGame
-            ? (winner === userTeamAbbr ? 'win' : 'loss')
-            : 'win',
+
+          // UNIFIED FORMAT: tid-based team identification
+          team1Tid,
+          team2Tid,
+          team1Score,
+          team2Score,
+          homeTeamTid: null,  // Bowl games are neutral site
+          winnerTid,
+
+          // Preserve team ranks if provided
+          ...(bowl.team1Rank && { team1Rank: parseInt(bowl.team1Rank) }),
+          ...(bowl.team2Rank && { team2Rank: parseInt(bowl.team2Rank) }),
+
           // Preserve any notes/links if they exist
           gameNote: bowl.gameNote || '',
           links: bowl.links || '',
@@ -3071,8 +3513,10 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
     const existingGames = dynasty.games || []
+
+    // Get user's team tid for this year to check if game involves user's team
+    const userTidForYear = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
 
     // Determine which legacy flag to check based on round type
     const legacyFlagMap = {
@@ -3084,13 +3528,18 @@ export function DynastyProvider({ children }) {
     const legacyFlag = legacyFlagMap[roundType]
 
     // Filter out existing games of this type for this year
-    // BUT preserve user's game if it was entered separately (has userTeam field)
+    // BUT preserve user's game if it was entered separately
+    // User's game detected by: team1Tid or team2Tid matches user's coached team for this year
+    // (Also supports legacy userTeam field during transition)
     const filteredGames = existingGames.filter(g => {
       const isThisRoundType = g.gameType === roundType || g[legacyFlag]
       const isThisYear = Number(g.year) === Number(year)
       if (isThisRoundType && isThisYear) {
+        // Check if this is user's game (unified format: team1Tid/team2Tid match, legacy: userTeam field)
+        const isUserGame = (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) ||
+                          (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear)
         // Keep user's game - it will be merged/updated below if also in gamesData
-        return g.userTeam === userTeamAbbr
+        return isUserGame
       }
       return true
     })
@@ -3098,11 +3547,20 @@ export function DynastyProvider({ children }) {
     // Build new games array
     const newGames = []
 
+    // Get user's team tid for this year to determine if it's a user game
+    const userTid = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
+
     for (const gameData of gamesData) {
-      // Skip incomplete games
-      if (!gameData.team1 || !gameData.team2) continue
+      // Skip incomplete games - support both tid and abbr inputs
+      const team1Abbr = gameData.team1
+      const team2Abbr = gameData.team2
+      if (!team1Abbr || !team2Abbr) continue
       if (gameData.team1Score === null || gameData.team1Score === undefined) continue
       if (gameData.team2Score === null || gameData.team2Score === undefined) continue
+
+      // Resolve team tids (accept both tid and abbr inputs)
+      const team1Tid = gameData.team1Tid || getTidFromAbbr(team1Abbr)
+      const team2Tid = gameData.team2Tid || getTidFromAbbr(team2Abbr)
 
       // Determine slot ID based on round type
       let slotId
@@ -3114,36 +3572,32 @@ export function DynastyProvider({ children }) {
 
       const gameId = slotId ? getCFPGameId(slotId, year) : `cfp-${roundType}-${year}-${Date.now()}`
 
-      // Check if this is user's game
-      const isUserGame = gameData.team1 === userTeamAbbr || gameData.team2 === userTeamAbbr
-
-      // Determine winner
+      // Determine winner (tid-based)
       const team1Score = parseInt(gameData.team1Score)
       const team2Score = parseInt(gameData.team2Score)
-      const winner = gameData.winner || (team1Score > team2Score ? gameData.team1 : gameData.team2)
+      const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
+      // UNIFIED FORMAT: Use tid-based fields only
+      // User's team is determined at read time via coachTeamByYear[year].tid
       const unifiedGame = {
         id: gameId,
         year: Number(year),
         gameType: roundType,
-        team1: gameData.team1,
-        team2: gameData.team2,
-        team1Score: team1Score,
-        team2Score: team2Score,
-        winner: winner,
+        // Team identification (tid only)
+        team1Tid,
+        team2Tid,
+        // Scores
+        team1Score,
+        team2Score,
+        // Home/away (CFP games are neutral site)
+        homeTeamTid: null,
+        // Winner
+        winnerTid,
+        // CFP-specific metadata
         seed1: gameData.seed1,
         seed2: gameData.seed2,
         bowlName: gameData.bowlName,
-        // User team identification
-        ...(isUserGame && { userTeam: userTeamAbbr }),
-        // Legacy compatibility fields
-        ...(isUserGame && {
-          opponent: gameData.team1 === userTeamAbbr ? gameData.team2 : gameData.team1,
-          teamScore: gameData.team1 === userTeamAbbr ? team1Score : team2Score,
-          opponentScore: gameData.team1 === userTeamAbbr ? team2Score : team1Score,
-          result: winner === userTeamAbbr ? 'win' : 'loss'
-        }),
-        // Legacy flags
+        // Legacy flags for backward compatibility during transition
         [legacyFlag]: true,
         createdAt: new Date().toISOString()
       }
@@ -3188,17 +3642,23 @@ export function DynastyProvider({ children }) {
     }
 
     console.log('[saveCPUCC] Found dynasty:', dynasty.teamName)
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
     const existingGames = dynasty.games || []
     console.log('[saveCPUCC] Existing games count:', existingGames.length)
     console.log('[saveCPUCC] Existing CC games:', existingGames.filter(g => g.isConferenceChampionship))
 
+    // Get user's team tid for this year
+    const userTidForYear = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
+
     // Find the user's CC game for this year (if any)
-    const userCCGame = existingGames.find(g =>
-      g.isConferenceChampionship &&
-      Number(g.year) === Number(year) &&
-      g.userTeam === userTeamAbbr
-    )
+    // Check both unified format (team1Tid/team2Tid) and legacy format (userTeam)
+    const userCCGame = existingGames.find(g => {
+      if (!g.isConferenceChampionship || Number(g.year) !== Number(year)) return false
+      // Unified format: check if user's tid matches
+      if (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) return true
+      // Legacy format: check userTeam field
+      if (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear) return true
+      return false
+    })
     console.log('[saveCPUCC] User CC game found:', userCCGame)
 
     // Check if the incoming championships data includes the user's conference
@@ -3219,9 +3679,14 @@ export function DynastyProvider({ children }) {
       // Keep non-CC games
       if (!g.isConferenceChampionship) return true
       // Preserve user's CC game if their conference was excluded from sheet
-      if (shouldPreserveUserCCGame && g.userTeam === userTeamAbbr) {
-        console.log('[saveCPUCC] Preserving user CC game')
-        return true
+      if (shouldPreserveUserCCGame) {
+        // Check if this is user's game (unified or legacy format)
+        const isUserGame = (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) ||
+                          (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear)
+        if (isUserGame) {
+          console.log('[saveCPUCC] Preserving user CC game')
+          return true
+        }
       }
       // Remove other CC games from same year (will be replaced with fresh data)
       return false
@@ -3229,6 +3694,7 @@ export function DynastyProvider({ children }) {
     console.log('[saveCPUCC] After filtering out CC games for year:', filteredGames.length)
 
     // Create game entries for each conference championship game
+    // UNIFIED FORMAT: Use tid-based fields, no legacy userTeam/opponent/teamScore/opponentScore/result
     const newGames = championships
       .filter(cc => {
         // Only process games with valid data
@@ -3238,46 +3704,32 @@ export function DynastyProvider({ children }) {
         return true
       })
       .map(cc => {
-        // Determine winner
+        // Resolve team tids (accept both tid and abbr inputs)
+        const team1Tid = cc.team1Tid || getTidFromAbbr(cc.team1)
+        const team2Tid = cc.team2Tid || getTidFromAbbr(cc.team2)
+
+        // Determine winner (tid-based)
         const team1Score = parseInt(cc.team1Score)
         const team2Score = parseInt(cc.team2Score)
-        const winner = team1Score > team2Score ? cc.team1 : cc.team2
-        const winnerIsTeam1 = winner === cc.team1
-
-        // Check if this is the user's CC game
-        const isUserCCGame = cc.team1 === userTeamAbbr || cc.team2 === userTeamAbbr
+        const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
         return {
           id: `cc-${year}-${cc.conference?.replace(/\s+/g, '-').toLowerCase() || Date.now()}`,
-          // No isCPUGame flag - CPU games identified by absence of userTeam
           isConferenceChampionship: true,
           conference: cc.conference,
           year: Number(year),
           week: 'CCG',
-          location: 'neutral',
           gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
-          // Store both teams' data
-          team1: cc.team1,
-          team2: cc.team2,
-          team1Score: team1Score,
-          team2Score: team2Score,
-          winner: winner,
-          // For user's game, set userTeam properly; CPU games have no userTeam
-          ...(isUserCCGame && { userTeam: userTeamAbbr }),
-          // For display purposes
-          viewingTeamAbbr: isUserCCGame ? userTeamAbbr : winner,
-          opponent: isUserCCGame
-            ? (cc.team1 === userTeamAbbr ? cc.team2 : cc.team1)
-            : (winnerIsTeam1 ? cc.team2 : cc.team1),
-          teamScore: isUserCCGame
-            ? (cc.team1 === userTeamAbbr ? team1Score : team2Score)
-            : (winnerIsTeam1 ? team1Score : team2Score),
-          opponentScore: isUserCCGame
-            ? (cc.team1 === userTeamAbbr ? team2Score : team1Score)
-            : (winnerIsTeam1 ? team2Score : team1Score),
-          result: isUserCCGame
-            ? (winner === userTeamAbbr ? 'win' : 'loss')
-            : 'win',
+          // Team identification (tid only) - UNIFIED FORMAT
+          team1Tid,
+          team2Tid,
+          // Scores
+          team1Score,
+          team2Score,
+          // Home/away (CC games are neutral site)
+          homeTeamTid: null,
+          // Winner (tid-based)
+          winnerTid,
           // Preserve any notes/links if they exist
           gameNote: cc.gameNote || '',
           links: cc.links || '',
@@ -3289,24 +3741,35 @@ export function DynastyProvider({ children }) {
     console.log('[saveCPUCC] newGames created:', newGames.length, newGames)
     console.log('[saveCPUCC] updatedGames total:', updatedGames.length)
 
-    // Deduplicate CC games by year + conference (keep the one with userTeam if exists, otherwise first)
+    // Deduplicate CC games by year + conference
+    // Prefer the one that involves user's team (check using tid-based or legacy userTeam)
     const deduplicatedGames = []
     const ccGameKeys = new Set()
     for (const game of updatedGames) {
       if (game.isConferenceChampionship) {
         const key = `cc-${game.year}-${game.conference?.toLowerCase()}`
         if (ccGameKeys.has(key)) {
-          // Skip duplicate - but if this one has userTeam and previous didn't, swap
+          // Skip duplicate - but if this one is user's game and previous wasn't, swap
           const existingIdx = deduplicatedGames.findIndex(g =>
             g.isConferenceChampionship &&
             g.year === game.year &&
             g.conference?.toLowerCase() === game.conference?.toLowerCase()
           )
-          if (existingIdx >= 0 && game.userTeam && !deduplicatedGames[existingIdx].userTeam) {
-            console.log('[saveCPUCC] Replacing CPU CC game with user CC game for:', key)
-            deduplicatedGames[existingIdx] = game
-          } else {
-            console.log('[saveCPUCC] Skipping duplicate CC game:', key)
+          if (existingIdx >= 0) {
+            // Check if this game involves user's team (unified or legacy format)
+            const thisIsUserGame = (game.team1Tid === userTidForYear || game.team2Tid === userTidForYear) ||
+                                  (game.userTeam && getTidFromAbbr(game.userTeam) === userTidForYear)
+            const existingIsUserGame = (deduplicatedGames[existingIdx].team1Tid === userTidForYear ||
+                                       deduplicatedGames[existingIdx].team2Tid === userTidForYear) ||
+                                      (deduplicatedGames[existingIdx].userTeam &&
+                                       getTidFromAbbr(deduplicatedGames[existingIdx].userTeam) === userTidForYear)
+
+            if (thisIsUserGame && !existingIsUserGame) {
+              console.log('[saveCPUCC] Replacing CPU CC game with user CC game for:', key)
+              deduplicatedGames[existingIdx] = game
+            } else {
+              console.log('[saveCPUCC] Skipping duplicate CC game:', key)
+            }
           }
           continue
         }
@@ -3339,12 +3802,14 @@ export function DynastyProvider({ children }) {
 
       // COACH HISTORY: Record which team the coach is coaching this year
       // This is locked in at season start and does NOT change even if user switches teams later
-      const coachTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+      const coachTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const coachTeamTid = getCurrentTeamTid(dynasty)
       const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
       additionalUpdates.coachTeamByYear = {
         ...existingCoachTeamByYear,
         [dynasty.currentYear]: {
-          team: coachTeamAbbr,
+          tid: coachTeamTid,  // tid is the single source of truth
+          team: coachTeamAbbr,  // Keep for backward compatibility
           teamName: dynasty.teamName,
           position: dynasty.coachPosition || 'HC',
           conference: dynasty.conference
@@ -3376,7 +3841,7 @@ export function DynastyProvider({ children }) {
       // LOCK IN COACHING STAFF: Save the full coaching staff at end of regular season
       // This preserves them for historical display even if they're fired in CC week
       // Also includes the user's position so their name shows in historical views
-      const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+      const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
       const currentStaff = dynasty.coachingStaff || getCurrentCoachingStaff(dynasty)
 
       // Build complete staff including user's position
@@ -3461,7 +3926,7 @@ export function DynastyProvider({ children }) {
         // Calculate record at current team for this stint
         const currentTeamGames = (dynasty.games || []).filter(g =>
           g.userTeam === dynasty.teamName ||
-          g.userTeam === getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) ||
+          g.userTeam === getCurrentTeamAbbr(dynasty) ||
           (!g.userTeam && !g.team1 && !g.team2) // Legacy games without userTeam (not CPU games which have team1/team2)
         )
         const currentStintGames = currentTeamGames.filter(g => {
@@ -3503,7 +3968,7 @@ export function DynastyProvider({ children }) {
 
         // TEAM-CENTRIC FIX: Tag all legacy players (without team field) with their current team
         // before switching. This ensures they stay associated with their original team.
-        const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+        const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
         const existingPlayers = dynasty.players || []
         const taggedPlayers = existingPlayers.map(p => {
           // If player already has team field, keep it
@@ -3654,7 +4119,7 @@ export function DynastyProvider({ children }) {
       // CLASS PROGRESSION - Also happens at year flip
       // Progress all players' classes based on games played in the previous season
       const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+      const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
       const players = dynasty.players || []
 
@@ -3784,7 +4249,7 @@ export function DynastyProvider({ children }) {
       // NOW convert recruits to active players (after user had chance to enter Recruit Overalls)
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended (recruitYear)
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+      const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
       const players = dynasty.players || []
 
       // Convert recruits from this class to active players
@@ -3872,7 +4337,7 @@ export function DynastyProvider({ children }) {
     // All offseason data (playersLeaving, playerStats, recruits, etc.) is stored under the PREVIOUS year (2026).
     const previousSeasonYear = Number(dynasty.currentYear) - 1  // The season that just ended (e.g., 2026)
     const currentSeasonYear = Number(dynasty.currentYear)       // The upcoming season (e.g., 2027)
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const players = [...(dynasty.players || [])]
 
     // Helper to get data by year (handles both string and numeric keys)
@@ -4408,7 +4873,7 @@ export function DynastyProvider({ children }) {
       }
     } else if (dynasty.currentPhase === 'offseason') {
       // Reverting within offseason - handle different week transitions
-      const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+      const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
@@ -4544,7 +5009,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const year = dynasty.currentYear
     const tid = getTidFromAbbr(teamAbbr)
 
@@ -4647,7 +5112,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get team abbreviation - use provided teamAbbr or fall back to user's current team
-    const teamAbbr = options.teamAbbr || getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = options.teamAbbr || getCurrentTeamAbbr(dynasty) || dynasty.teamName
     // Get year - use provided year or fall back to current year
     const year = options.year || dynasty.currentYear
 
@@ -4893,7 +5358,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const year = dynasty.currentYear
     const tid = getTidFromAbbr(teamAbbr)
 
@@ -5112,7 +5577,7 @@ export function DynastyProvider({ children }) {
     }
 
     // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const year = dynasty.currentYear
     const tid = getTidFromAbbr(teamAbbr)
 
@@ -5337,7 +5802,7 @@ export function DynastyProvider({ children }) {
 
     // Find the player being deleted to add a removal movement
     const playerToDelete = (dynasty.players || []).find(p => p.pid === playerPid)
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
 
     // If player exists and has movements, add a 'removed' movement before deleting
     if (playerToDelete) {
@@ -5391,7 +5856,7 @@ export function DynastyProvider({ children }) {
       throw new Error('Dynasty not found')
     }
 
-    const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     console.log('Syncing stats for team:', userTeamAbbr, 'year:', year)
     console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
 
@@ -5469,7 +5934,7 @@ export function DynastyProvider({ children }) {
 
 
       // Get user team abbreviation
-      const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams)
+      const userTeamAbbr = getCurrentTeamAbbr(dynasty)
 
       // Write existing schedule and roster data to the sheet
       await writeExistingDataToSheet(
@@ -5624,7 +6089,7 @@ export function DynastyProvider({ children }) {
     const link = document.createElement('a')
 
     // Get team abbreviation
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName.replace(/\s+/g, '')
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName.replace(/\s+/g, '')
 
     // Format phase for filename
     const phaseNames = {
@@ -6068,7 +6533,7 @@ export function DynastyProvider({ children }) {
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
     const currentYear = dynasty.currentYear
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let fixedCount = 0
     let recruitFixedCount = 0
@@ -6250,7 +6715,7 @@ export function DynastyProvider({ children }) {
 
     const currentYear = dynasty.currentYear
     const previousYear = currentYear - 1
-    const teamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let removedCount = 0
 
@@ -6432,7 +6897,7 @@ export function DynastyProvider({ children }) {
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
     const currentYear = dynasty.currentYear
-    const currentTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+    const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const players = [...(dynasty.players || [])]
     let fixedCount = 0
     const fixedPlayers = []
@@ -6767,6 +7232,71 @@ export function DynastyProvider({ children }) {
     return { success: true, message: 'Document already optimized, no changes needed' }
   }
 
+  // Update a teambuilder team's data (name, abbreviation, colors, logo)
+  const updateTeambuilderTeam = async (dynastyId, tid, updates) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const teams = dynasty.teams || TEAMS
+    const team = teams[tid]
+    if (!team) return { success: false, message: 'Team not found' }
+    if (!team.isCustom) return { success: false, message: 'Team is not a custom teambuilder team' }
+
+    // Get old abbreviation for customTeams key update
+    const oldAbbr = team.abbr
+    const newAbbr = updates.abbreviation?.toUpperCase() || updates.abbr?.toUpperCase() || oldAbbr
+
+    // Build updated team object
+    const updatedTeam = {
+      ...team,
+      abbr: newAbbr,
+      name: updates.name || team.name,
+      primaryColor: updates.primaryColor || team.primaryColor,
+      secondaryColor: updates.secondaryColor || team.secondaryColor,
+      logo: updates.logoUrl || updates.logo || team.logo,
+      isCustom: true
+    }
+
+    // Build updates for both new and legacy structures
+    const dynastyUpdates = {
+      [`teams.${tid}`]: updatedTeam
+    }
+
+    // Update legacy customTeams structure
+    // If abbreviation changed, we need to remove old key and add new key
+    if (dynasty.customTeams) {
+      if (oldAbbr !== newAbbr && dynasty.customTeams[oldAbbr]) {
+        // Remove old key by setting to null (will be deleted in Firestore)
+        dynastyUpdates[`customTeams.${oldAbbr}`] = null
+      }
+
+      // Add/update the custom team data
+      dynastyUpdates[`customTeams.${newAbbr}`] = {
+        name: updatedTeam.name,
+        abbreviation: newAbbr,
+        logoUrl: updatedTeam.logo,
+        backgroundColor: updatedTeam.primaryColor,
+        textColor: updatedTeam.secondaryColor,
+        primaryColor: updatedTeam.primaryColor,
+        secondaryColor: updatedTeam.secondaryColor,
+        replacesTeam: dynasty.customTeams[oldAbbr]?.replacesTeam || getOriginalTeamAbbr(tid)
+      }
+    }
+
+    // If team name changed and this is the user's current team, update dynasty.teamName
+    if (updates.name && dynasty.currentTid === tid) {
+      dynastyUpdates.teamName = updates.name
+    }
+
+    try {
+      await updateDynasty(dynastyId, dynastyUpdates)
+      return { success: true, message: 'Team updated successfully' }
+    } catch (error) {
+      console.error('Failed to update teambuilder team:', error)
+      return { success: false, message: error.message || 'Failed to update team' }
+    }
+  }
+
   // Manual migration to subcollections - can be triggered from Admin Tools
   const migrateToSubcollections = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
@@ -6838,7 +7368,8 @@ export function DynastyProvider({ children }) {
     fixTransferredPlayers,
     analyzeDocumentSize,
     optimizeDocumentSize,
-    migrateToSubcollections
+    migrateToSubcollections,
+    updateTeambuilderTeam
   }
 
   return (

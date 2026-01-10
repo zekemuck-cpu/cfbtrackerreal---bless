@@ -5,8 +5,8 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
-import { getAbbreviationFromDisplayName, teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
@@ -223,7 +223,7 @@ export default function Player() {
   // Determine the player's team - use their team field (which gets updated on transfer)
   const playerTeamAbbr = player?.team
     || player?.teams?.[0]
-    || getAbbreviationFromDisplayName(dynasty?.teamName, dynasty?.customTeams)
+    || getCurrentTeamAbbr(dynasty)
     || ''
 
   // For outgoing transfers, get the team they transferred FROM
@@ -238,7 +238,7 @@ export default function Player() {
     || ''
 
   // IMPORTANT: All hooks must be called before any early returns
-  const teamColors = useTeamColors(playerTeamName, dynasty?.customTeams)
+  const teamColors = useTeamColors(playerTeamName, dynasty?.teams || dynasty?.customTeams)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -431,7 +431,7 @@ export default function Player() {
       const yearTeam = player.teamsByYear?.[year]
         || player.teamsByYear?.[String(year)]
         || player.team
-        || getAbbreviationFromDisplayName(dynasty?.teamName, dynasty?.customTeams)
+        || getCurrentTeamAbbr(dynasty)
         || ''
 
       // Build year stats object from player.statsByYear (single source of truth)
@@ -1400,7 +1400,7 @@ export default function Player() {
               {/* Previous Team for transfers */}
               {recruitmentInfo.previousTeam && (() => {
                 // Get the abbreviation for the previous team (might be abbr or mascot name)
-                const prevTeamAbbr = getAbbreviationFromDisplayName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam
+                const prevTeamAbbr = getAbbrFromTeamName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam
                 // The year they transferred is their recruit/start year
                 const transferYear = player.recruitYear || player.yearStarted || dynasty?.currentYear
                 const prevTeamLogo = getTeamLogo(getMascotName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam)

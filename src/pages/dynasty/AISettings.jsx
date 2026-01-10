@@ -23,7 +23,7 @@ export default function AISettings() {
   const isViewOnly = dynastyContext?.isViewOnly
 
   // Use team colors if in dynasty, otherwise neutral colors
-  const teamColorsFromHook = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColorsFromHook = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const teamColors = currentDynasty?.teamName ? teamColorsFromHook : NEUTRAL_COLORS
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)

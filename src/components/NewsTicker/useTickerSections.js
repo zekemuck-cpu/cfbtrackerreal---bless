@@ -1,13 +1,13 @@
 import { useMemo } from 'react'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getCurrentSchedule } from '../../context/DynastyContext'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { getCurrentSchedule, getUserGamePerspective } from '../../context/DynastyContext'
+import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName, getCurrentTeamTid, getTidFromAbbr } from '../../data/teamRegistry'
 
 // Get abbreviation - handles both full names and abbreviations
-function getTeamAbbr(teamIdentifier) {
+function getTeamAbbr(teamIdentifier, dynastyTeams = null) {
   if (!teamIdentifier) return null
   if (teamAbbreviations[teamIdentifier]) return teamIdentifier
-  return getAbbreviationFromDisplayName(teamIdentifier) || teamIdentifier
+  return getAbbrFromTeamName(teamIdentifier, dynastyTeams) || teamIdentifier
 }
 
 // Get game order for sorting
@@ -29,12 +29,42 @@ export function useTickerSections(dynasty) {
     if (!dynasty) return []
 
     const sections = []
-    const teamAbbr = getTeamAbbr(dynasty.teamName)
+    const teams = dynasty?.teams || TEAMS
+    const currentTeamTid = getCurrentTeamTid(dynasty)
+    const teamAbbr = currentTeamTid ? (teams[currentTeamTid]?.abbr || getTeamAbbr(dynasty.teamName, teams)) : getTeamAbbr(dynasty.teamName, teams)
     const currentYear = dynasty.currentYear
 
-    // Get current team's games, find most recent season with data
+    // Helper to get game info using perspective
+    const getGameInfo = (g) => {
+      if (!g.perspective) return null
+      const userTeamInfo = g.perspective.userTid
+        ? getGameTeamInfo(teams, g.perspective.userTid)
+        : null
+      const opponentInfo = g.perspective.opponentTid
+        ? getGameTeamInfo(teams, g.perspective.opponentTid)
+        : null
+      return {
+        userTeamAbbr: userTeamInfo?.abbr || g.userTeam,
+        opponentAbbr: opponentInfo?.abbr || g.opponent,
+        userScore: g.perspective.userScore ?? g.teamScore,
+        opponentScore: g.perspective.opponentScore ?? g.opponentScore,
+        isWin: g.perspective.userWon,
+        location: g.perspective.isHome ? 'home' : (g.perspective.isAway ? 'away' : 'neutral')
+      }
+    }
+
+    // Get current team's games with perspective attached
     const currentTeamGames = (dynasty.games || [])
-      .filter(g => g.userTeam === teamAbbr && g.result)
+      .map(g => {
+        const perspective = getUserGamePerspective(g, dynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => {
+        if (!g) return false
+        const info = getGameInfo(g)
+        // Check if this game is for the current team and has a result
+        return info?.userTeamAbbr === teamAbbr && g.perspective
+      })
       .sort((a, b) => Number(b.year) - Number(a.year))
 
     // Try current year first, fall back to most recent year with games for this team
@@ -48,14 +78,20 @@ export function useTickerSections(dynasty) {
 
     seasonGames = seasonGames.sort((a, b) => getGameOrder(a) - getGameOrder(b))
 
-    const wins = seasonGames.filter(g => g.result === 'win').length
-    const losses = seasonGames.filter(g => g.result === 'loss').length
+    const wins = seasonGames.filter(g => g.perspective?.userWon === true).length
+    const losses = seasonGames.filter(g => g.perspective?.userWon === false).length
     const record = `${wins}-${losses}`
 
     // === 1. SEASON OVERVIEW ===
     if (seasonGames.length > 0) {
-      const totalPF = seasonGames.reduce((sum, g) => sum + (Number(g.teamScore) || 0), 0)
-      const totalPA = seasonGames.reduce((sum, g) => sum + (Number(g.opponentScore) || 0), 0)
+      const totalPF = seasonGames.reduce((sum, g) => {
+        const info = getGameInfo(g)
+        return sum + (Number(info?.userScore) || 0)
+      }, 0)
+      const totalPA = seasonGames.reduce((sum, g) => {
+        const info = getGameInfo(g)
+        return sum + (Number(info?.opponentScore) || 0)
+      }, 0)
       const diff = totalPF - totalPA
 
       sections.push({
@@ -76,7 +112,7 @@ export function useTickerSections(dynasty) {
     const schedule = getCurrentSchedule(dynasty)
     const upcoming = schedule?.find(g => g.week === dynasty.currentWeek && !g.result)
     if (upcoming?.opponent && dynasty.currentPhase === 'regular_season') {
-      const oppAbbr = getTeamAbbr(upcoming.opponent)
+      const oppAbbr = getTeamAbbr(upcoming.opponent, teams)
       const loc = upcoming.location === 'away' ? '@' : 'vs'
       sections.push({
         type: 'upcoming',
@@ -91,15 +127,16 @@ export function useTickerSections(dynasty) {
     // === 3. GAME LOG ===
     if (seasonGames.length > 0) {
       const items = seasonGames.map((g, i) => {
-        const opp = getTeamAbbr(g.opponent)
-        const loc = g.location === 'away' ? '@' : 'vs'
-        const isWin = g.result === 'win'
+        const info = getGameInfo(g)
+        const opp = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        const loc = info?.location === 'away' ? '@' : 'vs'
+        const isWin = info?.isWin ?? (g.result === 'win')
         return {
           id: `g${i}`,
           team: opp,
           label: isWin ? 'W' : 'L',
           labelColor: isWin ? '#22c55e' : '#ef4444',
-          text: `${loc} ${g.teamScore}-${g.opponentScore}`,
+          text: `${loc} ${info?.userScore ?? g.teamScore}-${info?.opponentScore ?? g.opponentScore}`,
           link: g.id ? `/game/${g.id}` : null
         }
       })
@@ -116,14 +153,18 @@ export function useTickerSections(dynasty) {
     const lastGameWithStats = [...seasonGames]
       .sort((a, b) => getGameOrder(b) - getGameOrder(a))
       .find(g => {
-        const stats = g.location === 'away' ? g.boxScore?.away : g.boxScore?.home
+        const info = getGameInfo(g)
+        const loc = info?.location || g.location
+        const stats = loc === 'away' ? g.boxScore?.away : g.boxScore?.home
         return stats?.passing?.length > 0 || stats?.rushing?.length > 0
       })
 
     if (lastGameWithStats) {
-      const opp = getTeamAbbr(lastGameWithStats.opponent)
-      const isWin = lastGameWithStats.result === 'win'
-      const stats = lastGameWithStats.location === 'away'
+      const info = getGameInfo(lastGameWithStats)
+      const opp = info?.opponentAbbr || getTeamAbbr(lastGameWithStats.opponent, teams)
+      const isWin = info?.isWin ?? (lastGameWithStats.result === 'win')
+      const loc = info?.location || lastGameWithStats.location
+      const stats = loc === 'away'
         ? lastGameWithStats.boxScore?.away
         : lastGameWithStats.boxScore?.home
 
@@ -138,7 +179,7 @@ export function useTickerSections(dynasty) {
         id: 'score',
         label: isWin ? 'W' : 'L',
         labelColor: isWin ? '#22c55e' : '#ef4444',
-        text: `${lastGameWithStats.teamScore}-${lastGameWithStats.opponentScore}`
+        text: `${info?.userScore ?? lastGameWithStats.teamScore}-${info?.opponentScore ?? lastGameWithStats.opponentScore}`
       }]
 
       // Top passer
@@ -190,9 +231,17 @@ export function useTickerSections(dynasty) {
 
     // === 5. SEASON LEADERS ===
     if (dynasty.players?.length > 0) {
-      const teamPlayers = dynasty.players.filter(p =>
-        p.teamsByYear?.[displayYear] === teamAbbr && p.statsByYear?.[displayYear]
-      )
+      // Filter players on current team for display year
+      // teamsByYear can have either tid (number) or abbr (string) depending on migration status
+      const teamPlayers = dynasty.players.filter(p => {
+        const playerTeamVal = p.teamsByYear?.[displayYear]
+        if (!playerTeamVal || !p.statsByYear?.[displayYear]) return false
+        // Check if value is tid (number) or abbr (string)
+        if (typeof playerTeamVal === 'number') {
+          return playerTeamVal === currentTeamTid
+        }
+        return playerTeamVal === teamAbbr
+      })
       const items = []
 
       // Passing leader
@@ -236,13 +285,18 @@ export function useTickerSections(dynasty) {
     // === 6. MY POSTSEASON HISTORY (user's bowls + CFP games with scores) ===
     const postseasonTypes = ['bowl', 'cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const postseasonGames = (dynasty.games || [])
-      .filter(g => postseasonTypes.includes(g.gameType) && g.userTeam && g.result && g.opponent)
+      .filter(g => postseasonTypes.includes(g.gameType))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, dynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => g !== null)
       .sort((a, b) => Number(b.year) - Number(a.year))
       .slice(0, 8)
 
     if (postseasonGames.length > 0) {
-      const psWins = postseasonGames.filter(g => g.result === 'win').length
-      const psLosses = postseasonGames.filter(g => g.result === 'loss').length
+      const psWins = postseasonGames.filter(g => g.perspective?.userWon === true).length
+      const psLosses = postseasonGames.filter(g => g.perspective?.userWon === false).length
 
       const getGameLabel = (g) => {
         if (g.gameType === 'cfp_championship') return 'NATTY'
@@ -253,22 +307,24 @@ export function useTickerSections(dynasty) {
       }
 
       const items = postseasonGames.map((g, i) => {
-        const userTeamAbbr = g.userTeam
-        const oppAbbr = getTeamAbbr(g.opponent)
-        const isWin = g.result === 'win'
+        const info = getGameInfo(g)
+        const userTeamAbbr = info?.userTeamAbbr || g.userTeam
+        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        const isWin = info?.isWin ?? (g.result === 'win')
+        const loc = info?.location || g.location
 
         // Determine team order based on location
         let t1, t2, s1, s2
-        if (g.location === 'away') {
+        if (loc === 'away') {
           t1 = oppAbbr
           t2 = userTeamAbbr
-          s1 = g.opponentScore
-          s2 = g.teamScore
+          s1 = info?.opponentScore ?? g.opponentScore
+          s2 = info?.userScore ?? g.teamScore
         } else {
           t1 = userTeamAbbr
           t2 = oppAbbr
-          s1 = g.teamScore
-          s2 = g.opponentScore
+          s1 = info?.userScore ?? g.teamScore
+          s2 = info?.opponentScore ?? g.opponentScore
         }
 
         return {
@@ -300,33 +356,54 @@ export function useTickerSections(dynasty) {
     // Helper to determine winner from scores
     const getCfpWinner = (game) => {
       if (game.winner) return game.winner
+      // Check perspective first
+      if (game.perspective) {
+        const info = getGameInfo(game)
+        return game.perspective.userWon ? info?.userTeamAbbr : info?.opponentAbbr
+      }
       // For user games
       if (game.result && game.userTeam) {
-        return game.result === 'win' ? game.userTeam : getTeamAbbr(game.opponent)
+        return game.result === 'win' ? game.userTeam : getTeamAbbr(game.opponent, teams)
       }
-      // For CPU games
+      // For CPU games or unified format
       const s1 = Number(game.team1Score) || 0
       const s2 = Number(game.team2Score) || 0
+      if (game.team1Tid && game.team2Tid) {
+        const t1Info = getGameTeamInfo(teams, game.team1Tid)
+        const t2Info = getGameTeamInfo(teams, game.team2Tid)
+        return s1 > s2 ? t1Info?.abbr : t2Info?.abbr
+      }
       return s1 > s2 ? game.team1 : game.team2
     }
 
-    // Helper to get teams and scores from a CFP game (handles both user and CPU games)
+    // Helper to get teams and scores from a CFP game (handles user, CPU, and unified format)
     const normalizeCfpGame = (g) => {
       let t1, t2, s1, s2
-      if (g.opponent) {
-        // User game
-        const userTeamAbbr = g.userTeam
-        const oppAbbr = getTeamAbbr(g.opponent)
-        if (g.location === 'away') {
+
+      // Check for unified format with tids
+      if (g.team1Tid && g.team2Tid) {
+        const t1Info = getGameTeamInfo(teams, g.team1Tid)
+        const t2Info = getGameTeamInfo(teams, g.team2Tid)
+        t1 = t1Info?.abbr || g.team1
+        t2 = t2Info?.abbr || g.team2
+        s1 = g.team1Score
+        s2 = g.team2Score
+      } else if (g.opponent) {
+        // User game with opponent format
+        const info = getGameInfo(g)
+        const userTeamAbbr = info?.userTeamAbbr || g.userTeam
+        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        const loc = info?.location || g.location
+        if (loc === 'away') {
           t1 = oppAbbr
           t2 = userTeamAbbr
-          s1 = g.opponentScore
-          s2 = g.teamScore
+          s1 = info?.opponentScore ?? g.opponentScore
+          s2 = info?.userScore ?? g.teamScore
         } else {
           t1 = userTeamAbbr
           t2 = oppAbbr
-          s1 = g.teamScore
-          s2 = g.opponentScore
+          s1 = info?.userScore ?? g.teamScore
+          s2 = info?.opponentScore ?? g.opponentScore
         }
       } else {
         // CPU game
@@ -396,7 +473,8 @@ export function useTickerSections(dynasty) {
       const yearBowls = allBowlGames
         .filter(g => g.year === bowlYear)
         .filter(g => {
-          // User games have opponent, CPU games have team1/team2
+          // Unified format has team1Tid/team2Tid, user games have opponent, CPU games have team1/team2
+          if (g.team1Tid && g.team2Tid) return true
           if (g.opponent) return true
           if (g.team1 && g.team2) return true
           return false
@@ -406,22 +484,36 @@ export function useTickerSections(dynasty) {
         const items = yearBowls.map((g, i) => {
           // Determine team1, team2, and winner
           let t1, t2, s1, s2, winner
-          if (g.opponent) {
-            // User game
-            const userTeamAbbr = g.userTeam
-            const oppAbbr = getTeamAbbr(g.opponent)
-            if (g.location === 'away') {
+
+          // Check for unified format first
+          if (g.team1Tid && g.team2Tid) {
+            const t1Info = getGameTeamInfo(teams, g.team1Tid)
+            const t2Info = getGameTeamInfo(teams, g.team2Tid)
+            t1 = t1Info?.abbr || g.team1
+            t2 = t2Info?.abbr || g.team2
+            s1 = g.team1Score
+            s2 = g.team2Score
+            winner = g.winner || (Number(s1) > Number(s2) ? t1 : t2)
+          } else if (g.opponent) {
+            // User game with perspective
+            const perspective = getUserGamePerspective(g, dynasty)
+            const info = perspective ? getGameInfo({ ...g, perspective }) : null
+            const userTeamAbbr = info?.userTeamAbbr || g.userTeam
+            const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+            const loc = info?.location || g.location
+            if (loc === 'away') {
               t1 = oppAbbr
               t2 = userTeamAbbr
-              s1 = g.opponentScore
-              s2 = g.teamScore
+              s1 = info?.opponentScore ?? g.opponentScore
+              s2 = info?.userScore ?? g.teamScore
             } else {
               t1 = userTeamAbbr
               t2 = oppAbbr
-              s1 = g.teamScore
-              s2 = g.opponentScore
+              s1 = info?.userScore ?? g.teamScore
+              s2 = info?.opponentScore ?? g.opponentScore
             }
-            winner = g.result === 'win' ? userTeamAbbr : oppAbbr
+            const isWin = info?.isWin ?? (g.result === 'win')
+            winner = isWin ? userTeamAbbr : oppAbbr
           } else {
             // CPU vs CPU game
             t1 = g.team1
@@ -540,17 +632,26 @@ export function useTickerSections(dynasty) {
     }
 
     // === 10. CAREER SUMMARY - Each season individually ===
-    const allUserGames = (dynasty.games || []).filter(g => g.userTeam && g.result)
+    // Uses perspective to find all games where user coached
+    const allUserGames = (dynasty.games || [])
+      .map(g => {
+        const perspective = getUserGamePerspective(g, dynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => g !== null)
+
     if (allUserGames.length > 0) {
       // Group games by year and team
       const seasonMap = {}
       allUserGames.forEach(g => {
-        const key = `${g.year}-${g.userTeam}`
+        const info = getGameInfo(g)
+        const userTeamAbbr = info?.userTeamAbbr || g.userTeam
+        const key = `${g.year}-${userTeamAbbr}`
         if (!seasonMap[key]) {
-          seasonMap[key] = { year: g.year, team: g.userTeam, wins: 0, losses: 0 }
+          seasonMap[key] = { year: g.year, team: userTeamAbbr, wins: 0, losses: 0 }
         }
-        if (g.result === 'win') seasonMap[key].wins++
-        else seasonMap[key].losses++
+        if (g.perspective?.userWon === true) seasonMap[key].wins++
+        else if (g.perspective?.userWon === false) seasonMap[key].losses++
       })
 
       // Sort by year descending

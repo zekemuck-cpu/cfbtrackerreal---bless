@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { getTeamLogo } from '../../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../../services/geminiService'
@@ -386,7 +386,7 @@ export default function Game() {
       }
 
       if (cfpGame) {
-        const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+        const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
         const isUserGame = cfpGame.team1 === userTeamAbbr || cfpGame.team2 === userTeamAbbr
         return {
           ...cfpGame,
@@ -506,45 +506,76 @@ export default function Game() {
     )
   }
 
-  const userTeam = currentDynasty.teamName
-  const userTeamAbbr = getAbbreviationFromDisplayName(userTeam)
+  // Get user perspective for this game (if user's team was in it)
+  const perspective = getUserGamePerspective(game, currentDynasty)
+  const teams = currentDynasty?.teams || TEAMS
 
-  // Check if this is a CPU vs CPU game (no userTeam field = CPU game)
-  const isCPUGame = !game.userTeam && game.team1 && game.team2 && game.team1 !== userTeamAbbr && game.team2 !== userTeamAbbr
+  // Check if this is a CPU vs CPU game (user was not coaching either team)
+  const isCPUGame = !perspective
 
-  // For CPU games, determine viewing perspective
+  // For CPU games, determine viewing perspective based on viewingTeamAbbr or team1
+  // For user games, use the perspective to show user's team vs opponent
   let displayTeam, displayTeamAbbr, opponent, opponentAbbr
-  if (isCPUGame) {
-    displayTeamAbbr = game.viewingTeamAbbr || game.team1
-    displayTeam = getMascotName(displayTeamAbbr) || displayTeamAbbr
-    opponentAbbr = displayTeamAbbr === game.team1 ? game.team2 : game.team1
-    opponent = getMascotName(opponentAbbr) || opponentAbbr
-  } else {
-    displayTeam = userTeam
-    displayTeamAbbr = userTeamAbbr
-    // Convert opponent to abbreviation if it's a full name
-    opponentAbbr = getAbbreviationFromDisplayName(game.opponent) || game.opponent
-    opponent = getMascotName(opponentAbbr) || game.opponent
-  }
-
-  // Get team info for display - use robust lookups to handle various team name formats
-  const displayTeamLogo = getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
-  const displayTeamColors = getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
-
-  const opponentLogo = getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
-  const opponentColors = getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
-
-  // Determine scores
+  let displayTeamLogo, displayTeamColors, opponentLogo, opponentColors
   let userScore, opponentScore, userWon
+
   if (isCPUGame) {
-    const isTeam1Display = displayTeamAbbr === game.team1
-    userScore = isTeam1Display ? game.team1Score : game.team2Score
-    opponentScore = isTeam1Display ? game.team2Score : game.team1Score
+    // CPU game - pick a viewing team (winner or team1)
+    const viewingAbbr = game.viewingTeamAbbr || (() => {
+      // Try to get team abbreviations from tids or fallback to legacy fields
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      const team2Abbr = team2Info?.abbr || game.team2
+      // Default to team1 or winner
+      return (game.team1Score > game.team2Score) ? team1Abbr : (game.team2Score > game.team1Score) ? team2Abbr : team1Abbr
+    })()
+
+    displayTeamAbbr = viewingAbbr
+    displayTeam = getMascotName(displayTeamAbbr) || displayTeamAbbr
+
+    // Determine opponent based on which team is being displayed
+    const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+    const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
+    const team1Abbr = team1Info?.abbr || game.team1
+    const team2Abbr = team2Info?.abbr || game.team2
+
+    const isDisplayTeam1 = displayTeamAbbr === team1Abbr
+    opponentAbbr = isDisplayTeam1 ? team2Abbr : team1Abbr
+    opponent = getMascotName(opponentAbbr) || opponentAbbr
+
+    // Get scores for display team perspective
+    userScore = isDisplayTeam1 ? game.team1Score : game.team2Score
+    opponentScore = isDisplayTeam1 ? game.team2Score : game.team1Score
     userWon = userScore > opponentScore
+
+    // Get team visuals
+    displayTeamLogo = getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
+    displayTeamColors = getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
+    opponentColors = getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
   } else {
-    userScore = game.teamScore
-    opponentScore = game.opponentScore
-    userWon = game.result === 'win' || game.result === 'W'
+    // User game - use perspective
+    const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
+    const oppTeamInfo = getGameTeamInfo(teams, perspective.opponentTid)
+
+    displayTeamAbbr = userTeamInfo?.abbr || getCurrentTeamAbbr(currentDynasty)
+    displayTeam = userTeamInfo?.name || getMascotName(displayTeamAbbr) || displayTeamAbbr
+    opponentAbbr = oppTeamInfo?.abbr || game.opponent
+    opponent = oppTeamInfo?.name || getMascotName(opponentAbbr) || opponentAbbr
+
+    // Get scores from perspective
+    userScore = perspective.userScore
+    opponentScore = perspective.opponentScore
+    userWon = perspective.userWon
+
+    // Get team visuals
+    displayTeamLogo = userTeamInfo?.logo || getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
+    displayTeamColors = (userTeamInfo?.primaryColor ? { primary: userTeamInfo.primaryColor, secondary: userTeamInfo.secondaryColor } : null)
+      || getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = oppTeamInfo?.logo || getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
+    opponentColors = (oppTeamInfo?.primaryColor ? { primary: oppTeamInfo.primaryColor, secondary: oppTeamInfo.secondaryColor } : null)
+      || getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
   }
 
   // Helper function to get player PID by name
@@ -558,8 +589,14 @@ export default function Game() {
     if (isCPUGame) return null
 
     const allGames = currentDynasty?.games || []
-    // Filter for user games (games with userTeam set, or legacy games with userTeam/opponent fields)
-    const yearGames = allGames.filter(g => Number(g.year) === Number(game.year) && (g.userTeam || (!g.team1 && g.opponent)))
+    // Filter for user games (games where user's team was coaching that year)
+    const yearGames = allGames
+      .filter(g => Number(g.year) === Number(game.year))
+      .map(g => {
+        const gPerspective = getUserGamePerspective(g, currentDynasty)
+        return gPerspective ? { ...g, perspective: gPerspective } : null
+      })
+      .filter(Boolean)
 
     const getGameOrder = (g) => {
       if (typeof g.week === 'number' && g.week >= 1 && g.week <= 14 &&
@@ -581,12 +618,12 @@ export default function Game() {
     const currentGameOrder = getGameOrder(game)
     const gamesUpToThis = yearGames.filter(g => getGameOrder(g) <= currentGameOrder)
 
-    const wins = gamesUpToThis.filter(g => g.result === 'win' || g.result === 'W').length
-    const losses = gamesUpToThis.filter(g => g.result === 'loss' || g.result === 'L').length
+    const wins = gamesUpToThis.filter(g => g.perspective?.userWon).length
+    const losses = gamesUpToThis.filter(g => g.perspective && !g.perspective.userWon).length
 
     const confGames = gamesUpToThis.filter(g => g.isConferenceGame && !g.isConferenceChampionship)
-    const confWins = confGames.filter(g => g.result === 'win' || g.result === 'W').length
-    const confLosses = confGames.filter(g => g.result === 'loss' || g.result === 'L').length
+    const confWins = confGames.filter(g => g.perspective?.userWon).length
+    const confLosses = confGames.filter(g => g.perspective && !g.perspective.userWon).length
 
     return {
       overall: `${wins}-${losses}`,
@@ -611,7 +648,22 @@ export default function Game() {
   const isImageLink = (url) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || url.includes('imgur.com')
 
   // Determine team positions (away vs home)
-  const location = game.location || 'neutral'
+  // For user games, use perspective. For CPU games, use homeTeamTid or default to team1
+  let location
+  if (perspective) {
+    location = perspective.isHome ? 'home' : perspective.isAway ? 'away' : 'neutral'
+  } else {
+    // CPU game - fall back to legacy location or derive from homeTeamTid
+    if (game.location) {
+      location = game.location
+    } else if (game.homeTeamTid) {
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      location = displayTeamAbbr === team1Abbr && game.team1Tid === game.homeTeamTid ? 'home' : 'away'
+    } else {
+      location = 'neutral' // Default for postseason
+    }
+  }
   const leftTeam = location === 'home' ? 'opponent' : 'user'
   const rightTeam = location === 'home' ? 'user' : 'opponent'
 
@@ -797,7 +849,7 @@ export default function Game() {
   }
 
   // Get logos
-  const confName = game.conference || currentDynasty?.conference || (userTeamAbbr ? getTeamConference(userTeamAbbr) : null)
+  const confName = game.conference || currentDynasty?.conference || (displayTeamAbbr ? getTeamConference(displayTeamAbbr) : null)
   const bowlLogo = game.bowlName ? getBowlLogo(game.bowlName) : null
   const confLogo = game.isConferenceChampionship && confName ? getConferenceLogo(confName) : null
   const eventLogo = bowlLogo || confLogo
@@ -805,13 +857,18 @@ export default function Game() {
   // Get rankings - for CPU games use team1Rank/team2Rank, for user games use userRank/opponentRank
   let leftRank, rightRank
   if (isCPUGame) {
-    // For CPU games, displayTeamAbbr is team1 by default
-    const isLeftTeam1 = displayTeamAbbr === game.team1
+    // For CPU games, compare displayTeamAbbr with team1 abbreviation
+    const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+    const team1Abbr = team1Info?.abbr || game.team1
+    const isLeftTeam1 = displayTeamAbbr === team1Abbr
     leftRank = isLeftTeam1 ? game.team1Rank : game.team2Rank
     rightRank = isLeftTeam1 ? game.team2Rank : game.team1Rank
   } else {
-    leftRank = leftTeam === 'user' ? game.userRank : game.opponentRank
-    rightRank = rightTeam === 'user' ? game.userRank : game.opponentRank
+    // For user games, use perspective ranks or fallback to game fields
+    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
+    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
+    leftRank = leftTeam === 'user' ? userRank : oppRank
+    rightRank = rightTeam === 'user' ? userRank : oppRank
   }
 
   // Team data for rendering
@@ -826,17 +883,20 @@ export default function Game() {
 
     if (isCPUGame) {
       // Determine if this side corresponds to team1 or team2
-      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === game.team1) : (opponentAbbr === game.team1)
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
       record = isTeam1 ? game.team1Record : game.team2Record
       overall = isTeam1 ? game.team1Overall : game.team2Overall
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
     } else {
-      // User game - user team uses dynasty record, opponent uses opponentRecord
+      // User game - user team uses dynasty record, opponent uses game fields for opponent ratings
       record = isDisplayTeam && userRecord ? `${userRecord.overall} (${userRecord.conference})` : game.opponentRecord
-      overall = isDisplayTeam ? null : game.opponentOverall
-      offense = isDisplayTeam ? null : game.opponentOffense
-      defense = isDisplayTeam ? null : game.opponentDefense
+      // For user game, opponent ratings are stored directly or in team2 fields (unified format)
+      overall = isDisplayTeam ? null : (game.opponentOverall ?? game.team2Overall)
+      offense = isDisplayTeam ? null : (game.opponentOffense ?? game.team2Offense)
+      defense = isDisplayTeam ? null : (game.opponentDefense ?? game.team2Defense)
     }
 
     return {
@@ -1620,8 +1680,8 @@ export default function Game() {
         const homeStats = game.boxScore.teamStats.home || {}
         const awayStats = game.boxScore.teamStats.away || {}
         // Convert team names to abbreviations for links (might be full names like "Sam Houston State Bearkats")
-        const homeTeamAbbrForLink = getAbbreviationFromDisplayName(homeStats.teamAbbr) || homeStats.teamAbbr
-        const awayTeamAbbrForLink = getAbbreviationFromDisplayName(awayStats.teamAbbr) || awayStats.teamAbbr
+        const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
+        const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
 
         // Helper to format percentage
         const pct = (made, att) => {
@@ -1745,10 +1805,10 @@ export default function Game() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Team Matchup Card */}
-          {!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
+          {!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense || game.team2Overall) && (() => {
             // Get user's team ratings for this specific game's year
-            // Look up from teamRatingsByTeamYear using the game's userTeam and year
-            const gameUserTeam = game.userTeam
+            // Look up from teamRatingsByTeamYear using the user's team abbreviation and year
+            const gameUserTeam = displayTeamAbbr
             const gameYear = game.year
             const userTeamRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
 

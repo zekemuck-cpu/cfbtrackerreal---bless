@@ -6,6 +6,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
+import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 // GameDetailModal removed - now using game pages instead
 
 // Map abbreviation to mascot name for logo lookup
@@ -123,21 +124,36 @@ export default function ConferenceChampionshipHistory() {
   // UNIFIED: Read from games[] array using gameType
   const getConferenceResults = (conferenceName) => {
     const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+
+    // Helper to get team abbreviation from tid or fallback
+    const getTeamAbbr = (g, isTeam1) => {
+      const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+      const legacyField = isTeam1 ? 'team1' : 'team2'
+      const userField = isTeam1 ? 'userTeam' : 'opponent'
+      if (g[tidField]) {
+        const teamInfo = getGameTeamInfo(teams, g[tidField])
+        return teamInfo?.abbr || g[legacyField]
+      }
+      return g[legacyField] || g[userField]
+    }
 
     // Filter games by gameType and conference
     const ccGames = games.filter(g => {
       const gameType = detectGameType(g)
+      const team1 = getTeamAbbr(g, true)
+      const team2 = getTeamAbbr(g, false)
       return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP &&
              g.conference === conferenceName &&
-             (g.team1 || g.userTeam) && (g.team2 || g.opponent)
+             team1 && team2
     })
 
     // Map to result format
     const results = ccGames.map(g => ({
       year: g.year,
       conference: g.conference,
-      team1: g.team1 || g.userTeam,
-      team2: g.team2 || g.opponent,
+      team1: getTeamAbbr(g, true),
+      team2: getTeamAbbr(g, false),
       team1Score: g.team1Score,
       team2Score: g.team2Score,
       winner: g.winner,
@@ -151,10 +167,14 @@ export default function ConferenceChampionshipHistory() {
   // Count total conference championship games played
   const getTotalCCGames = () => {
     const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+
     return games.filter(g => {
       const gameType = detectGameType(g)
-      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP &&
-             (g.team1 || g.userTeam) && (g.team2 || g.opponent)
+      // Check if teams exist using either tid or legacy fields
+      const hasTeam1 = g.team1Tid || g.team1 || g.userTeam
+      const hasTeam2 = g.team2Tid || g.team2 || g.opponent
+      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP && hasTeam1 && hasTeam2
     }).length
   }
 

@@ -1,14 +1,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
 import TeamStatsModal from '../../components/TeamStatsModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
-import { TEAMS, resolveTid, getTeamByAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 // Stats are read directly from player.statsByYear (single source of truth)
 
@@ -235,7 +234,7 @@ export default function TeamStats() {
   const teamsSource = currentDynasty.teams || TEAMS
 
   // Get current user's team tid
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
   const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
 
   // Parse tid from URL or use current user's team
@@ -270,23 +269,41 @@ export default function TeamStats() {
   }, [currentDynasty])
 
   // Get all teams that have games
+  // Uses perspective to find all teams the user has coached
+  const teamsRef = currentDynasty?.teams || TEAMS
   const availableTeams = useMemo(() => {
-    const teams = new Set()
-    teams.add(currentTeamAbbr)
+    const teamSet = new Set()
+    teamSet.add(currentTeamAbbr)
     ;(currentDynasty.games || []).forEach(g => {
-      if (g.userTeam) teams.add(g.userTeam)
-      if (g.opponent) teams.add(g.opponent)
+      const perspective = getUserGamePerspective(g, currentDynasty)
+      if (perspective) {
+        // Add user's team from perspective
+        const userTeamInfo = perspective.userTid
+          ? getGameTeamInfo(teamsRef, perspective.userTid)
+          : null
+        if (userTeamInfo?.abbr) teamSet.add(userTeamInfo.abbr)
+        else if (g.userTeam) teamSet.add(g.userTeam)
+      } else {
+        // Fallback for legacy data
+        if (g.userTeam) teamSet.add(g.userTeam)
+      }
     })
-    return Array.from(teams).sort((a, b) => {
+    return Array.from(teamSet).sort((a, b) => {
       const nameA = getMascotName(a) || a
       const nameB = getMascotName(b) || b
       return nameA.localeCompare(nameB)
     })
-  }, [currentDynasty, currentTeamAbbr])
+  }, [currentDynasty, currentTeamAbbr, teamsRef])
 
-  // Helper functions
-  const isWin = (g) => g.result === 'win' || g.result === 'W'
-  const isLoss = (g) => g.result === 'loss' || g.result === 'L'
+  // Helper functions - use perspective for win/loss determination
+  const isWin = (g) => {
+    if (g.perspective) return g.perspective.userWon === true
+    return g.result === 'win' || g.result === 'W'
+  }
+  const isLoss = (g) => {
+    if (g.perspective) return g.perspective.userWon === false
+    return g.result === 'loss' || g.result === 'L'
+  }
 
   const isPostseasonGame = (g) => {
     return g.isConferenceChampionship || g.bowlName || g.isCFPFirstRound ||
@@ -294,14 +311,23 @@ export default function TeamStats() {
   }
 
   // Calculate stats for selected team and year
+  // Uses perspective to find games where user coached the selected team
   const stats = useMemo(() => {
-    const games = (currentDynasty.games || []).filter(g => {
-      // Skip CPU games (have team1/team2 but no userTeam)
-      if (!g.userTeam && g.team1 && g.team2) return false
-      const gameYear = parseInt(g.year)
-      if (gameYear !== selectedYear) return false
-      return g.userTeam === selectedTeam
-    })
+    const games = (currentDynasty.games || [])
+      .filter(g => parseInt(g.year) === selectedYear)
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => {
+        if (!g) return false
+        // Check if user was coaching selected team in this game
+        const userTeamInfo = g.perspective?.userTid
+          ? getGameTeamInfo(teamsRef, g.perspective.userTid)
+          : null
+        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
+        return userGameTeamAbbr === selectedTeam
+      })
 
     const wins = games.filter(isWin).length
     const losses = games.filter(isLoss).length
@@ -441,7 +467,7 @@ export default function TeamStats() {
   // Read player stats from player.statsByYear (primary for games/snaps) and box scores (for detailed stats)
   const playerStats = useMemo(() => {
     const allPlayers = currentDynasty?.players || []
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
     const yearKey = String(selectedYear)
     const numKey = Number(selectedYear)
 

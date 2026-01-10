@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { getTeamAbbreviationsList, getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
 // Stats are read directly from player.statsByYear (single source of truth)
 
@@ -152,7 +153,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
   }
 
   // Calculate box score totals for this player for the selected year
-  const userTeamAbbr = dynasty ? (getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName) : null
+  const userTeamAbbr = dynasty ? (getCurrentTeamAbbr(dynasty) || dynasty.teamName) : null
   const boxScoreTotals = useMemo(() => {
     if (!player?.name || !dynasty?.games || !selectedStatsYear || !userTeamAbbr) return null
     return getPlayerBoxScoreTotals(player.name, dynasty.games, selectedStatsYear, userTeamAbbr)

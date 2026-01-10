@@ -141,9 +141,35 @@ export const teamColors = {
   "Wyoming Cowboys": { primary: "#492f24", secondary: "#ffc425" }
 }
 
-// Get team colors (checks teambuilder teams first by name or abbreviation)
-export function getTeamColors(teamName, customTeams = null) {
-  // Check if teamName matches a teambuilder team name or abbreviation
+// Helper to detect if teams object is tid-based (keys are numbers)
+function isTidBasedTeams(teams) {
+  if (!teams) return false
+  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
+}
+
+// Get team colors (checks dynasty.teams or customTeams first)
+export function getTeamColors(teamName, teamsOrCustomTeams = null) {
+  if (!teamName) return { primary: "#ea580c", secondary: "#FFFFFF" }
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeams(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by name or abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.name === teamName || team.abbr === teamName) {
+        return {
+          primary: team.primaryColor || '#374151',
+          secondary: team.secondaryColor || '#FFFFFF',
+          isTeambuilder: team.isTeambuilder || false
+        }
+      }
+    }
+    // Fall through to static colors
+    return teamColors[teamName] || { primary: "#ea580c", secondary: "#FFFFFF" }
+  }
+
+  // Legacy path: customTeams object keyed by abbreviation
+  const customTeams = teamsOrCustomTeams
   if (customTeams) {
     // Check by name
     const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
@@ -168,7 +194,27 @@ export function getTeamColors(teamName, customTeams = null) {
 }
 
 // Get team colors by abbreviation (more reliable for teambuilder teams)
-export function getTeamColorsByAbbr(abbr, customTeams = null) {
+export function getTeamColorsByAbbr(abbr, teamsOrCustomTeams = null) {
+  if (!abbr) return { primary: "#ea580c", secondary: "#FFFFFF" }
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeams(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.abbr === abbr) {
+        return {
+          primary: team.primaryColor || '#374151',
+          secondary: team.secondaryColor || '#FFFFFF',
+          isTeambuilder: team.isTeambuilder || false
+        }
+      }
+    }
+    // Fall through to static colors
+  }
+
+  // Legacy path: customTeams object keyed by abbreviation
+  const customTeams = teamsOrCustomTeams
   // Check if this IS a teambuilder team abbreviation
   if (customTeams?.[abbr]) {
     const t = customTeams[abbr]

@@ -99,7 +99,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             existingSeeds,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
