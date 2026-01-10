@@ -265,19 +265,11 @@ export default function Layout({ children }) {
     }
 
     // Check if advancing from offseason week 7 (season advancement)
-    console.log('=== ADVANCE WEEK DEBUG ===')
-    console.log('currentPhase:', currentDynasty.currentPhase)
-    console.log('currentWeek:', currentDynasty.currentWeek)
-    console.log('Will trigger advanceToNewSeason?', currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7)
-
     if (currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7) {
       // No more class confirmation needed here - it happens at Signing Day (week 5→6)
       // CRITICAL: Must await both to ensure players are processed before week advances
-      console.log('DEBUG: Calling advanceToNewSeason...')
       await advanceToNewSeason(currentDynasty.id)
-      console.log('DEBUG: advanceToNewSeason complete, calling advanceWeek...')
       await advanceWeek(currentDynasty.id)
-      console.log('DEBUG: advanceWeek complete')
       setShowWeekDropdown(false)
       return
     }

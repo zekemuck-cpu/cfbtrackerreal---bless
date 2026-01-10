@@ -8453,22 +8453,12 @@ export default function Dashboard() {
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
-          // DEBUG: Log what's being saved
-          console.log('=== ENCOURAGE TRANSFERS SAVE DEBUG ===')
-          console.log('teamAbbr:', teamAbbr)
-          console.log('year:', year)
-          console.log('transferPlayers:', transferPlayers)
-          console.log('transferPlayers count:', transferPlayers?.length)
-
           // Get previously encouraged transfers (to restore them first if user is editing)
           const previouslyEncouraged = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[year] || []
           const previousNames = new Set(previouslyEncouraged.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
-          console.log('previouslyEncouraged count:', previouslyEncouraged.length)
-          console.log('previousNames:', [...previousNames])
 
           // New encouraged transfers
           const newEncouragedNames = new Set(transferPlayers.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
-          console.log('newEncouragedNames:', [...newEncouragedNames])
 
           // Update players:
           // 1. RESTORE players who were previously encouraged but are NOT in the new list (add back teamsByYear)
@@ -8480,7 +8470,6 @@ export default function Dashboard() {
 
             // Case 1: Was encouraged before, but NOT anymore - RESTORE them
             if (wasPreviouslyEncouraged && !isNowEncouraged) {
-              console.log('DEBUG: Restoring player:', player.name)
               const restoredTeamsByYear = {
                 ...(player.teamsByYear || {}),
                 [year]: teamsByYearValue
@@ -8493,7 +8482,6 @@ export default function Dashboard() {
 
             // Case 2: Is NOW encouraged - REMOVE from roster (delete teamsByYear entry)
             if (isNowEncouraged) {
-              console.log('DEBUG: Removing player from roster:', player.name)
               const updatedTeamsByYear = { ...(player.teamsByYear || {}) }
               delete updatedTeamsByYear[year]
               delete updatedTeamsByYear[String(year)]
@@ -8506,10 +8494,6 @@ export default function Dashboard() {
             // Case 3: Not involved - return unchanged
             return player
           })
-
-          const removedCount = [...newEncouragedNames].length
-          const restoredCount = [...previousNames].filter(n => !newEncouragedNames.has(n)).length
-          console.log('DEBUG: Removed', removedCount, 'players, Restored', restoredCount, 'players')
 
           if (isDev || !user) {
             // Dev mode - store encouraged transfers using team-centric pattern
@@ -8532,7 +8516,6 @@ export default function Dashboard() {
               players: updatedPlayers
             })
           }
-          console.log('DEBUG: Encourage transfers save complete!')
         }}
         currentYear={currentDynasty?.currentYear}
         teamColors={teamColors}

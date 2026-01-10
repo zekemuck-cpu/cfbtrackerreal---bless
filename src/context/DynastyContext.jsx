@@ -1064,13 +1064,6 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
   const yearStr = String(year)
   const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
 
-  // DEBUG: Log first player check for each unique year/team combo
-  if (player.name && !window._debuggedRoster?.[`${player.name}-${year}-${tidOrAbbr}`]) {
-    window._debuggedRoster = window._debuggedRoster || {}
-    window._debuggedRoster[`${player.name}-${year}-${tidOrAbbr}`] = true
-    console.log(`[isPlayerOnRoster] player: ${player.name}, teamsByYear:`, player.teamsByYear, `tidOrAbbr: ${tidOrAbbr} (type: ${typeof tidOrAbbr}), year: ${year}, teamForYear: ${teamForYear}`)
-  }
-
   // If tidOrAbbr is a number, compare directly (new tid-based)
   if (typeof tidOrAbbr === 'number') {
     return teamForYear === tidOrAbbr
@@ -2012,7 +2005,7 @@ export function migrateToFullTidSystem(dynasty) {
   }
 
   // Phase 2: Migrate coachTeamByYear records
-  if (migrated.coachTeamByYear) {
+  if (migrated.coachTeamByYear && Object.keys(migrated.coachTeamByYear).length > 0) {
     const migratedCoachTeamByYear = {}
     for (const [year, record] of Object.entries(migrated.coachTeamByYear)) {
       if (record && !record.tid && record.team) {
@@ -2027,6 +2020,43 @@ export function migrateToFullTidSystem(dynasty) {
       }
     }
     migrated.coachTeamByYear = migratedCoachTeamByYear
+  } else {
+    // Initialize coachTeamByYear for existing dynasties that don't have it
+    // This ensures getUserGamePerspective works correctly
+    const initCoachTeamByYear = {}
+
+    // First, try to infer from games data (userTeam field tells us what team we were coaching)
+    if (migrated.games && Array.isArray(migrated.games)) {
+      for (const game of migrated.games) {
+        if (game.userTeam && game.year && !initCoachTeamByYear[game.year]) {
+          const tid = getTidFromAbbr(game.userTeam)
+          const team = migrated.teams?.[tid]
+          initCoachTeamByYear[game.year] = {
+            tid: tid,
+            team: game.userTeam,
+            teamName: team?.name || game.userTeam
+          }
+        }
+      }
+    }
+
+    // Ensure at least the current year is set using dynasty's team info
+    const currentYear = migrated.currentYear
+    if (currentYear && !initCoachTeamByYear[currentYear]) {
+      const currentTid = migrated.currentTid || getTidFromTeamName(migrated.teamName, migrated.teams)
+      const currentTeam = migrated.teams?.[currentTid]
+      if (currentTid) {
+        initCoachTeamByYear[currentYear] = {
+          tid: currentTid,
+          team: currentTeam?.abbr,
+          teamName: currentTeam?.name || migrated.teamName
+        }
+      }
+    }
+
+    if (Object.keys(initCoachTeamByYear).length > 0) {
+      migrated.coachTeamByYear = initCoachTeamByYear
+    }
   }
 
   // Phase 3: Migrate player.teamsByYear values from abbr to tid
@@ -2146,6 +2176,57 @@ export function migrateToFullTidSystem(dynasty) {
   }
 
   migrated._tidFullyMigrated = true
+  return migrated
+}
+
+/**
+ * Migration: Ensure coachTeamByYear is initialized
+ * For dynasties created before coachTeamByYear initialization was added to createDynasty
+ */
+export function migrateCoachTeamByYear(dynasty) {
+  if (!dynasty) return dynasty
+
+  // If coachTeamByYear already has data, skip
+  if (dynasty.coachTeamByYear && Object.keys(dynasty.coachTeamByYear).length > 0) {
+    return dynasty
+  }
+
+  let migrated = { ...dynasty }
+  const initCoachTeamByYear = {}
+
+  // First, try to infer from games data (userTeam field tells us what team we were coaching)
+  if (migrated.games && Array.isArray(migrated.games)) {
+    for (const game of migrated.games) {
+      if (game.userTeam && game.year && !initCoachTeamByYear[game.year]) {
+        const tid = getTidFromAbbr(game.userTeam)
+        const team = migrated.teams?.[tid]
+        initCoachTeamByYear[game.year] = {
+          tid: tid,
+          team: game.userTeam,
+          teamName: team?.name || game.userTeam
+        }
+      }
+    }
+  }
+
+  // Ensure at least the current year is set using dynasty's team info
+  const currentYear = migrated.currentYear
+  if (currentYear && !initCoachTeamByYear[currentYear]) {
+    const currentTid = migrated.currentTid || getTidFromTeamName(migrated.teamName, migrated.teams)
+    const currentTeam = migrated.teams?.[currentTid]
+    if (currentTid) {
+      initCoachTeamByYear[currentYear] = {
+        tid: currentTid,
+        team: currentTeam?.abbr,
+        teamName: currentTeam?.name || migrated.teamName
+      }
+    }
+  }
+
+  if (Object.keys(initCoachTeamByYear).length > 0) {
+    migrated.coachTeamByYear = initCoachTeamByYear
+  }
+
   return migrated
 }
 
@@ -2540,6 +2621,13 @@ export function DynastyProvider({ children }) {
         migrated._tidFullyMigrated = true
       }
 
+      // Ensure coachTeamByYear is initialized (for dynasties created before this feature)
+      // This is separate from _tidFullyMigrated because that migration only runs once
+      if (!migrated._coachTeamByYearMigrated) {
+        migrated = migrateCoachTeamByYear(migrated)
+        migrated._coachTeamByYearMigrated = true
+      }
+
       return migrated
     })
   }
@@ -2740,6 +2828,7 @@ export function DynastyProvider({ children }) {
     // Get the currentTid for the user's team
     // This is the single source of truth for which team the user is coaching
     const currentTid = getTidFromTeamName(dynastyData.teamName, teams)
+    const currentTeamAbbr = teams[currentTid]?.abbr
 
     const newDynastyData = {
       ...dynastyData,
@@ -2758,6 +2847,15 @@ export function DynastyProvider({ children }) {
       teams,
       _tidMigrated: true, // Mark as already using tid-based team registry
       _tidFullyMigrated: true, // Mark as using full tid system (currentTid, player.teamsByYear as tid, game.userTid, etc.)
+      // Initialize coachTeamByYear with the starting year
+      // This ensures games entered in preseason can be properly attributed
+      coachTeamByYear: {
+        [startYear]: {
+          tid: currentTid,
+          team: currentTeamAbbr,
+          teamName: dynastyData.teamName
+        }
+      },
       preseasonSetup: {
         scheduleEntered: false,
         rosterEntered: false,
@@ -4402,16 +4500,6 @@ export function DynastyProvider({ children }) {
     const encouragedTransfers = getByYear(encouragedTransfersForTeam, currentSeasonYear) || []
     const encouragedNames = new Set(encouragedTransfers.map(t => t.name?.toLowerCase().trim()))
 
-    // DEBUG: Log encouraged transfers info
-    console.log('=== ADVANCE TO NEW SEASON DEBUG ===')
-    console.log('teamAbbr:', teamAbbr)
-    console.log('previousSeasonYear:', previousSeasonYear)
-    console.log('currentSeasonYear:', currentSeasonYear)
-    console.log('encourageTransfersByTeamYear:', dynasty.encourageTransfersByTeamYear)
-    console.log('encouragedTransfersForTeam:', encouragedTransfersForTeam)
-    console.log('encouragedTransfers:', encouragedTransfers)
-    console.log('encouragedNames:', [...encouragedNames])
-
     // Get draft results for draft round info (stored under previous season year) - team-aware with fallback
     const draftResults = getDraftResults(dynasty, teamAbbr, previousSeasonYear)
     const draftByPid = {}
@@ -4447,12 +4535,10 @@ export function DynastyProvider({ children }) {
       // The encourageTransfersByTeamYear data is the source of truth for Career Timeline display
       const playerNameLower = player.name?.toLowerCase().trim()
       if (!player.isRecruit && encouragedNames.has(playerNameLower)) {
-        console.log('DEBUG: Processing encouraged transfer:', player.name, 'nameMatch:', playerNameLower)
         // Remove current season year from teamsByYear (may have been set by earlier roster operations)
         const updatedTeamsByYear = { ...(player.teamsByYear || {}) }
         delete updatedTeamsByYear[currentSeasonYear]
         delete updatedTeamsByYear[String(currentSeasonYear)]
-        console.log('DEBUG: Removed year from teamsByYear. Before:', player.teamsByYear, 'After:', updatedTeamsByYear)
         return {
           ...player,
           teamsByYear: updatedTeamsByYear
