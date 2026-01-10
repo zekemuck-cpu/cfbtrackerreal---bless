@@ -1064,6 +1064,13 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
   const yearStr = String(year)
   const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
 
+  // DEBUG: Log first player check for each unique year/team combo
+  if (player.name && !window._debuggedRoster?.[`${player.name}-${year}-${tidOrAbbr}`]) {
+    window._debuggedRoster = window._debuggedRoster || {}
+    window._debuggedRoster[`${player.name}-${year}-${tidOrAbbr}`] = true
+    console.log(`[isPlayerOnRoster] player: ${player.name}, teamsByYear:`, player.teamsByYear, `tidOrAbbr: ${tidOrAbbr} (type: ${typeof tidOrAbbr}), year: ${year}, teamForYear: ${teamForYear}`)
+  }
+
   // If tidOrAbbr is a number, compare directly (new tid-based)
   if (typeof tidOrAbbr === 'number') {
     return teamForYear === tidOrAbbr
@@ -5164,6 +5171,9 @@ export function DynastyProvider({ children }) {
     const teamTid = getTidFromAbbr(teamAbbr)
     const useFullTidSystem = dynasty._tidFullyMigrated === true
     const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+
+    // DEBUG: Log what values are being used
+    console.log(`[saveRoster] teamAbbr: ${teamAbbr}, teamTid: ${teamTid}, _tidFullyMigrated: ${dynasty._tidFullyMigrated}, useFullTidSystem: ${useFullTidSystem}, teamsByYearValue: ${teamsByYearValue} (type: ${typeof teamsByYearValue}), year: ${year}`)
 
     // ALWAYS use merge mode - never delete existing players that aren't in the sheet
     // This prevents accidental data loss if the sheet has fewer players than expected
