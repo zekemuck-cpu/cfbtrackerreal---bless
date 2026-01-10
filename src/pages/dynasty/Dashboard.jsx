@@ -1153,6 +1153,9 @@ export default function Dashboard() {
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    const teamTid = getTidFromAbbr(teamAbbr)
+    // For tid-based storage: use tid for fully migrated dynasties
+    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
     const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
@@ -1185,13 +1188,17 @@ export default function Dashboard() {
             !(m.year === Number(year) && m.type === 'entered_portal')
           )
 
+          // For tid-based storage: convert team to tid
+          const oldTeamTid = getTidFromAbbr(oldTeam)
+          const teamsByYearValue = useFullTidSystem && oldTeamTid ? oldTeamTid : oldTeam
+
           updatedPlayers[playerIndex] = {
             ...player,
             movements: [...filteredMovements, recommitMovement],
             // Keep them on roster for next year
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              [String(nextYear)]: oldTeam
+              [String(nextYear)]: teamsByYearValue
             }
           }
         } else {
@@ -1205,14 +1212,18 @@ export default function Dashboard() {
             timestamp: Date.now()
           }
 
+          // For tid-based storage: convert new team to tid
+          const newTeamTid = getTidFromAbbr(dest.newTeam)
+          const teamsByYearValue = useFullTidSystem && newTeamTid ? newTeamTid : dest.newTeam
+
           // Update teamsByYear to new team, update current team
           updatedPlayers[playerIndex] = {
             ...player,
-            team: dest.newTeam, // Update current team
+            team: dest.newTeam, // Update current team (still uses abbr for backward compatibility)
             movements: [...(player.movements || []), transferMovement],
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              [String(nextYear)]: dest.newTeam
+              [String(nextYear)]: teamsByYearValue
             }
           }
         }
@@ -1592,6 +1603,10 @@ export default function Dashboard() {
   // Process recruiting save after all confirmations are complete
   const processRecruitingCommitmentsSave = async (recruits, year, commitmentKey, confirmedReturning, confirmedNew) => {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    const teamTid = getTidFromAbbr(teamAbbr)
+    // For tid-based storage: use tid for fully migrated dynasties
+    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
+    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
 
     // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -1729,7 +1744,7 @@ export default function Dashboard() {
         isRecruit: true,
         recruitYear: year, // The recruiting class year (they play NEXT year)
         // IMMUTABLE roster history - recruits will be on team starting NEXT year
-        teamsByYear: { [year + 1]: teamAbbr },
+        teamsByYear: { [year + 1]: teamsByYearValue },
         stars: recruit.stars || 0,
         nationalRank: recruit.nationalRank || null,
         stateRank: recruit.stateRank || null,
@@ -1787,7 +1802,7 @@ export default function Dashboard() {
             team: teamAbbr,
             teamsByYear: {
               ...p.teamsByYear,
-              [year + 1]: teamAbbr // Add them to next year's roster
+              [year + 1]: teamsByYearValue // Add them to next year's roster
             },
             // Mark as returning recruit for this year
             isRecruit: true,
@@ -8431,6 +8446,10 @@ export default function Dashboard() {
         onClose={() => setShowEncourageTransfersModal(false)}
         onSave={async (transferPlayers) => {
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+          const teamTid = getTidFromAbbr(teamAbbr)
+          // For tid-based storage: use tid for fully migrated dynasties
+          const useFullTidSystem = currentDynasty._tidFullyMigrated === true
+          const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
@@ -8464,7 +8483,7 @@ export default function Dashboard() {
               console.log('DEBUG: Restoring player:', player.name)
               const restoredTeamsByYear = {
                 ...(player.teamsByYear || {}),
-                [year]: teamAbbr
+                [year]: teamsByYearValue
               }
               return {
                 ...player,

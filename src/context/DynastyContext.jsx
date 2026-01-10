@@ -2995,14 +2995,31 @@ export function DynastyProvider({ children }) {
 
       // Use original updatesWithTimestamp for local state (includes players/games)
       const expandedUpdates = expandDotNotation(updatesWithTimestamp)
-      const updatedDynasties = dynasties.map(d =>
-        String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
-      )
+
+      // Check if dynasty is in the array (might not be if just created - React state is async)
+      const dynastyInArray = dynasties.some(d => String(d.id) === String(dynastyId))
+
+      let updatedDynasties
+      if (dynastyInArray) {
+        // Normal case: update dynasty in the array
+        updatedDynasties = dynasties.map(d =>
+          String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
+        )
+      } else if (String(currentDynasty?.id) === String(dynastyId)) {
+        // Dynasty was just created and isn't in dynasties array yet
+        // Add the updated dynasty to the array
+        const updatedDynasty = deepMerge(currentDynasty, expandedUpdates)
+        updatedDynasties = [...dynasties, updatedDynasty]
+      } else {
+        // Dynasty not found anywhere - shouldn't happen but keep existing array
+        updatedDynasties = dynasties
+      }
       setDynasties(updatedDynasties)
 
       if (String(currentDynasty?.id) === String(dynastyId)) {
         const updatedDynasty = updatedDynasties.find(d => String(d.id) === String(dynastyId))
-        setCurrentDynasty(updatedDynasty)
+        // Fallback to merging currentDynasty directly if not found in array
+        setCurrentDynasty(updatedDynasty || deepMerge(currentDynasty, expandedUpdates))
       }
     } catch (error) {
       console.error('Error updating dynasty:', error)
@@ -4127,6 +4144,10 @@ export function DynastyProvider({ children }) {
       // Progress all players' classes based on games played in the previous season
       const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const teamTid = getTidFromAbbr(teamAbbr)
+      // For tid-based storage: use tid for fully migrated dynasties
+      const useFullTidSystem = dynasty._tidFullyMigrated === true
+      const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
 
       const players = dynasty.players || []
 
@@ -4137,6 +4158,13 @@ export function DynastyProvider({ children }) {
       const playersLeavingThisYear = getPlayersLeaving(dynasty, teamAbbr, previousSeasonYear)
       const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
 
+      // Helper to check if a teamsByYear value matches the current team (supports both tid and abbr)
+      const isTeamMatch = (value) => {
+        if (!value) return false
+        if (typeof value === 'number') return value === teamTid
+        return value === teamAbbr
+      }
+
       // Progress each player's class
       const progressedPlayers = players.map(player => {
         // Skip honor-only players
@@ -4144,13 +4172,13 @@ export function DynastyProvider({ children }) {
 
         // Skip players from other teams (use teamsByYear as primary check)
         const playerTeamThisSeason = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
-        if (playerTeamThisSeason && playerTeamThisSeason !== teamAbbr) return player
+        if (playerTeamThisSeason && !isTeamMatch(playerTeamThisSeason)) return player
         if (!playerTeamThisSeason && player.team && player.team !== teamAbbr) return player
 
         // Check if player has any FUTURE year on this team (indicates they should still be on the team)
-        const hasFutureYearOnTeam = Object.entries(player.teamsByYear || {}).some(([yearKey, team]) => {
+        const hasFutureYearOnTeam = Object.entries(player.teamsByYear || {}).some(([yearKey, teamValue]) => {
           const year = Number(yearKey)
-          return team === teamAbbr && year > previousSeasonYear
+          return isTeamMatch(teamValue) && year > previousSeasonYear
         })
 
         // CRITICAL: Skip players who weren't on the team this season (they already left in a prior year)
@@ -4196,7 +4224,7 @@ export function DynastyProvider({ children }) {
         }
 
         // Update player with new class and ensure teamsByYear is set for the new season
-        // CRITICAL: Set teamsByYear[nextYear] = teamAbbr so roster filtering works immediately
+        // CRITICAL: Set teamsByYear[nextYear] = tid/abbr so roster filtering works immediately
         return {
           ...player,
           year: newYear,
@@ -4206,7 +4234,7 @@ export function DynastyProvider({ children }) {
           },
           teamsByYear: {
             ...(player.teamsByYear || {}),
-            [nextYear]: teamAbbr
+            [nextYear]: teamsByYearValue
           }
         }
       })
@@ -4257,6 +4285,10 @@ export function DynastyProvider({ children }) {
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended (recruitYear)
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const teamTid = getTidFromAbbr(teamAbbr)
+      // For tid-based storage: use tid for fully migrated dynasties
+      const useFullTidSystem = dynasty._tidFullyMigrated === true
+      const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
       const players = dynasty.players || []
 
       // Convert recruits from this class to active players
@@ -4267,9 +4299,13 @@ export function DynastyProvider({ children }) {
           // Ensure teamsByYear has the current year (in case it's missing)
           const hasCurrentYear = player.teamsByYear?.[currentSeasonYear] || player.teamsByYear?.[String(currentSeasonYear)]
           if (!hasCurrentYear) {
+            // For tid-based system: use tid. Otherwise use player.team or fallback to abbr.
+            const playerTeamValue = useFullTidSystem
+              ? (getTidFromAbbr(player.team) || teamsByYearValue)
+              : (player.team || teamAbbr)
             updated.teamsByYear = {
               ...(player.teamsByYear || {}),
-              [currentSeasonYear]: player.team || teamAbbr
+              [currentSeasonYear]: playerTeamValue
             }
           }
 

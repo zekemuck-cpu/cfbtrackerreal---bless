@@ -7,7 +7,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamColors } from '../../data/teamColors'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
-import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogo } from '../../data/teams'
 
 // Star display helper
@@ -190,6 +190,11 @@ export default function Recruiting() {
     const maxExistingPID = existingPlayers.reduce((max, p) => Math.max(max, p.pid || 0), 0)
     let nextPID = Math.max(maxExistingPID + 1, currentDynasty.nextPID || 1)
 
+    // For tid-based storage: use tid for fully migrated dynasties
+    const teamTid = getTidFromAbbr(teamAbbr)
+    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
+    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+
     const classToYear = {
       'HS': 'Fr',
       'JUCO Fr': 'So',
@@ -271,7 +276,7 @@ export default function Recruiting() {
           isRecruit: true,
           recruitYear: selectedYear,
           // IMMUTABLE roster history - recruits will be on team starting NEXT year
-          teamsByYear: { [selectedYear + 1]: teamAbbr },
+          teamsByYear: { [selectedYear + 1]: teamsByYearValue },
           stars: recruit.stars || 0,
           nationalRank: recruit.nationalRank || null,
           stateRank: recruit.stateRank || null,
