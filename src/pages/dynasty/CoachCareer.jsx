@@ -439,7 +439,7 @@ export default function CoachCareer() {
       {/* Coaching Stints - reverse order so current team is first */}
       {(Array.isArray(coachingHistory) ? [...coachingHistory].reverse() : []).map((stint, index) => {
         if (!stint) return null
-        const teamsData = dynasty?.teams || dynasty?.customTeams
+        const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
         const stintColors = getTeamColorsFromName(stint.teamName, teamsData)
         const stintPrimaryText = getContrastTextColor(stintColors?.primary || '#4B5563')
         const stintSecondaryText = getContrastTextColor(stintColors?.secondary || '#FFFFFF')
