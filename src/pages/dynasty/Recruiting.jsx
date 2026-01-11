@@ -190,10 +190,9 @@ export default function Recruiting() {
     const maxExistingPID = existingPlayers.reduce((max, p) => Math.max(max, p.pid || 0), 0)
     let nextPID = Math.max(maxExistingPID + 1, currentDynasty.nextPID || 1)
 
-    // For tid-based storage: use tid for fully migrated dynasties
+    // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
     const teamTid = getTidFromAbbr(teamAbbr)
-    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
-    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
 
     const classToYear = {
       'HS': 'Fr',
@@ -213,7 +212,8 @@ export default function Recruiting() {
     // Build a map of existing players by normalized name for this team
     const existingPlayersByName = {}
     existingPlayers.forEach(p => {
-      if (p.team === teamAbbr) {
+      // Handle both tid and abbr for backwards compatibility
+      if (p.team === teamTid || p.team === teamAbbr) {
         const normalizedName = p.name?.toLowerCase().trim()
         if (normalizedName) {
           existingPlayersByName[normalizedName] = p
@@ -272,7 +272,7 @@ export default function Recruiting() {
           weight: recruit.weight || 0,
           hometown: recruit.hometown || '',
           state: recruit.state || '',
-          team: teamAbbr,
+          team: teamTid || teamAbbr, // Use tid for team storage
           isRecruit: true,
           recruitYear: selectedYear,
           // IMMUTABLE roster history - recruits will be on team starting NEXT year

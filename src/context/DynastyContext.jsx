@@ -4285,9 +4285,8 @@ export function DynastyProvider({ children }) {
       const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
       const teamTid = getTidFromAbbr(teamAbbr)
-      // For tid-based storage: use tid for fully migrated dynasties
-      const useFullTidSystem = dynasty._tidFullyMigrated === true
-      const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+      // ALWAYS use tid for teamsByYear - tid is the single source of truth
+      const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
 
       const players = dynasty.players || []
 
@@ -4426,9 +4425,8 @@ export function DynastyProvider({ children }) {
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
       const teamTid = getTidFromAbbr(teamAbbr)
-      // For tid-based storage: use tid for fully migrated dynasties
-      const useFullTidSystem = dynasty._tidFullyMigrated === true
-      const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+      // ALWAYS use tid for teamsByYear - tid is the single source of truth
+      const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
       const players = dynasty.players || []
 
       // Convert recruits from this class to active players
@@ -4439,10 +4437,9 @@ export function DynastyProvider({ children }) {
           // Ensure teamsByYear has the current year (in case it's missing)
           const hasCurrentYear = player.teamsByYear?.[currentSeasonYear] || player.teamsByYear?.[String(currentSeasonYear)]
           if (!hasCurrentYear) {
-            // For tid-based system: use tid. Otherwise use player.team or fallback to abbr.
-            const playerTeamValue = useFullTidSystem
-              ? (getTidFromAbbr(player.team) || teamsByYearValue)
-              : (player.team || teamAbbr)
+            // Use tid for teamsByYear - convert player.team to tid if needed
+            const playerTeamTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team)
+            const playerTeamValue = playerTeamTid || teamsByYearValue
             updated.teamsByYear = {
               ...(player.teamsByYear || {}),
               [currentSeasonYear]: playerTeamValue
@@ -5291,13 +5288,12 @@ export function DynastyProvider({ children }) {
     const year = options.year || dynasty.currentYear
 
     // For tid-based storage: get tid from abbreviation
-    // After full tid migration, teamsByYear should store tid (number) not abbr (string)
+    // ALWAYS use tid for teamsByYear - tid is the single source of truth
     const teamTid = getTidFromAbbr(teamAbbr)
-    const useFullTidSystem = dynasty._tidFullyMigrated === true
-    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
 
     // DEBUG: Log what values are being used
-    console.log(`[saveRoster] teamAbbr: ${teamAbbr}, teamTid: ${teamTid}, _tidFullyMigrated: ${dynasty._tidFullyMigrated}, useFullTidSystem: ${useFullTidSystem}, teamsByYearValue: ${teamsByYearValue} (type: ${typeof teamsByYearValue}), year: ${year}`)
+    console.log(`[saveRoster] teamAbbr: ${teamAbbr}, teamTid: ${teamTid}, teamsByYearValue: ${teamsByYearValue} (type: ${typeof teamsByYearValue}), year: ${year}`)
 
     // ALWAYS use merge mode - never delete existing players that aren't in the sheet
     // This prevents accidental data loss if the sheet has fewer players than expected
@@ -5308,8 +5304,8 @@ export function DynastyProvider({ children }) {
     const playersToKeep = existingPlayers.filter(p => {
       // Always keep honor-only players
       if (p.isHonorOnly) return true
-      // Keep players from OTHER teams
-      if (p.team && p.team !== teamAbbr) return true
+      // Keep players from OTHER teams (handle both tid and abbr for backwards compat)
+      if (p.team && p.team !== teamTid && p.team !== teamAbbr) return true
       // Keep players with no team field (legacy data)
       if (!p.team) return true
       // For this team's players: they'll be updated via name matching if in sheet,
@@ -5405,10 +5401,10 @@ export function DynastyProvider({ children }) {
           hometown: player.hometown ?? existingPlayer.hometown,
           state: player.state ?? existingPlayer.state,
           pictureUrl: player.pictureUrl ?? existingPlayer.pictureUrl,
-          // Ensure pid/id/team are correct
+          // Ensure pid/id/team are correct - team stores tid (number)
           pid,
           id,
-          team: teamAbbr,
+          team: teamTid || teamAbbr,
           // IMMUTABLE roster history - records which team player was on each year
           teamsByYear: updatedTeamsByYear,
           // IMMUTABLE class history - records what class player was each year
@@ -5424,17 +5420,16 @@ export function DynastyProvider({ children }) {
         year,
         MOVEMENT_TYPES.ADDED,
         null,
-        teamAbbr,
+        teamTid || teamAbbr,
         'Added via roster entry'
       )
       return {
         ...player,
         pid,
         id,
-        team: teamAbbr,
+        team: teamTid || teamAbbr,
         yearStarted: player.yearStarted || year,
-        // IMMUTABLE roster history - this player is on this team this year
-        // Use tid (number) for fully migrated dynasties, abbr (string) for legacy
+        // IMMUTABLE roster history - this player is on this team this year (tid)
         teamsByYear: { [year]: teamsByYearValue },
         // IMMUTABLE class history - record this player's class for this year
         classByYear: { [year]: player.year },

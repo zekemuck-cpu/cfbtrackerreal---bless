@@ -1154,8 +1154,7 @@ export default function Dashboard() {
     const nextYear = year + 1
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const teamTid = getTidFromAbbr(teamAbbr)
-    // For tid-based storage: use tid for fully migrated dynasties
-    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
+    // ALWAYS use tid for team storage - tid is the single source of truth
     const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
@@ -1188,9 +1187,9 @@ export default function Dashboard() {
             !(m.year === Number(year) && m.type === 'entered_portal')
           )
 
-          // For tid-based storage: convert team to tid
-          const oldTeamTid = getTidFromAbbr(oldTeam)
-          const teamsByYearValue = useFullTidSystem && oldTeamTid ? oldTeamTid : oldTeam
+          // ALWAYS use tid for teamsByYear storage
+          const oldTeamTid = typeof oldTeam === 'number' ? oldTeam : getTidFromAbbr(oldTeam)
+          const teamsByYearValue = oldTeamTid || teamTid || oldTeam
 
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1212,14 +1211,14 @@ export default function Dashboard() {
             timestamp: Date.now()
           }
 
-          // For tid-based storage: convert new team to tid
+          // ALWAYS use tid for teamsByYear storage
           const newTeamTid = getTidFromAbbr(dest.newTeam)
-          const teamsByYearValue = useFullTidSystem && newTeamTid ? newTeamTid : dest.newTeam
+          const teamsByYearValue = newTeamTid || dest.newTeam
 
-          // Update teamsByYear to new team, update current team
+          // Update teamsByYear to new team, update current team with tid
           updatedPlayers[playerIndex] = {
             ...player,
-            team: dest.newTeam, // Update current team (still uses abbr for backward compatibility)
+            team: newTeamTid || dest.newTeam, // Use tid for current team
             movements: [...(player.movements || []), transferMovement],
             teamsByYear: {
               ...(player.teamsByYear || {}),
@@ -1604,9 +1603,8 @@ export default function Dashboard() {
   const processRecruitingCommitmentsSave = async (recruits, year, commitmentKey, confirmedReturning, confirmedNew) => {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const teamTid = getTidFromAbbr(teamAbbr)
-    // For tid-based storage: use tid for fully migrated dynasties
-    const useFullTidSystem = currentDynasty._tidFullyMigrated === true
-    const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+    // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
+    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
 
     // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -1721,10 +1719,10 @@ export default function Dashboard() {
       // If not provided, use "Transfer Portal" as a placeholder
       const previousTeam = recruit.previousTeam || (isPortalPlayer ? 'Transfer Portal' : '')
 
-      // Create movement for this recruit
+      // Create movement for this recruit - use tid for team references
       const movementType = isPortalPlayer ? MOVEMENT_TYPES.PORTAL_IN : MOVEMENT_TYPES.RECRUITED
       const fromTeam = isPortalPlayer ? (recruit.previousTeam || null) : null
-      const recruitMovement = createMovement(year, movementType, fromTeam, teamAbbr)
+      const recruitMovement = createMovement(year, movementType, fromTeam, teamTid || teamAbbr)
 
       return {
         pid,
@@ -1740,7 +1738,7 @@ export default function Dashboard() {
         weight: recruit.weight || 0,
         hometown: recruit.hometown || '',
         state: recruit.state || '',
-        team: teamAbbr, // CRITICAL: Tag player with team
+        team: teamTid || teamAbbr, // Tag player with team tid
         isRecruit: true,
         recruitYear: year, // The recruiting class year (they play NEXT year)
         // IMMUTABLE roster history - recruits will be on team starting NEXT year
@@ -1771,12 +1769,12 @@ export default function Dashboard() {
             r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
           )
 
-          // Create a RECOMMIT movement to track they came back
+          // Create a RECOMMIT movement to track they came back - use tid
           const recommitMovement = createMovement(
             year,
             MOVEMENT_TYPES.RECOMMIT,
-            teamAbbr, // from (they were on this team)
-            teamAbbr, // to (they're staying on this team)
+            teamTid || teamAbbr, // from (they were on this team)
+            teamTid || teamAbbr, // to (they're staying on this team)
             'Returned from portal'
           )
 
@@ -1798,8 +1796,8 @@ export default function Dashboard() {
             leavingReason: null,
             transferredTo: null,
             transferredFrom: null,
-            // Update team assignment
-            team: teamAbbr,
+            // Update team assignment with tid
+            team: teamTid || teamAbbr,
             teamsByYear: {
               ...p.teamsByYear,
               [year + 1]: teamsByYearValue // Add them to next year's roster
@@ -8513,9 +8511,8 @@ export default function Dashboard() {
         onSave={async (transferPlayers) => {
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const teamTid = getTidFromAbbr(teamAbbr)
-          // For tid-based storage: use tid for fully migrated dynasties
-          const useFullTidSystem = currentDynasty._tidFullyMigrated === true
-          const teamsByYearValue = useFullTidSystem && teamTid ? teamTid : teamAbbr
+          // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
+          const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
