@@ -1260,6 +1260,10 @@ export default function GameEntryModal({
       nationalPOW: nationalPOW || null,
       natlDefensePOW: natlDefensePOW || null,
 
+      // Quarter-by-quarter scoring and overtime
+      quarters: gameData.quarters,
+      overtimes: gameData.overtimes?.length > 0 ? gameData.overtimes : null,
+
       // Preserve special game type flags for backward compat
       ...(effectiveGame?.bowlName && { bowlName: effectiveGame.bowlName }),
       ...((effectiveGame?.isConferenceChampionship || isConferenceChampionship) && { isConferenceChampionship: true }),
