@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDynasty, getPlayersNeedingClassConfirmation } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { useTeamColors } from '../hooks/useTeamColors'
-import { getTeamLogo } from '../data/teams'
+import { useCurrentTeamColors } from '../hooks/useTeamColors'
+import { getTeamLogoByTid } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
-import { TEAMS, getCurrentTeamAbbr } from '../data/teamRegistry'
+import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
@@ -28,7 +28,8 @@ export default function Layout({ children }) {
     }
   }
 
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+  // Use tid-based team colors lookup - this is THE source of truth
+  const teamColors = useCurrentTeamColors(currentDynasty)
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
   const isHomePage = location.pathname === '/' || location.pathname === '/home'
@@ -384,13 +385,18 @@ export default function Layout({ children }) {
                 <img src={logo} alt="Dynasty Tracker" className="h-8 sm:h-10 object-contain" />
               </Link>
 
-              {useTeamTheme && (
+              {useTeamTheme && (() => {
+                // tid-based team info - THE source of truth
+                const currentTid = getCurrentTeamTid(currentDynasty)
+                const currentTeamName = getCurrentTeamName(currentDynasty)
+                const currentTeamLogo = getTeamLogoByTid(currentTid, currentDynasty.teams)
+                return (
                 <>
                   {/* Separator */}
                   <span className="text-sm" style={{ color: headerText, opacity: 0.3 }}>|</span>
 
                   {/* Team Logo */}
-                  {getTeamLogo(currentDynasty.teamName) && (
+                  {currentTeamLogo && (
                     <div
                       className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -400,8 +406,8 @@ export default function Layout({ children }) {
                       }}
                     >
                       <img
-                        src={getTeamLogo(currentDynasty.teamName)}
-                        alt={`${currentDynasty.teamName} logo`}
+                        src={currentTeamLogo}
+                        alt={`${currentTeamName} logo`}
                         className="w-full h-full object-contain"
                       />
                     </div>
@@ -428,7 +434,7 @@ export default function Layout({ children }) {
                     </span>
                   </div>
                 </>
-              )}
+              )})()}
             </div>
 
             {useTeamTheme ? (

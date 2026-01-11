@@ -1767,6 +1767,18 @@ export function getCurrentTeam(dynasty) {
 }
 
 /**
+ * Get the current team's name from a dynasty.
+ * Uses tid-based lookup for proper teambuilder support.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {string|null} The current team's name
+ */
+export function getCurrentTeamName(dynasty) {
+  const team = getCurrentTeam(dynasty)
+  return team?.name || null
+}
+
+/**
  * Get the ORIGINAL team's abbreviation for a tid (from static TEAMS).
  * Use this for conference lookup where teambuilder teams inherit position.
  *

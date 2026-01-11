@@ -1,5 +1,5 @@
 import { teamAbbreviations } from './teamAbbreviations'
-import { getAbbrFromTeamName } from './teamRegistry'
+import { getAbbrFromTeamName, TEAMS as TEAMS_REGISTRY } from './teamRegistry'
 import { espnTeamIds } from './espnTeamIds'
 
 // Team logo URLs (Imgur hosted)
@@ -462,6 +462,40 @@ export function getTeamLogoByAbbr(abbr, teamsOrCustomTeams = null) {
 
   // Fall back to standard logo lookup
   const teamData = teamAbbreviations[abbr]
+  if (teamData?.isFCS && teamData?.logo) {
+    return teamData.logo
+  }
+  if (teamData?.name && teamLogos[teamData.name]) {
+    return teamLogos[teamData.name]
+  }
+
+  return null
+}
+
+/**
+ * Get team logo by tid (Team ID) - the preferred tid-based approach.
+ * This should be used instead of getTeamLogo when you have a tid.
+ *
+ * @param {number} tid - Team ID
+ * @param {Object} teams - dynasty.teams object (tid-keyed)
+ * @returns {string|null} Logo URL or null
+ */
+export function getTeamLogoByTid(tid, teams) {
+  if (!tid) return null
+
+  const team = teams?.[tid] || TEAMS_REGISTRY[tid]
+  if (!team) return null
+
+  // Return custom logo if available
+  if (team.logo) return team.logo
+
+  // Fall back to static logo lookup by team name
+  if (team.name && teamLogos[team.name]) {
+    return teamLogos[team.name]
+  }
+
+  // Fall back by abbreviation
+  const teamData = teamAbbreviations[team.abbr]
   if (teamData?.isFCS && teamData?.logo) {
     return teamData.logo
   }
