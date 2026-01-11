@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
+import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -109,6 +110,26 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       const legacySFResults = currentDynasty?.cfpResultsByYear?.[currentYear]?.semifinals || []
       const legacyChamp = currentDynasty?.cfpResultsByYear?.[currentYear]?.championship?.[0]
 
+      // Helper to get winner from a game (handles both legacy and unified formats)
+      const teams = currentDynasty?.teams || TEAMS
+      const getGameWinner = (game) => {
+        if (!game) return ''
+        // Try winner field first
+        if (game.winner) return game.winner
+        // Derive from winnerTid for unified format
+        if (game.winnerTid) {
+          const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+          return winnerInfo?.abbr || ''
+        }
+        // Fallback: compute from scores
+        if (game.team1Score !== undefined && game.team2Score !== undefined) {
+          const t1 = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1
+          const t2 = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2
+          return game.team1Score > game.team2Score ? t1 : t2
+        }
+        return ''
+      }
+
       if (existingChamp) {
         setGame(existingChamp)
       } else if (legacyChamp) {
@@ -123,8 +144,8 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
         setGame({
           id: 'championship',
           bowlName: 'National Championship',
-          team1: peachGame?.winner || '',
-          team2: fiestaGame?.winner || '',
+          team1: getGameWinner(peachGame),
+          team2: getGameWinner(fiestaGame),
           team1Score: '',
           team2Score: ''
         })

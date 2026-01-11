@@ -1143,20 +1143,42 @@ export function buildGameRecapContext(dynasty, game) {
     ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder)
     : []
 
+  // CRITICAL: Determine which box score side has user's stats
+  // For user games, we set team1 = user's team. But the box score might be stored
+  // with home/away based on ACTUAL location for unified format games.
+  // - For legacy user games: home = user's stats (always)
+  // - For unified format: check if user is team1 or team2 in the original game data
+  let team1Side = 'home'
+  let team2Side = 'away'
+
+  // For unified format user games, check if user matches the game's team1 or team2
+  if (isCurrentGameUserGame && hasUnifiedFormat) {
+    // In unified format, home side corresponds to team1Tid, away to team2Tid
+    // We need to check if user (team1 in our context) matches game.team1Tid or game.team2Tid
+    const userTid = currentGamePerspective?.userTid
+    if (userTid && game.team2Tid === userTid) {
+      // User is team2 in the game data, so user's stats are in 'away' side
+      team1Side = 'away'
+      team2Side = 'home'
+    }
+  }
+
   // Extract box score stats with enhanced player context
   let boxScoreContext = null
+  let team1TeamStats = null
+  let team2TeamStats = null
   if (game.boxScore) {
-    // IMPORTANT: For user games, boxScore.home ALWAYS contains user's stats regardless of location
-    // For CPU games, team1 is always in boxScore.home
-    // So team1Side is always 'home' and team2Side is always 'away'
-    const team1Side = 'home'
-    const team2Side = 'away'
-
     boxScoreContext = {
       team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
       team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
       team1Name: getNameByAbbr(teams, team1) || getTeamName(team1) || team1,
       team2Name: getNameByAbbr(teams, team2) || getTeamName(team2) || team2
+    }
+
+    // Also swap team stats if needed
+    if (game.boxScore.teamStats) {
+      team1TeamStats = game.boxScore.teamStats[team1Side] || {}
+      team2TeamStats = game.boxScore.teamStats[team2Side] || {}
     }
   }
 
@@ -1173,12 +1195,12 @@ export function buildGameRecapContext(dynasty, game) {
     ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder)
     : []
 
-  // NEW: Get player performance trends from box score
+  // NEW: Get player performance trends from box score (using correctly determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
   if (game.boxScore) {
-    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'home', players, allGames, year, thisGameOrder)
-    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'away', players, allGames, year, thisGameOrder)
+    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder)
+    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder)
   }
 
   return {
@@ -1252,7 +1274,8 @@ export function buildGameRecapContext(dynasty, game) {
     scoringSummary: game.boxScore?.scoringSummary || [],
 
     // Team stats (first downs, turnovers, 3rd down, possession, etc.)
-    teamStats: game.boxScore?.teamStats || null,
+    // Use correctly swapped stats for user games where user is team2 in unified format
+    teamStats: (team1TeamStats || team2TeamStats) ? { home: team1TeamStats, away: team2TeamStats } : (game.boxScore?.teamStats || null),
 
     // Bowl/CFP info
     bowlName: game.bowlName,
