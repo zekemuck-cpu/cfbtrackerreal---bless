@@ -429,150 +429,37 @@ export default function TeamYear() {
     if (game.isPlayoff) return 20 + (game.week || 0)
     return 99
   }
-  // Get games for THIS TEAM from games array
-  // Includes games where team was involved (as team1 or team2 in unified format)
-  // Also handles legacy format (userTeam/opponent) during transition
+  // Get games for this team using the SAME approach as TeamStats
+  // Uses getUserGamePerspective to determine if user was coaching this team
   const teamGamesFromArray = (() => {
     const games = currentDynasty.games || []
-    const result = []
 
-    games.forEach(g => {
-      if (Number(g.year) !== Number(selectedYear)) return
-
-      // UNIFIED FORMAT: Check team1Tid/team2Tid
-      const hasUnifiedFormat = g.team1Tid && g.team2Tid
-      const isTeam1ByTid = g.team1Tid === tid
-      const isTeam2ByTid = g.team2Tid === tid
-      const isInGameByTid = isTeam1ByTid || isTeam2ByTid
-
-      // USER GAME FORMAT: Check userTid/opponentTid (games where user played)
-      const isUserTeamByTid = g.userTid === tid
-      const isOpponentByTid = g.opponentTid === tid
-      const isInGameByUserTid = isUserTeamByTid || isOpponentByTid
-
-      // LEGACY FORMAT: Check team1/team2 abbreviations or userTeam/opponent
-      const opponentAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
-      const isTeam1ByAbbr = g.team1 === teamAbbr
-      const isTeam2ByAbbr = g.team2 === teamAbbr
-      const isInTeam1Team2 = isTeam1ByAbbr || isTeam2ByAbbr
-
-      // Combined check: team is involved in this game (check all formats)
-      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : (isUserTeamByTid || isTeam1ByAbbr)
-      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : (isOpponentByTid || isTeam2ByAbbr)
-      const teamInGame = isInGameByTid || isInGameByUserTid || isInTeam1Team2 || g.userTeam === teamAbbr || opponentAbbr === teamAbbr
-
-      if (!teamInGame) return
-
-      // Check if this is a postseason game
-      const isPostseason = g.isConferenceChampionship || g.isBowlGame || g.isPlayoff ||
-                           g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship
-
-      // Detect CPU games:
-      // - Unified format: neither team is user's coached team for this year
-      // - Legacy format: has team1/team2 but no userTeam
-      // Use fallback logic to get userTid for the game year (same as getUserGamePerspective)
-      const yearNum = Number(g.year)
-      const yearStr = String(g.year)
-      let userTidForYear = currentDynasty.coachTeamByYear?.[yearNum]?.tid ?? currentDynasty.coachTeamByYear?.[yearStr]?.tid
-      // Fallback 1: Derive tid from coachTeamByYear[year].team abbr
-      if (!userTidForYear) {
-        const userTeamAbbrForYear = currentDynasty.coachTeamByYear?.[yearNum]?.team ?? currentDynasty.coachTeamByYear?.[yearStr]?.team
-        if (userTeamAbbrForYear) {
-          userTidForYear = resolveTid(userTeamAbbrForYear, currentDynasty.teams)
-        }
-      }
-      // Fallback 2: If this is the current year, use current team tid
-      if (!userTidForYear && yearNum === Number(currentDynasty.currentYear)) {
-        userTidForYear = resolveTid(getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName, currentDynasty.teams)
-      }
-      // Fallback 3: For dynasties without coachTeamByYear, derive from teamName
-      if (!userTidForYear && currentDynasty.teamName) {
-        userTidForYear = resolveTid(currentDynasty.teamName, currentDynasty.teams)
-      }
-      const isCPUGame = hasUnifiedFormat
-        ? (g.team1Tid !== userTidForYear && g.team2Tid !== userTidForYear)
-        : (!g.userTeam && g.team1 && g.team2)
-
-      // Calculate scores from unified or legacy format
-      const team1Score = g.team1Score
-      const team2Score = g.team2Score
-      const thisTeamScore = isTeam1 ? team1Score : team2Score
-      const otherTeamScore = isTeam1 ? team2Score : team1Score
-
-      // Determine winner (unified or legacy format)
-      const teamWon = hasUnifiedFormat
-        ? (g.winnerTid === tid || thisTeamScore > otherTeamScore)
-        : (g.winner === teamAbbr || (g.result === 'win' && g.userTeam === teamAbbr) ||
-           (g.result === 'loss' && opponentAbbr === teamAbbr))
-
-      // Get opponent tid/abbr
-      const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
-      const opponentAbbrResolved = hasUnifiedFormat
-        ? (getTeam(currentDynasty.teams, opponentTid)?.abbr || opponentAbbr)
-        : (isTeam1ByAbbr ? g.team2 : (isTeam2ByAbbr ? g.team1 : opponentAbbr))
-
-      if (isCPUGame) {
-        // CPU game - convert to display format for this team's perspective
-        result.push({
-          ...g,
-          // For display compatibility with legacy UI code
-          userTeam: teamAbbr,
-          opponent: opponentAbbrResolved,
-          teamScore: thisTeamScore,
-          opponentScore: otherTeamScore,
-          result: teamWon ? 'win' : 'loss',
-          _fromCPUPostseason: true
-        })
-        return
-      }
-
-      // User game - check if this team was the user's team or opponent
-      const wasUserTeam = hasUnifiedFormat
-        ? (isInGameByTid && (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) && (isTeam1ByTid === (g.team1Tid === userTidForYear)))
-        : (g.userTeam === teamAbbr || (!g.userTeam && isUserTeam))
-
-      if (wasUserTeam) {
-        // Game played AS this team - use as-is or convert from unified
-        if (hasUnifiedFormat && !g.userTeam) {
-          // Convert unified format to display format
-          result.push({
-            ...g,
-            userTeam: teamAbbr,
-            opponent: opponentAbbrResolved,
-            teamScore: thisTeamScore,
-            opponentScore: otherTeamScore,
-            result: teamWon ? 'win' : 'loss',
-            location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral')
-          })
-        } else {
-          result.push(g)
-        }
-        return
-      }
-
-      // Game played AGAINST this team - flip perspective
-      const flippedResult = teamWon ? 'win' : 'loss'
-      const flippedLocation = hasUnifiedFormat
-        ? (g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'))
-        : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
-
-      // Get the other team's info for display
-      const otherTeamAbbr = hasUnifiedFormat
-        ? (getTeam(currentDynasty.teams, isTeam1 ? g.team2Tid : g.team1Tid)?.abbr || g.userTeam)
-        : g.userTeam
-
-      result.push({
-        ...g,
-        _displayOpponent: otherTeamAbbr,
-        _displayResult: flippedResult,
-        _displayLocation: flippedLocation,
-        _displayTeamScore: thisTeamScore,
-        _displayOpponentScore: otherTeamScore,
-        _isFlippedPerspective: true
+    // Same pattern as TeamStats: filter by year, get perspective, filter by userTid
+    return games
+      .filter(g => Number(g.year) === Number(selectedYear))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
       })
-    })
-
-    return result
+      .filter(g => {
+        if (!g) return false
+        // Check if user was coaching this team in this game
+        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs tid from URL
+        return g.perspective?.userTid === tid
+      })
+      .map(g => {
+        // Convert perspective data to display format for UI compatibility
+        const p = g.perspective
+        return {
+          ...g,
+          userTeam: teamAbbr,
+          opponent: p.opponentAbbr || g.opponent,
+          teamScore: p.userScore,
+          opponentScore: p.opponentScore,
+          result: p.userWon ? 'win' : 'loss',
+          location: p.isHome ? 'home' : (p.isAway ? 'away' : 'neutral')
+        }
+      })
   })()
 
   // Also check if there's a bowl game in bowlGamesByYear that should be included
