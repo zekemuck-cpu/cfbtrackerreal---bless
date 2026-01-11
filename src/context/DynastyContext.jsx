@@ -5101,14 +5101,46 @@ export function DynastyProvider({ children }) {
         additionalUpdates.cfpChampionshipSheetId = null
       } else if (dynasty.currentWeek === 5) {
         // Reverting FROM Week 5 TO Week 4
-        // Week 5 (End of Season Recap) - only clears championship data
-        // that was entered by users who weren't in the championship
+        // Week 5 (End of Season Recap) - clears championship data, All-Americans, All-Conference, rankings, awards
 
         // Clear CFP Championship results (if entered during recap week)
         additionalUpdates.cfpResultsByYear = {
           ...existingCFPResults,
           [year]: { ...yearCFPResults, championship: null }
         }
+
+        // Clear All-Americans and All-Conference data for this year
+        const existingAllAmericans = dynasty.allAmericansByYear || {}
+        additionalUpdates.allAmericansByYear = {
+          ...existingAllAmericans,
+          [year]: null
+        }
+
+        // Clear final rankings for this year
+        const existingRankings = dynasty.rankingsByTeamYear || {}
+        const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+        if (existingRankings[teamAbbr]) {
+          additionalUpdates.rankingsByTeamYear = {
+            ...existingRankings,
+            [teamAbbr]: {
+              ...existingRankings[teamAbbr],
+              [year]: {
+                ...(existingRankings[teamAbbr]?.[year] || {}),
+                final: null
+              }
+            }
+          }
+        }
+
+        // Clear season awards data for this year
+        const existingAwards = dynasty.seasonAwardsByYear || {}
+        additionalUpdates.seasonAwardsByYear = {
+          ...existingAwards,
+          [year]: null
+        }
+
+        // Clear sheet IDs
+        additionalUpdates.seasonAwardsSheetId = null
       }
     } else if (dynasty.currentPhase === 'offseason') {
       // Reverting within offseason - handle different week transitions
@@ -5117,6 +5149,30 @@ export function DynastyProvider({ children }) {
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
+        // Clear all data that was entered in offseason week 1
+
+        // Clear players leaving data for this year
+        const existingPlayersLeaving = dynasty.playersLeavingByYear || {}
+        additionalUpdates.playersLeavingByYear = {
+          ...existingPlayersLeaving,
+          [year]: null
+        }
+
+        // Clear players leaving by team year
+        const existingByTeamYear = dynasty.playersLeavingByTeamYear || {}
+        if (existingByTeamYear[teamAbbr]) {
+          additionalUpdates.playersLeavingByTeamYear = {
+            ...existingByTeamYear,
+            [teamAbbr]: {
+              ...existingByTeamYear[teamAbbr],
+              [year]: null
+            }
+          }
+        }
+
+        // Clear sheet ID
+        additionalUpdates.playersLeavingSheetId = null
+
         // If user switched teams, restore the previous team
         const previousJobData = dynasty.previousJobData
         if (previousJobData) {
@@ -5140,6 +5196,12 @@ export function DynastyProvider({ children }) {
           // Clear previousJobData since we've restored it
           additionalUpdates.previousJobData = null
         }
+      } else if (dynasty.currentWeek >= 2 && dynasty.currentWeek <= 5 && prevWeek === dynasty.currentWeek - 1) {
+        // Reverting within recruiting weeks (2-5)
+        // Clear recruiting commitments that were added in current week
+        // Note: We don't delete recruits here, just clear sheet IDs as the actual
+        // recruit management is handled through the recruiting modal
+        additionalUpdates.recruitingSheetId = null
       } else if (dynasty.currentWeek === 6 && prevWeek === 5) {
         // Reverting FROM Signing Day (week 6) TO week 5
         // CRITICAL: Undo year flip and class progression
@@ -5200,6 +5262,57 @@ export function DynastyProvider({ children }) {
 
         // Clear class progression marker
         additionalUpdates.classProgressionDoneForYear = null
+
+        // Clear recruiting class rank for this year (entered during recruiting weeks)
+        const existingClassRank = dynasty.recruitingClassRankByTeamYear || {}
+        if (existingClassRank[teamAbbr]) {
+          additionalUpdates.recruitingClassRankByTeamYear = {
+            ...existingClassRank,
+            [teamAbbr]: {
+              ...existingClassRank[teamAbbr],
+              [previousSeasonYear]: null
+            }
+          }
+        }
+
+        // Clear draft results for this year (entered during recruiting week 1)
+        const existingDraftResults = dynasty.draftResultsByTeamYear || {}
+        if (existingDraftResults[teamAbbr]) {
+          additionalUpdates.draftResultsByTeamYear = {
+            ...existingDraftResults,
+            [teamAbbr]: {
+              ...existingDraftResults[teamAbbr],
+              [previousSeasonYear]: null
+            }
+          }
+        }
+      } else if (dynasty.currentWeek === 7 && prevWeek === 6) {
+        // Reverting FROM Training Camp (week 7) TO Signing Day (week 6)
+        // Clear training results for this year
+        // Note: Training data is keyed by the new year (post-flip)
+        const trainingYear = currentYear
+        const existingTraining = dynasty.trainingResultsByTeamYear || {}
+        if (existingTraining[teamAbbr]) {
+          additionalUpdates.trainingResultsByTeamYear = {
+            ...existingTraining,
+            [teamAbbr]: {
+              ...existingTraining[teamAbbr],
+              [trainingYear]: null
+            }
+          }
+        }
+
+        // Clear recruit overalls for this year
+        const existingRecruitOveralls = dynasty.recruitOverallsByTeamYear || {}
+        if (existingRecruitOveralls[teamAbbr]) {
+          additionalUpdates.recruitOverallsByTeamYear = {
+            ...existingRecruitOveralls,
+            [teamAbbr]: {
+              ...existingRecruitOveralls[teamAbbr],
+              [trainingYear]: null
+            }
+          }
+        }
       } else if (dynasty.currentWeek === 8 && prevWeek === 7) {
         // Reverting FROM week 8 TO week 7
         // CRITICAL: Restore recruits to isRecruit: true
