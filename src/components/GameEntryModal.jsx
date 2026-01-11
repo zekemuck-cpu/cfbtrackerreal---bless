@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences } from '../context/DynastyContext'
+import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences, getCurrentSchedule } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { getTeamLogo, getMascotName } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
@@ -119,7 +119,9 @@ export default function GameEntryModal({
   }
 
   // Find the scheduled game for this week (not for CC games)
-  const scheduledGame = isConferenceChampionship ? null : currentDynasty?.schedule?.find(g => g.week === actualWeekNumber)
+  // Use getCurrentSchedule to get the team-centric schedule, not legacy dynasty.schedule
+  const currentSchedule = getCurrentSchedule(currentDynasty)
+  const scheduledGame = isConferenceChampionship ? null : currentSchedule?.find(g => g.week === actualWeekNumber)
 
   // Get team mascot name (full team name) for logo lookup using tid-based lookup
   const getMascotName = (tidOrAbbr) => {
