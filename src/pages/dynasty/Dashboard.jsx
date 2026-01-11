@@ -451,8 +451,8 @@ export default function Dashboard() {
     const teamsSource = currentDynasty?.teams || TEAMS
     const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
     if (teamInfo) return teamInfo.name
-    // Fallback to old lookup
-    return teamAbbreviations[tidOrAbbr]?.name || tidOrAbbr
+    // Fallback to static lookup using getNameByAbbr
+    return getNameByAbbr(teamsSource, tidOrAbbr) || tidOrAbbr
   }
 
   // Get team mascot name (full team name) for logo lookup using tid-based lookup
@@ -2321,7 +2321,7 @@ export default function Dashboard() {
                 Taking New Job
               </div>
               <div className="text-lg font-bold" style={{ color: newTeamPrimaryText }}>
-                {newJobPosition === 'HC' ? 'Head Coach' : newJobPosition === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'} - {teamAbbreviations[newJobTeam]?.name || newJobTeam}
+                {newJobPosition === 'HC' ? 'Head Coach' : newJobPosition === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'} - {getTeamNameFromAbbr(newJobTeam)}
               </div>
             </div>
             {!isViewOnly && (
@@ -3952,7 +3952,7 @@ export default function Dashboard() {
                             </div>
                             {takingNewJob === true && newJobTeam && newJobPosition && (
                               <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
-                                ✓ {newJobPosition} at {teamAbbreviations[newJobTeam]?.name || newJobTeam}
+                                ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                               </div>
                             )}
                             {takingNewJob === false && (
@@ -4033,7 +4033,7 @@ export default function Dashboard() {
                       {takingNewJob === true && newJobTeam && !newJobPosition && (
                         <div className="ml-13 pl-10">
                           <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                            New team: <strong>{teamAbbreviations[newJobTeam]?.name || newJobTeam}</strong>
+                            New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
                           </p>
                           <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
                           <div className="flex gap-2 flex-wrap">
@@ -4308,7 +4308,7 @@ export default function Dashboard() {
                             </div>
                             {takingNewJob === true && newJobTeam && newJobPosition && (
                               <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#16a34a', opacity: 0.85 }}>
-                                ✓ {newJobPosition} at {teamAbbreviations[newJobTeam]?.name || newJobTeam}
+                                ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                               </div>
                             )}
                             {takingNewJob === false && (
@@ -4388,7 +4388,7 @@ export default function Dashboard() {
                       {takingNewJob === true && newJobTeam && !newJobPosition && (
                         <div className="ml-13 pl-10">
                           <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                            New team: <strong>{teamAbbreviations[newJobTeam]?.name || newJobTeam}</strong>
+                            New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
                           </p>
                           <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
                           <div className="flex gap-2 flex-wrap">
@@ -5405,7 +5405,7 @@ export default function Dashboard() {
                           </div>
                           {takingNewJob === true && newJobTeam && newJobPosition && (
                             <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
-                              ✓ {newJobPosition} at {teamAbbreviations[newJobTeam]?.name || newJobTeam}
+                              ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                             </div>
                           )}
                           {takingNewJob === false && (
@@ -5485,7 +5485,7 @@ export default function Dashboard() {
                     {takingNewJob === true && newJobTeam && !newJobPosition && (
                       <div className="ml-13 pl-10">
                         <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                          New team: <strong>{teamAbbreviations[newJobTeam]?.name || newJobTeam}</strong>
+                          New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
                         </p>
                         <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
                         <div className="flex gap-2 flex-wrap">

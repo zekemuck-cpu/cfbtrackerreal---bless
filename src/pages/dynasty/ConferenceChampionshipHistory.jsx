@@ -3,14 +3,19 @@ import { useParams, Link } from 'react-router-dom'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 // GameDetailModal removed - now using game pages instead
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide', 'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',
@@ -305,8 +310,8 @@ export default function ConferenceChampionshipHistory() {
                       const winner = getWinner(game)
                       const team1Info = teamAbbreviations[game.team1]
                       const team2Info = teamAbbreviations[game.team2]
-                      const team1Mascot = getMascotName(game.team1)
-                      const team2Mascot = getMascotName(game.team2)
+                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
+                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
                       const team1Logo = team1Mascot ? getTeamLogo(team1Mascot) : null
                       const team2Logo = team2Mascot ? getTeamLogo(team2Mascot) : null
                       const team1Colors = team1Mascot ? getTeamColors(team1Mascot) : { primary: '#666', secondary: '#fff' }

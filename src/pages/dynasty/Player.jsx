@@ -4,7 +4,7 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
@@ -13,7 +13,12 @@ import OverallProgressionModal from '../../components/OverallProgressionModal'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide', 'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats', 'ARK': 'Arkansas Razorbacks',
@@ -231,9 +236,8 @@ export default function Player() {
     ? departureMovement?.from
     : null
 
-  // Get the full team name from the abbreviation
-  const playerTeamName = getMascotName(playerTeamAbbr)
-    || teamAbbreviations[playerTeamAbbr]?.name
+  // Get the full team name from the abbreviation (pass teams for tid-based lookup)
+  const playerTeamName = getMascotName(playerTeamAbbr, dynasty?.teams || dynasty?.customTeams)
     || dynasty?.teamName
     || ''
 
@@ -303,7 +307,7 @@ export default function Player() {
     setShowAccoladeModal(true)
   }
 
-  const getTeamNameFromAbbr = (abbr) => teamAbbreviations[abbr]?.name || abbr
+  const getTeamNameFromAbbr = (abbr) => getMascotName(abbr, dynasty?.teams || dynasty?.customTeams) || abbr
 
   // Get all games where this player has box score stats
   // Simple: if the player is in a box score, include the game
@@ -756,7 +760,7 @@ export default function Player() {
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {gameLog.map((game, idx) => {
-                      const oppMascot = getMascotName(game.opponent)
+                      const oppMascot = getMascotName(game.opponent, dynasty?.teams || dynasty?.customTeams)
                       const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
                       const isWin = game.result === 'win' || game.result === 'W'
                       return (
@@ -974,8 +978,9 @@ export default function Player() {
             {/* Transfer badge - show where player transferred FROM */}
             {transferredFromTeam && (() => {
               // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
-              const prevTeamName = getMascotName(transferredFromTeam) || teamAbbreviations[transferredFromTeam]?.name || transferredFromTeam
-              const prevTeamColors = getTeamColors(prevTeamName) || { primary: '#4b5563', secondary: '#6b7280' }
+              const teamsData = dynasty?.teams || dynasty?.customTeams
+              const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
+              const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
               const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
               return (
                 <Link
@@ -984,9 +989,9 @@ export default function Player() {
                   style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                 >
                   <span>←</span>
-                  {getTeamLogo(prevTeamName) && (
+                  {getTeamLogo(prevTeamName, teamsData) && (
                     <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
-                      <img src={getTeamLogo(prevTeamName)} alt="" className="w-full h-full object-contain" />
+                      <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
                   <span>{transferredFromTeam}</span>
@@ -1153,8 +1158,9 @@ export default function Player() {
                 {/* Transfer badge - show where player transferred FROM */}
                 {transferredFromTeam && (() => {
                   // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
-                  const prevTeamName = getMascotName(transferredFromTeam) || teamAbbreviations[transferredFromTeam]?.name || transferredFromTeam
-                  const prevTeamColors = getTeamColors(prevTeamName) || { primary: '#4b5563', secondary: '#6b7280' }
+                  const teamsData = dynasty?.teams || dynasty?.customTeams
+                  const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
+                  const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
                   const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
                   return (
                     <Link
@@ -1163,9 +1169,9 @@ export default function Player() {
                       style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                     >
                       <span>←</span>
-                      {getTeamLogo(prevTeamName) && (
+                      {getTeamLogo(prevTeamName, teamsData) && (
                         <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
-                          <img src={getTeamLogo(prevTeamName)} alt="" className="w-full h-full object-contain" />
+                          <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                         </div>
                       )}
                       <span>{transferredFromTeam}</span>
@@ -1373,9 +1379,24 @@ export default function Player() {
             </h3>
             <div className="flex flex-wrap gap-2 mb-4">
               {timelineEntries.map((entry, idx) => {
-                const displayTeam = entry.to || entry.from || entry.team
-                const mascot = displayTeam ? getMascotName(displayTeam) : null
-                const logo = mascot ? getTeamLogo(mascot) : null
+                const teamsData = dynasty?.teams || dynasty?.customTeams
+                const toTeamName = entry.to ? getMascotName(entry.to, teamsData) : null
+                const fromTeamName = entry.from ? getMascotName(entry.from, teamsData) : null
+                const teamName = entry.team ? getMascotName(entry.team, teamsData) : null
+                const displayTeamName = toTeamName || fromTeamName || teamName
+                const logo = displayTeamName ? getTeamLogo(displayTeamName) : null
+
+                // Build team display string based on movement type
+                let teamDisplay = ''
+                if (entry.type === 'recruited' || entry.type === 'portal_in' || entry.type === 'juco_in' || entry.type === 'added') {
+                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
+                } else if (entry.type === 'transfer' || entry.type === 'encouraged_transfer') {
+                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
+                } else if (entry.type === 'entered_portal' || entry.type === 'departure') {
+                  teamDisplay = fromTeamName ? ` from ${fromTeamName}` : ''
+                } else if (entry.type === 'recommit') {
+                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
+                }
 
                 return (
                   <div
@@ -1385,7 +1406,7 @@ export default function Player() {
                   >
                     {logo && <img src={logo} alt="" className="w-3.5 h-3.5 object-contain" />}
                     <span style={{ color: secondaryText }}>
-                      {getMovementLabel(entry)}
+                      {getMovementLabel(entry)}{teamDisplay}
                       {entry.draftRound && ` (Rd ${entry.draftRound})`}
                     </span>
                     <span style={{ color: secondaryText, opacity: 0.5 }}>·</span>
@@ -1456,7 +1477,7 @@ export default function Player() {
                 const prevTeamAbbr = getAbbrFromTeamName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam
                 // The year they transferred is their recruit/start year
                 const transferYear = player.recruitYear || player.yearStarted || dynasty?.currentYear
-                const prevTeamLogo = getTeamLogo(getMascotName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam)
+                const prevTeamLogo = getTeamLogo(getMascotName(recruitmentInfo.previousTeam, dynasty?.teams || dynasty?.customTeams) || recruitmentInfo.previousTeam)
 
                 return (
                   <div className="text-sm flex items-center gap-1.5" style={{ color: primaryText }}>
@@ -1557,7 +1578,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {passingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -1667,7 +1688,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {rushingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 11 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -1769,7 +1790,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {receivingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 10 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -1860,7 +1881,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {blockingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 4 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -1951,7 +1972,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {defenseYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 14 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -2059,7 +2080,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {kickingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 10 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -2157,7 +2178,7 @@ export default function Player() {
                       <tbody className="divide-y divide-gray-100">
                         {puntingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                           const logo = mascot ? getTeamLogo(mascot) : null
                           const colSpan = 9 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -2248,7 +2269,7 @@ export default function Player() {
                   <tbody className="divide-y divide-gray-100">
                     {kickReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                       const logo = mascot ? getTeamLogo(mascot) : null
                       const colSpan = 8
                       return (
@@ -2333,7 +2354,7 @@ export default function Player() {
                   <tbody className="divide-y divide-gray-100">
                     {puntReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
-                          const mascot = getMascotName(rowTeam)
+                          const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
                       const logo = mascot ? getTeamLogo(mascot) : null
                       const colSpan = 8
                       return (
@@ -2730,12 +2751,12 @@ export default function Player() {
 
             <div className="p-4 space-y-2">
               {(accoladeType === 'confPOW' ? powHonors.confPOWGames : powHonors.nationalPOWGames).map((game, index) => {
-                const mascotName = getMascotName(game.opponent)
-                const opponentName = mascotName || getTeamNameFromAbbr(game.opponent)
-                const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
-                const opponentColors = getTeamColors(opponentName) || { primary: '#333', secondary: '#fff' }
-                const opponentBgColor = teamAbbreviations[game.opponent]?.backgroundColor || opponentColors.primary || '#333'
-                const opponentTextColor = teamAbbreviations[game.opponent]?.textColor || getContrastTextColor(opponentBgColor)
+                const teamsData = dynasty?.teams || dynasty?.customTeams
+                const opponentName = getMascotName(game.opponent, teamsData) || game.opponent
+                const opponentLogo = getTeamLogo(opponentName, teamsData)
+                const opponentColors = getTeamColors(opponentName, teamsData) || { primary: '#333', secondary: '#fff' }
+                const opponentBgColor = opponentColors.primary || '#333'
+                const opponentTextColor = getContrastTextColor(opponentBgColor)
                 const isWin = game.result === 'win' || game.result === 'W'
 
                 return (
@@ -2825,12 +2846,12 @@ export default function Player() {
 
             <div className="p-4 space-y-2 overflow-y-auto flex-1">
               {playerGameLog.map(({ game, stats }, index) => {
-                const mascotName = getMascotName(game.opponent)
-                const opponentName = mascotName || getTeamNameFromAbbr(game.opponent)
-                const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
-                const opponentColors = getTeamColors(opponentName) || { primary: '#333', secondary: '#fff' }
-                const opponentBgColor = teamAbbreviations[game.opponent]?.backgroundColor || opponentColors.primary || '#333'
-                const opponentTextColor = teamAbbreviations[game.opponent]?.textColor || getContrastTextColor(opponentBgColor)
+                const teamsData = dynasty?.teams || dynasty?.customTeams
+                const opponentName = getMascotName(game.opponent, teamsData) || game.opponent
+                const opponentLogo = getTeamLogo(opponentName, teamsData)
+                const opponentColors = getTeamColors(opponentName, teamsData) || { primary: '#333', secondary: '#fff' }
+                const opponentBgColor = opponentColors.primary || '#333'
+                const opponentTextColor = getContrastTextColor(opponentBgColor)
                 const isWin = game.result === 'win' || game.result === 'W'
 
                 // Format stats based on category

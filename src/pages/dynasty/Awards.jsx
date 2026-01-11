@@ -5,12 +5,17 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -286,7 +291,7 @@ export default function Awards() {
   const AwardCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey] || { name: awardKey, icon: 'star', category: 'player' }
     const teamInfo = teamAbbreviations[awardData.team] || {}
-    const mascotName = getMascotName(awardData.team)
+    const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName) : null
     const bgColor = teamInfo.backgroundColor || '#6B7280'
     const textColor = getContrastTextColor(bgColor)

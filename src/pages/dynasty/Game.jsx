@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
@@ -18,7 +18,14 @@ import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../da
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 
 // Map abbreviations to mascot names for logo lookup
-function getMascotName(abbr) {
+// Accepts optional teamsData for tid-based teambuilder support
+function getMascotName(abbr, teamsData = null) {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
+  // Fallback to hardcoded map
   const mascotMap = {
     'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips', 'BAMA': 'Alabama Crimson Tide',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',
@@ -98,31 +105,37 @@ function getMascotName(abbr) {
 }
 
 // Robust logo lookup that tries multiple methods
-function getTeamLogoRobust(teamInput) {
+function getTeamLogoRobust(teamInput, teamsData = null) {
   if (!teamInput) return null
 
-  // 1. Try direct lookup (if teamInput is already a full mascot name)
-  let logo = getTeamLogo(teamInput)
-  if (logo) return logo
-
-  // 2. Try as abbreviation via getMascotName
-  const mascotName = getMascotName(teamInput)
-  if (mascotName) {
-    logo = getTeamLogo(mascotName)
+  // 1. Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const logo = getTeamLogo(teamInput, teamsData)
     if (logo) return logo
   }
 
-  // 3. Try uppercase abbreviation (handle case sensitivity)
+  // 2. Try direct lookup (if teamInput is already a full mascot name)
+  let logo = getTeamLogo(teamInput)
+  if (logo) return logo
+
+  // 3. Try as abbreviation via getMascotName
+  const mascotName = getMascotName(teamInput, teamsData)
+  if (mascotName) {
+    logo = getTeamLogo(mascotName, teamsData)
+    if (logo) return logo
+  }
+
+  // 4. Try uppercase abbreviation (handle case sensitivity)
   const upperInput = teamInput.toUpperCase()
   if (upperInput !== teamInput) {
-    const mascotNameUpper = getMascotName(upperInput)
+    const mascotNameUpper = getMascotName(upperInput, teamsData)
     if (mascotNameUpper) {
-      logo = getTeamLogo(mascotNameUpper)
+      logo = getTeamLogo(mascotNameUpper, teamsData)
       if (logo) return logo
     }
   }
 
-  // 4. Try looking up in teamAbbreviations map directly
+  // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
     logo = getTeamLogo(teamData.name)
@@ -135,34 +148,40 @@ function getTeamLogoRobust(teamInput) {
 // Robust color lookup that tries multiple methods
 // Note: getTeamColors returns a default orange (#ea580c) for unknown teams,
 // so we need to check if the result is actually a known team's colors
-function getTeamColorsRobust(teamInput) {
+function getTeamColorsRobust(teamInput, teamsData = null) {
   if (!teamInput) return null
 
   // Helper to check if colors are the default fallback (orange)
   const isDefaultColors = (colors) => colors?.primary === '#ea580c'
 
-  // 1. Try direct lookup (if teamInput is already a full mascot name)
-  let colors = getTeamColors(teamInput)
-  if (colors && !isDefaultColors(colors)) return colors
-
-  // 2. Try as abbreviation via getMascotName
-  const mascotName = getMascotName(teamInput)
-  if (mascotName) {
-    colors = getTeamColors(mascotName)
+  // 1. Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const colors = getTeamColors(teamInput, teamsData)
     if (colors && !isDefaultColors(colors)) return colors
   }
 
-  // 3. Try uppercase abbreviation (handle case sensitivity)
+  // 2. Try direct lookup (if teamInput is already a full mascot name)
+  let colors = getTeamColors(teamInput)
+  if (colors && !isDefaultColors(colors)) return colors
+
+  // 3. Try as abbreviation via getMascotName
+  const mascotName = getMascotName(teamInput, teamsData)
+  if (mascotName) {
+    colors = getTeamColors(mascotName, teamsData)
+    if (colors && !isDefaultColors(colors)) return colors
+  }
+
+  // 4. Try uppercase abbreviation (handle case sensitivity)
   const upperInput = teamInput.toUpperCase()
   if (upperInput !== teamInput) {
-    const mascotNameUpper = getMascotName(upperInput)
+    const mascotNameUpper = getMascotName(upperInput, teamsData)
     if (mascotNameUpper) {
-      colors = getTeamColors(mascotNameUpper)
+      colors = getTeamColors(mascotNameUpper, teamsData)
       if (colors && !isDefaultColors(colors)) return colors
     }
   }
 
-  // 4. Try looking up in teamAbbreviations map directly
+  // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
     colors = getTeamColors(teamData.name)
@@ -532,7 +551,7 @@ export default function Game() {
     })()
 
     displayTeamAbbr = viewingAbbr
-    displayTeam = getMascotName(displayTeamAbbr) || displayTeamAbbr
+    displayTeam = getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
 
     // Determine opponent based on which team is being displayed
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
@@ -542,7 +561,7 @@ export default function Game() {
 
     const isDisplayTeam1 = displayTeamAbbr === team1Abbr
     opponentAbbr = isDisplayTeam1 ? team2Abbr : team1Abbr
-    opponent = getMascotName(opponentAbbr) || opponentAbbr
+    opponent = getMascotName(opponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || opponentAbbr
 
     // Get scores for display team perspective
     userScore = isDisplayTeam1 ? game.team1Score : game.team2Score
@@ -560,9 +579,9 @@ export default function Game() {
     const oppTeamInfo = getGameTeamInfo(teams, perspective.opponentTid)
 
     displayTeamAbbr = userTeamInfo?.abbr || getCurrentTeamAbbr(currentDynasty)
-    displayTeam = userTeamInfo?.name || getMascotName(displayTeamAbbr) || displayTeamAbbr
+    displayTeam = userTeamInfo?.name || getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
     opponentAbbr = oppTeamInfo?.abbr || game.opponent
-    opponent = oppTeamInfo?.name || getMascotName(opponentAbbr) || opponentAbbr
+    opponent = oppTeamInfo?.name || getMascotName(opponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || opponentAbbr
 
     // Get scores from perspective
     userScore = perspective.userScore
@@ -645,7 +664,18 @@ export default function Game() {
     const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
     return videoIdMatch ? `https://www.youtube.com/embed/${videoIdMatch[1]}` : null
   }
-  const isImageLink = (url) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || url.includes('imgur.com')
+
+  // Imgur album/gallery links (not direct images)
+  const isImgurAlbumLink = (url) => /imgur\.com\/(a|gallery)\//.test(url)
+
+  // Direct image links (including i.imgur.com direct images, but NOT album pages)
+  const isImageLink = (url) => {
+    // Direct image file extensions
+    if (/\.(jpg|jpeg|png|gif|webp)$/i.test(url)) return true
+    // i.imgur.com direct image links (like i.imgur.com/XXX.jpg or i.imgur.com/XXX without extension)
+    if (/i\.imgur\.com\/[a-zA-Z0-9]+/.test(url) && !url.includes('/a/') && !url.includes('/gallery/')) return true
+    return false
+  }
 
   // Determine team positions (away vs home)
   // For user games, use perspective. For CPU games, use homeTeamTid or default to team1
@@ -1327,7 +1357,7 @@ export default function Game() {
                       <Link to={`${pathPrefix}/team/${resolveTid(boxScoreHomeTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
-                            src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr) || boxScoreHomeTeamData.abbr)}
+                            src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreHomeTeamData.abbr)}
                             alt={boxScoreHomeTeamData.name}
                             className="w-full h-full object-contain"
                           />
@@ -1402,7 +1432,7 @@ export default function Game() {
                       <Link to={`${pathPrefix}/team/${resolveTid(boxScoreAwayTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
-                            src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr) || boxScoreAwayTeamData.abbr)}
+                            src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreAwayTeamData.abbr)}
                             alt={boxScoreAwayTeamData.name}
                             className="w-full h-full object-contain"
                           />
@@ -1583,7 +1613,7 @@ export default function Game() {
                           {/* Team logo */}
                           <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-800/50">
                             <img
-                              src={getTeamLogo(getMascotName(play.team) || play.team)}
+                              src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
                               alt={play.team}
                               className="w-7 h-7 object-contain"
                             />
@@ -1595,7 +1625,7 @@ export default function Game() {
                                 to={`${pathPrefix}/team/${resolveTid(play.team, currentDynasty?.teams || TEAMS)}/${game.year}`}
                                 className="font-bold text-sm text-white hover:underline"
                               >
-                                {getMascotName(play.team) || play.team}
+                                {getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team}
                               </Link>
                               <span className="text-gray-400 text-sm">
                                 {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
@@ -1762,14 +1792,14 @@ export default function Game() {
                   <img src={getTeamLogoRobust(awayTeamAbbrForLink)} alt="" className="w-6 h-6 object-contain group-hover:scale-105 transition-transform" />
                 )}
                 <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(awayTeamAbbrForLink) || awayTeamAbbrForLink}</span>
+                  <span className="hidden sm:inline">{getMascotName(awayTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || awayTeamAbbrForLink}</span>
                   <span className="sm:hidden">{awayTeamAbbrForLink}</span>
                 </span>
               </Link>
               <div className="w-28 text-center text-xs font-bold text-gray-400 uppercase">Stat</div>
               <Link to={`${pathPrefix}/team/${resolveTid(homeTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
                 <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink) || homeTeamAbbrForLink}</span>
+                  <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || homeTeamAbbrForLink}</span>
                   <span className="sm:hidden">{homeTeamAbbrForLink}</span>
                 </span>
                 {getTeamLogoRobust(homeTeamAbbrForLink) && (
@@ -2029,6 +2059,35 @@ export default function Game() {
                       className="w-full h-full"
                     ></iframe>
                   </div>
+                )
+              } else if (isImgurAlbumLink(link)) {
+                // Imgur album/gallery - show as a styled link card (can't embed due to X-Frame-Options)
+                return (
+                  <a
+                    key={index}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 bg-gray-800 rounded-xl hover:bg-gray-750 transition-colors group ring-1 ring-gray-700"
+                  >
+                    {/* Imgur logo/icon */}
+                    <div className="w-14 h-14 rounded-xl bg-[#1BB76E] flex items-center justify-center flex-shrink-0">
+                      <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium group-hover:text-green-400 transition-colors">
+                        Imgur Album
+                      </div>
+                      <div className="text-sm text-gray-400 truncate">
+                        {link}
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
                 )
               } else if (isImageLink(link)) {
                 return (

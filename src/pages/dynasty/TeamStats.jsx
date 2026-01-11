@@ -8,7 +8,7 @@ import TeamStatsModal from '../../components/TeamStatsModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 // Stats are read directly from player.statsByYear (single source of truth)
 
 // Mapping from internal format (player.statsByYear) to box score display format
@@ -191,7 +191,14 @@ const mascotMap = {
   'UL': 'Lafayette Ragin\' Cajuns', 'UT': 'Tennessee Volunteers'
 }
 
-const getMascotName = (abbr) => mascotMap[abbr] || null
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
+  return mascotMap[abbr] || null
+}
 
 const getTeamColorsFromAbbr = (abbr, teamsSource) => {
   const team = getTeamByAbbr(teamsSource, abbr)
@@ -299,8 +306,8 @@ export default function TeamStats() {
       }
     })
     return Array.from(teamSet).sort((a, b) => {
-      const nameA = getMascotName(a) || a
-      const nameB = getMascotName(b) || b
+      const nameA = getMascotName(a, teamsRef) || a
+      const nameB = getMascotName(b, teamsRef) || b
       return nameA.localeCompare(nameB)
     })
   }, [currentDynasty, currentTeamAbbr, teamsRef])
@@ -1191,7 +1198,7 @@ export default function TeamStats() {
             >
               {availableTeams.map(team => (
                 <option key={team} value={team} className="text-gray-900">
-                  {getMascotName(team) || team}
+                  {getMascotName(team, teamsSource) || team}
                 </option>
               ))}
             </select>
@@ -1268,7 +1275,7 @@ export default function TeamStats() {
               >
                 {availableTeams.map(team => (
                   <option key={team} value={team} className="text-gray-900">
-                    {getMascotName(team) || team}
+                    {getMascotName(team, teamsSource) || team}
                   </option>
                 ))}
               </select>
@@ -1599,7 +1606,7 @@ export default function TeamStats() {
                     ? getGameTeamInfo(teamsSource, game.perspective.opponentTid)
                     : null
                   const oppAbbr = oppInfo?.abbr || game.opponent
-                  const oppMascot = getMascotName(oppAbbr)
+                  const oppMascot = getMascotName(oppAbbr, teamsSource)
                   const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
                   const won = isWin(game)
                   const lost = isLoss(game)

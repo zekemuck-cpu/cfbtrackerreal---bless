@@ -282,24 +282,63 @@ export const teams = [
   "Wyoming Cowboys"
 ]
 
-// Helper function to get mascot/full team name from abbreviation (checks teambuilder teams first)
-export function getMascotName(abbr, customTeams = null) {
-  if (!abbr) return null
+// Helper to detect if teams object is tid-based (keys are numbers)
+function isTidBasedTeamsLocal(teams) {
+  if (!teams) return false
+  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
+}
+
+// Helper function to get mascot/full team name from abbreviation or tid (checks teambuilder teams first)
+export function getMascotName(abbrOrTid, teamsOrCustomTeams = null) {
+  if (abbrOrTid == null) return null
+
+  // Handle tid (number) - look up directly in teams
+  if (typeof abbrOrTid === 'number' && teamsOrCustomTeams) {
+    const team = teamsOrCustomTeams[abbrOrTid]
+    if (team) return team.name || null
+    // Fall through to check if it might be a string-formatted tid
+  }
+
+  // Handle string-formatted tid (e.g., "45")
+  if (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid) && teamsOrCustomTeams) {
+    const tid = parseInt(abbrOrTid, 10)
+    const team = teamsOrCustomTeams[tid]
+    if (team) return team.name || null
+  }
+
+  // Convert to string for abbreviation lookup
+  const abbr = String(abbrOrTid)
+  const upperAbbr = abbr.toUpperCase()
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeamsLocal(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.abbr?.toUpperCase() === upperAbbr) {
+        return team.name || null
+      }
+    }
+    // Fall through to static lookup
+  }
+
+  // Legacy customTeams structure (abbr-keyed)
+  const customTeams = teamsOrCustomTeams
 
   // Check if this IS a teambuilder team abbreviation
-  if (customTeams?.[abbr.toUpperCase()]) {
-    return customTeams[abbr.toUpperCase()].name
+  if (customTeams?.[upperAbbr]) {
+    return customTeams[upperAbbr].name
   }
 
   // Check if this abbreviation was replaced by a teambuilder team
   if (customTeams) {
-    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr.toUpperCase())
+    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === upperAbbr)
     if (teambuilderTeam) {
       return teambuilderTeam.name
     }
   }
 
-  const teamData = teamAbbreviations[abbr.toUpperCase()]
+  const teamData = teamAbbreviations[upperAbbr]
   return teamData?.name || null
 }
 

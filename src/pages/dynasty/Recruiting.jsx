@@ -8,7 +8,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
 import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName } from '../../data/teams'
 
 // Star display helper
 const StarRating = ({ stars, size = 'md' }) => {
@@ -917,9 +917,10 @@ export default function Recruiting() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCommitments.map((recruit, index) => {
               const player = findPlayerByName(recruit.name, recruit.recruitYear)
-              const transferTeamFullName = recruit.previousTeam ? (teamAbbreviations[recruit.previousTeam]?.name || recruit.previousTeam) : null
-              const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName) : null
-              const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName) : null
+              const teamsData = dynasty?.teams || dynasty?.customTeams
+              const transferTeamFullName = recruit.previousTeam ? (getMascotName(recruit.previousTeam, teamsData) || recruit.previousTeam) : null
+              const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName, teamsData) : null
+              const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName, teamsData) : null
 
               const cardContent = (
                 <div

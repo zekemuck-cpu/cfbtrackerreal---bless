@@ -6,7 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 
 // Map abbreviations to mascot names for logo lookup
@@ -65,7 +65,12 @@ const mascotMap = {
   'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
 }
 
-const getMascotName = (opponent) => {
+const getMascotName = (opponent, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(opponent, teamsData)
+    if (result) return result
+  }
   // Try direct lookup first (for abbreviations)
   if (mascotMap[opponent]) return mascotMap[opponent]
   // If opponent is already a full name, return it if it exists in reverse lookup
@@ -74,15 +79,19 @@ const getMascotName = (opponent) => {
   return null
 }
 
-const getOpponentColors = (opponent) => {
-  // Try direct lookup first (for abbreviations)
+const getOpponentColors = (opponent, teamsData = null) => {
+  // Try tid-based lookup first
+  if (teamsData) {
+    const colors = getTeamColorsByAbbr(opponent, teamsData)
+    if (colors) {
+      return { backgroundColor: colors.primary, textColor: colors.secondary }
+    }
+  }
+  // Fallback to static lookup
   let team = teamAbbreviations[opponent]
-  // If not found, try to get abbreviation from display name
   if (!team) {
     const abbr = getAbbrFromTeamName(opponent)
-    if (abbr) {
-      team = teamAbbreviations[abbr]
-    }
+    if (abbr) team = teamAbbreviations[abbr]
   }
   return {
     backgroundColor: team?.backgroundColor || '#4B5563',
@@ -91,19 +100,12 @@ const getOpponentColors = (opponent) => {
 }
 
 // Get team colors from team name
-const getTeamColorsFromName = (teamName) => {
+const getTeamColorsFromName = (teamName, teamsData = null) => {
   if (!teamName) return { primary: '#4B5563', secondary: '#FFFFFF' }
   try {
-    const colors = getTeamColors(teamName)
+    // Try tid-based lookup first
+    const colors = getTeamColors(teamName, teamsData)
     if (colors) return colors
-    // Try to find via abbreviation
-    const abbr = getAbbrFromTeamName(teamName)
-    if (abbr && teamAbbreviations[abbr]) {
-      return {
-        primary: teamAbbreviations[abbr].backgroundColor || '#4B5563',
-        secondary: teamAbbreviations[abbr].textColor || '#FFFFFF'
-      }
-    }
   } catch (e) {
     console.error('Error getting team colors:', e)
   }
@@ -212,11 +214,11 @@ export default function CoachCareer() {
     })
 
     // Get team full names from abbreviations
+    const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
     const getTeamFullName = (abbr) => {
-      const mascot = getMascotName(abbr)
+      // Try tid-based lookup first
+      const mascot = getMascotName(abbr, teamsData)
       if (mascot) return mascot
-      // Check teamAbbreviations for the name
-      if (teamAbbreviations[abbr]?.name) return teamAbbreviations[abbr].name
       return abbr
     }
 
@@ -437,10 +439,11 @@ export default function CoachCareer() {
       {/* Coaching Stints - reverse order so current team is first */}
       {(Array.isArray(coachingHistory) ? [...coachingHistory].reverse() : []).map((stint, index) => {
         if (!stint) return null
-        const stintColors = getTeamColorsFromName(stint.teamName)
+        const teamsData = dynasty?.teams || dynasty?.customTeams
+        const stintColors = getTeamColorsFromName(stint.teamName, teamsData)
         const stintPrimaryText = getContrastTextColor(stintColors?.primary || '#4B5563')
         const stintSecondaryText = getContrastTextColor(stintColors?.secondary || '#FFFFFF')
-        const stintLogo = getTeamLogo(stint.teamName)
+        const stintLogo = getTeamLogo(stint.teamName, teamsData)
         // For current team, show "Present" instead of end year
         const yearRange = stint.isCurrent
           ? (stint.startYear === stint.endYear ? `${stint.startYear}` : `${stint.startYear} - Present`)
@@ -884,12 +887,12 @@ export default function CoachCareer() {
                       <div className="space-y-2">
                         {yearGames.map((game, index) => {
                           // Get opponent info from perspective (unified format)
-                          const opponentInfo = game.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, game.perspective.opponentTid) : null
+                          const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+                          const opponentInfo = game.perspective?.opponentTid ? getGameTeamInfo(teamsData || TEAMS, game.perspective.opponentTid) : null
                           const opponentAbbr = opponentInfo?.abbr || ''
-                          const opponentColors = getOpponentColors(opponentAbbr)
-                          const mascotName = getMascotName(opponentAbbr)
-                          const opponentName = mascotName || opponentInfo?.name || 'Unknown'
-                          const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
+                          const opponentColors = getOpponentColors(opponentAbbr, teamsData)
+                          const opponentName = opponentInfo?.name || getMascotName(opponentAbbr, teamsData) || 'Unknown'
+                          const opponentLogo = getTeamLogo(opponentName, teamsData)
                           const gameIsWin = isWin(game)
                           const isAway = game.perspective?.isAway
 

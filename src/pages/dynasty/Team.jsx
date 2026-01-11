@@ -6,11 +6,16 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, resolveTid, getAbbrFromTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -1492,7 +1497,7 @@ export default function Team() {
                     const userTeamInfo = teamAbbreviations[userTeamForGame] || {}
                     const userTeamBgColor = userTeamInfoFromPerspective?.primaryColor || userTeamInfo.backgroundColor || '#4B5563'
                     const userTeamTextColor = getContrastTextColor(userTeamBgColor)
-                    const userTeamMascotName = getMascotName(userTeamForGame)
+                    const userTeamMascotName = getMascotName(userTeamForGame, teamsSource)
                     const userTeamLogo = userTeamMascotName ? getTeamLogo(userTeamMascotName) : null
 
                     // Get scores from perspective or legacy fields
@@ -1631,7 +1636,7 @@ export default function Team() {
                               const oppInfo = teamAbbreviations[oppAbbr] || {}
                               const oppBgColor = oppTeamInfo?.primaryColor || oppInfo.backgroundColor || '#4B5563'
                               const oppTextColor = getContrastTextColor(oppBgColor)
-                              const oppMascotName = getMascotName(oppAbbr)
+                              const oppMascotName = getMascotName(oppAbbr, teamsSource)
                               const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                               // Get scores from perspective or legacy fields
@@ -1798,7 +1803,7 @@ export default function Team() {
                   const oppInfo = teamAbbreviations[oppAbbr] || {}
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
-                  const oppMascotName = getMascotName(title.opponent)
+                  const oppMascotName = getMascotName(title.opponent, teamsSource)
                   const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                   return (
@@ -1891,7 +1896,7 @@ export default function Team() {
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
                   // Try mascot name from abbreviation first, then from full name, then use opponent as-is
-                  const oppMascotName = getMascotName(oppAbbr) || getMascotName(game.opponent) || (game.opponent?.includes(' ') ? game.opponent : null)
+                  const oppMascotName = getMascotName(oppAbbr, teamsSource) || getMascotName(game.opponent, teamsSource) || (game.opponent?.includes(' ') ? game.opponent : null)
                   const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                   return (
@@ -2006,7 +2011,7 @@ export default function Team() {
                           const oppInfo = teamAbbreviations[oppAbbr] || {}
                           const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                           const oppTextColor = getContrastTextColor(oppBgColor)
-                          const oppMascotName = getMascotName(game.opponent)
+                          const oppMascotName = getMascotName(game.opponent, teamsSource)
                           const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                           return (
@@ -2096,7 +2101,7 @@ export default function Team() {
                   const oppInfo = teamAbbreviations[oppAbbr] || {}
                   const oppBgColor = oppInfo.backgroundColor || '#4B5563'
                   const oppTextColor = getContrastTextColor(oppBgColor)
-                  const oppMascotName = getMascotName(title.opponent)
+                  const oppMascotName = getMascotName(title.opponent, teamsSource)
                   const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                   return (
@@ -2266,7 +2271,7 @@ export default function Team() {
                     const oppInfo = teamAbbreviations[oppAbbr] || {}
                     const oppBgColor = oppTeamInfo?.primaryColor || oppInfo.backgroundColor || '#4B5563'
                     const oppTextColor = getContrastTextColor(oppBgColor)
-                    const oppMascotName = getMascotName(oppAbbr)
+                    const oppMascotName = getMascotName(oppAbbr, teamsSource)
                     const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
                     // Get scores from perspective or legacy fields

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { getTeamLogo } from '../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
@@ -308,6 +308,9 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Map abbreviations to mascot names for logo lookup
   function getMascotName(abbr) {
+    // Try tid-based lookup first
+    const result = getMascotNameFromTeams(abbr, teams)
+    if (result) return result
     const mascotMap = {
       'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips', 'BAMA': 'Alabama Crimson Tide',
       'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',

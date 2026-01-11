@@ -178,8 +178,31 @@ export function getTeamByAbbreviation(abbr, customTeams = null) {
   return teamAbbreviations[abbr] || null
 }
 
+// Helper to detect if teams object is tid-based (keys are numbers)
+function isTidBasedTeamsLocal(teams) {
+  if (!teams) return false
+  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
+}
+
 // Convert abbreviation to full name (checks teambuilder teams first)
-export function getTeamName(abbr, customTeams = null) {
+export function getTeamName(abbr, teamsOrCustomTeams = null) {
+  if (!abbr) return abbr
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeamsLocal(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.abbr?.toUpperCase() === abbr.toUpperCase()) {
+        return team.name || abbr
+      }
+    }
+    // Fall through to static lookup
+  }
+
+  // Legacy customTeams structure (abbr-keyed)
+  const customTeams = teamsOrCustomTeams
+
   // Check if this IS a teambuilder team abbreviation
   if (customTeams?.[abbr]) {
     return customTeams[abbr].name

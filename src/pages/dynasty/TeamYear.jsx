@@ -11,10 +11,17 @@ import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRou
 import GameEntryModal from '../../components/GameEntryModal'
 import RosterEditModal from '../../components/RosterEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+// Accepts optional teamsData for tid-based teambuilder support
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
+  // Fallback to hardcoded map
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -2583,7 +2590,7 @@ export default function TeamYear() {
 
               // Use tid-based lookup for opponent data (supports teambuilder teams)
               const oppTeam = getTeamByAbbr(teamsSource, displayOpponent)
-              const oppMascot = oppTeam?.name || getMascotName(displayOpponent)
+              const oppMascot = oppTeam?.name || getMascotName(displayOpponent, teamsSource)
               const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot) : null)
               const oppColors = oppTeam
                 ? { backgroundColor: oppTeam.primaryColor, textColor: oppTeam.secondaryColor }
@@ -2757,11 +2764,11 @@ export default function TeamYear() {
 
               // Use tid-based lookup for CC opponent data (supports teambuilder teams)
               const ccOppTeam = getTeamByAbbr(teamsSource, ccOpponentAbbr)
-              const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr) ? getTeamLogo(getMascotName(ccOpponentAbbr)) : null)
+              const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr, teamsSource) ? getTeamLogo(getMascotName(ccOpponentAbbr, teamsSource)) : null)
               const ccOppColors = ccOppTeam
                 ? { backgroundColor: ccOppTeam.primaryColor, textColor: ccOppTeam.secondaryColor }
                 : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const ccOpponentDisplayName = ccOppTeam?.name || getMascotName(ccOpponentAbbr) || ccOpponentAbbr
+              const ccOpponentDisplayName = ccOppTeam?.name || getMascotName(ccOpponentAbbr, teamsSource) || ccOpponentAbbr
 
               // Determine if we have a result
               const hasResult = teamCCGame && teamCCGame.team1Score !== null && teamCCGame.team2Score !== null
@@ -2880,11 +2887,11 @@ export default function TeamYear() {
               const bowlOpponentValue = bowlData.opponent
               // Use tid-based lookup for bowl opponent data (supports teambuilder teams)
               const bowlOppTeam = getTeamByAbbr(teamsSource, bowlOpponentValue)
-              const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue) ? getTeamLogo(getMascotName(bowlOpponentValue)) : null)
+              const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue, teamsSource) ? getTeamLogo(getMascotName(bowlOpponentValue, teamsSource)) : null)
               const oppColors = bowlOppTeam
                 ? { backgroundColor: bowlOppTeam.primaryColor, textColor: bowlOppTeam.secondaryColor }
                 : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const opponentDisplayName = bowlOppTeam?.name || getMascotName(bowlOpponentValue) || bowlOpponentValue
+              const opponentDisplayName = bowlOppTeam?.name || getMascotName(bowlOpponentValue, teamsSource) || bowlOpponentValue
 
               return (
                 <div
