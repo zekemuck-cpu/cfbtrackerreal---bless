@@ -250,6 +250,16 @@ export default function Layout({ children }) {
       }
     }
 
+    // In postseason, validate new job form is complete if user selected "Yes" to taking a new job
+    // This happens when advancing from postseason to offseason
+    if (currentDynasty.currentPhase === 'postseason') {
+      const newJobData = currentDynasty.newJobData
+      if (newJobData?.takingNewJob === true && (!newJobData.team || !newJobData.position)) {
+        alert('Please complete your new job selection (team and position) before advancing to the offseason.')
+        return
+      }
+    }
+
     // Check if advancing from offseason week 5 to week 6 (Signing Day - year flip and class progression)
     if (currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 5) {
       // Check for players needing class confirmation BEFORE class progression happens
