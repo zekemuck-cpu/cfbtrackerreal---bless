@@ -2311,52 +2311,59 @@ export function migrateToUserTeamSystem(dynasty) {
   if (!dynasty) return dynasty
   if (dynasty._userTeamSystemMigrated) return dynasty
 
-  let migrated = { ...dynasty }
+  try {
+    let migrated = { ...dynasty }
 
-  // Get current team tid
-  const currentTid = getCurrentTeamTid(migrated)
-  if (!currentTid) {
-    // Can't migrate without knowing the current team
-    return dynasty
-  }
+    // Get current team tid
+    const currentTid = getCurrentTeamTid(migrated)
+    if (!currentTid) {
+      // Can't migrate without knowing the current team - just mark as migrated
+      migrated._userTeamSystemMigrated = true
+      return migrated
+    }
 
-  // Get coach position (from dynasty.coachPosition or default to HC)
-  const coachPosition = migrated.coachPosition || 'HC'
+    // Get coach position (from dynasty.coachPosition or default to HC)
+    const coachPosition = migrated.coachPosition || 'HC'
 
-  // Update teams to set userId and coachPosition on current team
-  if (migrated.teams && migrated.teams[currentTid]) {
-    const existingTeam = migrated.teams[currentTid]
-    // Only set if not already set
-    if (existingTeam.userId !== 'currentUser') {
-      migrated.teams = {
-        ...migrated.teams,
-        [currentTid]: {
-          ...existingTeam,
-          userId: 'currentUser',
-          coachPosition: coachPosition
+    // Update teams to set userId and coachPosition on current team
+    if (migrated.teams && migrated.teams[currentTid]) {
+      const existingTeam = migrated.teams[currentTid]
+      // Only set if not already set
+      if (existingTeam.userId !== 'currentUser') {
+        migrated.teams = {
+          ...migrated.teams,
+          [currentTid]: {
+            ...existingTeam,
+            userId: 'currentUser',
+            coachPosition: coachPosition
+          }
         }
       }
     }
-  }
 
-  // Create coachCareer from coachTeamByYear if it doesn't exist
-  if (!migrated.coachCareer && migrated.coachTeamByYear) {
-    const coachCareer = []
-    for (const [yearStr, entry] of Object.entries(migrated.coachTeamByYear)) {
-      const year = Number(yearStr)
-      const tid = entry.tid || getTidFromAbbr(entry.team)
-      const position = entry.position || migrated.coachPosition || 'HC'
-      if (tid && !isNaN(year)) {
-        coachCareer.push({ year, tid, position })
+    // Create coachCareer from coachTeamByYear if it doesn't exist
+    if (!migrated.coachCareer && migrated.coachTeamByYear) {
+      const coachCareer = []
+      for (const [yearStr, entry] of Object.entries(migrated.coachTeamByYear)) {
+        const year = Number(yearStr)
+        const tid = entry.tid || getTidFromAbbr(entry.team)
+        const position = entry.position || migrated.coachPosition || 'HC'
+        if (tid && !isNaN(year)) {
+          coachCareer.push({ year, tid, position })
+        }
       }
+      // Sort by year
+      coachCareer.sort((a, b) => a.year - b.year)
+      migrated.coachCareer = coachCareer
     }
-    // Sort by year
-    coachCareer.sort((a, b) => a.year - b.year)
-    migrated.coachCareer = coachCareer
-  }
 
-  migrated._userTeamSystemMigrated = true
-  return migrated
+    migrated._userTeamSystemMigrated = true
+    return migrated
+  } catch (err) {
+    console.error('Error in migrateToUserTeamSystem:', err)
+    // Return dynasty unchanged but mark as migrated to prevent retry loops
+    return { ...dynasty, _userTeamSystemMigrated: true }
+  }
 }
 
 // ============================================================================
@@ -4524,9 +4531,15 @@ export function DynastyProvider({ children }) {
 
         // NEW USER TEAM SYSTEM: Apply pending user team (flip pendingUserId to userId)
         // This handles the case where user selected a new job during Bowl Weeks
-        const teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
-        const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
-        additionalUpdates.teams = teamsAfterFlip
+        try {
+          const teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
+          if (teamsBeforeFlip) {
+            const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
+            additionalUpdates.teams = teamsAfterFlip
+          }
+        } catch (err) {
+          console.error('Error applying pending user team:', err)
+        }
 
         // Clear newJobData
         additionalUpdates.newJobData = null
@@ -4545,12 +4558,16 @@ export function DynastyProvider({ children }) {
 
       // NEW COACH CAREER SYSTEM: Write career entry for the new year
       // This captures which team the user is coaching for this season
-      const userTeamTidForCareer = getUserTeamTid(dynasty)
-      if (userTeamTidForCareer) {
-        const userTeamForCareer = dynasty.teams?.[userTeamTidForCareer]
-        const userPositionForCareer = userTeamForCareer?.coachPosition || dynasty.coachPosition || 'HC'
-        const existingCareer = dynasty.coachCareer || []
-        additionalUpdates.coachCareer = addCareerEntry(existingCareer, nextYear, userTeamTidForCareer, userPositionForCareer)
+      try {
+        const userTeamTidForCareer = getUserTeamTid(dynasty)
+        if (userTeamTidForCareer) {
+          const userTeamForCareer = dynasty.teams?.[userTeamTidForCareer]
+          const userPositionForCareer = userTeamForCareer?.coachPosition || dynasty.coachPosition || 'HC'
+          const existingCareer = dynasty.coachCareer || []
+          additionalUpdates.coachCareer = addCareerEntry(existingCareer, nextYear, userTeamTidForCareer, userPositionForCareer)
+        }
+      } catch (err) {
+        console.error('Error adding career entry:', err)
       }
 
       // CLASS PROGRESSION - Also happens at year flip
