@@ -6705,12 +6705,73 @@ export function DynastyProvider({ children }) {
       return updatedPlayer
     })
 
-    // Create new players
+    // Create new players (with deduplication - check if player already added in this batch)
     for (const newPlayer of playersToCreate) {
       // Get the year from the entry for teamsByYear
       const entryYear = newPlayer.entry?.year || dynasty.currentYear
       // Convert team abbreviation to tid for proper storage
       const teamTid = getTidFromAbbr(newPlayer.team) || newPlayer.team
+      const normalizedName = newPlayer.name?.toLowerCase().trim()
+
+      // Check if we already created this player in this batch (same name + team)
+      // This prevents duplicates when re-syncing or when same player has multiple honors
+      const existingInBatch = updatedPlayers.find(p => {
+        const pName = p.name?.toLowerCase().trim()
+        const pTeamMatches = p.team === teamTid || p.team === newPlayer.team ||
+          (p.teamsByYear && Object.values(p.teamsByYear).some(t => t === teamTid || t === newPlayer.team))
+        return pName === normalizedName && pTeamMatches
+      })
+
+      if (existingInBatch) {
+        // Player already exists - add the honor to them instead of creating duplicate
+        if (!existingInBatch.awards) existingInBatch.awards = []
+        if (!existingInBatch.allAmericans) existingInBatch.allAmericans = []
+        if (!existingInBatch.allConference) existingInBatch.allConference = []
+
+        if (newPlayer.honorType === 'awards') {
+          const isDupe = existingInBatch.awards.some(a =>
+            a.year === newPlayer.entry.year && a.award === (newPlayer.entry.award || newPlayer.entry.awardKey)
+          )
+          if (!isDupe) {
+            existingInBatch.awards.push({
+              year: newPlayer.entry.year,
+              award: newPlayer.entry.award || newPlayer.entry.awardKey,
+              team: newPlayer.entry.team,
+              position: newPlayer.entry.position,
+              class: newPlayer.entry.class
+            })
+          }
+        } else if (newPlayer.honorType === 'allAmericans') {
+          const isDupe = existingInBatch.allAmericans.some(a =>
+            a.year === newPlayer.entry.year && a.designation === newPlayer.entry.designation
+          )
+          if (!isDupe) {
+            existingInBatch.allAmericans.push({
+              year: newPlayer.entry.year,
+              designation: newPlayer.entry.designation,
+              position: newPlayer.entry.position,
+              school: newPlayer.entry.school,
+              class: newPlayer.entry.class
+            })
+          }
+        } else if (newPlayer.honorType === 'allConference') {
+          const isDupe = existingInBatch.allConference.some(a =>
+            a.year === newPlayer.entry.year && a.designation === newPlayer.entry.designation
+          )
+          if (!isDupe) {
+            existingInBatch.allConference.push({
+              year: newPlayer.entry.year,
+              designation: newPlayer.entry.designation,
+              position: newPlayer.entry.position,
+              school: newPlayer.entry.school,
+              class: newPlayer.entry.class
+            })
+          }
+        }
+        continue // Skip creating new player
+      }
+
+      // Create new player
       const player = {
         pid: nextPID,
         id: `player-${nextPID}`,
