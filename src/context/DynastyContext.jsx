@@ -35,7 +35,17 @@ import {
   getNameFromTid,
   getCurrentTeamTid,
   getCurrentTeamAbbr,
-  getOriginalTeamAbbr
+  getOriginalTeamAbbr,
+  // New user team system
+  getUserTeamTid,
+  getPendingUserTeamTid,
+  setUserTeam,
+  setPendingUserTeam,
+  clearPendingUserTeam,
+  applyPendingUserTeam,
+  hasPendingJob,
+  getPendingJobInfo,
+  addCareerEntry
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
@@ -2293,6 +2303,62 @@ export function migrateCoachTeamByYear(dynasty) {
   return migrated
 }
 
+/**
+ * Migration: Initialize user team system on existing dynasties
+ * Sets userId and coachPosition on the current team, creates coachCareer from coachTeamByYear
+ */
+export function migrateToUserTeamSystem(dynasty) {
+  if (!dynasty) return dynasty
+  if (dynasty._userTeamSystemMigrated) return dynasty
+
+  let migrated = { ...dynasty }
+
+  // Get current team tid
+  const currentTid = getCurrentTeamTid(migrated)
+  if (!currentTid) {
+    // Can't migrate without knowing the current team
+    return dynasty
+  }
+
+  // Get coach position (from dynasty.coachPosition or default to HC)
+  const coachPosition = migrated.coachPosition || 'HC'
+
+  // Update teams to set userId and coachPosition on current team
+  if (migrated.teams && migrated.teams[currentTid]) {
+    const existingTeam = migrated.teams[currentTid]
+    // Only set if not already set
+    if (existingTeam.userId !== 'currentUser') {
+      migrated.teams = {
+        ...migrated.teams,
+        [currentTid]: {
+          ...existingTeam,
+          userId: 'currentUser',
+          coachPosition: coachPosition
+        }
+      }
+    }
+  }
+
+  // Create coachCareer from coachTeamByYear if it doesn't exist
+  if (!migrated.coachCareer && migrated.coachTeamByYear) {
+    const coachCareer = []
+    for (const [yearStr, entry] of Object.entries(migrated.coachTeamByYear)) {
+      const year = Number(yearStr)
+      const tid = entry.tid || getTidFromAbbr(entry.team)
+      const position = entry.position || migrated.coachPosition || 'HC'
+      if (tid && !isNaN(year)) {
+        coachCareer.push({ year, tid, position })
+      }
+    }
+    // Sort by year
+    coachCareer.sort((a, b) => a.year - b.year)
+    migrated.coachCareer = coachCareer
+  }
+
+  migrated._userTeamSystemMigrated = true
+  return migrated
+}
+
 // ============================================================================
 // MOVEMENT TYPES - Player movement tracking system
 // ============================================================================
@@ -2708,6 +2774,11 @@ export function DynastyProvider({ children }) {
         migrated._coachTeamByYearMigrated = true
       }
 
+      // NEW: Migrate to user team system (userId on teams, coachCareer array)
+      if (!migrated._userTeamSystemMigrated) {
+        migrated = migrateToUserTeamSystem(migrated)
+      }
+
       // FIX: Ensure coachTeamByYear has correct entries for ALL years with games
       // Infer from games data - find what team the user played as each year
       const games = migrated.games || []
@@ -3018,9 +3089,25 @@ export function DynastyProvider({ children }) {
     const currentTid = getTidFromTeamName(dynastyData.teamName, teams)
     const currentTeamAbbr = teams[currentTid]?.abbr
 
+    // Get coach position (defaults to HC if not specified)
+    const coachPosition = dynastyData.coachPosition || 'HC'
+
+    // NEW USER TEAM SYSTEM: Set userId and coachPosition on the user's team
+    // This is the new source of truth for who controls which team
+    if (currentTid && teams[currentTid]) {
+      teams[currentTid] = {
+        ...teams[currentTid],
+        userId: 'currentUser',
+        coachPosition: coachPosition
+      }
+    }
+
+    // Create first career entry
+    const coachCareer = addCareerEntry([], startYear, currentTid, coachPosition)
+
     const newDynastyData = {
       ...dynastyData,
-      currentTid, // Primary team identifier (tid)
+      currentTid, // Primary team identifier (tid) - kept for backwards compatibility
       currentYear: startYear,
       currentWeek: 0,
       currentPhase: 'preseason',
@@ -3032,9 +3119,12 @@ export function DynastyProvider({ children }) {
       rankings: [],
       nextPID: 1, // Initialize player ID counter
       // Teams map - single source of truth for all team data (tid-keyed)
+      // Now includes userId and coachPosition on the user's team
       teams,
       _tidMigrated: true, // Mark as already using tid-based team registry
       _tidFullyMigrated: true, // Mark as using full tid system (currentTid, player.teamsByYear as tid, game.userTid, etc.)
+      // NEW: Coach career array - historical record of coaching positions
+      coachCareer,
       // Initialize coachTeamByYear with the starting year
       // This ensures games entered in preseason can be properly attributed
       coachTeamByYear: {
@@ -4432,6 +4522,12 @@ export function DynastyProvider({ children }) {
           coachingStaffEntered: false
         }
 
+        // NEW USER TEAM SYSTEM: Apply pending user team (flip pendingUserId to userId)
+        // This handles the case where user selected a new job during Bowl Weeks
+        const teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
+        const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
+        additionalUpdates.teams = teamsAfterFlip
+
         // Clear newJobData
         additionalUpdates.newJobData = null
       }
@@ -4446,6 +4542,16 @@ export function DynastyProvider({ children }) {
       // The year changes here so that team pages for the new year become available
       // CRITICAL: Use Number() to ensure proper arithmetic (currentYear could be string from Firestore)
       nextYear = Number(dynasty.currentYear) + 1
+
+      // NEW COACH CAREER SYSTEM: Write career entry for the new year
+      // This captures which team the user is coaching for this season
+      const userTeamTidForCareer = getUserTeamTid(dynasty)
+      if (userTeamTidForCareer) {
+        const userTeamForCareer = dynasty.teams?.[userTeamTidForCareer]
+        const userPositionForCareer = userTeamForCareer?.coachPosition || dynasty.coachPosition || 'HC'
+        const existingCareer = dynasty.coachCareer || []
+        additionalUpdates.coachCareer = addCareerEntry(existingCareer, nextYear, userTeamTidForCareer, userPositionForCareer)
+      }
 
       // CLASS PROGRESSION - Also happens at year flip
       // Progress all players' classes based on games played in the previous season

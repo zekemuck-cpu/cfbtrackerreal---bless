@@ -1880,3 +1880,382 @@ export function getGameTeam2Info(teams, game) {
   if (!game) return null
   return getGameTeamInfo(teams, game.team2Tid || game.team2)
 }
+
+// ============================================================================
+// USER TEAM SYSTEM - New source of truth for user's team
+// ============================================================================
+// Each team in dynasty.teams can have:
+//   userId: 'currentUser' | null  - Who controls this team (future: actual user IDs for multiplayer)
+//   pendingUserId: 'currentUser' | null - User is taking this job (during transition)
+//   coachPosition: 'HC' | 'OC' | 'DC' - Coach position when userId or pendingUserId is set
+
+/**
+ * Get the tid of the team the user currently controls.
+ * This is the NEW source of truth, replacing dynasty.currentTid.
+ * Falls back to currentTid for backwards compatibility during migration.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {number|null} The user's team tid
+ */
+export function getUserTeamTid(dynasty) {
+  if (!dynasty?.teams) return dynasty?.currentTid || null
+
+  // Find team with userId set
+  for (const [tidStr, team] of Object.entries(dynasty.teams)) {
+    if (team.userId === 'currentUser') {
+      return parseInt(tidStr, 10)
+    }
+  }
+
+  // Fallback to currentTid for backwards compatibility
+  return dynasty.currentTid || null
+}
+
+/**
+ * Get the tid of the team the user is pending to join (during job change transition).
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {number|null} The pending team's tid, or null if no pending job
+ */
+export function getPendingUserTeamTid(dynasty) {
+  if (!dynasty?.teams) return null
+
+  for (const [tidStr, team] of Object.entries(dynasty.teams)) {
+    if (team.pendingUserId === 'currentUser') {
+      return parseInt(tidStr, 10)
+    }
+  }
+
+  return null
+}
+
+/**
+ * Get the user's coach position at their current team.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {string|null} 'HC', 'OC', 'DC', or null
+ */
+export function getUserCoachPosition(dynasty) {
+  const tid = getUserTeamTid(dynasty)
+  if (!tid || !dynasty?.teams?.[tid]) return dynasty?.coachPosition || null
+  return dynasty.teams[tid].coachPosition || dynasty?.coachPosition || null
+}
+
+/**
+ * Get the pending coach position at the team user is taking.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {string|null} 'HC', 'OC', 'DC', or null
+ */
+export function getPendingCoachPosition(dynasty) {
+  const tid = getPendingUserTeamTid(dynasty)
+  if (!tid || !dynasty?.teams?.[tid]) return null
+  return dynasty.teams[tid].coachPosition || null
+}
+
+/**
+ * Set a team as the user's team.
+ * Returns updated teams object (does NOT mutate).
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID to set as user's team
+ * @param {string} position - Coach position ('HC', 'OC', or 'DC')
+ * @returns {Object} Updated teams object
+ */
+export function setUserTeam(teams, tid, position) {
+  if (!teams || !tid) return teams
+
+  const updatedTeams = { ...teams }
+
+  // Clear userId from any existing user team
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    if (team.userId === 'currentUser') {
+      updatedTeams[tidStr] = {
+        ...team,
+        userId: null,
+        coachPosition: null
+      }
+    }
+  }
+
+  // Set the new user team
+  updatedTeams[tid] = {
+    ...updatedTeams[tid],
+    userId: 'currentUser',
+    coachPosition: position
+  }
+
+  return updatedTeams
+}
+
+/**
+ * Set a team as pending for the user (during job change transition).
+ * Returns updated teams object (does NOT mutate).
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @param {number} tid - Team ID for pending job
+ * @param {string} position - Coach position ('HC', 'OC', or 'DC')
+ * @returns {Object} Updated teams object
+ */
+export function setPendingUserTeam(teams, tid, position) {
+  if (!teams || !tid) return teams
+
+  const updatedTeams = { ...teams }
+
+  // Clear pendingUserId from any existing pending team
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    if (team.pendingUserId === 'currentUser') {
+      updatedTeams[tidStr] = {
+        ...team,
+        pendingUserId: null,
+        // Don't clear coachPosition here - it may be set from userId
+      }
+    }
+  }
+
+  // Set the pending user team
+  updatedTeams[tid] = {
+    ...updatedTeams[tid],
+    pendingUserId: 'currentUser',
+    coachPosition: position
+  }
+
+  return updatedTeams
+}
+
+/**
+ * Clear pending user team (e.g., when user cancels job change).
+ * Returns updated teams object (does NOT mutate).
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @returns {Object} Updated teams object
+ */
+export function clearPendingUserTeam(teams) {
+  if (!teams) return teams
+
+  const updatedTeams = { ...teams }
+
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    if (team.pendingUserId === 'currentUser') {
+      updatedTeams[tidStr] = {
+        ...team,
+        pendingUserId: null,
+        // Only clear coachPosition if this team doesn't have userId
+        coachPosition: team.userId ? team.coachPosition : null
+      }
+    }
+  }
+
+  return updatedTeams
+}
+
+/**
+ * Apply pending job change - moves pendingUserId to userId.
+ * Called at Players Leaving phase.
+ * Returns updated teams object (does NOT mutate).
+ *
+ * @param {Object} teams - The dynasty.teams object
+ * @returns {Object} Updated teams object
+ */
+export function applyPendingUserTeam(teams) {
+  if (!teams) return teams
+
+  const updatedTeams = { ...teams }
+  let pendingTid = null
+  let pendingPosition = null
+
+  // Find and save pending team info
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    if (team.pendingUserId === 'currentUser') {
+      pendingTid = parseInt(tidStr, 10)
+      pendingPosition = team.coachPosition
+      break
+    }
+  }
+
+  // If no pending job, nothing to do
+  if (!pendingTid) return teams
+
+  // Clear userId from old team, clear pendingUserId from new team, set userId on new team
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    const tid = parseInt(tidStr, 10)
+    if (team.userId === 'currentUser' && tid !== pendingTid) {
+      // Old team - clear userId and coachPosition
+      updatedTeams[tidStr] = {
+        ...team,
+        userId: null,
+        coachPosition: null
+      }
+    } else if (tid === pendingTid) {
+      // New team - move pendingUserId to userId
+      updatedTeams[tidStr] = {
+        ...team,
+        userId: 'currentUser',
+        pendingUserId: null,
+        coachPosition: pendingPosition
+      }
+    }
+  }
+
+  return updatedTeams
+}
+
+/**
+ * Check if the user has a pending job change.
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {boolean} True if user has a pending job
+ */
+export function hasPendingJob(dynasty) {
+  return getPendingUserTeamTid(dynasty) !== null
+}
+
+/**
+ * Get full info about pending job (for banner display).
+ *
+ * @param {Object} dynasty - The dynasty object
+ * @returns {Object|null} { tid, team, position } or null
+ */
+export function getPendingJobInfo(dynasty) {
+  const tid = getPendingUserTeamTid(dynasty)
+  if (!tid) return null
+
+  const team = dynasty.teams?.[tid]
+  if (!team) return null
+
+  return {
+    tid,
+    team,
+    position: team.coachPosition
+  }
+}
+
+// ============================================================================
+// COACH CAREER SYSTEM - Historical record of coaching positions
+// ============================================================================
+// dynasty.coachCareer = [
+//   { year: 2025, tid: 11, position: 'HC' },
+//   { year: 2026, tid: 11, position: 'HC' },
+//   { year: 2027, tid: 85, position: 'OC' },  // took new job
+//   ...
+// ]
+// Each entry is written at National Signing Day when the year flips.
+// The career page links to team records via tid + year lookup.
+
+/**
+ * Add a career entry for a year.
+ * Called at dynasty creation and at each National Signing Day.
+ *
+ * @param {Array} coachCareer - Existing coachCareer array (or undefined)
+ * @param {number} year - The year to record
+ * @param {number} tid - The team tid
+ * @param {string} position - Coach position ('HC', 'OC', or 'DC')
+ * @returns {Array} Updated coachCareer array
+ */
+export function addCareerEntry(coachCareer, year, tid, position) {
+  const existing = coachCareer || []
+
+  // Don't add duplicate entries for the same year
+  if (existing.some(e => e.year === year)) {
+    // Update existing entry for this year
+    return existing.map(e =>
+      e.year === year ? { year, tid, position } : e
+    )
+  }
+
+  return [...existing, { year, tid, position }]
+}
+
+/**
+ * Get career entry for a specific year.
+ *
+ * @param {Array} coachCareer - The coachCareer array
+ * @param {number} year - The year to look up
+ * @returns {Object|null} { year, tid, position } or null
+ */
+export function getCareerEntryForYear(coachCareer, year) {
+  if (!coachCareer) return null
+  return coachCareer.find(e => e.year === year) || null
+}
+
+/**
+ * Get all career entries for a specific team.
+ *
+ * @param {Array} coachCareer - The coachCareer array
+ * @param {number} tid - The team tid
+ * @returns {Array} Career entries at that team
+ */
+export function getCareerEntriesForTeam(coachCareer, tid) {
+  if (!coachCareer) return []
+  return coachCareer.filter(e => e.tid === tid)
+}
+
+/**
+ * Get career stints (grouped consecutive years at same team).
+ * Returns array of { tid, position, startYear, endYear, years }
+ *
+ * @param {Array} coachCareer - The coachCareer array
+ * @returns {Array} Career stints
+ */
+export function getCareerStints(coachCareer) {
+  if (!coachCareer || coachCareer.length === 0) return []
+
+  // Sort by year
+  const sorted = [...coachCareer].sort((a, b) => a.year - b.year)
+
+  const stints = []
+  let currentStint = null
+
+  for (const entry of sorted) {
+    if (!currentStint ||
+        currentStint.tid !== entry.tid ||
+        entry.year !== currentStint.endYear + 1) {
+      // Start new stint
+      if (currentStint) {
+        stints.push(currentStint)
+      }
+      currentStint = {
+        tid: entry.tid,
+        position: entry.position,
+        startYear: entry.year,
+        endYear: entry.year,
+        years: [entry.year]
+      }
+    } else {
+      // Continue current stint
+      currentStint.endYear = entry.year
+      currentStint.years.push(entry.year)
+      // Update position if it changed (e.g., promoted from OC to HC)
+      currentStint.position = entry.position
+    }
+  }
+
+  // Don't forget the last stint
+  if (currentStint) {
+    stints.push(currentStint)
+  }
+
+  return stints
+}
+
+/**
+ * Get total years coached.
+ *
+ * @param {Array} coachCareer - The coachCareer array
+ * @returns {number} Number of years
+ */
+export function getTotalYearsCoached(coachCareer) {
+  return coachCareer?.length || 0
+}
+
+/**
+ * Get number of teams coached.
+ *
+ * @param {Array} coachCareer - The coachCareer array
+ * @returns {number} Number of unique teams
+ */
+export function getTeamsCoached(coachCareer) {
+  if (!coachCareer) return 0
+  const uniqueTids = new Set(coachCareer.map(e => e.tid))
+  return uniqueTids.size
+}

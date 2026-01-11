@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
 import { getTeamLogo, teams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -508,21 +508,30 @@ export default function Dashboard() {
 
     // Save to dynasty
     if (jobData.takingNewJob === false) {
+      // Clear pendingUserId from any team
+      const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
       await updateDynasty(currentDynasty.id, {
         newJobData: {
           takingNewJob: false,
           team: null,
           position: null,
           declinedInWeek: currentDynasty.currentWeek
-        }
+        },
+        teams: updatedTeams
       })
     } else {
+      // Set pendingUserId on the target team
+      const newTeamTid = getTidFromTeamName(jobData.team, currentDynasty.teams)
+      const updatedTeams = newTeamTid
+        ? setPendingUserTeam(currentDynasty.teams, newTeamTid, jobData.position)
+        : currentDynasty.teams
       await updateDynasty(currentDynasty.id, {
         newJobData: {
           takingNewJob: true,
           team: jobData.team,
           position: jobData.position
-        }
+        },
+        teams: updatedTeams
       })
     }
   }
@@ -3974,8 +3983,11 @@ export default function Dashboard() {
                               setTakingNewJob(null)
                               setNewJobTeam('')
                               setNewJobPosition('')
+                              // Clear pendingUserId from any team
+                              const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: null
+                                newJobData: null,
+                                teams: updatedTeams
                               })
                             }}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
@@ -4047,8 +4059,14 @@ export default function Dashboard() {
                                 key={pos}
                                 onClick={async () => {
                                   setNewJobPosition(pos)
+                                  // Get tid of the new team and set pendingUserId
+                                  const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                                  const updatedTeams = newTeamTid
+                                    ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                                    : currentDynasty.teams
                                   await updateDynasty(currentDynasty.id, {
-                                    newJobData: { ...currentDynasty.newJobData, position: pos }
+                                    newJobData: { ...currentDynasty.newJobData, position: pos },
+                                    teams: updatedTeams
                                   })
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
@@ -4329,8 +4347,11 @@ export default function Dashboard() {
                               setTakingNewJob(null)
                               setNewJobTeam('')
                               setNewJobPosition('')
+                              // Clear pendingUserId from any team
+                              const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: null
+                                newJobData: null,
+                                teams: updatedTeams
                               })
                             }}
                             className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
@@ -4402,8 +4423,14 @@ export default function Dashboard() {
                                 key={pos}
                                 onClick={async () => {
                                   setNewJobPosition(pos)
+                                  // Get tid of the new team and set pendingUserId
+                                  const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                                  const updatedTeams = newTeamTid
+                                    ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                                    : currentDynasty.teams
                                   await updateDynasty(currentDynasty.id, {
-                                    newJobData: { ...currentDynasty.newJobData, position: pos }
+                                    newJobData: { ...currentDynasty.newJobData, position: pos },
+                                    teams: updatedTeams
                                   })
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
@@ -5426,8 +5453,11 @@ export default function Dashboard() {
                             setTakingNewJob(null)
                             setNewJobTeam('')
                             setNewJobPosition('')
+                            // Clear pendingUserId from any team
+                            const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: null
+                              newJobData: null,
+                              teams: updatedTeams
                             })
                           }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
@@ -5499,8 +5529,14 @@ export default function Dashboard() {
                               key={pos}
                               onClick={async () => {
                                 setNewJobPosition(pos)
+                                // Get tid of the new team and set pendingUserId
+                                const newTeamTid = getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
+                                const updatedTeams = newTeamTid
+                                  ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
+                                  : currentDynasty.teams
                                 await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, position: pos }
+                                  newJobData: { ...currentDynasty.newJobData, position: pos },
+                                  teams: updatedTeams
                                 })
                               }}
                               className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
