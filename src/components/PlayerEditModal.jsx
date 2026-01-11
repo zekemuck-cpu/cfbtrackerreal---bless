@@ -1306,7 +1306,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                     // Entry types and movement types
                     const entryTypes = ['Recruited', 'Portal Transfer', 'Created']
                     const movementTypes = ['Stayed', 'Transferred', 'Entered Portal', 'Recommitted']
-                    const exitTypes = ['Active', 'Graduating', 'Pro Draft', 'Transfer Out', 'Encouraged Transfer', 'Cut']
+                    const exitTypes = ['Active', 'Graduated', 'Pro Draft', 'Transfer Out', 'Encouraged Transfer', 'Cut']
 
                     // Get entry type based on player data
                     const getEntryType = () => {
@@ -1323,10 +1323,17 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                     const wasEncouragedTransfer = encouragedTransfers.some(t =>
                       t.name?.toLowerCase().trim() === player?.name?.toLowerCase().trim()
                     )
-                    const departureMovement = (formData.movements || []).find(m => m.type === 'departure')
+                    // Find any exit movement (departure, graduate, draft)
+                    const exitMovementTypes = ['departure', 'graduate', 'draft']
+                    const departureMovement = (formData.movements || []).find(m => exitMovementTypes.includes(m.type))
                     const getExitType = () => {
                       if (wasEncouragedTransfer) return 'Encouraged Transfer'
                       if (!departureMovement) return 'Active'
+                      // Map movement type to display value
+                      if (departureMovement.type === 'graduate') return 'Graduated'
+                      if (departureMovement.type === 'draft') return 'Pro Draft'
+                      // Legacy departure with reason
+                      if (departureMovement.reason === 'Graduating') return 'Graduated'
                       return departureMovement.reason || 'Active'
                     }
 
@@ -1500,29 +1507,30 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                             value={getExitType()}
                             onChange={(e) => {
                               const exitType = e.target.value
+                              // Map exit display value to movement type
+                              const getMovementType = (exit) => {
+                                if (exit === 'Graduated') return 'graduate'
+                                if (exit === 'Pro Draft') return 'draft'
+                                return 'departure' // For Transfer Out, Cut, etc.
+                              }
                               setFormData(prev => {
+                                // Remove any existing exit movements
+                                const filteredMovements = (prev.movements || []).filter(m =>
+                                  !exitMovementTypes.includes(m.type)
+                                )
                                 if (exitType === 'Active') {
-                                  return { ...prev, movements: (prev.movements || []).filter(m => m.type !== 'departure') }
+                                  return { ...prev, movements: filteredMovements }
                                 } else {
-                                  const existing = (prev.movements || []).find(m => m.type === 'departure')
-                                  if (existing) {
-                                    return {
-                                      ...prev,
-                                      movements: prev.movements.map(m =>
-                                        m.type === 'departure' ? { ...m, reason: exitType, year: maxYear } : m
-                                      )
-                                    }
-                                  } else {
-                                    return {
-                                      ...prev,
-                                      movements: [...(prev.movements || []), {
-                                        type: 'departure',
-                                        year: maxYear,
-                                        from: teamsByYear[String(maxYear)] || '',
-                                        reason: exitType,
-                                        timestamp: Date.now()
-                                      }]
-                                    }
+                                  const movementType = getMovementType(exitType)
+                                  return {
+                                    ...prev,
+                                    movements: [...filteredMovements, {
+                                      type: movementType,
+                                      year: maxYear,
+                                      from: teamsByYear[String(maxYear)] || '',
+                                      reason: exitType,
+                                      timestamp: Date.now()
+                                    }]
                                   }
                                 }
                               })

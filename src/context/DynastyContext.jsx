@@ -2294,7 +2294,9 @@ export const MOVEMENT_TYPES = {
   RECRUITED: 'recruited',      // HS/JUCO recruit signs
   PORTAL_IN: 'portal_in',      // Transfer portal player commits
   TRANSFER: 'transfer',        // Player transfers to another team
-  DEPARTURE: 'departure',      // Graduating or Pro Draft (no destination)
+  DEPARTURE: 'departure',      // Generic departure (legacy, use GRADUATE/DRAFT instead)
+  GRADUATE: 'graduate',        // Player graduated (exhausted eligibility)
+  DRAFT: 'draft',              // Player left early for NFL draft
   ADDED: 'added',              // Manual roster add via editor
   REMOVED: 'removed',          // Manual roster delete via editor
   RECOMMIT: 'recommit'         // Was leaving but came back same offseason
