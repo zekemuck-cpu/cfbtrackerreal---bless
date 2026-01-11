@@ -2071,8 +2071,8 @@ export default function TeamYear() {
         )
       })()}
 
-      {/* Roster Section - User's Team */}
-      {isUserTeam && sortedTeamPlayers.length > 0 && (
+      {/* Roster Section - All Teams */}
+      {sortedTeamPlayers.length > 0 && (
         <div
           className="rounded-xl shadow-lg overflow-hidden"
           style={{
@@ -2500,8 +2500,8 @@ export default function TeamYear() {
         </div>
       )}
 
-      {/* Add Roster Section for User's Team with No Players for this year */}
-      {!isViewOnly && isUserTeam && sortedTeamPlayers.length === 0 && (
+      {/* Add Roster Section for Teams with No Players for this year */}
+      {!isViewOnly && sortedTeamPlayers.length === 0 && (
         <div
           className="rounded-lg shadow-lg overflow-hidden"
           style={{
@@ -3036,138 +3036,6 @@ export default function TeamYear() {
                 </div>
               )
             })}
-          </div>
-        </div>
-      )}
-
-      {/* Players from Other Teams (Transfers) */}
-      {!isUserTeam && teamPlayers.length > 0 && (
-        <div
-          className="rounded-lg shadow-lg overflow-hidden"
-          style={{
-            backgroundColor: viewedTeamColors.secondary,
-            border: `3px solid ${viewedTeamColors.primary}`
-          }}
-        >
-          <div
-            className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between"
-            style={{ backgroundColor: viewedTeamColors.primary }}
-          >
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-lg font-bold" style={{ color: getContrastTextColor(viewedTeamColors.primary) }}>
-                {selectedYear} {teamAbbr} Roster
-              </h2>
-              <span
-                className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
-                style={{
-                  backgroundColor: viewedTeamColors.secondary,
-                  color: secondaryBgText
-                }}
-              >
-                {teamPlayers.length} Players
-              </span>
-              {!isViewOnly && (
-                <button
-                  onClick={() => setShowRosterModal(true)}
-                  className="p-1.5 sm:p-2 rounded-lg hover:opacity-70 transition-opacity"
-                  style={{ color: getContrastTextColor(viewedTeamColors.primary) }}
-                  title="Edit Roster"
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="p-2 sm:p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {teamPlayers.map((player) => {
-                const playerClass = player.classByYear?.[selectedYear] || player.year
-                const hasOverall = player.overall != null && player.overall !== ''
-                return (
-                  <Link
-                    key={player.pid}
-                    to={`${pathPrefix}/player/${player.pid}`}
-                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: `${viewedTeamColors.primary}15` }}
-                  >
-                    {/* Player avatar or jersey number */}
-                    <div
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        backgroundColor: viewedTeamColors.primary,
-                        color: getContrastTextColor(viewedTeamColors.primary)
-                      }}
-                    >
-                      {player.jerseyNumber ? (
-                        <span className="text-sm sm:text-base font-bold">#{player.jerseyNumber}</span>
-                      ) : (
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm truncate" style={{ color: secondaryBgText }}>
-                        {player.name}
-                      </div>
-                      <div className="text-xs flex items-center gap-1 flex-wrap" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                        <span>{player.position}</span>
-                        {playerClass && (
-                          <>
-                            <span>•</span>
-                            <span>{playerClass}</span>
-                          </>
-                        )}
-                        {hasOverall && (
-                          <>
-                            <span>•</span>
-                            <span>{player.overall} OVR</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Roster Section for Non-User Teams with No Players */}
-      {!isViewOnly && !isUserTeam && teamPlayers.length === 0 && (
-        <div
-          className="rounded-lg shadow-lg overflow-hidden"
-          style={{
-            backgroundColor: viewedTeamColors.secondary,
-            border: `3px solid ${viewedTeamColors.primary}`
-          }}
-        >
-          <div
-            className="px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between"
-            style={{ backgroundColor: viewedTeamColors.primary }}
-          >
-            <h2 className="text-sm sm:text-lg font-bold" style={{ color: getContrastTextColor(viewedTeamColors.primary) }}>
-              {selectedYear} {teamAbbr} Roster
-            </h2>
-          </div>
-          <div className="p-4 sm:p-6 text-center">
-            <p className="text-sm mb-4" style={{ color: secondaryBgText, opacity: 0.7 }}>
-              No roster data for {teamAbbr} in {selectedYear}
-            </p>
-            <button
-              onClick={() => setShowRosterModal(true)}
-              className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              style={{
-                backgroundColor: viewedTeamColors.primary,
-                color: getContrastTextColor(viewedTeamColors.primary)
-              }}
-            >
-              Add Roster
-            </button>
           </div>
         </div>
       )}
