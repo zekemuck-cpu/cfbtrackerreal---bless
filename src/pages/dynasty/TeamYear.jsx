@@ -3083,31 +3083,55 @@ export default function TeamYear() {
 
           <div className="p-2 sm:p-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {teamPlayers.map((player) => (
-                <Link
-                  key={player.pid}
-                  to={`${pathPrefix}/player/${player.pid}`}
-                  className="flex items-center gap-2 sm:gap-3 p-2 rounded hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: `${viewedTeamColors.primary}10` }}
-                >
-                  {player.jerseyNumber && (
-                    <span
-                      className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded text-xs sm:text-sm font-bold flex-shrink-0"
-                      style={{ backgroundColor: viewedTeamColors.primary, color: getContrastTextColor(viewedTeamColors.primary) }}
+              {teamPlayers.map((player) => {
+                const playerClass = player.classByYear?.[selectedYear] || player.year
+                const hasOverall = player.overall != null && player.overall !== ''
+                return (
+                  <Link
+                    key={player.pid}
+                    to={`${pathPrefix}/player/${player.pid}`}
+                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: `${viewedTeamColors.primary}15` }}
+                  >
+                    {/* Player avatar or jersey number */}
+                    <div
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: viewedTeamColors.primary,
+                        color: getContrastTextColor(viewedTeamColors.primary)
+                      }}
                     >
-                      {player.jerseyNumber}
-                    </span>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-xs sm:text-sm truncate" style={{ color: secondaryBgText }}>
-                      {player.name}
+                      {player.jerseyNumber ? (
+                        <span className="text-sm sm:text-base font-bold">#{player.jerseyNumber}</span>
+                      ) : (
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                      )}
                     </div>
-                    <div className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                      {player.position} • {player.overall || '—'} OVR • {player.classByYear?.[selectedYear] || player.year || '—'}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm truncate" style={{ color: secondaryBgText }}>
+                        {player.name}
+                      </div>
+                      <div className="text-xs flex items-center gap-1 flex-wrap" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                        <span>{player.position}</span>
+                        {playerClass && (
+                          <>
+                            <span>•</span>
+                            <span>{playerClass}</span>
+                          </>
+                        )}
+                        {hasOverall && (
+                          <>
+                            <span>•</span>
+                            <span>{player.overall} OVR</span>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </div>
