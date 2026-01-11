@@ -396,11 +396,12 @@ export default function Team() {
 
       // Check if user coached the team we're viewing in this game
       const userInfo = perspective?.userTid ? getGameTeamInfo(teams, perspective.userTid) : null
-      const isUserTeam = userInfo?.abbr === teamAbbr || game.userTeam === teamAbbr
+      // Check both tid and abbr for backwards compatibility
+      const isUserTeam = perspective?.userTid === tid || userInfo?.abbr === teamAbbr || game.userTeam === teamAbbr || game.userTid === tid
 
-      // Check if team participated (as team1 or team2)
-      const isTeam1 = team1Abbr === teamAbbr
-      const isTeam2 = team2Abbr === teamAbbr
+      // Check if team participated (as team1 or team2) - supports both tid and abbr
+      const isTeam1 = game.team1Tid === tid || team1Abbr === teamAbbr
+      const isTeam2 = game.team2Tid === tid || team2Abbr === teamAbbr
 
       if (!isUserTeam && !isTeam1 && !isTeam2) return
 
@@ -706,8 +707,10 @@ export default function Team() {
       const championship = yearResults?.championship
       if (Array.isArray(championship) && championship.length > 0) {
         const game = championship[0]
-        if (game?.winner === teamAbbr) {
-          const isTeam1 = game.team1 === teamAbbr
+        // Check both tid and abbr for team matching
+        const teamWon = game?.winner === teamAbbr || game?.winnerTid === tid
+        if (teamWon) {
+          const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
           titles.push({
             year: parseInt(year),
             opponent: isTeam1 ? game.team2 : game.team1,
@@ -729,9 +732,10 @@ export default function Team() {
 
     players.forEach(player => {
       // Check if player belongs to this team via teamsByYear or team field
-      const belongsToTeam = player.teamsByYear
-        ? Object.values(player.teamsByYear).includes(teamAbbr)
-        : (player.team === teamAbbr || player.teams?.includes(teamAbbr))
+      // Supports both tid and abbr for backwards compatibility
+      const teamsByYearValues = Object.values(player.teamsByYear || {})
+      const belongsToTeam = teamsByYearValues.includes(tid) || teamsByYearValues.includes(teamAbbr) ||
+        player.team === tid || player.team === teamAbbr || player.teams?.includes(teamAbbr)
       if (!belongsToTeam) return
 
       const awards = player.allAmericans || []

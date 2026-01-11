@@ -637,11 +637,12 @@ export default function TeamYear() {
     // Helper to convert CFP game to schedule format
     const convertCFPGame = (game, roundName, cfpFlags) => {
       if (!game || game.team1Score === null || game.team2Score === null) return null
-      const isTeam1 = game.team1 === teamAbbr
-      const isTeam2 = game.team2 === teamAbbr
+      // Check both tid and abbr for backwards compatibility
+      const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
+      const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
       if (!isTeam1 && !isTeam2) return null
 
-      const teamWon = game.winner === teamAbbr
+      const teamWon = game.winner === teamAbbr || game.winnerTid === tid
       // If the game has a real ID that exists in the games array, use it; otherwise mark as non-linkable
       const hasRealGameEntry = game.id && (currentDynasty.games || []).some(g => g.id === game.id)
       return {
@@ -1025,9 +1026,9 @@ export default function TeamYear() {
     ...(cfpResults.championship ? [{ ...cfpResults.championship, round: 4, slotId: 'cfpnc' }] : [])
   ]
 
-  // Find all CFP games involving this team
+  // Find all CFP games involving this team - check both tid and abbr
   const teamCFPGamesFromResults = allCFPGames.filter(game =>
-    (game.team1 === teamAbbr || game.team2 === teamAbbr) &&
+    (game.team1Tid === tid || game.team1 === teamAbbr || game.team2Tid === tid || game.team2 === teamAbbr) &&
     game.team1Score !== null && game.team2Score !== null
   ).sort((a, b) => a.round - b.round)
 
@@ -1039,35 +1040,39 @@ export default function TeamYear() {
     const unifiedQFGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_QUARTERFINAL, selectedYear)
     const unifiedFRGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_FIRST_ROUND, selectedYear)
 
+    // Helper to check if game involves this team (supports both tid and abbr)
+    const gameInvolvesTeam = (g) => g && (g.team1Tid === tid || g.team1 === teamAbbr || g.team2Tid === tid || g.team2 === teamAbbr)
+    const teamWonGame = (g) => g && (g.winnerTid === tid || g.winner === teamAbbr)
+
     // Check championship first - unified games array, then legacy
-    const champGame = unifiedChampGames.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) ||
-                      (cfpResults.championship && (cfpResults.championship.team1 === teamAbbr || cfpResults.championship.team2 === teamAbbr) ? cfpResults.championship : null)
+    const champGame = unifiedChampGames.find(gameInvolvesTeam) ||
+                      (cfpResults.championship && gameInvolvesTeam(cfpResults.championship) ? cfpResults.championship : null)
     if (champGame) {
-      const wonChamp = champGame.winner === teamAbbr
+      const wonChamp = teamWonGame(champGame)
       return wonChamp ? 'champion' : 'lost-championship'
     }
 
     // Check semifinals - unified games array, then legacy
-    const sfGame = unifiedSFGames.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) ||
-                   (cfpResults.semifinals || []).find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
+    const sfGame = unifiedSFGames.find(gameInvolvesTeam) ||
+                   (cfpResults.semifinals || []).find(gameInvolvesTeam)
     if (sfGame) {
-      const wonSF = sfGame.winner === teamAbbr
+      const wonSF = teamWonGame(sfGame)
       if (!wonSF) return 'lost-semifinal'
     }
 
     // Check quarterfinals - unified games array, then legacy
-    const qfGame = unifiedQFGames.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) ||
-                   (cfpResults.quarterfinals || []).find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
+    const qfGame = unifiedQFGames.find(gameInvolvesTeam) ||
+                   (cfpResults.quarterfinals || []).find(gameInvolvesTeam)
     if (qfGame) {
-      const wonQF = qfGame.winner === teamAbbr
+      const wonQF = teamWonGame(qfGame)
       if (!wonQF) return 'lost-quarterfinal'
     }
 
     // Check first round - unified games array, then legacy
-    const frGame = unifiedFRGames.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr)) ||
-                   (cfpResults.firstRound || []).find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
+    const frGame = unifiedFRGames.find(gameInvolvesTeam) ||
+                   (cfpResults.firstRound || []).find(gameInvolvesTeam)
     if (frGame) {
-      const wonFR = frGame.winner === teamAbbr
+      const wonFR = teamWonGame(frGame)
       if (!wonFR) return 'lost-first-round'
     }
 
@@ -1086,7 +1091,7 @@ export default function TeamYear() {
   // Legacy: Get CFP games from cfpGamesByYear (older format)
   const cfpGames = currentDynasty.cfpGamesByYear?.[selectedYear] || []
   const teamCFPGames = cfpGames.filter(game =>
-    (game.team1 === teamAbbr || game.team2 === teamAbbr) && game.team1Score !== null && game.team2Score !== null
+    (game.team1Tid === tid || game.team1 === teamAbbr || game.team2Tid === tid || game.team2 === teamAbbr) && game.team1Score !== null && game.team2Score !== null
   ).sort((a, b) => (a.round || 0) - (b.round || 0))
 
   // Find players associated with this team for the selected year
@@ -2989,8 +2994,11 @@ export default function TeamYear() {
 
           <div className="divide-y" style={{ borderColor: `${viewedTeamColors.primary}30` }}>
             {teamCFPGames.map((game, index) => {
-              const teamWon = (game.team1 === teamAbbr && game.team1Score > game.team2Score) ||
-                             (game.team2 === teamAbbr && game.team2Score > game.team1Score)
+              // Check both tid and abbr for team matching
+              const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
+              const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+              const teamWon = (isTeam1 && game.team1Score > game.team2Score) ||
+                             (isTeam2 && game.team2Score > game.team1Score)
               const roundNames = { 1: 'First Round', 2: 'Quarterfinal', 3: 'Semifinal', 4: 'National Championship' }
               const roundNamesShort = { 1: 'R1', 2: 'QF', 3: 'SF', 4: 'Natty' }
 
@@ -3010,7 +3018,7 @@ export default function TeamYear() {
                       {Math.max(game.team1Score, game.team2Score)} - {Math.min(game.team1Score, game.team2Score)}
                     </span>
                     <span className="text-xs sm:text-sm" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                      vs {game.team1 === teamAbbr ? game.team2 : game.team1}
+                      vs {isTeam1 ? game.team2 : game.team1}
                     </span>
                     <span
                       className="text-xs font-semibold px-2 py-0.5 sm:py-1 rounded"
