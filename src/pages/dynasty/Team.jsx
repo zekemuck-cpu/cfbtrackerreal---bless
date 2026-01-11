@@ -492,11 +492,8 @@ export default function Team() {
       .filter(g => {
         if (!g) return false
         // Check if user was coaching this team in this game's year
-        const userTeamInfo = g.perspective?.userTid
-          ? getGameTeamInfo(teams, g.perspective.userTid)
-          : null
-        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
-        return userGameTeamAbbr === teamAbbr
+        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs teamTid from URL
+        return g.perspective?.userTid === teamTid
       })
   }
 
@@ -584,11 +581,8 @@ export default function Team() {
         .filter(g => {
           if (!g) return false
           // Check if user was coaching this team in this game
-          const userTeamInfo = g.perspective?.userTid
-            ? getGameTeamInfo(teams, g.perspective.userTid)
-            : null
-          const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
-          return userGameTeamAbbr === teamAbbr
+          // Direct tid comparison - userTid from perspective (coachTeamByYear) vs teamTid from URL
+          return g.perspective?.userTid === teamTid
         })
 
       userCfpGames.forEach(g => {
@@ -843,11 +837,8 @@ export default function Team() {
       .filter(g => {
         if (!g) return false
         // Check if user was coaching this team in this game
-        const userTeamInfo = g.perspective?.userTid
-          ? getGameTeamInfo(teams, g.perspective.userTid)
-          : null
-        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
-        return userGameTeamAbbr === teamAbbr
+        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs teamTid from URL
+        return g.perspective?.userTid === teamTid
       })
 
     if (teamGames.length === 0) return null

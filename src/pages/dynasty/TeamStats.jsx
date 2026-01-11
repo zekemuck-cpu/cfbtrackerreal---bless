@@ -339,11 +339,8 @@ export default function TeamStats() {
       .filter(g => {
         if (!g) return false
         // Check if user was coaching selected team in this game
-        const userTeamInfo = g.perspective?.userTid
-          ? getGameTeamInfo(teamsRef, g.perspective.userTid)
-          : null
-        const userGameTeamAbbr = userTeamInfo?.abbr || g.userTeam
-        return userGameTeamAbbr === selectedTeam
+        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs selectedTid from URL
+        return g.perspective?.userTid === selectedTid
       })
 
     const wins = games.filter(isWin).length
