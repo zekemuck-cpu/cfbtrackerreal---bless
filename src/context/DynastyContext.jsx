@@ -4286,6 +4286,12 @@ export function DynastyProvider({ children }) {
         additionalUpdates.coachPosition = newJobData.position
         additionalUpdates.conference = newConference || ''
 
+        // CRITICAL: Update currentTid to the new team's tid
+        const newTid = getTidFromTeamName(newTeamName, dynasty.teams)
+        if (newTid) {
+          additionalUpdates.currentTid = newTid
+        }
+
         // NOTE: We do NOT update coachTeamByYear[currentYear] here because:
         // - currentYear is still the OLD year (year flip happens at offseason week 6)
         // - The games played this year were with the OLD team
