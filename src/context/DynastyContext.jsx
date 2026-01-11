@@ -6772,6 +6772,7 @@ export function DynastyProvider({ children }) {
       }
 
       // Create new player
+      const playerClass = newPlayer.entry?.class || ''
       const player = {
         pid: nextPID,
         id: `player-${nextPID}`,
@@ -6779,6 +6780,8 @@ export function DynastyProvider({ children }) {
         position: newPlayer.position,
         team: teamTid, // Store tid for consistency
         teams: [newPlayer.team], // Keep abbr in teams array for backwards compat
+        year: playerClass, // Class from award entry (e.g., "Jr", "Sr")
+        classByYear: playerClass ? { [entryYear]: playerClass } : {},
         // Players added via awards are regular roster players, not honor-only
         // They should appear on the team's roster for the award year
         teamsByYear: { [entryYear]: teamTid },

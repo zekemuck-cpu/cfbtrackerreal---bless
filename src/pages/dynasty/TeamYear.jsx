@@ -3103,7 +3103,7 @@ export default function TeamYear() {
                       {player.name}
                     </div>
                     <div className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                      {player.position} • {player.overall} OVR • Transfer
+                      {player.position} • {player.overall || '—'} OVR • {player.classByYear?.[selectedYear] || player.year || '—'}
                     </div>
                   </div>
                 </Link>
