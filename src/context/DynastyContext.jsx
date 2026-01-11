@@ -2709,26 +2709,92 @@ export function DynastyProvider({ children }) {
         migrated._coachTeamByYearMigrated = true
       }
 
-      // FIX: Ensure coachTeamByYear[currentYear] matches current team
-      // This fixes dynasties where coachTeamByYear wasn't properly set
-      // ONLY fix if we're in a playing phase (not offseason, where job changes apply)
-      const isPlayingPhase = ['preseason', 'regular_season', 'conference_championship', 'postseason'].includes(migrated.currentPhase)
-      const currentTid = getCurrentTeamTid(migrated)
-      const currentYearEntry = migrated.coachTeamByYear?.[migrated.currentYear]
-      const entryNeedsFix = isPlayingPhase && currentTid && (!currentYearEntry || currentYearEntry.tid !== currentTid)
-      if (entryNeedsFix) {
-        console.log('[Migration] Fixing coachTeamByYear for year', migrated.currentYear, '- entry:', currentYearEntry?.tid, 'current team:', currentTid)
-        const currentTeamAbbr = getCurrentTeamAbbr(migrated)
-        migrated.coachTeamByYear = {
-          ...migrated.coachTeamByYear,
-          [migrated.currentYear]: {
-            tid: currentTid,
-            team: currentTeamAbbr,
-            teamName: migrated.teamName,
-            position: migrated.coachPosition || 'HC',
-            conference: migrated.conference
+      // FIX: Ensure coachTeamByYear has correct entries for ALL years with games
+      // Infer from games data - find what team the user played as each year
+      const games = migrated.games || []
+      const inferredTeamsByYear = {}
+
+      // Group games by year and find the user's team
+      games.forEach(g => {
+        if (!g.year) return
+        const year = Number(g.year)
+        if (inferredTeamsByYear[year]) return // Already found team for this year
+
+        // For unified format games with team1Tid/team2Tid
+        if (g.team1Tid && g.team2Tid) {
+          // Check coachingHistory to see which team user was coaching
+          const history = migrated.coachingHistory || []
+          for (const stint of history) {
+            if (year >= stint.startYear && year <= stint.endYear) {
+              const stintTid = getTidFromTeamName(stint.teamName, migrated.teams)
+              if (stintTid && (g.team1Tid === stintTid || g.team2Tid === stintTid)) {
+                inferredTeamsByYear[year] = stintTid
+                return
+              }
+            }
+          }
+          // Check if current team matches (for years after last history entry)
+          const currentTid = getCurrentTeamTid(migrated)
+          if (currentTid && (g.team1Tid === currentTid || g.team2Tid === currentTid)) {
+            const lastHistoryEnd = history.length > 0 ? history[history.length - 1].endYear : migrated.startYear - 1
+            if (year > lastHistoryEnd) {
+              inferredTeamsByYear[year] = currentTid
+            }
           }
         }
+
+        // For legacy format with userTeam field
+        if (g.userTeam && !inferredTeamsByYear[year]) {
+          const tid = getTidFromAbbr(g.userTeam)
+          if (tid) inferredTeamsByYear[year] = tid
+        }
+
+        // For legacy format with userTid field
+        if (g.userTid && !inferredTeamsByYear[year]) {
+          inferredTeamsByYear[year] = g.userTid
+        }
+      })
+
+      // Fix coachTeamByYear for any years that are missing or wrong
+      let coachTeamByYearUpdated = false
+      const updatedCoachTeamByYear = { ...migrated.coachTeamByYear }
+
+      for (const [yearStr, tid] of Object.entries(inferredTeamsByYear)) {
+        const year = Number(yearStr)
+        const existingEntry = updatedCoachTeamByYear[year]
+        if (!existingEntry || existingEntry.tid !== tid) {
+          console.log('[Migration] Fixing coachTeamByYear for year', year, '- was:', existingEntry?.tid, 'should be:', tid)
+          const team = migrated.teams?.[tid] || TEAMS[tid]
+          updatedCoachTeamByYear[year] = {
+            tid: tid,
+            team: team?.abbr,
+            teamName: team?.name,
+            position: 'HC',
+            conference: ''
+          }
+          coachTeamByYearUpdated = true
+        }
+      }
+
+      // Also fix current year if in playing phase
+      const isPlayingPhase = ['preseason', 'regular_season', 'conference_championship', 'postseason'].includes(migrated.currentPhase)
+      const currentTid = getCurrentTeamTid(migrated)
+      const currentYearEntry = updatedCoachTeamByYear[migrated.currentYear]
+      if (isPlayingPhase && currentTid && (!currentYearEntry || currentYearEntry.tid !== currentTid)) {
+        console.log('[Migration] Fixing coachTeamByYear for current year', migrated.currentYear, '- was:', currentYearEntry?.tid, 'should be:', currentTid)
+        const currentTeamAbbr = getCurrentTeamAbbr(migrated)
+        updatedCoachTeamByYear[migrated.currentYear] = {
+          tid: currentTid,
+          team: currentTeamAbbr,
+          teamName: migrated.teamName,
+          position: migrated.coachPosition || 'HC',
+          conference: migrated.conference
+        }
+        coachTeamByYearUpdated = true
+      }
+
+      if (coachTeamByYearUpdated) {
+        migrated.coachTeamByYear = updatedCoachTeamByYear
       }
 
       return migrated
