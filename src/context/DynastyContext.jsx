@@ -2709,6 +2709,28 @@ export function DynastyProvider({ children }) {
         migrated._coachTeamByYearMigrated = true
       }
 
+      // FIX: Ensure coachTeamByYear[currentYear] matches current team
+      // This fixes dynasties where coachTeamByYear wasn't properly set
+      // ONLY fix if we're in a playing phase (not offseason, where job changes apply)
+      const isPlayingPhase = ['preseason', 'regular_season', 'conference_championship', 'postseason'].includes(migrated.currentPhase)
+      const currentTid = getCurrentTeamTid(migrated)
+      const currentYearEntry = migrated.coachTeamByYear?.[migrated.currentYear]
+      const entryNeedsFix = isPlayingPhase && currentTid && (!currentYearEntry || currentYearEntry.tid !== currentTid)
+      if (entryNeedsFix) {
+        console.log('[Migration] Fixing coachTeamByYear for year', migrated.currentYear, '- entry:', currentYearEntry?.tid, 'current team:', currentTid)
+        const currentTeamAbbr = getCurrentTeamAbbr(migrated)
+        migrated.coachTeamByYear = {
+          ...migrated.coachTeamByYear,
+          [migrated.currentYear]: {
+            tid: currentTid,
+            team: currentTeamAbbr,
+            teamName: migrated.teamName,
+            position: migrated.coachPosition || 'HC',
+            conference: migrated.conference
+          }
+        }
+      }
+
       return migrated
     })
   }
@@ -4155,8 +4177,7 @@ export function DynastyProvider({ children }) {
           googleSheetId: dynasty.googleSheetId,
           googleSheetUrl: dynasty.googleSheetUrl,
           preseasonSetup: dynasty.preseasonSetup,
-          newJobData: newJobData, // Save the accepted job offer to restore on revert
-          coachTeamByYearEntry: dynasty.coachTeamByYear?.[dynasty.currentYear] // Save old entry for revert
+          newJobData: newJobData // Save the accepted job offer to restore on revert
         }
 
         // Calculate record at current team for this stint
@@ -4202,20 +4223,10 @@ export function DynastyProvider({ children }) {
         additionalUpdates.coachPosition = newJobData.position
         additionalUpdates.conference = newConference || ''
 
-        // UPDATE coachTeamByYear for current year to reflect the new team
-        // This is critical for game perspective calculations (getUserGamePerspective)
-        const newTeamTid = getTidFromAbbr(newJobData.team)
-        const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
-        additionalUpdates.coachTeamByYear = {
-          ...existingCoachTeamByYear,
-          [dynasty.currentYear]: {
-            tid: newTeamTid,
-            team: newJobData.team,
-            teamName: newTeamName,
-            position: newJobData.position,
-            conference: newConference || ''
-          }
-        }
+        // NOTE: We do NOT update coachTeamByYear[currentYear] here because:
+        // - currentYear is still the OLD year (year flip happens at offseason week 6)
+        // - The games played this year were with the OLD team
+        // - coachTeamByYear for the NEW year is set when advancing to regular season (line ~4062)
 
         // TEAM-CENTRIC FIX: Tag all legacy players (without team field) with their current team
         // before switching. This ensures they stay associated with their original team.
@@ -5204,14 +5215,6 @@ export function DynastyProvider({ children }) {
           additionalUpdates.preseasonSetup = previousJobData.preseasonSetup
           // Restore the accepted job offer so it shows again
           additionalUpdates.newJobData = previousJobData.newJobData
-          // Restore coachTeamByYear entry for the current year
-          if (previousJobData.coachTeamByYearEntry) {
-            const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
-            additionalUpdates.coachTeamByYear = {
-              ...existingCoachTeamByYear,
-              [dynasty.currentYear]: previousJobData.coachTeamByYearEntry
-            }
-          }
           // Remove the last entry from coaching history (the stint we just added)
           const existingHistory = dynasty.coachingHistory || []
           if (existingHistory.length > 0) {
