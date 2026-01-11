@@ -824,27 +824,47 @@ export default function Team() {
   }
 
   // Get team record from games played for a specific year (fallback when standings not available)
-  // Uses perspective to find games where user coached this team
+  // Pure tid-based: finds all games where this team played, regardless of user
   const getTeamRecordFromGames = (year) => {
     const games = currentDynasty.games || []
-    // Filter games where user played AS this team in this year
-    const teamGames = games
-      .filter(g => Number(g.year) === Number(year))
-      .map(g => {
-        const perspective = getUserGamePerspective(g, currentDynasty)
-        return perspective ? { ...g, perspective } : null
-      })
-      .filter(g => {
-        if (!g) return false
-        // Check if user was coaching this team in this game
-        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs tid from URL
-        return g.perspective?.userTid === tid
-      })
+    // Filter games where this team played (either as team1 or team2)
+    const teamGames = games.filter(g => {
+      if (Number(g.year) !== Number(year)) return false
+      // Check unified format (team1Tid/team2Tid)
+      if (g.team1Tid === tid || g.team2Tid === tid) return true
+      // Check legacy format (userTid/opponentTid)
+      if (g.userTid === tid || g.opponentTid === tid) return true
+      return false
+    })
 
     if (teamGames.length === 0) return null
 
-    const wins = teamGames.filter(g => g.perspective?.userWon).length
-    const losses = teamGames.filter(g => g.perspective && !g.perspective.userWon).length
+    // Calculate wins/losses from this team's perspective
+    let wins = 0
+    let losses = 0
+    teamGames.forEach(g => {
+      // Determine scores for this team
+      let teamScore, opponentScore
+
+      if (g.team1Tid === tid) {
+        teamScore = g.team1Score
+        opponentScore = g.team2Score
+      } else if (g.team2Tid === tid) {
+        teamScore = g.team2Score
+        opponentScore = g.team1Score
+      } else if (g.userTid === tid) {
+        teamScore = g.teamScore
+        opponentScore = g.opponentScore
+      } else if (g.opponentTid === tid) {
+        teamScore = g.opponentScore
+        opponentScore = g.teamScore
+      }
+
+      if (teamScore != null && opponentScore != null) {
+        if (teamScore > opponentScore) wins++
+        else if (teamScore < opponentScore) losses++
+      }
+    })
 
     return { wins, losses }
   }
