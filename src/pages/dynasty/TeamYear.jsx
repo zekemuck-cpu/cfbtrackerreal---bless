@@ -769,20 +769,6 @@ export default function TeamYear() {
   // This is the most reliable method for user's coached team
   const getRecordFromPerspective = () => {
     const games = currentDynasty.games || []
-
-    console.log('[TeamYear Record] tid:', tid, 'selectedYear:', selectedYear)
-    console.log('[TeamYear Record] coachTeamByYear:', JSON.stringify(currentDynasty.coachTeamByYear))
-
-    const yearGames = games.filter(g => Number(g.year) === Number(selectedYear))
-    console.log('[TeamYear Record] Games in year:', yearGames.length)
-
-    if (yearGames.length > 0) {
-      const firstGame = yearGames[0]
-      const testPerspective = getUserGamePerspective(firstGame, currentDynasty)
-      console.log('[TeamYear Record] First game userTid:', firstGame.userTid, 'opponentTid:', firstGame.opponentTid)
-      console.log('[TeamYear Record] First game perspective:', testPerspective)
-    }
-
     const gamesWithPerspective = games
       .filter(g => Number(g.year) === Number(selectedYear))
       .map(g => {
@@ -791,14 +777,10 @@ export default function TeamYear() {
       })
       .filter(g => g && g.perspective?.userTid === tid)
 
-    console.log('[TeamYear Record] Games matching tid:', gamesWithPerspective.length)
-
     if (gamesWithPerspective.length === 0) return null
 
     const wins = gamesWithPerspective.filter(g => g.perspective?.userWon).length
     const losses = gamesWithPerspective.filter(g => g.perspective && !g.perspective.userWon).length
-
-    console.log('[TeamYear Record] Wins:', wins, 'Losses:', losses)
 
     return { wins, losses, pointsFor: null, pointsAgainst: null }
   }
@@ -957,13 +939,13 @@ export default function TeamYear() {
     if (manualRecord) {
       return { wins: manualRecord.wins, losses: manualRecord.losses, pointsFor: null, pointsAgainst: null }
     }
-    // Conference standings are the most authoritative (end of year data)
-    if (standingsRecord) {
-      return standingsRecord
-    }
-    // Use perspective-based record calculation (same as TeamStats) - most reliable for user's team
+    // Perspective-based record (same as TeamStats) - most reliable for user's coached teams
     if (perspectiveRecord) {
       return perspectiveRecord
+    }
+    // Conference standings (only if they have actual games recorded)
+    if (standingsRecord && (standingsRecord.wins > 0 || standingsRecord.losses > 0)) {
+      return standingsRecord
     }
     // Fall back to calculating from teamYearGames result field
     if (teamYearGames.length > 0) {
