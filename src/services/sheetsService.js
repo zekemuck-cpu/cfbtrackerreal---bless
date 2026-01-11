@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase'
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
-import { getAbbrFromTeamName } from '../data/teamRegistry'
+import { getAbbrFromTeamName, getTidFromAbbr } from '../data/teamRegistry'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
@@ -8129,11 +8129,22 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
     const accessToken = await getAccessToken()
 
     // Filter to only current roster players using teamsByYear (the ONLY source of truth)
+    // Convert teamAbbr to tid for proper comparison (teamsByYear stores tids as numbers)
+    const teamTid = getTidFromAbbr(teamAbbr)
     const currentRosterPlayers = players.filter(p => {
       if (p.isHonorOnly) return false
       // Use teamsByYear for proper team-centric filtering
-      if (teamAbbr && p.teamsByYear) {
-        return p.teamsByYear[year] === teamAbbr
+      if (p.teamsByYear) {
+        const playerTid = p.teamsByYear[year] || p.teamsByYear[String(year)]
+        // Handle both tid (number) and legacy abbr (string) in teamsByYear
+        if (typeof playerTid === 'number') {
+          return playerTid === teamTid
+        }
+        // Legacy: teamsByYear might have abbreviation string
+        if (typeof playerTid === 'string') {
+          return playerTid === teamAbbr || playerTid.toUpperCase() === teamAbbr?.toUpperCase()
+        }
+        return false
       }
       // Fallback for legacy data without teamsByYear
       return !p.leftTeam && !p.isRecruit
@@ -8371,6 +8382,29 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
         },
         rows: prefilledRows,
         fields: 'userEnteredValue'
+      }
+    })
+  }
+
+  // Add player name dropdown validation for Player column (only if we have players)
+  if (playerNames && playerNames.length > 0) {
+    requests.push({
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          endRowIndex: totalRows + 1,
+          startColumnIndex: 0,
+          endColumnIndex: 1
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: playerNames.map(name => ({ userEnteredValue: name }))
+          },
+          showCustomUi: true,
+          strict: false // Allow custom entries in case player isn't in list
+        }
       }
     })
   }
