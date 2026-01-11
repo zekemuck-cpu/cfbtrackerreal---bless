@@ -2673,9 +2673,25 @@ export function DynastyProvider({ children }) {
 
       // Apply full tid migration
       // Converts currentTid, player.teamsByYear, game records, coachTeamByYear to tid
-      if (!migrated._tidFullyMigrated) {
+      // Also check if any player still has abbr in teamsByYear (migration flag set but data not persisted)
+      const needsDataMigration = !migrated._tidFullyMigrated || (() => {
+        // Check if any player still has string (abbr) values in teamsByYear
+        const players = migrated.players || []
+        return players.some(p => {
+          if (!p.teamsByYear) return false
+          return Object.values(p.teamsByYear).some(v => typeof v === 'string' && !/^\d+$/.test(v))
+        })
+      })()
+
+      if (needsDataMigration) {
+        console.log('[Migration] Running full tid migration (flag:', migrated._tidFullyMigrated, ', data needs migration:', needsDataMigration, ')')
+        const wasAlreadyFlagged = migrated._tidFullyMigrated
         migrated = migrateToFullTidSystem(migrated)
         migrated._tidFullyMigrated = true
+        // Mark that data needs persisting if we just migrated data that wasn't persisted before
+        if (wasAlreadyFlagged) {
+          migrated._tidDataMigrationPending = true
+        }
       }
 
       // Ensure coachTeamByYear is initialized (for dynasties created before this feature)
@@ -2818,11 +2834,36 @@ export function DynastyProvider({ children }) {
         if (migrated._tidMigrated && !raw._tidMigrated) {
           flagsToSave._tidMigrated = true
         }
+        // Persist migrated data when flag is newly set OR when data migration was pending
+        const shouldPersistMigratedData = (migrated._tidFullyMigrated && !raw._tidFullyMigrated) || migrated._tidDataMigrationPending
+
         if (migrated._tidFullyMigrated && !raw._tidFullyMigrated) {
           flagsToSave._tidFullyMigrated = true
           // Also persist currentTid since it's added during migration
           if (migrated.currentTid) {
             flagsToSave.currentTid = migrated.currentTid
+          }
+        }
+
+        if (shouldPersistMigratedData) {
+          // CRITICAL: Persist the migrated players with tid-based teamsByYear
+          // This ensures the migration is permanent and not just in memory
+          if (migrated.players && migrated.players.length > 0 && migrated._subcollectionsMigrated) {
+            console.log('[Migration] Persisting migrated players with tid-based teamsByYear to subcollection...')
+            savePlayersToSubcollection(migrated.id, migrated.players).then(() => {
+              console.log('[Migration] Successfully persisted migrated players')
+            }).catch(err => {
+              console.error('Failed to persist migrated players:', err)
+            })
+          }
+          // Also persist games with unified format
+          if (migrated.games && migrated.games.length > 0 && migrated._subcollectionsMigrated) {
+            console.log('[Migration] Persisting migrated games with unified format to subcollection...')
+            saveGamesToSubcollection(migrated.id, migrated.games).then(() => {
+              console.log('[Migration] Successfully persisted migrated games')
+            }).catch(err => {
+              console.error('Failed to persist migrated games:', err)
+            })
           }
         }
 
