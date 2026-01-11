@@ -8375,9 +8375,17 @@ export default function Dashboard() {
         players={(() => {
           // Returning players + portal transfers (NOT HS/JUCO recruits)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+          const teamTid = getTidFromAbbr(teamAbbr)
           const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
           const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
           const currentYear = currentDynasty?.currentYear
+
+          // Helper to check if player's team matches (handles tid and abbr)
+          const matchesTeam = (teamValue) => {
+            if (teamValue === undefined || teamValue === null) return false
+            if (typeof teamValue === 'number') return teamValue === teamTid
+            return teamValue === teamAbbr || teamValue?.toUpperCase() === teamAbbr?.toUpperCase()
+          }
 
           const allPlayers = currentDynasty?.players || []
 
@@ -8386,8 +8394,8 @@ export default function Dashboard() {
             if (leavingPids.has(p.pid)) return false
             if (p.isRecruit) return false
             if (p.isHonorOnly) return false
-            const wasOnTeamLastYear = p.teamsByYear?.[offseasonDataYear] === teamAbbr
-            const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+            const wasOnTeamLastYear = matchesTeam(p.teamsByYear?.[offseasonDataYear] ?? p.teamsByYear?.[String(offseasonDataYear)])
+            const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)])
             return wasOnTeamLastYear && isOnTeamThisYear
           })
 
@@ -8397,7 +8405,7 @@ export default function Dashboard() {
             if (p.isHonorOnly) return false
             const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
             if (!isPortalTransfer) return false
-            const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+            const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)])
             return isOnTeamThisYear
           })
 

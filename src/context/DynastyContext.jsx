@@ -5113,6 +5113,7 @@ export function DynastyProvider({ children }) {
     } else if (dynasty.currentPhase === 'offseason') {
       // Reverting within offseason - handle different week transitions
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const teamTid = getTidFromAbbr(teamAbbr)
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
@@ -5163,8 +5164,11 @@ export function DynastyProvider({ children }) {
           if (player.isRecruit) return player // Recruits weren't processed
 
           // Check if this player was on the team and had class progression applied
-          const hadNewYearEntry = player.teamsByYear?.[newSeasonYear] === teamAbbr ||
-                                   player.teamsByYear?.[String(newSeasonYear)] === teamAbbr
+          // Handle both tid (number) and legacy abbr (string) in teamsByYear
+          const playerTeamForYear = player.teamsByYear?.[newSeasonYear] ?? player.teamsByYear?.[String(newSeasonYear)]
+          const hadNewYearEntry = typeof playerTeamForYear === 'number'
+            ? playerTeamForYear === teamTid
+            : playerTeamForYear === teamAbbr || playerTeamForYear?.toUpperCase() === teamAbbr?.toUpperCase()
 
           if (!hadNewYearEntry) return player
 
@@ -7042,15 +7046,25 @@ export function DynastyProvider({ children }) {
     const currentYear = dynasty.currentYear
     const previousYear = currentYear - 1
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+    const teamTid = getTidFromAbbr(teamAbbr)
     const players = [...(dynasty.players || [])]
     let removedCount = 0
+
+    // Helper to check if a teamsByYear value matches our team
+    const matchesTeam = (teamValue) => {
+      if (teamValue === undefined || teamValue === null) return false
+      if (typeof teamValue === 'number') return teamValue === teamTid
+      return teamValue === teamAbbr || teamValue?.toUpperCase() === teamAbbr?.toUpperCase()
+    }
 
     const updatedPlayers = players.map(player => {
       if (player.isHonorOnly) return player
 
       const teamsByYear = player.teamsByYear || {}
-      const hasCurrentYear = teamsByYear[currentYear] === teamAbbr || teamsByYear[String(currentYear)] === teamAbbr
-      const hasPreviousYear = teamsByYear[previousYear] === teamAbbr || teamsByYear[String(previousYear)] === teamAbbr
+      const currentYearValue = teamsByYear[currentYear] ?? teamsByYear[String(currentYear)]
+      const previousYearValue = teamsByYear[previousYear] ?? teamsByYear[String(previousYear)]
+      const hasCurrentYear = matchesTeam(currentYearValue)
+      const hasPreviousYear = matchesTeam(previousYearValue)
 
       // If player has current year but NOT previous year, remove current year
       // (Exception: recruits who just enrolled)
@@ -7224,12 +7238,20 @@ export function DynastyProvider({ children }) {
 
     const currentYear = dynasty.currentYear
     const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+    const currentTeamTid = getTidFromAbbr(currentTeamAbbr)
     const players = [...(dynasty.players || [])]
     let fixedCount = 0
     const fixedPlayers = []
 
     // Senior classes - these players shouldn't have entries after their senior year
     const SENIOR_CLASSES = ['Sr', 'RS Sr']
+
+    // Helper to check if a team value matches current team (handles tid and abbr)
+    const isCurrentTeam = (teamValue) => {
+      if (teamValue === undefined || teamValue === null) return false
+      if (typeof teamValue === 'number') return teamValue === currentTeamTid
+      return teamValue === currentTeamAbbr || teamValue?.toUpperCase() === currentTeamAbbr?.toUpperCase()
+    }
 
     const updatedPlayers = players.map(player => {
       const teamsByYear = { ...(player.teamsByYear || {}) }
@@ -7267,21 +7289,21 @@ export function DynastyProvider({ children }) {
       // Check 2: If player transferred AWAY from current team, and now shows back on current team,
       // that's likely an error - should stay at their transfer destination
       // BUT: If player has a "recommit" movement, they intentionally came back - don't fix
-      else if (mostRecentPrevTeam && mostRecentPrevTeam !== currentTeamAbbr && currentYearTeam === currentTeamAbbr) {
+      else if (mostRecentPrevTeam && !isCurrentTeam(mostRecentPrevTeam) && isCurrentTeam(currentYearTeam)) {
         // Check if player has any indication they recommitted (came back intentionally)
         const movements = player.movements || []
         const movementsByYear = player.movementsByYear || {}
         const hasRecommit = movements.some(m =>
           m.type === 'recommit' ||
           m.type === 'portal_in' ||
-          (m.to === currentTeamAbbr && m.year >= mostRecentPrevYear)
+          (isCurrentTeam(m.to) && m.year >= mostRecentPrevYear)
         )
         const hasRecommitMovement = Object.values(movementsByYear).some(m =>
           m === 'Recommitted' || m === 'Transferred'
         )
 
         // Also check if they were originally from this team (came back home)
-        const wasOriginallyOnTeam = Object.values(teamsByYear).filter(t => t === currentTeamAbbr).length > 1
+        const wasOriginallyOnTeam = Object.values(teamsByYear).filter(t => isCurrentTeam(t)).length > 1
 
         if (hasRecommit || hasRecommitMovement || wasOriginallyOnTeam) {
           // Player intentionally came back - don't fix

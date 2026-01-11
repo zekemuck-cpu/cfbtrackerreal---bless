@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { getPublicDynastyWithSubcollections } from '../services/dynastyService'
-import { getCurrentTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import DynastyContext from './DynastyContext'
 
 const ViewDynastyContext = createContext()
@@ -141,11 +141,20 @@ export function ViewDynastyProvider({ shareCode, children }) {
     getCurrentRoster: () => {
       if (!dynasty) return []
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const teamTid = getTidFromAbbr(teamAbbr)
       const currentYear = dynasty.currentYear
       // Use unified isPlayerOnRoster check - teamsByYear is the ONLY source of truth
+      // Handle both tid (number) and legacy abbr (string) in teamsByYear
       return (dynasty.players || []).filter(p => {
         if (p.isHonorOnly) return false
-        return p.teamsByYear?.[currentYear] === teamAbbr
+        const playerTeam = p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)]
+        if (playerTeam === undefined || playerTeam === null) return false
+        // Handle both tid (number) and legacy abbr (string)
+        if (typeof playerTeam === 'number') {
+          return playerTeam === teamTid
+        }
+        // Legacy: string comparison
+        return playerTeam === teamAbbr || playerTeam.toUpperCase() === teamAbbr?.toUpperCase()
       })
     }
   }
