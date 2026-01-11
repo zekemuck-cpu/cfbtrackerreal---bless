@@ -757,17 +757,37 @@ export default function GameEntryModal({
           }
         }
 
+        // For unified format, derive location from homeTeamTid if not set
+        const isUnifiedFormat = gameToLoad.team1Tid !== undefined && gameToLoad.team2Tid !== undefined
+        if (!gameToLoad.location && isUnifiedFormat && !isCPUGameData) {
+          const userTeamTid = getCurrentTeamTid(currentDynasty)
+          if (gameToLoad.homeTeamTid === null) {
+            effectiveLocation = 'neutral'
+          } else if (gameToLoad.homeTeamTid === userTeamTid) {
+            effectiveLocation = 'home'
+          } else {
+            effectiveLocation = 'away'
+          }
+        }
+
+        // For unified format, team1 is user and team2 is opponent (for non-CPU games)
+        const userRank = isUnifiedFormat && !isCPUGameData ? gameToLoad.team1Rank : gameToLoad.userRank
+        const oppRank = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Rank : gameToLoad.opponentRank
+        const oppOverall = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Overall : gameToLoad.opponentOverall
+        const oppOffense = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Offense : gameToLoad.opponentOffense
+        const oppDefense = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Defense : gameToLoad.opponentDefense
+
         setGameData({
           opponent: derivedOpponent,
           location: effectiveLocation,
           teamScore: teamScore?.toString() || '',
           opponentScore: oppScore?.toString() || '',
           isConferenceGame: gameToLoad.isConferenceGame || isConferenceChampionship || false,
-          userRank: gameToLoad.userRank?.toString() || '',
-          opponentRank: gameToLoad.opponentRank?.toString() || '',
-          opponentOverall: gameToLoad.opponentOverall?.toString() || '',
-          opponentOffense: gameToLoad.opponentOffense?.toString() || '',
-          opponentDefense: gameToLoad.opponentDefense?.toString() || '',
+          userRank: userRank?.toString() || '',
+          opponentRank: oppRank?.toString() || '',
+          opponentOverall: oppOverall?.toString() || '',
+          opponentOffense: oppOffense?.toString() || '',
+          opponentDefense: oppDefense?.toString() || '',
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: gameToLoad.gameNote || '',
