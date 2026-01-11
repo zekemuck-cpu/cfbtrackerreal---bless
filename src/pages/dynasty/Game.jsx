@@ -921,12 +921,19 @@ export default function Game() {
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
     } else {
-      // User game - user team uses dynasty record, opponent uses game fields for opponent ratings
+      // User game - for unified format, user is team1, opponent is team2
       record = isDisplayTeam && userRecord ? `${userRecord.overall} (${userRecord.conference})` : game.opponentRecord
-      // For user game, opponent ratings are stored directly or in team2 fields (unified format)
-      overall = isDisplayTeam ? null : (game.opponentOverall ?? game.team2Overall)
-      offense = isDisplayTeam ? null : (game.opponentOffense ?? game.team2Offense)
-      defense = isDisplayTeam ? null : (game.opponentDefense ?? game.team2Defense)
+      // For unified format: user ratings in team1*, opponent ratings in team2*
+      // For legacy format: opponent ratings in opponent* fields
+      overall = isDisplayTeam
+        ? (game.team1Overall ?? null)  // User's overall from unified format
+        : (game.team2Overall ?? game.opponentOverall ?? null)  // Opponent's overall
+      offense = isDisplayTeam
+        ? (game.team1Offense ?? null)
+        : (game.team2Offense ?? game.opponentOffense ?? null)
+      defense = isDisplayTeam
+        ? (game.team1Defense ?? null)
+        : (game.team2Defense ?? game.opponentDefense ?? null)
     }
 
     return {
@@ -1831,26 +1838,35 @@ export default function Game() {
       })()}
 
       {/* Game Details Section */}
-      {(!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)) || game.gameNote ? (
+      {(!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)) || game.gameNote ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Team Matchup Card */}
-          {!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense || game.team2Overall) && (() => {
-            // Get user's team ratings for this specific game's year
-            // Look up from teamRatingsByTeamYear using the user's team abbreviation and year
+          {!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
+            // For unified format: user ratings in team1*, opponent ratings in team2*
+            // Fallback to teamRatingsByTeamYear for user if team1* not set (legacy games)
             const gameUserTeam = displayTeamAbbr
             const gameYear = game.year
-            const userTeamRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
+            const fallbackUserRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
 
-            // Get ratings for both teams to compare
+            // User team ratings: prefer game.team1* (unified), fallback to teamRatingsByTeamYear
+            const userRatings = {
+              ovr: game.team1Overall ?? fallbackUserRatings?.overall,
+              off: game.team1Offense ?? fallbackUserRatings?.offense,
+              def: game.team1Defense ?? fallbackUserRatings?.defense
+            }
+            // Opponent ratings: prefer game.team2* (unified), fallback to game.opponent*
+            const oppRatings = {
+              ovr: game.team2Overall ?? game.opponentOverall,
+              off: game.team2Offense ?? game.opponentOffense,
+              def: game.team2Defense ?? game.opponentDefense
+            }
+
+            // Get ratings for both teams to compare based on left/right positioning
             const leftIsOpponent = leftTeam !== 'user'
             const rightIsOpponent = rightTeam !== 'user'
-            const leftRatings = leftIsOpponent
-              ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
-            const rightRatings = rightIsOpponent
-              ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
+            const leftRatings = leftIsOpponent ? oppRatings : userRatings
+            const rightRatings = rightIsOpponent ? oppRatings : userRatings
 
             // Determine which team has better ratings
             const leftOvrBetter = (leftRatings.ovr || 0) > (rightRatings.ovr || 0)
