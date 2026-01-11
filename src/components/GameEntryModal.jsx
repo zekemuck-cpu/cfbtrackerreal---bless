@@ -1298,19 +1298,33 @@ export default function GameEntryModal({
       ...(restGameData.aiRecap && { aiRecap: restGameData.aiRecap }),
       ...(restGameData.gameNote && { gameNote: restGameData.gameNote }),
 
-      // Include pending box score data for new games
-      ...((pendingHomeStats || pendingAwayStats || pendingScoringSummary || pendingTeamStats) && {
+      // Box score handling:
+      // 1. If we have new pending data, use it
+      // 2. If no pending data but existing game has boxScore, preserve it
+      // 3. Otherwise, no boxScore
+      ...((pendingHomeStats || pendingAwayStats || pendingScoringSummary || pendingTeamStats) ? {
         boxScore: {
           home: pendingHomeStats || {},
           away: pendingAwayStats || {},
           scoringSummary: pendingScoringSummary || [],
           teamStats: pendingTeamStats || null
         }
+      } : effectiveGame?.boxScore ? {
+        boxScore: effectiveGame.boxScore
+      } : {}),
+      // Sheet IDs - preserve existing or use new pending
+      ...((pendingSheetIds.homeStatsSheetId || effectiveGame?.homeStatsSheetId) && {
+        homeStatsSheetId: pendingSheetIds.homeStatsSheetId || effectiveGame.homeStatsSheetId
       }),
-      ...(pendingSheetIds.homeStatsSheetId && { homeStatsSheetId: pendingSheetIds.homeStatsSheetId }),
-      ...(pendingSheetIds.awayStatsSheetId && { awayStatsSheetId: pendingSheetIds.awayStatsSheetId }),
-      ...(pendingSheetIds.scoringSummarySheetId && { scoringSummarySheetId: pendingSheetIds.scoringSummarySheetId }),
-      ...(pendingSheetIds.teamStatsSheetId && { teamStatsSheetId: pendingSheetIds.teamStatsSheetId })
+      ...((pendingSheetIds.awayStatsSheetId || effectiveGame?.awayStatsSheetId) && {
+        awayStatsSheetId: pendingSheetIds.awayStatsSheetId || effectiveGame.awayStatsSheetId
+      }),
+      ...((pendingSheetIds.scoringSummarySheetId || effectiveGame?.scoringSummarySheetId) && {
+        scoringSummarySheetId: pendingSheetIds.scoringSummarySheetId || effectiveGame.scoringSummarySheetId
+      }),
+      ...((pendingSheetIds.teamStatsSheetId || effectiveGame?.teamStatsSheetId) && {
+        teamStatsSheetId: pendingSheetIds.teamStatsSheetId || effectiveGame.teamStatsSheetId
+      })
     })
 
 
