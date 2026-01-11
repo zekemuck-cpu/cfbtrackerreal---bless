@@ -4155,7 +4155,8 @@ export function DynastyProvider({ children }) {
           googleSheetId: dynasty.googleSheetId,
           googleSheetUrl: dynasty.googleSheetUrl,
           preseasonSetup: dynasty.preseasonSetup,
-          newJobData: newJobData // Save the accepted job offer to restore on revert
+          newJobData: newJobData, // Save the accepted job offer to restore on revert
+          coachTeamByYearEntry: dynasty.coachTeamByYear?.[dynasty.currentYear] // Save old entry for revert
         }
 
         // Calculate record at current team for this stint
@@ -4200,6 +4201,21 @@ export function DynastyProvider({ children }) {
         additionalUpdates.teamName = newTeamName
         additionalUpdates.coachPosition = newJobData.position
         additionalUpdates.conference = newConference || ''
+
+        // UPDATE coachTeamByYear for current year to reflect the new team
+        // This is critical for game perspective calculations (getUserGamePerspective)
+        const newTeamTid = getTidFromAbbr(newJobData.team)
+        const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
+        additionalUpdates.coachTeamByYear = {
+          ...existingCoachTeamByYear,
+          [dynasty.currentYear]: {
+            tid: newTeamTid,
+            team: newJobData.team,
+            teamName: newTeamName,
+            position: newJobData.position,
+            conference: newConference || ''
+          }
+        }
 
         // TEAM-CENTRIC FIX: Tag all legacy players (without team field) with their current team
         // before switching. This ensures they stay associated with their original team.
@@ -5188,6 +5204,14 @@ export function DynastyProvider({ children }) {
           additionalUpdates.preseasonSetup = previousJobData.preseasonSetup
           // Restore the accepted job offer so it shows again
           additionalUpdates.newJobData = previousJobData.newJobData
+          // Restore coachTeamByYear entry for the current year
+          if (previousJobData.coachTeamByYearEntry) {
+            const existingCoachTeamByYear = dynasty.coachTeamByYear || {}
+            additionalUpdates.coachTeamByYear = {
+              ...existingCoachTeamByYear,
+              [dynasty.currentYear]: previousJobData.coachTeamByYearEntry
+            }
+          }
           // Remove the last entry from coaching history (the stint we just added)
           const existingHistory = dynasty.coachingHistory || []
           if (existingHistory.length > 0) {
