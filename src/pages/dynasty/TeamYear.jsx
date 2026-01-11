@@ -765,6 +765,28 @@ export default function TeamYear() {
 
   const standingsRecord = getTeamRecordFromStandings()
 
+  // Calculate record using getUserGamePerspective (same approach as TeamStats)
+  // This is the most reliable method for user's coached team
+  const getRecordFromPerspective = () => {
+    const games = currentDynasty.games || []
+    const gamesWithPerspective = games
+      .filter(g => Number(g.year) === Number(selectedYear))
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(g => g && g.perspective?.userTid === tid)
+
+    if (gamesWithPerspective.length === 0) return null
+
+    const wins = gamesWithPerspective.filter(g => g.perspective?.userWon).length
+    const losses = gamesWithPerspective.filter(g => g.perspective && !g.perspective.userWon).length
+
+    return { wins, losses, pointsFor: null, pointsAgainst: null }
+  }
+
+  const perspectiveRecord = getRecordFromPerspective()
+
   // Get the last known opponent record from games where this team was the opponent
   // This gives us the most recent record entered by the user during game input
   // Uses perspective to find games where user played against this team
@@ -921,7 +943,11 @@ export default function TeamYear() {
     if (standingsRecord) {
       return standingsRecord
     }
-    // Fall back to calculating from games (for user's own team pages)
+    // Use perspective-based record calculation (same as TeamStats) - most reliable for user's team
+    if (perspectiveRecord) {
+      return perspectiveRecord
+    }
+    // Fall back to calculating from teamYearGames result field
     if (teamYearGames.length > 0) {
       return { wins: teamWins, losses: teamLosses, pointsFor: null, pointsAgainst: null }
     }
