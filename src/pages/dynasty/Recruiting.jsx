@@ -309,13 +309,11 @@ export default function Recruiting() {
     })
   }
 
-  if (!currentDynasty) return null
-
   // Build a lookup map of players by normalized name for quick access
   // Also build a fuzzy lookup that can match partial names
   const playersByName = useMemo(() => {
     const map = {}
-    const players = currentDynasty.players || []
+    const players = currentDynasty?.players || []
     players.forEach(p => {
       if (p.name) {
         const normalizedName = p.name.toLowerCase().trim()
@@ -466,7 +464,7 @@ export default function Recruiting() {
     }
 
     return map
-  }, [currentDynasty.players, teamAbbr])
+  }, [currentDynasty?.players, teamAbbr])
 
   // Get all commitments for selected year - TEAM-CENTRIC
   // If 'all' is selected, combine all years' data
@@ -616,7 +614,7 @@ export default function Recruiting() {
       }
       return 0
     })
-  }, [currentDynasty.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
 
   // Filter commitments based on view mode (Both/HS/Portal) AND star filter
   const allCommitments = useMemo(() => {
@@ -650,6 +648,9 @@ export default function Recruiting() {
 
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
+
+  // Early return AFTER all hooks to avoid React hooks rule violation
+  if (!currentDynasty) return null
 
   // Get player by name to link to player page - check if they were ever on this team
   const findPlayerByName = (name, recruitYear) => {
