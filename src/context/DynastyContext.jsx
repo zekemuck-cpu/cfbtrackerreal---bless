@@ -1061,31 +1061,53 @@ export function getCurrentSchedule(dynasty) {
  */
 export function isPlayerOnRoster(player, tidOrAbbr, year) {
   // teamsByYear is the ONLY source of truth for roster membership
-  // After full tid migration, teamsByYear values are tids (numbers)
-  // Check both number and string keys since data may be stored either way
+  // IMPORTANT: teamsByYear values may be either:
+  // - tid (number) for new/migrated data
+  // - abbreviation (string) for legacy unmigrated data
+  // This function handles BOTH formats for backwards compatibility
+
   const yearNum = Number(year)
   const yearStr = String(year)
   const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
 
-  // If tidOrAbbr is a number, compare directly (new tid-based)
+  if (teamForYear === undefined || teamForYear === null) {
+    return false
+  }
+
+  // Normalize the lookup value to both tid and abbr for comparison
+  let lookupTid = null
+  let lookupAbbr = null
+
   if (typeof tidOrAbbr === 'number') {
-    return teamForYear === tidOrAbbr
+    lookupTid = tidOrAbbr
+    // Get abbr from tid for legacy data comparison
+    const teamData = TEAMS[tidOrAbbr]
+    lookupAbbr = teamData?.abbr
+  } else if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
+    // String that's a number (tid from URL)
+    lookupTid = parseInt(tidOrAbbr, 10)
+    const teamData = TEAMS[lookupTid]
+    lookupAbbr = teamData?.abbr
+  } else if (typeof tidOrAbbr === 'string') {
+    // Abbreviation string
+    lookupAbbr = tidOrAbbr
+    lookupTid = getTidFromAbbr(tidOrAbbr)
   }
 
-  // If tidOrAbbr is a string that looks like a number (tid from URL param), parse and compare
-  if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
-    return teamForYear === parseInt(tidOrAbbr, 10)
-  }
-
-  // If tidOrAbbr is an abbreviation string (backward compatibility during transition)
-  // Convert abbr to tid and compare
-  if (typeof tidOrAbbr === 'string') {
-    const tid = getTidFromAbbr(tidOrAbbr)
-    if (tid) {
-      return teamForYear === tid
+  // Compare against the stored value (which could be tid or abbr)
+  if (typeof teamForYear === 'number') {
+    // Stored as tid - compare with lookup tid
+    return teamForYear === lookupTid
+  } else if (typeof teamForYear === 'string') {
+    // Stored as abbr (legacy) - compare with lookup abbr, or convert and compare with tid
+    if (teamForYear === lookupAbbr) {
+      return true
     }
-    // Fallback: direct string comparison (for unmigrated data)
-    return teamForYear === tidOrAbbr
+    // Also try converting stored abbr to tid
+    const storedTid = getTidFromAbbr(teamForYear)
+    if (storedTid && storedTid === lookupTid) {
+      return true
+    }
   }
 
   return false
