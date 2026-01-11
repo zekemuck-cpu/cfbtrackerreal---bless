@@ -445,16 +445,21 @@ export default function TeamYear() {
       const isTeam2ByTid = g.team2Tid === tid
       const isInGameByTid = isTeam1ByTid || isTeam2ByTid
 
+      // USER GAME FORMAT: Check userTid/opponentTid (games where user played)
+      const isUserTeamByTid = g.userTid === tid
+      const isOpponentByTid = g.opponentTid === tid
+      const isInGameByUserTid = isUserTeamByTid || isOpponentByTid
+
       // LEGACY FORMAT: Check team1/team2 abbreviations or userTeam/opponent
       const opponentAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
       const isTeam1ByAbbr = g.team1 === teamAbbr
       const isTeam2ByAbbr = g.team2 === teamAbbr
       const isInTeam1Team2 = isTeam1ByAbbr || isTeam2ByAbbr
 
-      // Combined check: team is involved in this game
-      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : isTeam1ByAbbr
-      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : isTeam2ByAbbr
-      const teamInGame = hasUnifiedFormat ? isInGameByTid : (isInTeam1Team2 || g.userTeam === teamAbbr || opponentAbbr === teamAbbr)
+      // Combined check: team is involved in this game (check all formats)
+      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : (isUserTeamByTid || isTeam1ByAbbr)
+      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : (isOpponentByTid || isTeam2ByAbbr)
+      const teamInGame = isInGameByTid || isInGameByUserTid || isInTeam1Team2 || g.userTeam === teamAbbr || opponentAbbr === teamAbbr
 
       if (!teamInGame) return
 
