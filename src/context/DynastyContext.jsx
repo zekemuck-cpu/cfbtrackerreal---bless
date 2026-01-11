@@ -2692,7 +2692,6 @@ export function DynastyProvider({ children }) {
       })()
 
       if (needsDataMigration) {
-        console.log('[Migration] Running full tid migration (flag:', migrated._tidFullyMigrated, ', data needs migration:', needsDataMigration, ')')
         const wasAlreadyFlagged = migrated._tidFullyMigrated
         migrated = migrateToFullTidSystem(migrated)
         migrated._tidFullyMigrated = true
@@ -2766,7 +2765,6 @@ export function DynastyProvider({ children }) {
         const year = Number(yearStr)
         const existingEntry = updatedCoachTeamByYear[year]
         if (!existingEntry || existingEntry.tid !== tid) {
-          console.log('[Migration] Fixing coachTeamByYear for year', year, '- was:', existingEntry?.tid, 'should be:', tid)
           const team = migrated.teams?.[tid] || TEAMS[tid]
           updatedCoachTeamByYear[year] = {
             tid: tid,
@@ -2784,7 +2782,6 @@ export function DynastyProvider({ children }) {
       const currentTid = getCurrentTeamTid(migrated)
       const currentYearEntry = updatedCoachTeamByYear[migrated.currentYear]
       if (isPlayingPhase && currentTid && (!currentYearEntry || currentYearEntry.tid !== currentTid)) {
-        console.log('[Migration] Fixing coachTeamByYear for current year', migrated.currentYear, '- was:', currentYearEntry?.tid, 'should be:', currentTid)
         const currentTeamAbbr = getCurrentTeamAbbr(migrated)
         updatedCoachTeamByYear[migrated.currentYear] = {
           tid: currentTid,
@@ -2948,19 +2945,13 @@ export function DynastyProvider({ children }) {
           // CRITICAL: Persist the migrated players with tid-based teamsByYear
           // This ensures the migration is permanent and not just in memory
           if (migrated.players && migrated.players.length > 0 && migrated._subcollectionsMigrated) {
-            console.log('[Migration] Persisting migrated players with tid-based teamsByYear to subcollection...')
-            savePlayersToSubcollection(migrated.id, migrated.players).then(() => {
-              console.log('[Migration] Successfully persisted migrated players')
-            }).catch(err => {
+            savePlayersToSubcollection(migrated.id, migrated.players).catch(err => {
               console.error('Failed to persist migrated players:', err)
             })
           }
           // Also persist games with unified format
           if (migrated.games && migrated.games.length > 0 && migrated._subcollectionsMigrated) {
-            console.log('[Migration] Persisting migrated games with unified format to subcollection...')
-            saveGamesToSubcollection(migrated.id, migrated.games).then(() => {
-              console.log('[Migration] Successfully persisted migrated games')
-            }).catch(err => {
+            saveGamesToSubcollection(migrated.id, migrated.games).catch(err => {
               console.error('Failed to persist migrated games:', err)
             })
           }

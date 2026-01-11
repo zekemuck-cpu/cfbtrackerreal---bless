@@ -827,6 +827,17 @@ export default function Team() {
   // Pure tid-based: finds all games where this team played, regardless of user
   const getTeamRecordFromGames = (year) => {
     const games = currentDynasty.games || []
+
+    console.log('[Team Record] Looking for tid:', tid, 'teamAbbr:', teamAbbr, 'year:', year)
+    console.log('[Team Record] Total games in dynasty:', games.length)
+
+    // Log a sample of games for this year to see their structure
+    const yearGames = games.filter(g => Number(g.year) === Number(year))
+    console.log('[Team Record] Games in year', year, ':', yearGames.length)
+    if (yearGames.length > 0) {
+      console.log('[Team Record] Sample game structure:', JSON.stringify(yearGames[0], null, 2))
+    }
+
     // Filter games where this team played (either as team1 or team2)
     const teamGames = games.filter(g => {
       if (Number(g.year) !== Number(year)) return false
@@ -835,6 +846,16 @@ export default function Team() {
       // Check legacy format (userTid/opponentTid)
       if (g.userTid === tid || g.opponentTid === tid) return true
       return false
+    })
+
+    console.log('[Team Record] Found', teamGames.length, 'games for this team')
+    teamGames.forEach((g, i) => {
+      console.log(`[Team Record] Game ${i}:`, {
+        team1Tid: g.team1Tid, team2Tid: g.team2Tid,
+        userTid: g.userTid, opponentTid: g.opponentTid,
+        team1Score: g.team1Score, team2Score: g.team2Score,
+        teamScore: g.teamScore, opponentScore: g.opponentScore
+      })
     })
 
     if (teamGames.length === 0) return null
@@ -865,6 +886,8 @@ export default function Team() {
         else if (teamScore < opponentScore) losses++
       }
     })
+
+    console.log('[Team Record] Result:', wins, '-', losses)
 
     return { wins, losses }
   }
