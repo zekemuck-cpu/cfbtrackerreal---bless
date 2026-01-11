@@ -2720,9 +2720,23 @@ export function DynastyProvider({ children }) {
         const year = Number(g.year)
         if (inferredTeamsByYear[year]) return // Already found team for this year
 
-        // For unified format games with team1Tid/team2Tid
+        // PRIORITY 1: Check userTid on the game itself (most reliable - set when game was entered)
+        if (g.userTid) {
+          inferredTeamsByYear[year] = g.userTid
+          return
+        }
+
+        // PRIORITY 2: Check userTeam field (legacy format)
+        if (g.userTeam) {
+          const tid = getTidFromAbbr(g.userTeam)
+          if (tid) {
+            inferredTeamsByYear[year] = tid
+            return
+          }
+        }
+
+        // PRIORITY 3: For unified format games, try to infer from coachingHistory
         if (g.team1Tid && g.team2Tid) {
-          // Check coachingHistory to see which team user was coaching
           const history = migrated.coachingHistory || []
           for (const stint of history) {
             if (year >= stint.startYear && year <= stint.endYear) {
@@ -2733,7 +2747,7 @@ export function DynastyProvider({ children }) {
               }
             }
           }
-          // Check if current team matches (for years after last history entry)
+          // Last resort: Check if current team matches (for years after last history entry)
           const currentTid = getCurrentTeamTid(migrated)
           if (currentTid && (g.team1Tid === currentTid || g.team2Tid === currentTid)) {
             const lastHistoryEnd = history.length > 0 ? history[history.length - 1].endYear : migrated.startYear - 1
@@ -2741,17 +2755,6 @@ export function DynastyProvider({ children }) {
               inferredTeamsByYear[year] = currentTid
             }
           }
-        }
-
-        // For legacy format with userTeam field
-        if (g.userTeam && !inferredTeamsByYear[year]) {
-          const tid = getTidFromAbbr(g.userTeam)
-          if (tid) inferredTeamsByYear[year] = tid
-        }
-
-        // For legacy format with userTid field
-        if (g.userTid && !inferredTeamsByYear[year]) {
-          inferredTeamsByYear[year] = g.userTid
         }
       })
 
