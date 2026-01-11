@@ -6514,19 +6514,23 @@ export default function Dashboard() {
               // - PLUS portal transfers who joined this offseason (they need training results too)
               // - NOT HS/JUCO recruits (they go in Recruiting Class Overalls instead)
               const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+              const teamTid = getTidFromAbbr(teamAbbr)
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid))
 
               const allPlayers = currentDynasty?.players || []
               const currentYear = currentDynasty.currentYear
 
+              // Helper to check if a teamsByYear value matches our team (handles both tid and abbr)
+              const matchesTeam = (value) => value === teamTid || value === teamAbbr
+
               // Get RETURNING players (was on team last year, still on team this year)
               const returningPlayers = allPlayers.filter(p => {
                 if (leavingPids.has(p.pid)) return false
                 if (p.isRecruit) return false
                 if (p.isHonorOnly) return false
-                const wasOnTeamLastYear = p.teamsByYear?.[offseasonDataYear] === teamAbbr
-                const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+                const wasOnTeamLastYear = matchesTeam(p.teamsByYear?.[offseasonDataYear])
+                const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear])
                 return wasOnTeamLastYear && isOnTeamThisYear
               })
 
@@ -6538,7 +6542,7 @@ export default function Dashboard() {
                 const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
                 if (!isPortalTransfer) return false
                 // Must be on the team this year
-                const isOnTeamThisYear = p.teamsByYear?.[currentYear] === teamAbbr
+                const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear])
                 return isOnTeamThisYear
               })
 
@@ -6554,7 +6558,7 @@ export default function Dashboard() {
               const recruitingClassPlayers = allPlayers.filter(p =>
                 p.isRecruit &&
                 p.recruitYear === offseasonDataYear &&
-                (!p.team || p.team === teamAbbr) &&
+                (!p.team || matchesTeam(p.team)) &&
                 !p.isPortal && !p.previousTeam // Exclude transfer portal players
               )
               // Recruit overalls are stored under the old year (same as recruitYear)
@@ -8412,11 +8416,12 @@ export default function Dashboard() {
           // Get recruits from this recruiting cycle (HS and JUCO only - exclude transfer portal)
           // Recruits have recruitYear from when they committed (before year flip)
           const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+          const teamTid = getTidFromAbbr(teamAbbr)
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(p =>
             p.isRecruit &&
             p.recruitYear === offseasonDataYear &&
-            (!p.team || p.team === teamAbbr) &&
+            (!p.team || p.team === teamAbbr || p.team === teamTid) &&
             !p.isPortal && !p.previousTeam // Exclude transfer portal players
           )
         })()}

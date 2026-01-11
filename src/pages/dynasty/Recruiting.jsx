@@ -323,14 +323,26 @@ export default function Recruiting() {
     })
 
     // Helper to check if a player was on a specific team at a specific year
+    // Handles both tid (number) and abbreviation (string) for both player data and team parameter
     const wasPlayerOnTeam = (player, team, year) => {
       if (!player || !team) return false
+      // Normalize team to both tid and abbr for comparison
+      const teamTid = typeof team === 'number' ? team : getTidFromAbbr(team)
+      const teamAbbr = typeof team === 'string' ? team : TEAMS[team]?.abbr
+
+      // Helper to check if a value matches the team (handles both tid and abbr)
+      const matchesTeam = (value) => {
+        if (!value) return false
+        if (typeof value === 'number') return value === teamTid
+        return value === teamAbbr || getTidFromAbbr(value) === teamTid
+      }
+
       // Check teamsByYear for the enrollment year
-      if (year && player.teamsByYear?.[year] === team) return true
+      if (year && player.teamsByYear?.[year] && matchesTeam(player.teamsByYear[year])) return true
       // Check if player was ever on this team
-      if (player.teamsByYear && Object.values(player.teamsByYear).includes(team)) return true
+      if (player.teamsByYear && Object.values(player.teamsByYear).some(matchesTeam)) return true
       // Fallback to current team
-      return player.team === team
+      return matchesTeam(player.team)
     }
 
     // Simple Levenshtein distance for typo detection (handles "Reheem" vs "Raheem")
@@ -659,17 +671,25 @@ export default function Recruiting() {
     // Use teamsByYear to handle players who have since transferred/left
     // The enrollment year is recruitYear + 1 (they commit in one year, start the next)
     const enrollmentYear = recruitYear ? recruitYear + 1 : null
+
+    // Helper to check if a value matches this team (handles both tid and abbr)
+    const matchesTeam = (value) => {
+      if (!value) return false
+      if (typeof value === 'number') return value === selectedTid
+      return value === teamAbbr || getTidFromAbbr(value) === selectedTid
+    }
+
     return currentDynasty.players?.find(p => {
       if (p.name?.toLowerCase().trim() !== name.toLowerCase().trim()) return false
       // Check if player was ever on this team via teamsByYear
       if (p.teamsByYear) {
         // If we know the enrollment year, check that specific year
-        if (enrollmentYear && p.teamsByYear[enrollmentYear] === teamAbbr) return true
+        if (enrollmentYear && matchesTeam(p.teamsByYear[enrollmentYear])) return true
         // Otherwise check if they were ever on this team
-        if (Object.values(p.teamsByYear).includes(teamAbbr)) return true
+        if (Object.values(p.teamsByYear).some(matchesTeam)) return true
       }
       // Fallback to current team (for legacy data)
-      return p.team === teamAbbr
+      return matchesTeam(p.team)
     })
   }
 

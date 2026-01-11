@@ -1820,8 +1820,14 @@ export function migrateRosterData(dynasty) {
     // Fix 2: Add current year to teamsByYear for active players who are missing it
     // (This fixes players who went through Signing Day before the code fix)
     if (!player.leftTeam && !player.isRecruit && !player.isHonorOnly) {
-      // Check if player should be on current team
-      const isOnCurrentTeam = player.team === teamAbbr || !player.team
+      // Check if player should be on current team (handles both tid and abbr)
+      const teamTid = dynasty.currentTid || getTidFromAbbr(teamAbbr)
+      const playerTeamMatches = !player.team ||
+        player.team === teamAbbr ||
+        player.team === teamTid ||
+        (typeof player.team === 'number' && player.team === teamTid) ||
+        (typeof player.team === 'string' && getTidFromAbbr(player.team) === teamTid)
+      const isOnCurrentTeam = playerTeamMatches
       // Check if they don't have pending departure
       const notLeaving = !player.leavingYear || !player.leavingReason
       // Check if they've enrolled (not a future recruit)
@@ -5383,7 +5389,9 @@ export function DynastyProvider({ children }) {
     const incomingNames = new Set(players.map(p => (p.name || '').toLowerCase().trim()).filter(n => n))
     const teamPlayersNotInSheet = existingPlayers.filter(p => {
       if (p.isHonorOnly) return false // Already in playersToKeep
-      if (p.team !== teamAbbr) return false // Not this team
+      // Check if player is on this team (handle both tid and abbr)
+      const isThisTeam = p.team === teamTid || p.team === teamAbbr
+      if (!isThisTeam) return false // Not this team
       const nameLower = (p.name || '').toLowerCase().trim()
       // Keep if this player is NOT in the incoming sheet data
       return nameLower && !incomingNames.has(nameLower)
@@ -5399,7 +5407,9 @@ export function DynastyProvider({ children }) {
     // Create a map of existing players by name for matching
     const existingPlayersByName = {}
     existingPlayers.forEach(p => {
-      if (p.name && p.team === teamAbbr) {
+      // Check if player is on this team (handle both tid and abbr)
+      const isThisTeam = p.team === teamTid || p.team === teamAbbr
+      if (p.name && isThisTeam) {
         existingPlayersByName[p.name.toLowerCase().trim()] = p
       }
     })

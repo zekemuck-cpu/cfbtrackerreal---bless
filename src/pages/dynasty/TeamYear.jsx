@@ -2018,10 +2018,12 @@ export default function TeamYear() {
                   matchingPlayer = currentDynasty.players?.find(p => {
                     const nameMatch = p.name?.toLowerCase().trim() === award.player?.toLowerCase().trim()
                     if (!nameMatch) return false
-                    // Check if player's team matches (could be in teamsPlayed array or current team abbreviation)
+                    // Check if player's team matches (could be in teamsPlayed array or current team)
+                    // Handles both tid (number) and abbr (string) for p.team
                     const playerTeams = p.teamsPlayed || []
                     const teamMatch = playerTeams.includes(teamAbbr) ||
                                      p.team === teamAbbr ||
+                                     p.team === tid ||
                                      p.team === award.team
                     return teamMatch
                   })

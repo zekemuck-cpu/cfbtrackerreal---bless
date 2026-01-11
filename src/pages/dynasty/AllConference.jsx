@@ -373,9 +373,12 @@ export default function AllConference() {
         if (p.allConference && normalizedSchool) {
           return p.allConference.some(ac => ac.school?.toUpperCase() === normalizedSchool)
         }
-        // Check player's team
+        // Check player's team (may be tid or abbr)
         if (p.team && normalizedSchool) {
-          return p.team.toUpperCase() === normalizedSchool
+          const playerTeamAbbr = typeof p.team === 'number'
+            ? TEAMS[p.team]?.abbr?.toUpperCase()
+            : p.team.toUpperCase()
+          return playerTeamAbbr === normalizedSchool
         }
         return false
       })

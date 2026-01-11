@@ -298,9 +298,12 @@ export default function AllAmericans() {
         if (p.allAmericans && normalizedSchool) {
           return p.allAmericans.some(aa => aa.school?.toUpperCase() === normalizedSchool)
         }
-        // Check player's team
+        // Check player's team (may be tid or abbr)
         if (p.team && normalizedSchool) {
-          return p.team.toUpperCase() === normalizedSchool
+          const playerTeamAbbr = typeof p.team === 'number'
+            ? TEAMS[p.team]?.abbr?.toUpperCase()
+            : p.team.toUpperCase()
+          return playerTeamAbbr === normalizedSchool
         }
         return false
       })
