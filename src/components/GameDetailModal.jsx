@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
-import { getTeamLogo } from '../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
+import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
+import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
 import { getConferenceLogo } from '../data/conferenceLogos'
 import { getTeamConference } from '../data/conferenceTeams'
@@ -13,14 +14,41 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   if (!isOpen || !game) return null
 
-  // Check if this is a CPU vs CPU game - games have viewingTeam set for display perspective
-  // In the unified model, CPU games are identified by having team1/team2 but no userTeam
-  const isCPUGame = !!game.viewingTeam || (!game.userTeam && game.team1 && game.team2)
+  // Get teams reference for tid lookups
+  const teams = currentDynasty?.teams || TEAMS
+
+  // Get perspective for this game (if user was coaching)
+  const perspective = getUserGamePerspective(game, currentDynasty)
+
+  // Helper to get team info from tid or abbr
+  const getTeamInfoFromGame = () => {
+    // Check for unified format first
+    if (game.team1Tid && game.team2Tid) {
+      const t1Info = getGameTeamInfo(teams, game.team1Tid)
+      const t2Info = getGameTeamInfo(teams, game.team2Tid)
+      return {
+        team1Abbr: t1Info?.abbr || game.team1,
+        team2Abbr: t2Info?.abbr || game.team2,
+        team1Score: game.team1Score,
+        team2Score: game.team2Score,
+        team1Name: t1Info?.name,
+        team2Name: t2Info?.name
+      }
+    }
+    return null
+  }
+
+  const unifiedInfo = getTeamInfoFromGame()
+
+  // Check if this is a CPU vs CPU game
+  // CPU games are identified by having team1/team2 but no perspective (user wasn't coaching either team)
+  const hasUnifiedFormat = game.team1Tid && game.team2Tid
+  const isCPUGame = !!game.viewingTeam || (!perspective && (hasUnifiedFormat || (!game.userTeam && game.team1 && game.team2)))
   const displayTeam = isCPUGame ? game.viewingTeam : userTeam
-  const displayTeamAbbr = isCPUGame ? game.viewingTeamAbbr : getAbbreviationFromDisplayName(userTeam)
+  const displayTeamAbbr = isCPUGame ? game.viewingTeamAbbr : getAbbrFromTeamName(userTeam)
 
   // Get the user's team conference - fallback computation if not stored in game
-  const userTeamAbbr = getAbbreviationFromDisplayName(userTeam)
+  const userTeamAbbr = getAbbrFromTeamName(userTeam)
   const computedConference = userTeamAbbr ? getTeamConference(userTeamAbbr) : null
 
   // Helper to find player PID by name
@@ -29,22 +57,35 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
     return player?.pid
   }
 
-  // Get opponent info - handle both abbreviations and full mascot names
-  const opponentTeamInfo = teamAbbreviations[game.opponent]
+  // Get opponent info using perspective or fallback to old fields
+  const getOpponentAbbr = () => {
+    if (perspective?.opponentTid) {
+      const oppInfo = getGameTeamInfo(teams, perspective.opponentTid)
+      return oppInfo?.abbr || game.opponent
+    }
+    if (unifiedInfo) {
+      // For unified format without perspective, use team2 as default opponent
+      return unifiedInfo.team2Abbr
+    }
+    return game.opponent
+  }
+
+  const opponentAbbrResolved = getOpponentAbbr()
+  const opponentTeamInfo = teamAbbreviations[opponentAbbrResolved]
   // First try to get mascot from abbreviation, if that fails check if opponent IS a mascot name
-  let opponentMascot = getMascotName(game.opponent)
+  let opponentMascot = getMascotName(opponentAbbrResolved)
   let opponentLogo = opponentMascot ? getTeamLogo(opponentMascot) : null
 
   // If no mascot found by abbreviation, try using opponent directly as mascot name
   if (!opponentLogo) {
-    opponentLogo = getTeamLogo(game.opponent)
+    opponentLogo = getTeamLogo(opponentAbbrResolved)
     if (opponentLogo) {
-      opponentMascot = game.opponent
+      opponentMascot = opponentAbbrResolved
     }
   }
 
   // Also try getting abbreviation from display name for colors
-  const opponentAbbr = opponentMascot ? getAbbreviationFromDisplayName(opponentMascot) : game.opponent
+  const opponentAbbr = opponentMascot ? getAbbrFromTeamName(opponentMascot) : opponentAbbrResolved
   const opponentColors = opponentMascot ? getTeamColors(opponentMascot) : { primary: '#666', secondary: '#fff' }
 
   // Get display team info (user's team or viewing team for CPU games)
@@ -93,13 +134,20 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
     // Get all games up to and including this game
     const gamesUpToThis = yearGames.filter(g => getGameOrder(g) <= currentGameOrder)
 
-    const wins = gamesUpToThis.filter(g => g.result === 'win' || g.result === 'W').length
-    const losses = gamesUpToThis.filter(g => g.result === 'loss' || g.result === 'L').length
+    // Helper to get win status from game using perspective
+    const isGameWin = (g) => {
+      const gPerspective = getUserGamePerspective(g, currentDynasty)
+      if (gPerspective) return gPerspective.userWon === true
+      return g.result === 'win' || g.result === 'W'
+    }
+
+    const wins = gamesUpToThis.filter(g => isGameWin(g)).length
+    const losses = gamesUpToThis.filter(g => !isGameWin(g)).length
 
     // Conference record - only regular season conference games
     const confGames = gamesUpToThis.filter(g => g.isConferenceGame && !g.isConferenceChampionship)
-    const confWins = confGames.filter(g => g.result === 'win' || g.result === 'W').length
-    const confLosses = confGames.filter(g => g.result === 'loss' || g.result === 'L').length
+    const confWins = confGames.filter(g => isGameWin(g)).length
+    const confLosses = confGames.filter(g => !isGameWin(g)).length
 
     return {
       overall: `${wins}-${losses}`,
@@ -122,8 +170,9 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
     let confWins = recordMatch[3] ? parseInt(recordMatch[3]) : null
     let confLosses = recordMatch[4] ? parseInt(recordMatch[4]) : null
 
-    // Update record based on game result
-    if (game.result === 'win') {
+    // Update record based on game result - use perspective if available
+    const userWonThisGame = perspective?.userWon ?? (game.result === 'win')
+    if (userWonThisGame) {
       // User won, so opponent lost
       overallLosses += 1
       if (game.isConferenceGame && confLosses !== null) {
@@ -151,10 +200,10 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   // Check if this is a scheduled (not yet played) game
   const isScheduledGame = game.scheduled === true
 
-  // Determine winner/loser styling
-  const userWon = game.result === 'win'
-  const userScore = game.teamScore
-  const opponentScore = game.opponentScore
+  // Determine winner/loser styling - use perspective if available
+  const userWon = perspective?.userWon ?? (game.result === 'win')
+  const userScore = perspective?.userScore ?? game.teamScore ?? (unifiedInfo?.team1Score)
+  const opponentScore = perspective?.opponentScore ?? game.opponentScore ?? (unifiedInfo?.team2Score)
 
   // Determine which team goes on which side
   const leftTeam = game.location === 'home' ? 'opponent' : 'user'
@@ -172,7 +221,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
     // Get team abbreviation for linking
     const teamAbbr = isDisplayTeam ? displayTeamAbbr : game.opponent
-    const teamLink = `/dynasty/${currentDynasty?.id}/team/${teamAbbr}/${game.year}`
+    const teamLink = `/dynasty/${currentDynasty?.id}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`
 
     // For user's team, show record. For CPU games, don't show record
     let recordDisplay = null
@@ -259,6 +308,9 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Map abbreviations to mascot names for logo lookup
   function getMascotName(abbr) {
+    // Try tid-based lookup first
+    const result = getMascotNameFromTeams(abbr, teams)
+    if (result) return result
     const mascotMap = {
       'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips', 'BAMA': 'Alabama Crimson Tide',
       'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',

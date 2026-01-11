@@ -10,6 +10,7 @@ import {
   getSingleSheetEmbedUrl,
   prefillRosterHistorySheet
 } from '../services/sheetsService'
+import { getTidFromAbbr } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -111,7 +112,7 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
           const sheetInfo = await createRosterHistorySheet(
             currentDynasty?.dynastyName || 'Dynasty',
             years,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
 
           // Prefill with all non-honor-only players
@@ -155,6 +156,19 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
     setSyncing(true)
     try {
       const historyData = await readRosterHistoryFromSheet(sheetId, years)
+      const useFullTidSystem = currentDynasty?._tidFullyMigrated === true
+
+      // Helper to convert teamsByYear values to tid format for migrated dynasties
+      const convertTeamsByYear = (teamsByYear) => {
+        if (!useFullTidSystem) return teamsByYear
+        return Object.fromEntries(
+          Object.entries(teamsByYear).map(([yearKey, teamValue]) => {
+            if (typeof teamValue === 'number') return [yearKey, teamValue]
+            const tid = getTidFromAbbr(teamValue)
+            return [yearKey, tid || teamValue]
+          })
+        )
+      }
 
       // Update players with teamsByYear data
       const updatedPlayers = (currentDynasty?.players || []).map(player => {
@@ -167,7 +181,7 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
             ...player,
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              ...match.teamsByYear
+              ...convertTeamsByYear(match.teamsByYear)
             }
           }
         }
@@ -194,6 +208,19 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
     setDeletingSheet(true)
     try {
       const historyData = await readRosterHistoryFromSheet(sheetId, years)
+      const useFullTidSystem = currentDynasty?._tidFullyMigrated === true
+
+      // Helper to convert teamsByYear values to tid format for migrated dynasties
+      const convertTeamsByYear = (teamsByYear) => {
+        if (!useFullTidSystem) return teamsByYear
+        return Object.fromEntries(
+          Object.entries(teamsByYear).map(([yearKey, teamValue]) => {
+            if (typeof teamValue === 'number') return [yearKey, teamValue]
+            const tid = getTidFromAbbr(teamValue)
+            return [yearKey, tid || teamValue]
+          })
+        )
+      }
 
       // Update players with teamsByYear data
       const updatedPlayers = (currentDynasty?.players || []).map(player => {
@@ -206,7 +233,7 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
             ...player,
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              ...match.teamsByYear
+              ...convertTeamsByYear(match.teamsByYear)
             }
           }
         }

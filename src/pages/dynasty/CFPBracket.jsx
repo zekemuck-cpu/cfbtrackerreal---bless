@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useDynasty, getGamesByType, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
+import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective } from '../../context/DynastyContext'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo } from '../../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId } from '../../data/cfpConstants'
 // GameDetailModal removed - now using game pages instead
@@ -117,7 +118,7 @@ export default function CFPBracket() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingGameData, setEditingGameData] = useState(null)
 
@@ -151,31 +152,76 @@ export default function CFPBracket() {
   const getTeamBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.team || null
 
   // UNIFIED: Get CFP results from games[] array with gameType filter
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+  const teams = currentDynasty?.teams || TEAMS
 
   // Helper to normalize a game from games[] to bracket display format
   const normalizeGame = (game) => {
     if (!game) return null
-    // Handle both user games (userTeam/opponent) and CPU games (team1/team2)
-    const team1 = game.team1 || game.userTeam
-    const team2 = game.team2 || game.opponent
+
+    // Get user perspective if this is a user game
+    const perspective = getUserGamePerspective(game, currentDynasty)
+
+    // Get team abbreviations - prefer tid-based lookup for unified format
+    let team1, team2
+    if (game.team1Tid) {
+      const team1Info = getGameTeamInfo(teams, game.team1Tid)
+      team1 = team1Info?.abbr || game.team1
+    } else {
+      team1 = game.team1 || game.userTeam
+    }
+    if (game.team2Tid) {
+      const team2Info = getGameTeamInfo(teams, game.team2Tid)
+      team2 = team2Info?.abbr || game.team2
+    } else {
+      team2 = game.team2 || game.opponent
+    }
+
     let team1Score, team2Score, winner
 
+    // Derive winner from winnerTid if available (for unified format)
+    if (game.winnerTid) {
+      const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+      winner = winnerInfo?.abbr || game.winner
+    } else {
+      winner = game.winner
+    }
+
+    // Prefer unified format scores
     if (game.team1Score !== undefined) {
       team1Score = game.team1Score
       team2Score = game.team2Score
-      winner = game.winner
+      // Only compute winner from scores if not already set
+      if (!winner) {
+        winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
+      }
+    } else if (perspective) {
+      // Use perspective for user games with unified format
+      // Determine which team is team1 based on perspective
+      const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
+      const userAbbr = userTeamInfo?.abbr || game.userTeam
+      if (userAbbr === team1) {
+        team1Score = perspective.userScore
+        team2Score = perspective.opponentScore
+      } else {
+        team1Score = perspective.opponentScore
+        team2Score = perspective.userScore
+      }
+      // Only set winner if not already derived from winnerTid
+      if (!winner) {
+        winner = perspective.userWon ? userAbbr : (team1 === userAbbr ? team2 : team1)
+      }
     } else if (game.teamScore !== undefined) {
-      // User game format (legacy)
+      // Legacy user game format
       const userWon = game.result === 'W' || game.result === 'win'
       if (game.userTeam === team1) {
         team1Score = parseInt(game.teamScore)
         team2Score = parseInt(game.opponentScore)
-        winner = userWon ? team1 : team2
+        if (!winner) winner = userWon ? team1 : team2
       } else {
         team1Score = parseInt(game.opponentScore)
         team2Score = parseInt(game.teamScore)
-        winner = userWon ? team2 : team1
+        if (!winner) winner = userWon ? team2 : team1
       }
     }
 
@@ -189,9 +235,11 @@ export default function CFPBracket() {
       const yearCfpSeeds = currentDynasty.cfpSeedsByYear?.[gameYear] || []
 
       // For user games, find their seed
-      if (game.userTeam || game.isCFPFirstRound) {
-        const userTeam = game.userTeam || team1
-        const userSeedEntry = yearCfpSeeds.find(s => s.team === userTeam)
+      const userTeamForSeeds = perspective
+        ? getGameTeamInfo(teams, perspective.userTid)?.abbr
+        : (game.userTeam || team1)
+      if (userTeamForSeeds || game.isCFPFirstRound) {
+        const userSeedEntry = yearCfpSeeds.find(s => s.team === userTeamForSeeds)
         if (userSeedEntry) {
           const userSeed = userSeedEntry.seed
           const oppSeed = 17 - userSeed // CFP First Round matchups: 5v12, 6v11, 7v10, 8v9
@@ -312,7 +360,7 @@ export default function CFPBracket() {
         <div className="flex-1 truncate">
           {team ? (
             <Link
-              to={`${pathPrefix}/team/${team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               onClick={(e) => e.stopPropagation()}
               className="text-xl font-semibold hover:underline"
               style={{ color: txtColor }}

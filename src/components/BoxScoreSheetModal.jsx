@@ -12,7 +12,7 @@ import {
 } from '../services/sheetsService'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, getAbbrFromTeamName } from '../data/teamRegistry'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -61,10 +61,10 @@ export default function BoxScoreSheetModal({
   // Determine teams based on game type (CPU vs user game)
   // CPU games are identified by having team1/team2 but no userTeam field
   const isCPUGame = !game?.userTeam && game?.team1 && game?.team2
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
   // Ensure opponent is an abbreviation (convert full name if needed)
   const rawOpponent = game?.opponent || ''
-  const opponentAbbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
+  const opponentAbbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
   // For CPU games: team1 = home, team2 = away
   // For user games: based on location (home/neutral = user is home)
@@ -86,7 +86,7 @@ export default function BoxScoreSheetModal({
   // Uses unified isPlayerOnRoster for consistent filtering across all components
   const roster = useMemo(() => {
     if (!currentDynasty?.players) return []
-    const teamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams) || currentDynasty.teamName
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const currentYear = currentDynasty.currentYear
     return currentDynasty.players
       .filter(p => isPlayerOnRoster(p, teamAbbr, currentYear))

@@ -1,4 +1,5 @@
 // Box Score Stats Tab Configurations
+import { TEAMS, getTidFromAbbr } from './teamRegistry'
 
 export const STAT_TABS = {
   passing: {
@@ -141,15 +142,28 @@ export const generateRandomBoxScore = (players, teamScore, opponentScore, userTe
     return { home: {}, away: {}, scoringSummary: [] }
   }
 
+  // Convert userTeamAbbr to tid for comparison (handles both tid and abbr input)
+  const userTeamTid = typeof userTeamAbbr === 'number' ? userTeamAbbr : getTidFromAbbr(userTeamAbbr)
+
+  // Helper to check if a team value matches user team (handles both tid and abbr)
+  const matchesUserTeam = (teamValue) => {
+    if (!teamValue) return false
+    if (typeof teamValue === 'number') return teamValue === userTeamTid
+    // String comparison - check both as abbr match and by converting to tid
+    if (teamValue === userTeamAbbr) return true
+    const valueTid = getTidFromAbbr(teamValue)
+    return valueTid && valueTid === userTeamTid
+  }
+
   // Filter active players using teamsByYear (preferred) or legacy team field
   const activePlayers = players.filter(p => {
     if (p.isHonorOnly) return false
     // Use teamsByYear if year is provided (preferred)
     if (year && p.teamsByYear) {
-      return p.teamsByYear[year] === userTeamAbbr
+      return matchesUserTeam(p.teamsByYear[year])
     }
     // Fallback: use team field for legacy data
-    return p.team === userTeamAbbr
+    return matchesUserTeam(p.team)
   })
 
   // Get players by position

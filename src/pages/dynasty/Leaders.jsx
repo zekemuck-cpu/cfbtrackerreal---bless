@@ -6,7 +6,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 export default function Leaders() {
   const { id } = useParams()
   const { currentDynasty } = useDynasty()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
   if (!currentDynasty) return null

@@ -4,12 +4,18 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -216,8 +222,8 @@ export default function Awards() {
   const [showAwardsModal, setShowAwardsModal] = useState(false)
 
   // Get team colors for the modal
-  const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || ''
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamAbbr = getCurrentTeamAbbr(currentDynasty) || ''
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 
@@ -285,7 +291,7 @@ export default function Awards() {
   const AwardCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey] || { name: awardKey, icon: 'star', category: 'player' }
     const teamInfo = teamAbbreviations[awardData.team] || {}
-    const mascotName = getMascotName(awardData.team)
+    const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName) : null
     const bgColor = teamInfo.backgroundColor || '#6B7280'
     const textColor = getContrastTextColor(bgColor)
@@ -311,7 +317,7 @@ export default function Awards() {
           {/* Team Logo */}
           {teamLogo && (
             <Link
-              to={`${pathPrefix}/team/${awardData.team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
               style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
             >
@@ -344,7 +350,7 @@ export default function Awards() {
               </div>
             )}
             <Link
-              to={`${pathPrefix}/team/${awardData.team}/${displayYear}`}
+              to={`${pathPrefix}/team/${resolveTid(awardData.team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
               className="text-sm hover:underline"
               style={{ color: textColor, opacity: 0.7 }}
             >

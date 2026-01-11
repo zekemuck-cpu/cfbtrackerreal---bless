@@ -10,7 +10,8 @@
  * - Same name + ≥6 seasons apart = New player (impossible to be same due to eligibility rules)
  */
 
-import { getAbbreviationFromDisplayName, teamAbbreviations } from '../data/teamAbbreviations'
+import { teamAbbreviations } from '../data/teamAbbreviations'
+import { getAbbrFromTeamName, TEAMS } from '../data/teamRegistry'
 
 // Normalize player name for comparison - handles whitespace, case, and special characters
 export const normalizePlayerName = (name) => {
@@ -24,9 +25,23 @@ export const normalizePlayerName = (name) => {
 }
 
 // Normalize team to uppercase abbreviation for comparison
-// Handles both full names ("Kentucky Wildcats") and abbreviations ("UK")
+// Handles tids (numbers), full names ("Kentucky Wildcats"), and abbreviations ("UK")
 const normalizeTeamForComparison = (team) => {
-  if (!team) return ''
+  if (!team && team !== 0) return ''
+
+  // Handle tid (number) - convert to abbreviation
+  if (typeof team === 'number') {
+    const teamData = TEAMS[team]
+    return teamData?.abbr?.toUpperCase() || ''
+  }
+
+  // Handle string that's actually a number (tid as string)
+  if (typeof team === 'string' && /^\d+$/.test(team)) {
+    const tid = parseInt(team, 10)
+    const teamData = TEAMS[tid]
+    return teamData?.abbr?.toUpperCase() || ''
+  }
+
   const upperTeam = team.toUpperCase()
 
   // First check if it's already an abbreviation
@@ -35,7 +50,7 @@ const normalizeTeamForComparison = (team) => {
   }
 
   // Try to get abbreviation from display name
-  const abbr = getAbbreviationFromDisplayName(team)
+  const abbr = getAbbrFromTeamName(team)
   if (abbr) {
     return abbr.toUpperCase()
   }

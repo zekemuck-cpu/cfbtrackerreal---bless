@@ -3,13 +3,19 @@ import { useParams, Link } from 'react-router-dom'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
+import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 // GameDetailModal removed - now using game pages instead
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide', 'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',
@@ -123,21 +129,36 @@ export default function ConferenceChampionshipHistory() {
   // UNIFIED: Read from games[] array using gameType
   const getConferenceResults = (conferenceName) => {
     const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+
+    // Helper to get team abbreviation from tid or fallback
+    const getTeamAbbr = (g, isTeam1) => {
+      const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+      const legacyField = isTeam1 ? 'team1' : 'team2'
+      const userField = isTeam1 ? 'userTeam' : 'opponent'
+      if (g[tidField]) {
+        const teamInfo = getGameTeamInfo(teams, g[tidField])
+        return teamInfo?.abbr || g[legacyField]
+      }
+      return g[legacyField] || g[userField]
+    }
 
     // Filter games by gameType and conference
     const ccGames = games.filter(g => {
       const gameType = detectGameType(g)
+      const team1 = getTeamAbbr(g, true)
+      const team2 = getTeamAbbr(g, false)
       return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP &&
              g.conference === conferenceName &&
-             (g.team1 || g.userTeam) && (g.team2 || g.opponent)
+             team1 && team2
     })
 
     // Map to result format
     const results = ccGames.map(g => ({
       year: g.year,
       conference: g.conference,
-      team1: g.team1 || g.userTeam,
-      team2: g.team2 || g.opponent,
+      team1: getTeamAbbr(g, true),
+      team2: getTeamAbbr(g, false),
       team1Score: g.team1Score,
       team2Score: g.team2Score,
       winner: g.winner,
@@ -151,10 +172,14 @@ export default function ConferenceChampionshipHistory() {
   // Count total conference championship games played
   const getTotalCCGames = () => {
     const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+
     return games.filter(g => {
       const gameType = detectGameType(g)
-      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP &&
-             (g.team1 || g.userTeam) && (g.team2 || g.opponent)
+      // Check if teams exist using either tid or legacy fields
+      const hasTeam1 = g.team1Tid || g.team1 || g.userTeam
+      const hasTeam2 = g.team2Tid || g.team2 || g.opponent
+      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP && hasTeam1 && hasTeam2
     }).length
   }
 
@@ -285,8 +310,8 @@ export default function ConferenceChampionshipHistory() {
                       const winner = getWinner(game)
                       const team1Info = teamAbbreviations[game.team1]
                       const team2Info = teamAbbreviations[game.team2]
-                      const team1Mascot = getMascotName(game.team1)
-                      const team2Mascot = getMascotName(game.team2)
+                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
+                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
                       const team1Logo = team1Mascot ? getTeamLogo(team1Mascot) : null
                       const team2Logo = team2Mascot ? getTeamLogo(team2Mascot) : null
                       const team1Colors = team1Mascot ? getTeamColors(team1Mascot) : { primary: '#666', secondary: '#fff' }

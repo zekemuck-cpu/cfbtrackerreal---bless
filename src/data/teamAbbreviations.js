@@ -178,8 +178,31 @@ export function getTeamByAbbreviation(abbr, customTeams = null) {
   return teamAbbreviations[abbr] || null
 }
 
+// Helper to detect if teams object is tid-based (keys are numbers)
+function isTidBasedTeamsLocal(teams) {
+  if (!teams) return false
+  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
+}
+
 // Convert abbreviation to full name (checks teambuilder teams first)
-export function getTeamName(abbr, customTeams = null) {
+export function getTeamName(abbr, teamsOrCustomTeams = null) {
+  if (!abbr) return abbr
+
+  // Check if we have tid-based dynasty.teams structure
+  if (isTidBasedTeamsLocal(teamsOrCustomTeams)) {
+    const teams = teamsOrCustomTeams
+    // Find team by abbreviation in tid-based structure
+    for (const [, team] of Object.entries(teams)) {
+      if (team.abbr?.toUpperCase() === abbr.toUpperCase()) {
+        return team.name || abbr
+      }
+    }
+    // Fall through to static lookup
+  }
+
+  // Legacy customTeams structure (abbr-keyed)
+  const customTeams = teamsOrCustomTeams
+
   // Check if this IS a teambuilder team abbreviation
   if (customTeams?.[abbr]) {
     return customTeams[abbr].name
@@ -214,8 +237,38 @@ export function isTeambuilderTeam(abbr, customTeams = null) {
   return Object.values(customTeams).some(t => t.replacesTeam === abbr)
 }
 
+// Detect if teams object is tid-based (new format) or abbr-based (old format)
+function isTidBasedTeams(teamsObj) {
+  if (!teamsObj) return false
+  const keys = Object.keys(teamsObj)
+  return keys.length > 0 && keys.some(k => !isNaN(parseInt(k)))
+}
+
 // Get sorted array of FBS team abbreviations only (for team selection - excludes FCS teams)
+// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
 export function getSelectableTeamsList(customTeams = null) {
+  // Check if we're dealing with tid-based teams (new format)
+  if (isTidBasedTeams(customTeams)) {
+    // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
+    const replacedTeamAbbrs = new Set()
+
+    // Find all replaced team abbreviations
+    for (const team of Object.values(customTeams)) {
+      if (team.isTeambuilder && team.replacedTeam?.abbr) {
+        replacedTeamAbbrs.add(team.replacedTeam.abbr)
+      }
+    }
+
+    // Get FBS teams from the tid-based teams (they already have isFCS flag)
+    const fbsTeams = Object.values(customTeams)
+      .filter(team => !team.isFCS && team.abbr)
+      .filter(team => !replacedTeamAbbrs.has(team.abbr))
+      .map(team => team.abbr)
+
+    return fbsTeams.sort()
+  }
+
+  // Old customTeams format
   const replacedTeamAbbrs = customTeams
     ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
     : new Set()
@@ -234,7 +287,30 @@ export function getSelectableTeamsList(customTeams = null) {
 }
 
 // Get sorted array of all team abbreviations including FCS (for scheduling opponents)
+// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
 export function getSchedulableTeamsList(customTeams = null) {
+  // Check if we're dealing with tid-based teams (new format)
+  if (isTidBasedTeams(customTeams)) {
+    // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
+    const replacedTeamAbbrs = new Set()
+
+    // Find all replaced team abbreviations
+    for (const team of Object.values(customTeams)) {
+      if (team.isTeambuilder && team.replacedTeam?.abbr) {
+        replacedTeamAbbrs.add(team.replacedTeam.abbr)
+      }
+    }
+
+    // Get all teams from the tid-based teams
+    const allTeams = Object.values(customTeams)
+      .filter(team => team.abbr)
+      .filter(team => !replacedTeamAbbrs.has(team.abbr))
+      .map(team => team.abbr)
+
+    return allTeams.sort()
+  }
+
+  // Old customTeams format
   const replacedTeamAbbrs = customTeams
     ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
     : new Set()

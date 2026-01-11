@@ -1,5 +1,6 @@
 import { auth } from '../config/firebase'
-import { teamAbbreviations, getTeamAbbreviationsList, getAbbreviationFromDisplayName, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
+import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
+import { getAbbrFromTeamName, getTidFromAbbr } from '../data/teamRegistry'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
@@ -132,9 +133,53 @@ function hexToRgb(hex) {
   } : { red: 1, green: 1, blue: 1 }
 }
 
+// Detect if teams object is tid-based (new format) or abbr-based (old format)
+function isTidBasedTeams(teamsObj) {
+  if (!teamsObj) return false
+  const keys = Object.keys(teamsObj)
+  return keys.length > 0 && keys.some(k => !isNaN(parseInt(k)))
+}
+
 // Build combined team list with teambuilder teams, excluding replaced teams
 // Returns object of { abbr: { name, backgroundColor, textColor } }
+// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
 function getTeamsWithCustom(customTeams = null) {
+  // Check if we're dealing with tid-based teams (new format)
+  if (isTidBasedTeams(customTeams)) {
+    // New tid-based format: { tid: { tid, abbr, name, primaryColor, secondaryColor, isTeambuilder, replacedTeam } }
+    const replacedTeamAbbrs = new Set()
+
+    // Find all replaced team abbreviations
+    for (const team of Object.values(customTeams)) {
+      if (team.isTeambuilder && team.replacedTeam?.abbr) {
+        replacedTeamAbbrs.add(team.replacedTeam.abbr)
+      }
+    }
+
+    const teams = {}
+
+    // Add standard FBS teams from teamAbbreviations, excluding replaced ones
+    for (const [abbr, teamData] of Object.entries(teamAbbreviations)) {
+      if (!replacedTeamAbbrs.has(abbr)) {
+        teams[abbr] = teamData
+      }
+    }
+
+    // Add/override with dynasty.teams data (includes teambuilder teams with correct colors)
+    for (const team of Object.values(customTeams)) {
+      if (team.abbr) {
+        teams[team.abbr] = {
+          name: team.name,
+          backgroundColor: team.primaryColor || teamAbbreviations[team.abbr]?.backgroundColor,
+          textColor: team.secondaryColor || teamAbbreviations[team.abbr]?.textColor
+        }
+      }
+    }
+
+    return teams
+  }
+
+  // Old customTeams format: { ABBR: { abbreviation, name, backgroundColor, textColor, replacesTeam } }
   const replacedTeamAbbrs = customTeams
     ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
     : new Set()
@@ -394,7 +439,7 @@ function generateClassValidation(sheetId, columnIndex, startRowIndex, endRowInde
 async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetId, rosterSheetId, userTeamName, customTeams = null) {
   try {
     // Get user team abbreviation
-    const userTeamAbbr = getAbbreviationFromDisplayName(userTeamName, customTeams)
+    const userTeamAbbr = getAbbrFromTeamName(userTeamName, customTeams)
 
     const requests = [
       // Schedule headers
@@ -1083,7 +1128,7 @@ export async function createRosterSheet(dynastyName, year) {
 // Initialize Schedule-only sheet headers and formatting
 async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule = [], customTeams = null) {
   try {
-    const userTeamAbbr = getAbbreviationFromDisplayName(userTeamName, customTeams)
+    const userTeamAbbr = getAbbrFromTeamName(userTeamName, customTeams)
 
     // Build schedule data rows - either from existing schedule or empty
     const scheduleRows = Array.from({ length: 12 }, (_, i) => {
@@ -8084,11 +8129,22 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
     const accessToken = await getAccessToken()
 
     // Filter to only current roster players using teamsByYear (the ONLY source of truth)
+    // Convert teamAbbr to tid for proper comparison (teamsByYear stores tids as numbers)
+    const teamTid = getTidFromAbbr(teamAbbr)
     const currentRosterPlayers = players.filter(p => {
       if (p.isHonorOnly) return false
       // Use teamsByYear for proper team-centric filtering
-      if (teamAbbr && p.teamsByYear) {
-        return p.teamsByYear[year] === teamAbbr
+      if (p.teamsByYear) {
+        const playerTid = p.teamsByYear[year] || p.teamsByYear[String(year)]
+        // Handle both tid (number) and legacy abbr (string) in teamsByYear
+        if (typeof playerTid === 'number') {
+          return playerTid === teamTid
+        }
+        // Legacy: teamsByYear might have abbreviation string
+        if (typeof playerTid === 'string') {
+          return playerTid === teamAbbr || playerTid.toUpperCase() === teamAbbr?.toUpperCase()
+        }
+        return false
       }
       // Fallback for legacy data without teamsByYear
       return !p.leftTeam && !p.isRecruit
@@ -8326,6 +8382,29 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
         },
         rows: prefilledRows,
         fields: 'userEnteredValue'
+      }
+    })
+  }
+
+  // Add player name dropdown validation for Player column (only if we have players)
+  if (playerNames && playerNames.length > 0) {
+    requests.push({
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          endRowIndex: totalRows + 1,
+          startColumnIndex: 0,
+          endColumnIndex: 1
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: playerNames.map(name => ({ userEnteredValue: name }))
+          },
+          showCustomUi: true,
+          strict: false // Allow custom entries in case player isn't in list
+        }
       }
     })
   }

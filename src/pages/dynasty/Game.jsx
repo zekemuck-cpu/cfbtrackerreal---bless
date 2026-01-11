@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { getTeamLogo } from '../../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../../services/geminiService'
@@ -17,7 +18,14 @@ import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../da
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 
 // Map abbreviations to mascot names for logo lookup
-function getMascotName(abbr) {
+// Accepts optional teamsData for tid-based teambuilder support
+function getMascotName(abbr, teamsData = null) {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
+  // Fallback to hardcoded map
   const mascotMap = {
     'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips', 'BAMA': 'Alabama Crimson Tide',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',
@@ -97,31 +105,37 @@ function getMascotName(abbr) {
 }
 
 // Robust logo lookup that tries multiple methods
-function getTeamLogoRobust(teamInput) {
+function getTeamLogoRobust(teamInput, teamsData = null) {
   if (!teamInput) return null
 
-  // 1. Try direct lookup (if teamInput is already a full mascot name)
-  let logo = getTeamLogo(teamInput)
-  if (logo) return logo
-
-  // 2. Try as abbreviation via getMascotName
-  const mascotName = getMascotName(teamInput)
-  if (mascotName) {
-    logo = getTeamLogo(mascotName)
+  // 1. Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const logo = getTeamLogo(teamInput, teamsData)
     if (logo) return logo
   }
 
-  // 3. Try uppercase abbreviation (handle case sensitivity)
+  // 2. Try direct lookup (if teamInput is already a full mascot name)
+  let logo = getTeamLogo(teamInput)
+  if (logo) return logo
+
+  // 3. Try as abbreviation via getMascotName
+  const mascotName = getMascotName(teamInput, teamsData)
+  if (mascotName) {
+    logo = getTeamLogo(mascotName, teamsData)
+    if (logo) return logo
+  }
+
+  // 4. Try uppercase abbreviation (handle case sensitivity)
   const upperInput = teamInput.toUpperCase()
   if (upperInput !== teamInput) {
-    const mascotNameUpper = getMascotName(upperInput)
+    const mascotNameUpper = getMascotName(upperInput, teamsData)
     if (mascotNameUpper) {
-      logo = getTeamLogo(mascotNameUpper)
+      logo = getTeamLogo(mascotNameUpper, teamsData)
       if (logo) return logo
     }
   }
 
-  // 4. Try looking up in teamAbbreviations map directly
+  // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
     logo = getTeamLogo(teamData.name)
@@ -134,34 +148,40 @@ function getTeamLogoRobust(teamInput) {
 // Robust color lookup that tries multiple methods
 // Note: getTeamColors returns a default orange (#ea580c) for unknown teams,
 // so we need to check if the result is actually a known team's colors
-function getTeamColorsRobust(teamInput) {
+function getTeamColorsRobust(teamInput, teamsData = null) {
   if (!teamInput) return null
 
   // Helper to check if colors are the default fallback (orange)
   const isDefaultColors = (colors) => colors?.primary === '#ea580c'
 
-  // 1. Try direct lookup (if teamInput is already a full mascot name)
-  let colors = getTeamColors(teamInput)
-  if (colors && !isDefaultColors(colors)) return colors
-
-  // 2. Try as abbreviation via getMascotName
-  const mascotName = getMascotName(teamInput)
-  if (mascotName) {
-    colors = getTeamColors(mascotName)
+  // 1. Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const colors = getTeamColors(teamInput, teamsData)
     if (colors && !isDefaultColors(colors)) return colors
   }
 
-  // 3. Try uppercase abbreviation (handle case sensitivity)
+  // 2. Try direct lookup (if teamInput is already a full mascot name)
+  let colors = getTeamColors(teamInput)
+  if (colors && !isDefaultColors(colors)) return colors
+
+  // 3. Try as abbreviation via getMascotName
+  const mascotName = getMascotName(teamInput, teamsData)
+  if (mascotName) {
+    colors = getTeamColors(mascotName, teamsData)
+    if (colors && !isDefaultColors(colors)) return colors
+  }
+
+  // 4. Try uppercase abbreviation (handle case sensitivity)
   const upperInput = teamInput.toUpperCase()
   if (upperInput !== teamInput) {
-    const mascotNameUpper = getMascotName(upperInput)
+    const mascotNameUpper = getMascotName(upperInput, teamsData)
     if (mascotNameUpper) {
-      colors = getTeamColors(mascotNameUpper)
+      colors = getTeamColors(mascotNameUpper, teamsData)
       if (colors && !isDefaultColors(colors)) return colors
     }
   }
 
-  // 4. Try looking up in teamAbbreviations map directly
+  // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
     colors = getTeamColors(teamData.name)
@@ -385,7 +405,7 @@ export default function Game() {
       }
 
       if (cfpGame) {
-        const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+        const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
         const isUserGame = cfpGame.team1 === userTeamAbbr || cfpGame.team2 === userTeamAbbr
         return {
           ...cfpGame,
@@ -505,45 +525,76 @@ export default function Game() {
     )
   }
 
-  const userTeam = currentDynasty.teamName
-  const userTeamAbbr = getAbbreviationFromDisplayName(userTeam)
+  // Get user perspective for this game (if user's team was in it)
+  const perspective = getUserGamePerspective(game, currentDynasty)
+  const teams = currentDynasty?.teams || TEAMS
 
-  // Check if this is a CPU vs CPU game (no userTeam field = CPU game)
-  const isCPUGame = !game.userTeam && game.team1 && game.team2 && game.team1 !== userTeamAbbr && game.team2 !== userTeamAbbr
+  // Check if this is a CPU vs CPU game (user was not coaching either team)
+  const isCPUGame = !perspective
 
-  // For CPU games, determine viewing perspective
+  // For CPU games, determine viewing perspective based on viewingTeamAbbr or team1
+  // For user games, use the perspective to show user's team vs opponent
   let displayTeam, displayTeamAbbr, opponent, opponentAbbr
-  if (isCPUGame) {
-    displayTeamAbbr = game.viewingTeamAbbr || game.team1
-    displayTeam = getMascotName(displayTeamAbbr) || displayTeamAbbr
-    opponentAbbr = displayTeamAbbr === game.team1 ? game.team2 : game.team1
-    opponent = getMascotName(opponentAbbr) || opponentAbbr
-  } else {
-    displayTeam = userTeam
-    displayTeamAbbr = userTeamAbbr
-    // Convert opponent to abbreviation if it's a full name
-    opponentAbbr = getAbbreviationFromDisplayName(game.opponent) || game.opponent
-    opponent = getMascotName(opponentAbbr) || game.opponent
-  }
-
-  // Get team info for display - use robust lookups to handle various team name formats
-  const displayTeamLogo = getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
-  const displayTeamColors = getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
-
-  const opponentLogo = getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
-  const opponentColors = getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
-
-  // Determine scores
+  let displayTeamLogo, displayTeamColors, opponentLogo, opponentColors
   let userScore, opponentScore, userWon
+
   if (isCPUGame) {
-    const isTeam1Display = displayTeamAbbr === game.team1
-    userScore = isTeam1Display ? game.team1Score : game.team2Score
-    opponentScore = isTeam1Display ? game.team2Score : game.team1Score
+    // CPU game - pick a viewing team (winner or team1)
+    const viewingAbbr = game.viewingTeamAbbr || (() => {
+      // Try to get team abbreviations from tids or fallback to legacy fields
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      const team2Abbr = team2Info?.abbr || game.team2
+      // Default to team1 or winner
+      return (game.team1Score > game.team2Score) ? team1Abbr : (game.team2Score > game.team1Score) ? team2Abbr : team1Abbr
+    })()
+
+    displayTeamAbbr = viewingAbbr
+    displayTeam = getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
+
+    // Determine opponent based on which team is being displayed
+    const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+    const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
+    const team1Abbr = team1Info?.abbr || game.team1
+    const team2Abbr = team2Info?.abbr || game.team2
+
+    const isDisplayTeam1 = displayTeamAbbr === team1Abbr
+    opponentAbbr = isDisplayTeam1 ? team2Abbr : team1Abbr
+    opponent = getMascotName(opponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || opponentAbbr
+
+    // Get scores for display team perspective
+    userScore = isDisplayTeam1 ? game.team1Score : game.team2Score
+    opponentScore = isDisplayTeam1 ? game.team2Score : game.team1Score
     userWon = userScore > opponentScore
+
+    // Get team visuals
+    displayTeamLogo = getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
+    displayTeamColors = getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
+    opponentColors = getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
   } else {
-    userScore = game.teamScore
-    opponentScore = game.opponentScore
-    userWon = game.result === 'win' || game.result === 'W'
+    // User game - use perspective
+    const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
+    const oppTeamInfo = getGameTeamInfo(teams, perspective.opponentTid)
+
+    displayTeamAbbr = userTeamInfo?.abbr || getCurrentTeamAbbr(currentDynasty)
+    displayTeam = userTeamInfo?.name || getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
+    opponentAbbr = oppTeamInfo?.abbr || game.opponent
+    opponent = oppTeamInfo?.name || getMascotName(opponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || opponentAbbr
+
+    // Get scores from perspective
+    userScore = perspective.userScore
+    opponentScore = perspective.opponentScore
+    userWon = perspective.userWon
+
+    // Get team visuals
+    displayTeamLogo = userTeamInfo?.logo || getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
+    displayTeamColors = (userTeamInfo?.primaryColor ? { primary: userTeamInfo.primaryColor, secondary: userTeamInfo.secondaryColor } : null)
+      || getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = oppTeamInfo?.logo || getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
+    opponentColors = (oppTeamInfo?.primaryColor ? { primary: oppTeamInfo.primaryColor, secondary: oppTeamInfo.secondaryColor } : null)
+      || getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
   }
 
   // Helper function to get player PID by name
@@ -557,8 +608,14 @@ export default function Game() {
     if (isCPUGame) return null
 
     const allGames = currentDynasty?.games || []
-    // Filter for user games (games with userTeam set, or legacy games with userTeam/opponent fields)
-    const yearGames = allGames.filter(g => Number(g.year) === Number(game.year) && (g.userTeam || (!g.team1 && g.opponent)))
+    // Filter for user games (games where user's team was coaching that year)
+    const yearGames = allGames
+      .filter(g => Number(g.year) === Number(game.year))
+      .map(g => {
+        const gPerspective = getUserGamePerspective(g, currentDynasty)
+        return gPerspective ? { ...g, perspective: gPerspective } : null
+      })
+      .filter(Boolean)
 
     const getGameOrder = (g) => {
       if (typeof g.week === 'number' && g.week >= 1 && g.week <= 14 &&
@@ -580,12 +637,12 @@ export default function Game() {
     const currentGameOrder = getGameOrder(game)
     const gamesUpToThis = yearGames.filter(g => getGameOrder(g) <= currentGameOrder)
 
-    const wins = gamesUpToThis.filter(g => g.result === 'win' || g.result === 'W').length
-    const losses = gamesUpToThis.filter(g => g.result === 'loss' || g.result === 'L').length
+    const wins = gamesUpToThis.filter(g => g.perspective?.userWon).length
+    const losses = gamesUpToThis.filter(g => g.perspective && !g.perspective.userWon).length
 
     const confGames = gamesUpToThis.filter(g => g.isConferenceGame && !g.isConferenceChampionship)
-    const confWins = confGames.filter(g => g.result === 'win' || g.result === 'W').length
-    const confLosses = confGames.filter(g => g.result === 'loss' || g.result === 'L').length
+    const confWins = confGames.filter(g => g.perspective?.userWon).length
+    const confLosses = confGames.filter(g => g.perspective && !g.perspective.userWon).length
 
     return {
       overall: `${wins}-${losses}`,
@@ -607,10 +664,36 @@ export default function Game() {
     const videoIdMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
     return videoIdMatch ? `https://www.youtube.com/embed/${videoIdMatch[1]}` : null
   }
-  const isImageLink = (url) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url) || url.includes('imgur.com')
+
+  // Imgur album/gallery links (not direct images)
+  const isImgurAlbumLink = (url) => /imgur\.com\/(a|gallery)\//.test(url)
+
+  // Direct image links (including i.imgur.com direct images, but NOT album pages)
+  const isImageLink = (url) => {
+    // Direct image file extensions
+    if (/\.(jpg|jpeg|png|gif|webp)$/i.test(url)) return true
+    // i.imgur.com direct image links (like i.imgur.com/XXX.jpg or i.imgur.com/XXX without extension)
+    if (/i\.imgur\.com\/[a-zA-Z0-9]+/.test(url) && !url.includes('/a/') && !url.includes('/gallery/')) return true
+    return false
+  }
 
   // Determine team positions (away vs home)
-  const location = game.location || 'neutral'
+  // For user games, use perspective. For CPU games, use homeTeamTid or default to team1
+  let location
+  if (perspective) {
+    location = perspective.isHome ? 'home' : perspective.isAway ? 'away' : 'neutral'
+  } else {
+    // CPU game - fall back to legacy location or derive from homeTeamTid
+    if (game.location) {
+      location = game.location
+    } else if (game.homeTeamTid) {
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      location = displayTeamAbbr === team1Abbr && game.team1Tid === game.homeTeamTid ? 'home' : 'away'
+    } else {
+      location = 'neutral' // Default for postseason
+    }
+  }
   const leftTeam = location === 'home' ? 'opponent' : 'user'
   const rightTeam = location === 'home' ? 'user' : 'opponent'
 
@@ -796,7 +879,7 @@ export default function Game() {
   }
 
   // Get logos
-  const confName = game.conference || currentDynasty?.conference || (userTeamAbbr ? getTeamConference(userTeamAbbr) : null)
+  const confName = game.conference || currentDynasty?.conference || (displayTeamAbbr ? getTeamConference(displayTeamAbbr) : null)
   const bowlLogo = game.bowlName ? getBowlLogo(game.bowlName) : null
   const confLogo = game.isConferenceChampionship && confName ? getConferenceLogo(confName) : null
   const eventLogo = bowlLogo || confLogo
@@ -804,13 +887,18 @@ export default function Game() {
   // Get rankings - for CPU games use team1Rank/team2Rank, for user games use userRank/opponentRank
   let leftRank, rightRank
   if (isCPUGame) {
-    // For CPU games, displayTeamAbbr is team1 by default
-    const isLeftTeam1 = displayTeamAbbr === game.team1
+    // For CPU games, compare displayTeamAbbr with team1 abbreviation
+    const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+    const team1Abbr = team1Info?.abbr || game.team1
+    const isLeftTeam1 = displayTeamAbbr === team1Abbr
     leftRank = isLeftTeam1 ? game.team1Rank : game.team2Rank
     rightRank = isLeftTeam1 ? game.team2Rank : game.team1Rank
   } else {
-    leftRank = leftTeam === 'user' ? game.userRank : game.opponentRank
-    rightRank = rightTeam === 'user' ? game.userRank : game.opponentRank
+    // For user games, use perspective ranks or fallback to game fields
+    const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank
+    const oppRank = perspective?.opponentRank ?? game.opponentRank ?? game.team2Rank
+    leftRank = leftTeam === 'user' ? userRank : oppRank
+    rightRank = rightTeam === 'user' ? userRank : oppRank
   }
 
   // Team data for rendering
@@ -825,17 +913,27 @@ export default function Game() {
 
     if (isCPUGame) {
       // Determine if this side corresponds to team1 or team2
-      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === game.team1) : (opponentAbbr === game.team1)
+      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
       record = isTeam1 ? game.team1Record : game.team2Record
       overall = isTeam1 ? game.team1Overall : game.team2Overall
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
     } else {
-      // User game - user team uses dynasty record, opponent uses opponentRecord
+      // User game - for unified format, user is team1, opponent is team2
       record = isDisplayTeam && userRecord ? `${userRecord.overall} (${userRecord.conference})` : game.opponentRecord
-      overall = isDisplayTeam ? null : game.opponentOverall
-      offense = isDisplayTeam ? null : game.opponentOffense
-      defense = isDisplayTeam ? null : game.opponentDefense
+      // For unified format: user ratings in team1*, opponent ratings in team2*
+      // For legacy format: opponent ratings in opponent* fields
+      overall = isDisplayTeam
+        ? (game.team1Overall ?? null)  // User's overall from unified format
+        : (game.team2Overall ?? game.opponentOverall ?? null)  // Opponent's overall
+      offense = isDisplayTeam
+        ? (game.team1Offense ?? null)
+        : (game.team2Offense ?? game.opponentOffense ?? null)
+      defense = isDisplayTeam
+        ? (game.team1Defense ?? null)
+        : (game.team2Defense ?? game.opponentDefense ?? null)
     }
 
     return {
@@ -904,7 +1002,7 @@ export default function Game() {
               </Link>
             ) : game.isConferenceChampionship ? (
               <Link
-                to={`${pathPrefix}/conference-championship-history/${game.year}`}
+                to={`${pathPrefix}/conference-championship-history`}
                 className="text-white text-center hover:underline"
               >
                 <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
@@ -943,7 +1041,7 @@ export default function Game() {
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-center gap-4 sm:gap-8">
             {/* Left Team */}
-            <Link to={`${pathPrefix}/team/${leftData.abbr}/${game.year}`} className="group flex-1">
+            <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div
                   className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center p-1.5 sm:p-2 group-hover:scale-105 transition-transform shadow-lg flex-shrink-0 bg-white"
@@ -989,7 +1087,7 @@ export default function Game() {
             </div>
 
             {/* Right Team */}
-            <Link to={`${pathPrefix}/team/${rightData.abbr}/${game.year}`} className="group flex-1">
+            <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
               <div className="flex items-center justify-end gap-2 sm:gap-3">
                 <div className="text-right">
                   <div className="text-white font-bold text-xs sm:text-sm md:text-base group-hover:underline">
@@ -1044,7 +1142,7 @@ export default function Game() {
                   return (
                     <tr key={idx} className={idx === 0 ? 'border-b border-gray-700' : ''}>
                       <td className="py-3 px-3 sm:px-4">
-                        <Link to={`${pathPrefix}/team/${team.abbr}/${game.year}`} className="group">
+                        <Link to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group">
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
                               className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center p-1 flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
@@ -1263,10 +1361,10 @@ export default function Game() {
                   {game.boxScore.home?.[activeStatTab]?.length > 0 && (
                     <div>
                       {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${boxScoreHomeTeamData.abbr}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
+                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreHomeTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
-                            src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr) || boxScoreHomeTeamData.abbr)}
+                            src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreHomeTeamData.abbr)}
                             alt={boxScoreHomeTeamData.name}
                             className="w-full h-full object-contain"
                           />
@@ -1338,10 +1436,10 @@ export default function Game() {
                   {game.boxScore.away?.[activeStatTab]?.length > 0 && (
                     <div>
                       {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${boxScoreAwayTeamData.abbr}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
+                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreAwayTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
                           <img
-                            src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr) || boxScoreAwayTeamData.abbr)}
+                            src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreAwayTeamData.abbr)}
                             alt={boxScoreAwayTeamData.name}
                             className="w-full h-full object-contain"
                           />
@@ -1522,7 +1620,7 @@ export default function Game() {
                           {/* Team logo */}
                           <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-800/50">
                             <img
-                              src={getTeamLogo(getMascotName(play.team) || play.team)}
+                              src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
                               alt={play.team}
                               className="w-7 h-7 object-contain"
                             />
@@ -1531,10 +1629,10 @@ export default function Game() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <Link
-                                to={`${pathPrefix}/team/${play.team}/${game.year}`}
+                                to={`${pathPrefix}/team/${resolveTid(play.team, currentDynasty?.teams || TEAMS)}/${game.year}`}
                                 className="font-bold text-sm text-white hover:underline"
                               >
-                                {getMascotName(play.team) || play.team}
+                                {getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team}
                               </Link>
                               <span className="text-gray-400 text-sm">
                                 {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
@@ -1619,8 +1717,8 @@ export default function Game() {
         const homeStats = game.boxScore.teamStats.home || {}
         const awayStats = game.boxScore.teamStats.away || {}
         // Convert team names to abbreviations for links (might be full names like "Sam Houston State Bearkats")
-        const homeTeamAbbrForLink = getAbbreviationFromDisplayName(homeStats.teamAbbr) || homeStats.teamAbbr
-        const awayTeamAbbrForLink = getAbbreviationFromDisplayName(awayStats.teamAbbr) || awayStats.teamAbbr
+        const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
+        const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
 
         // Helper to format percentage
         const pct = (made, att) => {
@@ -1696,19 +1794,19 @@ export default function Game() {
             </div>
             {/* Team headers - Left = away team, Right = home team */}
             <div className="flex items-center border-b border-gray-800 bg-gray-800/50">
-              <Link to={`${pathPrefix}/team/${awayTeamAbbrForLink}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
+              <Link to={`${pathPrefix}/team/${resolveTid(awayTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
                 {getTeamLogoRobust(awayTeamAbbrForLink) && (
                   <img src={getTeamLogoRobust(awayTeamAbbrForLink)} alt="" className="w-6 h-6 object-contain group-hover:scale-105 transition-transform" />
                 )}
                 <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(awayTeamAbbrForLink) || awayTeamAbbrForLink}</span>
+                  <span className="hidden sm:inline">{getMascotName(awayTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || awayTeamAbbrForLink}</span>
                   <span className="sm:hidden">{awayTeamAbbrForLink}</span>
                 </span>
               </Link>
               <div className="w-28 text-center text-xs font-bold text-gray-400 uppercase">Stat</div>
-              <Link to={`${pathPrefix}/team/${homeTeamAbbrForLink}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
+              <Link to={`${pathPrefix}/team/${resolveTid(homeTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
                 <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink) || homeTeamAbbrForLink}</span>
+                  <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || homeTeamAbbrForLink}</span>
                   <span className="sm:hidden">{homeTeamAbbrForLink}</span>
                 </span>
                 {getTeamLogoRobust(homeTeamAbbrForLink) && (
@@ -1740,26 +1838,35 @@ export default function Game() {
       })()}
 
       {/* Game Details Section */}
-      {(!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)) || game.gameNote ? (
+      {(!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)) || game.gameNote ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Team Matchup Card */}
-          {!isCPUGame && (game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
-            // Get user's team ratings for this specific game's year
-            // Look up from teamRatingsByTeamYear using the game's userTeam and year
-            const gameUserTeam = game.userTeam
+          {!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
+            // For unified format: user ratings in team1*, opponent ratings in team2*
+            // Fallback to teamRatingsByTeamYear for user if team1* not set (legacy games)
+            const gameUserTeam = displayTeamAbbr
             const gameYear = game.year
-            const userTeamRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
+            const fallbackUserRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
 
-            // Get ratings for both teams to compare
+            // User team ratings: prefer game.team1* (unified), fallback to teamRatingsByTeamYear
+            const userRatings = {
+              ovr: game.team1Overall ?? fallbackUserRatings?.overall,
+              off: game.team1Offense ?? fallbackUserRatings?.offense,
+              def: game.team1Defense ?? fallbackUserRatings?.defense
+            }
+            // Opponent ratings: prefer game.team2* (unified), fallback to game.opponent*
+            const oppRatings = {
+              ovr: game.team2Overall ?? game.opponentOverall,
+              off: game.team2Offense ?? game.opponentOffense,
+              def: game.team2Defense ?? game.opponentDefense
+            }
+
+            // Get ratings for both teams to compare based on left/right positioning
             const leftIsOpponent = leftTeam !== 'user'
             const rightIsOpponent = rightTeam !== 'user'
-            const leftRatings = leftIsOpponent
-              ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
-            const rightRatings = rightIsOpponent
-              ? { ovr: game.opponentOverall, off: game.opponentOffense, def: game.opponentDefense }
-              : { ovr: userTeamRatings?.overall, off: userTeamRatings?.offense, def: userTeamRatings?.defense }
+            const leftRatings = leftIsOpponent ? oppRatings : userRatings
+            const rightRatings = rightIsOpponent ? oppRatings : userRatings
 
             // Determine which team has better ratings
             const leftOvrBetter = (leftRatings.ovr || 0) > (rightRatings.ovr || 0)
@@ -1786,7 +1893,7 @@ export default function Game() {
                     if (!ratings.ovr && !ratings.off && !ratings.def) return null
 
                     return (
-                      <Link key={idx} to={`${pathPrefix}/team/${team.abbr}/${game.year}`} className="group flex items-center gap-3">
+                      <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3">
                         <div
                           className="w-10 h-10 rounded-lg flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
                         >
@@ -1968,6 +2075,35 @@ export default function Game() {
                       className="w-full h-full"
                     ></iframe>
                   </div>
+                )
+              } else if (isImgurAlbumLink(link)) {
+                // Imgur album/gallery - show as a styled link card (can't embed due to X-Frame-Options)
+                return (
+                  <a
+                    key={index}
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-4 p-4 bg-gray-800 rounded-xl hover:bg-gray-750 transition-colors group ring-1 ring-gray-700"
+                  >
+                    {/* Imgur logo/icon */}
+                    <div className="w-14 h-14 rounded-xl bg-[#1BB76E] flex items-center justify-center flex-shrink-0">
+                      <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"/>
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium group-hover:text-green-400 transition-colors">
+                        Imgur Album
+                      </div>
+                      <div className="text-sm text-gray-400 truncate">
+                        {link}
+                      </div>
+                    </div>
+                    <svg className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
                 )
               } else if (isImageLink(link)) {
                 return (

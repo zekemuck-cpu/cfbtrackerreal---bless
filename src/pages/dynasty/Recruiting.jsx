@@ -5,9 +5,10 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamColors } from '../../data/teamColors'
-import { getTeamLogo } from '../../data/teams'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
+import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { getTeamLogo, getMascotName } from '../../data/teams'
 
 // Star display helper
 const StarRating = ({ stars, size = 'md' }) => {
@@ -80,7 +81,7 @@ const GemBustBadge = ({ value }) => {
 
 export default function Recruiting() {
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
-  const { teamAbbr: urlTeamAbbr, year: urlYear } = useParams()
+  const { tid: tidParam, year: urlYear } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
   const location = useLocation()
@@ -107,28 +108,37 @@ export default function Recruiting() {
     )
   }
 
-  // Get current team abbreviation (for redirect if no URL params)
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName
+  // Use dynasty.teams if available, otherwise fall back to TEAMS
+  const teamsSource = currentDynasty?.teams || TEAMS
 
-  // Use URL params if provided, otherwise use current team/year
-  const teamAbbr = urlTeamAbbr || currentTeamAbbr
+  // Get current team abbreviation (for redirect if no URL params)
+  const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
+  const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
+
+  // Parse tid from URL or use current user's team
+  const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
+
+  // Get team from tid
+  const team = teamsSource[selectedTid]
+  const teamAbbr = team?.abbr || currentTeamAbbr  // Keep for backwards compatibility with data lookups
   const selectedYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : currentDynasty?.currentYear)
 
-  // Get team info for display
-  const teamData = teamAbbreviations[teamAbbr]
-  const teamFullName = teamData?.name || teamAbbr
-  const teamLogo = getTeamLogo(teamFullName)
+  // Get team info for display from team data
+  const teamFullName = team?.name || teamAbbr
+  const teamLogo = team?.logo || null
 
-  // Use the viewed team's colors (pass full team name, not abbreviation)
-  const viewedTeamColors = getTeamColors(teamFullName)
-  const teamColors = viewedTeamColors || { primary: '#1F2937', secondary: '#F3F4F6' }
+  // Use the viewed team's colors from team data
+  const teamColors = {
+    primary: team?.primaryColor || '#1F2937',
+    secondary: team?.secondaryColor || '#F3F4F6'
+  }
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Redirect to team-specific URL if on base /recruiting route
   // Default to previous year if no recruits for current year (unless it's the first year)
   useEffect(() => {
-    if (!urlTeamAbbr && currentTeamAbbr && currentDynasty?.currentYear) {
+    if (!tidParam && currentTeamTid && currentDynasty?.currentYear) {
       const currentYear = currentDynasty.currentYear
       const startYear = currentDynasty.startYear || currentYear
       const isFirstYear = currentYear === startYear
@@ -140,9 +150,9 @@ export default function Recruiting() {
       // If no recruits for current year and not first year, show previous year
       const targetYear = (!hasCurrentYearRecruits && !isFirstYear) ? currentYear - 1 : currentYear
 
-      navigate(`${pathPrefix}/recruiting/${currentTeamAbbr}/${targetYear}`, { replace: true })
+      navigate(`${pathPrefix}/recruiting/${currentTeamTid}/${targetYear}`, { replace: true })
     }
-  }, [urlTeamAbbr, currentTeamAbbr, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.recruitingCommitmentsByTeamYear, navigate, pathPrefix])
+  }, [tidParam, currentTeamTid, currentTeamAbbr, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.recruitingCommitmentsByTeamYear, navigate, pathPrefix])
 
   // Get all years with recruiting commitments for this team - TEAM-CENTRIC
   // Always include current year so user can view/enter current season's recruits
@@ -161,7 +171,7 @@ export default function Recruiting() {
 
   // Handle year change - navigate to new URL
   const handleYearChange = (newYear) => {
-    navigate(`${pathPrefix}/recruiting/${teamAbbr}/${newYear}`)
+    navigate(`${pathPrefix}/recruiting/${selectedTid}/${newYear}`)
   }
 
   // Check if viewing all seasons
@@ -179,6 +189,10 @@ export default function Recruiting() {
     const existingPlayers = currentDynasty.players || []
     const maxExistingPID = existingPlayers.reduce((max, p) => Math.max(max, p.pid || 0), 0)
     let nextPID = Math.max(maxExistingPID + 1, currentDynasty.nextPID || 1)
+
+    // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
+    const teamTid = getTidFromAbbr(teamAbbr)
+    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
 
     const classToYear = {
       'HS': 'Fr',
@@ -198,7 +212,8 @@ export default function Recruiting() {
     // Build a map of existing players by normalized name for this team
     const existingPlayersByName = {}
     existingPlayers.forEach(p => {
-      if (p.team === teamAbbr) {
+      // Handle both tid and abbr for backwards compatibility
+      if (p.team === teamTid || p.team === teamAbbr) {
         const normalizedName = p.name?.toLowerCase().trim()
         if (normalizedName) {
           existingPlayersByName[normalizedName] = p
@@ -257,11 +272,11 @@ export default function Recruiting() {
           weight: recruit.weight || 0,
           hometown: recruit.hometown || '',
           state: recruit.state || '',
-          team: teamAbbr,
+          team: teamTid || teamAbbr, // Use tid for team storage
           isRecruit: true,
           recruitYear: selectedYear,
           // IMMUTABLE roster history - recruits will be on team starting NEXT year
-          teamsByYear: { [selectedYear + 1]: teamAbbr },
+          teamsByYear: { [selectedYear + 1]: teamsByYearValue },
           stars: recruit.stars || 0,
           nationalRank: recruit.nationalRank || null,
           stateRank: recruit.stateRank || null,
@@ -294,13 +309,11 @@ export default function Recruiting() {
     })
   }
 
-  if (!currentDynasty) return null
-
   // Build a lookup map of players by normalized name for quick access
   // Also build a fuzzy lookup that can match partial names
   const playersByName = useMemo(() => {
     const map = {}
-    const players = currentDynasty.players || []
+    const players = currentDynasty?.players || []
     players.forEach(p => {
       if (p.name) {
         const normalizedName = p.name.toLowerCase().trim()
@@ -310,14 +323,26 @@ export default function Recruiting() {
     })
 
     // Helper to check if a player was on a specific team at a specific year
+    // Handles both tid (number) and abbreviation (string) for both player data and team parameter
     const wasPlayerOnTeam = (player, team, year) => {
       if (!player || !team) return false
+      // Normalize team to both tid and abbr for comparison
+      const teamTid = typeof team === 'number' ? team : getTidFromAbbr(team)
+      const teamAbbr = typeof team === 'string' ? team : TEAMS[team]?.abbr
+
+      // Helper to check if a value matches the team (handles both tid and abbr)
+      const matchesTeam = (value) => {
+        if (!value) return false
+        if (typeof value === 'number') return value === teamTid
+        return value === teamAbbr || getTidFromAbbr(value) === teamTid
+      }
+
       // Check teamsByYear for the enrollment year
-      if (year && player.teamsByYear?.[year] === team) return true
+      if (year && player.teamsByYear?.[year] && matchesTeam(player.teamsByYear[year])) return true
       // Check if player was ever on this team
-      if (player.teamsByYear && Object.values(player.teamsByYear).includes(team)) return true
+      if (player.teamsByYear && Object.values(player.teamsByYear).some(matchesTeam)) return true
       // Fallback to current team
-      return player.team === team
+      return matchesTeam(player.team)
     }
 
     // Simple Levenshtein distance for typo detection (handles "Reheem" vs "Raheem")
@@ -451,7 +476,7 @@ export default function Recruiting() {
     }
 
     return map
-  }, [currentDynasty.players, teamAbbr])
+  }, [currentDynasty?.players, teamAbbr])
 
   // Get all commitments for selected year - TEAM-CENTRIC
   // If 'all' is selected, combine all years' data
@@ -601,7 +626,7 @@ export default function Recruiting() {
       }
       return 0
     })
-  }, [currentDynasty.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
 
   // Filter commitments based on view mode (Both/HS/Portal) AND star filter
   const allCommitments = useMemo(() => {
@@ -636,6 +661,9 @@ export default function Recruiting() {
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
 
+  // Early return AFTER all hooks to avoid React hooks rule violation
+  if (!currentDynasty) return null
+
   // Get player by name to link to player page - check if they were ever on this team
   const findPlayerByName = (name, recruitYear) => {
     if (!name) return null
@@ -643,17 +671,25 @@ export default function Recruiting() {
     // Use teamsByYear to handle players who have since transferred/left
     // The enrollment year is recruitYear + 1 (they commit in one year, start the next)
     const enrollmentYear = recruitYear ? recruitYear + 1 : null
+
+    // Helper to check if a value matches this team (handles both tid and abbr)
+    const matchesTeam = (value) => {
+      if (!value) return false
+      if (typeof value === 'number') return value === selectedTid
+      return value === teamAbbr || getTidFromAbbr(value) === selectedTid
+    }
+
     return currentDynasty.players?.find(p => {
       if (p.name?.toLowerCase().trim() !== name.toLowerCase().trim()) return false
       // Check if player was ever on this team via teamsByYear
       if (p.teamsByYear) {
         // If we know the enrollment year, check that specific year
-        if (enrollmentYear && p.teamsByYear[enrollmentYear] === teamAbbr) return true
+        if (enrollmentYear && matchesTeam(p.teamsByYear[enrollmentYear])) return true
         // Otherwise check if they were ever on this team
-        if (Object.values(p.teamsByYear).includes(teamAbbr)) return true
+        if (Object.values(p.teamsByYear).some(matchesTeam)) return true
       }
       // Fallback to current team (for legacy data)
-      return p.team === teamAbbr
+      return matchesTeam(p.team)
     })
   }
 
@@ -688,7 +724,7 @@ export default function Recruiting() {
             )}
             <div>
               <Link
-                to={`${pathPrefix}/team/${teamAbbr}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
+                to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
                 className="text-2xl font-bold hover:underline"
                 style={{ color: secondaryBgText }}
               >
@@ -902,9 +938,10 @@ export default function Recruiting() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCommitments.map((recruit, index) => {
               const player = findPlayerByName(recruit.name, recruit.recruitYear)
-              const transferTeamFullName = recruit.previousTeam ? (teamAbbreviations[recruit.previousTeam]?.name || recruit.previousTeam) : null
-              const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName) : null
-              const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName) : null
+              const teamsData = dynasty?.teams || dynasty?.customTeams
+              const transferTeamFullName = recruit.previousTeam ? (getMascotName(recruit.previousTeam, teamsData) || recruit.previousTeam) : null
+              const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName, teamsData) : null
+              const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName, teamsData) : null
 
               const cardContent = (
                 <div

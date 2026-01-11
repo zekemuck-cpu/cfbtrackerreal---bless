@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
@@ -11,7 +11,7 @@ import {
   getCFPQuarterfinalGameName,
   isBowlInWeek2
 } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -114,9 +114,44 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               let seed1 = g.seed1
               let seed2 = g.seed2
 
-              // If this is a user game (has opponent field), derive unified format
-              if (g.opponent && !winner) {
-                const userTeam = g.userTeam || getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+              // Check for unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              if (g.team1Tid && g.team2Tid && !team1) {
+                const t1Info = getGameTeamInfo(teams, g.team1Tid)
+                const t2Info = getGameTeamInfo(teams, g.team2Tid)
+                team1 = t1Info?.abbr || g.team1
+                team2 = t2Info?.abbr || g.team2
+              }
+
+              // Derive winner from winnerTid if not already set (for CPU games in unified format)
+              if (!winner && g.winnerTid) {
+                const winnerInfo = getGameTeamInfo(teams, g.winnerTid)
+                winner = winnerInfo?.abbr
+              }
+
+              // Get perspective for user games
+              const perspective = getUserGamePerspective(g, currentDynasty)
+
+              // If this is a user game, derive winner from perspective or result
+              if (perspective && !winner) {
+                const userTeamInfo = perspective.userTid
+                  ? getGameTeamInfo(teams, perspective.userTid)
+                  : null
+                const oppTeamInfo = perspective.opponentTid
+                  ? getGameTeamInfo(teams, perspective.opponentTid)
+                  : null
+                const userTeam = userTeamInfo?.abbr || g.userTeam || getCurrentTeamAbbr(currentDynasty)
+                const oppTeam = oppTeamInfo?.abbr || g.opponent
+                winner = perspective.userWon ? userTeam : oppTeam
+
+                // Set team1/team2 if not already set
+                if (!team1 || !team2) {
+                  team1 = userTeam
+                  team2 = oppTeam
+                }
+              } else if (g.opponent && !winner) {
+                // Fallback for legacy user games
+                const userTeam = g.userTeam || getCurrentTeamAbbr(currentDynasty)
                 const oppTeam = g.opponent
                 const userWon = g.result === 'win' || g.result === 'W'
                 winner = userWon ? userTeam : oppTeam
@@ -161,7 +196,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP (seeds 1-12)
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
 
           if (userCFPSeed) {
@@ -207,6 +242,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               return isBowlInWeek2(g.bowlName)
             })
             .map(g => {
+              // Handle unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              const t1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+              const t2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+
               // Convert to the format expected by the sheet (team1/team2 style)
               if (g.opponent) {
                 // User game - convert from opponent format
@@ -218,11 +258,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                   team2Score: g.opponentScore
                 }
               } else {
-                // CPU game format
+                // CPU game format - handle both legacy (team1/team2) and unified (team1Tid/team2Tid) formats
                 return {
                   bowlName: g.bowlName,
-                  team1: g.team1,
-                  team2: g.team2,
+                  team1: g.team1 || t1Info?.abbr,
+                  team2: g.team2 || t2Info?.abbr,
                   team1Score: g.team1Score,
                   team2Score: g.team2Score
                 }
@@ -245,14 +285,20 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             .filter(g => g &&
               (g.gameType === 'cfp_quarterfinal' || g.isCFPQuarterfinal) &&
               Number(g.year) === Number(currentYear))
-            .map(g => ({
-              bowl: g.bowlName,
-              team1: g.team1,
-              team2: g.team2,
-              score1: g.team1Score,
-              score2: g.team2Score,
-              winner: g.winner
-            }))
+            .map(g => {
+              // Handle unified format with tids
+              const teams = currentDynasty?.teams || TEAMS
+              const t1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+              const t2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+              return {
+                bowl: g.bowlName,
+                team1: g.team1 || t1Info?.abbr,
+                team2: g.team2 || t2Info?.abbr,
+                score1: g.team1Score,
+                score2: g.team2Score,
+                winner: g.winner || (g.winnerTid ? getGameTeamInfo(teams, g.winnerTid)?.abbr : null)
+              }
+            })
 
           const sheetInfo = await createBowlWeek2Sheet(
             currentDynasty?.teamName || 'Dynasty',
@@ -262,7 +308,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             excludeGames,
             existingBowlWeek2,
             existingCFPQuarterfinals,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

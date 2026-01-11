@@ -3,6 +3,7 @@ import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContex
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getBowlLogo } from '../data/bowlGames'
+import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -154,6 +155,38 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
           return false
         })
 
+      // Helper to get winner from a game (handles both legacy and unified formats)
+      const teams = currentDynasty?.teams || TEAMS
+      const getGameWinner = (game) => {
+        if (!game) return ''
+        // Try winner field first
+        if (game.winner) return game.winner
+        // Derive from winnerTid for unified format
+        if (game.winnerTid) {
+          const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+          return winnerInfo?.abbr || ''
+        }
+        // Fallback: compute from scores
+        if (game.team1Score !== undefined && game.team2Score !== undefined) {
+          const t1 = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1
+          const t2 = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2
+          return game.team1Score > game.team2Score ? t1 : t2
+        }
+        return ''
+      }
+
+      // Helper to get team abbreviation from a game
+      const getTeamAbbr = (game, isTeam1) => {
+        if (!game) return ''
+        const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+        const legacyField = isTeam1 ? 'team1' : 'team2'
+        if (game[tidField]) {
+          const teamInfo = getGameTeamInfo(teams, game[tidField])
+          return teamInfo?.abbr || game[legacyField] || ''
+        }
+        return game[legacyField] || ''
+      }
+
       const initialGames = SEMIFINAL_GAMES.map((sf, index) => {
         // Get winners from quarterfinals - try unified format first, then legacy
         const qf1 = qfResults.find(g => g && g.bowlName === sf.qfBowl1) ||
@@ -165,9 +198,11 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         const existing = existingSemis.find(g => g && g.bowlName === sf.bowlName) ||
                          legacySemis.find(g => g && g.bowlName === sf.bowlName)
 
-        // Determine teams - from existing data or quarterfinal winners
-        const team1 = existing?.team1 || qf1?.winner || ''
-        const team2 = existing?.team2 || qf2?.winner || ''
+        // Determine teams - from existing data or quarterfinal winners (handle both formats)
+        const existingTeam1 = existing ? getTeamAbbr(existing, true) : ''
+        const existingTeam2 = existing ? getTeamAbbr(existing, false) : ''
+        const team1 = existingTeam1 || getGameWinner(qf1) || ''
+        const team2 = existingTeam2 || getGameWinner(qf2) || ''
 
         // Check if user's team is in this game
         const userInThisGame = userTeamAbbr && (team1 === userTeamAbbr || team2 === userTeamAbbr)

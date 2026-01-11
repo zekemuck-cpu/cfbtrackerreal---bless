@@ -5,7 +5,9 @@
 
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
-import { getAbbreviationFromDisplayName, getTeamName } from '../data/teamAbbreviations'
+import { getTeamName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr } from '../data/teamRegistry'
+import { getUserGamePerspective } from '../context/DynastyContext'
 
 // ============================================
 // API KEY MANAGEMENT
@@ -977,31 +979,79 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
  * Handles both user games (with opponent/teamScore) and CPU games (with team1/team2)
  */
 export function buildGameRecapContext(dynasty, game) {
-  const userTeamAbbr = getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || dynasty.teamName
+  const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = game.year
   const allGames = dynasty.games || []
+  const teams = dynasty?.teams || TEAMS
 
-  // Detect if this is a CPU vs CPU game
-  const isCPUGame = !game.userTeam && game.team1 && game.team2
+  // Helper to get abbr from tid
+  const getAbbrFromTid = (tid) => {
+    if (!tid) return null
+    const teamInfo = getGameTeamInfo(teams, tid)
+    return teamInfo?.abbr || null
+  }
+
+  // Check for unified format and get perspective for user games
+  const hasUnifiedFormat = game.team1Tid && game.team2Tid
+  const currentGamePerspective = getUserGamePerspective(game, dynasty)
+  const isCurrentGameUserGame = currentGamePerspective !== null
+  const isCPUGame = !isCurrentGameUserGame && (
+    (!hasUnifiedFormat && !game.userTeam && game.team1 && game.team2) ||
+    (hasUnifiedFormat && !game.userTeam && !game.opponent)
+  )
 
   // Determine teams and scores based on game type
+  // CRITICAL: For user games, team1 MUST be user's team and team2 MUST be opponent
+  // because boxScore.home ALWAYS contains user's stats regardless of location
   let team1, team2, team1Score, team2Score
-  if (isCPUGame) {
+  if (isCurrentGameUserGame) {
+    // User game - use perspective to ensure correct team alignment
+    // This works for both unified format and legacy format user games
+    const userInfo = currentGamePerspective.userTid ? getGameTeamInfo(teams, currentGamePerspective.userTid) : null
+    const oppInfo = currentGamePerspective.opponentTid ? getGameTeamInfo(teams, currentGamePerspective.opponentTid) : null
+    team1 = userInfo?.abbr || game.userTeam || userTeamAbbr
+    team2 = oppInfo?.abbr || game.opponent
+    team1Score = currentGamePerspective.userScore ?? game.teamScore
+    team2Score = currentGamePerspective.opponentScore ?? game.opponentScore
+  } else if (hasUnifiedFormat) {
+    // CPU game with unified format - use tids directly
+    team1 = getAbbrFromTid(game.team1Tid) || game.team1
+    team2 = getAbbrFromTid(game.team2Tid) || game.team2
+    team1Score = game.team1Score
+    team2Score = game.team2Score
+  } else if (isCPUGame) {
+    // Legacy CPU game format
     team1 = game.team1
     team2 = game.team2
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else {
+    // Fallback for legacy user games without perspective
     team1 = game.userTeam || userTeamAbbr
     team2 = game.opponent
     team1Score = game.teamScore
     team2Score = game.opponentScore
   }
 
+  // Derive location for unified format games from homeTeamTid
+  let gameLocation = game.location
+  if (!gameLocation && hasUnifiedFormat) {
+    // For unified format, derive location from homeTeamTid
+    if (game.homeTeamTid === null) {
+      gameLocation = 'neutral'
+    } else if (game.homeTeamTid === game.team1Tid) {
+      // team1 (user's team for user games) is home
+      gameLocation = 'home'
+    } else if (game.homeTeamTid === game.team2Tid) {
+      // team2 (opponent for user games) is home, so user is away
+      gameLocation = 'away'
+    }
+  }
+
   const scoreDiff = Math.abs(team1Score - team2Score)
   const team1Won = team1Score > team2Score
 
-  // For user games, get season context
+  // For user games (including unified format user games), get season context
   let recordBefore = null
   let recordAfter = null
   let streak = null
@@ -1009,18 +1059,31 @@ export function buildGameRecapContext(dynasty, game) {
   // Calculate game order for this game (used for filtering previous games)
   const thisGameOrder = getGameOrder(game)
 
-  if (!isCPUGame) {
+  // Helper to check if user was coaching in a game
+  const isUserGame = (g) => {
+    const perspective = getUserGamePerspective(g, dynasty)
+    return perspective !== null
+  }
+
+  // Helper to check win from game
+  const getGameWin = (g) => {
+    const perspective = getUserGamePerspective(g, dynasty)
+    if (perspective) return perspective.userWon
+    return g.result === 'win' || g.result === 'W'
+  }
+
+  // Calculate season context for user games
+  if (isCurrentGameUserGame) {
     const seasonGames = allGames.filter(g =>
-      Number(g.year) === Number(year) &&
-      (g.userTeam === userTeamAbbr || g.opponent)
+      Number(g.year) === Number(year) && isUserGame(g)
     )
 
     const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
 
-    const winsBefore = gamesBefore.filter(g => g.result === 'win' || g.result === 'W').length
-    const lossesBefore = gamesBefore.filter(g => g.result === 'loss' || g.result === 'L').length
+    const winsBefore = gamesBefore.filter(g => getGameWin(g) === true).length
+    const lossesBefore = gamesBefore.filter(g => getGameWin(g) === false).length
 
-    const isWin = game.result === 'win' || game.result === 'W'
+    const isWin = currentGamePerspective?.userWon ?? (game.result === 'win' || game.result === 'W') ?? team1Won
     recordBefore = `${winsBefore}-${lossesBefore}`
     recordAfter = isWin ? `${winsBefore + 1}-${lossesBefore}` : `${winsBefore}-${lossesBefore + 1}`
 
@@ -1030,7 +1093,7 @@ export function buildGameRecapContext(dynasty, game) {
     const streakType = isWin ? 'win' : 'loss'
     for (let i = gamesUpToThis.length - 1; i >= 0; i--) {
       const g = gamesUpToThis[i]
-      const gWin = g.result === 'win' || g.result === 'W'
+      const gWin = getGameWin(g)
       if (gWin === isWin) {
         streakCount++
       } else {
@@ -1080,26 +1143,40 @@ export function buildGameRecapContext(dynasty, game) {
     ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder)
     : []
 
-  // Extract box score stats with enhanced player context
-  let boxScoreContext = null
-  if (game.boxScore) {
-    // IMPORTANT: For user games, boxScore.home ALWAYS contains user's stats regardless of location
-    // For CPU games, team1 is always in boxScore.home
-    // So team1Side is always 'home' and team2Side is always 'away'
-    const team1Side = 'home'
-    const team2Side = 'away'
+  // Determine which box score side has which team's stats by checking teamAbbr
+  // The box score teamStats has home.teamAbbr and away.teamAbbr to identify teams
+  let team1Side = 'home'
+  let team2Side = 'away'
 
-    boxScoreContext = {
-      team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
-      team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
-      team1Name: getTeamName(team1) || team1,
-      team2Name: getTeamName(team2) || team2
+  if (game.boxScore?.teamStats) {
+    const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
+    const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
+
+    // Match team1 to the correct side by abbreviation
+    if (homeAbbr && awayAbbr) {
+      if (awayAbbr === team1?.toUpperCase()) {
+        // team1's stats are in 'away' position
+        team1Side = 'away'
+        team2Side = 'home'
+      }
+      // else: team1's stats are in 'home' position (default)
     }
   }
 
-  // Get full team names for clarity in the prompt
-  const team1FullName = getTeamName(team1) || team1
-  const team2FullName = getTeamName(team2) || team2
+  // Extract box score stats with enhanced player context
+  let boxScoreContext = null
+  if (game.boxScore) {
+    boxScoreContext = {
+      team1: buildEnhancedPlayerHighlights(game.boxScore, team1Side, players, allGames, year, thisGameOrder, team1),
+      team2: buildEnhancedPlayerHighlights(game.boxScore, team2Side, players, allGames, year, thisGameOrder, team2),
+      team1Name: getNameByAbbr(teams, team1) || getTeamName(team1) || team1,
+      team2Name: getNameByAbbr(teams, team2) || getTeamName(team2) || team2
+    }
+  }
+
+  // Get full team names for clarity in the prompt (use tid-based lookup first, then fallback)
+  const team1FullName = getNameByAbbr(teams, team1) || getTeamName(team1) || team1
+  const team2FullName = getNameByAbbr(teams, team2) || getTeamName(team2) || team2
 
   // NEW: Get past season history for both teams
   const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year)
@@ -1110,12 +1187,12 @@ export function buildGameRecapContext(dynasty, game) {
     ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder)
     : []
 
-  // NEW: Get player performance trends from box score
+  // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
   if (game.boxScore) {
-    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'home', players, allGames, year, thisGameOrder)
-    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, 'away', players, allGames, year, thisGameOrder)
+    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder)
+    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder)
   }
 
   return {
@@ -1140,7 +1217,7 @@ export function buildGameRecapContext(dynasty, game) {
     week: game.week,
     year: game.year,
     gameType: gameTypeDescription,
-    location: game.location,
+    location: gameLocation,
 
     // Score details
     scoreDifferential: scoreDiff,
@@ -1189,7 +1266,11 @@ export function buildGameRecapContext(dynasty, game) {
     scoringSummary: game.boxScore?.scoringSummary || [],
 
     // Team stats (first downs, turnovers, 3rd down, possession, etc.)
-    teamStats: game.boxScore?.teamStats || null,
+    // Swap home/away to match team1/team2 order when user is team2 in unified format
+    teamStats: game.boxScore?.teamStats ? {
+      home: game.boxScore.teamStats[team1Side] || {},
+      away: game.boxScore.teamStats[team2Side] || {}
+    } : null,
 
     // Bowl/CFP info
     bowlName: game.bowlName,

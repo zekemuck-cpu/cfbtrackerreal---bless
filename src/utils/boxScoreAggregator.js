@@ -1,7 +1,7 @@
 // Box Score Aggregator Utility
 // Aggregates per-game box score stats into season totals for players
 
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 /**
  * Normalize a player name for comparison
@@ -385,10 +385,36 @@ export function getPlayerGameLog(dynasty, playerName, year, teamAbbr) {
     // Determine teams and scores based on game structure
     let playerTeam, opponentTeam, playerTeamScore, opponentTeamScore
 
+    // Get teams reference for tid lookups
+    const teams = dynasty?.teams || TEAMS
+
+    // Helper to get team abbr from tid
+    const getAbbrFromTid = (tid) => {
+      if (!tid) return null
+      const teamInfo = getGameTeamInfo(teams, tid)
+      return teamInfo?.abbr || null
+    }
+
+    // For unified format with team1Tid/team2Tid (new format)
+    if (game.team1Tid && game.team2Tid) {
+      const team1Abbr = getAbbrFromTid(game.team1Tid)
+      const team2Abbr = getAbbrFromTid(game.team2Tid)
+      if (playerFoundIn === 'home') {
+        playerTeam = team1Abbr
+        opponentTeam = team2Abbr
+        playerTeamScore = game.team1Score
+        opponentTeamScore = game.team2Score
+      } else {
+        playerTeam = team2Abbr
+        opponentTeam = team1Abbr
+        playerTeamScore = game.team2Score
+        opponentTeamScore = game.team1Score
+      }
+    }
     // For games with userTeam/opponent format (regular games, user postseason)
-    if (game.opponent) {
+    else if (game.opponent) {
       const isUserHome = game.location === 'home' || game.location === 'neutral'
-      const userTeam = game.userTeam || getAbbreviationFromDisplayName(dynasty.teamName, dynasty.customTeams) || ''
+      const userTeam = game.userTeam || getCurrentTeamAbbr(dynasty) || ''
 
       if (playerFoundIn === 'home') {
         // Player is on home team

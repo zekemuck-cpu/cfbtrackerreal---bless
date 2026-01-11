@@ -9,8 +9,8 @@ import {
   getSingleSheetEmbedUrl,
   prefillRosterSheet
 } from '../services/sheetsService'
-import { getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
+import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 
 export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
@@ -89,7 +89,7 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
 
           // Get current roster for this team and pre-fill the sheet
           // Use unified isPlayerOnRoster for consistent filtering across all components
-          const teamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
           const currentRoster = (currentDynasty?.players || []).filter(p =>
             isPlayerOnRoster(p, teamAbbr, currentYear)
           )

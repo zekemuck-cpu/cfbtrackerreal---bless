@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 import { Link } from 'react-router-dom'
 
 export default function TeamHistory() {
@@ -26,24 +26,25 @@ export default function TeamHistory() {
   if (!currentDynasty) return null
 
   // Get team colors for styling
-  const teamColors = useTeamColors(currentDynasty.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const primaryText = getContrastTextColor(teamColors.primary)
   const secondaryText = getContrastTextColor(teamColors.secondary)
 
-  // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  // Get current team abbreviation and teams reference
+  const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+  const teams = currentDynasty?.teams || TEAMS
 
-  // Helper functions for win/loss detection
-  const isWin = (game) => game.result === 'win' || game.result === 'W'
-  const isLoss = (game) => game.result === 'loss' || game.result === 'L'
+  // Helper functions for win/loss detection - use perspective
+  const isWin = (game) => game.perspective?.userWon === true
+  const isLoss = (game) => game.perspective && !game.perspective.userWon
 
-  // Get all games for the current team
-  const allTeamGames = (currentDynasty.games || []).filter(game => {
-    // Skip CPU games (have team1/team2 but no userTeam)
-    if (!game.userTeam && game.team1 && game.team2) return false
-    const gameTeam = game.userTeam || currentTeamAbbr
-    return gameTeam === currentTeamAbbr || gameTeam === currentDynasty.teamName
-  })
+  // Get all games for the current team - attach perspective
+  const allTeamGames = (currentDynasty.games || [])
+    .map(game => {
+      const perspective = getUserGamePerspective(game, currentDynasty)
+      return perspective ? { ...game, perspective } : null
+    })
+    .filter(Boolean)
 
   // Calculate overall record
   const totalWins = allTeamGames.filter(isWin).length
@@ -94,10 +95,16 @@ export default function TeamHistory() {
   // Generate seasons from start year to current year
   const seasons = []
   for (let year = currentDynasty.startYear; year <= currentDynasty.currentYear; year++) {
-    // Calculate season stats from games
-    const seasonGames = (currentDynasty.games || []).filter(g => g.year === year)
-    const wins = seasonGames.filter(g => g.result === 'win').length
-    const losses = seasonGames.filter(g => g.result === 'loss').length
+    // Calculate season stats from games - only include games where user's team played
+    const seasonGames = (currentDynasty.games || [])
+      .filter(g => Number(g.year) === year)
+      .map(g => {
+        const gPerspective = getUserGamePerspective(g, currentDynasty)
+        return gPerspective ? { ...g, perspective: gPerspective } : null
+      })
+      .filter(Boolean)
+    const wins = seasonGames.filter(g => g.perspective?.userWon).length
+    const losses = seasonGames.filter(g => g.perspective && !g.perspective.userWon).length
 
     const roleDisplay = currentDynasty.coachPosition === 'HC' ? 'Head Coach'
       : currentDynasty.coachPosition === 'OC' ? 'Offensive Coordinator'
@@ -763,16 +770,21 @@ export default function TeamHistory() {
                                   </span>
                                   <div>
                                     <div className="font-semibold" style={{ color: '#1f2937' }}>
-                                      vs {game.opponent || 'Unknown'}
+                                      vs {(() => {
+                                        const oppInfo = game.perspective?.opponentTid
+                                          ? getGameTeamInfo(teams, game.perspective.opponentTid)
+                                          : null
+                                        return oppInfo?.abbr || game.opponent || 'Unknown'
+                                      })()}
                                     </div>
                                     <div className="text-xs" style={{ color: '#6b7280' }}>
-                                      {weekLabel} • {game.site === 'Home' ? 'Home' : game.site === 'Road' ? 'Away' : 'Neutral'}
+                                      {weekLabel} • {game.perspective?.isHome ? 'Home' : game.perspective?.isAway ? 'Away' : 'Neutral'}
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
                                   <div className="font-bold" style={{ color: '#1f2937' }}>
-                                    {game.userScore ?? '-'} - {game.opponentScore ?? '-'}
+                                    {game.perspective?.userScore ?? '-'} - {game.perspective?.opponentScore ?? '-'}
                                   </div>
                                 </div>
                               </div>

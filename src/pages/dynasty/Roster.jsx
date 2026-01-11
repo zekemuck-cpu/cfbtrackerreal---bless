@@ -52,7 +52,7 @@ export default function Roster() {
   const [selectedPosition, setSelectedPosition] = useState('All')
 
   // Get team colors - call hook before any conditional returns
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   // Memoize the sorted and filtered players list
   const filteredPlayers = useMemo(() => {

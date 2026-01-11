@@ -3,14 +3,20 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty, getCurrentCustomConferences, getCustomConferencesForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamConference, conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllAmericansModal from '../../components/AllAmericansModal'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -188,7 +194,7 @@ export default function AllConference() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('all') // 'all', 'first', 'second', 'freshman'
   const [showEditModal, setShowEditModal] = useState(false)
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
 
@@ -205,7 +211,7 @@ export default function AllConference() {
   const yearData = allAmericansByYear[displayYear] || {}
 
   // Get the user's team abbreviation
-  const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
   // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
   const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)
@@ -354,34 +360,62 @@ export default function AllConference() {
     const normalizedName = normalizePlayerName(playerName)
     const normalizedSchool = school?.toUpperCase()
 
-    // First try exact match by name
-    let match = currentDynasty.players.find(p =>
+    // Helper to check if player's team matches the school
+    const playerMatchesSchool = (p) => {
+      if (!normalizedSchool) return false
+      // Check allConference array for matching school
+      if (p.allConference?.length > 0) {
+        if (p.allConference.some(ac => ac.school?.toUpperCase() === normalizedSchool)) {
+          return true
+        }
+      }
+      // Check allAmericans array as well (player might have both honors)
+      if (p.allAmericans?.length > 0) {
+        if (p.allAmericans.some(aa => aa.school?.toUpperCase() === normalizedSchool)) {
+          return true
+        }
+      }
+      // Check player's team field (may be tid or abbr)
+      if (p.team) {
+        const playerTeamAbbr = typeof p.team === 'number'
+          ? TEAMS[p.team]?.abbr?.toUpperCase()
+          : p.team.toUpperCase()
+        if (playerTeamAbbr === normalizedSchool) return true
+      }
+      // Check teamsByYear for matching tid
+      if (p.teamsByYear) {
+        for (const tid of Object.values(p.teamsByYear)) {
+          if (typeof tid === 'number' && TEAMS[tid]?.abbr?.toUpperCase() === normalizedSchool) {
+            return true
+          }
+          if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    // Get all players with matching name
+    const nameMatches = currentDynasty.players.filter(p =>
       normalizePlayerName(p.name) === normalizedName
     )
 
-    // If multiple matches or no match, try to match by name + allConference school
-    if (!match) {
-      match = currentDynasty.players.find(p => {
-        if (normalizePlayerName(p.name) !== normalizedName) return false
-        // Check if player has allConference entry with matching school
-        if (p.allConference && normalizedSchool) {
-          return p.allConference.some(ac => ac.school?.toUpperCase() === normalizedSchool)
-        }
-        // Check player's team
-        if (p.team && normalizedSchool) {
-          return p.team.toUpperCase() === normalizedSchool
-        }
-        return false
-      })
-    }
+    if (nameMatches.length === 0) return null
+    if (nameMatches.length === 1) return nameMatches[0]
 
-    return match
+    // Multiple matches - try to find one that also matches school
+    const schoolMatch = nameMatches.find(p => playerMatchesSchool(p))
+    if (schoolMatch) return schoolMatch
+
+    // No school match found, return first name match
+    return nameMatches[0]
   }
 
   // Render player card
   const PlayerCard = ({ player }) => {
     const teamInfo = teamAbbreviations[player.school] || {}
-    const mascotName = getMascotName(player.school)
+    const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName) : null
     const bgColor = teamInfo.backgroundColor || '#6B7280'
     const textColor = getContrastTextColor(bgColor)
@@ -399,7 +433,7 @@ export default function AllConference() {
         {/* Team Logo */}
         {teamLogo && (
           <Link
-            to={`${pathPrefix}/team/${player.school}`}
+            to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}`}
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-105 transition-transform"
             style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
           >

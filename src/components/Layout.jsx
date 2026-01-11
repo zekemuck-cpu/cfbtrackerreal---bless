@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDynasty, getPlayersNeedingClassConfirmation } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { useTeamColors } from '../hooks/useTeamColors'
-import { getTeamLogo } from '../data/teams'
+import { useCurrentTeamColors } from '../hooks/useTeamColors'
+import { getTeamLogoByTid } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
+import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
@@ -27,7 +28,8 @@ export default function Layout({ children }) {
     }
   }
 
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  // Use tid-based team colors lookup - this is THE source of truth
+  const teamColors = useCurrentTeamColors(currentDynasty)
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
   const isHomePage = location.pathname === '/' || location.pathname === '/home'
@@ -36,10 +38,27 @@ export default function Layout({ children }) {
   const isGamePage = location.pathname.includes('/game/')
   const isCoachCareerPage = location.pathname.includes('/coach-career')
 
-  // Check if we're on a team history page and get the viewed team's colors
-  const teamPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team\/([^/]+)/)
-  const viewedTeamAbbr = teamPageMatch ? teamPageMatch[1] : null
-  const viewedTeamInfo = viewedTeamAbbr ? teamAbbreviations[viewedTeamAbbr] : null
+  // Check if we're on a team-related page and get the viewed team's colors
+  // Now uses tid-based URLs like /team/7/2027, /recruiting/7/2027, /team-stats/7/2027
+  const teamsSource = currentDynasty?.teams || TEAMS
+
+  // Match team page: /team/:tid or /team/:tid/:year
+  const teamPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team\/(\d+)/)
+  // Match recruiting page: /recruiting/:tid/:year
+  const recruitingPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/recruiting\/(\d+)/)
+  // Match team-stats page: /team-stats/:tid/:year
+  const teamStatsPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team-stats\/(\d+)/)
+
+  const viewedTeamTid = teamPageMatch ? parseInt(teamPageMatch[1], 10)
+    : recruitingPageMatch ? parseInt(recruitingPageMatch[1], 10)
+    : teamStatsPageMatch ? parseInt(teamStatsPageMatch[1], 10)
+    : null
+  const viewedTeamData = viewedTeamTid ? teamsSource[viewedTeamTid] : null
+  const viewedTeamInfo = viewedTeamData ? {
+    backgroundColor: viewedTeamData.primaryColor,
+    textColor: viewedTeamData.secondaryColor,
+    name: viewedTeamData.name
+  } : null
   const isTeamPage = !!viewedTeamInfo
 
   // Check if we're on a player profile page and get the player's team colors
@@ -126,8 +145,13 @@ export default function Layout({ children }) {
 
     // In conference championship phase, check if user has answered the question
     if (currentDynasty.currentPhase === 'conference_championship') {
-      // Use year-specific CC data
-      const ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      // Check team-centric structure first, then fall back to year-only structure
+      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+      let ccData = currentDynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]
+      if (!ccData) {
+        ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      }
+
       // If they haven't answered whether they made the championship yet
       if (ccData?.madeChampionship === undefined || ccData?.madeChampionship === null) {
         alert('Please answer whether you made the conference championship before advancing.')
@@ -150,7 +174,14 @@ export default function Layout({ children }) {
     if (currentDynasty.currentPhase === 'postseason' && currentDynasty.currentWeek === 1) {
       const ccResults = currentDynasty.conferenceChampionships?.filter(cc => cc.team1 && cc.team2) || []
       const enteredCount = ccResults.length
-      const userMadeCC = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]?.madeChampionship === true
+
+      // Check team-centric structure first, then fall back to year-only structure
+      const postTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+      let postCCData = currentDynasty.conferenceChampionshipDataByTeamYear?.[postTeamAbbr]?.[currentDynasty.currentYear]
+      if (!postCCData) {
+        postCCData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
+      }
+      const userMadeCC = postCCData?.madeChampionship === true
       const expectedCount = userMadeCC ? 9 : 10
 
       if (enteredCount < expectedCount) {
@@ -220,6 +251,16 @@ export default function Layout({ children }) {
       }
     }
 
+    // In postseason, validate new job form is complete if user selected "Yes" to taking a new job
+    // This happens when advancing from postseason to offseason
+    if (currentDynasty.currentPhase === 'postseason') {
+      const newJobData = currentDynasty.newJobData
+      if (newJobData?.takingNewJob === true && (!newJobData.team || !newJobData.position)) {
+        alert('Please complete your new job selection (team and position) before advancing to the offseason.')
+        return
+      }
+    }
+
     // Check if advancing from offseason week 5 to week 6 (Signing Day - year flip and class progression)
     if (currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 5) {
       // Check for players needing class confirmation BEFORE class progression happens
@@ -235,19 +276,11 @@ export default function Layout({ children }) {
     }
 
     // Check if advancing from offseason week 7 (season advancement)
-    console.log('=== ADVANCE WEEK DEBUG ===')
-    console.log('currentPhase:', currentDynasty.currentPhase)
-    console.log('currentWeek:', currentDynasty.currentWeek)
-    console.log('Will trigger advanceToNewSeason?', currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7)
-
     if (currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek === 7) {
       // No more class confirmation needed here - it happens at Signing Day (week 5→6)
       // CRITICAL: Must await both to ensure players are processed before week advances
-      console.log('DEBUG: Calling advanceToNewSeason...')
       await advanceToNewSeason(currentDynasty.id)
-      console.log('DEBUG: advanceToNewSeason complete, calling advanceWeek...')
       await advanceWeek(currentDynasty.id)
-      console.log('DEBUG: advanceWeek complete')
       setShowWeekDropdown(false)
       return
     }
@@ -352,13 +385,18 @@ export default function Layout({ children }) {
                 <img src={logo} alt="Dynasty Tracker" className="h-8 sm:h-10 object-contain" />
               </Link>
 
-              {useTeamTheme && (
+              {useTeamTheme && (() => {
+                // tid-based team info - THE source of truth
+                const currentTid = getCurrentTeamTid(currentDynasty)
+                const currentTeamName = getCurrentTeamName(currentDynasty)
+                const currentTeamLogo = getTeamLogoByTid(currentTid, currentDynasty.teams)
+                return (
                 <>
                   {/* Separator */}
                   <span className="text-sm" style={{ color: headerText, opacity: 0.3 }}>|</span>
 
                   {/* Team Logo */}
-                  {getTeamLogo(currentDynasty.teamName) && (
+                  {currentTeamLogo && (
                     <div
                       className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
@@ -368,8 +406,8 @@ export default function Layout({ children }) {
                       }}
                     >
                       <img
-                        src={getTeamLogo(currentDynasty.teamName)}
-                        alt={`${currentDynasty.teamName} logo`}
+                        src={currentTeamLogo}
+                        alt={`${currentTeamName} logo`}
                         className="w-full h-full object-contain"
                       />
                     </div>
@@ -396,7 +434,7 @@ export default function Layout({ children }) {
                     </span>
                   </div>
                 </>
-              )}
+              )})()}
             </div>
 
             {useTeamTheme ? (

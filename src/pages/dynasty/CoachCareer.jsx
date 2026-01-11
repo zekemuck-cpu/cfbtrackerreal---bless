@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, detectGameType, GAME_TYPES } from '../../context/DynastyContext'
+import { useDynasty, detectGameType, GAME_TYPES, getUserGamePerspective } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 
 // Map abbreviations to mascot names for logo lookup
@@ -64,24 +65,33 @@ const mascotMap = {
   'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
 }
 
-const getMascotName = (opponent) => {
+const getMascotName = (opponent, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(opponent, teamsData)
+    if (result) return result
+  }
   // Try direct lookup first (for abbreviations)
   if (mascotMap[opponent]) return mascotMap[opponent]
   // If opponent is already a full name, return it if it exists in reverse lookup
-  const abbr = getAbbreviationFromDisplayName(opponent)
+  const abbr = getAbbrFromTeamName(opponent)
   if (abbr) return mascotMap[abbr] || opponent
   return null
 }
 
-const getOpponentColors = (opponent) => {
-  // Try direct lookup first (for abbreviations)
-  let team = teamAbbreviations[opponent]
-  // If not found, try to get abbreviation from display name
-  if (!team) {
-    const abbr = getAbbreviationFromDisplayName(opponent)
-    if (abbr) {
-      team = teamAbbreviations[abbr]
+const getOpponentColors = (opponent, teamsData = null) => {
+  // Try tid-based lookup first
+  if (teamsData) {
+    const colors = getTeamColorsByAbbr(opponent, teamsData)
+    if (colors) {
+      return { backgroundColor: colors.primary, textColor: colors.secondary }
     }
+  }
+  // Fallback to static lookup
+  let team = teamAbbreviations[opponent]
+  if (!team) {
+    const abbr = getAbbrFromTeamName(opponent)
+    if (abbr) team = teamAbbreviations[abbr]
   }
   return {
     backgroundColor: team?.backgroundColor || '#4B5563',
@@ -90,19 +100,12 @@ const getOpponentColors = (opponent) => {
 }
 
 // Get team colors from team name
-const getTeamColorsFromName = (teamName) => {
+const getTeamColorsFromName = (teamName, teamsData = null) => {
   if (!teamName) return { primary: '#4B5563', secondary: '#FFFFFF' }
   try {
-    const colors = getTeamColors(teamName)
+    // Try tid-based lookup first
+    const colors = getTeamColors(teamName, teamsData)
     if (colors) return colors
-    // Try to find via abbreviation
-    const abbr = getAbbreviationFromDisplayName(teamName)
-    if (abbr && teamAbbreviations[abbr]) {
-      return {
-        primary: teamAbbreviations[abbr].backgroundColor || '#4B5563',
-        secondary: teamAbbreviations[abbr].textColor || '#FFFFFF'
-      }
-    }
   } catch (e) {
     console.error('Error getting team colors:', e)
   }
@@ -133,35 +136,28 @@ export default function CoachCareer() {
   if (!currentDynasty) return null
 
   // Get current team abbreviation
-  const currentTeamAbbr = getAbbreviationFromDisplayName(currentDynasty.teamName, currentDynasty.customTeams)
+  const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
-  // Helper to check for win (handles both 'win' and 'W' formats)
-  const isWin = (g) => g.result === 'win' || g.result === 'W'
-  const isLoss = (g) => g.result === 'loss' || g.result === 'L'
+  // Helper to check for win (uses unified game perspective)
+  const isWin = (g) => g.perspective?.userWon === true
+  const isLoss = (g) => g.perspective && !g.perspective.userWon
 
   // Calculate stats for a specific team stint (either from history or current team)
   const calculateStintStats = (teamName, startYear, endYear, isCurrentTeam = false) => {
-    const teamAbbr = getAbbreviationFromDisplayName(teamName)
-
-    // Filter games for this team during this period
+    // Filter games for this team during this period using unified perspective
     const games = (currentDynasty.games || []).filter(g => {
-      // Skip CPU games (have team1/team2 but no userTeam)
-      if (!g.userTeam && g.team1 && g.team2) return false
       const gameYear = Number(g.year)
+      if (gameYear < startYear || gameYear > endYear) return false
 
-      // Determine which team this game belongs to
-      let gameTeam = g.userTeam
-      if (!gameTeam) {
-        // Look up which team the coach was coaching in that year
-        const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
-        gameTeam = coachTeamEntry?.team
-      }
+      // Use unified game perspective to check if user's team is in this game
+      const perspective = getUserGamePerspective(g, currentDynasty)
+      if (!perspective) return false // Not a user game
 
-      const matchesTeam = gameTeam === teamAbbr || gameTeam === teamName
-      if (!matchesTeam) return false
-      // Check year range
-      return gameYear >= startYear && gameYear <= endYear
-    })
+      return true
+    }).map(g => ({
+      ...g,
+      perspective: getUserGamePerspective(g, currentDynasty)
+    }))
 
     const wins = games.filter(isWin).length
     const losses = games.filter(isLoss).length
@@ -193,23 +189,24 @@ export default function CoachCareer() {
   }
 
   // Build the complete coaching history from game data
-  // This is more reliable than coachingHistory array since games have userTeam field
+  // Uses unified game format with perspective from coachTeamByYear
   const buildCoachingHistory = () => {
     const history = []
-    // Filter for user games (have userTeam set, not CPU games)
-    const userGames = (currentDynasty.games || []).filter(g => g.userTeam || (!g.team1 && !g.team2))
+    // Filter for user games using unified perspective
+    const userGames = (currentDynasty.games || [])
+      .filter(g => getUserGamePerspective(g, currentDynasty) !== null)
+      .map(g => ({
+        ...g,
+        perspective: getUserGamePerspective(g, currentDynasty)
+      }))
 
-    // Group games by team to identify all teams coached
+    // Group games by year to identify all teams coached (from coachTeamByYear)
     const gamesByTeam = {}
     userGames.forEach(game => {
-      // Determine team: first check userTeam field, then fall back to coachTeamByYear for that year
-      let teamKey = game.userTeam
-      if (!teamKey) {
-        const gameYear = Number(game.year)
-        // Look up which team the coach was coaching in that year
-        const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
-        teamKey = coachTeamEntry?.team || currentTeamAbbr
-      }
+      // Get team from coachTeamByYear for that year
+      const gameYear = Number(game.year)
+      const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
+      const teamKey = coachTeamEntry?.team || currentTeamAbbr
       if (!gamesByTeam[teamKey]) {
         gamesByTeam[teamKey] = []
       }
@@ -217,11 +214,11 @@ export default function CoachCareer() {
     })
 
     // Get team full names from abbreviations
+    const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
     const getTeamFullName = (abbr) => {
-      const mascot = getMascotName(abbr)
+      // Try tid-based lookup first
+      const mascot = getMascotName(abbr, teamsData)
       if (mascot) return mascot
-      // Check teamAbbreviations for the name
-      if (teamAbbreviations[abbr]?.name) return teamAbbreviations[abbr].name
       return abbr
     }
 
@@ -365,7 +362,7 @@ export default function CoachCareer() {
   }, { wins: 0, losses: 0, teams: 0 })
 
   // Get team colors for current team (used for header)
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const primaryText = getContrastTextColor(teamColors?.primary || '#4B5563')
   const secondaryText = getContrastTextColor(teamColors?.secondary || '#FFFFFF')
 
@@ -442,10 +439,11 @@ export default function CoachCareer() {
       {/* Coaching Stints - reverse order so current team is first */}
       {(Array.isArray(coachingHistory) ? [...coachingHistory].reverse() : []).map((stint, index) => {
         if (!stint) return null
-        const stintColors = getTeamColorsFromName(stint.teamName)
+        const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+        const stintColors = getTeamColorsFromName(stint.teamName, teamsData)
         const stintPrimaryText = getContrastTextColor(stintColors?.primary || '#4B5563')
         const stintSecondaryText = getContrastTextColor(stintColors?.secondary || '#FFFFFF')
-        const stintLogo = getTeamLogo(stint.teamName)
+        const stintLogo = getTeamLogo(stint.teamName, teamsData)
         // For current team, show "Present" instead of end year
         const yearRange = stint.isCurrent
           ? (stint.startYear === stint.endYear ? `${stint.startYear}` : `${stint.startYear} - Present`)
@@ -481,7 +479,7 @@ export default function CoachCareer() {
               <div>
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`${pathPrefix}/team/${stint.teamAbbr}`}
+                    to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}`}
                     className="text-2xl font-bold hover:underline"
                     style={{ color: stintPrimaryText }}
                   >
@@ -676,8 +674,8 @@ export default function CoachCareer() {
               }
               for (let year = startYear; year <= endYear; year++) {
                 const yearGames = stint.games?.filter(g => Number(g.year) === year) || []
-                const wins = yearGames.filter(g => g.result === 'win' || g.result === 'W').length
-                const losses = yearGames.filter(g => g.result === 'loss' || g.result === 'L').length
+                const wins = yearGames.filter(g => g.perspective?.userWon).length
+                const losses = yearGames.filter(g => g.perspective && !g.perspective.userWon).length
                 const hasRecord = yearGames.length > 0
 
                 // Check for conference championship
@@ -742,7 +740,7 @@ export default function CoachCareer() {
                       return (
                         <Link
                           key={yr.year}
-                          to={`${pathPrefix}/team/${stint.teamAbbr}/${yr.year}`}
+                          to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`}
                           className="p-3 rounded-lg text-center transition-transform hover:scale-[1.02]"
                           style={{
                             backgroundColor: yr.isNationalChamp
@@ -888,11 +886,15 @@ export default function CoachCareer() {
                       {/* Games for this year */}
                       <div className="space-y-2">
                         {yearGames.map((game, index) => {
-                          const opponentColors = getOpponentColors(game.opponent)
-                          const mascotName = getMascotName(game.opponent)
-                          const opponentName = mascotName || teamAbbreviations[game.opponent]?.name || game.opponent
-                          const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
+                          // Get opponent info from perspective (unified format)
+                          const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+                          const opponentInfo = game.perspective?.opponentTid ? getGameTeamInfo(teamsData || TEAMS, game.perspective.opponentTid) : null
+                          const opponentAbbr = opponentInfo?.abbr || ''
+                          const opponentColors = getOpponentColors(opponentAbbr, teamsData)
+                          const opponentName = opponentInfo?.name || getMascotName(opponentAbbr, teamsData) || 'Unknown'
+                          const opponentLogo = getTeamLogo(opponentName, teamsData)
                           const gameIsWin = isWin(game)
+                          const isAway = game.perspective?.isAway
 
                           return (
                             <Link
@@ -927,7 +929,7 @@ export default function CoachCareer() {
                                     color: opponentColors.backgroundColor
                                   }}
                                 >
-                                  {game.location === 'away' ? '@' : 'vs'}
+                                  {isAway ? '@' : 'vs'}
                                 </span>
 
                                 {/* Team Logo */}
@@ -950,12 +952,12 @@ export default function CoachCareer() {
 
                                 {/* Opponent Info */}
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  {game.opponentRank && (
+                                  {game.perspective?.opponentRank && (
                                     <span
                                       className="text-xs font-bold opacity-70 flex-shrink-0"
                                       style={{ color: opponentColors.textColor }}
                                     >
-                                      #{game.opponentRank}
+                                      #{game.perspective.opponentRank}
                                     </span>
                                   )}
                                   <span
@@ -982,7 +984,7 @@ export default function CoachCareer() {
                                   className="font-bold text-sm"
                                   style={{ color: opponentColors.textColor }}
                                 >
-                                  {Math.max(game.teamScore, game.opponentScore)}-{Math.min(game.teamScore, game.opponentScore)}
+                                  {Math.max(game.perspective?.userScore || 0, game.perspective?.opponentScore || 0)}-{Math.min(game.perspective?.userScore || 0, game.perspective?.opponentScore || 0)}
                                 </span>
                               </div>
                             </Link>

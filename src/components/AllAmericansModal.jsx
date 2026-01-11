@@ -87,7 +87,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
         try {
           // Pass allAmericansByYear for pre-filling past years
           const allAmericansByYear = currentDynasty?.allAmericansByYear || {}
-          const sheetInfo = await createAllAmericansSheet(currentYear, allAmericansByYear, currentDynasty?.customTeams)
+          const sheetInfo = await createAllAmericansSheet(currentYear, allAmericansByYear, currentDynasty?.teams || currentDynasty?.customTeams)
           setSheetId(sheetInfo.sheetId)
           const existingByYear = currentDynasty?.allAmericansSheetIdByYear || {}
           await updateDynasty(currentDynasty.id, {

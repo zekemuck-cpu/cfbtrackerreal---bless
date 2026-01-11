@@ -137,7 +137,7 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
             currentDynasty?.teamName || 'Dynasty',
             currentDynasty?.currentYear || new Date().getFullYear(),
             conferencesByYear,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
 

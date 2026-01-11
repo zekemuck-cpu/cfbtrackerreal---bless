@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences } from '../context/DynastyContext'
+import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences, getCurrentSchedule } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { getTeamLogo } from '../data/teams'
+import { getTeamLogo, getMascotName } from '../data/teams'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { teamAbbreviations, getAbbreviationFromDisplayName } from '../data/teamAbbreviations'
+import { teamAbbreviations } from '../data/teamAbbreviations'
+import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
 import { generateRandomBoxScore } from '../data/boxScoreConstants'
 import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../services/geminiService'
@@ -40,10 +41,10 @@ export default function GameEntryModal({
   const [tokenUsage, setTokenUsage] = useState(null)
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
-  // In unified model: CPU games have team1/team2 but NO userTeam AND NO opponent
+  // In unified model: CPU games have team1/team2 or team1Tid/team2Tid but NO userTeam AND NO opponent
   // User games always have opponent field (even CFP/bowl games with team1/team2 for unified format)
   const isCPUGame =
-    (!existingGame?.userTeam && !existingGame?.opponent && existingGame?.team1 && existingGame?.team2) || // Has team1/team2 but no userTeam/opponent
+    (!existingGame?.userTeam && !existingGame?.opponent && (existingGame?.team1 && existingGame?.team2 || existingGame?.team1Tid && existingGame?.team2Tid)) || // Has team1/team2 or tid but no userTeam/opponent
     (passedTeam1 && passedTeam2 && !existingGame?.userTeam && !existingGame?.opponent) // Passed as CPU game via props
 
   // Merge existingGame with backward compat props (existingGame takes priority)
@@ -118,168 +119,25 @@ export default function GameEntryModal({
   }
 
   // Find the scheduled game for this week (not for CC games)
-  const scheduledGame = isConferenceChampionship ? null : currentDynasty?.schedule?.find(g => g.week === actualWeekNumber)
+  // Use getCurrentSchedule to get the team-centric schedule, not legacy dynasty.schedule
+  const currentSchedule = getCurrentSchedule(currentDynasty)
+  const scheduledGame = isConferenceChampionship ? null : currentSchedule?.find(g => g.week === actualWeekNumber)
 
-  // Map abbreviations to mascot names for logo lookup
-  const getMascotName = (abbr) => {
-    const mascotMap = {
-      'AFA': 'Air Force Falcons',
-      'AKR': 'Akron Zips',
-      'APP': 'Appalachian State Mountaineers',
-      'ARIZ': 'Arizona Wildcats',
-      'ARK': 'Arkansas Razorbacks',
-      'ARMY': 'Army Black Knights',
-      'ARST': 'Arkansas State Red Wolves',
-      'ASU': 'Arizona State Sun Devils',
-      'AUB': 'Auburn Tigers',
-      'BALL': 'Ball State Cardinals',
-      'BAMA': 'Alabama Crimson Tide',
-      'BC': 'Boston College Eagles',
-      'BGSU': 'Bowling Green Falcons',
-      'BOIS': 'Boise State Broncos',
-      'BU': 'Baylor Bears',
-      'BUFF': 'Buffalo Bulls',
-      'BYU': 'Brigham Young Cougars',
-      'CAL': 'California Golden Bears',
-      'CCU': 'Coastal Carolina Chanticleers',
-      'CHAR': 'Charlotte 49ers',
-      'CLEM': 'Clemson Tigers',
-      'CMU': 'Central Michigan Chippewas',
-      'COLO': 'Colorado Buffaloes',
-      'CONN': 'Connecticut Huskies',
-      'CSU': 'Colorado State Rams',
-      'DUKE': 'Duke Blue Devils',
-      'ECU': 'East Carolina Pirates',
-      'EMU': 'Eastern Michigan Eagles',
-      'FIU': 'Florida International Panthers',
-      'FSU': 'Florida State Seminoles',
-      'FAU': 'Florida Atlantic Owls',
-      'FRES': 'Fresno State Bulldogs',
-      'UF': 'Florida Gators',
-      'GASO': 'Georgia Southern Eagles',
-      'GAST': 'Georgia State Panthers',
-      'GT': 'Georgia Tech Yellow Jackets',
-      'UGA': 'Georgia Bulldogs',
-      'HAW': 'Hawaii Rainbow Warriors',
-      'HOU': 'Houston Cougars',
-      'ILL': 'Illinois Fighting Illini',
-      'IU': 'Indiana Hoosiers',
-      'IOWA': 'Iowa Hawkeyes',
-      'ISU': 'Iowa State Cyclones',
-      'JKST': 'Jacksonville State Gamecocks',
-      'JMU': 'James Madison Dukes',
-      'KU': 'Kansas Jayhawks',
-      'KSU': 'Kansas State Wildcats',
-      'KENT': 'Kent State Golden Flashes',
-      'UK': 'Kentucky Wildcats',
-      'LIB': 'Liberty Flames',
-      'ULL': 'Lafayette Ragin\' Cajuns',
-      'LT': 'Louisiana Tech Bulldogs',
-      'LOU': 'Louisville Cardinals',
-      'LSU': 'LSU Tigers',
-      'UM': 'Miami Hurricanes',
-      'M-OH': 'Miami Redhawks',
-      'UMD': 'Maryland Terrapins',
-      'MASS': 'Massachusetts Minutemen',
-      'MEM': 'Memphis Tigers',
-      'MICH': 'Michigan Wolverines',
-      'MSU': 'Michigan State Spartans',
-      'MTSU': 'Middle Tennessee State Blue Raiders',
-      'MINN': 'Minnesota Golden Gophers',
-      'MISS': 'Ole Miss Rebels',
-      'MSST': 'Mississippi State Bulldogs',
-      'MZST': 'Missouri State Bears',
-      'MRSH': 'Marshall Thundering Herd',
-      'NAVY': 'Navy Midshipmen',
-      'NEB': 'Nebraska Cornhuskers',
-      'NEV': 'Nevada Wolf Pack',
-      'UNM': 'New Mexico Lobos',
-      'NMSU': 'New Mexico State Aggies',
-      'UNC': 'North Carolina Tar Heels',
-      'NCST': 'North Carolina State Wolfpack',
-      'UNT': 'North Texas Mean Green',
-      'NU': 'Northwestern Wildcats',
-      'ND': 'Notre Dame Fighting Irish',
-      'NIU': 'Northern Illinois Huskies',
-      'OHIO': 'Ohio Bobcats',
-      'OSU': 'Ohio State Buckeyes',
-      'OKLA': 'Oklahoma Sooners',
-      'OKST': 'Oklahoma State Cowboys',
-      'ODU': 'Old Dominion Monarchs',
-      'ORE': 'Oregon Ducks',
-      'ORST': 'Oregon State Beavers',
-      'PSU': 'Penn State Nittany Lions',
-      'PITT': 'Pittsburgh Panthers',
-      'PUR': 'Purdue Boilermakers',
-      'RICE': 'Rice Owls',
-      'RUT': 'Rutgers Scarlet Knights',
-      'SDSU': 'San Diego State Aztecs',
-      'SJSU': 'San Jose State Spartans',
-      'SAM': 'Sam Houston State Bearkats',
-      'USF': 'South Florida Bulls',
-      'SMU': 'SMU Mustangs',
-      'USC': 'USC Trojans',
-      'SCAR': 'South Carolina Gamecocks',
-      'STAN': 'Stanford Cardinal',
-      'SYR': 'Syracuse Orange',
-      'TCU': 'TCU Horned Frogs',
-      'TEM': 'Temple Owls',
-      'TENN': 'Tennessee Volunteers',
-      'TEX': 'Texas Longhorns',
-      'TXAM': 'Texas A&M Aggies',
-      'TXST': 'Texas State Bobcats',
-      'TXTECH': 'Texas Tech Red Raiders',
-      'TOL': 'Toledo Rockets',
-      'TROY': 'Troy Trojans',
-      'TUL': 'Tulane Green Wave',
-      'TLSA': 'Tulsa Golden Hurricane',
-      'UAB': 'UAB Blazers',
-      'UCF': 'UCF Knights',
-      'UCLA': 'UCLA Bruins',
-      'UNLV': 'UNLV Rebels',
-      'UTEP': 'UTEP Miners',
-      'USA': 'South Alabama Jaguars',
-      'USU': 'Utah State Aggies',
-      'UTAH': 'Utah Utes',
-      'UTSA': 'UTSA Roadrunners',
-      'VAN': 'Vanderbilt Commodores',
-      'UVA': 'Virginia Cavaliers',
-      'VT': 'Virginia Tech Hokies',
-      'WAKE': 'Wake Forest Demon Deacons',
-      'WASH': 'Washington Huskies',
-      'WSU': 'Washington State Cougars',
-      'WVU': 'West Virginia Mountaineers',
-      'WMU': 'Western Michigan Broncos',
-      'WKU': 'Western Kentucky Hilltoppers',
-      'WIS': 'Wisconsin Badgers',
-      'WYO': 'Wyoming Cowboys',
-      'DEL': 'Delaware Fightin\' Blue Hens',
-      'FLA': 'Florida Gators',
-      'KENN': 'Kennesaw State Owls',
-      'ULM': 'Monroe Warhawks',
-      'UC': 'Cincinnati Bearcats',
-      'RUTG': 'Rutgers Scarlet Knights',
-      'SHSU': 'Sam Houston State Bearkats',
-      'TAMU': 'Texas A&M Aggies',
-      'TTU': 'Texas Tech Red Raiders',
-      'TULN': 'Tulane Green Wave',
-      'UH': 'Houston Cougars',
-      'UL': 'Lafayette Ragin\' Cajuns',
-      'UT': 'Tennessee Volunteers',
-      'MIA': 'Miami Hurricanes',
-      'MIZ': 'Missouri Tigers',
-      'OU': 'Oklahoma Sooners',
-      'GSU': 'Georgia State Panthers',
-      'USM': 'Southern Mississippi Golden Eagles',
-      // FCS teams
-      'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-      'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
-    }
-    return mascotMap[abbr] || null
+  // Get team mascot name (full team name) for logo lookup using tid-based lookup
+  const getMascotName = (tidOrAbbr) => {
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
+    if (teamInfo) return teamInfo.name
+    return null
   }
 
-  const getOpponentTeamName = (abbr) => {
-    return teamAbbreviations[abbr]?.name || abbr
+  // Get opponent team name from tid or abbreviation
+  const getOpponentTeamName = (tidOrAbbr) => {
+    const teamsSource = currentDynasty?.teams || TEAMS
+    const teamInfo = getGameTeamInfo(teamsSource, tidOrAbbr)
+    if (teamInfo) return teamInfo.name
+    // Fallback to old lookup
+    return teamAbbreviations[tidOrAbbr]?.name || tidOrAbbr
   }
 
   const [gameData, setGameData] = useState({
@@ -862,10 +720,21 @@ export default function GameEntryModal({
       // SIMPLE APPROACH: If existingGame or effectiveGame is provided, use it directly
       const gameToLoad = effectiveGame
       if (gameToLoad) {
-        // CPU games (!userTeam AND !opponent with team1/team2) use team1Score/team2Score; user games use teamScore/opponentScore
-        const isCPUGameData = !gameToLoad.userTeam && !gameToLoad.opponent && gameToLoad.team1 && gameToLoad.team2
+        // Get teams source for tid lookups
+        const teamsSource = currentDynasty?.teams || TEAMS
+
+        // CPU games (!userTeam AND !opponent with team1/team2 or team1Tid/team2Tid) use team1Score/team2Score; user games use teamScore/opponentScore
+        const isCPUGameData = !gameToLoad.userTeam && !gameToLoad.opponent &&
+          ((gameToLoad.team1 && gameToLoad.team2) || (gameToLoad.team1Tid && gameToLoad.team2Tid))
         const teamScore = isCPUGameData ? gameToLoad.team1Score : gameToLoad.teamScore
         const oppScore = isCPUGameData ? gameToLoad.team2Score : gameToLoad.opponentScore
+
+        // Derive team abbreviations from tids if needed (for unified format games)
+        const team1FromTid = gameToLoad.team1Tid ? getGameTeamInfo(teamsSource, gameToLoad.team1Tid)?.abbr : null
+        const team2FromTid = gameToLoad.team2Tid ? getGameTeamInfo(teamsSource, gameToLoad.team2Tid)?.abbr : null
+        const derivedTeam1 = gameToLoad.team1 || team1FromTid
+        const derivedTeam2 = gameToLoad.team2 || team2FromTid
+        const derivedOpponent = gameToLoad.opponent || derivedTeam2 || ''
 
         // Parse opponent record into parts
         let overallRecord = ''
@@ -880,27 +749,47 @@ export default function GameEntryModal({
         // For CFP First Round without location, determine from seeds
         let effectiveLocation = gameToLoad.location || 'neutral'
         if (!gameToLoad.location && (gameToLoad.isCFPFirstRound || gameToLoad.gameType === 'cfp_first_round' || bowlName === 'CFP First Round')) {
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
           const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
-          const opponentAbbr = getAbbreviationFromDisplayName(gameToLoad.opponent) || gameToLoad.opponent
+          const opponentAbbr = getAbbrFromTeamName(derivedOpponent) || derivedOpponent
           const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
           if (userSeed && oppSeed) {
             effectiveLocation = userSeed < oppSeed ? 'home' : 'away'
           }
         }
 
+        // For unified format, derive location from homeTeamTid if not set
+        const isUnifiedFormat = gameToLoad.team1Tid !== undefined && gameToLoad.team2Tid !== undefined
+        if (!gameToLoad.location && isUnifiedFormat && !isCPUGameData) {
+          const userTeamTid = getCurrentTeamTid(currentDynasty)
+          if (gameToLoad.homeTeamTid === null) {
+            effectiveLocation = 'neutral'
+          } else if (gameToLoad.homeTeamTid === userTeamTid) {
+            effectiveLocation = 'home'
+          } else {
+            effectiveLocation = 'away'
+          }
+        }
+
+        // For unified format, team1 is user and team2 is opponent (for non-CPU games)
+        const userRank = isUnifiedFormat && !isCPUGameData ? gameToLoad.team1Rank : gameToLoad.userRank
+        const oppRank = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Rank : gameToLoad.opponentRank
+        const oppOverall = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Overall : gameToLoad.opponentOverall
+        const oppOffense = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Offense : gameToLoad.opponentOffense
+        const oppDefense = isUnifiedFormat && !isCPUGameData ? gameToLoad.team2Defense : gameToLoad.opponentDefense
+
         setGameData({
-          opponent: gameToLoad.opponent || gameToLoad.team2 || '',
+          opponent: derivedOpponent,
           location: effectiveLocation,
           teamScore: teamScore?.toString() || '',
           opponentScore: oppScore?.toString() || '',
           isConferenceGame: gameToLoad.isConferenceGame || isConferenceChampionship || false,
-          userRank: gameToLoad.userRank?.toString() || '',
-          opponentRank: gameToLoad.opponentRank?.toString() || '',
-          opponentOverall: gameToLoad.opponentOverall?.toString() || '',
-          opponentOffense: gameToLoad.opponentOffense?.toString() || '',
-          opponentDefense: gameToLoad.opponentDefense?.toString() || '',
+          userRank: userRank?.toString() || '',
+          opponentRank: oppRank?.toString() || '',
+          opponentOverall: oppOverall?.toString() || '',
+          opponentOffense: oppOffense?.toString() || '',
+          opponentDefense: oppDefense?.toString() || '',
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: gameToLoad.gameNote || '',
@@ -953,32 +842,73 @@ export default function GameEntryModal({
       }
 
       // No existingGame - check if we can find one in dynasty's games array
+      // Get user's current team tid for filtering
+      const userTeamTid = getCurrentTeamTid(currentDynasty)
+
       const foundGame = minimalMode ? null : (isConferenceChampionship
-        ? currentDynasty?.games?.find(g => g.isConferenceChampionship && g.year === actualYear)
-        : currentDynasty?.games?.find(g => g.week === actualWeekNumber && g.year === actualYear))
+        ? currentDynasty?.games?.find(g =>
+            g.isConferenceChampionship &&
+            Number(g.year) === Number(actualYear) &&
+            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam))
+        : currentDynasty?.games?.find(g =>
+            Number(g.week) === Number(actualWeekNumber) &&
+            Number(g.year) === Number(actualYear) &&
+            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam)))
 
       if (foundGame) {
+        // Handle both unified format (team1Score/team2Score) and legacy format (teamScore/opponentScore)
+        const isUnifiedFormat = foundGame.team1Tid !== undefined && foundGame.team2Tid !== undefined
+        const teamScore = isUnifiedFormat ? foundGame.team1Score : foundGame.teamScore
+        const oppScore = isUnifiedFormat ? foundGame.team2Score : foundGame.opponentScore
+
         // Parse opponent record into parts
         let overallRecord = ''
         let conferenceRecord = ''
-        if (foundGame.opponentRecord) {
-          const overallMatch = foundGame.opponentRecord.match(/^(\d+-\d+)/)
-          const confMatch = foundGame.opponentRecord.match(/\((\d+-\d+)\)/)
+        const opponentRecord = foundGame.opponentRecord || foundGame.team2Record
+        if (opponentRecord) {
+          const overallMatch = opponentRecord.match(/^(\d+-\d+)/)
+          const confMatch = opponentRecord.match(/\((\d+-\d+)\)/)
           overallRecord = overallMatch ? overallMatch[1] : ''
           conferenceRecord = confMatch ? confMatch[1] : ''
         }
 
+        // For unified format, derive location from homeTeamTid
+        let effectiveLocation = foundGame.location
+        if (!effectiveLocation && isUnifiedFormat) {
+          if (foundGame.homeTeamTid === null) {
+            effectiveLocation = 'neutral'
+          } else if (foundGame.homeTeamTid === userTeamTid) {
+            effectiveLocation = 'home'
+          } else {
+            effectiveLocation = 'away'
+          }
+        }
+
+        // For unified format, team1 is user and team2 is opponent
+        const userRank = isUnifiedFormat ? foundGame.team1Rank : foundGame.userRank
+        const oppRank = isUnifiedFormat ? foundGame.team2Rank : foundGame.opponentRank
+        const oppOverall = isUnifiedFormat ? foundGame.team2Overall : foundGame.opponentOverall
+        const oppOffense = isUnifiedFormat ? foundGame.team2Offense : foundGame.opponentOffense
+        const oppDefense = isUnifiedFormat ? foundGame.team2Defense : foundGame.opponentDefense
+
+        // For unified format, derive opponent name from team2Tid
+        let opponentName = foundGame.opponent
+        if (!opponentName && isUnifiedFormat && foundGame.team2Tid) {
+          const oppTeam = currentDynasty?.teams?.[foundGame.team2Tid]
+          opponentName = oppTeam?.name || ''
+        }
+
         setGameData({
-          opponent: foundGame.opponent || '',
-          location: foundGame.location || 'home',
-          teamScore: foundGame.teamScore?.toString() || '',
-          opponentScore: foundGame.opponentScore?.toString() || '',
+          opponent: opponentName || '',
+          location: effectiveLocation || 'home',
+          teamScore: teamScore?.toString() || '',
+          opponentScore: oppScore?.toString() || '',
           isConferenceGame: foundGame.isConferenceGame || isConferenceChampionship || false,
-          userRank: foundGame.userRank?.toString() || '',
-          opponentRank: foundGame.opponentRank?.toString() || '',
-          opponentOverall: foundGame.opponentOverall?.toString() || '',
-          opponentOffense: foundGame.opponentOffense?.toString() || '',
-          opponentDefense: foundGame.opponentDefense?.toString() || '',
+          userRank: userRank?.toString() || '',
+          opponentRank: oppRank?.toString() || '',
+          opponentOverall: oppOverall?.toString() || '',
+          opponentOffense: oppOffense?.toString() || '',
+          opponentDefense: oppDefense?.toString() || '',
           overallRecord: overallRecord,
           conferenceRecord: conferenceRecord,
           gameNote: foundGame.gameNote || '',
@@ -1020,10 +950,10 @@ export default function GameEntryModal({
         // For CFP First Round, higher seed hosts (lower number = higher seed)
         let cfpLocation = 'neutral'
         if (bowlName === 'CFP First Round') {
-          const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
           const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
-          const opponentAbbr = getAbbreviationFromDisplayName(passedOpponent) || passedOpponent
+          const opponentAbbr = getAbbrFromTeamName(passedOpponent) || passedOpponent
           const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
           if (userSeed && oppSeed) {
             cfpLocation = userSeed < oppSeed ? 'home' : 'away'
@@ -1230,9 +1160,11 @@ export default function GameEntryModal({
     const favoriteStatus = calculateFavoriteStatus()
 
     // Determine if this is a conference game
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+    const userTeamTid = getCurrentTeamTid(currentDynasty)
     const rawOpponent = gameData.opponent || scheduledGame?.opponent
-    const opponentAbbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
+    const opponentAbbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
+    const opponentTid = getTidFromAbbr(opponentAbbr)
 
     // Use custom conferences for auto-detection
     const customConferences = getCurrentCustomConferences(currentDynasty)
@@ -1257,94 +1189,144 @@ export default function GameEntryModal({
       )
     }
 
+    // Determine gameType
+    const gameType = (effectiveGame?.isCFPChampionship || weekNumber === 'CFP Championship') ? GAME_TYPES.CFP_CHAMPIONSHIP
+      : (effectiveGame?.isCFPSemifinal || weekNumber === 'CFP Semifinal') ? GAME_TYPES.CFP_SEMIFINAL
+      : (effectiveGame?.isCFPQuarterfinal || weekNumber === 'CFP Quarterfinal') ? GAME_TYPES.CFP_QUARTERFINAL
+      : (effectiveGame?.isCFPFirstRound || weekNumber === 'CFP First Round') ? GAME_TYPES.CFP_FIRST_ROUND
+      : (isConferenceChampionship || effectiveGame?.isConferenceChampionship) ? GAME_TYPES.CONFERENCE_CHAMPIONSHIP
+      : (bowlName || effectiveGame?.isBowlGame) ? GAME_TYPES.BOWL
+      : GAME_TYPES.REGULAR
+
+    // Determine homeTeamTid based on location (for non-CPU games)
+    // Neutral games (CC, bowl, CFP) have homeTeamTid = null
+    const isNeutralGame = gameType !== GAME_TYPES.REGULAR
+    let homeTeamTid = null
+    if (!isCPUGame) {
+      if (isNeutralGame) {
+        homeTeamTid = null
+      } else if (gameData.location === 'home') {
+        homeTeamTid = userTeamTid
+      } else if (gameData.location === 'away') {
+        homeTeamTid = opponentTid
+      } else {
+        homeTeamTid = null  // neutral regular season game
+      }
+    }
+
+    // UNIFIED GAME FORMAT: All games use team1Tid/team2Tid
     const processedData = removeUndefined({
-      ...restGameData,
       // CRITICAL: Include game ID so we know which game to update
-      // Use existing game ID, or tempGameId for new games (allows box score to be linked)
       id: effectiveGame?.id || tempGameId,
       week: effectiveGame?.week ?? actualWeekNumber,
       year: effectiveGame?.year ?? actualYear,
+      gameType,
+
+      // UNIFIED TEAM FIELDS (tid only, no abbreviations)
+      team1Tid: isCPUGame
+        ? (effectiveGame?.team1Tid || getTidFromAbbr(effectiveGame?.team1))
+        : userTeamTid,
+      team2Tid: isCPUGame
+        ? (effectiveGame?.team2Tid || getTidFromAbbr(effectiveGame?.team2))
+        : opponentTid,
+      team1Score: teamScore,
+      team2Score: opponentScore,
+
+      // User team identifier - explicitly marks which team the user was coaching
+      // For user games only, not CPU games
+      ...(!isCPUGame && userTeamTid && { userTid: userTeamTid }),
+
+      // Home/Away - who is home? (null = neutral)
+      homeTeamTid: isCPUGame ? null : homeTeamTid,
+
+      // Team metadata - stored by team position (team1/team2)
+      team1Rank: isCPUGame
+        ? (gameData.team1Rank ? parseInt(gameData.team1Rank) : null)
+        : (gameData.userRank ? parseInt(gameData.userRank) : null),
+      team2Rank: isCPUGame
+        ? (gameData.team2Rank ? parseInt(gameData.team2Rank) : null)
+        : (gameData.opponentRank ? parseInt(gameData.opponentRank) : null),
+      team1Overall: isCPUGame
+        ? (gameData.team1Overall ? parseInt(gameData.team1Overall) : null)
+        : (teamRatings?.overall || null),
+      team2Overall: isCPUGame
+        ? (gameData.team2Overall ? parseInt(gameData.team2Overall) : null)
+        : (gameData.opponentOverall ? parseInt(gameData.opponentOverall) : null),
+      team1Offense: isCPUGame
+        ? (gameData.team1Offense ? parseInt(gameData.team1Offense) : null)
+        : (teamRatings?.offense || null),
+      team2Offense: isCPUGame
+        ? (gameData.team2Offense ? parseInt(gameData.team2Offense) : null)
+        : (gameData.opponentOffense ? parseInt(gameData.opponentOffense) : null),
+      team1Defense: isCPUGame
+        ? (gameData.team1Defense ? parseInt(gameData.team1Defense) : null)
+        : (teamRatings?.defense || null),
+      team2Defense: isCPUGame
+        ? (gameData.team2Defense ? parseInt(gameData.team2Defense) : null)
+        : (gameData.opponentDefense ? parseInt(gameData.opponentDefense) : null),
+
+      // Records (for CPU games)
+      ...(isCPUGame && {
+        team1Record: gameData.team1Record || null,
+        team2Record: gameData.team2Record || null
+      }),
+      // For user games, store opponent record on team2
+      ...(!isCPUGame && opponentRecord && { team2Record: opponentRecord }),
+
+      // Game metadata
       links: filteredLinks,
-      result: result,
-      teamScore: teamScore,
-      opponentScore: opponentScore,
-      userRank: gameData.userRank ? parseInt(gameData.userRank) : null,
-      opponentRank: gameData.opponentRank ? parseInt(gameData.opponentRank) : null,
-      opponentOverall: gameData.opponentOverall ? parseInt(gameData.opponentOverall) : null,
-      opponentOffense: gameData.opponentOffense ? parseInt(gameData.opponentOffense) : null,
-      opponentDefense: gameData.opponentDefense ? parseInt(gameData.opponentDefense) : null,
-      opponentRecord: opponentRecord || '',  // Combined from overallRecord + conferenceRecord
+      isConferenceGame: isConferenceGame,
+      favoriteStatus: favoriteStatus !== undefined ? favoriteStatus : null,
       conferencePOW: conferencePOW || null,
       confDefensePOW: confDefensePOW || null,
       nationalPOW: nationalPOW || null,
       natlDefensePOW: natlDefensePOW || null,
-      favoriteStatus: favoriteStatus !== undefined ? favoriteStatus : null,
-      isConferenceGame: isConferenceGame,
-      // Set userTeam for user games (non-CPU games) - identifies this as a user game
-      ...(!isCPUGame && { userTeam: userTeamAbbr }),
-      // Preserve special game type flags from existing game OR set from weekNumber prop
+
+      // Quarter-by-quarter scoring and overtime
+      quarters: gameData.quarters,
+      overtimes: gameData.overtimes?.length > 0 ? gameData.overtimes : null,
+
+      // Preserve special game type flags for backward compat
       ...(effectiveGame?.bowlName && { bowlName: effectiveGame.bowlName }),
       ...((effectiveGame?.isConferenceChampionship || isConferenceChampionship) && { isConferenceChampionship: true }),
       ...((effectiveGame?.isCFPFirstRound || weekNumber === 'CFP First Round') && { isCFPFirstRound: true }),
       ...((effectiveGame?.isCFPQuarterfinal || weekNumber === 'CFP Quarterfinal') && { isCFPQuarterfinal: true }),
       ...((effectiveGame?.isCFPSemifinal || weekNumber === 'CFP Semifinal') && { isCFPSemifinal: true }),
       ...((effectiveGame?.isCFPChampionship || weekNumber === 'CFP Championship') && { isCFPChampionship: true }),
-      // Set isBowlGame if existing game has it OR if a bowlName is provided
       ...((effectiveGame?.isBowlGame || bowlName) && { isBowlGame: true }),
       ...(bowlName && !effectiveGame?.bowlName && { bowlName: bowlName }),
-      // UNIFIED: Set gameType for the unified game system - check both existingGame AND weekNumber
-      gameType: (effectiveGame?.isCFPChampionship || weekNumber === 'CFP Championship') ? GAME_TYPES.CFP_CHAMPIONSHIP
-        : (effectiveGame?.isCFPSemifinal || weekNumber === 'CFP Semifinal') ? GAME_TYPES.CFP_SEMIFINAL
-        : (effectiveGame?.isCFPQuarterfinal || weekNumber === 'CFP Quarterfinal') ? GAME_TYPES.CFP_QUARTERFINAL
-        : (effectiveGame?.isCFPFirstRound || weekNumber === 'CFP First Round') ? GAME_TYPES.CFP_FIRST_ROUND
-        : (isConferenceChampionship || effectiveGame?.isConferenceChampionship) ? GAME_TYPES.CONFERENCE_CHAMPIONSHIP
-        : (bowlName || effectiveGame?.isBowlGame) ? GAME_TYPES.BOWL
-        : GAME_TYPES.REGULAR,
-      // For postseason games (bowl, CFP, CC), also set unified team fields for history tracking
-      ...((bowlName || effectiveGame?.isBowlGame || isConferenceChampionship || effectiveGame?.isConferenceChampionship ||
-           effectiveGame?.isCFPFirstRound || effectiveGame?.isCFPQuarterfinal ||
-           effectiveGame?.isCFPSemifinal || effectiveGame?.isCFPChampionship ||
-           weekNumber === 'CFP First Round' || weekNumber === 'CFP Quarterfinal' ||
-           weekNumber === 'CFP Semifinal' || weekNumber === 'CFP Championship') && !isCPUGame && {
-        team1: userTeamAbbr,
-        team2: opponentAbbr,
-        team1Score: teamScore,
-        team2Score: opponentScore,
-        winner: result === 'win' || result === 'W' ? userTeamAbbr : opponentAbbr
-      }),
-      // CPU vs CPU game data (no userTeam field = CPU game)
-      ...(isCPUGame && {
-        team1: effectiveGame?.team1,
-        team2: effectiveGame?.team2,
-        team1Score: teamScore,
-        team2Score: opponentScore,
-        winner: teamScore > opponentScore ? effectiveGame?.team1 : effectiveGame?.team2,
-        // Team 1 details
-        team1Rank: gameData.team1Rank ? parseInt(gameData.team1Rank) : null,
-        team1Record: gameData.team1Record || null,
-        team1Overall: gameData.team1Overall ? parseInt(gameData.team1Overall) : null,
-        team1Offense: gameData.team1Offense ? parseInt(gameData.team1Offense) : null,
-        team1Defense: gameData.team1Defense ? parseInt(gameData.team1Defense) : null,
-        // Team 2 details
-        team2Rank: gameData.team2Rank ? parseInt(gameData.team2Rank) : null,
-        team2Record: gameData.team2Record || null,
-        team2Overall: gameData.team2Overall ? parseInt(gameData.team2Overall) : null,
-        team2Offense: gameData.team2Offense ? parseInt(gameData.team2Offense) : null,
-        team2Defense: gameData.team2Defense ? parseInt(gameData.team2Defense) : null
-      }),
-      // Include pending box score data for new games
-      ...((pendingHomeStats || pendingAwayStats || pendingScoringSummary || pendingTeamStats) && {
+
+      // Preserve AI recap and game note from restGameData
+      ...(restGameData.aiRecap && { aiRecap: restGameData.aiRecap }),
+      ...(restGameData.gameNote && { gameNote: restGameData.gameNote }),
+
+      // Box score handling:
+      // 1. If we have new pending data, use it
+      // 2. If no pending data but existing game has boxScore, preserve it
+      // 3. Otherwise, no boxScore
+      ...((pendingHomeStats || pendingAwayStats || pendingScoringSummary || pendingTeamStats) ? {
         boxScore: {
           home: pendingHomeStats || {},
           away: pendingAwayStats || {},
           scoringSummary: pendingScoringSummary || [],
           teamStats: pendingTeamStats || null
         }
+      } : effectiveGame?.boxScore ? {
+        boxScore: effectiveGame.boxScore
+      } : {}),
+      // Sheet IDs - preserve existing or use new pending
+      ...((pendingSheetIds.homeStatsSheetId || effectiveGame?.homeStatsSheetId) && {
+        homeStatsSheetId: pendingSheetIds.homeStatsSheetId || effectiveGame.homeStatsSheetId
       }),
-      ...(pendingSheetIds.homeStatsSheetId && { homeStatsSheetId: pendingSheetIds.homeStatsSheetId }),
-      ...(pendingSheetIds.awayStatsSheetId && { awayStatsSheetId: pendingSheetIds.awayStatsSheetId }),
-      ...(pendingSheetIds.scoringSummarySheetId && { scoringSummarySheetId: pendingSheetIds.scoringSummarySheetId }),
-      ...(pendingSheetIds.teamStatsSheetId && { teamStatsSheetId: pendingSheetIds.teamStatsSheetId })
+      ...((pendingSheetIds.awayStatsSheetId || effectiveGame?.awayStatsSheetId) && {
+        awayStatsSheetId: pendingSheetIds.awayStatsSheetId || effectiveGame.awayStatsSheetId
+      }),
+      ...((pendingSheetIds.scoringSummarySheetId || effectiveGame?.scoringSummarySheetId) && {
+        scoringSummarySheetId: pendingSheetIds.scoringSummarySheetId || effectiveGame.scoringSummarySheetId
+      }),
+      ...((pendingSheetIds.teamStatsSheetId || effectiveGame?.teamStatsSheetId) && {
+        teamStatsSheetId: pendingSheetIds.teamStatsSheetId || effectiveGame.teamStatsSheetId
+      })
     })
 
 
@@ -1463,9 +1445,9 @@ export default function GameEntryModal({
     }
 
     // Generate random box score stats based on player positions
-    const userTeamAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
+    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
     const rawOpp = gameData.opponent || scheduledGame?.opponent || 'OPP'
-    const opponentAbbr = getAbbreviationFromDisplayName(rawOpp) || rawOpp
+    const opponentAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
 
     // Determine home/away based on location
     const isUserHome = gameData.location === 'home' || gameData.location === 'neutral'
@@ -1518,7 +1500,7 @@ export default function GameEntryModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: getContrastTextColor(teamColors.primary) }}>
               {isConferenceChampionship || effectiveGame?.isConferenceChampionship
-                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)) || 'Conference'} Championship`
+                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(getCurrentTeamAbbr(currentDynasty)) || 'Conference'} Championship`
                 : effectiveGame?.isCFPChampionship
                   ? 'National Championship'
                   : effectiveGame?.isCFPSemifinal
@@ -1532,10 +1514,11 @@ export default function GameEntryModal({
                           : `Week ${actualWeekNumber} Game Entry`}
             </h2>
             {(() => {
+              const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
               if (isCPUGame) {
                 // CPU vs CPU game - show both teams
-                const team1Name = getMascotName(effectiveGame?.team1) || getOpponentTeamName(effectiveGame?.team1)
-                const team2Name = getMascotName(effectiveGame?.team2) || getOpponentTeamName(effectiveGame?.team2)
+                const team1Name = getMascotName(effectiveGame?.team1, teamsData) || getOpponentTeamName(effectiveGame?.team1)
+                const team2Name = getMascotName(effectiveGame?.team2, teamsData) || getOpponentTeamName(effectiveGame?.team2)
                 return (
                   <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: getContrastTextColor(teamColors.primary), opacity: 0.8 }}>
                     {team1Name} vs {team2Name}
@@ -1543,8 +1526,8 @@ export default function GameEntryModal({
                 )
               } else if (scheduledGame || isConferenceChampionship || passedOpponent) {
                 const rawOppAbbr = passedOpponent || scheduledGame?.opponent
-                const opponentAbbr = getAbbreviationFromDisplayName(rawOppAbbr) || rawOppAbbr
-                const opponentFullName = opponentAbbr ? (getMascotName(opponentAbbr) || getOpponentTeamName(opponentAbbr)) : opponentAbbr
+                const opponentAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
+                const opponentFullName = opponentAbbr ? (getMascotName(opponentAbbr, teamsData) || getOpponentTeamName(opponentAbbr)) : opponentAbbr
                 return (
                   <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: getContrastTextColor(teamColors.primary), opacity: 0.8 }}>
                     {isConferenceChampionship ? 'vs' : (scheduledGame?.location === 'away' ? '@' : 'vs')} {opponentFullName}
@@ -1611,26 +1594,32 @@ export default function GameEntryModal({
                 <div className="space-y-2 min-w-[360px]">
                 {(() => {
                   // Determine team order based on location
-                  // For CPU vs CPU games, use passed team1 and team2
-                  const team1Abbr = isCPUGame ? effectiveGame?.team1 : getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+                  // For CPU vs CPU games, use passed team1 and team2 (or derive from tid for unified format)
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
+                  const team1Abbr = isCPUGame ? (effectiveGame?.team1 || team1AbbrFromTid) : getCurrentTeamAbbr(currentDynasty)
                   // Ensure opponent is an abbreviation (convert full name if needed)
-                  const rawOpponent = isCPUGame ? effectiveGame?.team2 : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
-                  const team2Abbr = getAbbreviationFromDisplayName(rawOpponent) || rawOpponent
+                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
+                  const rawOpponent = isCPUGame ? (effectiveGame?.team2 || team2AbbrFromTid) : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
+                  const team2Abbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
-                  const team1MascotName = team1Abbr ? getMascotName(team1Abbr) : null
-                  const team2MascotName = team2Abbr ? getMascotName(team2Abbr) : null
+                  const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+                  const team1MascotName = team1Abbr ? getMascotName(team1Abbr, teamsData) : null
+                  const team2MascotName = team2Abbr ? getMascotName(team2Abbr, teamsData) : null
                   const team1DisplayName = team1MascotName || (isCPUGame ? getOpponentTeamName(team1Abbr) : currentDynasty?.teamName) || 'Team 1'
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
 
                   // Get team logos
-                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName) : (isCPUGame ? null : getTeamLogo(currentDynasty?.teamName))
-                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName) : null
+                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : (isCPUGame ? null : getTeamLogo(currentDynasty?.teamName, teamsData))
+                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null
 
-                  // Get team colors
+                  // Get team colors (check tid-based teams first)
+                  const team1Info = team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null
+                  const team2Info = team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null
                   const team1Colors = isCPUGame
-                    ? { primary: teamAbbreviations[team1Abbr]?.backgroundColor || '#666' }
+                    ? { primary: team1Info?.primaryColor || teamAbbreviations[team1Abbr]?.backgroundColor || '#666' }
                     : teamColors
-                  const team2Colors = { primary: teamAbbreviations[team2Abbr]?.backgroundColor || '#666' }
+                  const team2Colors = { primary: team2Info?.primaryColor || teamAbbreviations[team2Abbr]?.backgroundColor || '#666' }
 
                   // For CPU games at neutral site, team1 on top, team2 on bottom
                   // For user games: Away team on top, home team on bottom
@@ -2015,12 +2004,14 @@ export default function GameEntryModal({
           <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
             <div className="flex items-center gap-2 sm:gap-3 mb-4">
               {(() => {
+                const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
                 const rawOppAbbr = gameData.opponent || scheduledGame?.opponent
-                const opponentAbbr = getAbbreviationFromDisplayName(rawOppAbbr) || rawOppAbbr
-                const opponentMascotName = opponentAbbr ? getMascotName(opponentAbbr) : null
+                const opponentAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
+                const opponentMascotName = opponentAbbr ? getMascotName(opponentAbbr, teamsData) : null
                 const opponentDisplayName = opponentMascotName || (opponentAbbr ? getOpponentTeamName(opponentAbbr) : 'Opponent')
-                const opponentLogo = opponentMascotName ? getTeamLogo(opponentMascotName) : null
-                const opponentColors = opponentAbbr ? teamAbbreviations[opponentAbbr] : null
+                const opponentLogo = opponentMascotName ? getTeamLogo(opponentMascotName, teamsData) : null
+                const oppTeamInfo = opponentAbbr ? getGameTeamInfo(teamsData || TEAMS, opponentAbbr) : null
+                const opponentColors = oppTeamInfo ? { textColor: oppTeamInfo.secondaryColor } : (opponentAbbr ? teamAbbreviations[opponentAbbr] : null)
 
                 return (
                   <>
@@ -2554,11 +2545,16 @@ export default function GameEntryModal({
             <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
-                  const team1Abbr = effectiveGame?.team1 || passedTeam1
-                  const team1MascotName = team1Abbr ? getMascotName(team1Abbr) : null
+                  // Derive team abbr from tid for unified format games
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
+                  const team1Abbr = effectiveGame?.team1 || team1AbbrFromTid || passedTeam1
+                  const team1MascotName = team1Abbr ? getMascotName(team1Abbr, teamsData) : null
                   const team1DisplayName = team1MascotName || (team1Abbr ? getOpponentTeamName(team1Abbr) : 'Team 1')
-                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName) : null
-                  const team1Colors = team1Abbr ? teamAbbreviations[team1Abbr] : null
+                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : null
+                  const team1Info = team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null
+                  const team1Colors = team1Info ? { textColor: team1Info.secondaryColor } : (team1Abbr ? teamAbbreviations[team1Abbr] : null)
 
                   return (
                     <>
@@ -2673,11 +2669,16 @@ export default function GameEntryModal({
             <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
-                  const team2Abbr = effectiveGame?.team2 || passedTeam2
-                  const team2MascotName = team2Abbr ? getMascotName(team2Abbr) : null
+                  // Derive team abbr from tid for unified format games
+                  const teamsSource = currentDynasty?.teams || TEAMS
+                  const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
+                  const team2Abbr = effectiveGame?.team2 || team2AbbrFromTid || passedTeam2
+                  const team2MascotName = team2Abbr ? getMascotName(team2Abbr, teamsData) : null
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
-                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName) : null
-                  const team2Colors = team2Abbr ? teamAbbreviations[team2Abbr] : null
+                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null
+                  const team2Info = team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null
+                  const team2Colors = team2Info ? { textColor: team2Info.secondaryColor } : (team2Abbr ? teamAbbreviations[team2Abbr] : null)
 
                   return (
                     <>
@@ -2926,9 +2927,9 @@ export default function GameEntryModal({
                 homeAbbr = effectiveGame?.team1 || passedTeam1 || 'Team 1'
                 awayAbbr = effectiveGame?.team2 || passedTeam2 || 'Team 2'
               } else {
-                const userAbbr = getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams) || currentDynasty?.teamName || ''
+                const userAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
                 const rawOppAbbr = gameData.opponent || existingGame?.opponent || ''
-                const oppAbbr = getAbbreviationFromDisplayName(rawOppAbbr) || rawOppAbbr
+                const oppAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
                 const isUserHome = gameData.location === 'home' || gameData.location === 'neutral'
                 homeAbbr = isUserHome ? userAbbr : oppAbbr
                 awayAbbr = isUserHome ? oppAbbr : userAbbr

@@ -134,8 +134,8 @@ export default function DetailedStatsEntryModal({
         setCreatingSheet(true)
         try {
           // Get current team abbreviation - use override if provided
-          const { getAbbreviationFromDisplayName } = await import('../data/teamAbbreviations')
-          const userTeamAbbr = overrideTeamAbbr || getAbbreviationFromDisplayName(currentDynasty?.teamName, currentDynasty?.customTeams)
+          const { getCurrentTeamAbbr } = await import('../data/teamRegistry')
+          const userTeamAbbr = overrideTeamAbbr || getCurrentTeamAbbr(currentDynasty)
           const dynastyTeamName = overrideTeamName || currentDynasty?.teamName
           const startYear = currentDynasty?.startYear || currentYear
 

@@ -4,10 +4,16 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide',
     'AFA': 'Air Force Falcons',
@@ -214,14 +220,14 @@ export default function Rankings() {
   // Render a single ranking row
   const RankingRow = ({ rank, teamAbbr, year }) => {
     const teamInfo = teamAbbreviations[teamAbbr] || {}
-    const mascotName = getMascotName(teamAbbr)
+    const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName) : null
     const bgColor = teamInfo.backgroundColor || '#6B7280'
     const textColor = getContrastTextColor(bgColor)
 
     return (
       <Link
-        to={`${pathPrefix}/team/${teamAbbr}/${year}`}
+        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
         className="flex items-center gap-3 p-3 rounded-lg hover:scale-[1.02] transition-transform"
         style={{
           backgroundColor: bgColor,

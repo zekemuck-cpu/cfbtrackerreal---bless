@@ -87,7 +87,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
         try {
           // Pass awardsByYear for pre-filling past years
           const awardsByYear = currentDynasty?.awardsByYear || {}
-          const sheetInfo = await createAwardsSheet(currentYear, awardsByYear, currentDynasty?.customTeams)
+          const sheetInfo = await createAwardsSheet(currentYear, awardsByYear, currentDynasty?.teams || currentDynasty?.customTeams)
           setSheetId(sheetInfo.sheetId)
           const existingByYear = currentDynasty?.awardsSheetIdByYear || {}
           await updateDynasty(currentDynasty.id, {

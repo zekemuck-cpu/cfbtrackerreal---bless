@@ -9,6 +9,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getGameTeamInfo, TEAMS } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -107,15 +108,65 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
           console.log('[CC Modal] User conference:', userConference, 'userCCGame exists:', !!userCCGame, 'userCCGame:', userCCGame)
           const excludeConference = userCCGame ? userConference : null
           console.log('[CC Modal] excludeConference:', excludeConference)
-          // Get existing CC data for pre-filling
-          const existingCCData = currentDynasty?.conferenceChampionshipsByYear?.[currentYear] || []
+
+          // Get existing CC data for pre-filling from multiple sources
+          const teams = currentDynasty?.teams || TEAMS
+
+          // 1. Get CC games from games[] array (has actual scores)
+          const ccGamesFromArray = (currentDynasty?.games || [])
+            .filter(g => (g.isConferenceChampionship || g.gameType === 'conference_championship') && Number(g.year) === Number(currentYear))
+            .map(g => {
+              // Handle both unified format (team1Tid/team2Tid) and legacy format
+              let team1, team2
+              if (g.team1Tid && g.team2Tid) {
+                const t1Info = getGameTeamInfo(teams, g.team1Tid)
+                const t2Info = getGameTeamInfo(teams, g.team2Tid)
+                team1 = t1Info?.abbr || g.team1
+                team2 = t2Info?.abbr || g.team2
+              } else if (g.userTeam && g.opponent) {
+                // Legacy user game format
+                team1 = g.userTeam
+                team2 = g.opponent
+              } else {
+                team1 = g.team1
+                team2 = g.team2
+              }
+
+              return {
+                conference: g.conference,
+                team1: team1,
+                team2: team2,
+                team1Score: g.team1Score ?? g.teamScore,
+                team2Score: g.team2Score ?? g.opponentScore
+              }
+            })
+            .filter(cc => cc.conference) // Must have conference name
+
+          // 2. Get any additional data from conferenceChampionshipsByYear
+          const ccFromByYear = currentDynasty?.conferenceChampionshipsByYear?.[currentYear] || []
+
+          // 3. Merge: games[] data takes precedence (has scores), then conferenceChampionshipsByYear
+          const existingByConference = {}
+          // Add conferenceChampionshipsByYear data first
+          ccFromByYear.forEach(cc => {
+            if (cc?.conference) {
+              existingByConference[cc.conference] = cc
+            }
+          })
+          // Override with games[] data (more complete with scores)
+          ccGamesFromArray.forEach(cc => {
+            existingByConference[cc.conference] = cc
+          })
+
+          const existingCCData = Object.values(existingByConference)
+          console.log('[CC Modal] existingCCData for prefill:', existingCCData)
 
           const sheetInfo = await createConferenceChampionshipSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             excludeConference,
             existingCCData,
-            currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

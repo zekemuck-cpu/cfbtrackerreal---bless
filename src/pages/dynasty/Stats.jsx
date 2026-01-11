@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 
@@ -24,7 +24,7 @@ const STAT_DISPLAY = {
 
 export default function Stats() {
   const { currentDynasty } = useDynasty()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [selectedYear, setSelectedYear] = useState(null)
 
   if (!currentDynasty) return null
@@ -32,18 +32,29 @@ export default function Stats() {
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
-  // Calculate records
+  // Calculate records using perspective
   const getSeasonRecord = (year) => {
-    const seasonGames = (currentDynasty.games || []).filter(g => g.year === year)
-    const wins = seasonGames.filter(g => g.result === 'win').length
-    const losses = seasonGames.filter(g => g.result === 'loss').length
+    const seasonGames = (currentDynasty.games || [])
+      .filter(g => Number(g.year) === year)
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(Boolean)
+    const wins = seasonGames.filter(g => g.perspective?.userWon).length
+    const losses = seasonGames.filter(g => g.perspective && !g.perspective.userWon).length
     return { wins, losses, total: `${wins}-${losses}` }
   }
 
   const getAllTimeRecord = () => {
-    const games = currentDynasty.games || []
-    const wins = games.filter(g => g.result === 'win').length
-    const losses = games.filter(g => g.result === 'loss').length
+    const games = (currentDynasty.games || [])
+      .map(g => {
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective ? { ...g, perspective } : null
+      })
+      .filter(Boolean)
+    const wins = games.filter(g => g.perspective?.userWon).length
+    const losses = games.filter(g => g.perspective && !g.perspective.userWon).length
     return { wins, losses, total: `${wins}-${losses}` }
   }
 

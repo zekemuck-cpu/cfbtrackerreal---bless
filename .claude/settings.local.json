@@ -61,7 +61,8 @@
       "WebFetch(domain:www.teamcrafters.net)",
       "WebFetch(domain:www.cfblabs.com)",
       "WebFetch(domain:forums.operationsports.com)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

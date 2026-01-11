@@ -73,8 +73,8 @@ function AppRoutes() {
           <Route path="players" element={<Players />} />
           <Route path="all-time-lineup" element={<AllTimeLineup />} />
           <Route path="recruiting" element={<Recruiting />} />
-          <Route path="recruiting/:teamAbbr/:year" element={<Recruiting />} />
-          <Route path="recruiting/portal/:teamAbbr/:year" element={<Recruiting />} />
+          <Route path="recruiting/:tid/:year" element={<Recruiting />} />
+          <Route path="recruiting/portal/:tid/:year" element={<Recruiting />} />
           <Route path="leaders" element={<Leaders />} />
           <Route path="awards" element={<Awards />} />
           <Route path="awards/:year" element={<Awards />} />
@@ -85,8 +85,8 @@ function AppRoutes() {
           <Route path="all-conference/:year/:conference" element={<AllConference />} />
           <Route path="dynasty-records" element={<DynastyRecords />} />
           <Route path="teams" element={<Teams />} />
-          <Route path="team/:teamAbbr" element={<Team />} />
-          <Route path="team/:teamAbbr/:year" element={<TeamYear />} />
+          <Route path="team/:tid" element={<Team />} />
+          <Route path="team/:tid/:year" element={<TeamYear />} />
           <Route path="bowl-history" element={<BowlHistory />} />
           <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
           <Route path="conference-standings" element={<ConferenceStandings />} />
@@ -94,7 +94,7 @@ function AppRoutes() {
           <Route path="cfp-bracket" element={<CFPBracket />} />
           <Route path="cfp-bracket/:year" element={<CFPBracket />} />
           <Route path="game/:gameId" element={<Game />} />
-          <Route path="team-stats/:team/:year" element={<TeamStats />} />
+          <Route path="team-stats/:tid/:year" element={<TeamStats />} />
           <Route path="admin" element={<DangerZone />} />
         </Route>
 
@@ -141,8 +141,8 @@ function AppRoutes() {
                 <Route path="players" element={<Players />} />
                 <Route path="all-time-lineup" element={<AllTimeLineup />} />
                 <Route path="recruiting" element={<Recruiting />} />
-                <Route path="recruiting/:teamAbbr/:year" element={<Recruiting />} />
-                <Route path="recruiting/portal/:teamAbbr/:year" element={<Recruiting />} />
+                <Route path="recruiting/:tid/:year" element={<Recruiting />} />
+                <Route path="recruiting/portal/:tid/:year" element={<Recruiting />} />
                 <Route path="leaders" element={<Leaders />} />
                 <Route path="awards" element={<Awards />} />
                 <Route path="awards/:year" element={<Awards />} />
@@ -153,8 +153,8 @@ function AppRoutes() {
                 <Route path="all-conference/:year/:conference" element={<AllConference />} />
                 <Route path="dynasty-records" element={<DynastyRecords />} />
                 <Route path="teams" element={<Teams />} />
-                <Route path="team/:teamAbbr" element={<Team />} />
-                <Route path="team/:teamAbbr/:year" element={<TeamYear />} />
+                <Route path="team/:tid" element={<Team />} />
+                <Route path="team/:tid/:year" element={<TeamYear />} />
                 <Route path="bowl-history" element={<BowlHistory />} />
                 <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
                 <Route path="conference-standings" element={<ConferenceStandings />} />
@@ -162,7 +162,7 @@ function AppRoutes() {
                 <Route path="cfp-bracket" element={<CFPBracket />} />
                 <Route path="cfp-bracket/:year" element={<CFPBracket />} />
                 <Route path="game/:gameId" element={<Game />} />
-                <Route path="team-stats/:team/:year" element={<TeamStats />} />
+                <Route path="team-stats/:tid/:year" element={<TeamStats />} />
                 <Route path="admin" element={<DangerZone />} />
               </Route>
             </Routes>

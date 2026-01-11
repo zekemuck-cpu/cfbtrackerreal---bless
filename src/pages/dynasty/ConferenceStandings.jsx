@@ -4,13 +4,19 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
+import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
 // Map abbreviation to mascot name for logo lookup
-const getMascotName = (abbr) => {
+const getMascotName = (abbr, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getMascotNameFromTeams(abbr, teamsData)
+    if (result) return result
+  }
   const mascotMap = {
     'BAMA': 'Alabama Crimson Tide', 'AFA': 'Air Force Falcons', 'AKR': 'Akron Zips',
     'APP': 'Appalachian State Mountaineers', 'ARIZ': 'Arizona Wildcats',
@@ -136,7 +142,7 @@ export default function ConferenceStandings() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.customTeams)
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [expandedConference, setExpandedConference] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConferencesModal, setShowConferencesModal] = useState(false)
@@ -334,7 +340,7 @@ export default function ConferenceStandings() {
                             .sort((a, b) => (a.rank || 0) - (b.rank || 0))
                             .map((team, idx) => {
                               const teamAbbr = team.team
-                              const mascotName = getMascotName(teamAbbr)
+                              const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
                               const logo = mascotName ? getTeamLogo(mascotName) : null
                               const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
                               const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
@@ -351,7 +357,7 @@ export default function ConferenceStandings() {
                                   </td>
                                   <td className="py-2 px-1">
                                     <Link
-                                      to={`${pathPrefix}/team/${teamAbbr}/${displayYear}`}
+                                      to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
                                       className="flex items-center gap-1 sm:gap-2 hover:opacity-80"
                                     >
                                       {logo && (
