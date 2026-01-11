@@ -1052,10 +1052,17 @@ export default function Dashboard() {
     // playersLeavingByTeamYear is the source of truth for who is leaving (team-centric)
     // teamAbbr already defined above
     const existingByTeamYear = currentDynasty.playersLeavingByTeamYear || {}
+    const existingByYear = currentDynasty.playersLeavingByYear || {}
     const tid = getTidFromAbbr(teamAbbr)
 
     // Build updates object
     const updates = {
+      // Legacy format for backwards compatibility and simpler lookups
+      playersLeavingByYear: {
+        ...existingByYear,
+        [year]: playersWithPids
+      },
+      // Team-centric format
       playersLeavingByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
