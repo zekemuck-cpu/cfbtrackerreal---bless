@@ -991,39 +991,46 @@ export function buildGameRecapContext(dynasty, game) {
     return teamInfo?.abbr || null
   }
 
-  // Check for unified format first, then detect CPU vs user games
+  // Check for unified format and get perspective for user games
   const hasUnifiedFormat = game.team1Tid && game.team2Tid
-  const isCPUGame = !hasUnifiedFormat && !game.userTeam && game.team1 && game.team2
+  const currentGamePerspective = getUserGamePerspective(game, dynasty)
+  const isCurrentGameUserGame = currentGamePerspective !== null
+  const isCPUGame = !isCurrentGameUserGame && (
+    (!hasUnifiedFormat && !game.userTeam && game.team1 && game.team2) ||
+    (hasUnifiedFormat && !game.userTeam && !game.opponent)
+  )
 
   // Determine teams and scores based on game type
+  // CRITICAL: For user games, team1 MUST be user's team and team2 MUST be opponent
+  // because boxScore.home ALWAYS contains user's stats regardless of location
   let team1, team2, team1Score, team2Score
-  if (hasUnifiedFormat) {
-    // Unified format with tids
+  if (isCurrentGameUserGame) {
+    // User game - use perspective to ensure correct team alignment
+    // This works for both unified format and legacy format user games
+    const userInfo = currentGamePerspective.userTid ? getGameTeamInfo(teams, currentGamePerspective.userTid) : null
+    const oppInfo = currentGamePerspective.opponentTid ? getGameTeamInfo(teams, currentGamePerspective.opponentTid) : null
+    team1 = userInfo?.abbr || game.userTeam || userTeamAbbr
+    team2 = oppInfo?.abbr || game.opponent
+    team1Score = currentGamePerspective.userScore ?? game.teamScore
+    team2Score = currentGamePerspective.opponentScore ?? game.opponentScore
+  } else if (hasUnifiedFormat) {
+    // CPU game with unified format - use tids directly
     team1 = getAbbrFromTid(game.team1Tid) || game.team1
     team2 = getAbbrFromTid(game.team2Tid) || game.team2
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else if (isCPUGame) {
+    // Legacy CPU game format
     team1 = game.team1
     team2 = game.team2
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else {
-    // User game - check perspective first
-    const perspective = getUserGamePerspective(game, dynasty)
-    if (perspective) {
-      const userInfo = getGameTeamInfo(teams, perspective.userTid)
-      const oppInfo = getGameTeamInfo(teams, perspective.opponentTid)
-      team1 = userInfo?.abbr || game.userTeam || userTeamAbbr
-      team2 = oppInfo?.abbr || game.opponent
-      team1Score = perspective.userScore ?? game.teamScore
-      team2Score = perspective.opponentScore ?? game.opponentScore
-    } else {
-      team1 = game.userTeam || userTeamAbbr
-      team2 = game.opponent
-      team1Score = game.teamScore
-      team2Score = game.opponentScore
-    }
+    // Fallback for legacy user games without perspective
+    team1 = game.userTeam || userTeamAbbr
+    team2 = game.opponent
+    team1Score = game.teamScore
+    team2Score = game.opponentScore
   }
 
   // Derive location for unified format games from homeTeamTid
@@ -1065,11 +1072,8 @@ export function buildGameRecapContext(dynasty, game) {
     return g.result === 'win' || g.result === 'W'
   }
 
-  // Check if current game is a user game (via perspective or unified format)
-  const currentGamePerspective = getUserGamePerspective(game, dynasty)
-  const isCurrentUserGame = currentGamePerspective !== null || (hasUnifiedFormat && !isCPUGame)
-
-  if (isCurrentUserGame) {
+  // Calculate season context for user games
+  if (isCurrentGameUserGame) {
     const seasonGames = allGames.filter(g =>
       Number(g.year) === Number(year) && isUserGame(g)
     )
