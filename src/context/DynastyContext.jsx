@@ -6709,16 +6709,18 @@ export function DynastyProvider({ children }) {
     for (const newPlayer of playersToCreate) {
       // Get the year from the entry for teamsByYear
       const entryYear = newPlayer.entry?.year || dynasty.currentYear
+      // Convert team abbreviation to tid for proper storage
+      const teamTid = getTidFromAbbr(newPlayer.team) || newPlayer.team
       const player = {
         pid: nextPID,
         id: `player-${nextPID}`,
         name: newPlayer.name,
         position: newPlayer.position,
-        team: newPlayer.team,
-        teams: [newPlayer.team],
-        isHonorOnly: true, // Not a user's roster player
-        // IMMUTABLE roster history - record which team they were on for this award year
-        teamsByYear: { [entryYear]: newPlayer.team },
+        team: teamTid, // Store tid for consistency
+        teams: [newPlayer.team], // Keep abbr in teams array for backwards compat
+        // Players added via awards are regular roster players, not honor-only
+        // They should appear on the team's roster for the award year
+        teamsByYear: { [entryYear]: teamTid },
         awards: [],
         allAmericans: [],
         allConference: []
