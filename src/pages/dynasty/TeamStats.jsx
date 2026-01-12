@@ -256,7 +256,7 @@ export default function TeamStats() {
       selectedTid = resolveTid(tidParam, teamsSource)
     }
   }
-  const selectedYear = urlYear ? parseInt(urlYear) : currentDynasty?.currentYear
+  const selectedYear = urlYear ? parseInt(urlYear) : parseInt(currentDynasty?.currentYear)
 
   // Get team from tid
   const team = teamsSource[selectedTid]
@@ -328,19 +328,67 @@ export default function TeamStats() {
   }
 
   // Calculate stats for selected team and year
-  // Uses perspective to find games where user coached the selected team
+  // Filter by games where the selected team participated (by tid or abbr)
   const stats = useMemo(() => {
-    const games = (currentDynasty.games || [])
-      .filter(g => parseInt(g.year) === selectedYear)
-      .map(g => {
-        const perspective = getUserGamePerspective(g, currentDynasty)
-        return perspective ? { ...g, perspective } : null
-      })
+    const allGames = currentDynasty.games || []
+
+    // Filter by year first
+    const gamesForYear = allGames.filter(g => Number(g.year) === Number(selectedYear))
+
+    const filteredGames = gamesForYear
       .filter(g => {
-        if (!g) return false
-        // Check if user was coaching selected team in this game
-        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs selectedTid from URL
-        return g.perspective?.userTid === selectedTid
+        // For games with unified format (team1Tid/team2Tid), check if the selected team actually played
+        // This is TEAM stats, not coach stats - we care about the team participating, not who was coaching
+        const hasUnifiedFormat = g.team1Tid !== undefined || g.team2Tid !== undefined
+
+        if (hasUnifiedFormat) {
+          // Check if the selected team actually played in this game (as team1 or team2)
+          if (g.team1Tid === selectedTid || g.team2Tid === selectedTid) return true
+          // Don't use userTeam for unified format - it just records who user was coaching, not who's playing
+          return false
+        }
+
+        // Legacy format (no team1Tid/team2Tid): use userTeam/opponent
+        if (g.userTeam === selectedTeam || g.opponent === selectedTeam) return true
+        return false
+      })
+
+    const games = filteredGames.map(g => {
+        // Determine if selected team is team1 or team2 (or userTeam)
+        const isTeam1 = g.team1Tid === selectedTid
+        const isTeam2 = g.team2Tid === selectedTid
+        const isUserTeam = g.userTeam === selectedTeam || g.userTid === selectedTid
+
+        // Calculate scores from this team's perspective
+        let teamScore, opponentScore
+        if (g.team1Tid !== undefined || g.team2Tid !== undefined) {
+          // Unified format
+          teamScore = isTeam1 ? g.team1Score : g.team2Score
+          opponentScore = isTeam1 ? g.team2Score : g.team1Score
+        } else if (isUserTeam) {
+          // Legacy format - this team was userTeam
+          teamScore = g.teamScore
+          opponentScore = g.opponentScore
+        } else {
+          // Legacy format - this team was opponent
+          teamScore = g.opponentScore
+          opponentScore = g.teamScore
+        }
+
+        // Determine win/loss from selected team's perspective
+        const won = teamScore > opponentScore
+
+        // Create perspective object for compatibility with existing code
+        const perspective = {
+          userTid: selectedTid,
+          userWon: won,
+          isHome: g.homeTeamTid === selectedTid || g.location === 'Home' || g.location === 'home',
+          isAway: (g.homeTeamTid !== undefined && g.homeTeamTid !== null && g.homeTeamTid !== selectedTid) ||
+                  g.location === 'Road' || g.location === 'Away' || g.location === 'road' || g.location === 'away',
+          isNeutral: g.homeTeamTid === null || g.location === 'Neutral' || g.location === 'neutral'
+        }
+
+        return { ...g, perspective, teamScore, opponentScore }
       })
 
     const wins = games.filter(isWin).length
@@ -415,7 +463,7 @@ export default function TeamStats() {
       away: { wins: awayWins, losses: awayLosses, record: `${awayWins}-${awayLosses}`, games: awayGames },
       neutral: { wins: neutralWins, losses: neutralLosses, record: `${neutralWins}-${neutralLosses}`, games: neutralGames }
     }
-  }, [currentDynasty, selectedTeam, selectedYear])
+  }, [currentDynasty, selectedTeam, selectedTid, selectedYear])
 
   // Aggregate team stats from box scores
   const teamStats = useMemo(() => {
@@ -511,9 +559,16 @@ export default function TeamStats() {
   // Read player stats from player.statsByYear (primary for games/snaps) and box scores (for detailed stats)
   const playerStats = useMemo(() => {
     const allPlayers = currentDynasty?.players || []
-    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
     const yearKey = String(selectedYear)
     const numKey = Number(selectedYear)
+
+    // Helper to check if player was on the selected team during the selected year
+    const isPlayerOnSelectedTeam = (player) => {
+      const teamForYear = player.teamsByYear?.[yearKey]
+        ?? player.teamsByYear?.[numKey]
+        ?? player.teamsByYear?.[selectedYear]
+      return teamForYear === selectedTid
+    }
 
     // Helper to get player's year stats with consistent key handling
     const getPlayerYearStats = (player) => {
@@ -540,6 +595,10 @@ export default function TeamStats() {
 
       allPlayers.forEach(player => {
         if (!player.name) return
+
+        // Only include players who were on the selected team during the selected year
+        if (!isPlayerOnSelectedTeam(player)) return
+
         const normalizedName = player.name.toLowerCase().trim()
         if (playerStatsMap.has(normalizedName)) return
 
@@ -689,7 +748,7 @@ export default function TeamStats() {
       kickReturn,
       puntReturn
     }
-  }, [currentDynasty?.players, currentDynasty?.games, currentDynasty?.teamName, selectedYear])
+  }, [currentDynasty?.players, currentDynasty?.games, currentDynasty?.teamName, selectedYear, selectedTid])
 
   // Helper to find player PID by name
   const getPlayerPID = useCallback((playerName) => {
@@ -888,10 +947,28 @@ export default function TeamStats() {
     })
   }
 
+  // Get sort order for a game (higher = more recent in season)
+  const getGameSortOrder = (game) => {
+    // Postseason games come after regular season (higher values = later in season)
+    if (game.isCFPChampionship) return 1000
+    if (game.isCFPSemifinal) return 900
+    if (game.isCFPQuarterfinal) return 800
+    if (game.isCFPFirstRound) return 700
+    if (game.bowlName) return 600
+    if (game.isConferenceChampionship) return 500
+    // Regular season uses week number (typically 1-15)
+    return game.week || 0
+  }
+
   const openModal = (title, games) => {
     if (games && games.length > 0) {
-      // Sort newest to oldest (descending by week)
-      setModalData({ title, games: games.sort((a, b) => (b.week || 0) - (a.week || 0)) })
+      // Sort by year (descending), then by game order within year (descending - most recent first)
+      const sorted = [...games].sort((a, b) => {
+        const yearDiff = (b.year || 0) - (a.year || 0)
+        if (yearDiff !== 0) return yearDiff
+        return getGameSortOrder(b) - getGameSortOrder(a)
+      })
+      setModalData({ title, games: sorted })
     }
   }
 

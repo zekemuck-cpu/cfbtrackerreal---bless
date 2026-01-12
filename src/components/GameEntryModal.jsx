@@ -28,12 +28,23 @@ export default function GameEntryModal({
   existingTeam1Score,
   existingTeam2Score,
   existingGameNote,
-  existingLinks
+  existingLinks,
+  // Team context override - when editing from a team page, use this instead of user's current team
+  viewingTeamTid,
+  viewingTeamAbbr
 }) {
   const { currentDynasty, addGame } = useDynasty()
   const { user } = useAuth()
   // Get team-centric team ratings
   const teamRatings = getCurrentTeamRatings(currentDynasty)
+
+  // Determine effective team context - use viewing team if provided, otherwise user's current team
+  // This allows editing games from any team's page without defaulting to user's current team
+  const effectiveTeamTid = viewingTeamTid ?? getCurrentTeamTid(currentDynasty)
+  const effectiveTeamAbbr = viewingTeamAbbr ?? getCurrentTeamAbbr(currentDynasty)
+  const teamsSource = currentDynasty?.teams || TEAMS
+  const effectiveTeamData = teamsSource[effectiveTeamTid]
+  const effectiveTeamName = effectiveTeamData?.name || currentDynasty?.teamName || ''
 
   // AI Recap generation state
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
@@ -747,25 +758,25 @@ export default function GameEntryModal({
         }
 
         // For CFP First Round without location, determine from seeds
+        // Use effectiveTeamAbbr (from viewing context) rather than user's current team
         let effectiveLocation = gameToLoad.location || 'neutral'
         if (!gameToLoad.location && (gameToLoad.isCFPFirstRound || gameToLoad.gameType === 'cfp_first_round' || bowlName === 'CFP First Round')) {
-          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
-          const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+          const teamSeed = cfpSeeds.find(s => s.team === effectiveTeamAbbr)?.seed
           const opponentAbbr = getAbbrFromTeamName(derivedOpponent) || derivedOpponent
           const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
-          if (userSeed && oppSeed) {
-            effectiveLocation = userSeed < oppSeed ? 'home' : 'away'
+          if (teamSeed && oppSeed) {
+            effectiveLocation = teamSeed < oppSeed ? 'home' : 'away'
           }
         }
 
         // For unified format, derive location from homeTeamTid if not set
+        // Use effectiveTeamTid (from viewing context) rather than user's current team
         const isUnifiedFormat = gameToLoad.team1Tid !== undefined && gameToLoad.team2Tid !== undefined
         if (!gameToLoad.location && isUnifiedFormat && !isCPUGameData) {
-          const userTeamTid = getCurrentTeamTid(currentDynasty)
           if (gameToLoad.homeTeamTid === null) {
             effectiveLocation = 'neutral'
-          } else if (gameToLoad.homeTeamTid === userTeamTid) {
+          } else if (gameToLoad.homeTeamTid === effectiveTeamTid) {
             effectiveLocation = 'home'
           } else {
             effectiveLocation = 'away'
@@ -842,18 +853,17 @@ export default function GameEntryModal({
       }
 
       // No existingGame - check if we can find one in dynasty's games array
-      // Get user's current team tid for filtering
-      const userTeamTid = getCurrentTeamTid(currentDynasty)
+      // Use effectiveTeamTid (from viewing context) for filtering, not user's current team
 
       const foundGame = minimalMode ? null : (isConferenceChampionship
         ? currentDynasty?.games?.find(g =>
             g.isConferenceChampionship &&
             Number(g.year) === Number(actualYear) &&
-            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam))
+            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr))
         : currentDynasty?.games?.find(g =>
             Number(g.week) === Number(actualWeekNumber) &&
             Number(g.year) === Number(actualYear) &&
-            (g.userTid === userTeamTid || g.team1Tid === userTeamTid || g.userTeam)))
+            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr)))
 
       if (foundGame) {
         // Handle both unified format (team1Score/team2Score) and legacy format (teamScore/opponentScore)
@@ -873,11 +883,12 @@ export default function GameEntryModal({
         }
 
         // For unified format, derive location from homeTeamTid
+        // Use effectiveTeamTid (from viewing context) rather than user's current team
         let effectiveLocation = foundGame.location
         if (!effectiveLocation && isUnifiedFormat) {
           if (foundGame.homeTeamTid === null) {
             effectiveLocation = 'neutral'
-          } else if (foundGame.homeTeamTid === userTeamTid) {
+          } else if (foundGame.homeTeamTid === effectiveTeamTid) {
             effectiveLocation = 'home'
           } else {
             effectiveLocation = 'away'
@@ -948,15 +959,15 @@ export default function GameEntryModal({
       } else if (scheduledGame || isConferenceChampionship || bowlName || passedOpponent) {
         // New game - load from schedule, CC opponent, or bowl opponent
         // For CFP First Round, higher seed hosts (lower number = higher seed)
+        // Use effectiveTeamAbbr (from viewing context) rather than user's current team
         let cfpLocation = 'neutral'
         if (bowlName === 'CFP First Round') {
-          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
-          const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+          const teamSeed = cfpSeeds.find(s => s.team === effectiveTeamAbbr)?.seed
           const opponentAbbr = getAbbrFromTeamName(passedOpponent) || passedOpponent
           const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
-          if (userSeed && oppSeed) {
-            cfpLocation = userSeed < oppSeed ? 'home' : 'away'
+          if (teamSeed && oppSeed) {
+            cfpLocation = teamSeed < oppSeed ? 'home' : 'away'
           }
         }
         setGameData(prev => ({
@@ -1160,24 +1171,25 @@ export default function GameEntryModal({
     const favoriteStatus = calculateFavoriteStatus()
 
     // Determine if this is a conference game
-    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-    const userTeamTid = getCurrentTeamTid(currentDynasty)
+    // Use effectiveTeamAbbr/Tid for new games; preserve original for existing games
+    const teamAbbrForSave = effectiveGame?.team1 || effectiveTeamAbbr
+    const teamTidForSave = effectiveGame?.team1Tid || effectiveTeamTid
     const rawOpponent = gameData.opponent || scheduledGame?.opponent
     const opponentAbbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
-    const opponentTid = getTidFromAbbr(opponentAbbr)
+    const opponentTid = effectiveGame?.team2Tid || getTidFromAbbr(opponentAbbr)
 
     // Use custom conferences for auto-detection
     const customConferences = getCurrentCustomConferences(currentDynasty)
-    const userConference = getTeamConference(userTeamAbbr, customConferences)
+    const teamConference = getTeamConference(teamAbbrForSave, customConferences)
     const opponentConference = getTeamConference(opponentAbbr, customConferences)
 
     // Conference game if both teams are in the same conference (and not independents)
     // Conference Championship games are always conference games
     // Always recalculates based on current custom conferences
     const isConferenceGame = isConferenceChampionship ||
-      (userConference && opponentConference &&
-       userConference === opponentConference &&
-       userConference !== 'Independent')
+      (teamConference && opponentConference &&
+       teamConference === opponentConference &&
+       teamConference !== 'Independent')
 
     // Destructure to exclude overallRecord and conferenceRecord from the spread
     const { overallRecord: _or, conferenceRecord: _cr, ...restGameData } = gameData
@@ -1200,13 +1212,14 @@ export default function GameEntryModal({
 
     // Determine homeTeamTid based on location (for non-CPU games)
     // Neutral games (CC, bowl, CFP) have homeTeamTid = null
+    // Use teamTidForSave (preserves original for existing games) rather than user's current team
     const isNeutralGame = gameType !== GAME_TYPES.REGULAR
     let homeTeamTid = null
     if (!isCPUGame) {
       if (isNeutralGame) {
         homeTeamTid = null
       } else if (gameData.location === 'home') {
-        homeTeamTid = userTeamTid
+        homeTeamTid = teamTidForSave
       } else if (gameData.location === 'away') {
         homeTeamTid = opponentTid
       } else {
@@ -1223,9 +1236,10 @@ export default function GameEntryModal({
       gameType,
 
       // UNIFIED TEAM FIELDS (tid only, no abbreviations)
+      // Use teamTidForSave which preserves original team1Tid for existing games
       team1Tid: isCPUGame
         ? (effectiveGame?.team1Tid || getTidFromAbbr(effectiveGame?.team1))
-        : userTeamTid,
+        : teamTidForSave,
       team2Tid: isCPUGame
         ? (effectiveGame?.team2Tid || getTidFromAbbr(effectiveGame?.team2))
         : opponentTid,
@@ -1234,7 +1248,8 @@ export default function GameEntryModal({
 
       // User team identifier - explicitly marks which team the user was coaching
       // For user games only, not CPU games
-      ...(!isCPUGame && userTeamTid && { userTid: userTeamTid }),
+      // Preserve original userTid for existing games (who was coaching when game was played)
+      ...(!isCPUGame && teamTidForSave && { userTid: effectiveGame?.userTid || teamTidForSave }),
 
       // Home/Away - who is home? (null = neutral)
       homeTeamTid: isCPUGame ? null : homeTeamTid,
@@ -1445,7 +1460,7 @@ export default function GameEntryModal({
     }
 
     // Generate random box score stats based on player positions
-    const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
+    const teamAbbrForBoxScore = effectiveTeamAbbr || effectiveTeamName || ''
     const rawOpp = gameData.opponent || scheduledGame?.opponent || 'OPP'
     const opponentAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
 
@@ -1457,7 +1472,7 @@ export default function GameEntryModal({
       currentDynasty?.players || [],
       finalTeamScore,
       oppTotal,
-      userTeamAbbr,
+      teamAbbrForBoxScore,
       opponentAbbr,
       currentDynasty?.currentYear
     )
@@ -1500,7 +1515,7 @@ export default function GameEntryModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: getContrastTextColor(teamColors.primary) }}>
               {isConferenceChampionship || effectiveGame?.isConferenceChampionship
-                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(getCurrentTeamAbbr(currentDynasty)) || 'Conference'} Championship`
+                ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(effectiveTeamAbbr) || 'Conference'} Championship`
                 : effectiveGame?.isCFPChampionship
                   ? 'National Championship'
                   : effectiveGame?.isCFPSemifinal
@@ -1595,22 +1610,23 @@ export default function GameEntryModal({
                 {(() => {
                   // Determine team order based on location
                   // For CPU vs CPU games, use passed team1 and team2 (or derive from tid for unified format)
-                  const teamsSource = currentDynasty?.teams || TEAMS
-                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
-                  const team1Abbr = isCPUGame ? (effectiveGame?.team1 || team1AbbrFromTid) : getCurrentTeamAbbr(currentDynasty)
+                  // Use effectiveTeamAbbr (from viewingTeamAbbr prop or user's current team) for non-CPU games
+                  const teamsSourceLocal = currentDynasty?.teams || TEAMS
+                  const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSourceLocal, effectiveGame.team1Tid)?.abbr : null
+                  const team1Abbr = isCPUGame ? (effectiveGame?.team1 || team1AbbrFromTid) : effectiveTeamAbbr
                   // Ensure opponent is an abbreviation (convert full name if needed)
-                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
+                  const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSourceLocal, effectiveGame.team2Tid)?.abbr : null
                   const rawOpponent = isCPUGame ? (effectiveGame?.team2 || team2AbbrFromTid) : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
                   const team2Abbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
                   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
                   const team1MascotName = team1Abbr ? getMascotName(team1Abbr, teamsData) : null
                   const team2MascotName = team2Abbr ? getMascotName(team2Abbr, teamsData) : null
-                  const team1DisplayName = team1MascotName || (isCPUGame ? getOpponentTeamName(team1Abbr) : currentDynasty?.teamName) || 'Team 1'
+                  const team1DisplayName = team1MascotName || (isCPUGame ? getOpponentTeamName(team1Abbr) : effectiveTeamName) || 'Team 1'
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
 
                   // Get team logos
-                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : (isCPUGame ? null : getTeamLogo(currentDynasty?.teamName, teamsData))
+                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : (isCPUGame ? null : getTeamLogo(effectiveTeamName, teamsData))
                   const team2Logo = team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null
 
                   // Get team colors (check tid-based teams first)
@@ -2927,12 +2943,12 @@ export default function GameEntryModal({
                 homeAbbr = effectiveGame?.team1 || passedTeam1 || 'Team 1'
                 awayAbbr = effectiveGame?.team2 || passedTeam2 || 'Team 2'
               } else {
-                const userAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
+                const teamAbbr = effectiveTeamAbbr || effectiveTeamName || ''
                 const rawOppAbbr = gameData.opponent || existingGame?.opponent || ''
                 const oppAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
-                const isUserHome = gameData.location === 'home' || gameData.location === 'neutral'
-                homeAbbr = isUserHome ? userAbbr : oppAbbr
-                awayAbbr = isUserHome ? oppAbbr : userAbbr
+                const isTeamHome = gameData.location === 'home' || gameData.location === 'neutral'
+                homeAbbr = isTeamHome ? teamAbbr : oppAbbr
+                awayAbbr = isTeamHome ? oppAbbr : teamAbbr
               }
 
               // Check if stats already entered (via data or sheet creation)

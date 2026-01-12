@@ -61,7 +61,13 @@ export default function Dashboard() {
   const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+
+  // NEW: Get user team info from the team with userId: 'currentUser' (single source of truth)
+  const userTeamTid = getUserTeamTid(currentDynasty)
+  const userTeamData = userTeamTid && currentDynasty?.teams?.[userTeamTid]
+  const userTeamName = userTeamData?.name || currentDynasty?.teamName
+
+  const teamColors = useTeamColors(userTeamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   // Build path prefix for links based on view mode
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
@@ -430,14 +436,12 @@ export default function Dashboard() {
   const customConferences = getCurrentCustomConferences(currentDynasty)
 
   const getUserTeamConference = () => {
-    // Get the team's tid
-    const teamsSource = currentDynasty?.teams || TEAMS
-    const tid = currentDynasty?.currentTid || getTidFromTeamName(currentDynasty?.teamName, teamsSource)
-    if (!tid) return null
+    // Use userTeamTid from the team with userId: 'currentUser' (single source of truth)
+    if (!userTeamTid) return null
 
     // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
     // This ensures teambuilder teams inherit the replaced team's conference position
-    const originalTeamAbbr = TEAMS[tid]?.abbr
+    const originalTeamAbbr = TEAMS[userTeamTid]?.abbr
     if (!originalTeamAbbr) return null
 
     // Use getTeamConference with custom conferences
@@ -2372,24 +2376,16 @@ export default function Dashboard() {
             }}
           >
             <Link
-              to={`${pathPrefix}/team/${getCurrentTeamTid(currentDynasty)}/${currentDynasty.currentYear}`}
+              to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
               className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0"
             >
               {(() => {
-                // Get logo - check dynasty.teams first (tid-based), then fallback
+                // Get logo from user's current team (using userId as source of truth)
                 let logoUrl = null
-                const teams = currentDynasty.teams || currentDynasty.customTeams
-                if (teams) {
-                  // Try tid-based lookup first
-                  if (currentDynasty.currentTid && currentDynasty.teams?.[currentDynasty.currentTid]) {
-                    logoUrl = currentDynasty.teams[currentDynasty.currentTid].logo
-                  } else {
-                    // Legacy customTeams lookup
-                    const teambuilderTeam = Object.values(teams).find(t => t.name === currentDynasty.teamName)
-                    if (teambuilderTeam) logoUrl = teambuilderTeam.logoUrl || teambuilderTeam.logo
-                  }
+                if (userTeamData) {
+                  logoUrl = userTeamData.logo || userTeamData.logoUrl
                 }
-                if (!logoUrl) logoUrl = getTeamLogo(currentDynasty.teamName, teams)
+                if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
                 return logoUrl ? (
                   <div
                     className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
@@ -2401,7 +2397,7 @@ export default function Dashboard() {
                   >
                     <img
                       src={logoUrl}
-                      alt={`${currentDynasty.teamName} logo`}
+                      alt={`${userTeamName} logo`}
                       className="w-full h-full object-contain"
                     />
                   </div>
@@ -2410,7 +2406,7 @@ export default function Dashboard() {
               <div className="min-w-0">
                 <h2 className="text-lg sm:text-2xl font-bold truncate tracking-tight" style={{ color: primaryBgText }}>
                   {currentRank && <span className="mr-1.5 sm:mr-2 opacity-90">#{currentRank}</span>}
-                  {currentDynasty.teamName}
+                  {userTeamName}
                 </h2>
                 <p className="text-sm sm:text-base font-medium mt-0.5 flex items-center gap-1.5" style={{ color: primaryBgText, opacity: 0.85 }}>
                   <span>{headerWins}-{headerLosses}</span>
@@ -4037,9 +4033,11 @@ export default function Dashboard() {
                               value={newJobTeam}
                               onChange={async (value) => {
                                 setNewJobTeam(value)
-                                await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, team: value }
-                                })
+                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
+                                const updatePayload = {
+                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
+                                }
+                                await updateDynasty(currentDynasty.id, updatePayload)
                               }}
                               placeholder="Search for team..."
                               teamColors={teamColors}
@@ -4064,10 +4062,12 @@ export default function Dashboard() {
                                   const updatedTeams = newTeamTid
                                     ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                     : currentDynasty.teams
-                                  await updateDynasty(currentDynasty.id, {
-                                    newJobData: { ...currentDynasty.newJobData, position: pos },
+                                  // IMPORTANT: Always include takingNewJob: true to prevent state loss
+                                  const updatePayload = {
+                                    newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
                                     teams: updatedTeams
-                                  })
+                                  }
+                                  await updateDynasty(currentDynasty.id, updatePayload)
                                 }}
                                 className="px-4 py-2 rounded-lg font-semibold hover:opacity-90"
                                 style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
@@ -4401,8 +4401,9 @@ export default function Dashboard() {
                               value={newJobTeam}
                               onChange={async (value) => {
                                 setNewJobTeam(value)
+                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
                                 await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, team: value }
+                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
                                 })
                               }}
                               placeholder="Search for team..."
@@ -4428,8 +4429,9 @@ export default function Dashboard() {
                                   const updatedTeams = newTeamTid
                                     ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                     : currentDynasty.teams
+                                  // IMPORTANT: Always include takingNewJob: true to prevent state loss
                                   await updateDynasty(currentDynasty.id, {
-                                    newJobData: { ...currentDynasty.newJobData, position: pos },
+                                    newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
                                     teams: updatedTeams
                                   })
                                 }}
@@ -5507,8 +5509,9 @@ export default function Dashboard() {
                             value={newJobTeam}
                             onChange={async (value) => {
                               setNewJobTeam(value)
+                              // IMPORTANT: Always include takingNewJob: true to prevent state loss
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: { ...currentDynasty.newJobData, team: value }
+                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value }
                               })
                             }}
                             placeholder="Search for team..."
@@ -5534,8 +5537,9 @@ export default function Dashboard() {
                                 const updatedTeams = newTeamTid
                                   ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
                                   : currentDynasty.teams
+                                // IMPORTANT: Always include takingNewJob: true to prevent state loss
                                 await updateDynasty(currentDynasty.id, {
-                                  newJobData: { ...currentDynasty.newJobData, position: pos },
+                                  newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
                                   teams: updatedTeams
                                 })
                               }}

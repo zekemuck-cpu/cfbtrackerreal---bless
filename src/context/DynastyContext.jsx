@@ -90,30 +90,41 @@ export function detectGameType(game) {
  *
  * @param {Object} game - The game object (either format)
  * @param {Object} dynasty - The dynasty object with coachTeamByYear
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.useHistorical - If true, always use coachTeamByYear (for career history).
+ *                                          If false (default), use current team for current year.
  * @returns {Object|null} User's perspective on the game
  */
-export function getUserGamePerspective(game, dynasty) {
+export function getUserGamePerspective(game, dynasty, options = {}) {
   if (!game || !dynasty) return null
 
+  const { useHistorical = false } = options
+
   // Get user's team tid for this game's year
-  // Primary source: coachTeamByYear[year].tid
-  // Try both number and string year keys for robustness
   const yearNum = Number(game.year)
   const yearStr = String(game.year)
-  let userTid = dynasty.coachTeamByYear?.[yearNum]?.tid ?? dynasty.coachTeamByYear?.[yearStr]?.tid
-  const userTeamAbbr = dynasty.coachTeamByYear?.[yearNum]?.team ?? dynasty.coachTeamByYear?.[yearStr]?.team
+  let userTid = null
 
-  // Fallback 1: Derive tid from coachTeamByYear[year].team abbr
-  if (!userTid && userTeamAbbr) {
-    userTid = getTidFromAbbr(userTeamAbbr)
+  // For CURRENT year: Use getUserTeamTid() first (handles mid-season job changes)
+  // After a job flip, userId on teams is updated but coachTeamByYear still has old team
+  // UNLESS useHistorical is true, then always use coachTeamByYear for career stats
+  if (!useHistorical && yearNum === Number(dynasty.currentYear)) {
+    userTid = getUserTeamTid(dynasty)
   }
 
-  // Fallback 2: If this is the current year, use current team tid
-  if (!userTid && yearNum === Number(dynasty.currentYear)) {
-    userTid = getCurrentTeamTid(dynasty)
+  // For PAST years (or if current year has no userId set, or useHistorical): Use coachTeamByYear
+  // This correctly attributes historical games to the team coached that year
+  if (!userTid) {
+    userTid = dynasty.coachTeamByYear?.[yearNum]?.tid ?? dynasty.coachTeamByYear?.[yearStr]?.tid
+    const userTeamAbbr = dynasty.coachTeamByYear?.[yearNum]?.team ?? dynasty.coachTeamByYear?.[yearStr]?.team
+
+    // Derive tid from coachTeamByYear[year].team abbr if tid not set
+    if (!userTid && userTeamAbbr) {
+      userTid = getTidFromAbbr(userTeamAbbr)
+    }
   }
 
-  // Fallback 3: For dynasties without coachTeamByYear, derive from teamName
+  // Fallback: For dynasties without coachTeamByYear, derive from teamName
   // This handles older dynasties that haven't been fully migrated
   if (!userTid && dynasty.teamName) {
     userTid = getTidFromTeamName(dynasty.teamName, dynasty.teams)
@@ -121,16 +132,24 @@ export function getUserGamePerspective(game, dynasty) {
 
   // UNIFIED FORMAT: Check if game has team1Tid/team2Tid
   if (game.team1Tid && game.team2Tid) {
+    // For historical mode with explicit game.userTid, use that as source of truth
+    // This handles cases where coachTeamByYear is wrong but game data is correct
+    let effectiveUserTid = userTid
+    if (useHistorical && game.userTid && (game.team1Tid === game.userTid || game.team2Tid === game.userTid)) {
+      // Game has explicit userTid that's one of the teams - use it
+      effectiveUserTid = game.userTid
+    }
+
     // Check if user's team played in this game (by tid)
-    const isUserGame = game.team1Tid === userTid || game.team2Tid === userTid
+    const isUserGame = game.team1Tid === effectiveUserTid || game.team2Tid === effectiveUserTid
     if (!isUserGame) return null  // User's team didn't play
 
-    const isUserTeam1 = game.team1Tid === userTid
+    const isUserTeam1 = game.team1Tid === effectiveUserTid
     const userScore = isUserTeam1 ? game.team1Score : game.team2Score
     const opponentScore = isUserTeam1 ? game.team2Score : game.team1Score
 
     return {
-      userTid,
+      userTid: effectiveUserTid,
       opponentTid: isUserTeam1 ? game.team2Tid : game.team1Tid,
       userScore,
       opponentScore,
@@ -139,8 +158,8 @@ export function getUserGamePerspective(game, dynasty) {
       opponentRank: isUserTeam1 ? game.team2Rank : game.team1Rank,
       userOverall: isUserTeam1 ? game.team1Overall : game.team2Overall,
       opponentOverall: isUserTeam1 ? game.team2Overall : game.team1Overall,
-      isHome: game.homeTeamTid === userTid,
-      isAway: game.homeTeamTid !== null && game.homeTeamTid !== userTid,
+      isHome: game.homeTeamTid === effectiveUserTid,
+      isAway: game.homeTeamTid !== null && game.homeTeamTid !== effectiveUserTid,
       isNeutral: game.homeTeamTid === null
     }
   }
@@ -2791,7 +2810,7 @@ export function DynastyProvider({ children }) {
       const games = migrated.games || []
       const inferredTeamsByYear = {}
 
-      // Group games by year and find the user's team
+      // First pass: Get teams for years where we have explicit data (userTid or userTeam)
       games.forEach(g => {
         if (!g.year) return
         const year = Number(g.year)
@@ -2811,9 +2830,28 @@ export function DynastyProvider({ children }) {
             return
           }
         }
+      })
 
-        // PRIORITY 3: For unified format games, try to infer from coachingHistory
+      // Second pass: For unified format games without userTid/userTeam, use smarter inference
+      games.forEach(g => {
+        if (!g.year) return
+        const year = Number(g.year)
+        if (inferredTeamsByYear[year]) return // Already found team for this year
+
         if (g.team1Tid && g.team2Tid) {
+          // PRIORITY 3: Check if one of the teams matches a NEARBY year's coachTeamByYear
+          // This handles cases where user played consecutive seasons with same team
+          const nearbyYears = [year - 1, year + 1, year - 2, year + 2]
+          for (const nearbyYear of nearbyYears) {
+            const nearbyEntry = migrated.coachTeamByYear?.[nearbyYear] || inferredTeamsByYear[nearbyYear]
+            const nearbyTid = typeof nearbyEntry === 'object' ? nearbyEntry?.tid : nearbyEntry
+            if (nearbyTid && (g.team1Tid === nearbyTid || g.team2Tid === nearbyTid)) {
+              inferredTeamsByYear[year] = nearbyTid
+              return
+            }
+          }
+
+          // PRIORITY 4: Try to infer from coachingHistory
           const history = migrated.coachingHistory || []
           for (const stint of history) {
             if (year >= stint.startYear && year <= stint.endYear) {
@@ -2824,11 +2862,23 @@ export function DynastyProvider({ children }) {
               }
             }
           }
-          // Last resort: Check if current team matches (for years after last history entry)
-          const currentTid = getCurrentTeamTid(migrated)
-          if (currentTid && (g.team1Tid === currentTid || g.team2Tid === currentTid)) {
-            const lastHistoryEnd = history.length > 0 ? history[history.length - 1].endYear : migrated.startYear - 1
-            if (year > lastHistoryEnd) {
+
+          // PRIORITY 5: Check if dynasty starting team matches (for early years)
+          const startingTid = getTidFromTeamName(migrated.teamName, migrated.teams) ||
+                              getTidFromAbbr(migrated.teamName)
+          if (startingTid && (g.team1Tid === startingTid || g.team2Tid === startingTid)) {
+            if (year <= (migrated.startYear || 2025) + 1) {
+              inferredTeamsByYear[year] = startingTid
+              return
+            }
+          }
+
+          // Last resort: Check if current team matches (only for most recent year with no games after)
+          // Avoid using this for years where user already switched teams
+          const hasLaterYearInferred = Object.keys(inferredTeamsByYear).some(y => Number(y) > year)
+          if (!hasLaterYearInferred) {
+            const currentTid = getCurrentTeamTid(migrated)
+            if (currentTid && (g.team1Tid === currentTid || g.team2Tid === currentTid)) {
               inferredTeamsByYear[year] = currentTid
             }
           }
@@ -4531,11 +4581,56 @@ export function DynastyProvider({ children }) {
 
         // NEW USER TEAM SYSTEM: Apply pending user team (flip pendingUserId to userId)
         // This handles the case where user selected a new job during Bowl Weeks
+        console.log('[advanceWeek] POSTSEASON -> OFFSEASON transition')
+        console.log('[advanceWeek] dynasty.newJobData:', dynasty.newJobData)
+        console.log('[advanceWeek] additionalUpdates.teams exists:', !!additionalUpdates.teams)
+        console.log('[advanceWeek] dynasty.teams exists:', !!dynasty.teams)
+
         try {
-          const teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
+          let teamsBeforeFlip = additionalUpdates.teams || dynasty.teams
+          console.log('[advanceWeek] teamsBeforeFlip exists:', !!teamsBeforeFlip)
+
+          // Log teams with userId/pendingUserId before calling applyPendingUserTeam
           if (teamsBeforeFlip) {
+            console.log('[advanceWeek] Teams with userId/pendingUserId BEFORE applyPendingUserTeam:')
+            for (const [tidStr, team] of Object.entries(teamsBeforeFlip)) {
+              if (team.userId || team.pendingUserId) {
+                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
+              }
+            }
+
+            // FALLBACK: If newJobData says user is taking a new job but pendingUserId wasn't set
+            // (e.g., job was selected before this code was added), set it now before flip
+            if (newJobData?.takingNewJob && newJobData.team) {
+              const hasPendingUser = Object.values(teamsBeforeFlip).some(t => t.pendingUserId === 'currentUser')
+              if (!hasPendingUser) {
+                console.log('[advanceWeek] FALLBACK: No pendingUserId found, setting it from newJobData')
+                const newTeamTid = getTidFromTeamName(newJobData.team, teamsBeforeFlip)
+                console.log(`[advanceWeek] FALLBACK: New team tid=${newTeamTid} for team="${newJobData.team}"`)
+                if (newTeamTid && teamsBeforeFlip[newTeamTid]) {
+                  teamsBeforeFlip = {
+                    ...teamsBeforeFlip,
+                    [newTeamTid]: {
+                      ...teamsBeforeFlip[newTeamTid],
+                      pendingUserId: 'currentUser',
+                      coachPosition: newJobData.position || 'HC'
+                    }
+                  }
+                  console.log(`[advanceWeek] FALLBACK: Set pendingUserId on tid ${newTeamTid} (${teamsBeforeFlip[newTeamTid].name})`)
+                }
+              }
+            }
+
             const teamsAfterFlip = applyPendingUserTeam(teamsBeforeFlip)
             additionalUpdates.teams = teamsAfterFlip
+
+            // Log teams with userId/pendingUserId after
+            console.log('[advanceWeek] Teams with userId/pendingUserId AFTER applyPendingUserTeam:')
+            for (const [tidStr, team] of Object.entries(teamsAfterFlip)) {
+              if (team.userId || team.pendingUserId) {
+                console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
+              }
+            }
           }
         } catch (err) {
           console.error('Error applying pending user team:', err)
@@ -6744,6 +6839,7 @@ export function DynastyProvider({ children }) {
             shareCode: oldShareCode,
             isPublic: oldIsPublic,
             googleSheetsByTeam: oldGoogleSheets,
+            favorite: oldFavorite, // Don't carry over starred status
             ...cleanDynastyData
           } = dynastyData
 

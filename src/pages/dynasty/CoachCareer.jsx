@@ -5,7 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getColorsByAbbr } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 
@@ -80,10 +80,10 @@ const getMascotName = (opponent, teamsData = null) => {
 }
 
 const getOpponentColors = (opponent, teamsData = null) => {
-  // Try tid-based lookup first
+  // Use tid-based lookup from dynasty.teams
   if (teamsData) {
-    const colors = getTeamColorsByAbbr(opponent, teamsData)
-    if (colors) {
+    const colors = getColorsByAbbr(teamsData, opponent)
+    if (colors.primary !== '#374151') {
       return { backgroundColor: colors.primary, textColor: colors.secondary }
     }
   }
@@ -193,20 +193,37 @@ export default function CoachCareer() {
   const buildCoachingHistory = () => {
     const history = []
     // Filter for user games using unified perspective
+    // Use historical mode to include ALL teams coached (not just current team for current year)
     const userGames = (currentDynasty.games || [])
-      .filter(g => getUserGamePerspective(g, currentDynasty) !== null)
+      .filter(g => getUserGamePerspective(g, currentDynasty, { useHistorical: true }) !== null)
       .map(g => ({
         ...g,
-        perspective: getUserGamePerspective(g, currentDynasty)
+        perspective: getUserGamePerspective(g, currentDynasty, { useHistorical: true })
       }))
 
-    // Group games by year to identify all teams coached (from coachTeamByYear)
+    // Group games by team - use the actual team from game perspective (most reliable)
     const gamesByTeam = {}
     userGames.forEach(game => {
-      // Get team from coachTeamByYear for that year
-      const gameYear = Number(game.year)
-      const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
-      const teamKey = coachTeamEntry?.team || currentTeamAbbr
+      // PRIORITY 1: Use the userTid from perspective (set by getUserGamePerspective)
+      // This is the most reliable as it comes from actual game data
+      let teamKey = null
+      if (game.perspective?.userTid) {
+        const teamData = currentDynasty.teams?.[game.perspective.userTid]
+        teamKey = teamData?.abbr || getAbbrFromTeamName(teamData?.name)
+      }
+
+      // PRIORITY 2: Fall back to coachTeamByYear
+      if (!teamKey) {
+        const gameYear = Number(game.year)
+        const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
+        teamKey = coachTeamEntry?.team
+      }
+
+      // PRIORITY 3: Last resort - current team
+      if (!teamKey) {
+        teamKey = currentTeamAbbr
+      }
+
       if (!gamesByTeam[teamKey]) {
         gamesByTeam[teamKey] = []
       }

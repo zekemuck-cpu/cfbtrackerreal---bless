@@ -405,11 +405,11 @@ export default function Home() {
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)'
                   }}
                 >
-                  <Link
-                    to={`/dynasty/${dynasty.id}`}
-                    className="block"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <Link
+                      to={`/dynasty/${dynasty.id}`}
+                      className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
+                    >
                       {logoUrl && (
                         <div
                           className="w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
@@ -456,8 +456,9 @@ export default function Home() {
                           {relativeTime && <span className="ml-1 sm:ml-2">• {relativeTime}</span>}
                         </p>
                       </div>
+                    </Link>
 
-                      {/* Action buttons - inline on all sizes */}
+                    {/* Action buttons - inline on all sizes */}
                       <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                         {/* Favorite button */}
                         <button
@@ -513,8 +514,7 @@ export default function Home() {
                           </svg>
                         </button>
                       </div>
-                    </div>
-                  </Link>
+                  </div>
                 </div>
               )
             })}

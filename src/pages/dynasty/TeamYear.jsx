@@ -293,8 +293,9 @@ export default function TeamYear() {
 
   if (!currentDynasty) return null
 
-  // Use dynasty.teams if available, otherwise fall back to TEAMS
-  const teamsSource = currentDynasty.teams || TEAMS
+  // Merge TEAMS with dynasty.teams to ensure all teams are available
+  // dynasty.teams may only contain teambuilder replacements, not all teams
+  const teamsSource = { ...TEAMS, ...(currentDynasty.teams || {}) }
 
   // Get all FBS teams for dropdown (sorted alphabetically)
   const allTeams = Object.values(teamsSource)
@@ -502,9 +503,17 @@ export default function TeamYear() {
 
       // Get opponent tid/abbr
       const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
-      const opponentAbbrResolved = hasUnifiedFormat
-        ? (getTeam(currentDynasty.teams, opponentTid)?.abbr || opponentAbbr)
-        : (isTeam1ByAbbr ? g.team2 : (isTeam2ByAbbr ? g.team1 : opponentAbbr))
+      // Try multiple sources for opponent abbreviation
+      let opponentAbbrResolved
+      if (hasUnifiedFormat && opponentTid) {
+        // Try teamsSource (includes TEAMS + teambuilder), then fall back to TEAMS directly
+        const oppTeam = teamsSource[opponentTid] || TEAMS[opponentTid]
+        opponentAbbrResolved = oppTeam?.abbr || opponentAbbr
+      } else if (!hasUnifiedFormat) {
+        opponentAbbrResolved = isTeam1ByAbbr ? g.team2 : (isTeam2ByAbbr ? g.team1 : opponentAbbr)
+      } else {
+        opponentAbbrResolved = opponentAbbr
+      }
 
       if (isCPUGame) {
         // CPU game - convert to display format for this team's perspective
@@ -528,19 +537,23 @@ export default function TeamYear() {
 
       if (wasUserTeam) {
         // Game played AS this team - use as-is or convert from unified
-        if (hasUnifiedFormat && !g.userTeam) {
-          // Convert unified format to display format
+        if (hasUnifiedFormat) {
+          // Convert unified format to display format (always resolve opponent)
           result.push({
             ...g,
             userTeam: teamAbbr,
-            opponent: opponentAbbrResolved,
+            opponent: opponentAbbrResolved || g.opponent,
             teamScore: thisTeamScore,
             opponentScore: otherTeamScore,
             result: teamWon ? 'win' : 'loss',
             location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral')
           })
-        } else {
+        } else if (g.opponent) {
+          // Legacy format with opponent already set
           result.push(g)
+        } else {
+          // Legacy format without opponent - skip (incomplete data)
+          console.warn('[TeamYear] Skipping game with no opponent:', g)
         }
         return
       }
@@ -552,9 +565,14 @@ export default function TeamYear() {
         : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
 
       // Get the other team's info for display
-      const otherTeamAbbr = hasUnifiedFormat
-        ? (getTeam(currentDynasty.teams, isTeam1 ? g.team2Tid : g.team1Tid)?.abbr || g.userTeam)
-        : g.userTeam
+      const otherTeamTid = isTeam1 ? g.team2Tid : g.team1Tid
+      let otherTeamAbbr
+      if (hasUnifiedFormat && otherTeamTid) {
+        const otherTeam = teamsSource[otherTeamTid] || TEAMS[otherTeamTid]
+        otherTeamAbbr = otherTeam?.abbr || g.userTeam
+      } else {
+        otherTeamAbbr = g.userTeam
+      }
 
       result.push({
         ...g,
@@ -1123,15 +1141,6 @@ export default function TeamYear() {
   // Find players associated with this team for the selected year
   // Uses the unified isPlayerOnRoster() helper - teamsByYear is the source of truth
   const allPlayers = currentDynasty.players || []
-
-  // DEBUG: Log player count and first few players
-  if (!window._debuggedTeamYear) {
-    window._debuggedTeamYear = true
-    console.log(`[TeamYear] Total players in dynasty: ${allPlayers.length}, teamAbbr: ${teamAbbr}, selectedYear: ${selectedYear}`)
-    allPlayers.slice(0, 3).forEach((p, i) => {
-      console.log(`[TeamYear] Player ${i}: ${p.name}, teamsByYear:`, p.teamsByYear)
-    })
-  }
 
   const teamPlayers = allPlayers.filter(p =>
     isPlayerOnRoster(p, teamAbbr, selectedYear)
@@ -3087,6 +3096,8 @@ export default function TeamYear() {
           existingTeam2Score={editingGameData.existingTeam2Score}
           existingGameNote={editingGameData.existingGameNote}
           existingLinks={editingGameData.existingLinks}
+          viewingTeamTid={tid}
+          viewingTeamAbbr={teamAbbr}
         />
       )}
 

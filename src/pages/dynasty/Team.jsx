@@ -207,6 +207,19 @@ const getSchoolName = (mascotName) => {
   return mascotName
 }
 
+// Get sort order for a game (higher = more recent in season)
+const getGameSortOrder = (game) => {
+  // Postseason games come after regular season (higher values = later in season)
+  if (game.isCFPChampionship) return 1000
+  if (game.isCFPSemifinal) return 900
+  if (game.isCFPQuarterfinal) return 800
+  if (game.isCFPFirstRound) return 700
+  if (game.bowlName) return 600
+  if (game.isConferenceChampionship) return 500
+  // Regular season uses week number (typically 1-15)
+  return game.week || 0
+}
+
 export default function Team() {
   const { id, tid: tidParam } = useParams()
   const navigate = useNavigate()
@@ -824,7 +837,7 @@ export default function Team() {
   }
 
   // Get team record from games played for a specific year (fallback when standings not available)
-  // Pure tid-based: finds all games where this team played, regardless of user
+  // Checks both tid-based and legacy abbreviation-based formats
   const getTeamRecordFromGames = (year) => {
     const games = currentDynasty.games || []
     // Filter games where this team played (either as team1 or team2)
@@ -834,6 +847,8 @@ export default function Team() {
       if (g.team1Tid === tid || g.team2Tid === tid) return true
       // Check user game format (userTid/opponentTid)
       if (g.userTid === tid || g.opponentTid === tid) return true
+      // Check legacy abbreviation format (userTeam/opponent)
+      if (g.userTeam === teamAbbr || g.opponent === teamAbbr) return true
       return false
     })
 
@@ -856,6 +871,14 @@ export default function Team() {
         teamScore = g.teamScore
         opponentScore = g.opponentScore
       } else if (g.opponentTid === tid) {
+        teamScore = g.opponentScore
+        opponentScore = g.teamScore
+      } else if (g.userTeam === teamAbbr) {
+        // Legacy format - user played AS this team
+        teamScore = g.teamScore
+        opponentScore = g.opponentScore
+      } else if (g.opponent === teamAbbr) {
+        // Legacy format - user played AGAINST this team
         teamScore = g.opponentScore
         opponentScore = g.teamScore
       }
@@ -935,8 +958,9 @@ export default function Team() {
   const yearRecords = years.map(year => {
     const standingsRecord = getTeamRecordFromStandings(year)
     const gamesRecord = getTeamRecordFromGames(year)
-    // Use standings record first, fall back to games record
-    const record = standingsRecord || gamesRecord
+    // Use standings record if it has games played, otherwise fall back to games record
+    const standingsHasGames = standingsRecord && (standingsRecord.wins > 0 || standingsRecord.losses > 0)
+    const record = standingsHasGames ? standingsRecord : (gamesRecord || standingsRecord)
     const bowlResult = getBowlResultForYear(year)
     const ccWin = getConferenceChampionshipForYear(year)
     const cfpResult = getCFPResultForYear(year)
@@ -1640,7 +1664,7 @@ export default function Team() {
                         </div>
                         <div className="space-y-2">
                           {yearGames
-                            .sort((a, b) => (b.week || 0) - (a.week || 0))
+                            .sort((a, b) => getGameSortOrder(b) - getGameSortOrder(a))
                             .map((game, idx) => {
                               // Use perspective for unified format, fallback to legacy fields
                               const isWin = game.perspective?.userWon ?? (game.result === 'W' || game.result === 'win')

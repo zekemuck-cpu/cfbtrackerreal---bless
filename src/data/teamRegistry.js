@@ -1732,7 +1732,12 @@ export function getNameByAbbr(teams, abbr) {
 export function getCurrentTeamTid(dynasty) {
   if (!dynasty) return null
 
-  // Prefer currentTid (new field)
+  // NEW: Delegate to getUserTeamTid which uses userId on teams as source of truth
+  // This ensures all code using getCurrentTeamTid gets the correct user team
+  const userTid = getUserTeamTid(dynasty)
+  if (userTid) return userTid
+
+  // Fallback for backwards compatibility (before migration)
   if (dynasty.currentTid) return dynasty.currentTid
 
   // Fall back to deriving from teamName (for old dynasties)
@@ -1898,7 +1903,9 @@ export function getGameTeam2Info(teams, game) {
  * @returns {number|null} The user's team tid
  */
 export function getUserTeamTid(dynasty) {
-  if (!dynasty?.teams) return dynasty?.currentTid || null
+  if (!dynasty?.teams) {
+    return dynasty?.currentTid || null
+  }
 
   // Find team with userId set
   for (const [tidStr, team] of Object.entries(dynasty.teams)) {
@@ -1998,13 +2005,20 @@ export function setUserTeam(teams, tid, position) {
  * @returns {Object} Updated teams object
  */
 export function setPendingUserTeam(teams, tid, position) {
-  if (!teams || !tid) return teams
+  console.log(`[setPendingUserTeam] Called with tid=${tid}, position=${position}`)
+  if (!teams || !tid) {
+    console.log('[setPendingUserTeam] No teams or tid, returning unchanged')
+    return teams
+  }
 
   const updatedTeams = { ...teams }
+  const targetTeam = updatedTeams[tid]
+  console.log(`[setPendingUserTeam] Target team: ${targetTeam?.name}`)
 
   // Clear pendingUserId from any existing pending team
   for (const [tidStr, team] of Object.entries(updatedTeams)) {
     if (team.pendingUserId === 'currentUser') {
+      console.log(`[setPendingUserTeam] Clearing existing pending from tid ${tidStr} (${team.name})`)
       updatedTeams[tidStr] = {
         ...team,
         pendingUserId: null,
@@ -2014,6 +2028,7 @@ export function setPendingUserTeam(teams, tid, position) {
   }
 
   // Set the pending user team
+  console.log(`[setPendingUserTeam] Setting pendingUserId on tid ${tid} (${targetTeam?.name})`)
   updatedTeams[tid] = {
     ...updatedTeams[tid],
     pendingUserId: 'currentUser',
@@ -2058,29 +2073,49 @@ export function clearPendingUserTeam(teams) {
  * @returns {Object} Updated teams object
  */
 export function applyPendingUserTeam(teams) {
+  console.log('[applyPendingUserTeam] Called with teams:', teams ? 'exists' : 'null')
   if (!teams) return teams
+
+  // DEBUG: Log all teams with userId or pendingUserId BEFORE processing
+  console.log('[applyPendingUserTeam] BEFORE - Scanning for userId/pendingUserId:')
+  for (const [tidStr, team] of Object.entries(teams)) {
+    if (team.userId || team.pendingUserId) {
+      console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}, position=${team.coachPosition}`)
+    }
+  }
 
   const updatedTeams = { ...teams }
   let pendingTid = null
   let pendingPosition = null
+  let oldUserTid = null
 
-  // Find and save pending team info
+  // Find current user team and pending team
   for (const [tidStr, team] of Object.entries(updatedTeams)) {
     if (team.pendingUserId === 'currentUser') {
       pendingTid = parseInt(tidStr, 10)
       pendingPosition = team.coachPosition
-      break
+      console.log(`[applyPendingUserTeam] Found PENDING team: tid ${tidStr} (${team.name}), position=${pendingPosition}`)
+    }
+    if (team.userId === 'currentUser') {
+      oldUserTid = parseInt(tidStr, 10)
+      console.log(`[applyPendingUserTeam] Found CURRENT user team: tid ${tidStr} (${team.name})`)
     }
   }
 
   // If no pending job, nothing to do
-  if (!pendingTid) return teams
+  if (!pendingTid) {
+    console.log('[applyPendingUserTeam] No pending job found, returning unchanged teams')
+    return teams
+  }
+
+  console.log(`[applyPendingUserTeam] Flipping: oldTid=${oldUserTid} -> newTid=${pendingTid}`)
 
   // Clear userId from old team, clear pendingUserId from new team, set userId on new team
   for (const [tidStr, team] of Object.entries(updatedTeams)) {
     const tid = parseInt(tidStr, 10)
     if (team.userId === 'currentUser' && tid !== pendingTid) {
       // Old team - clear userId and coachPosition
+      console.log(`[applyPendingUserTeam] Clearing userId from OLD team tid ${tidStr} (${team.name})`)
       updatedTeams[tidStr] = {
         ...team,
         userId: null,
@@ -2088,12 +2123,21 @@ export function applyPendingUserTeam(teams) {
       }
     } else if (tid === pendingTid) {
       // New team - move pendingUserId to userId
+      console.log(`[applyPendingUserTeam] Setting userId on NEW team tid ${tidStr} (${team.name})`)
       updatedTeams[tidStr] = {
         ...team,
         userId: 'currentUser',
         pendingUserId: null,
         coachPosition: pendingPosition
       }
+    }
+  }
+
+  // DEBUG: Log all teams with userId or pendingUserId AFTER processing
+  console.log('[applyPendingUserTeam] AFTER - Scanning for userId/pendingUserId:')
+  for (const [tidStr, team] of Object.entries(updatedTeams)) {
+    if (team.userId || team.pendingUserId) {
+      console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}, position=${team.coachPosition}`)
     }
   }
 
