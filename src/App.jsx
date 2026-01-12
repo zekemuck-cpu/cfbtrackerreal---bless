@@ -30,6 +30,7 @@ import ConferenceChampionshipHistory from './pages/dynasty/ConferenceChampionshi
 import ConferenceStandings from './pages/dynasty/ConferenceStandings'
 import CFPBracket from './pages/dynasty/CFPBracket'
 import Game from './pages/dynasty/Game'
+import GameEdit from './pages/dynasty/GameEdit'
 import TeamStats from './pages/dynasty/TeamStats'
 import DangerZone from './pages/dynasty/DangerZone'
 import AISettings from './pages/dynasty/AISettings'
@@ -161,7 +162,9 @@ function AppRoutes() {
                 <Route path="conference-standings/:year" element={<ConferenceStandings />} />
                 <Route path="cfp-bracket" element={<CFPBracket />} />
                 <Route path="cfp-bracket/:year" element={<CFPBracket />} />
+                <Route path="game/new" element={<GameEdit />} />
                 <Route path="game/:gameId" element={<Game />} />
+                <Route path="game/:gameId/edit" element={<GameEdit />} />
                 <Route path="team-stats/:tid/:year" element={<TeamStats />} />
                 <Route path="admin" element={<DangerZone />} />
               </Route>

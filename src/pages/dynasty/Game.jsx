@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
@@ -13,7 +13,6 @@ import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
-import GameEntryModal from '../../components/GameEntryModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 
@@ -200,12 +199,12 @@ const defaultColors = {
 export default function Game() {
   const { id, gameId } = useParams()
   const navigate = useNavigate()
+  const routeLocation = useLocation()
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   // Use neutral colors for game recap pages instead of user's team colors
   const teamColors = defaultColors
 
-  const [showEditModal, setShowEditModal] = useState(false)
   const [activeStatTab, setActiveStatTab] = useState('passing')
   // Box score sort state: { column: string | null, direction: 'asc' | 'desc' | null }
   const [homeSortConfig, setHomeSortConfig] = useState({ column: null, direction: null })
@@ -697,84 +696,6 @@ export default function Game() {
   const leftTeam = location === 'home' ? 'opponent' : 'user'
   const rightTeam = location === 'home' ? 'user' : 'opponent'
 
-  // Handle game save from modal
-  const handleGameSave = async (gameData) => {
-    try {
-      const existingGames = currentDynasty.games || []
-      const gameIndex = existingGames.findIndex(g => g.id === gameId)
-
-      // Use the game from games[] if found, otherwise use the constructed game object
-      // This handles games loaded from cfpResultsByYear, bowlGamesByYear, etc.
-      const originalGame = gameIndex >= 0 ? existingGames[gameIndex] : game
-      const isNewGame = gameIndex < 0
-
-      let updatedGame
-      if (isCPUGame) {
-        const incomingTeam1 = gameData.team1
-        const incomingTeam1Score = parseInt(gameData.team1Score)
-        const incomingTeam2Score = parseInt(gameData.team2Score)
-
-        const team1MatchesOriginal = incomingTeam1 === originalGame.team1
-
-        let finalTeam1Score, finalTeam2Score
-        if (team1MatchesOriginal) {
-          finalTeam1Score = incomingTeam1Score
-          finalTeam2Score = incomingTeam2Score
-        } else {
-          finalTeam1Score = incomingTeam2Score
-          finalTeam2Score = incomingTeam1Score
-        }
-
-        const winner = finalTeam1Score > finalTeam2Score ? originalGame.team1 : originalGame.team2
-        const winnerIsTeam1 = winner === originalGame.team1
-
-        updatedGame = {
-          ...originalGame,
-          id: gameId,  // Ensure ID is set
-          team1Score: finalTeam1Score,
-          team2Score: finalTeam2Score,
-          winner: winner,
-          // Preserve original viewingTeamAbbr or default to team1 to prevent display flip
-          viewingTeamAbbr: originalGame.viewingTeamAbbr || originalGame.team1,
-          gameNote: gameData.gameNote || '',
-          links: gameData.links || '',
-          quarters: gameData.quarters,
-          overtimes: gameData.overtimes,
-          // Include rankings for CPU games
-          userRank: gameData.userRank,
-          opponentRank: gameData.opponentRank,
-          updatedAt: new Date().toISOString()
-        }
-      } else {
-        updatedGame = {
-          ...originalGame,
-          ...gameData,
-          id: gameId,  // Ensure ID is set
-          updatedAt: new Date().toISOString()
-        }
-      }
-
-      if (isCPUGame) {
-        // CPU games - no box score delta tracking needed, update directly
-        let updatedGames
-        if (isNewGame) {
-          updatedGames = [...existingGames, updatedGame]
-        } else {
-          updatedGames = [...existingGames]
-          updatedGames[gameIndex] = updatedGame
-        }
-        await updateDynasty(currentDynasty.id, { games: updatedGames })
-      } else {
-        // User games - use addGame for proper box score delta tracking
-        await addGame(currentDynasty.id, updatedGame)
-      }
-
-      setShowEditModal(false)
-    } catch (error) {
-      console.error('Error saving game:', error)
-    }
-  }
-
   // Generate AI recap for this game
   const handleGenerateRecap = async () => {
     if (!user?.uid || isGeneratingRecap) return
@@ -874,7 +795,7 @@ export default function Game() {
     gameTitle = game.bowlName
     gameSubtitle = `${game.year} Bowl Season`
   } else {
-    gameTitle = typeof game.week === 'number' ? `Week ${game.week}` : (game.week || 'Game')
+    gameTitle = game.week ? `Week ${game.week}` : 'Game'
     gameSubtitle = `${game.year} Regular Season`
   }
 
@@ -1018,7 +939,7 @@ export default function Game() {
 
           {!isViewOnly ? (
             <button
-              onClick={() => setShowEditModal(true)}
+              onClick={() => navigate(`${pathPrefix}/game/${gameId}/edit`, { state: { from: routeLocation.pathname } })}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs sm:text-sm bg-black/20 text-white hover:bg-black/30 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2139,15 +2060,6 @@ export default function Game() {
           </div>
         </div>
       )}
-
-      {/* Edit Modal */}
-      <GameEntryModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        onSave={handleGameSave}
-        teamColors={teamColors}
-        existingGame={game}
-      />
     </div>
   )
 }

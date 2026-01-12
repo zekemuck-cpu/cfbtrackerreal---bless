@@ -201,7 +201,18 @@ export default function Home() {
     e.preventDefault()
     e.stopPropagation()
     // Skip updating lastModified so starring doesn't change the sort order
-    await updateDynasty(dynasty.id, { favorite: !dynasty.favorite }, { skipLastModified: true })
+    if (!updateDynasty) {
+      console.error('updateDynasty is not available')
+      return
+    }
+    try {
+      const newFavorite = !dynasty.favorite
+      console.log('Toggling favorite for dynasty:', dynasty.id, 'from', dynasty.favorite, 'to', newFavorite)
+      await updateDynasty(dynasty.id, { favorite: newFavorite }, { skipLastModified: true })
+      console.log('Favorite toggled successfully')
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+    }
   }
 
   const handleShareClick = (e, dynasty) => {

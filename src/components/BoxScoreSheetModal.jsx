@@ -12,7 +12,7 @@ import {
 } from '../services/sheetsService'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { getCurrentTeamAbbr, getAbbrFromTeamName } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr } from '../data/teamRegistry'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -58,9 +58,14 @@ export default function BoxScoreSheetModal({
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
 
+  // Resolve team abbreviations from game data
+  // Try direct abbreviation fields first, then resolve from tids
+  const resolvedTeam1 = game?.team1 || getOriginalTeamAbbr(game?.team1Tid) || ''
+  const resolvedTeam2 = game?.team2 || getOriginalTeamAbbr(game?.team2Tid) || ''
+
   // Determine teams based on game type (CPU vs user game)
-  // CPU games are identified by having team1/team2 but no userTeam field
-  const isCPUGame = !game?.userTeam && game?.team1 && game?.team2
+  // CPU games are identified by having team1/team2 (or tids) but no userTeam field
+  const isCPUGame = !game?.userTeam && resolvedTeam1 && resolvedTeam2
   const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
   // Ensure opponent is an abbreviation (convert full name if needed)
   const rawOpponent = game?.opponent || ''
@@ -71,8 +76,8 @@ export default function BoxScoreSheetModal({
   const isUserHome = !isCPUGame && (game?.location === 'home' || game?.location === 'neutral')
   let homeTeamAbbr, awayTeamAbbr, homeTeamName, awayTeamName
   if (isCPUGame) {
-    homeTeamAbbr = game?.team1 || 'Team 1'
-    awayTeamAbbr = game?.team2 || 'Team 2'
+    homeTeamAbbr = resolvedTeam1 || 'Team 1'
+    awayTeamAbbr = resolvedTeam2 || 'Team 2'
     homeTeamName = homeTeamAbbr
     awayTeamName = awayTeamAbbr
   } else {
@@ -435,7 +440,7 @@ export default function BoxScoreSheetModal({
             <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
               {config.title}
             </h2>
-            {sheetType !== 'scoring' && (
+            {sheetType !== 'scoring' && sheetType !== 'teamStats' && (
               <p className="text-xs mt-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
                 Reminder: This is not mandatory to be entered every game. You will have the option to enter all player season stats at the end of the season.
               </p>

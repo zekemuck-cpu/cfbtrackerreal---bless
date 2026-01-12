@@ -764,7 +764,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
 
   const archetypeOptions = [
     'Backfield Creator', 'Dual Threat', 'Pocket Passer', 'Pure Runner',
-    'Backfield Threat', 'East/West Playmaker', 'Elusive Bruiser', 'North/South Receiver', 'North/South Blocker',
+    'Backfield Threat', 'Contact Seeker', 'East/West Playmaker', 'Elusive Bruiser', 'North/South Receiver', 'North/South Blocker',
     'Blocking', 'Utility',
     'Contested Specialist', 'Elusive Route Runner', 'Gadget', 'Gritty Possession', 'Physical Route Runner', 'Route Artist', 'Speedster',
     'Possession', 'Pure Blocker', 'Pure Possession', 'Vertical Threat',

@@ -1427,18 +1427,30 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
 
 /**
  * Check if user is on a new team (first year coaching this team)
+ * This checks if the team for the PREVIOUS year differs from the current team
  */
 export function isFirstYearOnTeam(dynasty) {
   if (!dynasty) return false
 
+  const currentYear = Number(dynasty.currentYear)
+  const startYear = Number(dynasty.startYear)
   const currentTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-  const previousYearTeam = dynasty.coachTeamByYear?.[dynasty.currentYear]?.team
 
-  // If no previous year record, check if this is the dynasty start year
-  if (!previousYearTeam) {
-    return dynasty.currentYear !== dynasty.startYear
-  }
+  // First year of dynasty is always "first year on team"
+  if (currentYear === startYear) return true
 
+  // Check the stored flag first (set during advanceToNewSeason)
+  if (dynasty.isFirstYearOnCurrentTeam === true) return true
+
+  // Check coachTeamByYear for the PREVIOUS year
+  const previousYear = currentYear - 1
+  const previousYearEntry = dynasty.coachTeamByYear?.[previousYear] || dynasty.coachTeamByYear?.[String(previousYear)]
+  const previousYearTeam = previousYearEntry?.team
+
+  // If no previous year record exists, they're new to this team
+  if (!previousYearTeam) return true
+
+  // Compare previous year's team to current team
   return previousYearTeam !== currentTeamAbbr
 }
 

@@ -7,8 +7,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
-// GameDetailModal removed - now using game pages
-import GameEntryModal from '../../components/GameEntryModal'
+// GameDetailModal and GameEntryModal removed - now using game pages
 import RosterEditModal from '../../components/RosterEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
@@ -229,9 +228,7 @@ export default function TeamYear() {
   const [selectedGame, setSelectedGame] = useState(null)
   const [showCoachingStaffTooltip, setShowCoachingStaffTooltip] = useState(false)
 
-  // Game edit modal state
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editingGameData, setEditingGameData] = useState(null)
+  // Game edit modal state removed - now using game pages
 
   // Roster sorting state
   const [rosterSort, setRosterSort] = useState('position') // 'position', 'overall', 'jerseyNumber', 'name'
@@ -1246,221 +1243,7 @@ export default function TeamYear() {
     ? sortedTeamPlayers
     : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(p.position))
 
-  // Handle edit game click - opens GameEntryModal
-  const handleEditGame = (game) => {
-    // CPU games are identified by having viewingTeam set, or by having team1/team2 but no userTeam
-    const isCPUGame = !!game.viewingTeam || (!game.userTeam && game.team1 && game.team2)
-
-    if (isCPUGame) {
-      // CPU vs CPU game - pass both teams and existing data
-      setEditingGameData({
-        team1: game.viewingTeamAbbr,
-        team2: game.opponent,
-        bowlName: game.bowlName || game.gameTitle,
-        gameType: game.isBowlGame ? 'bowl' : game.isConferenceChampionship ? 'cc' : 'cfp',
-        isUserGame: false,
-        existingTeam1Score: game.teamScore,
-        existingTeam2Score: game.opponentScore,
-        existingGameNote: game.gameNote || '',
-        existingLinks: game.links || '',
-        gameRef: game.gameRef // Reference to the full game object in games[] for updating
-      })
-    } else {
-      // User's game - pass the full game for editing
-      setEditingGameData({
-        opponent: game.opponent,
-        bowlName: game.bowlName || game.gameTitle,
-        existingGame: game,
-        isUserGame: true
-      })
-    }
-
-    setShowEditModal(true)
-  }
-
-  // Handle game save from GameEntryModal
-  const handleGameSave = async (gameData) => {
-    try {
-      // CPU games are identified by having team1/team2 but no userTeam
-      const isCPUGame = gameData.team1 && gameData.team2 && !gameData.userTeam
-      if (isCPUGame) {
-        // CPU vs CPU game - save to unified games[] array
-        const gameType = editingGameData.gameType
-
-        if (gameType === 'bowl') {
-          // UNIFIED: Save to games[] array
-          const existingGames = currentDynasty.games || []
-          const gameRef = editingGameData.gameRef
-
-          // Find the game in games[] by ID or by bowlName + year
-          const gameIndex = existingGames.findIndex(g =>
-            g.id === gameRef?.id ||
-            (g.isBowlGame && g.bowlName === editingGameData.bowlName && g.year === selectedYear)
-          )
-
-          if (gameIndex >= 0) {
-            const originalGame = existingGames[gameIndex]
-
-            // CRITICAL: Match incoming teams to original team order
-            // The editor might show teams in a different order than stored
-            const incomingTeam1 = gameData.team1
-            const incomingTeam2 = gameData.team2
-            const incomingTeam1Score = parseInt(gameData.team1Score)
-            const incomingTeam2Score = parseInt(gameData.team2Score)
-
-            // Determine if the incoming team1 matches the original team1 or team2
-            const team1MatchesOriginal = incomingTeam1 === originalGame.team1
-            const team2MatchesOriginal = incomingTeam2 === originalGame.team1
-
-            // Map scores to original team order
-            let originalTeam1Score, originalTeam2Score
-            if (team1MatchesOriginal) {
-              // Incoming order matches original order
-              originalTeam1Score = incomingTeam1Score
-              originalTeam2Score = incomingTeam2Score
-            } else if (team2MatchesOriginal) {
-              // Incoming order is reversed from original
-              originalTeam1Score = incomingTeam2Score
-              originalTeam2Score = incomingTeam1Score
-            } else {
-              // Fallback - use incoming order (shouldn't happen)
-              originalTeam1Score = incomingTeam1Score
-              originalTeam2Score = incomingTeam2Score
-            }
-
-            const winner = originalTeam1Score > originalTeam2Score
-              ? originalGame.team1 : originalGame.team2
-            const winnerIsTeam1 = winner === originalGame.team1
-
-            const updatedGame = {
-              ...originalGame,
-              team1Score: originalTeam1Score,
-              team2Score: originalTeam2Score,
-              winner: winner,
-              viewingTeamAbbr: winner,
-              opponent: winnerIsTeam1 ? originalGame.team2 : originalGame.team1,
-              teamScore: winnerIsTeam1 ? originalTeam1Score : originalTeam2Score,
-              opponentScore: winnerIsTeam1 ? originalTeam2Score : originalTeam1Score,
-              result: 'win',
-              gameNote: gameData.gameNote || '',
-              links: gameData.links || '',
-              updatedAt: new Date().toISOString()
-            }
-
-            const updatedGames = [...existingGames]
-            updatedGames[gameIndex] = updatedGame
-            await updateDynasty(currentDynasty.id, { games: updatedGames })
-          }
-        } else if (gameType === 'cc') {
-          // UNIFIED: Save to games[] array (like bowl games)
-          const existingGames = currentDynasty.games || []
-          const gameRef = editingGameData.gameRef
-
-          // Find the game in games[] by ID or by conference + year
-          const gameIndex = existingGames.findIndex(g =>
-            g.id === gameRef?.id ||
-            (g.isConferenceChampionship && g.conference === editingGameData.bowlName && Number(g.year) === selectedYear)
-          )
-
-          if (gameIndex >= 0) {
-            const originalGame = existingGames[gameIndex]
-
-            // CRITICAL: Match incoming teams to original team order
-            const incomingTeam1 = gameData.team1
-            const incomingTeam2 = gameData.team2
-            const incomingTeam1Score = parseInt(gameData.team1Score)
-            const incomingTeam2Score = parseInt(gameData.team2Score)
-
-            // Determine if the incoming team1 matches the original team1 or team2
-            const team1MatchesOriginal = incomingTeam1 === originalGame.team1
-            const team2MatchesOriginal = incomingTeam2 === originalGame.team1
-
-            // Map scores to original team order
-            let originalTeam1Score, originalTeam2Score
-            if (team1MatchesOriginal) {
-              originalTeam1Score = incomingTeam1Score
-              originalTeam2Score = incomingTeam2Score
-            } else if (team2MatchesOriginal) {
-              originalTeam1Score = incomingTeam2Score
-              originalTeam2Score = incomingTeam1Score
-            } else {
-              originalTeam1Score = incomingTeam1Score
-              originalTeam2Score = incomingTeam2Score
-            }
-
-            const winner = originalTeam1Score > originalTeam2Score
-              ? originalGame.team1 : originalGame.team2
-            const winnerIsTeam1 = winner === originalGame.team1
-
-            const updatedGame = {
-              ...originalGame,
-              team1Score: originalTeam1Score,
-              team2Score: originalTeam2Score,
-              winner: winner,
-              viewingTeamAbbr: winner,
-              opponent: winnerIsTeam1 ? originalGame.team2 : originalGame.team1,
-              teamScore: winnerIsTeam1 ? originalTeam1Score : originalTeam2Score,
-              opponentScore: winnerIsTeam1 ? originalTeam2Score : originalTeam1Score,
-              result: 'win',
-              gameNote: gameData.gameNote || '',
-              links: gameData.links || '',
-              updatedAt: new Date().toISOString()
-            }
-
-            const updatedGames = [...existingGames]
-            updatedGames[gameIndex] = updatedGame
-            await updateDynasty(currentDynasty.id, { games: updatedGames })
-          } else {
-            // Fallback: Save to conferenceChampionshipsByYear for legacy data
-            const existingByYear = currentDynasty.conferenceChampionshipsByYear || {}
-            const existingYear = existingByYear[selectedYear] || []
-
-            const ccIndex = existingYear.findIndex(g =>
-              (g.team1 === gameData.team1 && g.team2 === gameData.team2) ||
-              (g.team1 === gameData.team2 && g.team2 === gameData.team1)
-            )
-
-            const newGame = {
-              ...existingYear[ccIndex],
-              team1: gameData.team1,
-              team2: gameData.team2,
-              team1Score: parseInt(gameData.team1Score),
-              team2Score: parseInt(gameData.team2Score),
-              winner: gameData.winner,
-              gameNote: gameData.gameNote || '',
-              links: gameData.links || ''
-            }
-
-            const newYear = [...existingYear]
-            if (ccIndex >= 0) {
-              newYear[ccIndex] = newGame
-            } else {
-              newYear.push(newGame)
-            }
-
-            await updateDynasty(currentDynasty.id, {
-              conferenceChampionshipsByYear: {
-                ...existingByYear,
-                [selectedYear]: newYear
-              }
-            })
-          }
-        }
-        // CFP games would be handled similarly if needed
-      } else {
-        // User's game - use addGame
-        await addGame(currentDynasty.id, {
-          ...gameData,
-          year: selectedYear
-        })
-      }
-
-      setShowEditModal(false)
-      setEditingGameData(null)
-    } catch (error) {
-      console.error('Error saving game:', error)
-    }
-  }
+  // handleEditGame and handleGameSave removed - now using game pages instead
 
   return (
     <div className="space-y-6">
@@ -3075,31 +2858,7 @@ export default function TeamYear() {
         </div>
       )}
 
-      {/* Game Entry Modal (for editing games) */}
-      {showEditModal && editingGameData && (
-        <GameEntryModal
-          isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false)
-            setEditingGameData(null)
-          }}
-          onSave={handleGameSave}
-          weekNumber={selectedGame?.week || 'Bowl'}
-          currentYear={selectedYear}
-          teamColors={viewedTeamColors}
-          opponent={editingGameData.isUserGame ? editingGameData.opponent : undefined}
-          bowlName={editingGameData.bowlName}
-          existingGame={editingGameData.isUserGame ? editingGameData.existingGame : null}
-          team1={editingGameData.isUserGame ? undefined : editingGameData.team1}
-          team2={editingGameData.isUserGame ? undefined : editingGameData.team2}
-          existingTeam1Score={editingGameData.existingTeam1Score}
-          existingTeam2Score={editingGameData.existingTeam2Score}
-          existingGameNote={editingGameData.existingGameNote}
-          existingLinks={editingGameData.existingLinks}
-          viewingTeamTid={tid}
-          viewingTeamAbbr={teamAbbr}
-        />
-      )}
+      {/* GameEntryModal removed - now using game pages instead */}
 
       {/* Roster Edit Modal */}
       <RosterEditModal

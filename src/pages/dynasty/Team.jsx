@@ -184,6 +184,17 @@ const getMascotName = (abbr, teamsData = null) => {
 const getSchoolName = (mascotName) => {
   if (!mascotName) return ''
 
+  // Three-word mascots that need to be removed
+  const threeWordMascots = [
+    "Fightin' Blue Hens"
+  ]
+
+  for (const mascot of threeWordMascots) {
+    if (mascotName.endsWith(mascot)) {
+      return mascotName.replace(` ${mascot}`, '')
+    }
+  }
+
   // Two-word mascots that need to be removed
   const twoWordMascots = [
     'Crimson Tide', 'Golden Bears', 'Sun Devils', 'Red Wolves', 'Black Knights',
@@ -494,19 +505,40 @@ export default function Team() {
   const bowlLosses = bowlGames.filter(g => g.hasScore && !g.won)
 
   // Calculate "Games As" - games where user played AS this team
-  // Uses perspective to find games where user coached this specific team
+  // Checks both game.userTid directly AND coachTeamByYear perspective
   const getGamesAsTeam = () => {
     const games = currentDynasty.games || []
     return games
-      .map(g => {
-        const perspective = getUserGamePerspective(g, currentDynasty)
-        return perspective ? { ...g, perspective } : null
-      })
       .filter(g => {
-        if (!g) return false
-        // Check if user was coaching this team in this game's year
-        // Direct tid comparison - userTid from perspective (coachTeamByYear) vs tid from URL
-        return g.perspective?.userTid === tid
+        // Primary check: game.userTid matches this team (stored directly on game)
+        if (g.userTid === tid) return true
+        // Secondary check: team1Tid or team2Tid matches AND game has user context (userTeam field)
+        if ((g.team1Tid === tid || g.team2Tid === tid) && g.userTeam) return true
+        // Tertiary: check coachTeamByYear for this game's year
+        const yearNum = Number(g.year)
+        const coachTid = currentDynasty.coachTeamByYear?.[yearNum]?.tid ?? currentDynasty.coachTeamByYear?.[String(g.year)]?.tid
+        if (coachTid === tid && (g.team1Tid === tid || g.team2Tid === tid)) return true
+        return false
+      })
+      .map(g => {
+        // Compute perspective for display
+        const isTeam1 = g.team1Tid === tid
+        const userScore = isTeam1 ? g.team1Score : g.team2Score
+        const opponentScore = isTeam1 ? g.team2Score : g.team1Score
+        const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
+        const userWon = userScore != null && opponentScore != null && userScore > opponentScore
+        const isHome = g.homeTeamTid === tid
+        return {
+          ...g,
+          perspective: {
+            userTid: tid,
+            opponentTid,
+            userScore,
+            opponentScore,
+            userWon,
+            isHome
+          }
+        }
       })
   }
 

@@ -155,6 +155,23 @@ All games in `games[]` array with `gameType` field:
 
 **Player game logs**: Based on box score presence, NOT `userTeam` (handles coach job changes correctly).
 
+### Game Edit Page
+
+The `GameEdit.jsx` page creates game records immediately on open (not on save) to enable Google Sheets integration. Key behaviors:
+- Games created with `team1Tid`/`team2Tid` fields (not abbreviations)
+- URL updates to include the new game ID
+- Box score data stored under `game.boxScore`:
+  - `game.boxScore.teamStats` - Team stats from Google Sheets
+  - `game.boxScore.scoringSummary` - Scoring plays
+  - `game.boxScore.home` - Home team player stats
+  - `game.boxScore.away` - Away team player stats
+
+### BoxScoreSheetModal
+
+Resolves team abbreviations from multiple sources:
+1. `game.team1` / `game.team2` (direct abbreviations)
+2. `getOriginalTeamAbbr(game.team1Tid)` (resolved from tids)
+
 ---
 
 ## Important Notes

@@ -839,6 +839,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
                 { userEnteredValue: 'Pure Runner' },
                 // HB Archetypes
                 { userEnteredValue: 'Backfield Threat' },
+                { userEnteredValue: 'Contact Seeker' },
                 { userEnteredValue: 'East/West Playmaker' },
                 { userEnteredValue: 'Elusive Bruiser' },
                 { userEnteredValue: 'North/South Receiver' },
@@ -1577,6 +1578,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
                 { userEnteredValue: 'Pure Runner' },
                 // HB Archetypes
                 { userEnteredValue: 'Backfield Threat' },
+                { userEnteredValue: 'Contact Seeker' },
                 { userEnteredValue: 'East/West Playmaker' },
                 { userEnteredValue: 'Elusive Bruiser' },
                 { userEnteredValue: 'North/South Receiver' },

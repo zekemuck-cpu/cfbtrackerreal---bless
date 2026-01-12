@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective } from '../../context/DynastyContext'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -15,8 +15,7 @@ import DropdownSelect from '../../components/DropdownSelect'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
 import RosterEntryModal from '../../components/RosterEntryModal'
 import TeamRatingsModal from '../../components/TeamRatingsModal'
-import GameEntryModal from '../../components/GameEntryModal'
-// GameDetailModal removed - now using game pages instead
+// GameEntryModal and GameDetailModal removed - now using game pages instead
 import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import CoachingStaffModal from '../../components/CoachingStaffModal'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
@@ -61,6 +60,8 @@ export default function Dashboard() {
   const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   // NEW: Get user team info from the team with userId: 'currentUser' (single source of truth)
   const userTeamTid = getUserTeamTid(currentDynasty)
@@ -246,13 +247,12 @@ export default function Dashboard() {
   const [showRosterModal, setShowRosterModal] = useState(false)
   const [showTeamRatingsModal, setShowTeamRatingsModal] = useState(false)
   const [showCoachingStaffModal, setShowCoachingStaffModal] = useState(false)
-  const [showGameModal, setShowGameModal] = useState(false)
-  // showGameDetailModal removed - now using game pages instead
+  // showGameModal and showGameDetailModal removed - now using game pages instead
   const [showCCModal, setShowCCModal] = useState(false)
   const [showBowlWeek1Modal, setShowBowlWeek1Modal] = useState(false)
   const [showBowlWeek2Modal, setShowBowlWeek2Modal] = useState(false)
   const [showBowlScoreModal, setShowBowlScoreModal] = useState(false)
-  const [showBowlGameModal, setShowBowlGameModal] = useState(false)
+  // showBowlGameModal removed - now using game pages instead
   const [showCFPSeedsModal, setShowCFPSeedsModal] = useState(false)
   const [showCFPFirstRoundModal, setShowCFPFirstRoundModal] = useState(false)
   const [showCFPQuarterfinalsModal, setShowCFPQuarterfinalsModal] = useState(false)
@@ -298,19 +298,14 @@ export default function Dashboard() {
   const [bowlOpponent, setBowlOpponent] = useState('')
   const [bowlOpponentSearch, setBowlOpponentSearch] = useState('')
   const [showBowlOpponentDropdown, setShowBowlOpponentDropdown] = useState(false)
-  const [editingWeek, setEditingWeek] = useState(null)
-  const [editingYear, setEditingYear] = useState(null)
-  const [editingOpponent, setEditingOpponent] = useState(null)
-  const [editingGame, setEditingGame] = useState(null)
-  const [editingBowlName, setEditingBowlName] = useState(null)
-  const [selectedGame, setSelectedGame] = useState(null)
+  // editingWeek/Year/Opponent/Game/BowlName and selectedGame removed - now using game pages instead
 
   // Conference Championship states
   const [ccMadeChampionship, setCCMadeChampionship] = useState(null) // null = not answered, true/false = answered
   const [ccOpponent, setCCOpponent] = useState('')
   const [ccOpponentSearch, setCCOpponentSearch] = useState('')
   const [showCCOpponentDropdown, setShowCCOpponentDropdown] = useState(false)
-  const [showCCGameModal, setShowCCGameModal] = useState(false)
+  // showCCGameModal removed - now using game pages instead
 
   // Coordinator firing states (for HC only during CC week)
   const [firingCoordinators, setFiringCoordinators] = useState(null) // null = not asked, false = no, true = yes
@@ -540,30 +535,7 @@ export default function Dashboard() {
     }
   }
 
-  const handleGameSave = async (gameData) => {
-    try {
-      // Check if this is a CFP game (editingWeek is set to 'CFP First Round', 'CFP Quarterfinal', etc.)
-      const isCFPFirstRound = editingWeek === 'CFP First Round'
-      const isCFPQuarterfinal = editingWeek === 'CFP Quarterfinal'
-      const isCFPSemifinal = editingWeek === 'CFP Semifinal'
-      const isCFPChampionship = editingWeek === 'CFP Championship'
-      await addGame(currentDynasty.id, {
-        ...gameData,
-        ...(isCFPFirstRound && { isCFPFirstRound: true }),
-        ...(isCFPQuarterfinal && { isCFPQuarterfinal: true }),
-        ...(isCFPSemifinal && { isCFPSemifinal: true }),
-        ...(isCFPChampionship && { isCFPChampionship: true })
-      })
-      // Close the modal after successful save
-      setShowGameModal(false)
-      setEditingWeek(null)
-      setEditingYear(null)
-    } catch (error) {
-      console.error('Error in handleGameSave:', error)
-      alert('Failed to save game. Please try again.')
-      throw error
-    }
-  }
+  // handleGameSave removed - now using game pages instead
 
   // Handle CC championship answer - team-centric
   const handleCCAnswer = async (madeChampionship) => {
@@ -675,62 +647,7 @@ export default function Dashboard() {
     await updateDynasty(currentDynasty.id, updates)
   }
 
-  // Handle CC game save
-  const handleCCGameSave = async (gameData) => {
-    try {
-      // Helper to remove undefined values (Firestore doesn't accept undefined)
-      const removeUndefined = (obj) => {
-        return Object.fromEntries(
-          Object.entries(obj).filter(([_, v]) => v !== undefined)
-        )
-      }
-
-      // Add the game with special flag for conference championship
-      // Use userTeamConference which is computed from team data, not currentDynasty.conference which may not be set
-      const conferenceForGame = userTeamConference || currentDynasty.conference || ''
-      const gameToSave = removeUndefined({
-        ...gameData,
-        isConferenceChampionship: true,
-        conference: conferenceForGame,
-        gameTitle: `${conferenceForGame || 'Conference'} Championship Game`
-      })
-
-      // Just add the game - we don't need to update conferenceChampionshipDataByYear
-      // because getCCGame() checks if a CC game exists directly in the games array.
-      // Making a second updateDynasty call caused a race condition that overwrote the game.
-      await addGame(currentDynasty.id, gameToSave)
-      setShowCCGameModal(false)
-    } catch (error) {
-      console.error('Error saving CC game:', error)
-      alert('Failed to save game. Please try again.')
-      throw error
-    }
-  }
-
-  // Handle user's bowl game save
-  const handleBowlGameSave = async (gameData) => {
-    try {
-      // Get bowl data from year-specific storage
-      const year = currentDynasty.currentYear
-      const bowlData = currentDynasty.bowlEligibilityDataByYear?.[year] || {}
-      // Get the bowl week from the selected bowl (use string format for consistency)
-      const bowlWeek = bowlData.bowlGame
-        ? (isBowlInWeek1(bowlData.bowlGame) ? 'week1' : 'week2')
-        : 'week1'
-      // Add the game with special flag for bowl game
-      await addGame(currentDynasty.id, {
-        ...gameData,
-        isBowlGame: true,
-        bowlName: bowlData.bowlGame || selectedBowl,
-        bowlWeek: bowlWeek
-      })
-      setShowBowlGameModal(false)
-    } catch (error) {
-      console.error('Error saving bowl game:', error)
-      alert('Failed to save game. Please try again.')
-      throw error
-    }
-  }
+  // handleCCGameSave and handleBowlGameSave removed - now using game pages instead
 
   // Check if user can advance from CC week
   const canAdvanceFromCC = () => {
@@ -2257,9 +2174,7 @@ export default function Dashboard() {
 
     // Coaching staff only required in first year of dynasty or first year on new team
     // After that, coordinators are managed through offseason firing/hiring flow
-    const isFirstYear = Number(currentDynasty.currentYear) === Number(currentDynasty.startYear)
-    const isFirstYearOnTeam = currentDynasty.isFirstYearOnCurrentTeam
-    if (currentDynasty.coachPosition === 'HC' && (isFirstYear || isFirstYearOnTeam)) {
+    if (currentDynasty.coachPosition === 'HC' && isFirstYearOnTeam(currentDynasty)) {
       return baseRequirements && teamPreseasonSetup?.coachingStaffEntered
     }
 
@@ -2617,7 +2532,7 @@ export default function Dashboard() {
                 actionText: teamPreseasonSetup?.scheduleEntered ? 'Edit' : 'Enter'
               },
               // Only show roster entry in first year of dynasty OR if user switched teams
-              ...((Number(currentDynasty.currentYear) === Number(currentDynasty.startYear) || currentDynasty.isFirstYearOnCurrentTeam) ? [{
+              ...(isFirstYearOnTeam(currentDynasty) ? [{
                 num: 2,
                 title: 'Enter Roster',
                 done: teamPreseasonSetup?.rosterEntered,
@@ -2626,7 +2541,7 @@ export default function Dashboard() {
                 actionText: teamPreseasonSetup?.rosterEntered ? 'Edit' : 'Enter'
               }] : []),
               {
-                num: (Number(currentDynasty.currentYear) === Number(currentDynasty.startYear) || currentDynasty.isFirstYearOnCurrentTeam) ? 3 : 2,
+                num: isFirstYearOnTeam(currentDynasty) ? 3 : 2,
                 title: 'Enter Team Ratings',
                 done: teamPreseasonSetup?.teamRatingsEntered,
                 teamRatings: teamRatings,
@@ -2638,14 +2553,12 @@ export default function Dashboard() {
               // through offseason firing/hiring flow and carry over automatically.
               ...(() => {
                 if (currentDynasty.coachPosition !== 'HC') return []
-                const isFirstYear = Number(currentDynasty.currentYear) === Number(currentDynasty.startYear)
-                const isFirstYearOnTeam = currentDynasty.isFirstYearOnCurrentTeam
+                const isNewTeam = isFirstYearOnTeam(currentDynasty)
                 // Only show in first year of dynasty or first year on a new team
-                if (!isFirstYear && !isFirstYearOnTeam) return []
-                const hasRoster = isFirstYear || isFirstYearOnTeam
+                if (!isNewTeam) return []
                 // Calculate task number based on what's shown before it
                 let num = 2 // After schedule
-                if (hasRoster) num++ // After roster
+                if (isNewTeam) num++ // After roster
                 num++ // After team ratings
                 return [{
                   num,
@@ -2660,15 +2573,13 @@ export default function Dashboard() {
               (() => {
                 const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
                 const preseasonCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.['preseason']
-                const isFirstYear = Number(currentDynasty.currentYear) === Number(currentDynasty.startYear)
-                const isFirstYearOnTeam = currentDynasty.isFirstYearOnCurrentTeam
-                const hasRoster = isFirstYear || isFirstYearOnTeam
+                const isNewTeam = isFirstYearOnTeam(currentDynasty)
                 // Calculate task number
                 let num = 2 // After schedule
-                if (hasRoster) num++ // After roster
+                if (isNewTeam) num++ // After roster
                 num++ // After team ratings
-                // Only add coordinator increment if coordinators task is shown (HC + first year or first year on team)
-                if (currentDynasty.coachPosition === 'HC' && (isFirstYear || isFirstYearOnTeam)) num++ // After coordinators
+                // Only add coordinator increment if coordinators task is shown (HC + first year on team)
+                if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++ // After coordinators
                 return {
                   num,
                   title: 'Any commitments this week?',
@@ -2936,8 +2847,28 @@ export default function Dashboard() {
                     {isViewOnly ? <ViewOnlyBadge /> : (
                       <button
                         onClick={() => {
-                          setEditingGame(playedGame)
-                          setShowGameModal(true)
+                          if (playedGame) {
+                            navigate(`${pathPrefix}/game/${playedGame.id}/edit`, { state: { from: location.pathname } })
+                          } else {
+                            // New game - navigate with query params
+                            // team1 = home team, team2 = away team (for neutral, user team is team1)
+                            const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
+                            const scheduleLocation = scheduledGame?.location?.toLowerCase() || 'home'
+                            const isAway = scheduleLocation === 'away'
+                            const isNeutral = scheduleLocation === 'neutral'
+                            // For neutral games, user team is team1; for home/away, determine by location
+                            const team1 = isAway ? opponentTid : userTeamTid
+                            const team2 = isAway ? userTeamTid : opponentTid
+                            const params = new URLSearchParams({
+                              week: currentDynasty.currentWeek?.toString() || '',
+                              year: currentDynasty.currentYear?.toString() || '',
+                              gameType: 'regular',
+                              ...(team1 && { team1Tid: team1.toString() }),
+                              ...(team2 && { team2Tid: team2.toString() }),
+                              location: isNeutral ? 'neutral' : (isAway ? 'away' : 'home')
+                            })
+                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                          }
                         }}
                         className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
                         style={{
@@ -3170,7 +3101,21 @@ export default function Dashboard() {
                           <ViewOnlyBadge />
                         ) : (
                           <button
-                            onClick={() => setShowCCGameModal(true)}
+                            onClick={() => {
+                              if (ccGame) {
+                                navigate(`${pathPrefix}/game/${ccGame.id}/edit`, { state: { from: location.pathname } })
+                              } else {
+                                const opponentTid = getTidFromAbbr(ccOpponent)
+                                const params = new URLSearchParams({
+                                  week: 'CC',
+                                  year: currentDynasty.currentYear?.toString() || '',
+                                  team1Tid: userTeamTid?.toString() || '',
+                                  team2Tid: opponentTid?.toString() || '',
+                                  gameType: 'conference_championship'
+                                })
+                                navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                              }
+                            }}
                             className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
                             style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                           >
@@ -3879,13 +3824,19 @@ export default function Dashboard() {
                         </div>
                         <button
                           onClick={() => {
-                            // Set up for CFP First Round game entry
-                            setEditingWeek('CFP First Round')
-                            setEditingYear(currentDynasty.currentYear)
-                            setEditingOpponent(userCFPOpponent)
-                            setEditingBowlName('CFP First Round')
-                            setEditingGame(userCFPFirstRoundGame)
-                            setShowGameModal(true)
+                            if (userCFPFirstRoundGame) {
+                              navigate(`${pathPrefix}/game/${userCFPFirstRoundGame.id}/edit`, { state: { from: location.pathname } })
+                            } else {
+                              const opponentTid = getTidFromAbbr(userCFPOpponent)
+                              const params = new URLSearchParams({
+                                week: 'CFP First Round',
+                                year: currentDynasty.currentYear?.toString() || '',
+                                team1Tid: userTeamTid?.toString() || '',
+                                team2Tid: opponentTid?.toString() || '',
+                                gameType: 'cfp_first_round'
+                              })
+                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                            }
                           }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
@@ -3926,7 +3877,22 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <button
-                          onClick={() => setShowBowlGameModal(true)}
+                          onClick={() => {
+                            if (userBowlGame) {
+                              navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
+                            } else {
+                              const opponentTid = getTidFromAbbr(bowlOpponent)
+                              const params = new URLSearchParams({
+                                week: 'Bowl',
+                                year: currentDynasty.currentYear?.toString() || '',
+                                team1Tid: userTeamTid?.toString() || '',
+                                team2Tid: opponentTid?.toString() || '',
+                                gameType: 'bowl',
+                                bowlName: selectedBowl || ''
+                              })
+                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                            }
+                          }}
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                         >
@@ -4238,7 +4204,22 @@ export default function Dashboard() {
                         </div>
                         {isViewOnly ? <ViewOnlyBadge /> : (
                           <button
-                            onClick={() => setShowBowlGameModal(true)}
+                            onClick={() => {
+                              if (userBowlGame) {
+                                navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
+                              } else {
+                                const opponentTid = getTidFromAbbr(bowlOpponent)
+                                const params = new URLSearchParams({
+                                  week: 'Bowl',
+                                  year: currentDynasty.currentYear?.toString() || '',
+                                  team1Tid: userTeamTid?.toString() || '',
+                                  team2Tid: opponentTid?.toString() || '',
+                                  gameType: 'bowl',
+                                  bowlName: selectedBowl || ''
+                                })
+                                navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                              }
+                            }}
                             className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
                             style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                           >
@@ -4283,12 +4264,20 @@ export default function Dashboard() {
                         </div>
                         <button
                           onClick={() => {
-                            setEditingWeek('CFP Quarterfinal')
-                            setEditingYear(currentDynasty.currentYear)
-                            setEditingOpponent(userQFOpponent)
-                            setEditingBowlName(userQFBowlName)
-                            setEditingGame(userCFPQuarterfinalGame)
-                            setShowGameModal(true)
+                            if (userCFPQuarterfinalGame) {
+                              navigate(`${pathPrefix}/game/${userCFPQuarterfinalGame.id}/edit`, { state: { from: location.pathname } })
+                            } else {
+                              const opponentTid = getTidFromAbbr(userQFOpponent)
+                              const params = new URLSearchParams({
+                                week: 'CFP Quarterfinal',
+                                year: currentDynasty.currentYear?.toString() || '',
+                                team1Tid: userTeamTid?.toString() || '',
+                                team2Tid: opponentTid?.toString() || '',
+                                gameType: 'cfp_quarterfinal',
+                                bowlName: userQFBowlName || ''
+                              })
+                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                            }
                           }}
                           className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
@@ -5272,12 +5261,20 @@ export default function Dashboard() {
                       </div>
                       <button
                         onClick={() => {
-                          setEditingWeek('CFP Semifinal')
-                          setEditingYear(currentDynasty.currentYear)
-                          setEditingOpponent(userSFOpponent)
-                          setEditingBowlName(userSFBowlName || 'CFP Semifinal')
-                          setEditingGame(userCFPSemifinalGame)
-                          setShowGameModal(true)
+                          if (userCFPSemifinalGame) {
+                            navigate(`${pathPrefix}/game/${userCFPSemifinalGame.id}/edit`, { state: { from: location.pathname } })
+                          } else {
+                            const opponentTid = getTidFromAbbr(userSFOpponent)
+                            const params = new URLSearchParams({
+                              week: 'CFP Semifinal',
+                              year: currentDynasty.currentYear?.toString() || '',
+                              team1Tid: userTeamTid?.toString() || '',
+                              team2Tid: opponentTid?.toString() || '',
+                              gameType: 'cfp_semifinal',
+                              bowlName: userSFBowlName || 'CFP Semifinal'
+                            })
+                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                          }
                         }}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                         style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
@@ -5392,12 +5389,20 @@ export default function Dashboard() {
                       </div>
                       <button
                         onClick={() => {
-                          setEditingWeek('CFP Championship')
-                          setEditingYear(currentDynasty.currentYear)
-                          setEditingOpponent(userChampOpponent)
-                          setEditingBowlName('National Championship')
-                          setEditingGame(userCFPChampionshipGame)
-                          setShowGameModal(true)
+                          if (userCFPChampionshipGame) {
+                            navigate(`${pathPrefix}/game/${userCFPChampionshipGame.id}/edit`, { state: { from: location.pathname } })
+                          } else {
+                            const opponentTid = getTidFromAbbr(userChampOpponent)
+                            const params = new URLSearchParams({
+                              week: 'CFP Championship',
+                              year: currentDynasty.currentYear?.toString() || '',
+                              team1Tid: userTeamTid?.toString() || '',
+                              team2Tid: opponentTid?.toString() || '',
+                              gameType: 'cfp_championship',
+                              bowlName: 'National Championship'
+                            })
+                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                          }
                         }}
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                         style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
@@ -7659,26 +7664,7 @@ export default function Dashboard() {
         currentJobData={currentDynasty.newJobData}
       />
 
-      <GameEntryModal
-        isOpen={showGameModal}
-        onClose={() => {
-          setShowGameModal(false)
-          setEditingWeek(null)
-          setEditingYear(null)
-          setEditingOpponent(null)
-          setEditingBowlName(null)
-          setEditingGame(null)
-        }}
-        onSave={handleGameSave}
-        weekNumber={editingWeek || currentDynasty.currentWeek}
-        currentYear={editingYear || currentDynasty.currentYear}
-        teamColors={teamColors}
-        opponent={editingOpponent}
-        bowlName={editingBowlName}
-        existingGame={editingGame}
-      />
-
-      {/* GameDetailModal removed - now using game pages instead */}
+      {/* GameEntryModal removed - now using game pages instead */}
 
       <ConferenceChampionshipModal
         isOpen={showCCModal}
@@ -7707,31 +7693,7 @@ export default function Dashboard() {
         teamColors={teamColors}
       />
 
-      {/* CC Game Entry Modal - reuses GameEntryModal but for championship game */}
-      <GameEntryModal
-        isOpen={showCCGameModal}
-        onClose={() => setShowCCGameModal(false)}
-        onSave={handleCCGameSave}
-        weekNumber="CC"
-        currentYear={currentDynasty.currentYear}
-        teamColors={teamColors}
-        opponent={ccOpponent}
-        isConferenceChampionship={true}
-        existingGame={getCCGame()}
-      />
-
-      {/* User's Bowl Game Entry Modal */}
-      <GameEntryModal
-        isOpen={showBowlGameModal}
-        onClose={() => setShowBowlGameModal(false)}
-        onSave={handleBowlGameSave}
-        weekNumber="Bowl"
-        currentYear={currentDynasty.currentYear}
-        teamColors={teamColors}
-        opponent={currentDynasty.bowlEligibilityDataByYear?.[currentDynasty.currentYear]?.opponent || bowlOpponent}
-        existingGame={findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)}
-        bowlName={currentDynasty.bowlEligibilityDataByYear?.[currentDynasty.currentYear]?.bowlGame || selectedBowl}
-      />
+      {/* CC and Bowl GameEntryModals removed - now using game pages instead */}
 
       {/* Bowl Week 1 Modal */}
       <BowlWeek1Modal
