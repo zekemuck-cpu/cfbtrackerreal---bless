@@ -4323,7 +4323,7 @@ export function DynastyProvider({ children }) {
         // Get the full team name (handles both full names and abbreviations)
         const newTeamName = getTeamName(newJobData.team, dynasty.customTeams)
         // Get abbreviation for conference lookup (getTeamConference expects abbreviation)
-        const newTeamAbbr = getAbbreviationFromDisplayName(newJobData.team, dynasty.customTeams) || newJobData.team
+        const newTeamAbbr = getAbbrFromTeamName(newJobData.team, dynasty.teams) || newJobData.team
         const newConference = getTeamConference(newTeamAbbr, null, dynasty.customTeams)
 
         // REVERT SUPPORT: Save previous job data so we can restore on revert
