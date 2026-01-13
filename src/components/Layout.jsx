@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useDynasty, getPlayersNeedingClassConfirmation } from '../context/DynastyContext'
+import { useDynasty, getPlayersNeedingClassConfirmation, getUserGamePerspective } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useCurrentTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogoByTid } from '../data/teams'
@@ -133,9 +133,15 @@ export default function Layout({ children }) {
 
     // In regular season, check if current week's game has been entered
     if (currentDynasty.currentPhase === 'regular_season') {
-      const currentWeekGame = currentDynasty.games?.find(
-        g => g.week === currentDynasty.currentWeek && g.year === currentDynasty.currentYear
-      )
+      // Find a user game for this week using getUserGamePerspective (handles all game formats)
+      const currentWeekGame = currentDynasty.games?.find(g => {
+        // Type-safe comparisons (handle string vs number)
+        if (Number(g.week) !== Number(currentDynasty.currentWeek)) return false
+        if (Number(g.year) !== Number(currentDynasty.currentYear)) return false
+        // Must be a user game (not a CPU-only game)
+        const perspective = getUserGamePerspective(g, currentDynasty)
+        return perspective !== null
+      })
 
       if (!currentWeekGame) {
         alert(`Please enter the Week ${currentDynasty.currentWeek} game before advancing.`)
@@ -160,7 +166,7 @@ export default function Layout({ children }) {
       // If they made the championship, check if they entered the game
       if (ccData?.madeChampionship === true) {
         const ccGame = currentDynasty.games?.find(
-          g => g.isConferenceChampionship && g.year === currentDynasty.currentYear
+          g => g.isConferenceChampionship && Number(g.year) === Number(currentDynasty.currentYear)
         )
         if (!ccGame) {
           alert('Please enter your conference championship game before advancing.')

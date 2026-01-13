@@ -7,7 +7,8 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
 import { generateRandomBoxScore } from '../data/boxScoreConstants'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../services/geminiService'
+import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../services/geminiService'
+import { isSameWeek } from '../utils/compareUtils'
 import BoxScoreSheetModal from './BoxScoreSheetModal'
 
 export default function GameEntryModal({
@@ -132,7 +133,7 @@ export default function GameEntryModal({
   // Find the scheduled game for this week (not for CC games)
   // Use getCurrentSchedule to get the team-centric schedule, not legacy dynasty.schedule
   const currentSchedule = getCurrentSchedule(currentDynasty)
-  const scheduledGame = isConferenceChampionship ? null : currentSchedule?.find(g => g.week === actualWeekNumber)
+  const scheduledGame = isConferenceChampionship ? null : currentSchedule?.find(g => isSameWeek(g.week, actualWeekNumber))
 
   // Get team mascot name (full team name) for logo lookup using tid-based lookup
   const getMascotName = (tidOrAbbr) => {
@@ -2832,8 +2833,9 @@ export default function GameEntryModal({
                         setIsGeneratingRecap(false)
                         return
                       }
-                      // Fetch custom instructions if user has them
+                      // Fetch custom instructions and model preference
                       const customInstructions = await getCustomRecapInstructions(user.uid)
+                      const model = await getGeminiModel(user.uid)
 
                       // Build a game object from current form data for recap generation
                       const gameForRecap = {
@@ -2847,7 +2849,7 @@ export default function GameEntryModal({
                       // Use streaming to show progress - returns { text, usage }
                       const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
                         setGameData(prev => ({ ...prev, aiRecap: partialText }))
-                      }, customInstructions, user.uid)
+                      }, customInstructions, user.uid, model)
                       // Capture token usage
                       if (result.usage) {
                         setTokenUsage(result.usage)

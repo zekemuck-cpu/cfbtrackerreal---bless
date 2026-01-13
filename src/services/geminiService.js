@@ -28,6 +28,14 @@ export async function getGeminiApiKey(userId) {
   }
 }
 
+/**
+ * Get the Gemini model to use for content generation
+ * Always returns gemini-2.5-flash (the recommended model with good free tier support)
+ */
+export async function getGeminiModel(userId) {
+  return 'gemini-2.5-flash'
+}
+
 // ============================================
 // USAGE TRACKING
 // ============================================
@@ -1470,7 +1478,14 @@ function formatEnhancedPlayerLine(p, category) {
  * Placeholder [HOME_TEAM] will be replaced with the actual home team at generation time
  */
 export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `CRITICAL RULE - READ THIS FIRST:
-You may ONLY write about facts explicitly provided in the data above. If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
+You may ONLY write about facts explicitly provided in the data above. NEVER fabricate, invent, or assume ANY information that is not explicitly given:
+- Do NOT invent cities, locations, stadiums, or venues (if neutral site, you don't know where it was played)
+- Do NOT invent weather, crowd size, atmosphere, or game conditions
+- Do NOT invent specific plays, drives, or moments unless they appear in the SCORING SUMMARY
+- Do NOT invent player stats unless they appear in the INDIVIDUAL STATS sections
+- Do NOT assume facts based on team names or bowl game names - only use data explicitly provided
+
+If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
 
 **UNDERSTANDING GAME FLOW FROM SCORING SUMMARY - EXTREMELY IMPORTANT:**
 If a SCORING SUMMARY is provided, it is your PRIMARY source of truth for understanding how the game unfolded. You MUST:
@@ -1501,9 +1516,10 @@ If NO scoring summary is provided, do NOT invent game flow narratives about come
 2. Start the article body with a proper dateline: "CITY, State --" format (e.g., "TUSCALOOSA, Ala. --" or "SOUTH BEND, Ind. --")
    - IMPORTANT: Look at the HOME TEAM field above. The game is played at the HOME TEAM's stadium.
    - HOME TEAM for this game: [HOME_TEAM]
-   - Use the REAL city where [HOME_TEAM] plays their home games
+   - If there IS a home team: Use the REAL city where that team plays their home games
+   - If this is a NEUTRAL SITE GAME: You do NOT know the city. Simply omit the dateline entirely and start the article without one. Do NOT invent a city like Atlanta, Dallas, or any other location.
    - NEVER use the away team's city - the dateline MUST be the home team's city
-   - NEVER write "STAFF REPORT" - always use a real city name
+   - NEVER write "STAFF REPORT" - always use a real city name or omit the dateline for neutral sites
 3. Do NOT use markdown formatting like **, ##, or * - write in plain text only. The headline should just be the text, not wrapped in any symbols.
 
 **CONTENT REQUIREMENTS:**
@@ -1596,9 +1612,10 @@ ${ctx.team1Ranking ? `${ctx.team1FullName} Ranking: #${ctx.team1Ranking}` : ''}
 ${ctx.team2Ranking ? `${ctx.team2FullName} Ranking: #${ctx.team2Ranking}` : ''}`
 
   // Add quarter-by-quarter scores if available
+  // Support both new format (team1/team2) and legacy format (team/opponent)
   if (ctx.quarters) {
-    const team1Quarters = ctx.quarters.team || {}
-    const team2Quarters = ctx.quarters.opponent || {}
+    const team1Quarters = ctx.quarters.team1 || ctx.quarters.team || {}
+    const team2Quarters = ctx.quarters.team2 || ctx.quarters.opponent || {}
     prompt += `\n
 ===========================================
 QUARTER-BY-QUARTER SCORES
@@ -1931,15 +1948,19 @@ ${instructions}`
 
 /**
  * Generate content using Gemini API with retry logic for overloaded errors
+ * @param {string} apiKey - Gemini API key
+ * @param {string} prompt - The prompt to send
+ * @param {number} maxRetries - Number of retries for overloaded errors
+ * @param {string} model - The Gemini model to use (default: gemini-2.5-flash)
  */
-export async function generateWithGemini(apiKey, prompt, maxRetries = 3) {
+export async function generateWithGemini(apiKey, prompt, maxRetries = 3, model = 'gemini-2.5-flash') {
   if (!apiKey) {
     throw new Error('No API key provided')
   }
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1987,9 +2008,10 @@ export async function generateWithGemini(apiKey, prompt, maxRetries = 3) {
  * @param {string} prompt - The prompt to send
  * @param {function} onChunk - Callback called with accumulated text as chunks arrive
  * @param {number} maxRetries - Number of retries for overloaded errors
+ * @param {string} model - The Gemini model to use (default: gemini-2.5-flash)
  * @returns {object} { text, usage } - The generated text and token usage info
  */
-export async function generateWithGeminiStreaming(apiKey, prompt, onChunk, maxRetries = 3) {
+export async function generateWithGeminiStreaming(apiKey, prompt, onChunk, maxRetries = 3, model = 'gemini-2.5-flash') {
   if (!apiKey) {
     throw new Error('No API key provided')
   }
@@ -1997,7 +2019,7 @@ export async function generateWithGeminiStreaming(apiKey, prompt, onChunk, maxRe
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2127,17 +2149,17 @@ export async function getCustomRecapInstructions(userId) {
  * @param {string} userId - Optional user ID for usage tracking
  * @returns {object} { text, usage } - The generated text and token usage info (when streaming)
  */
-export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null, userId = null) {
+export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null, userId = null, model = 'gemini-2.5-flash') {
   const context = buildGameRecapContext(dynasty, game)
   const prompt = buildGameRecapPrompt(context, customInstructions)
 
   let result
   if (onChunk) {
     // Streaming returns { text, usage }
-    result = await generateWithGeminiStreaming(apiKey, prompt, onChunk)
+    result = await generateWithGeminiStreaming(apiKey, prompt, onChunk, 3, model)
   } else {
     // Non-streaming returns just text
-    const text = await generateWithGemini(apiKey, prompt)
+    const text = await generateWithGemini(apiKey, prompt, 3, model)
     result = { text, usage: null }
   }
 

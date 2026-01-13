@@ -20,10 +20,18 @@ export default function DynastyDashboard() {
   }, [id, currentDynasty, selectDynasty])
 
   useEffect(() => {
+    // Only redirect if:
+    // 1. Dynasties are loaded
+    // 2. No currentDynasty is set
+    // 3. The requested dynasty ID doesn't exist in the dynasties list (invalid ID)
+    // This prevents redirecting during the brief moment between selectDynasty call and state update
     if (dynasties.length > 0 && !currentDynasty) {
-      navigate('/')
+      const requestedDynastyExists = id && dynasties.some(d => d.id === id)
+      if (!requestedDynastyExists) {
+        navigate('/')
+      }
     }
-  }, [dynasties, currentDynasty, navigate])
+  }, [dynasties, currentDynasty, navigate, id])
 
   // Expose sidebar toggle to parent (Layout)
   useEffect(() => {

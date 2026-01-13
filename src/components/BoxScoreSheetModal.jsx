@@ -12,7 +12,7 @@ import {
 } from '../services/sheetsService'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -60,8 +60,9 @@ export default function BoxScoreSheetModal({
 
   // Resolve team abbreviations from game data
   // Try direct abbreviation fields first, then resolve from tids
-  const resolvedTeam1 = game?.team1 || getOriginalTeamAbbr(game?.team1Tid) || ''
-  const resolvedTeam2 = game?.team2 || getOriginalTeamAbbr(game?.team2Tid) || ''
+  // Use explicit undefined checks to ensure we get strings, not undefined
+  const resolvedTeam1 = game?.team1 || (game?.team1Tid ? getOriginalTeamAbbr(game.team1Tid) : null) || ''
+  const resolvedTeam2 = game?.team2 || (game?.team2Tid ? getOriginalTeamAbbr(game.team2Tid) : null) || ''
 
   // Determine teams based on game type (CPU vs user game)
   // CPU games are identified by having team1/team2 (or tids) but no userTeam field
@@ -81,23 +82,35 @@ export default function BoxScoreSheetModal({
     homeTeamName = homeTeamAbbr
     awayTeamName = awayTeamAbbr
   } else {
-    homeTeamAbbr = isUserHome ? userTeamAbbr : opponentAbbr
-    awayTeamAbbr = isUserHome ? opponentAbbr : userTeamAbbr
-    homeTeamName = isUserHome ? currentDynasty?.teamName : opponentAbbr
-    awayTeamName = isUserHome ? opponentAbbr : currentDynasty?.teamName
+    // For non-CPU games, use user team and opponent with fallbacks
+    homeTeamAbbr = (isUserHome ? userTeamAbbr : opponentAbbr) || resolvedTeam1 || 'Home'
+    awayTeamAbbr = (isUserHome ? opponentAbbr : userTeamAbbr) || resolvedTeam2 || 'Away'
+    homeTeamName = (isUserHome ? currentDynasty?.teamName : opponentAbbr) || homeTeamAbbr
+    awayTeamName = (isUserHome ? opponentAbbr : currentDynasty?.teamName) || awayTeamAbbr
   }
 
-  // Get roster for player dropdowns (only for user's team)
-  // Uses unified isPlayerOnRoster for consistent filtering across all components
-  const roster = useMemo(() => {
-    if (!currentDynasty?.players) return []
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-    const currentYear = currentDynasty.currentYear
+  // Get the game year (use game's year, fallback to dynasty's current year)
+  const gameYear = game?.year || currentDynasty?.currentYear
+
+  // Helper to get roster for a specific team
+  const getRosterForTeam = (teamAbbr) => {
+    if (!currentDynasty?.players || !teamAbbr) return []
+    const tid = getTidFromAbbr(teamAbbr)
+    if (!tid) return []
     return currentDynasty.players
-      .filter(p => isPlayerOnRoster(p, teamAbbr, currentYear))
+      .filter(p => isPlayerOnRoster(p, tid, gameYear))
       .map(p => p.name)
       .sort()
-  }, [currentDynasty?.players, currentDynasty?.teamName, currentDynasty?.currentYear])
+  }
+
+  // Get rosters for home and away teams
+  const homeRoster = useMemo(() => getRosterForTeam(homeTeamAbbr),
+    [currentDynasty?.players, homeTeamAbbr, gameYear])
+  const awayRoster = useMemo(() => getRosterForTeam(awayTeamAbbr),
+    [currentDynasty?.players, awayTeamAbbr, gameYear])
+
+  // Minimum roster size to enable strict dropdown (no free text)
+  const MIN_ROSTER_FOR_DROPDOWN = 50
 
   // Determine title and team info based on sheet type
   const getSheetConfig = () => {
@@ -109,6 +122,8 @@ export default function BoxScoreSheetModal({
           teamName: homeTeamName,
           opponentAbbr: awayTeamAbbr,
           isUserTeam: homeTeamAbbr === userTeamAbbr,
+          roster: homeRoster,
+          hasFullRoster: homeRoster.length >= MIN_ROSTER_FOR_DROPDOWN,
           sheetIdKey: 'homeStatsSheetId',
           instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
           columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
@@ -120,6 +135,8 @@ export default function BoxScoreSheetModal({
           teamName: awayTeamName,
           opponentAbbr: homeTeamAbbr,
           isUserTeam: awayTeamAbbr === userTeamAbbr,
+          roster: awayRoster,
+          hasFullRoster: awayRoster.length >= MIN_ROSTER_FOR_DROPDOWN,
           sheetIdKey: 'awayStatsSheetId',
           instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
           columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
@@ -210,18 +227,18 @@ export default function BoxScoreSheetModal({
 
           let sheetInfo
           if (sheetType === 'scoring') {
-            // Pass roster to home or away based on which is user's team
-            const homeRoster = isUserHome ? roster : []
-            const awayRoster = isUserHome ? [] : roster
             // Get existing scoring data to pre-fill (if editing a game that already has scoring data)
             const existingScoringData = game?.boxScore?.scoringSummary || []
+            // Pass team rosters if they have near-full roster (50+ players)
+            const scoringHomeRoster = homeRoster.length >= MIN_ROSTER_FOR_DROPDOWN ? homeRoster : []
+            const scoringAwayRoster = awayRoster.length >= MIN_ROSTER_FOR_DROPDOWN ? awayRoster : []
             sheetInfo = await createScoringSummarySheet(
               homeTeamAbbr,
               awayTeamAbbr,
               year,
               week,
-              homeRoster,
-              awayRoster,
+              scoringHomeRoster,
+              scoringAwayRoster,
               existingScoringData
             )
           } else if (sheetType === 'teamStats') {
@@ -239,14 +256,15 @@ export default function BoxScoreSheetModal({
             const existingPlayerStats = sheetType === 'homeStats'
               ? game?.boxScore?.home || null
               : game?.boxScore?.away || null
+            // Pass roster if team has near-full roster (50+ players) - enables strict dropdown
             sheetInfo = await createGameBoxScoreSheet(
               config.teamName,
               config.teamAbbr,
               config.opponentAbbr,
               year,
               week,
-              config.isUserTeam,
-              config.isUserTeam ? roster : [],
+              config.hasFullRoster,  // Enable strict dropdown if team has 50+ players
+              config.hasFullRoster ? config.roster : [],
               existingPlayerStats
             )
           }

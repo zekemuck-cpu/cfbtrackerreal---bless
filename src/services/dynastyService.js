@@ -23,6 +23,29 @@ const GAMES_SUBCOLLECTION = 'games'
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
 
+/**
+ * Recursively sanitize an object by removing empty string keys
+ * Firestore doesn't allow empty string keys in documents
+ * @param {any} obj - The object to sanitize
+ * @returns {any} - The sanitized object
+ */
+function sanitizeForFirestore(obj) {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item))
+  }
+  if (typeof obj === 'object') {
+    const result = {}
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip empty string keys
+      if (key === '') continue
+      result[key] = sanitizeForFirestore(value)
+    }
+    return result
+  }
+  return obj
+}
+
 // Get all dynasties for a specific user
 export async function getUserDynasties(userId) {
   try {
@@ -316,8 +339,9 @@ export async function savePlayersToSubcollection(dynastyId, players) {
           continue
         }
         const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(player.pid))
-        // Remove _firestoreId before saving
-        const { _firestoreId, ...playerData } = player
+        // Remove _firestoreId before saving and sanitize to remove empty keys
+        const { _firestoreId, ...rawPlayerData } = player
+        const playerData = sanitizeForFirestore(rawPlayerData)
         batch.set(playerRef, playerData)
       }
 
@@ -417,8 +441,9 @@ export async function saveGamesToSubcollection(dynastyId, games) {
           continue
         }
         const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
-        // Remove _firestoreId before saving
-        const { _firestoreId, ...gameData } = game
+        // Remove _firestoreId before saving and sanitize to remove empty keys
+        const { _firestoreId, ...rawGameData } = game
+        const gameData = sanitizeForFirestore(rawGameData)
         batch.set(gameRef, gameData)
       }
 
