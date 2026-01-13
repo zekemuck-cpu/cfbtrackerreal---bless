@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -49,6 +49,7 @@ import RecruitOverallsModal from '../../components/RecruitOverallsModal'
 import PortalTransferClassModal from '../../components/PortalTransferClassModal'
 import FringeCaseClassModal from '../../components/FringeCaseClassModal'
 import { getAllBowlGamesList, isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
+import { isSameYear } from '../../utils/compareUtils'
 
 // Helper function to normalize player names for consistent lookup
 const normalizePlayerName = (name) => {
@@ -83,23 +84,22 @@ export default function Dashboard() {
   const teamCoachingStaff = getCurrentCoachingStaff(currentDynasty)
   const teamGoogleSheet = getCurrentGoogleSheet(currentDynasty)
 
-  // Calculate wins/losses for schedule section header from actual game results
+  // Get user games for the current year (for schedule display)
   // Uses unified game format: games have team1Tid/team2Tid, user perspective derived from coachTeamByYear
-  const { userGamesThisYear, wins, losses } = useMemo(() => {
-    const games = (currentDynasty?.games || [])
+  const userGamesThisYear = useMemo(() => {
+    return (currentDynasty?.games || [])
       .filter(g => Number(g.year) === Number(currentDynasty?.currentYear))
       .map(g => {
         const perspective = getUserGamePerspective(g, currentDynasty)
         return perspective ? { ...g, perspective } : null
       })
       .filter(Boolean)
-
-    return {
-      userGamesThisYear: games,
-      wins: games.filter(g => g.perspective.userWon).length,
-      losses: games.filter(g => !g.perspective.userWon && g.perspective.userScore !== g.perspective.opponentScore).length
-    }
   }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
+
+  // Use centralized single-source-of-truth record (used in schedule section)
+  const scheduleRecord = getCurrentTeamRecord(currentDynasty)
+  const wins = scheduleRecord?.wins || 0
+  const losses = scheduleRecord?.losses || 0
 
   // IMPORTANT: On Signing Day (week 6) and Training Camp (week 7), the year has already flipped.
   // Use offseasonDataYear for data that was entered during weeks 1-5 (playersLeaving, recruiting, etc.)
@@ -657,7 +657,7 @@ export default function Dashboard() {
       ccComplete = true
     } else if (ccMadeChampionship === true) {
       const ccGame = findCurrentTeamGame(currentDynasty,
-        g => (g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) && g.year === currentDynasty.currentYear
+        g => (g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) && isSameYear(g.year, currentDynasty.currentYear)
       )
       ccComplete = !!ccGame
     }
@@ -2141,7 +2141,7 @@ export default function Dashboard() {
   // Get CC game if played
   const getCCGame = () => {
     return findCurrentTeamGame(currentDynasty,
-      g => (g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) && g.year === currentDynasty.currentYear
+      g => (g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) && isSameYear(g.year, currentDynasty.currentYear)
     )
   }
 
@@ -2275,9 +2275,10 @@ export default function Dashboard() {
 
       {/* Team Info Header */}
       {(() => {
-        // Calculate team record from current year games (using unified game perspective)
-        const headerWins = currentYearGames.filter(g => g.perspective?.userWon).length
-        const headerLosses = currentYearGames.filter(g => g.perspective && !g.perspective.userWon && g.perspective.userScore !== g.perspective.opponentScore).length
+        // Use centralized single-source-of-truth record calculation
+        const teamRecord = getCurrentTeamRecord(currentDynasty)
+        const headerWins = teamRecord?.wins || 0
+        const headerLosses = teamRecord?.losses || 0
         // Get rank from the most recent game (if unranked, userRank will be null/undefined)
         const lastGame = currentYearGames.length > 0 ? currentYearGames[currentYearGames.length - 1] : null
         const currentRank = lastGame?.perspective?.userRank
@@ -3337,8 +3338,8 @@ export default function Dashboard() {
             const enteredBowlWeek2 = bowlWeek2Games.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
             const enteredCFPQuarterfinals = cfpQuarterfinalGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
             const totalEnteredWeek2 = enteredBowlWeek2 + enteredCFPQuarterfinals
-            const userBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)
-            const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && g.year === currentDynasty.currentYear)
+            const userBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
             const userBowlIsWeek1 = selectedBowl && isBowlInWeek1(selectedBowl)
             const userBowlIsWeek2 = selectedBowl && isBowlInWeek2(selectedBowl)
 
@@ -3372,7 +3373,7 @@ export default function Dashboard() {
             const userInCFPFirstRound = userCFPSeed && userCFPSeed >= 5 && userCFPSeed <= 12
 
             // CFP Quarterfinals tracking
-            const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && g.year === currentDynasty.currentYear)
+            const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
             const firstRoundResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.firstRound || []
 
             // User is in QF if they have a bye (seed 1-4) OR won their First Round game (seed 5-12)
@@ -3431,7 +3432,7 @@ export default function Dashboard() {
             const userQFBowlName = getUserQFBowlName()
 
             // CFP Semifinals tracking
-            const userCFPSemifinalGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && g.year === currentDynasty.currentYear)
+            const userCFPSemifinalGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
             // Uses unified format: check perspective for win
             const userWonQuarterfinal = userCFPQuarterfinalGame?.perspective?.userWon
             const userInCFPSemifinal = userInCFPQuarterfinal && userWonQuarterfinal
@@ -3496,7 +3497,7 @@ export default function Dashboard() {
             const userSFBowlName = getUserSFBowlName()
 
             // CFP Championship tracking
-            const userCFPChampionshipGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && g.year === currentDynasty.currentYear)
+            const userCFPChampionshipGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
             // Uses unified format: check perspective for win
             const userWonSemifinal = userCFPSemifinalGame?.perspective?.userWon
             const userInCFPChampionship = userInCFPSemifinal && userWonSemifinal
@@ -3672,9 +3673,9 @@ export default function Dashboard() {
                                   setBowlOpponent('')
                                   // Remove any existing bowl game from games array (team-centric)
                                   // Uses unified format: check if user's team is in the game via perspective
-                                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)
+                                  const existingBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
                                   const updatedGames = existingBowlGame
-                                    ? currentDynasty.games.filter(g => !(g.isBowlGame && g.year === currentDynasty.currentYear && getUserGamePerspective(g, currentDynasty)))
+                                    ? currentDynasty.games.filter(g => !(g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear) && getUserGamePerspective(g, currentDynasty)))
                                     : currentDynasty.games
                                   // Clear year-specific bowl eligibility data
                                   const existingByYear = currentDynasty.bowlEligibilityDataByYear || {}
@@ -6909,8 +6910,56 @@ export default function Dashboard() {
                   Number(game.week) === Number(currentDynasty.currentWeek) && !playedGame
                 const isWin = playedGame?.perspective?.userWon
                 const isLoss = playedGame?.perspective && !playedGame.perspective.userWon
+                const teamPageUrl = `${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
 
-                const gameContent = (
+                // Render clickable element - use div with onClick when inside Link (played games), use Link when standalone
+                const TeamLogoClickable = ({ isInsideLink, children }) => {
+                  if (isInsideLink) {
+                    return (
+                      <div
+                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white cursor-pointer"
+                        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
+                      >
+                        {children}
+                      </div>
+                    )
+                  }
+                  return (
+                    <Link
+                      to={teamPageUrl}
+                      className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
+                    >
+                      {children}
+                    </Link>
+                  )
+                }
+
+                const TeamNameClickable = ({ isInsideLink }) => {
+                  if (isInsideLink) {
+                    return (
+                      <span
+                        className="text-xs sm:text-base font-semibold truncate hover:underline cursor-pointer"
+                        style={{ color: opponentColors.textColor }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
+                      >
+                        {opponentName}
+                      </span>
+                    )
+                  }
+                  return (
+                    <Link
+                      to={teamPageUrl}
+                      className="text-xs sm:text-base font-semibold truncate hover:underline"
+                      style={{ color: opponentColors.textColor }}
+                    >
+                      {opponentName}
+                    </Link>
+                  )
+                }
+
+                const renderGameContent = (isInsideLink) => (
                   <div className="flex items-center w-full overflow-hidden">
                     {/* Week Badge */}
                     <div
@@ -6946,18 +6995,13 @@ export default function Dashboard() {
 
                         {/* Team Logo */}
                         {opponentLogo && (
-                          <Link
-                            to={`${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
-                            className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
-                            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <TeamLogoClickable isInsideLink={isInsideLink}>
                             <img
                               src={opponentLogo}
                               alt={`${opponentName} logo`}
                               className="w-full h-full object-contain"
                             />
-                          </Link>
+                          </TeamLogoClickable>
                         )}
 
                         {/* Team Name */}
@@ -6968,14 +7012,7 @@ export default function Dashboard() {
                                 #{playedGame.perspective.opponentRank}
                               </span>
                             )}
-                            <Link
-                              to={`${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`}
-                              className="text-xs sm:text-base font-semibold truncate hover:underline"
-                              style={{ color: opponentColors.textColor }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {opponentName}
-                            </Link>
+                            <TeamNameClickable isInsideLink={isInsideLink} />
                           </div>
                         </div>
                       </div>
@@ -7009,7 +7046,7 @@ export default function Dashboard() {
                       className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
                       style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
                     >
-                      {gameContent}
+                      {renderGameContent(true)}
                     </Link>
                   )
                 }
@@ -7024,7 +7061,7 @@ export default function Dashboard() {
                         : '0 2px 8px rgba(0,0,0,0.06)'
                     }}
                   >
-                    {gameContent}
+                    {renderGameContent(false)}
                   </div>
                 )
               })}
@@ -7170,10 +7207,10 @@ export default function Dashboard() {
             {/* Bowl Game - shows when user has a bowl game (NOT CFP teams) */}
             {(() => {
               // Don't show Bowl section if user has a CFP First Round game (CFP IS their bowl)
-              const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && g.year === currentDynasty.currentYear)
+              const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
               if (userCFPFirstRoundGame) return null
 
-              const userBowlGameData = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && g.year === currentDynasty.currentYear)
+              const userBowlGameData = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
               const bowlData = currentDynasty.bowlEligibilityData
               const hasBowlEligibility = bowlData?.eligible === true && bowlData?.bowlGame && bowlData?.opponent
 
@@ -7312,7 +7349,7 @@ export default function Dashboard() {
 
             {/* CFP First Round Game - shows when user played in First Round */}
             {(() => {
-              const cfpFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && g.year === currentDynasty.currentYear)
+              const cfpFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
               if (!cfpFirstRoundGame) return null
 
               // Get opponent abbr from perspective (unified format)
@@ -7416,7 +7453,7 @@ export default function Dashboard() {
 
             {/* CFP Quarterfinal Game - shows when user played in Quarterfinal */}
             {(() => {
-              const cfpQFGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && g.year === currentDynasty.currentYear)
+              const cfpQFGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
               if (!cfpQFGame) return null
 
               // Get opponent abbr from perspective (unified format)
@@ -7480,7 +7517,7 @@ export default function Dashboard() {
 
             {/* CFP Semifinal Game - shows when user played in Semifinal */}
             {(() => {
-              const cfpSFGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && g.year === currentDynasty.currentYear)
+              const cfpSFGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
               if (!cfpSFGame) return null
 
               // Get opponent abbr from perspective (unified format)
@@ -7544,7 +7581,7 @@ export default function Dashboard() {
 
             {/* CFP Championship Game - shows when user played in Championship */}
             {(() => {
-              const cfpChampGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && g.year === currentDynasty.currentYear)
+              const cfpChampGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
               if (!cfpChampGame) return null
 
               // Get opponent abbr from perspective (unified format)

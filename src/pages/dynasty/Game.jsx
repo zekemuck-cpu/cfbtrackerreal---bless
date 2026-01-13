@@ -5,10 +5,10 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../../services/geminiService'
+import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../../services/geminiService'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
@@ -602,54 +602,11 @@ export default function Game() {
     return player?.pid
   }
 
-  // Calculate user's record up to and including this game
-  const calculateUserRecord = () => {
-    if (isCPUGame) return null
-
-    const allGames = currentDynasty?.games || []
-    // Filter for user games (games where user's team was coaching that year)
-    const yearGames = allGames
-      .filter(g => Number(g.year) === Number(game.year))
-      .map(g => {
-        const gPerspective = getUserGamePerspective(g, currentDynasty)
-        return gPerspective ? { ...g, perspective: gPerspective } : null
-      })
-      .filter(Boolean)
-
-    const getGameOrder = (g) => {
-      if (typeof g.week === 'number' && g.week >= 1 && g.week <= 14 &&
-          !g.isConferenceChampionship && !g.isBowlGame &&
-          !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) {
-        return g.week
-      }
-      if (g.isConferenceChampionship) return 15
-      if (g.isBowlGame && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) {
-        return 16 + (parseInt(String(g.bowlWeek).replace('week', '') || '0'))
-      }
-      if (g.isCFPFirstRound) return 20
-      if (g.isCFPQuarterfinal) return 21
-      if (g.isCFPSemifinal) return 22
-      if (g.isCFPChampionship) return 23
-      return g.week || 0
-    }
-
-    const currentGameOrder = getGameOrder(game)
-    const gamesUpToThis = yearGames.filter(g => getGameOrder(g) <= currentGameOrder)
-
-    const wins = gamesUpToThis.filter(g => g.perspective?.userWon).length
-    const losses = gamesUpToThis.filter(g => g.perspective && !g.perspective.userWon).length
-
-    const confGames = gamesUpToThis.filter(g => g.isConferenceGame && !g.isConferenceChampionship)
-    const confWins = confGames.filter(g => g.perspective?.userWon).length
-    const confLosses = confGames.filter(g => g.perspective && !g.perspective.userWon).length
-
-    return {
-      overall: `${wins}-${losses}`,
-      conference: `${confWins}-${confLosses}`
-    }
-  }
-
-  const userRecord = calculateUserRecord()
+  // Get user's record as of this game using centralized single-source-of-truth
+  const userRecord = (() => {
+    if (isCPUGame || !perspective) return null
+    return getRecordAsOfGame(currentDynasty, game, perspective.userTid)
+  })()
 
   // Parse links
   const parseLinks = (linksString) => {
@@ -686,9 +643,9 @@ export default function Game() {
     if (game.location) {
       location = game.location
     } else if (game.homeTeamTid) {
-      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
-      const team1Abbr = team1Info?.abbr || game.team1
-      location = displayTeamAbbr === team1Abbr && game.team1Tid === game.homeTeamTid ? 'home' : 'away'
+      // Get displayTeam's tid and check if it matches homeTeamTid
+      const displayTid = resolveTid(displayTeamAbbr, teams)
+      location = game.homeTeamTid === displayTid ? 'home' : 'away'
     } else {
       location = 'neutral' // Default for postseason
     }
@@ -720,13 +677,14 @@ export default function Game() {
         return
       }
 
-      // Fetch custom instructions if user has them
+      // Fetch custom instructions and model preference
       const customInstructions = await getCustomRecapInstructions(user.uid)
+      const model = await getGeminiModel(user.uid)
 
       // Generate the recap with streaming - returns { text, usage }
       const result = await generateGameRecap(currentDynasty, game, apiKey, (partialText) => {
         setStreamingRecap(partialText)
-      }, customInstructions, user.uid)
+      }, customInstructions, user.uid, model)
 
       // Capture token usage
       if (result.usage) {
@@ -843,7 +801,12 @@ export default function Game() {
       defense = isTeam1 ? game.team1Defense : game.team2Defense
     } else {
       // User game - for unified format, user is team1, opponent is team2
-      record = isDisplayTeam && userRecord ? `${userRecord.overall} (${userRecord.conference})` : game.opponentRecord
+      // For opponent record: check team2Record (unified) then opponentRecord (legacy)
+      const opponentRecordStr = game.team2Record || game.opponentRecord
+      const opponentConfStr = game.team2ConfRecord || ''
+      record = isDisplayTeam && userRecord
+        ? `${userRecord.overall} (${userRecord.conference})`
+        : (opponentRecordStr ? `${opponentRecordStr}${opponentConfStr ? ` (${opponentConfStr})` : ''}` : null)
       // For unified format: user ratings in team1*, opponent ratings in team2*
       // For legacy format: opponent ratings in opponent* fields
       overall = isDisplayTeam
@@ -913,7 +876,9 @@ export default function Game() {
               </div>
             )}
             {/* CFP games link to CFP Bracket page */}
-            {(game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship) ? (
+            {(game.isCFPFirstRound || game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship ||
+              game.gameType === GAME_TYPES.CFP_FIRST_ROUND || game.gameType === GAME_TYPES.CFP_QUARTERFINAL ||
+              game.gameType === GAME_TYPES.CFP_SEMIFINAL || game.gameType === GAME_TYPES.CFP_CHAMPIONSHIP) ? (
               <Link
                 to={`${pathPrefix}/cfp-bracket/${game.year}`}
                 className="text-white text-center hover:underline"
@@ -924,6 +889,14 @@ export default function Game() {
             ) : game.isConferenceChampionship ? (
               <Link
                 to={`${pathPrefix}/conference-championship-history`}
+                className="text-white text-center hover:underline"
+              >
+                <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
+                <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+              </Link>
+            ) : game.isBowlGame ? (
+              <Link
+                to={`${pathPrefix}/bowl-history`}
                 className="text-white text-center hover:underline"
               >
                 <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
@@ -1034,8 +1007,9 @@ export default function Game() {
 
       {/* Scoring Summary - Dark theme continuation */}
       {game.quarters && (() => {
-        const t = game.quarters.team || {}
-        const o = game.quarters.opponent || {}
+        // Support both new format (team1/team2) and legacy format (team/opponent)
+        const t = game.quarters.team1 || game.quarters.team || {}
+        const o = game.quarters.team2 || game.quarters.opponent || {}
         const hasData = [t.Q1, t.Q2, t.Q3, t.Q4, o.Q1, o.Q2, o.Q3, o.Q4].some(
           v => v !== undefined && v !== '' && v !== null
         )
@@ -1059,7 +1033,12 @@ export default function Game() {
               </thead>
               <tbody className="text-sm">
                 {[leftData, rightData].map((team, idx) => {
-                  const quarterKey = (idx === 0 ? leftTeam : rightTeam) === 'user' ? 'team' : 'opponent'
+                  // Support both new format (team1/team2) and legacy format (team/opponent)
+                  const isNewFormat = game.quarters.team1 || game.quarters.team2
+                  const isLeftTeam1 = leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
+                  const quarterKey = isNewFormat
+                    ? (idx === 0 ? (isLeftTeam1 ? 'team1' : 'team2') : (isLeftTeam1 ? 'team2' : 'team1'))
+                    : ((idx === 0 ? leftTeam : rightTeam) === 'user' ? 'team' : 'opponent')
                   return (
                     <tr key={idx} className={idx === 0 ? 'border-b border-gray-700' : ''}>
                       <td className="py-3 px-3 sm:px-4">

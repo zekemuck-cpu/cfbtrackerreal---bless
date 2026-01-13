@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getCurrentSchedule, getUserGamePerspective } from '../../context/DynastyContext'
+import { getCurrentSchedule, getUserGamePerspective, getCurrentTeamRecord } from '../../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName, getCurrentTeamTid, getTidFromAbbr } from '../../data/teamRegistry'
+import { isSameWeek, isSameYear } from '../../utils/compareUtils'
 
 // Get abbreviation - handles both full names and abbreviations
 function getTeamAbbr(teamIdentifier, dynastyTeams = null) {
@@ -78,8 +79,10 @@ export function useTickerSections(dynasty) {
 
     seasonGames = seasonGames.sort((a, b) => getGameOrder(a) - getGameOrder(b))
 
-    const wins = seasonGames.filter(g => g.perspective?.userWon === true).length
-    const losses = seasonGames.filter(g => g.perspective?.userWon === false).length
+    // Use centralized single-source-of-truth record
+    const teamRecord = getCurrentTeamRecord(dynasty)
+    const wins = teamRecord?.wins || 0
+    const losses = teamRecord?.losses || 0
     const record = `${wins}-${losses}`
 
     // === 1. SEASON OVERVIEW ===
@@ -110,7 +113,7 @@ export function useTickerSections(dynasty) {
 
     // === 2. UPCOMING GAME (only if in regular season with upcoming game) ===
     const schedule = getCurrentSchedule(dynasty)
-    const upcoming = schedule?.find(g => g.week === dynasty.currentWeek && !g.result)
+    const upcoming = schedule?.find(g => isSameWeek(g.week, dynasty.currentWeek) && !g.result)
     if (upcoming?.opponent && dynasty.currentPhase === 'regular_season') {
       const oppAbbr = getTeamAbbr(upcoming.opponent, teams)
       const loc = upcoming.location === 'away' ? '@' : 'vs'
@@ -425,7 +428,7 @@ export function useTickerSections(dynasty) {
 
     cfpYears.forEach(cfpYear => {
       const yearGames = allCfpGames
-        .filter(g => g.year === cfpYear)
+        .filter(g => isSameYear(g.year, cfpYear))
         .filter(g => {
           // Must have teams defined
           if (g.opponent) return true
@@ -471,7 +474,7 @@ export function useTickerSections(dynasty) {
 
     bowlYears.forEach(bowlYear => {
       const yearBowls = allBowlGames
-        .filter(g => g.year === bowlYear)
+        .filter(g => isSameYear(g.year, bowlYear))
         .filter(g => {
           // Unified format has team1Tid/team2Tid, user games have opponent, CPU games have team1/team2
           if (g.team1Tid && g.team2Tid) return true

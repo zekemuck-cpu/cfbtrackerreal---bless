@@ -5,10 +5,10 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions } from '../../services/geminiService'
+import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../../services/geminiService'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -188,12 +188,6 @@ export default function GameEdit() {
     isConferenceGame: false
   })
 
-  // Lock states for ratings and records
-  const [team1RatingsLocked, setTeam1RatingsLocked] = useState(false)
-  const [team2RatingsLocked, setTeam2RatingsLocked] = useState(false)
-  const [team1RecordLocked, setTeam1RecordLocked] = useState(false)
-  const [team2RecordLocked, setTeam2RecordLocked] = useState(false)
-
   // Find existing game or set up new game data
   const existingGame = useMemo(() => {
     if (!currentDynasty?.games) return null
@@ -317,57 +311,19 @@ export default function GameEdit() {
   const isConferenceGame = team1Conference && team2Conference &&
     team1Conference === team2Conference && team1Conference !== 'Independent'
 
-  // Calculate team records from existing games - handles multiple game formats
+  // Calculate team records - uses centralized function, excludes current game being edited
   const calculateTeamRecord = (tid, year) => {
     if (!currentDynasty?.games || !tid) return ''
-    const abbr = teamsSource[tid]?.abbr
 
-    const teamGames = currentDynasty.games.filter(g => {
-      if (Number(g.year) !== Number(year)) return false
-      if (g.id === existingGame?.id) return false // Exclude current game
-
-      // Check if team is involved (multiple format checks)
-      const isInGame = g.team1Tid === tid || g.team2Tid === tid ||
-        g.userTid === tid || g.opponentTid === tid ||
-        g.userTeam === abbr || g.opponent === abbr
-
-      if (!isInGame) return false
-
-      // Check if game has scores (unified or legacy format)
-      const hasScores = (g.team1Score !== undefined && g.team2Score !== undefined) ||
-        (g.teamScore !== undefined && g.opponentScore !== undefined)
-
-      return hasScores
+    // Use centralized calculation, excluding the current game
+    const record = calculateTeamRecordFromGames(currentDynasty, tid, year, {
+      upToGameId: existingGame?.id // Exclude current game from calculation
     })
 
     // Return empty string if no games found - don't auto-fill "0-0"
-    if (teamGames.length === 0) return ''
+    if (record.wins === 0 && record.losses === 0) return ''
 
-    let wins = 0, losses = 0
-    teamGames.forEach(g => {
-      let teamScore, oppScore
-
-      // Unified format
-      if (g.team1Tid !== undefined || g.team2Tid !== undefined) {
-        const isTeam1 = g.team1Tid === tid
-        teamScore = isTeam1 ? g.team1Score : g.team2Score
-        oppScore = isTeam1 ? g.team2Score : g.team1Score
-      }
-      // Legacy user game format
-      else if (g.userTid === tid || g.userTeam === abbr) {
-        teamScore = g.teamScore
-        oppScore = g.opponentScore
-      }
-      // Legacy opponent format
-      else {
-        teamScore = g.opponentScore
-        oppScore = g.teamScore
-      }
-
-      if (teamScore > oppScore) wins++
-      else if (oppScore > teamScore) losses++
-    })
-    return `${wins}-${losses}`
+    return `${record.wins}-${record.losses}`
   }
 
   // Get team ratings from dynasty data - checks multiple possible storage locations
@@ -486,12 +442,6 @@ export default function GameEdit() {
         aiRecap: existingGame.aiRecap || existingGame.gameNote || '',
         isConferenceGame: existingGame.isConferenceGame || isConferenceGame
       })
-
-      // Set lock states based on whether data exists
-      setTeam1RatingsLocked(!!team1Ratings.overall)
-      setTeam2RatingsLocked(!!team2Ratings.overall)
-      setTeam1RecordLocked(!!team1Rec)
-      setTeam2RecordLocked(!!team2Rec)
     } else if (isNewGame && team1Tid && team2Tid) {
       // New game - fetch ratings and calculate records
       const team1Ratings = getTeamRatings(team1Tid, gameYear)
@@ -512,11 +462,6 @@ export default function GameEdit() {
         location: queryLocation || prev.location,
         isConferenceGame
       }))
-
-      setTeam1RatingsLocked(!!team1Ratings.overall)
-      setTeam2RatingsLocked(!!team2Ratings.overall)
-      setTeam1RecordLocked(!!team1Rec)
-      setTeam2RecordLocked(!!team2Rec)
     }
   }, [existingGame, isNewGame, team1Tid, team2Tid, gameYear, queryLocation])
 
@@ -673,18 +618,24 @@ export default function GameEdit() {
         updatedGames = [...games, gameData]
       }
 
-      await updateDynasty(currentDynasty.id, { games: updatedGames })
+      // Build record updates for both teams involved
+      const dynastyWithUpdatedGames = { ...currentDynasty, games: updatedGames }
+      let recordUpdates = {}
+      if (team1Tid) {
+        Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team1Tid, gameYear))
+      }
+      if (team2Tid && team2Tid !== team1Tid) {
+        Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team2Tid, gameYear))
+      }
+
+      await updateDynasty(currentDynasty.id, { games: updatedGames, ...recordUpdates })
 
       setToastMessage('Game saved successfully!')
       setShowToast(true)
       setTimeout(() => setShowToast(false), 3000)
 
-      // Navigate back
-      if (location.state?.from) {
-        navigate(location.state.from)
-      } else {
-        navigate(`${pathPrefix}/game/${gameData.id}`)
-      }
+      // Navigate to the game page
+      navigate(`${pathPrefix}/game/${gameData.id}`)
     } catch (error) {
       console.error('Error saving game:', error)
       setToastMessage('Error saving game')
@@ -716,10 +667,10 @@ export default function GameEdit() {
 
     try {
       const games = currentDynasty.games || []
-      const gameIndex = games.findIndex(g => g.id === currentGameId)
+      const existingGame = games.find(g => g.id === currentGameId)
 
-      if (gameIndex >= 0) {
-        const updatedGame = { ...games[gameIndex] }
+      if (existingGame) {
+        const updatedGame = { ...existingGame }
 
         // Ensure boxScore object exists
         if (!updatedGame.boxScore) {
@@ -738,9 +689,9 @@ export default function GameEdit() {
           updatedGame.boxScore.away = data
         }
 
-        const updatedGames = [...games]
-        updatedGames[gameIndex] = updatedGame
-        await updateDynasty(currentDynasty.id, { games: updatedGames })
+        // Use addGame to ensure delta tracking is applied for player stats
+        // This prevents double-counting when editing a game multiple times
+        await addGame(currentDynasty.id, updatedGame)
       }
     } catch (error) {
       console.error('Error saving box score data:', error)
@@ -749,18 +700,26 @@ export default function GameEdit() {
 
   // Generate AI recap
   const handleGenerateRecap = async () => {
+    if (!user?.uid) return
+
     setIsGeneratingRecap(true)
     setRecapError(null)
     setStreamingRecap('')
 
     try {
-      const apiKey = getGeminiApiKey(user)
+      const apiKey = await getGeminiApiKey(user.uid)
       if (!apiKey) {
-        setRecapError('No API key configured')
+        setRecapError('No API key configured. Add your Gemini API key in AI Settings.')
         return
       }
 
-      const recap = await generateGameRecap({
+      // Fetch custom instructions and model preference
+      const customInstructions = await getCustomRecapInstructions(user.uid)
+      const model = await getGeminiModel(user.uid)
+
+      // Build game object for recap generation
+      const gameForRecap = {
+        ...gameData,
         team1: team1Name,
         team2: team2Name,
         team1Score: formData.team1Score,
@@ -769,9 +728,15 @@ export default function GameEdit() {
         gameType,
         bowlName,
         year: gameYear
-      }, apiKey, getCustomRecapInstructions(user))
+      }
 
-      setFormData(prev => ({ ...prev, aiRecap: recap }))
+      // Use streaming to show progress
+      const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
+        setStreamingRecap(partialText)
+      }, customInstructions, user.uid, model)
+
+      setFormData(prev => ({ ...prev, aiRecap: result.text }))
+      setStreamingRecap('')
     } catch (error) {
       setRecapError(error.message)
     } finally {
@@ -1039,24 +1004,15 @@ export default function GameEdit() {
           {/* Ratings - hidden for user team */}
           {!isTeam1UserTeam && (
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700">Team Ratings</label>
-                <button
-                  onClick={() => setTeam1RatingsLocked(!team1RatingsLocked)}
-                  className={`text-xs px-2 py-1 rounded ${team1RatingsLocked ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-600'}`}
-                >
-                  {team1RatingsLocked ? 'Unlock' : 'Editable'}
-                </button>
-              </div>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Team Ratings</label>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="number"
                     value={formData.team1Overall}
-                    onChange={(e) => !team1RatingsLocked && setFormData({ ...formData, team1Overall: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team1RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team1RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team1Overall: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1065,9 +1021,8 @@ export default function GameEdit() {
                   <input
                     type="number"
                     value={formData.team1Offense}
-                    onChange={(e) => !team1RatingsLocked && setFormData({ ...formData, team1Offense: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team1RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team1RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team1Offense: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1076,9 +1031,8 @@ export default function GameEdit() {
                   <input
                     type="number"
                     value={formData.team1Defense}
-                    onChange={(e) => !team1RatingsLocked && setFormData({ ...formData, team1Defense: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team1RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team1RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team1Defense: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1089,24 +1043,15 @@ export default function GameEdit() {
           {/* Record - hidden for user team */}
           {!isTeam1UserTeam && (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700">Season Record</label>
-                <button
-                  onClick={() => setTeam1RecordLocked(!team1RecordLocked)}
-                  className={`text-xs px-2 py-1 rounded ${team1RecordLocked ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-600'}`}
-                >
-                  {team1RecordLocked ? 'Unlock' : 'Editable'}
-                </button>
-              </div>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="text"
                     value={formData.team1Record}
-                    onChange={(e) => !team1RecordLocked && setFormData({ ...formData, team1Record: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team1RecordLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team1RecordLocked}
+                    onChange={(e) => setFormData({ ...formData, team1Record: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
                 </div>
@@ -1115,16 +1060,12 @@ export default function GameEdit() {
                   <input
                     type="text"
                     value={formData.team1ConfRecord}
-                    onChange={(e) => !team1RecordLocked && setFormData({ ...formData, team1ConfRecord: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team1RecordLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team1RecordLocked}
+                    onChange={(e) => setFormData({ ...formData, team1ConfRecord: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
                 </div>
               </div>
-              {team1RecordLocked && (
-                <p className="text-xs text-gray-500 mt-1">Auto-updates after save</p>
-              )}
             </div>
           )}
         </div>
@@ -1160,24 +1101,15 @@ export default function GameEdit() {
           {/* Ratings - hidden for user team */}
           {!isTeam2UserTeam && (
             <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700">Team Ratings</label>
-                <button
-                  onClick={() => setTeam2RatingsLocked(!team2RatingsLocked)}
-                  className={`text-xs px-2 py-1 rounded ${team2RatingsLocked ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-600'}`}
-                >
-                  {team2RatingsLocked ? 'Unlock' : 'Editable'}
-                </button>
-              </div>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Team Ratings</label>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="number"
                     value={formData.team2Overall}
-                    onChange={(e) => !team2RatingsLocked && setFormData({ ...formData, team2Overall: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team2RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team2RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team2Overall: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1186,9 +1118,8 @@ export default function GameEdit() {
                   <input
                     type="number"
                     value={formData.team2Offense}
-                    onChange={(e) => !team2RatingsLocked && setFormData({ ...formData, team2Offense: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team2RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team2RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team2Offense: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1197,9 +1128,8 @@ export default function GameEdit() {
                   <input
                     type="number"
                     value={formData.team2Defense}
-                    onChange={(e) => !team2RatingsLocked && setFormData({ ...formData, team2Defense: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team2RatingsLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team2RatingsLocked}
+                    onChange={(e) => setFormData({ ...formData, team2Defense: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     min="0" max="99"
                   />
                 </div>
@@ -1210,24 +1140,15 @@ export default function GameEdit() {
           {/* Record - hidden for user team */}
           {!isTeam2UserTeam && (
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700">Season Record</label>
-                <button
-                  onClick={() => setTeam2RecordLocked(!team2RecordLocked)}
-                  className={`text-xs px-2 py-1 rounded ${team2RecordLocked ? 'bg-gray-200 text-gray-600' : 'bg-blue-100 text-blue-600'}`}
-                >
-                  {team2RecordLocked ? 'Unlock' : 'Editable'}
-                </button>
-              </div>
+              <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="text"
                     value={formData.team2Record}
-                    onChange={(e) => !team2RecordLocked && setFormData({ ...formData, team2Record: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team2RecordLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team2RecordLocked}
+                    onChange={(e) => setFormData({ ...formData, team2Record: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
                 </div>
@@ -1236,16 +1157,12 @@ export default function GameEdit() {
                   <input
                     type="text"
                     value={formData.team2ConfRecord}
-                    onChange={(e) => !team2RecordLocked && setFormData({ ...formData, team2ConfRecord: e.target.value })}
-                    className={`w-full px-2 py-1 border rounded text-center ${team2RecordLocked ? 'bg-gray-100' : ''}`}
-                    disabled={team2RecordLocked}
+                    onChange={(e) => setFormData({ ...formData, team2ConfRecord: e.target.value })}
+                    className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
                 </div>
               </div>
-              {team2RecordLocked && (
-                <p className="text-xs text-gray-500 mt-1">Auto-updates after save</p>
-              )}
             </div>
           )}
         </div>

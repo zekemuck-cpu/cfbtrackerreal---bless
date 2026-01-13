@@ -49,6 +49,7 @@ import {
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
+import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
 
@@ -283,6 +284,246 @@ export function getCFPGames(dynasty, year) {
            type === GAME_TYPES.CFP_SEMIFINAL ||
            type === GAME_TYPES.CFP_CHAMPIONSHIP
   })
+}
+
+// ============================================================================
+// TEAM RECORD FUNCTIONS - Single source of truth for win/loss records
+// ============================================================================
+
+/**
+ * Get game order for sorting (week number with postseason handling)
+ * Used internally for "as of game" calculations
+ */
+function getGameOrderForRecord(game) {
+  if (!game) return 0
+  const type = detectGameType(game)
+  if (type === GAME_TYPES.CFP_CHAMPIONSHIP) return 23
+  if (type === GAME_TYPES.CFP_SEMIFINAL) return 22
+  if (type === GAME_TYPES.CFP_QUARTERFINAL) return 21
+  if (type === GAME_TYPES.CFP_FIRST_ROUND) return 20
+  if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 15
+  if (type === GAME_TYPES.BOWL) return game.week ? 14 + game.week : 14
+  return game.week || 0
+}
+
+/**
+ * Check if a game has valid scores for record calculation
+ */
+function hasValidScores(game) {
+  if (!game) return false
+  return (game.team1Score !== undefined && game.team2Score !== undefined) ||
+         (game.teamScore !== undefined && game.opponentScore !== undefined)
+}
+
+/**
+ * Get score info for a specific team in a game
+ * Handles both unified (team1Tid/team2Tid) and legacy formats
+ */
+function getTeamScoreInfo(game, tid, abbr = null) {
+  let teamScore, opponentScore
+
+  // Unified format
+  if (game.team1Tid !== undefined || game.team2Tid !== undefined) {
+    const isTeam1 = game.team1Tid === tid
+    teamScore = isTeam1 ? game.team1Score : game.team2Score
+    opponentScore = isTeam1 ? game.team2Score : game.team1Score
+  }
+  // Legacy user game format
+  else if (game.userTid === tid || (abbr && game.userTeam === abbr)) {
+    teamScore = game.teamScore
+    opponentScore = game.opponentScore
+  }
+  // Legacy opponent format
+  else if (game.opponentTid === tid || (abbr && game.opponent === abbr)) {
+    teamScore = game.opponentScore
+    opponentScore = game.teamScore
+  }
+
+  // Determine if conference game (regular season only)
+  const isConfGame = game.isConferenceGame &&
+    detectGameType(game) === GAME_TYPES.REGULAR
+
+  return { teamScore, opponentScore, isConfGame }
+}
+
+/**
+ * Calculate team record from games - the canonical calculation logic
+ * @param {Object} dynasty - Dynasty object
+ * @param {number} tid - Team ID
+ * @param {number} year - Year
+ * @param {Object} options - Optional filtering
+ * @param {string} options.upToGameId - Calculate record up to (but excluding) this game
+ * @param {number} options.upToWeek - Calculate record up to this week (inclusive)
+ * @param {boolean} options.includeUpToWeek - If true with upToWeek, include games at that week
+ * @returns {{ wins, losses, confWins, confLosses }}
+ */
+export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
+  if (!dynasty || !tid || !year) return { wins: 0, losses: 0, confWins: 0, confLosses: 0 }
+
+  const games = dynasty.games || []
+  const { upToGameId, upToWeek, includeUpToWeek = true } = options
+  const abbr = getAbbrFromTid(tid)
+
+  // Filter to year and team
+  let teamGames = games.filter(g => {
+    if (Number(g.year) !== Number(year)) return false
+
+    // Check if team is involved (multiple format checks)
+    const isInGame = g.team1Tid === tid || g.team2Tid === tid ||
+      g.userTid === tid || g.opponentTid === tid ||
+      g.userTeam === abbr || g.opponent === abbr
+
+    if (!isInGame) return false
+    if (!hasValidScores(g)) return false
+    return true
+  })
+
+  // Sort by game order for "as of" calculations
+  teamGames = teamGames.sort((a, b) => getGameOrderForRecord(a) - getGameOrderForRecord(b))
+
+  // Apply "up to" filters if specified
+  if (upToGameId) {
+    const idx = teamGames.findIndex(g => g.id === upToGameId)
+    if (idx >= 0) teamGames = teamGames.slice(0, idx)
+  }
+  if (upToWeek !== undefined) {
+    const targetOrder = upToWeek
+    teamGames = teamGames.filter(g => {
+      const order = getGameOrderForRecord(g)
+      return includeUpToWeek ? order <= targetOrder : order < targetOrder
+    })
+  }
+
+  let wins = 0, losses = 0
+  let confWins = 0, confLosses = 0
+
+  teamGames.forEach(g => {
+    const { teamScore, opponentScore, isConfGame } = getTeamScoreInfo(g, tid, abbr)
+
+    if (teamScore === undefined || opponentScore === undefined) return
+
+    if (teamScore > opponentScore) {
+      wins++
+      if (isConfGame) confWins++
+    } else if (teamScore < opponentScore) {
+      losses++
+      if (isConfGame) confLosses++
+    }
+    // No ties in college football - games always have a winner
+  })
+
+  return { wins, losses, confWins, confLosses }
+}
+
+/**
+ * Get the stored team record (single source of truth)
+ * Falls back to calculation if not stored
+ * @param {Object} dynasty - Dynasty object
+ * @param {number|string} tidOrAbbr - Team ID or abbreviation
+ * @param {number} year - Year
+ * @returns {{ wins, losses, confWins, confLosses } | null}
+ */
+export function getTeamRecord(dynasty, tidOrAbbr, year) {
+  if (!dynasty || !tidOrAbbr || !year) return null
+
+  // Handle abbr input for backward compatibility
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const abbr = getAbbrFromTid(tid)
+
+  // Try new tid-based structure first
+  const tidRecord = dynasty.teams?.[tid]?.byYear?.[year]?.record
+  if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
+    return tidRecord
+  }
+
+  // Try legacy structure
+  const legacyRecord = dynasty.teamRecordsByTeamYear?.[abbr]?.[year]
+  if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
+    return {
+      wins: legacyRecord.wins,
+      losses: legacyRecord.losses,
+      confWins: legacyRecord.confWins || 0,
+      confLosses: legacyRecord.confLosses || 0
+    }
+  }
+
+  // Calculate from games as fallback
+  return calculateTeamRecordFromGames(dynasty, tid, year)
+}
+
+/**
+ * Get record for current user team and year
+ * Convenience wrapper for dashboard/ticker usage
+ */
+export function getCurrentTeamRecord(dynasty) {
+  if (!dynasty) return null
+  const tid = getCurrentTeamTid(dynasty)
+  const year = dynasty.currentYear
+  if (!tid || !year) return null
+  return getTeamRecord(dynasty, tid, year)
+}
+
+/**
+ * Get team record as of the end of a specific game
+ * For Game.jsx display showing "record after this game"
+ * @param {Object} dynasty - Dynasty object
+ * @param {Object} game - The game object
+ * @param {number} tid - Team to get record for
+ * @returns {{ overall: string, conference: string, wins: number, losses: number }}
+ */
+export function getRecordAsOfGame(dynasty, game, tid) {
+  if (!dynasty || !game || !tid) return { overall: '0-0', conference: '0-0', wins: 0, losses: 0 }
+
+  // Calculate including this game by using upToWeek with the game's order
+  const gameOrder = getGameOrderForRecord(game)
+  const record = calculateTeamRecordFromGames(dynasty, tid, game.year, {
+    upToWeek: gameOrder,
+    includeUpToWeek: true
+  })
+
+  return {
+    overall: `${record.wins}-${record.losses}`,
+    conference: `${record.confWins}-${record.confLosses}`,
+    wins: record.wins,
+    losses: record.losses,
+    confWins: record.confWins,
+    confLosses: record.confLosses
+  }
+}
+
+/**
+ * Build update payload for team records after a game save
+ * Call this from game save logic to update the stored records
+ * @param {Object} dynasty - Dynasty object (with updated games array)
+ * @param {number} tid - Team ID
+ * @param {number} year - Year
+ * @returns {Object} Updates object for updateDynasty()
+ */
+export function buildRecordUpdatePayload(dynasty, tid, year) {
+  if (!dynasty || !tid || !year) return {}
+
+  const record = calculateTeamRecordFromGames(dynasty, tid, year)
+  const abbr = getAbbrFromTid(tid)
+
+  if (!abbr) return {}
+
+  record.lastUpdated = new Date().toISOString()
+
+  // Build updates for both structures (for backward compatibility)
+  const updates = {}
+
+  // New tid-based structure
+  updates[`teams.${tid}.byYear.${year}.record`] = record
+
+  // Legacy structure
+  updates[`teamRecordsByTeamYear.${abbr}.${year}`] = {
+    wins: record.wins,
+    losses: record.losses,
+    confWins: record.confWins,
+    confLosses: record.confLosses
+  }
+
+  return updates
 }
 
 /**
@@ -2311,7 +2552,7 @@ export function migrateCoachTeamByYear(dynasty) {
 
     // Fallback 2: Try to get tid from any game in the current year
     if (!currentTid && migrated.games) {
-      const currentYearGame = migrated.games.find(g => g.year === currentYear || g.year === String(currentYear))
+      const currentYearGame = migrated.games.find(g => isSameYear(g.year, currentYear))
       if (currentYearGame) {
         currentTid = currentYearGame.userTid || getTidFromAbbr(currentYearGame.userTeam)
       }
@@ -5272,17 +5513,17 @@ export function DynastyProvider({ children }) {
     if (dynasty.currentPhase === 'regular_season') {
       // Remove regular season game for current week
       updatedGames = updatedGames.filter(g =>
-        !(g.week === dynasty.currentWeek && g.year === year && !g.isConferenceChampionship)
+        !(isSameWeek(g.week, dynasty.currentWeek) && isSameYear(g.year, year) && !g.isConferenceChampionship)
       )
     } else if (dynasty.currentPhase === 'conference_championship') {
       // Remove CC game from games array
       updatedGames = updatedGames.filter(g =>
-        !(g.isConferenceChampionship && g.year === year)
+        !(g.isConferenceChampionship && isSameYear(g.year, year))
       )
 
       // Restore fired coordinators if any were fired during this CC phase
       const ccData = dynasty.conferenceChampionshipData
-      if (ccData && ccData.year === year) {
+      if (ccData && isSameYear(ccData.year, year)) {
         // Restore coordinator names that were fired
         if (ccData.firedOCName || ccData.firedDCName) {
           const restoredStaff = { ...dynasty.coachingStaff }
@@ -5320,8 +5561,8 @@ export function DynastyProvider({ children }) {
 
         // Remove user's CFP First Round game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
-          !(g.isCFPFirstRound && g.year === year) &&
-          !(g.isBowlGame && g.year === year && g.bowlWeek === 'week1')
+          !(g.isCFPFirstRound && isSameYear(g.year, year)) &&
+          !(g.isBowlGame && isSameYear(g.year, year) && g.bowlWeek === 'week1')
         )
 
         // Clear conference championships data
@@ -5362,8 +5603,8 @@ export function DynastyProvider({ children }) {
 
         // Remove user's CFP Quarterfinal game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
-          !(g.isCFPQuarterfinal && g.year === year) &&
-          !(g.isBowlGame && g.year === year && g.bowlWeek === 'week2')
+          !(g.isCFPQuarterfinal && isSameYear(g.year, year)) &&
+          !(g.isBowlGame && isSameYear(g.year, year) && g.bowlWeek === 'week2')
         )
 
         // Clear Bowl Week 2 results
@@ -5388,8 +5629,8 @@ export function DynastyProvider({ children }) {
 
         // Remove user's CFP Semifinal game and bowl game from games array
         updatedGames = updatedGames.filter(g =>
-          !(g.isCFPSemifinal && g.year === year) &&
-          !(g.isBowlGame && g.year === year && g.bowlWeek === 'week3')
+          !(g.isCFPSemifinal && isSameYear(g.year, year)) &&
+          !(g.isBowlGame && isSameYear(g.year, year) && g.bowlWeek === 'week3')
         )
 
         // Clear Bowl Week 3 results (if exists)
@@ -5414,7 +5655,7 @@ export function DynastyProvider({ children }) {
 
         // Remove user's CFP Championship game from games array
         updatedGames = updatedGames.filter(g =>
-          !(g.isCFPChampionship && g.year === year)
+          !(g.isCFPChampionship && isSameYear(g.year, year))
         )
 
         // Clear CFP Championship results

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamRecord } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -11,6 +11,7 @@ import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRou
 import RosterEditModal from '../../components/RosterEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { isSameYear } from '../../utils/compareUtils'
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -390,7 +391,7 @@ export default function TeamYear() {
   // Uses perspective to find games where user's team played against this team
   const teams = currentDynasty?.teams || TEAMS
   const vsUserGames = (currentDynasty.games || [])
-    .filter(g => g.year === selectedYear)
+    .filter(g => isSameYear(g.year, selectedYear))
     .map(g => {
       const perspective = getUserGamePerspective(g, currentDynasty)
       return perspective ? { ...g, perspective } : null
@@ -735,13 +736,34 @@ export default function TeamYear() {
     ...teamCFPGamesConverted
   ]
 
-  // Deduplicate by game ID - games from games[] array come first, so they take precedence
+  // Sort combined games to prefer games with actual scores over 0-0 games
+  // This ensures deduplication keeps the better record
+  const sortedForDedup = [...combinedGames].sort((a, b) => {
+    // Games with actual scores come first (non-zero total)
+    const aHasScores = (a.teamScore || 0) + (a.opponentScore || 0) > 0
+    const bHasScores = (b.teamScore || 0) + (b.opponentScore || 0) > 0
+    if (aHasScores && !bHasScores) return -1
+    if (!aHasScores && bHasScores) return 1
+    return 0
+  })
+
+  // Deduplicate by game ID AND by week+opponent combination
+  // This catches duplicate games that have different IDs but same matchup
   const seenIds = new Set()
-  const teamYearGames = combinedGames
+  const seenWeekOpponent = new Set()
+  const teamYearGames = sortedForDedup
     .filter(g => {
-      if (!g.id) return true // Keep games without IDs
-      if (seenIds.has(g.id)) return false // Skip duplicate IDs
-      seenIds.add(g.id)
+      // Deduplicate by game ID
+      if (g.id && seenIds.has(g.id)) return false
+      if (g.id) seenIds.add(g.id)
+
+      // Also deduplicate by week + opponent to catch duplicate records with different IDs
+      const oppAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
+      const weekOpponentKey = `${g.week}-${oppAbbr}`
+      if (seenWeekOpponent.has(weekOpponentKey)) {
+        return false // We already have a game for this week+opponent (and it has better/equal data due to sorting)
+      }
+      seenWeekOpponent.add(weekOpponentKey)
       return true
     })
     .sort((a, b) => getGameSortOrder(a) - getGameSortOrder(b))
@@ -756,51 +778,12 @@ export default function TeamYear() {
     return result === 'loss' || result === 'L'
   }).length
 
-  // Get team record from conference standings (for teams without detailed game data)
-  const getTeamRecordFromStandings = () => {
-    const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
-    const yearStandings = standingsByYear[selectedYear] || {}
-
-    // Search all conferences for this team
-    for (const confTeams of Object.values(yearStandings)) {
-      if (Array.isArray(confTeams)) {
-        const teamData = confTeams.find(t => t && t.team === teamAbbr)
-        if (teamData) {
-          return {
-            wins: teamData.wins || 0,
-            losses: teamData.losses || 0,
-            pointsFor: teamData.pointsFor || 0,
-            pointsAgainst: teamData.pointsAgainst || 0
-          }
-        }
-      }
-    }
-    return null
-  }
-
-  const standingsRecord = getTeamRecordFromStandings()
-
-  // Calculate record using getUserGamePerspective (same approach as TeamStats)
-  // This is the most reliable method for user's coached team
-  const getRecordFromPerspective = () => {
-    const games = currentDynasty.games || []
-    const gamesWithPerspective = games
-      .filter(g => Number(g.year) === Number(selectedYear))
-      .map(g => {
-        const perspective = getUserGamePerspective(g, currentDynasty)
-        return perspective ? { ...g, perspective } : null
-      })
-      .filter(g => g && g.perspective?.userTid === tid)
-
-    if (gamesWithPerspective.length === 0) return null
-
-    const wins = gamesWithPerspective.filter(g => g.perspective?.userWon).length
-    const losses = gamesWithPerspective.filter(g => g.perspective && !g.perspective.userWon).length
-
-    return { wins, losses, pointsFor: null, pointsAgainst: null }
-  }
-
-  const perspectiveRecord = getRecordFromPerspective()
+  // Use centralized single-source-of-truth record
+  // The getTeamRecord function handles the fallback chain:
+  // 1. New tid-based structure (teams[tid].byYear[year].record)
+  // 2. Legacy structure (teamRecordsByTeamYear)
+  // 3. Calculate from games
+  const centralizedRecord = getTeamRecord(currentDynasty, tid, selectedYear)
 
   // Get the last known opponent record from games where this team was the opponent
   // This gives us the most recent record entered by the user during game input
@@ -945,29 +928,14 @@ export default function TeamYear() {
 
   const seasonStats = getSeasonTeamStats()
 
-  // Determine which record to display
-  // Priority: 1. Manual override, 2. Conference standings (end of year), 3. Calculated from games
-  // Note: We NO LONGER use lastKnownRecord as it's misleading (shows record at time of game, not full season)
-  const manualRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
-  const displayRecord = (() => {
-    // Manual override takes priority
-    if (manualRecord) {
-      return { wins: manualRecord.wins, losses: manualRecord.losses, pointsFor: null, pointsAgainst: null }
-    }
-    // Perspective-based record (same as TeamStats) - most reliable for user's coached teams
-    if (perspectiveRecord) {
-      return perspectiveRecord
-    }
-    // Conference standings (only if they have actual games recorded)
-    if (standingsRecord && (standingsRecord.wins > 0 || standingsRecord.losses > 0)) {
-      return standingsRecord
-    }
-    // Fall back to calculating from teamYearGames result field
-    if (teamYearGames.length > 0) {
-      return { wins: teamWins, losses: teamLosses, pointsFor: null, pointsAgainst: null }
-    }
-    return null
-  })()
+  // Use the centralized record as the single source of truth
+  // The centralized function already handles the fallback chain internally
+  const displayRecord = centralizedRecord ? {
+    wins: centralizedRecord.wins,
+    losses: centralizedRecord.losses,
+    pointsFor: null,
+    pointsAgainst: null
+  } : null
 
   // Get team ratings for this year
   const teamRatings = currentDynasty.teamRatingsByTeamYear?.[teamAbbr]?.[selectedYear] || null
@@ -1018,7 +986,7 @@ export default function TeamYear() {
   // UNIFIED: First check games[] array, then fallback to bowlGamesByYear
   // Exclude CFP games - they have their own badges
   const bowlGamesFromGames = allGamesArray.filter(g =>
-    g.isBowlGame && g.year === selectedYear &&
+    g.isBowlGame && isSameYear(g.year, selectedYear) &&
     (g.team1 === teamAbbr || g.team2 === teamAbbr) &&
     g.team1Score !== null && g.team1Score !== undefined &&
     !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship &&

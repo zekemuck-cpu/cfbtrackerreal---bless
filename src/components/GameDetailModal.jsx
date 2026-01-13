@@ -3,7 +3,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/te
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, getRecordAsOfGame } from '../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getBowlLogo } from '../data/bowlLogos'
 import { getConferenceLogo } from '../data/conferenceLogos'
@@ -97,65 +97,11 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   // Get user team ratings
   const userRatings = currentDynasty?.teamRatings || {}
 
-  // Calculate user's record up to and including this game
-  const calculateUserRecord = () => {
-    const allGames = currentDynasty?.games || []
-    // Filter to same year only
-    const yearGames = allGames.filter(g => Number(g.year) === Number(game.year))
-
-    // Helper to get game order for sorting
-    const getGameOrder = (g) => {
-      // Regular season games (weeks 1-14)
-      if (typeof g.week === 'number' && g.week >= 1 && g.week <= 14 &&
-          !g.isConferenceChampionship && !g.isBowlGame &&
-          !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) {
-        return g.week
-      }
-      // Conference Championship
-      if (g.isConferenceChampionship) return 15
-      // Bowl games (non-CFP)
-      if (g.isBowlGame && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) {
-        return 16 + (parseInt(String(g.bowlWeek).replace('week', '') || '0'))
-      }
-      // CFP First Round
-      if (g.isCFPFirstRound) return 20
-      // CFP Quarterfinal
-      if (g.isCFPQuarterfinal) return 21
-      // CFP Semifinal
-      if (g.isCFPSemifinal) return 22
-      // CFP Championship
-      if (g.isCFPChampionship) return 23
-      // Default - treat as regular season
-      return g.week || 0
-    }
-
-    const currentGameOrder = getGameOrder(game)
-
-    // Get all games up to and including this game
-    const gamesUpToThis = yearGames.filter(g => getGameOrder(g) <= currentGameOrder)
-
-    // Helper to get win status from game using perspective
-    const isGameWin = (g) => {
-      const gPerspective = getUserGamePerspective(g, currentDynasty)
-      if (gPerspective) return gPerspective.userWon === true
-      return g.result === 'win' || g.result === 'W'
-    }
-
-    const wins = gamesUpToThis.filter(g => isGameWin(g)).length
-    const losses = gamesUpToThis.filter(g => !isGameWin(g)).length
-
-    // Conference record - only regular season conference games
-    const confGames = gamesUpToThis.filter(g => g.isConferenceGame && !g.isConferenceChampionship)
-    const confWins = confGames.filter(g => isGameWin(g)).length
-    const confLosses = confGames.filter(g => !isGameWin(g)).length
-
-    return {
-      overall: `${wins}-${losses}`,
-      conference: `${confWins}-${confLosses}`
-    }
-  }
-
-  const userRecord = calculateUserRecord()
+  // Get user's record as of this game using centralized single-source-of-truth
+  const userRecord = (() => {
+    if (isCPUGame || !perspective) return { overall: '', conference: '' }
+    return getRecordAsOfGame(currentDynasty, game, perspective.userTid)
+  })()
 
   // Calculate opponent's record after this game
   const calculateOpponentRecord = () => {

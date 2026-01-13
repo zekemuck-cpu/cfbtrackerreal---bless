@@ -174,6 +174,28 @@ Resolves team abbreviations from multiple sources:
 
 ---
 
+## Team Record System (Single Source of Truth)
+
+All team win/loss records use a centralized system. **Do NOT calculate records inline** - use these functions from `DynastyContext.jsx`:
+
+| Function | Purpose |
+|----------|---------|
+| `getTeamRecord(dynasty, tid, year)` | Get stored record for any team/year |
+| `getCurrentTeamRecord(dynasty)` | Get current user team's record |
+| `getRecordAsOfGame(dynasty, game, tid)` | Get record at end of specific game |
+| `calculateTeamRecordFromGames()` | Internal calculation (fallback) |
+| `buildRecordUpdatePayload()` | Creates update payload for game saves |
+
+**Storage locations** (both updated for backward compatibility):
+- `dynasty.teams[tid].byYear[year].record` - New tid-based structure
+- `dynasty.teamRecordsByTeamYear[abbr][year]` - Legacy structure
+
+**Automatic updates**: When a game is saved via `GameEdit.jsx`, records are automatically recalculated for both teams involved.
+
+**Important**: College football has no ties. Records are always `wins-losses` format (e.g., "8-4").
+
+---
+
 ## Important Notes
 
 ### Firestore Updates
