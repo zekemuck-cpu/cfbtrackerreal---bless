@@ -9,6 +9,7 @@ import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
 // GameDetailModal and GameEntryModal removed - now using game pages
 import RosterEditModal from '../../components/RosterEditModal'
+import ScheduleEntryModal from '../../components/ScheduleEntryModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
@@ -217,7 +218,7 @@ const AWARD_ORDER = [
 export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
   const pathPrefix = usePathPrefix()
   // Note: We use the viewed team's colors, not the user's team colors
   const selectedYear = parseInt(year)
@@ -240,6 +241,7 @@ export default function TeamYear() {
   const [positionFilter, setPositionFilter] = useState('all') // 'all', 'QB', 'RB', 'WR', etc.
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
   const [showTeamEditModal, setShowTeamEditModal] = useState(false)
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [editWins, setEditWins] = useState('')
   const [editLosses, setEditLosses] = useState('')
   const [editConference, setEditConference] = useState('')
@@ -2335,37 +2337,55 @@ export default function TeamYear() {
             style={{ backgroundColor: teamInfo.textColor }}
             onClick={() => setScheduleCollapsed(!scheduleCollapsed)}
           >
-            <div className="flex items-center gap-2">
-              {/* Collapse/Expand Button */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setScheduleCollapsed(!scheduleCollapsed)
-                }}
-                className="p-1 rounded hover:opacity-70 transition-opacity"
-                style={{ color: teamPrimaryText }}
-              >
-                <svg
-                  className={`w-5 h-5 transition-transform ${scheduleCollapsed ? '' : 'rotate-90'}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {/* Collapse/Expand Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setScheduleCollapsed(!scheduleCollapsed)
+                  }}
+                  className="p-1 rounded hover:opacity-70 transition-opacity"
+                  style={{ color: teamPrimaryText }}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-              <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
-                {selectedYear} Schedule
-              </h2>
-              <span
-                className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
-                style={{
-                  backgroundColor: teamInfo.backgroundColor,
-                  color: teamBgText
-                }}
-              >
-                {teamYearGames.length} Games
-              </span>
+                  <svg
+                    className={`w-5 h-5 transition-transform ${scheduleCollapsed ? '' : 'rotate-90'}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
+                  {selectedYear} Schedule
+                </h2>
+                <span
+                  className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
+                  style={{
+                    backgroundColor: teamInfo.backgroundColor,
+                    color: teamBgText
+                  }}
+                >
+                  {teamYearGames.length} Games
+                </span>
+              </div>
+              {/* Edit Schedule Button */}
+              {!isViewOnly && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowScheduleModal(true)
+                  }}
+                  className="p-1.5 sm:p-2 rounded-lg hover:opacity-70 transition-opacity"
+                  style={{ color: teamPrimaryText }}
+                  title="Edit Schedule"
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -3150,6 +3170,25 @@ export default function TeamYear() {
           </div>
         </div>
       )}
+
+      {/* Schedule Entry Modal */}
+      <ScheduleEntryModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onSave={async (schedule) => {
+          await saveSchedule(currentDynasty.id, schedule, {
+            teamTid: tid,
+            year: selectedYear
+          })
+        }}
+        currentYear={selectedYear}
+        teamColors={{
+          primary: teamInfo.backgroundColor,
+          secondary: teamInfo.textColor
+        }}
+        teamTid={tid}
+        teamName={mascotName || teamAbbr}
+      />
     </div>
   )
 }

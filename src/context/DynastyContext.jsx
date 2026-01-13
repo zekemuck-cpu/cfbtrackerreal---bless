@@ -1316,6 +1316,33 @@ export function getCurrentSchedule(dynasty) {
 }
 
 /**
+ * Get schedule for any team and year
+ * Used for editing schedules for teams other than the current user's team
+ * @param {Object} dynasty - The dynasty object
+ * @param {number|string} tidOrAbbr - Team ID (tid) or abbreviation
+ * @param {number|string} year - The year to get schedule for
+ */
+export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
+  if (!dynasty || !tidOrAbbr || !year) return []
+
+  // Resolve tid and abbr
+  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(tidOrAbbr)
+
+  // Try NEW tid-based byYear structure first
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.schedule) {
+    return dynasty.teams[tid].byYear[year].schedule
+  }
+
+  // Try old team-centric structure (schedulesByTeamYear)
+  if (teamAbbr && dynasty.schedulesByTeamYear?.[teamAbbr]?.[year]) {
+    return dynasty.schedulesByTeamYear[teamAbbr][year]
+  }
+
+  return []
+}
+
+/**
  * UNIFIED ROSTER MEMBERSHIP CHECK - Single source of truth
  * Check if a player is on a specific team's roster for a given year.
  * Uses teamsByYear as the ONLY source of truth for roster membership.
@@ -5911,7 +5938,7 @@ export function DynastyProvider({ children }) {
     })
   }
 
-  const saveSchedule = async (dynastyId, schedule) => {
+  const saveSchedule = async (dynastyId, schedule, options = {}) => {
     // CRITICAL: Read from localStorage to get the latest data
     const isDev = import.meta.env.VITE_DEV_MODE === 'true'
     let dynasty
@@ -5931,10 +5958,16 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // Get current team abbreviation and year for team-centric storage
-    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-    const year = dynasty.currentYear
-    const tid = getTidFromAbbr(teamAbbr)
+    // Get team and year - use provided values or fall back to current user's team
+    const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+    const targetTid = options.teamTid || getTidFromAbbr(userTeamAbbr)
+    const targetYear = options.year || dynasty.currentYear
+    const teamAbbr = options.teamTid ? getAbbrFromTid(options.teamTid) : userTeamAbbr
+    const year = targetYear
+    const tid = targetTid
+
+    // Determine if this is the user's current team and year (for preseason setup tracking)
+    const isUserCurrentTeamYear = !options.teamTid && !options.year
 
     // Build team-centric schedule storage (old structure)
     const existingSchedulesByTeamYear = dynasty.schedulesByTeamYear || {}
@@ -5952,64 +5985,75 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const scheduleUpdates = isDev || !user
-      ? {
-          // Store in NEW tid-based byYear structure
-          teams: {
-            ...existingTeams,
-            [tid]: {
-              ...existingTeamData,
-              byYear: {
-                ...existingByYear,
-                [year]: {
-                  ...existingYearData,
-                  schedule,
-                  preseasonSetup: {
-                    ...existingYearSetup,
-                    scheduleEntered: true
-                  }
+    // Base updates - always save to team-specific structures
+    let scheduleUpdates
+
+    if (isDev || !user) {
+      scheduleUpdates = {
+        // Store in NEW tid-based byYear structure
+        teams: {
+          ...existingTeams,
+          [tid]: {
+            ...existingTeamData,
+            byYear: {
+              ...existingByYear,
+              [year]: {
+                ...existingYearData,
+                schedule,
+                preseasonSetup: {
+                  ...existingYearSetup,
+                  scheduleEntered: true
                 }
               }
             }
-          },
-          // Store in old team-centric structure (for backward compatibility)
-          schedulesByTeamYear: {
-            ...existingSchedulesByTeamYear,
-            [teamAbbr]: {
-              ...teamSchedules,
-              [year]: schedule
+          }
+        },
+        // Store in old team-centric structure (for backward compatibility)
+        schedulesByTeamYear: {
+          ...existingSchedulesByTeamYear,
+          [teamAbbr]: {
+            ...teamSchedules,
+            [year]: schedule
+          }
+        },
+        // Update old team-centric preseason setup
+        preseasonSetupByTeamYear: {
+          ...existingPreseasonSetupByTeamYear,
+          [teamAbbr]: {
+            ...teamSetups,
+            [year]: {
+              ...currentSetup,
+              scheduleEntered: true
             }
-          },
-          // Also update legacy schedule for backwards compatibility
-          schedule,
-          // Update old team-centric preseason setup
-          preseasonSetupByTeamYear: {
-            ...existingPreseasonSetupByTeamYear,
-            [teamAbbr]: {
-              ...teamSetups,
-              [year]: {
-                ...currentSetup,
-                scheduleEntered: true
-              }
-            }
-          },
-          // Also update legacy preseason setup
-          preseasonSetup: {
-            ...(dynasty.preseasonSetup || {}),
-            scheduleEntered: true
           }
         }
-      : {
-          // Firestore: use dot notation for nested updates
-          // NEW tid-based byYear structure
-          [`teams.${tid}.byYear.${year}.schedule`]: schedule,
-          [`teams.${tid}.byYear.${year}.preseasonSetup.scheduleEntered`]: true,
-          // Old structures (for backward compatibility)
-          [`schedulesByTeamYear.${teamAbbr}.${year}`]: schedule,
-          schedule,
-          [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true,
-          'preseasonSetup.scheduleEntered': true
+      }
+
+      // Only update legacy root-level schedule and preseason for user's current team
+      if (isUserCurrentTeamYear) {
+        scheduleUpdates.schedule = schedule
+        scheduleUpdates.preseasonSetup = {
+          ...(dynasty.preseasonSetup || {}),
+          scheduleEntered: true
         }
+      }
+    } else {
+      // Firestore: use dot notation for nested updates
+      scheduleUpdates = {
+        // NEW tid-based byYear structure
+        [`teams.${tid}.byYear.${year}.schedule`]: schedule,
+        [`teams.${tid}.byYear.${year}.preseasonSetup.scheduleEntered`]: true,
+        // Old structures (for backward compatibility)
+        [`schedulesByTeamYear.${teamAbbr}.${year}`]: schedule,
+        [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true
+      }
+
+      // Only update legacy root-level schedule and preseason for user's current team
+      if (isUserCurrentTeamYear) {
+        scheduleUpdates.schedule = schedule
+        scheduleUpdates['preseasonSetup.scheduleEntered'] = true
+      }
+    }
 
     await updateDynasty(dynastyId, scheduleUpdates)
   }

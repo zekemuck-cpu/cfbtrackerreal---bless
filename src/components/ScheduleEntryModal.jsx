@@ -7,11 +7,17 @@ import {
   deleteGoogleSheet,
   getSingleSheetEmbedUrl
 } from '../services/sheetsService'
-import { useDynasty, getCurrentSchedule } from '../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleForTeam } from '../context/DynastyContext'
+import { getAbbrFromTid } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 
-export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
+export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors, teamTid, teamName }) {
   const { currentDynasty, updateDynasty } = useDynasty()
+
+  // Resolve team name for display - use provided teamName or fall back to dynasty team
+  const displayTeamName = teamName || currentDynasty?.teamName || 'Dynasty'
+  // Resolve team abbreviation for the sheet
+  const targetTeamAbbr = teamTid ? getAbbrFromTid(teamTid) : (currentDynasty?.teamName || '')
   const { user, signOut, refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -80,13 +86,16 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
         setCreatingSheet(true)
         try {
           // Get existing schedule to pre-fill the sheet
-          const existingSchedule = getCurrentSchedule(currentDynasty) || []
+          // Use team-specific schedule if teamTid is provided, otherwise use current team's schedule
+          const existingSchedule = teamTid
+            ? getScheduleForTeam(currentDynasty, teamTid, currentYear) || []
+            : getCurrentSchedule(currentDynasty) || []
 
           // Always create a fresh sheet, but pre-fill with existing data if available
           const sheetInfo = await createScheduleSheet(
-            currentDynasty?.teamName || 'Dynasty',
+            displayTeamName,
             currentYear,
-            currentDynasty?.teamName || '',
+            targetTeamAbbr,
             existingSchedule,
             currentDynasty?.teams || currentDynasty?.customTeams
           )
@@ -106,7 +115,7 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote])
+  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, retryCount, showDeletedNote, teamTid, currentYear, displayTeamName, targetTeamAbbr])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -219,7 +228,7 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
-            Schedule Entry
+            {teamTid ? `${displayTeamName} ${currentYear} Schedule` : 'Schedule Entry'}
           </h2>
           <button
             onClick={handleClose}
