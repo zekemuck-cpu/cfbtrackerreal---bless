@@ -311,6 +311,26 @@ export default function GameEdit() {
   const isConferenceGame = team1Conference && team2Conference &&
     team1Conference === team2Conference && team1Conference !== 'Independent'
 
+  // Display order: Away team on left/top, Home team on right/bottom
+  // location 'home' = team1 is home, 'away' = team2 is home, 'neutral' = keep order
+  const isTeam1Home = formData.location === 'home'
+  const isTeam2Home = formData.location === 'away'
+
+  // Display variables - swap order so away is always first (left/top) and home is always second (right/bottom)
+  const displayLeftTeam = isTeam1Home ? 'team2' : 'team1'
+  const displayRightTeam = isTeam1Home ? 'team1' : 'team2'
+
+  const leftTeamTid = isTeam1Home ? team2Tid : team1Tid
+  const rightTeamTid = isTeam1Home ? team1Tid : team2Tid
+  const leftTeamName = isTeam1Home ? team2Name : team1Name
+  const rightTeamName = isTeam1Home ? team1Name : team2Name
+  const leftTeamAbbr = isTeam1Home ? team2Abbr : team1Abbr
+  const rightTeamAbbr = isTeam1Home ? team1Abbr : team2Abbr
+  const leftTeamLogo = isTeam1Home ? team2Logo : team1Logo
+  const rightTeamLogo = isTeam1Home ? team1Logo : team2Logo
+  const leftTeamColors = isTeam1Home ? team2Colors : team1Colors
+  const rightTeamColors = isTeam1Home ? team1Colors : team2Colors
+
   // Calculate team records - uses centralized function, excludes current game being edited
   const calculateTeamRecord = (tid, year) => {
     if (!currentDynasty?.games || !tid) return ''
@@ -768,8 +788,8 @@ export default function GameEdit() {
     )
   }
 
-  // Header gradient
-  const headerGradient = `linear-gradient(135deg, ${team1Colors.primary} 0%, ${team1Colors.primary} 50%, ${team2Colors.primary} 50%, ${team2Colors.primary} 100%)`
+  // Header gradient - uses display order (away on left, home on right)
+  const headerGradient = `linear-gradient(135deg, ${leftTeamColors.primary} 0%, ${leftTeamColors.primary} 50%, ${rightTeamColors.primary} 50%, ${rightTeamColors.primary} 100%)`
 
   return (
     <div className="space-y-4">
@@ -809,20 +829,20 @@ export default function GameEdit() {
           </button>
         </div>
 
-        {/* Scoreboard */}
+        {/* Scoreboard - Away team on left, Home team on right */}
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center justify-center gap-4 sm:gap-8">
-            {/* Team 1 */}
+            {/* Left Team (Away) */}
             <div className="flex-1 text-center">
               <div className="flex flex-col items-center gap-2">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-2 shadow-lg">
-                  {team1Logo && <img src={team1Logo} alt={team1Name} className="w-full h-full object-contain" />}
+                  {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
                 </div>
                 <div className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[160px]">
-                  {team1Name}
+                  {leftTeamName}
                 </div>
-                {formData.team1Rank && (
-                  <div className="text-yellow-400 text-xs">#{formData.team1Rank}</div>
+                {formData[`${displayLeftTeam}Rank`] && (
+                  <div className="text-yellow-400 text-xs">#{formData[`${displayLeftTeam}Rank`]}</div>
                 )}
               </div>
             </div>
@@ -831,36 +851,36 @@ export default function GameEdit() {
             <div className="flex items-center gap-3 sm:gap-4">
               <input
                 type="number"
-                value={formData.team1Score}
-                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, team1Score: e.target.value })}
+                value={formData[`${displayLeftTeam}Score`]}
+                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
                 className={`w-16 sm:w-20 text-2xl sm:text-4xl font-bold text-center bg-gray-800 border-2 rounded-lg py-2 ${hasQuarterScores() ? 'text-gray-400 cursor-not-allowed' : 'text-white'}`}
-                style={{ borderColor: team1Colors.primary }}
+                style={{ borderColor: leftTeamColors.primary }}
                 disabled={hasQuarterScores()}
                 min="0"
               />
               <span className="text-white text-xl sm:text-2xl font-bold">-</span>
               <input
                 type="number"
-                value={formData.team2Score}
-                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, team2Score: e.target.value })}
+                value={formData[`${displayRightTeam}Score`]}
+                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
                 className={`w-16 sm:w-20 text-2xl sm:text-4xl font-bold text-center bg-gray-800 border-2 rounded-lg py-2 ${hasQuarterScores() ? 'text-gray-400 cursor-not-allowed' : 'text-white'}`}
-                style={{ borderColor: team2Colors.primary }}
+                style={{ borderColor: rightTeamColors.primary }}
                 disabled={hasQuarterScores()}
                 min="0"
               />
             </div>
 
-            {/* Team 2 */}
+            {/* Right Team (Home) */}
             <div className="flex-1 text-center">
               <div className="flex flex-col items-center gap-2">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-2 shadow-lg">
-                  {team2Logo && <img src={team2Logo} alt={team2Name} className="w-full h-full object-contain" />}
+                  {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
                 </div>
                 <div className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[160px]">
-                  {team2Name}
+                  {rightTeamName}
                 </div>
-                {formData.team2Rank && (
-                  <div className="text-yellow-400 text-xs">#{formData.team2Rank}</div>
+                {formData[`${displayRightTeam}Rank`] && (
+                  <div className="text-yellow-400 text-xs">#{formData[`${displayRightTeam}Rank`]}</div>
                 )}
               </div>
             </div>
@@ -885,49 +905,49 @@ export default function GameEdit() {
               <div className="text-xs font-semibold text-gray-600 text-center">Total</div>
             </div>
 
-            {/* Team 1 Row */}
+            {/* Away Team Row (left/top) */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr repeat(4, 50px) 60px' }}>
               <div className="flex items-center gap-2">
-                {team1Logo && <img src={team1Logo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate">{team1Abbr}</span>
+                {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-6 h-6 object-contain" />}
+                <span className="text-sm font-medium truncate">{leftTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
                 <input
                   key={q}
                   type="number"
-                  value={formData.quarters?.team1?.[q] ?? ''}
-                  onChange={(e) => handleQuarterChange('team1', q, e.target.value)}
+                  value={formData.quarters?.[displayLeftTeam]?.[q] ?? ''}
+                  onChange={(e) => handleQuarterChange(displayLeftTeam, q, e.target.value)}
                   className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                  style={{ borderColor: team1Colors.primary }}
+                  style={{ borderColor: leftTeamColors.primary }}
                   min="0"
                   placeholder="0"
                 />
               ))}
-              <div className="text-center font-bold text-lg" style={{ color: team1Colors.primary }}>
-                {formData.team1Score || '0'}
+              <div className="text-center font-bold text-lg" style={{ color: leftTeamColors.primary }}>
+                {formData[`${displayLeftTeam}Score`] || '0'}
               </div>
             </div>
 
-            {/* Team 2 Row */}
+            {/* Home Team Row (right/bottom) */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr repeat(4, 50px) 60px' }}>
               <div className="flex items-center gap-2">
-                {team2Logo && <img src={team2Logo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate">{team2Abbr}</span>
+                {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-6 h-6 object-contain" />}
+                <span className="text-sm font-medium truncate">{rightTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
                 <input
                   key={q}
                   type="number"
-                  value={formData.quarters?.team2?.[q] ?? ''}
-                  onChange={(e) => handleQuarterChange('team2', q, e.target.value)}
+                  value={formData.quarters?.[displayRightTeam]?.[q] ?? ''}
+                  onChange={(e) => handleQuarterChange(displayRightTeam, q, e.target.value)}
                   className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                  style={{ borderColor: team2Colors.primary }}
+                  style={{ borderColor: rightTeamColors.primary }}
                   min="0"
                   placeholder="0"
                 />
               ))}
-              <div className="text-center font-bold text-lg" style={{ color: team2Colors.primary }}>
-                {formData.team2Score || '0'}
+              <div className="text-center font-bold text-lg" style={{ color: rightTeamColors.primary }}>
+                {formData[`${displayRightTeam}Score`] || '0'}
               </div>
             </div>
 
@@ -935,32 +955,34 @@ export default function GameEdit() {
             {formData.overtimes.map((ot, idx) => (
               <div key={idx} className="mt-4 pt-4 border-t border-gray-200">
                 <div className="text-sm font-semibold text-gray-600 mb-2">Overtime {idx + 1}</div>
+                {/* Away team (top) */}
                 <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr 60px' }}>
                   <div className="flex items-center gap-2">
-                    {team1Logo && <img src={team1Logo} alt="" className="w-5 h-5 object-contain" />}
-                    <span className="text-sm">{team1Abbr}</span>
+                    {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-5 h-5 object-contain" />}
+                    <span className="text-sm">{leftTeamAbbr}</span>
                   </div>
                   <input
                     type="number"
-                    value={ot.team1}
-                    onChange={(e) => handleOvertimeChange(idx, 'team1', e.target.value)}
+                    value={ot[displayLeftTeam]}
+                    onChange={(e) => handleOvertimeChange(idx, displayLeftTeam, e.target.value)}
                     className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                    style={{ borderColor: team1Colors.primary }}
+                    style={{ borderColor: leftTeamColors.primary }}
                     min="0"
                     placeholder="0"
                   />
                 </div>
+                {/* Home team (bottom) */}
                 <div className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 60px' }}>
                   <div className="flex items-center gap-2">
-                    {team2Logo && <img src={team2Logo} alt="" className="w-5 h-5 object-contain" />}
-                    <span className="text-sm">{team2Abbr}</span>
+                    {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-5 h-5 object-contain" />}
+                    <span className="text-sm">{rightTeamAbbr}</span>
                   </div>
                   <input
                     type="number"
-                    value={ot.team2}
-                    onChange={(e) => handleOvertimeChange(idx, 'team2', e.target.value)}
+                    value={ot[displayRightTeam]}
+                    onChange={(e) => handleOvertimeChange(idx, displayRightTeam, e.target.value)}
                     className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                    style={{ borderColor: team2Colors.primary }}
+                    style={{ borderColor: rightTeamColors.primary }}
                     min="0"
                     placeholder="0"
                   />

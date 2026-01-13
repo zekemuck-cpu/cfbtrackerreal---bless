@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -77,7 +77,8 @@ export default function Dashboard() {
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Use team-centric helper functions for all team-specific data
-  const teamSchedule = getCurrentSchedule(currentDynasty)
+  // getScheduleWithGameData merges game records into schedule entries
+  const teamSchedule = useMemo(() => getScheduleWithGameData(currentDynasty), [currentDynasty])
   const teamRoster = getCurrentRoster(currentDynasty)
   const teamPreseasonSetup = getCurrentPreseasonSetup(currentDynasty)
   const teamRatings = getCurrentTeamRatings(currentDynasty)
@@ -6900,17 +6901,44 @@ export default function Dashboard() {
         <div className="p-3 sm:p-4" style={{ backgroundColor: teamColors.secondary }}>
           {teamSchedule && teamSchedule.length > 0 ? (
             <div className="space-y-2">
-              {teamSchedule.map((game, index) => {
-                const playedGame = currentYearGames.find(g => Number(g.week) === Number(game.week))
-                const opponentColors = getOpponentColors(game.opponent)
-                const mascotName = getMascotName(game.opponent)
-                const opponentName = mascotName || getTeamNameFromAbbr(game.opponent)
+              {teamSchedule.map((entry, index) => {
+                // Handle BYE weeks
+                if (entry.isBye || entry.opponent?.toUpperCase() === 'BYE') {
+                  return (
+                    <div
+                      key={index}
+                      className="rounded-xl overflow-hidden"
+                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                    >
+                      <div className="flex items-center w-full overflow-hidden">
+                        <div
+                          className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
+                          style={{ backgroundColor: `${secondaryBgText}15`, color: secondaryBgText }}
+                        >
+                          Wk {entry.week}
+                        </div>
+                        <div
+                          className="flex-1 flex items-center justify-center py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl"
+                          style={{ backgroundColor: '#f5f5f5' }}
+                        >
+                          <span className="text-sm sm:text-base font-semibold text-gray-500">BYE WEEK</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Use merged game data from getScheduleWithGameData
+                const playedGame = entry.game
+                const opponentColors = getOpponentColors(entry.opponent)
+                const mascotName = getMascotName(entry.opponent)
+                const opponentName = mascotName || getTeamNameFromAbbr(entry.opponent)
                 const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
                 const isCurrentWeek = currentDynasty.currentPhase === 'regular_season' &&
-                  Number(game.week) === Number(currentDynasty.currentWeek) && !playedGame
-                const isWin = playedGame?.perspective?.userWon
-                const isLoss = playedGame?.perspective && !playedGame.perspective.userWon
-                const teamPageUrl = `${pathPrefix}/team/${resolveTid(game.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
+                  Number(entry.week) === Number(currentDynasty.currentWeek) && !entry.isPlayed
+                const isWin = entry.perspective?.userWon
+                const isLoss = entry.perspective && !entry.perspective.userWon
+                const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
 
                 // Render clickable element - use div with onClick when inside Link (played games), use Link when standalone
                 const TeamLogoClickable = ({ isInsideLink, children }) => {
@@ -6965,15 +6993,15 @@ export default function Dashboard() {
                     <div
                       className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
                       style={{
-                        backgroundColor: playedGame
+                        backgroundColor: entry.isPlayed
                           ? (isWin ? '#22c55e' : '#ef4444')
                           : isCurrentWeek
                             ? teamColors.primary
                             : `${secondaryBgText}15`,
-                        color: playedGame || isCurrentWeek ? '#fff' : secondaryBgText
+                        color: entry.isPlayed || isCurrentWeek ? '#fff' : secondaryBgText
                       }}
                     >
-                      {playedGame ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${game.week}`}
+                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${entry.week}`}
                     </div>
 
                     {/* Game Info */}
@@ -6990,7 +7018,7 @@ export default function Dashboard() {
                             color: opponentColors.textColor
                           }}
                         >
-                          {game.location === 'away' ? '@' : 'vs'}
+                          {entry.location === 'away' ? '@' : 'vs'}
                         </span>
 
                         {/* Team Logo */}
@@ -7007,9 +7035,9 @@ export default function Dashboard() {
                         {/* Team Name */}
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1">
-                            {playedGame?.perspective?.opponentRank && (
+                            {entry.perspective?.opponentRank && (
                               <span className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${opponentColors.textColor}15`, color: opponentColors.textColor }}>
-                                #{playedGame.perspective.opponentRank}
+                                #{entry.perspective.opponentRank}
                               </span>
                             )}
                             <TeamNameClickable isInsideLink={isInsideLink} />
@@ -7019,10 +7047,10 @@ export default function Dashboard() {
 
                       {/* Score / Status */}
                       <div className="flex-shrink-0 text-right ml-1">
-                        {playedGame ? (
+                        {entry.isPlayed ? (
                           <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: opponentColors.textColor }}>
-                            {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
-                            {playedGame.overtimes && playedGame.overtimes.length > 0 && (
+                            {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
+                            {playedGame?.overtimes && playedGame.overtimes.length > 0 && (
                               <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
                                 {playedGame.overtimes.length > 1 ? `${playedGame.overtimes.length}OT` : 'OT'}
                               </span>

@@ -100,7 +100,7 @@ Migration via Admin Tools "Migrate to Subcollections" button. Flag: `_subcollect
 ### Phase System
 
 1. **Preseason** - Week 0, setup
-2. **Regular Season** - Weeks 1-12
+2. **Regular Season** - Weeks 0-15 (16 weeks, matches CFB 26)
 3. **Conference Championship** - Separate phase
 4. **Postseason** - Weeks 1-5 (Bowl Weeks)
 5. **Offseason** - Weeks 1-8:
@@ -171,6 +171,29 @@ The `GameEdit.jsx` page creates game records immediately on open (not on save) t
 Resolves team abbreviations from multiple sources:
 1. `game.team1` / `game.team2` (direct abbreviations)
 2. `getOriginalTeamAbbr(game.team1Tid)` (resolved from tids)
+
+### Schedule-Game Linking
+
+Schedule entries link directly to game records via `gameId`. Games are created when schedule is saved (not when played).
+
+**Schedule Entry Structure:**
+```javascript
+{
+  week: 0,                   // Week 0-15
+  opponent: "OSU",           // Abbreviation, or "BYE" for bye weeks
+  opponentTid: 42,           // Direct tid reference (null for BYE)
+  location: "home",          // home/away/neutral
+  gameId: "game-1704000001", // Links to game record (null for BYE)
+  isBye: false               // true for bye weeks
+}
+```
+
+**Key Functions** (in `DynastyContext.jsx`):
+- `createGamesFromSchedule(dynasty, schedule, userTid, year)` - Creates game records when schedule saved
+- `getScheduleWithGameData(dynasty)` - Merges schedule entries with game data for display
+- `saveSchedule()` - Automatically creates games and links them
+
+**BYE Weeks**: Use "BYE" as opponent - no game record created, special display in Dashboard.
 
 ---
 

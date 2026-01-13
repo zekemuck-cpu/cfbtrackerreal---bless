@@ -1343,6 +1343,124 @@ export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
 }
 
 /**
+ * Create game records from schedule entries
+ * Called when schedule is saved to link schedule entries to actual games
+ * @param {Object} dynasty - The dynasty object
+ * @param {Array} schedule - Array of schedule entries
+ * @param {number} userTid - User's team tid
+ * @param {number} year - Schedule year
+ * @returns {Object} { newGames: [...], updatedSchedule: [...] }
+ */
+export function createGamesFromSchedule(dynasty, schedule, userTid, year) {
+  const existingGames = dynasty.games || []
+  const newGames = []
+
+  const updatedSchedule = schedule.map((entry, index) => {
+    // Handle BYE weeks - no game created
+    const isBye = entry.opponent?.toUpperCase() === 'BYE' || entry.isBye
+    if (isBye) {
+      return { ...entry, isBye: true, gameId: null, opponentTid: null }
+    }
+
+    const opponentTid = entry.opponentTid || getTidFromAbbr(entry.opponent)
+
+    // If entry already has gameId, check if game exists
+    if (entry.gameId) {
+      const existingGame = existingGames.find(g => g.id === entry.gameId)
+      if (existingGame) return { ...entry, opponentTid } // Game exists, keep link
+    }
+
+    // Try to find an existing game by week/year that matches this schedule entry
+    // This allows retroactive linking of existing games to schedule entries
+    const matchingGame = existingGames.find(g =>
+      Number(g.week) === Number(entry.week) &&
+      Number(g.year) === Number(year) &&
+      g.gameType === 'regular' &&
+      (g.team1Tid === userTid || g.team2Tid === userTid || g.userTid === userTid)
+    )
+
+    if (matchingGame) {
+      // Link to existing game instead of creating new one
+      return { ...entry, gameId: matchingGame.id, opponentTid, isBye: false }
+    }
+
+    // No existing game found - create new game record
+    const isHome = entry.location === 'home'
+    const isAway = entry.location === 'away'
+
+    // Generate unique game ID
+    const newGameId = `game-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`
+    const newGame = {
+      id: newGameId,
+      week: Number(entry.week),
+      year: Number(year),
+      gameType: 'regular',
+      team1Tid: userTid,
+      team2Tid: opponentTid,
+      team1Score: 0,
+      team2Score: 0,
+      homeTeamTid: isHome ? userTid : (isAway ? opponentTid : null),
+      isPlayed: false,
+      userTid: userTid,
+      opponentTid: opponentTid
+    }
+
+    newGames.push(newGame)
+    return { ...entry, gameId: newGameId, opponentTid, isBye: false }
+  })
+
+  return { newGames, updatedSchedule }
+}
+
+/**
+ * Get schedule with actual game data merged in
+ * This is the SINGLE SOURCE OF TRUTH for schedule display
+ * Dashboard should ONLY use this function to display schedule
+ * @param {Object} dynasty - The dynasty object
+ * @returns {Array} Schedule entries with game data, perspective, and play status
+ */
+export function getScheduleWithGameData(dynasty) {
+  if (!dynasty) return []
+
+  const userTid = dynasty.currentTid
+  const year = dynasty.currentYear
+  const schedule = getScheduleForTeam(dynasty, userTid, year)
+  const games = dynasty.games || []
+
+  return schedule.map(entry => {
+    // Handle BYE weeks
+    if (entry.isBye || entry.opponent?.toUpperCase() === 'BYE') {
+      return {
+        ...entry,
+        isBye: true,
+        game: null,
+        perspective: null,
+        isPlayed: false
+      }
+    }
+
+    // Find linked game by gameId (primary) or fallback to week match
+    const game = entry.gameId
+      ? games.find(g => g.id === entry.gameId)
+      : games.find(g =>
+          Number(g.week) === Number(entry.week) &&
+          Number(g.year) === Number(year) &&
+          g.gameType === 'regular'
+        )
+
+    // Get user's perspective on the game
+    const perspective = game ? getUserGamePerspective(game, dynasty) : null
+
+    return {
+      ...entry,
+      game,
+      perspective,
+      isPlayed: game?.isPlayed || (game && (game.team1Score > 0 || game.team2Score > 0))
+    }
+  })
+}
+
+/**
  * UNIFIED ROSTER MEMBERSHIP CHECK - Single source of truth
  * Check if a player is on a specific team's roster for a given year.
  * Uses teamsByYear as the ONLY source of truth for roster membership.
@@ -4542,7 +4660,7 @@ export function DynastyProvider({ children }) {
     // Phase transitions
     if (dynasty.currentPhase === 'preseason' && nextWeek >= 1) {
       nextPhase = 'regular_season'
-      nextWeek = 1
+      nextWeek = 0  // Regular season now starts with Week 0
 
       // COACH HISTORY: Record which team the coach is coaching this year
       // This is locked in at season start and does NOT change even if user switches teams later
@@ -4577,8 +4695,8 @@ export function DynastyProvider({ children }) {
       additionalUpdates.scheduleSheetId = null
       additionalUpdates.rosterSheetId = null
       additionalUpdates.rosterEditSheetId = null
-    } else if (dynasty.currentPhase === 'regular_season' && nextWeek > 12) {
-      // After week 12, move to conference championship week
+    } else if (dynasty.currentPhase === 'regular_season' && nextWeek > 15) {
+      // After week 15, move to conference championship week (Week 0-15 = 16 weeks)
       nextPhase = 'conference_championship'
       nextWeek = 1
 
@@ -5985,6 +6103,18 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
+    // Create game records for schedule entries (links schedule to games)
+    const { newGames, updatedSchedule } = createGamesFromSchedule(dynasty, schedule, tid, year)
+
+    // Merge new games with existing games (avoid duplicates)
+    const existingGames = dynasty.games || []
+    const existingGameIds = new Set(existingGames.map(g => g.id))
+    const gamesToAdd = newGames.filter(g => !existingGameIds.has(g.id))
+    const allGames = [...existingGames, ...gamesToAdd]
+
+    // Use updatedSchedule (with gameIds) instead of raw schedule
+    const scheduleToSave = updatedSchedule
+
     // Base updates - always save to team-specific structures
     let scheduleUpdates
 
@@ -5999,7 +6129,7 @@ export function DynastyProvider({ children }) {
               ...existingByYear,
               [year]: {
                 ...existingYearData,
-                schedule,
+                schedule: scheduleToSave,
                 preseasonSetup: {
                   ...existingYearSetup,
                   scheduleEntered: true
@@ -6013,7 +6143,7 @@ export function DynastyProvider({ children }) {
           ...existingSchedulesByTeamYear,
           [teamAbbr]: {
             ...teamSchedules,
-            [year]: schedule
+            [year]: scheduleToSave
           }
         },
         // Update old team-centric preseason setup
@@ -6026,12 +6156,14 @@ export function DynastyProvider({ children }) {
               scheduleEntered: true
             }
           }
-        }
+        },
+        // Save created games
+        games: allGames
       }
 
       // Only update legacy root-level schedule and preseason for user's current team
       if (isUserCurrentTeamYear) {
-        scheduleUpdates.schedule = schedule
+        scheduleUpdates.schedule = scheduleToSave
         scheduleUpdates.preseasonSetup = {
           ...(dynasty.preseasonSetup || {}),
           scheduleEntered: true
@@ -6041,16 +6173,18 @@ export function DynastyProvider({ children }) {
       // Firestore: use dot notation for nested updates
       scheduleUpdates = {
         // NEW tid-based byYear structure
-        [`teams.${tid}.byYear.${year}.schedule`]: schedule,
+        [`teams.${tid}.byYear.${year}.schedule`]: scheduleToSave,
         [`teams.${tid}.byYear.${year}.preseasonSetup.scheduleEntered`]: true,
         // Old structures (for backward compatibility)
-        [`schedulesByTeamYear.${teamAbbr}.${year}`]: schedule,
-        [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true
+        [`schedulesByTeamYear.${teamAbbr}.${year}`]: scheduleToSave,
+        [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true,
+        // Save created games
+        games: allGames
       }
 
       // Only update legacy root-level schedule and preseason for user's current team
       if (isUserCurrentTeamYear) {
-        scheduleUpdates.schedule = schedule
+        scheduleUpdates.schedule = scheduleToSave
         scheduleUpdates['preseasonSetup.scheduleEntered'] = true
       }
     }

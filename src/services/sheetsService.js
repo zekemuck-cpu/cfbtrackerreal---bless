@@ -226,7 +226,7 @@ function generateTeamFormattingRules(sheetId, columnIndex, customTeams = null) {
           ranges: [{
             sheetId: sheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15)
             startColumnIndex: columnIndex,
             endColumnIndex: columnIndex + 1
           }],
@@ -256,7 +256,7 @@ function generateTeamFormattingRules(sheetId, columnIndex, customTeams = null) {
           ranges: [{
             sheetId: sheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15)
             startColumnIndex: columnIndex,
             endColumnIndex: columnIndex + 1
           }],
@@ -1032,7 +1032,7 @@ export async function createScheduleSheet(dynastyName, year, userTeamName, exist
             properties: {
               title: 'Schedule',
               gridProperties: {
-                rowCount: 13,
+                rowCount: 17,  // 1 header + 16 data rows (weeks 0-15)
                 columnCount: 4,
                 frozenRowCount: 1
               }
@@ -1132,8 +1132,9 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
     const userTeamAbbr = getAbbrFromTeamName(userTeamName, customTeams)
 
     // Build schedule data rows - either from existing schedule or empty
-    const scheduleRows = Array.from({ length: 12 }, (_, i) => {
-      const week = i + 1
+    // Week 0-15 = 16 weeks of regular season
+    const scheduleRows = Array.from({ length: 16 }, (_, i) => {
+      const week = i  // Week 0-15
       const existingGame = existingSchedule.find(g => Number(g.week) === week)
 
       // Convert location to Site format (Home/Road/Neutral)
@@ -1181,7 +1182,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           range: {
             sheetId: scheduleSheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15) + 1 header
             startColumnIndex: 0,
             endColumnIndex: 4
           },
@@ -1233,7 +1234,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
             range: {
               sheetId: scheduleSheetId,
               startRowIndex: 1,
-              endRowIndex: 13,
+              endRowIndex: 17,  // 16 data rows (weeks 0-15)
               startColumnIndex: 0,
               endColumnIndex: 1
             },
@@ -1249,7 +1250,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
             range: {
               sheetId: scheduleSheetId,
               startRowIndex: 1,
-              endRowIndex: 13,
+              endRowIndex: 17,  // 16 data rows (weeks 0-15)
               startColumnIndex: 1,
               endColumnIndex: 2
             },
@@ -1279,13 +1280,13 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)'
         }
       },
-      // Add data validation dropdown for User Team column (B2:B13) - FBS only
+      // Add data validation dropdown for User Team column (B2:B17) - FBS only
       {
         setDataValidation: {
           range: {
             sheetId: scheduleSheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15)
             startColumnIndex: 1,
             endColumnIndex: 2
           },
@@ -1299,33 +1300,33 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           }
         }
       },
-      // Add data validation dropdown for CPU Team column (C2:C13) - All teams including FCS
+      // Add data validation dropdown for CPU Team column (C2:C17) - All teams including FCS and BYE
       {
         setDataValidation: {
           range: {
             sheetId: scheduleSheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15)
             startColumnIndex: 2,
             endColumnIndex: 3
           },
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSchedulableTeamsList(customTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: ['BYE', ...getSchedulableTeamsList(customTeams)].map(abbr => ({ userEnteredValue: abbr }))
             },
             showCustomUi: true,
             strict: true
           }
         }
       },
-      // Add data validation dropdown for Site column (D2:D13)
+      // Add data validation dropdown for Site column (D2:D17)
       {
         setDataValidation: {
           range: {
             sheetId: scheduleSheetId,
             startRowIndex: 1,
-            endRowIndex: 13,
+            endRowIndex: 17,  // 16 data rows (weeks 0-15)
             startColumnIndex: 3,
             endColumnIndex: 4
           },
