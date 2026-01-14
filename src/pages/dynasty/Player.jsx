@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -826,7 +826,8 @@ export default function Player() {
     // Fall back to checking recruiting commitments data
     if (!player.isRecruit) return null
     const recruitYear = player.recruitYear || dynasty.currentYear
-    const commitments = dynasty.recruitingCommitmentsByTeamYear?.[playerTeamAbbr]?.[recruitYear] || {}
+    // playerTeamAbbr could be tid (number) or abbr (string) - getter handles both
+    const commitments = getRecruitingCommitments(dynasty, playerTeamAbbr, recruitYear)
 
     // Search through all commitment weeks for this player
     for (const [, weekCommits] of Object.entries(commitments)) {
@@ -1308,12 +1309,13 @@ export default function Player() {
         )
         afterLastYearMovements.forEach(m => timelineEntries.push(m))
 
-        // Check if player was an encouraged transfer (check dynasty.encourageTransfersByTeamYear)
+        // Check if player was an encouraged transfer (check encourageTransfers)
         // This is the source of truth - not the movements array
         // Note: Encourage transfers data is stored under the NEW season year (after year flip)
         // So if player's last year on team was 2026, check 2027 for encouraged transfer data
         const nextYear = lastYear + 1
-        const encouragedTransfers = dynasty?.encourageTransfersByTeamYear?.[lastTeam]?.[nextYear] || []
+        // lastTeam could be tid (number) or abbr (string) - getter handles both
+        const encouragedTransfers = getEncourageTransfers(dynasty, lastTeam, nextYear)
         const wasEncouragedTransfer = encouragedTransfers.some(t =>
           t.name?.toLowerCase().trim() === player.name?.toLowerCase().trim()
         )

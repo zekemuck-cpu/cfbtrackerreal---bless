@@ -294,18 +294,35 @@ export default function TeamYear() {
   if (!currentDynasty) return null
 
   // Merge TEAMS with dynasty.teams to ensure all teams are available
-  // dynasty.teams may only contain teambuilder replacements, not all teams
-  const teamsSource = { ...TEAMS, ...(currentDynasty.teams || {}) }
+  // dynasty.teams may contain partial data (byYear, userId) without team properties (tid, name, abbr)
+  // So we need to merge each team's data, not just overwrite
+  const teamsSource = { ...TEAMS }
+  if (currentDynasty.teams) {
+    Object.entries(currentDynasty.teams).forEach(([key, dynastyTeamData]) => {
+      const staticTeam = TEAMS[key]
+      if (staticTeam) {
+        // Merge: keep static team properties, add dynasty-specific data
+        teamsSource[key] = { ...staticTeam, ...dynastyTeamData }
+        // Ensure tid is always from static TEAMS (not overwritten by undefined)
+        if (dynastyTeamData.tid === undefined) {
+          teamsSource[key].tid = staticTeam.tid
+        }
+      } else {
+        // Teambuilder team - use as-is
+        teamsSource[key] = dynastyTeamData
+      }
+    })
+  }
 
   // Get all FBS teams for dropdown (sorted alphabetically)
   const allTeams = Object.values(teamsSource)
-    .filter(team => !team.isFCS)
+    .filter(team => team && team.tid !== undefined && !team.isFCS && team.name)
     .map(team => ({
       tid: team.tid,
       abbr: team.abbr,
       name: team.name
     }))
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   // Get available years (most recent first)
   const availableYears = []
@@ -313,7 +330,7 @@ export default function TeamYear() {
     availableYears.push(y)
   }
 
-  // Get team info from tid
+  // Get team info from tid - teamsSource now has properly merged data
   const team = teamsSource[tid]
 
   if (!team) {
@@ -348,8 +365,8 @@ export default function TeamYear() {
   const teamAbbr = team.abbr  // Keep for backwards compatibility with data lookups
   const teamInfo = {
     name: team.name,
-    backgroundColor: team.primaryColor,
-    textColor: team.secondaryColor,
+    backgroundColor: team.primaryColor || '#1f2937',
+    textColor: team.secondaryColor || '#f3f4f6',
     isTeambuilder: team.isCustom || false
   }
   const customTeams = currentDynasty.customTeams  // Still needed for some lookups
@@ -950,9 +967,10 @@ export default function TeamYear() {
 
   // Get conference championship data for this team in this year
   // UNIFIED: First check games[] array, then fallback to conferenceChampionshipsByYear
+  // Check both tid and abbr for team matching (supports both unified and legacy formats)
   const ccGamesFromGames = allGamesArray.filter(g =>
     g.isConferenceChampionship && Number(g.year) === selectedYear &&
-    (g.team1 === teamAbbr || g.team2 === teamAbbr) &&
+    (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
     g.team1Score !== null && g.team1Score !== undefined
   )
 
@@ -967,14 +985,15 @@ export default function TeamYear() {
 
   // Use games[] version first, then legacy
   const teamCCGame = ccGamesFromGames[0] || ccGamesFromLegacy[0] || null
-  const wonCC = teamCCGame?.winner === teamAbbr
+  const wonCC = teamCCGame?.winner === teamAbbr || teamCCGame?.winnerTid === tid
 
   // Get bowl game for this team in this year
   // UNIFIED: First check games[] array, then fallback to bowlGamesByYear
   // Exclude CFP games - they have their own badges
+  // Check both tid and abbr for team matching (supports both unified and legacy formats)
   const bowlGamesFromGames = allGamesArray.filter(g =>
     g.isBowlGame && isSameYear(g.year, selectedYear) &&
-    (g.team1 === teamAbbr || g.team2 === teamAbbr) &&
+    (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
     g.team1Score !== null && g.team1Score !== undefined &&
     !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship &&
     g.gameType !== GAME_TYPES.CFP_FIRST_ROUND && g.gameType !== GAME_TYPES.CFP_QUARTERFINAL &&
@@ -995,8 +1014,8 @@ export default function TeamYear() {
   const teamBowlGame = bowlGames[0] // Just need the first match for this team
 
   const wonBowl = teamBowlGame && (
-    (teamBowlGame.team1 === teamAbbr && teamBowlGame.team1Score > teamBowlGame.team2Score) ||
-    (teamBowlGame.team2 === teamAbbr && teamBowlGame.team2Score > teamBowlGame.team1Score)
+    ((teamBowlGame.team1 === teamAbbr || teamBowlGame.team1Tid === tid) && teamBowlGame.team1Score > teamBowlGame.team2Score) ||
+    ((teamBowlGame.team2 === teamAbbr || teamBowlGame.team2Tid === tid) && teamBowlGame.team2Score > teamBowlGame.team1Score)
   )
 
   // Get CFP results for this team in this year from cfpResultsByYear
@@ -1844,8 +1863,12 @@ export default function TeamYear() {
         )
       })()}
 
-      {/* Roster Section - All Teams */}
-      {sortedTeamPlayers.length > 0 && (
+      {/* Main Content Grid - Two columns on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Roster */}
+        <div className="space-y-6">
+          {/* Roster Section - All Teams */}
+          {sortedTeamPlayers.length > 0 && (
         <div
           className="rounded-xl shadow-lg overflow-hidden"
           style={{
@@ -2307,9 +2330,12 @@ export default function TeamYear() {
           </div>
         </div>
       )}
+        </div>
 
-      {/* Schedule - shows games played by this team this year */}
-      {teamYearGames.length > 0 && (
+        {/* Right Column: Schedule */}
+        <div className="space-y-6">
+          {/* Schedule - shows games played by this team this year */}
+          {teamYearGames.length > 0 && (
         <div
           className="rounded-lg shadow-lg overflow-hidden"
           style={{
@@ -2825,6 +2851,8 @@ export default function TeamYear() {
           </div>
         </div>
       )}
+        </div>
+      </div>
 
       {/* GameEntryModal removed - now using game pages instead */}
 

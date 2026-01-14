@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, getRecruitingCommitments } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -143,8 +143,8 @@ export default function Recruiting() {
       const startYear = currentDynasty.startYear || currentYear
       const isFirstYear = currentYear === startYear
 
-      // Check if there are any recruits for the current year
-      const currentYearCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[currentTeamAbbr]?.[currentYear] || {}
+      // Check if there are any recruits for the current year - use tid-based getter
+      const currentYearCommitments = getRecruitingCommitments(currentDynasty, currentTeamTid, currentYear)
       const hasCurrentYearRecruits = Object.keys(currentYearCommitments).length > 0
 
       // If no recruits for current year and not first year, show previous year
@@ -152,14 +152,30 @@ export default function Recruiting() {
 
       navigate(`${pathPrefix}/recruiting/${currentTeamTid}/${targetYear}`, { replace: true })
     }
-  }, [tidParam, currentTeamTid, currentTeamAbbr, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.recruitingCommitmentsByTeamYear, navigate, pathPrefix])
+  }, [tidParam, currentTeamTid, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.teams, navigate, pathPrefix])
 
-  // Get all years with recruiting commitments for this team - TEAM-CENTRIC
+  // Get all years with recruiting commitments for this team - TID-BASED with fallback
   // Always include current year so user can view/enter current season's recruits
   const availableYears = useMemo(() => {
-    const years = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]
-      ? Object.keys(currentDynasty.recruitingCommitmentsByTeamYear[teamAbbr]).map(Number)
-      : []
+    const yearsSet = new Set()
+
+    // Check tid-based structure first (teams[tid].byYear)
+    if (selectedTid && currentDynasty?.teams?.[selectedTid]?.byYear) {
+      Object.entries(currentDynasty.teams[selectedTid].byYear).forEach(([year, yearData]) => {
+        if (yearData?.recruitingCommitments && Object.keys(yearData.recruitingCommitments).length > 0) {
+          yearsSet.add(Number(year))
+        }
+      })
+    }
+
+    // Also check abbr-based structure for backwards compatibility
+    if (teamAbbr && currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]) {
+      Object.keys(currentDynasty.recruitingCommitmentsByTeamYear[teamAbbr]).forEach(year => {
+        yearsSet.add(Number(year))
+      })
+    }
+
+    const years = Array.from(yearsSet)
 
     // Always include current year if not already present
     if (currentDynasty?.currentYear && !years.includes(currentDynasty.currentYear)) {
@@ -167,15 +183,40 @@ export default function Recruiting() {
     }
 
     return years.sort((a, b) => b - a) // Most recent first
-  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamAbbr, currentDynasty?.currentYear])
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, selectedTid, teamAbbr, currentDynasty?.currentYear])
 
-  // Get all teams that have recruiting classes entered
+  // Get all teams that have recruiting classes entered - checks both tid and abbr structures
   const teamsWithRecruitingClasses = useMemo(() => {
-    const recruitingData = currentDynasty?.recruitingCommitmentsByTeamYear || {}
-    const teamsWithData = []
+    const teamsMap = new Map() // tid -> team info
 
-    Object.entries(recruitingData).forEach(([abbr, yearData]) => {
-      // Check if this team has any actual recruits in any year
+    // Check tid-based structure (teams[tid].byYear)
+    if (currentDynasty?.teams) {
+      Object.entries(currentDynasty.teams).forEach(([tidKey, teamData]) => {
+        const tid = Number(tidKey)
+        if (isNaN(tid) || !teamData?.byYear) return
+
+        const hasRecruits = Object.values(teamData.byYear).some(yearData => {
+          if (!yearData?.recruitingCommitments) return false
+          return Object.values(yearData.recruitingCommitments).some(weekCommitments => {
+            return Array.isArray(weekCommitments) && weekCommitments.length > 0
+          })
+        })
+
+        if (hasRecruits) {
+          const sourceTeam = teamsSource[tid]
+          teamsMap.set(tid, {
+            abbr: sourceTeam?.abbr || teamData?.abbr || `T${tid}`,
+            tid,
+            name: sourceTeam?.name || teamData?.name || `Team ${tid}`,
+            logo: sourceTeam?.logo || teamData?.logo || null
+          })
+        }
+      })
+    }
+
+    // Also check abbr-based structure for backwards compatibility
+    const abbrData = currentDynasty?.recruitingCommitmentsByTeamYear || {}
+    Object.entries(abbrData).forEach(([abbr, yearData]) => {
       const hasRecruits = Object.values(yearData).some(yearCommitments => {
         return Object.values(yearCommitments).some(weekCommitments => {
           return Array.isArray(weekCommitments) && weekCommitments.length > 0
@@ -183,21 +224,22 @@ export default function Recruiting() {
       })
 
       if (hasRecruits) {
-        // Get tid from abbreviation
         const tid = getTidFromAbbr(abbr)
-        const teamData = tid ? teamsSource[tid] : null
-        teamsWithData.push({
-          abbr,
-          tid,
-          name: teamData?.name || abbr,
-          logo: teamData?.logo || null
-        })
+        if (tid && !teamsMap.has(tid)) {
+          const teamData = teamsSource[tid]
+          teamsMap.set(tid, {
+            abbr,
+            tid,
+            name: teamData?.name || abbr,
+            logo: teamData?.logo || null
+          })
+        }
       }
     })
 
     // Sort alphabetically by name
-    return teamsWithData.sort((a, b) => a.name.localeCompare(b.name))
-  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamsSource])
+    return Array.from(teamsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, teamsSource])
 
   // Handle team change - navigate to new team's recruiting page
   const handleTeamChange = (newTid) => {
@@ -324,24 +366,49 @@ export default function Recruiting() {
     })
 
     // When editing, replace ALL commitment keys with just 'edit' to avoid duplicates
-    const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-    const existingForTeam = existingByTeamYear[teamAbbr] || {}
-
+    const commitmentData = { edit: recruits }
     const finalPlayers = [...updatedPlayers, ...newPlayers]
 
-    await updateDynasty(currentDynasty.id, {
-      recruitingCommitmentsByTeamYear: {
-        ...existingByTeamYear,
-        [teamAbbr]: {
-          ...existingForTeam,
-          [selectedYear]: {
-            edit: recruits // Replace all keys with just 'edit'
-          }
-        }
-      },
+    // Build update payload with both abbr-based and tid-based structures
+    const updates = {
       players: finalPlayers,
       nextPID: nextPID
-    })
+    }
+
+    // Write to tid-based structure (primary)
+    if (teamTid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[teamTid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[selectedYear] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [teamTid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [selectedYear]: {
+              ...existingYearData,
+              recruitingCommitments: commitmentData
+            }
+          }
+        }
+      }
+    }
+
+    // Also write to abbr-based structure for backwards compatibility
+    const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
+    const existingForTeam = existingByTeamYear[teamAbbr] || {}
+    updates.recruitingCommitmentsByTeamYear = {
+      ...existingByTeamYear,
+      [teamAbbr]: {
+        ...existingForTeam,
+        [selectedYear]: commitmentData
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Build a lookup map of players by normalized name for quick access
@@ -532,55 +599,67 @@ export default function Recruiting() {
     }
 
     if (isAllSeasons) {
-      // Get commitments from all years for this team
+      // Get commitments from all years for this team - check both tid and abbr structures
+      const processedYears = new Set()
+
+      // Process tid-based structure first
+      if (selectedTid && currentDynasty?.teams?.[selectedTid]?.byYear) {
+        Object.entries(currentDynasty.teams[selectedTid].byYear).forEach(([year, yearData]) => {
+          if (!yearData?.recruitingCommitments) return
+          processedYears.add(Number(year))
+          Object.entries(yearData.recruitingCommitments).forEach(([key, weekCommitments]) => {
+            if (Array.isArray(weekCommitments)) {
+              weekCommitments.forEach(commit => {
+                const currentPlayer = playersByName._findPlayer(commit.name, Number(year))
+                commitments.push(ensurePortalStatus({
+                  ...commit,
+                  ...(currentPlayer && {
+                    name: currentPlayer.name, firstName: currentPlayer.firstName, lastName: currentPlayer.lastName,
+                    position: currentPlayer.position, class: currentPlayer.year, devTrait: currentPlayer.devTrait,
+                    archetype: currentPlayer.archetype, height: currentPlayer.height, weight: currentPlayer.weight,
+                    hometown: currentPlayer.hometown, state: currentPlayer.state, pictureUrl: currentPlayer.pictureUrl,
+                    stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
+                    positionRank: currentPlayer.positionRank, gemBust: currentPlayer.gemBust,
+                    previousTeam: currentPlayer.previousTeam || commit.previousTeam,
+                    isPortal: currentPlayer.isPortal ?? commit.isPortal, pid: currentPlayer.pid
+                  }),
+                  commitmentWeek: key, recruitYear: Number(year)
+                }))
+              })
+            }
+          })
+        })
+      }
+
+      // Also check abbr-based structure for years not yet processed
       const allYearsData = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr] || {}
       Object.entries(allYearsData).forEach(([year, yearCommitments]) => {
+        if (processedYears.has(Number(year))) return // Already processed from tid structure
         Object.entries(yearCommitments).forEach(([key, weekCommitments]) => {
           if (Array.isArray(weekCommitments)) {
             weekCommitments.forEach(commit => {
-              // Find matching player in players array to get latest data
-              // Pass recruitYear for team context matching
               const currentPlayer = playersByName._findPlayer(commit.name, Number(year))
-
-              // Merge: use current player data, but keep commitment-specific fields
-              // Wrap with ensurePortalStatus to detect portal by class if previousTeam not set
               commitments.push(ensurePortalStatus({
                 ...commit,
-                // Override with current player data if available (for fields that can be edited)
                 ...(currentPlayer && {
-                  name: currentPlayer.name,
-                  firstName: currentPlayer.firstName,
-                  lastName: currentPlayer.lastName,
-                  position: currentPlayer.position,
-                  class: currentPlayer.year, // 'year' in player = 'class' in recruit display
-                  devTrait: currentPlayer.devTrait,
-                  archetype: currentPlayer.archetype,
-                  height: currentPlayer.height,
-                  weight: currentPlayer.weight,
-                  hometown: currentPlayer.hometown,
-                  state: currentPlayer.state,
-                  pictureUrl: currentPlayer.pictureUrl,
-                  stars: currentPlayer.stars,
-                  nationalRank: currentPlayer.nationalRank,
-                  stateRank: currentPlayer.stateRank,
-                  positionRank: currentPlayer.positionRank,
-                  gemBust: currentPlayer.gemBust,
-                  // Preserve commitment's portal data if player doesn't have it
+                  name: currentPlayer.name, firstName: currentPlayer.firstName, lastName: currentPlayer.lastName,
+                  position: currentPlayer.position, class: currentPlayer.year, devTrait: currentPlayer.devTrait,
+                  archetype: currentPlayer.archetype, height: currentPlayer.height, weight: currentPlayer.weight,
+                  hometown: currentPlayer.hometown, state: currentPlayer.state, pictureUrl: currentPlayer.pictureUrl,
+                  stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
+                  positionRank: currentPlayer.positionRank, gemBust: currentPlayer.gemBust,
                   previousTeam: currentPlayer.previousTeam || commit.previousTeam,
-                  isPortal: currentPlayer.isPortal ?? commit.isPortal,
-                  pid: currentPlayer.pid
+                  isPortal: currentPlayer.isPortal ?? commit.isPortal, pid: currentPlayer.pid
                 }),
-                // Always keep these commitment-specific fields from the original
-                commitmentWeek: key,
-                recruitYear: Number(year)
+                commitmentWeek: key, recruitYear: Number(year)
               }))
             })
           }
         })
       })
     } else {
-      // Get commitments for selected year only
-      const commitmentsForYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[selectedYear] || {}
+      // Get commitments for selected year only - use tid-based getter
+      const commitmentsForYear = getRecruitingCommitments(currentDynasty, selectedTid, selectedYear)
       Object.entries(commitmentsForYear).forEach(([key, weekCommitments]) => {
         if (Array.isArray(weekCommitments)) {
           weekCommitments.forEach(commit => {
@@ -661,7 +740,7 @@ export default function Recruiting() {
       }
       return 0
     })
-  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamAbbr, selectedYear, isAllSeasons, playersByName])
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, selectedTid, teamAbbr, selectedYear, isAllSeasons, playersByName])
 
   // Filter commitments based on view mode (Both/HS/Portal) AND star filter
   const allCommitments = useMemo(() => {

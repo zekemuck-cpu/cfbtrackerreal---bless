@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
-import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
+import { getPlayerBoxScoreTotals, getEncourageTransfers } from '../context/DynastyContext'
 // Stats are read directly from player.statsByYear (single source of truth)
 
 export default function PlayerEditModal({ isOpen, onClose, player, teamColors, onSave, onSyncAllPlayers, defaultSchool, dynasty }) {
@@ -1315,11 +1315,12 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                       return 'Created'
                     }
 
-                    // Get exit info - check encourageTransfersByTeamYear first (source of truth), then legacy movements
+                    // Get exit info - check encourageTransfers first (source of truth), then legacy movements
                     // Note: Encourage transfers data is stored under the NEW season year (maxYear + 1)
                     const lastTeamForExit = teamsByYear[String(maxYear)] || teamsByYear[maxYear] || ''
                     const nextYearForExit = maxYear + 1
-                    const encouragedTransfers = dynasty?.encourageTransfersByTeamYear?.[lastTeamForExit]?.[nextYearForExit] || []
+                    // lastTeamForExit could be tid (number) or abbr (string) - getter handles both
+                    const encouragedTransfers = getEncourageTransfers(dynasty, lastTeamForExit, nextYearForExit)
                     const wasEncouragedTransfer = encouragedTransfers.some(t =>
                       t.name?.toLowerCase().trim() === player?.name?.toLowerCase().trim()
                     )

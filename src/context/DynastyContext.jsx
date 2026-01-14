@@ -2852,20 +2852,30 @@ export function getPlayersLeaving(dynasty, teamAbbr, year) {
 /**
  * Get conference championship data for a given team and year
  * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
+ * @param {Object} dynasty - The dynasty object
+ * @param {number|string} tidOrAbbr - Team ID (number) or abbreviation (string)
+ * @param {number} year - The year
+ * @returns {Object|null} Conference championship data or null
  */
-export function getConferenceChampionshipData(dynasty, teamAbbr, year) {
+export function getConferenceChampionshipData(dynasty, tidOrAbbr, year) {
   if (!dynasty) return null
 
+  // Resolve tid - handle both numeric tid and string abbreviation
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.conferenceChampionshipData) {
     return dynasty.teams[tid].byYear[year].conferenceChampionshipData
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[String(year)]
-  if (teamYear) return teamYear
+  // Fall back to abbr-based structure (old format)
+  // Need abbr for legacy lookup
+  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
+  if (abbr) {
+    const teamYear = dynasty.conferenceChampionshipDataByTeamYear?.[abbr]?.[year] ||
+                     dynasty.conferenceChampionshipDataByTeamYear?.[abbr]?.[String(year)]
+    if (teamYear) return teamYear
+  }
 
   // Fall back to year-only structure (legacy format)
   return dynasty.conferenceChampionshipDataByYear?.[year] ||
@@ -2944,20 +2954,30 @@ export function getTransferDestinations(dynasty, teamAbbr, year) {
 /**
  * Get training results for a given team and year
  * Checks tid-based byYear first, then team-centric, then year-only for backward compatibility
+ * @param {Object} dynasty - The dynasty object
+ * @param {number|string} tidOrAbbr - Team ID (number) or abbreviation (string)
+ * @param {number} year - The year
+ * @returns {Object} Training results data or empty object
  */
-export function getTrainingResults(dynasty, teamAbbr, year) {
+export function getTrainingResults(dynasty, tidOrAbbr, year) {
   if (!dynasty) return {}
 
+  // Resolve tid - handle both numeric tid and string abbreviation
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.trainingResults) {
     return dynasty.teams[tid].byYear[year].trainingResults
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.trainingResultsByTeamYear?.[teamAbbr]?.[String(year)]
-  if (teamYear) return teamYear
+  // Fall back to abbr-based structure (old format)
+  // Need abbr for legacy lookup
+  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
+  if (abbr) {
+    const teamYear = dynasty.trainingResultsByTeamYear?.[abbr]?.[year] ||
+                     dynasty.trainingResultsByTeamYear?.[abbr]?.[String(year)]
+    if (teamYear) return teamYear
+  }
 
   // Fall back to year-only structure (legacy format)
   return dynasty.trainingResultsByYear?.[year] ||
@@ -3008,6 +3028,68 @@ export function getFringeCaseClass(dynasty, teamAbbr, year) {
   // Fall back to year-only structure (legacy format)
   return dynasty.fringeCaseClassByYear?.[year] ||
          dynasty.fringeCaseClassByYear?.[String(year)] || {}
+}
+
+/**
+ * Get encourage transfers for a given team and year
+ * Checks tid-based byYear first, then abbr-based for backward compatibility
+ * @param {Object} dynasty - The dynasty object
+ * @param {number|string} tidOrAbbr - Team ID (number) or abbreviation (string)
+ * @param {number} year - The year
+ * @returns {Array} Array of encouraged transfer players
+ */
+export function getEncourageTransfers(dynasty, tidOrAbbr, year) {
+  if (!dynasty) return []
+
+  // Resolve tid - handle both numeric tid and string abbreviation
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+
+  // Try NEW tid-based byYear structure first
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.encourageTransfers) {
+    return dynasty.teams[tid].byYear[year].encourageTransfers
+  }
+
+  // Fall back to abbr-based structure (old format)
+  // Need abbr for legacy lookup
+  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
+  if (abbr) {
+    const teamYear = dynasty.encourageTransfersByTeamYear?.[abbr]?.[year] ||
+                     dynasty.encourageTransfersByTeamYear?.[abbr]?.[String(year)]
+    if (teamYear) return teamYear
+  }
+
+  return []
+}
+
+/**
+ * Get recruiting commitments for a given team and year
+ * Checks tid-based byYear first, then abbr-based for backward compatibility
+ * @param {Object} dynasty - The dynasty object
+ * @param {number|string} tidOrAbbr - Team ID (number) or abbreviation (string)
+ * @param {number} year - The year
+ * @returns {Object} Object of commitment keys to arrays of commits (e.g., { preseason: [...], regular_1: [...] })
+ */
+export function getRecruitingCommitments(dynasty, tidOrAbbr, year) {
+  if (!dynasty) return {}
+
+  // Resolve tid - handle both numeric tid and string abbreviation
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+
+  // Try NEW tid-based byYear structure first
+  if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.recruitingCommitments) {
+    return dynasty.teams[tid].byYear[year].recruitingCommitments
+  }
+
+  // Fall back to abbr-based structure (old format)
+  // Need abbr for legacy lookup
+  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
+  if (abbr) {
+    const teamYear = dynasty.recruitingCommitmentsByTeamYear?.[abbr]?.[year] ||
+                     dynasty.recruitingCommitmentsByTeamYear?.[abbr]?.[String(year)]
+    if (teamYear) return teamYear
+  }
+
+  return {}
 }
 
 /**
@@ -5316,8 +5398,8 @@ export function DynastyProvider({ children }) {
     const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
 
     // Get encouraged transfers data (stored under current season year - after year flip)
-    const encouragedTransfersForTeam = dynasty.encourageTransfersByTeamYear?.[teamAbbr]
-    const encouragedTransfers = getByYear(encouragedTransfersForTeam, currentSeasonYear) || []
+    const currentTid = getCurrentTeamTid(dynasty)
+    const encouragedTransfers = getEncourageTransfers(dynasty, currentTid || teamAbbr, currentSeasonYear)
     const encouragedNames = new Set(encouragedTransfers.map(t => t.name?.toLowerCase().trim()))
 
     // Get draft results for draft round info (stored under previous season year) - team-aware with fallback
@@ -6015,6 +6097,29 @@ export function DynastyProvider({ children }) {
             [teamAbbr]: {
               ...existingTraining[teamAbbr],
               [trainingYear]: null
+            }
+          }
+        }
+        // Also clear tid-based structure
+        const teamTid = getTidFromAbbr(teamAbbr)
+        if (teamTid && dynasty.teams?.[teamTid]?.byYear?.[trainingYear]) {
+          const existingTeams = dynasty.teams
+          const existingTeamData = existingTeams[teamTid] || {}
+          const existingByYear = existingTeamData.byYear || {}
+          const existingYearData = existingByYear[trainingYear] || {}
+          if (existingYearData.trainingResults) {
+            additionalUpdates.teams = {
+              ...(additionalUpdates.teams || existingTeams),
+              [teamTid]: {
+                ...existingTeamData,
+                byYear: {
+                  ...existingByYear,
+                  [trainingYear]: {
+                    ...existingYearData,
+                    trainingResults: null
+                  }
+                }
+              }
             }
           }
         }

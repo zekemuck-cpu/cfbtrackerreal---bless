@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -278,6 +278,8 @@ export default function Dashboard() {
   const [showAllAmericansModal, setShowAllAmericansModal] = useState(false)
   const [showCoachingStaffPopup, setShowCoachingStaffPopup] = useState(false)
   const [suppressPopupHover, setSuppressPopupHover] = useState(false) // Prevents hover popup after layout shifts
+  const coachingStaffButtonRef = useRef(null)
+  const [coachingStaffPopupPosition, setCoachingStaffPopupPosition] = useState({ top: 0, right: 0 })
   const [showNewJobEditModal, setShowNewJobEditModal] = useState(false)
   const [showPlayersLeavingModal, setShowPlayersLeavingModal] = useState(false)
   const [showDraftResultsModal, setShowDraftResultsModal] = useState(false)
@@ -392,18 +394,13 @@ export default function Dashboard() {
   )
 
   // Restore CC state from saved dynasty data (year-specific)
-  // Checks team-centric structure first, then falls back to year-only structure
+  // Checks tid-based structure first, then falls back to legacy structures
   useEffect(() => {
     const year = currentDynasty?.currentYear
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
+    const userTid = getUserTeamTid(currentDynasty)
 
-    // Try team-centric structure first
-    let ccData = currentDynasty?.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[year]
-
-    // Fall back to year-only structure for backward compatibility
-    if (!ccData) {
-      ccData = currentDynasty?.conferenceChampionshipDataByYear?.[year]
-    }
+    // Use tid-based getter (handles all fallbacks)
+    const ccData = getConferenceChampionshipData(currentDynasty, userTid, year)
 
     if (ccData) {
       setCCMadeChampionship(ccData.madeChampionship ?? null)
@@ -424,7 +421,7 @@ export default function Dashboard() {
       setFiringCoordinators(null)
       setCoordinatorToFire('')
     }
-  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.conferenceChampionshipDataByYear, currentDynasty?.conferenceChampionshipDataByTeamYear, currentDynasty?.teamName])
+  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.teams, currentDynasty?.conferenceChampionshipDataByYear, currentDynasty?.conferenceChampionshipDataByTeamYear, currentDynasty?.teamName])
 
   // Restore bowl eligibility state from saved dynasty data (year-specific)
   useEffect(() => {
@@ -1371,15 +1368,40 @@ export default function Dashboard() {
 
     // Store training results for history
     const existingResults = currentDynasty.trainingResultsByYear || {}
+    const userTid = getUserTeamTid(currentDynasty)
 
-    await updateDynasty(currentDynasty.id, {
+    // Build update payload with both year-only and tid-based structures
+    const updates = {
       players: updatedPlayers,
       trainingResultsByYear: {
         ...existingResults,
         [year]: results
       }
-    })
+    }
 
+    // Also write to tid-based structure
+    if (userTid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[userTid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [userTid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              trainingResults: results
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
   }
 
   // Handle recruiting class overalls save
@@ -1642,7 +1664,7 @@ export default function Dashboard() {
     })
 
     // Get existing recruits from OTHER weeks (not the current commitment key) to avoid duplicating
-    const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[year] || {}
+    const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, teamTid || teamAbbr, year)
     const existingRecruitNames = new Set()
 
     // Only collect names from OTHER commitment keys (not the current one being saved)
@@ -2048,13 +2070,13 @@ export default function Dashboard() {
     await updateDynasty(currentDynasty.id, updates)
   }
 
-  // Get all previous commitments for the current team/year (to pre-populate sheet) - TEAM-CENTRIC
+  // Get all previous commitments for the current team/year (to pre-populate sheet) - TID-BASED
   const getAllPreviousCommitments = () => {
     const year = currentDynasty.currentYear
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    const userTid = getUserTeamTid(currentDynasty)
 
-    // Use TEAM-CENTRIC structure
-    const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[year] || {}
+    // Use TID-BASED getter
+    const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTid, year)
     const allCommitments = []
 
     // Collect all commitments from all weeks/phases
@@ -2424,8 +2446,27 @@ export default function Dashboard() {
                   {!isViewOnly && currentDynasty.coachPosition === 'HC' && teamCoachingStaff && (
                     <div className="relative">
                       <button
-                        onClick={() => setShowCoachingStaffPopup(!showCoachingStaffPopup)}
-                        onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
+                        ref={coachingStaffButtonRef}
+                        onClick={() => {
+                          if (!showCoachingStaffPopup && coachingStaffButtonRef.current) {
+                            const rect = coachingStaffButtonRef.current.getBoundingClientRect()
+                            setCoachingStaffPopupPosition({
+                              top: rect.bottom + 8,
+                              right: window.innerWidth - rect.right
+                            })
+                          }
+                          setShowCoachingStaffPopup(!showCoachingStaffPopup)
+                        }}
+                        onMouseEnter={() => {
+                          if (!suppressPopupHover && coachingStaffButtonRef.current) {
+                            const rect = coachingStaffButtonRef.current.getBoundingClientRect()
+                            setCoachingStaffPopupPosition({
+                              top: rect.bottom + 8,
+                              right: window.innerWidth - rect.right
+                            })
+                            setShowCoachingStaffPopup(true)
+                          }
+                        }}
                         className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
                         title="Coaching Staff"
                       >
@@ -2442,8 +2483,13 @@ export default function Dashboard() {
                           onClick={() => setShowCoachingStaffPopup(false)}
                         />
                         <div
-                          className="absolute right-0 top-full mt-2 z-50 w-64 rounded-xl shadow-xl overflow-hidden"
-                          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+                          className="fixed z-50 w-64 rounded-xl shadow-xl overflow-hidden"
+                          style={{
+                            backgroundColor: teamColors.secondary,
+                            border: `2px solid ${teamColors.primary}`,
+                            top: coachingStaffPopupPosition.top,
+                            right: coachingStaffPopupPosition.right
+                          }}
                           onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
                           onMouseLeave={() => setShowCoachingStaffPopup(false)}
                         >
@@ -2621,10 +2667,11 @@ export default function Dashboard() {
                   actionText: teamPreseasonSetup?.coachingStaffEntered ? 'Edit' : 'Add Staff'
                 }]
               })(),
-              // Optional: Recruiting Commitments - TEAM-CENTRIC
+              // Optional: Recruiting Commitments - TID-BASED
               (() => {
-                const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-                const preseasonCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.['preseason']
+                const userTid = getUserTeamTid(currentDynasty)
+                const recruitingCommits = getRecruitingCommitments(currentDynasty, userTid, currentDynasty.currentYear)
+                const preseasonCommitments = recruitingCommits?.['preseason']
                 const isNewTeam = isFirstYearOnTeam(currentDynasty)
                 // Calculate task number
                 let num = 2 // After schedule
@@ -2819,7 +2866,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
           <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
           <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4" style={{ color: secondaryBgText }}>
+          <h3 className="text-lg font-semibold mb-4 text-gray-800">
             {currentDynasty.currentYear} Regular Season - Week {currentDynasty.currentWeek}
           </h3>
           <div className="space-y-3">
@@ -2833,106 +2880,127 @@ export default function Dashboard() {
               const mascotName = scheduledGame ? getMascotName(scheduledGame.opponent) : null
               const opponentName = mascotName || (scheduledGame ? getTeamNameFromAbbr(scheduledGame.opponent) : 'TBD')
 
-              // Check for recruiting commitments this week - TEAM-CENTRIC
+              // Check if this week is a bye week (explicit BYE or empty/missing schedule entry)
+              const isByeWeek = scheduledGame?.isBye ||
+                scheduledGame?.opponent?.toUpperCase() === 'BYE' ||
+                (scheduledGame && !scheduledGame.opponent) ||
+                (!scheduledGame && teamSchedule?.length > 0) // Has schedule but no entry for this week = bye
+
+              // Check for recruiting commitments this week - TID-BASED
               const commitmentKey = `regular_${currentDynasty.currentWeek}`
-              const teamAbbrForCommitments = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-              const commitmentsForTeamYear = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[currentDynasty.currentYear] || {}
+              const userTidForCommitments = getUserTeamTid(currentDynasty)
+              const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTidForCommitments, currentDynasty.currentYear)
               const commitmentsForWeek = commitmentsForTeamYear[commitmentKey]
               const hasCommitmentsData = commitmentsForWeek !== undefined
               const commitmentsCount = commitmentsForWeek?.length || 0
 
               return (
                 <>
-                  {/* Task 1: Game Entry */}
-                  <div
-                    className={`flex items-center justify-between p-4 rounded-lg border-2 ${
-                      playedGame ? 'border-green-200 bg-green-50' : ''
-                    }`}
-                    style={!playedGame ? {
-                      borderColor: `${teamColors.primary}30`,
-                      backgroundColor: teamColors.secondary
-                    } : {}}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          playedGame ? 'bg-green-500 text-white' : ''
-                        }`}
-                        style={!playedGame ? {
-                          backgroundColor: `${teamColors.primary}20`,
-                          color: teamColors.primary
-                        } : {}}
-                      >
-                        {playedGame ? (
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : (
-                          <span className="font-bold text-lg">1</span>
-                        )}
+                  {/* Task 1: Game Entry or Bye Week */}
+                  {isByeWeek ? (
+                    // Bye Week - Half height tile, already marked as complete
+                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg border border-gray-200 bg-gray-50">
+                      <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
                       </div>
-                      <div>
-                        <div
-                          className="font-semibold"
-                          style={{ color: playedGame ? '#16a34a' : secondaryBgText }}
-                        >
-                          Week {currentDynasty.currentWeek} {scheduledGame ? (scheduledGame.location === 'away' ? '@' : 'vs') : ''} {opponentName}
-                        </div>
-                        {playedGame && (
-                          <div
-                            className="text-sm mt-1 font-medium"
-                            style={{ color: '#16a34a' }}
-                          >
-                            {playedGame.perspective?.userWon ? 'W' : 'L'} {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
-                            <span className="ml-2">✓ Complete</span>
-                          </div>
-                        )}
-                      </div>
+                      <span className="text-xs font-medium text-gray-500">
+                        Week {currentDynasty.currentWeek} — BYE
+                      </span>
                     </div>
-                    {isViewOnly ? <ViewOnlyBadge /> : (
-                      <button
-                        onClick={() => {
-                          // Use gameRecord (not playedGame) for navigation - game might exist but not yet played
-                          if (gameRecord) {
-                            navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
-                          } else {
-                            // New game - navigate with query params
-                            // team1 = home team, team2 = away team (for neutral, user team is team1)
-                            const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
-                            const scheduleLocation = scheduledGame?.location?.toLowerCase() || 'home'
-                            const isAway = scheduleLocation === 'away'
-                            const isNeutral = scheduleLocation === 'neutral'
-                            // For neutral games, user team is team1; for home/away, determine by location
-                            const team1 = isAway ? opponentTid : userTeamTid
-                            const team2 = isAway ? userTeamTid : opponentTid
-                            const params = new URLSearchParams({
-                              week: currentDynasty.currentWeek?.toString() || '',
-                              year: currentDynasty.currentYear?.toString() || '',
-                              gameType: 'regular',
-                              ...(team1 && { team1Tid: team1.toString() }),
-                              ...(team2 && { team2Tid: team2.toString() }),
-                              location: isNeutral ? 'neutral' : (isAway ? 'away' : 'home')
-                            })
-                            navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                          }
-                        }}
-                        className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
-                        style={{
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText
-                        }}
-                      >
-                        {playedGame ? 'Edit' : 'Enter Game'}
-                      </button>
-                    )}
-                  </div>
+                  ) : (
+                    // Regular Game Entry
+                    <div
+                      className={`flex items-center justify-between p-4 rounded-lg border-2 ${
+                        playedGame ? 'border-green-200 bg-green-50' : ''
+                      }`}
+                      style={!playedGame ? {
+                        borderColor: `${teamColors.primary}30`,
+                        backgroundColor: teamColors.secondary
+                      } : {}}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            playedGame ? 'bg-green-500 text-white' : ''
+                          }`}
+                          style={!playedGame ? {
+                            backgroundColor: `${teamColors.primary}20`,
+                            color: teamColors.primary
+                          } : {}}
+                        >
+                          {playedGame ? (
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <span className="font-bold text-lg">1</span>
+                          )}
+                        </div>
+                        <div>
+                          <div
+                            className="font-semibold"
+                            style={{ color: playedGame ? '#16a34a' : secondaryBgText }}
+                          >
+                            Week {currentDynasty.currentWeek} {scheduledGame ? (scheduledGame.location === 'away' ? '@' : 'vs') : ''} {opponentName}
+                          </div>
+                          {playedGame && (
+                            <div
+                              className="text-sm mt-1 font-medium"
+                              style={{ color: '#16a34a' }}
+                            >
+                              {playedGame.perspective?.userWon ? 'W' : 'L'} {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
+                              <span className="ml-2">✓ Complete</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {isViewOnly ? <ViewOnlyBadge /> : (
+                        <button
+                          onClick={() => {
+                            // Use gameRecord (not playedGame) for navigation - game might exist but not yet played
+                            if (gameRecord) {
+                              navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
+                            } else {
+                              // New game - navigate with query params
+                              // team1 = home team, team2 = away team (for neutral, user team is team1)
+                              const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
+                              const scheduleLocation = scheduledGame?.location?.toLowerCase() || 'home'
+                              const isAway = scheduleLocation === 'away'
+                              const isNeutral = scheduleLocation === 'neutral'
+                              // For neutral games, user team is team1; for home/away, determine by location
+                              const team1 = isAway ? opponentTid : userTeamTid
+                              const team2 = isAway ? userTeamTid : opponentTid
+                              const params = new URLSearchParams({
+                                week: currentDynasty.currentWeek?.toString() || '',
+                                year: currentDynasty.currentYear?.toString() || '',
+                                gameType: 'regular',
+                                ...(team1 && { team1Tid: team1.toString() }),
+                                ...(team2 && { team2Tid: team2.toString() }),
+                                location: isNeutral ? 'neutral' : (isAway ? 'away' : 'home')
+                              })
+                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                            }
+                          }}
+                          className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
+                          style={{
+                            backgroundColor: teamColors.primary,
+                            color: primaryBgText
+                          }}
+                        >
+                          {playedGame ? 'Edit' : 'Enter Game'}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Task 2: Recruiting Commitments */}
                   <div
                     className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
                       hasCommitmentsData ? 'border-green-200 bg-green-50' : ''
                     }`}
-                    style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                    style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30`, backgroundColor: teamColors.secondary } : {}}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div
@@ -3237,8 +3305,9 @@ export default function Dashboard() {
                 {(() => {
                   taskNum++
                   const commitmentKey = getCommitmentKey()
-                  const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-                  const ccCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
+                  const userTidForCommits = getUserTeamTid(currentDynasty)
+                  const ccCommitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
+                  const ccCommitments = ccCommitmentsForYear?.[commitmentKey]
                   const hasCommitmentsData = ccCommitments !== undefined
                   const commitmentsCount = ccCommitments?.length || 0
 
@@ -3928,7 +3997,8 @@ export default function Dashboard() {
                             if (userBowlGame) {
                               navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
                             } else {
-                              const opponentTid = getTidFromAbbr(bowlOpponent)
+                              // bowlOpponent is a team name (e.g., "Texas Longhorns"), not abbreviation
+                              const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
                               const params = new URLSearchParams({
                                 week: 'Bowl',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -4096,8 +4166,9 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 1) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-                      const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
+                      const userTidForCommits = getUserTeamTid(currentDynasty)
+                      const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
+                      const weekCommitments = commitmentsForYear?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
                       // Task number: after Taking a New Job (which is task 5)
@@ -4255,7 +4326,8 @@ export default function Dashboard() {
                               if (userBowlGame) {
                                 navigate(`${pathPrefix}/game/${userBowlGame.id}/edit`, { state: { from: location.pathname } })
                               } else {
-                                const opponentTid = getTidFromAbbr(bowlOpponent)
+                                // bowlOpponent is a team name (e.g., "Texas Longhorns"), not abbreviation
+                                const opponentTid = getTidFromTeamName(bowlOpponent, currentDynasty?.teams)
                                 const params = new URLSearchParams({
                                   week: 'Bowl',
                                   year: currentDynasty.currentYear?.toString() || '',
@@ -4730,8 +4802,9 @@ export default function Dashboard() {
                     {/* Task: Recruiting Commitments (Bowl Week 2) */}
                     {(() => {
                       const commitmentKey = getCommitmentKey()
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-                      const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
+                      const userTidForCommits = getUserTeamTid(currentDynasty)
+                      const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
+                      const weekCommitments = commitmentsForYear?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
                       // Task number: starts at base, increments based on visible tasks
@@ -5848,8 +5921,9 @@ export default function Dashboard() {
                   {/* Task: Recruiting Commitments (Bowl Weeks 3-4) */}
                   {(() => {
                     const commitmentKey = getCommitmentKey()
-                    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-                    const weekCommitments = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.[commitmentKey]
+                    const userTidForCommits = getUserTeamTid(currentDynasty)
+                    const commitmentsForYear = getRecruitingCommitments(currentDynasty, userTidForCommits, currentDynasty.currentYear)
+                    const weekCommitments = commitmentsForYear?.[commitmentKey]
                     const hasCommitmentsData = weekCommitments !== undefined
                     const commitmentsCount = weekCommitments?.length || 0
                     // Task number depends on week and other visible tasks
@@ -6053,9 +6127,9 @@ export default function Dashboard() {
               const hasDraftResultsData = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length > 0
               const draftResultsCount = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length || 0
 
-              // Check recruiting commitments for this week - TEAM-CENTRIC with signing_ key
-              const teamAbbrForCommitments = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-              const recruitingCommitmentsForTeamYear = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbrForCommitments]?.[offseasonDataYear] || {}
+              // Check recruiting commitments for this week - TID-BASED with signing_ key
+              const userTidForCommits = getUserTeamTid(currentDynasty)
+              const recruitingCommitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTidForCommits, offseasonDataYear)
               const commitmentsForWeek = recruitingCommitmentsForTeamYear[`signing_${recruitingWeekNum}`]
               const hasCommitmentsData = commitmentsForWeek !== undefined // undefined = not answered, [] = no commitments, array with items = has commitments
               const commitmentsCount = commitmentsForWeek?.length || 0
@@ -6378,8 +6452,8 @@ export default function Dashboard() {
                     {/* Task 5: Portal Transfer Class Assignment (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
                       // Get portal transfers from recruiting commitments for this year
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-                      const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
+                      const userTidForPortal = getUserTeamTid(currentDynasty)
+                      const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
                       const portalTransfersForClass = []
                       Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
                         if (Array.isArray(weekCommitments)) {
@@ -6766,16 +6840,17 @@ export default function Dashboard() {
 
             // Offseason Week 8: Offseason (Custom Conferences & Encourage Transfers)
             if (week === 8) {
-              const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+              const userTid = getUserTeamTid(currentDynasty)
               // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
               const upcomingSeasonYear = currentDynasty.currentYear
 
               // Check if conferences have been set for the upcoming season
               const hasConferencesSet = currentDynasty?.customConferencesByYear?.[upcomingSeasonYear] != null
 
-              // Check if encourage transfers has been completed
-              const hasEncourageTransfers = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear] != null
-              const encourageTransfersCount = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]?.length || 0
+              // Check if encourage transfers has been completed (use tid-based getter)
+              const encourageTransfersList = getEncourageTransfers(currentDynasty, userTid, currentDynasty.currentYear)
+              const hasEncourageTransfers = encourageTransfersList.length > 0 || currentDynasty?.teams?.[userTid]?.byYear?.[currentDynasty.currentYear]?.encourageTransfers != null
+              const encourageTransfersCount = encourageTransfersList.length
 
               return (
                 <>
@@ -6975,6 +7050,22 @@ export default function Dashboard() {
                           <td className="py-2 px-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
+                              {/* Player Image */}
+                              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
+                                {player.pictureUrl ? (
+                                  <img
+                                    src={player.pictureUrl}
+                                    alt={player.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
                               <span className="font-medium text-gray-900 truncate">{player.name}</span>
                             </div>
                           </td>
@@ -7032,20 +7123,25 @@ export default function Dashboard() {
         <div className="p-3 sm:p-4">
           {teamSchedule && teamSchedule.length > 0 ? (
             <div className="space-y-2">
-              {teamSchedule.map((entry, index) => {
-                // Handle BYE weeks
-                if (entry.isBye || entry.opponent?.toUpperCase() === 'BYE') {
+              {/* Render all weeks 0-15, showing bye weeks for missing entries */}
+              {Array.from({ length: 16 }, (_, weekNum) => {
+                const entry = teamSchedule.find(e => Number(e.week) === weekNum)
+
+                // Handle BYE weeks - explicit bye, missing entry, or no opponent
+                const isByeWeek = !entry || entry.isBye || entry.opponent?.toUpperCase() === 'BYE' || !entry.opponent
+
+                if (isByeWeek) {
                   return (
                     <div
-                      key={index}
+                      key={weekNum}
                       className="rounded-lg overflow-hidden border border-gray-100"
                     >
                       <div className="flex items-center w-full overflow-hidden">
-                        <div className="flex-1 flex items-center justify-center py-2 sm:py-3 px-2 sm:px-4 bg-gray-50">
-                          <span className="text-sm sm:text-base font-semibold text-gray-400">BYE WEEK</span>
+                        <div className="flex-1 flex items-center justify-center py-1 sm:py-1.5 px-2 sm:px-4 bg-gray-50">
+                          <span className="text-xs sm:text-sm font-semibold text-gray-400">BYE WEEK</span>
                         </div>
-                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm bg-gray-100 text-gray-500">
-                          Wk {entry.week}
+                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-1 sm:py-1.5 font-bold text-[9px] sm:text-xs bg-gray-100 text-gray-500">
+                          Wk {weekNum}
                         </div>
                       </div>
                     </div>
@@ -7059,7 +7155,7 @@ export default function Dashboard() {
                 const opponentName = mascotName || getTeamNameFromAbbr(entry.opponent)
                 const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
                 const isCurrentWeek = currentDynasty.currentPhase === 'regular_season' &&
-                  Number(entry.week) === Number(currentDynasty.currentWeek) && !entry.isPlayed
+                  weekNum === Number(currentDynasty.currentWeek) && !entry.isPlayed
                 const isWin = entry.perspective?.userWon
                 const isLoss = entry.perspective && !entry.perspective.userWon
                 const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
@@ -7175,7 +7271,7 @@ export default function Dashboard() {
                       }`}
                       style={isCurrentWeek && !entry.isPlayed ? { backgroundColor: teamColors.primary } : {}}
                     >
-                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${entry.week}`}
+                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${weekNum}`}
                     </div>
                   </div>
                 )
@@ -7183,7 +7279,7 @@ export default function Dashboard() {
                 if (playedGame?.id) {
                   return (
                     <Link
-                      key={index}
+                      key={weekNum}
                       to={`${pathPrefix}/game/${playedGame.id}`}
                       className="block rounded-lg overflow-hidden hover:bg-gray-100 transition-all duration-200 border border-gray-100"
                     >
@@ -7194,7 +7290,7 @@ export default function Dashboard() {
 
                 return (
                   <div
-                    key={index}
+                    key={weekNum}
                     className={`rounded-lg overflow-hidden border ${isCurrentWeek ? 'border-2' : 'border-gray-100'}`}
                     style={isCurrentWeek ? { borderColor: teamColors.primary } : {}}
                   >
@@ -7225,24 +7321,9 @@ export default function Dashboard() {
 
               const ccContent = (
                 <div className="flex items-center w-full overflow-hidden">
-                  {/* Week Badge */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: ccGame
-                        ? (isWin ? '#22c55e' : '#ef4444')
-                        : isCurrentCCWeek
-                          ? teamColors.primary
-                          : `${secondaryBgText}15`,
-                      color: ccGame || isCurrentCCWeek ? '#fff' : secondaryBgText
-                    }}
-                  >
-                    {ccGame ? (isWin ? 'W' : 'L') : isCurrentCCWeek ? 'NEXT' : 'CC'}
-                  </div>
-
                   {/* Game Info */}
                   <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? ccOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7312,6 +7393,21 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
+
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{
+                      backgroundColor: ccGame
+                        ? (isWin ? '#22c55e' : '#ef4444')
+                        : isCurrentCCWeek
+                          ? teamColors.primary
+                          : `${secondaryBgText}15`,
+                      color: ccGame || isCurrentCCWeek ? '#fff' : secondaryBgText
+                    }}
+                  >
+                    {ccGame ? (isWin ? 'W' : 'L') : isCurrentCCWeek ? 'NEXT' : 'CC'}
+                  </div>
                 </div>
               )
 
@@ -7371,22 +7467,9 @@ export default function Dashboard() {
 
               const bowlContent = (
                 <div className="flex items-center w-full overflow-hidden">
-                  {/* Week Badge */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: userBowlGameData
-                        ? (isWin ? '#22c55e' : '#ef4444')
-                        : `${secondaryBgText}15`,
-                      color: userBowlGameData ? '#fff' : secondaryBgText
-                    }}
-                  >
-                    {userBowlGameData ? (isWin ? 'W' : 'L') : 'Bowl'}
-                  </div>
-
                   {/* Game Info */}
                   <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? bowlOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7459,6 +7542,19 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
+
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{
+                      backgroundColor: userBowlGameData
+                        ? (isWin ? '#22c55e' : '#ef4444')
+                        : `${secondaryBgText}15`,
+                      color: userBowlGameData ? '#fff' : secondaryBgText
+                    }}
+                  >
+                    {userBowlGameData ? (isWin ? 'W' : 'L') : 'Bowl'}
+                  </div>
                 </div>
               )
 
@@ -7502,20 +7598,9 @@ export default function Dashboard() {
 
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
-                  {/* Week Badge */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: isWin ? '#22c55e' : '#ef4444',
-                      color: '#fff'
-                    }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-
                   {/* Game Info */}
                   <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7574,6 +7659,17 @@ export default function Dashboard() {
                       })()}
                     </div>
                   </div>
+
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{
+                      backgroundColor: isWin ? '#22c55e' : '#ef4444',
+                      color: '#fff'
+                    }}
+                  >
+                    {isWin ? 'W' : 'L'}
+                  </div>
                 </div>
               )
 
@@ -7608,13 +7704,7 @@ export default function Dashboard() {
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
                   <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7641,6 +7731,13 @@ export default function Dashboard() {
                         )
                       })()}
                     </div>
+                  </div>
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
+                  >
+                    {isWin ? 'W' : 'L'}
                   </div>
                 </div>
               )
@@ -7672,13 +7769,7 @@ export default function Dashboard() {
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
                   <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7705,6 +7796,13 @@ export default function Dashboard() {
                         )
                       })()}
                     </div>
+                  </div>
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
+                  >
+                    {isWin ? 'W' : 'L'}
                   </div>
                 </div>
               )
@@ -7735,13 +7833,7 @@ export default function Dashboard() {
               const cfpContent = (
                 <div className="flex items-center w-full overflow-hidden">
                   <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                     style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -7768,6 +7860,13 @@ export default function Dashboard() {
                         )
                       })()}
                     </div>
+                  </div>
+                  {/* Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
+                  >
+                    {isWin ? 'W' : 'L'}
                   </div>
                 </div>
               )
@@ -7869,6 +7968,22 @@ export default function Dashboard() {
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
+                            {/* Player Image */}
+                            <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
+                              {player.pictureUrl ? (
+                                <img
+                                  src={player.pictureUrl}
+                                  alt={player.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                  </svg>
+                                </div>
+                              )}
+                            </div>
                             <span className="font-medium text-gray-900 truncate">{player.name}</span>
                           </div>
                         </td>
@@ -8720,8 +8835,8 @@ export default function Dashboard() {
         teamColors={teamColors}
         portalTransfers={(() => {
           // Get portal transfers from recruiting commitments for this year
-          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const recruitingCommitmentsAll = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[offseasonDataYear] || {}
+          const userTidForPortal = getUserTeamTid(currentDynasty)
+          const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
           const transfers = []
           Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
             if (Array.isArray(weekCommitments)) {
@@ -8798,15 +8913,12 @@ export default function Dashboard() {
         isOpen={showEncourageTransfersModal}
         onClose={() => setShowEncourageTransfersModal(false)}
         onSave={async (transferPlayers) => {
-          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const teamTid = getTidFromAbbr(teamAbbr)
-          // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
-          const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
+          const userTid = getUserTeamTid(currentDynasty)
           const year = currentDynasty?.currentYear
           const isDev = import.meta.env.VITE_DEV_MODE === 'true'
 
-          // Get previously encouraged transfers (to restore them first if user is editing)
-          const previouslyEncouraged = currentDynasty?.encourageTransfersByTeamYear?.[teamAbbr]?.[year] || []
+          // Get previously encouraged transfers using tid-based getter
+          const previouslyEncouraged = getEncourageTransfers(currentDynasty, userTid, year)
           const previousNames = new Set(previouslyEncouraged.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
 
           // New encouraged transfers
@@ -8824,7 +8936,7 @@ export default function Dashboard() {
             if (wasPreviouslyEncouraged && !isNowEncouraged) {
               const restoredTeamsByYear = {
                 ...(player.teamsByYear || {}),
-                [year]: teamsByYearValue
+                [year]: userTid  // Always use tid
               }
               return {
                 ...player,
@@ -8847,16 +8959,25 @@ export default function Dashboard() {
             return player
           })
 
+          // Store using tid-based structure: teams[tid].byYear[year].encourageTransfers
           if (isDev || !user) {
-            // Dev mode - store encouraged transfers using team-centric pattern
-            const existingByTeamYear = currentDynasty?.encourageTransfersByTeamYear || {}
-            const teamTransfers = existingByTeamYear[teamAbbr] || {}
+            // Dev mode - ensure teams structure exists
+            const existingTeams = currentDynasty?.teams || {}
+            const existingTeamData = existingTeams[userTid] || {}
+            const existingByYear = existingTeamData.byYear || {}
+            const existingYearData = existingByYear[year] || {}
             await updateDynasty(currentDynasty.id, {
-              encourageTransfersByTeamYear: {
-                ...existingByTeamYear,
-                [teamAbbr]: {
-                  ...teamTransfers,
-                  [year]: transferPlayers
+              teams: {
+                ...existingTeams,
+                [userTid]: {
+                  ...existingTeamData,
+                  byYear: {
+                    ...existingByYear,
+                    [year]: {
+                      ...existingYearData,
+                      encourageTransfers: transferPlayers
+                    }
+                  }
                 }
               },
               players: updatedPlayers
@@ -8864,7 +8985,7 @@ export default function Dashboard() {
           } else {
             // Production mode - use dot notation for Firestore
             await updateDynasty(currentDynasty.id, {
-              [`encourageTransfersByTeamYear.${teamAbbr}.${year}`]: transferPlayers,
+              [`teams.${userTid}.byYear.${year}.encourageTransfers`]: transferPlayers,
               players: updatedPlayers
             })
           }
@@ -8881,7 +9002,8 @@ export default function Dashboard() {
           const returningPlayers = teamRoster.filter(p => !leavingPids.has(p.pid))
 
           // Get portal transfers from recruiting commitments
-          const recruitingCommitments = currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]?.[currentDynasty?.currentYear] || {}
+          const userTidForPortal = getUserTeamTid(currentDynasty)
+          const recruitingCommitments = getRecruitingCommitments(currentDynasty, userTidForPortal, currentDynasty?.currentYear)
           const portalTransfers = []
           Object.values(recruitingCommitments).forEach(weekCommitments => {
             if (Array.isArray(weekCommitments)) {

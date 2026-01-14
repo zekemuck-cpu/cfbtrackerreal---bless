@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useDynasty, getPlayersNeedingClassConfirmation, getUserGamePerspective } from '../context/DynastyContext'
+import { useDynasty, getPlayersNeedingClassConfirmation, getUserGamePerspective, getCurrentSchedule, getConferenceChampionshipData } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useCurrentTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogoByTid } from '../data/teams'
@@ -131,32 +131,40 @@ export default function Layout({ children }) {
       return
     }
 
-    // In regular season, check if current week's game has been entered
+    // In regular season, check if current week's game has been entered (unless it's a bye week)
     if (currentDynasty.currentPhase === 'regular_season') {
-      // Find a user game for this week using getUserGamePerspective (handles all game formats)
-      const currentWeekGame = currentDynasty.games?.find(g => {
-        // Type-safe comparisons (handle string vs number)
-        if (Number(g.week) !== Number(currentDynasty.currentWeek)) return false
-        if (Number(g.year) !== Number(currentDynasty.currentYear)) return false
-        // Must be a user game (not a CPU-only game)
-        const perspective = getUserGamePerspective(g, currentDynasty)
-        return perspective !== null
-      })
+      // Check if this week is a bye week
+      const teamSchedule = getCurrentSchedule(currentDynasty)
+      const scheduledGame = teamSchedule?.find(g => Number(g.week) === Number(currentDynasty.currentWeek))
+      const isByeWeek = scheduledGame?.isBye ||
+        scheduledGame?.opponent?.toUpperCase() === 'BYE' ||
+        (scheduledGame && !scheduledGame.opponent) ||
+        (!scheduledGame && teamSchedule?.length > 0) // Has schedule but no entry for this week = bye
 
-      if (!currentWeekGame) {
-        alert(`Please enter the Week ${currentDynasty.currentWeek} game before advancing.`)
-        return
+      // Skip game check for bye weeks
+      if (!isByeWeek) {
+        // Find a user game for this week using getUserGamePerspective (handles all game formats)
+        const currentWeekGame = currentDynasty.games?.find(g => {
+          // Type-safe comparisons (handle string vs number)
+          if (Number(g.week) !== Number(currentDynasty.currentWeek)) return false
+          if (Number(g.year) !== Number(currentDynasty.currentYear)) return false
+          // Must be a user game (not a CPU-only game)
+          const perspective = getUserGamePerspective(g, currentDynasty)
+          return perspective !== null
+        })
+
+        if (!currentWeekGame) {
+          alert(`Please enter the Week ${currentDynasty.currentWeek} game before advancing.`)
+          return
+        }
       }
     }
 
     // In conference championship phase, check if user has answered the question
     if (currentDynasty.currentPhase === 'conference_championship') {
-      // Check team-centric structure first, then fall back to year-only structure
-      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-      let ccData = currentDynasty.conferenceChampionshipDataByTeamYear?.[teamAbbr]?.[currentDynasty.currentYear]
-      if (!ccData) {
-        ccData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
-      }
+      // Use tid-based getter (handles all fallbacks)
+      const userTid = getCurrentTeamTid(currentDynasty)
+      const ccData = getConferenceChampionshipData(currentDynasty, userTid, currentDynasty.currentYear)
 
       // If they haven't answered whether they made the championship yet
       if (ccData?.madeChampionship === undefined || ccData?.madeChampionship === null) {
@@ -181,12 +189,9 @@ export default function Layout({ children }) {
       const ccResults = currentDynasty.conferenceChampionships?.filter(cc => cc.team1 && cc.team2) || []
       const enteredCount = ccResults.length
 
-      // Check team-centric structure first, then fall back to year-only structure
-      const postTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-      let postCCData = currentDynasty.conferenceChampionshipDataByTeamYear?.[postTeamAbbr]?.[currentDynasty.currentYear]
-      if (!postCCData) {
-        postCCData = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear]
-      }
+      // Use tid-based getter (handles all fallbacks)
+      const postUserTid = getCurrentTeamTid(currentDynasty)
+      const postCCData = getConferenceChampionshipData(currentDynasty, postUserTid, currentDynasty.currentYear)
       const userMadeCC = postCCData?.madeChampionship === true
       const expectedCount = userMadeCC ? 9 : 10
 

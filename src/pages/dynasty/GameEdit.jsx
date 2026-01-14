@@ -233,8 +233,30 @@ export default function GameEdit() {
     return found || null
   }, [currentDynasty?.games, gameId, currentGameId])
 
-  // Derive team data
-  const teamsSource = currentDynasty?.teams || TEAMS
+  // Derive team data - merge dynasty.teams WITH TEAMS to preserve static team properties
+  // dynasty.teams may have partial data (byYear, userId) that would overwrite complete team info
+  const teamsSource = useMemo(() => {
+    const merged = { ...TEAMS }
+    if (currentDynasty?.teams) {
+      Object.entries(currentDynasty.teams).forEach(([key, dynastyTeamData]) => {
+        const staticTeam = TEAMS[key]
+        if (staticTeam) {
+          // Merge: keep static properties, add dynasty-specific data
+          merged[key] = { ...staticTeam, ...dynastyTeamData }
+          // Ensure critical properties come from static TEAMS if missing
+          if (!dynastyTeamData.tid) merged[key].tid = staticTeam.tid
+          if (!dynastyTeamData.abbr) merged[key].abbr = staticTeam.abbr
+          if (!dynastyTeamData.name) merged[key].name = staticTeam.name
+          if (!dynastyTeamData.primaryColor) merged[key].primaryColor = staticTeam.primaryColor
+          if (!dynastyTeamData.secondaryColor) merged[key].secondaryColor = staticTeam.secondaryColor
+        } else {
+          // Teambuilder team - use as-is
+          merged[key] = dynastyTeamData
+        }
+      })
+    }
+    return merged
+  }, [currentDynasty?.teams])
 
   // Handle multiple game formats: unified (team1Tid/team2Tid), user game (userTid/opponentTid), legacy (userTeam/opponent)
   const resolveTeam1Tid = () => {
@@ -725,8 +747,101 @@ export default function GameEdit() {
     }
   }
 
-  // Open box score modal
-  const openBoxScoreModal = (type) => {
+  // Save game data silently (without navigation or toast) - used for auto-save
+  const saveGameDataSilently = async () => {
+    if (!currentDynasty?.id) return false
+
+    try {
+      // Determine homeTeamTid
+      let homeTeamTid = null
+      const isNeutralGame = gameType !== 'regular'
+      if (!isNeutralGame) {
+        if (formData.location === 'home') homeTeamTid = team1Tid
+        else if (formData.location === 'away') homeTeamTid = team2Tid
+      }
+
+      const gameData = {
+        id: currentGameId || existingGame?.id || `game-${Date.now()}`,
+        week: gameWeek,
+        year: gameYear,
+        gameType: existingGame?.gameType || gameType,
+        team1Tid,
+        team2Tid,
+        team1Score: parseInt(formData.team1Score) || 0,
+        team2Score: parseInt(formData.team2Score) || 0,
+        quarters: formData.quarters,
+        overtimes: formData.overtimes,
+        team1Rank: formData.team1Rank ? parseInt(formData.team1Rank) : null,
+        team2Rank: formData.team2Rank ? parseInt(formData.team2Rank) : null,
+        team1Overall: formData.team1Overall ? parseInt(formData.team1Overall) : null,
+        team1Offense: formData.team1Offense ? parseInt(formData.team1Offense) : null,
+        team1Defense: formData.team1Defense ? parseInt(formData.team1Defense) : null,
+        team2Overall: formData.team2Overall ? parseInt(formData.team2Overall) : null,
+        team2Offense: formData.team2Offense ? parseInt(formData.team2Offense) : null,
+        team2Defense: formData.team2Defense ? parseInt(formData.team2Defense) : null,
+        team1Record: formData.team1Record,
+        team2Record: formData.team2Record,
+        team1ConfRecord: formData.team1ConfRecord,
+        team2ConfRecord: formData.team2ConfRecord,
+        homeTeamTid,
+        isConferenceGame: formData.isConferenceGame || isConferenceGame,
+        aiRecap: formData.aiRecap,
+        userTid: existingGame?.userTid || team1Tid,
+        // Preserve game type flags
+        ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
+        ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
+        ...(existingGame?.isConferenceChampionship && { isConferenceChampionship: true, conference: existingGame.conference }),
+        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true }),
+        ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
+        ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
+        ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
+        ...(!existingGame && gameType === 'cfp_quarterfinal' && { isCFPQuarterfinal: true, bowlName }),
+        ...(existingGame?.isCFPSemifinal && { isCFPSemifinal: true }),
+        ...(!existingGame && gameType === 'cfp_semifinal' && { isCFPSemifinal: true, bowlName }),
+        ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
+        ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
+        ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
+        // Save links as array (filter out empty entries)
+        ...(() => {
+          const validLinks = formData.links.filter(l => l.trim())
+          return validLinks.length > 0 ? { links: validLinks } : {}
+        })()
+      }
+
+      // Update or add game
+      const games = currentDynasty.games || []
+      const existingIndex = games.findIndex(g => g.id === gameData.id)
+
+      let updatedGames
+      if (existingIndex >= 0) {
+        updatedGames = [...games]
+        updatedGames[existingIndex] = { ...games[existingIndex], ...gameData }
+      } else {
+        updatedGames = [...games, gameData]
+      }
+
+      // Build record updates for both teams involved
+      const dynastyWithUpdatedGames = { ...currentDynasty, games: updatedGames }
+      let recordUpdates = {}
+      if (team1Tid) {
+        Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team1Tid, gameYear))
+      }
+      if (team2Tid && team2Tid !== team1Tid) {
+        Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team2Tid, gameYear))
+      }
+
+      await updateDynasty(currentDynasty.id, { games: updatedGames, ...recordUpdates })
+      return true
+    } catch (error) {
+      console.error('Error auto-saving game:', error)
+      return false
+    }
+  }
+
+  // Open box score modal - auto-saves game data first to prevent data loss
+  const openBoxScoreModal = async (type) => {
+    // Auto-save current form data before opening modal
+    await saveGameDataSilently()
     setBoxScoreModalType(type)
     setShowBoxScoreModal(true)
   }
@@ -949,18 +1064,21 @@ export default function GameEdit() {
 
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
-            {/* Headers */}
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr repeat(4, 50px) 60px' }}>
+            {/* Headers - dynamic columns for Q1-Q4 + OT columns + Total */}
+            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="text-xs font-semibold text-gray-600">Team</div>
               <div className="text-xs font-semibold text-gray-600 text-center">Q1</div>
               <div className="text-xs font-semibold text-gray-600 text-center">Q2</div>
               <div className="text-xs font-semibold text-gray-600 text-center">Q3</div>
               <div className="text-xs font-semibold text-gray-600 text-center">Q4</div>
+              {formData.overtimes.map((_, idx) => (
+                <div key={`ot-header-${idx}`} className="text-xs font-semibold text-gray-600 text-center">OT{idx + 1}</div>
+              ))}
               <div className="text-xs font-semibold text-gray-600 text-center">Total</div>
             </div>
 
             {/* Away Team Row (left/top) */}
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr repeat(4, 50px) 60px' }}>
+            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-6 h-6 object-contain" />}
                 <span className="text-sm font-medium truncate">{leftTeamAbbr}</span>
@@ -971,6 +1089,24 @@ export default function GameEdit() {
                   type="number"
                   value={formData.quarters?.[displayLeftTeam]?.[q] ?? ''}
                   onChange={(e) => handleQuarterChange(displayLeftTeam, q, e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value === '') handleQuarterChange(displayLeftTeam, q, '0')
+                  }}
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  style={{ borderColor: leftTeamColors.primary }}
+                  min="0"
+                  placeholder="0"
+                />
+              ))}
+              {formData.overtimes.map((ot, idx) => (
+                <input
+                  key={`ot-left-${idx}`}
+                  type="number"
+                  value={ot[displayLeftTeam] ?? ''}
+                  onChange={(e) => handleOvertimeChange(idx, displayLeftTeam, e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value === '') handleOvertimeChange(idx, displayLeftTeam, '0')
+                  }}
                   className="w-full px-2 py-1 border-2 rounded text-center text-sm"
                   style={{ borderColor: leftTeamColors.primary }}
                   min="0"
@@ -983,7 +1119,7 @@ export default function GameEdit() {
             </div>
 
             {/* Home Team Row (right/bottom) */}
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr repeat(4, 50px) 60px' }}>
+            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-6 h-6 object-contain" />}
                 <span className="text-sm font-medium truncate">{rightTeamAbbr}</span>
@@ -994,6 +1130,24 @@ export default function GameEdit() {
                   type="number"
                   value={formData.quarters?.[displayRightTeam]?.[q] ?? ''}
                   onChange={(e) => handleQuarterChange(displayRightTeam, q, e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value === '') handleQuarterChange(displayRightTeam, q, '0')
+                  }}
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  style={{ borderColor: rightTeamColors.primary }}
+                  min="0"
+                  placeholder="0"
+                />
+              ))}
+              {formData.overtimes.map((ot, idx) => (
+                <input
+                  key={`ot-right-${idx}`}
+                  type="number"
+                  value={ot[displayRightTeam] ?? ''}
+                  onChange={(e) => handleOvertimeChange(idx, displayRightTeam, e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value === '') handleOvertimeChange(idx, displayRightTeam, '0')
+                  }}
                   className="w-full px-2 py-1 border-2 rounded text-center text-sm"
                   style={{ borderColor: rightTeamColors.primary }}
                   min="0"
@@ -1004,45 +1158,6 @@ export default function GameEdit() {
                 {formData[`${displayRightTeam}Score`] || '0'}
               </div>
             </div>
-
-            {/* Overtime Rows */}
-            {formData.overtimes.map((ot, idx) => (
-              <div key={idx} className="mt-4 pt-4 border-t border-gray-200">
-                <div className="text-sm font-semibold text-gray-600 mb-2">Overtime {idx + 1}</div>
-                {/* Away team (top) */}
-                <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: '1fr 60px' }}>
-                  <div className="flex items-center gap-2">
-                    {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-5 h-5 object-contain" />}
-                    <span className="text-sm">{leftTeamAbbr}</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={ot[displayLeftTeam]}
-                    onChange={(e) => handleOvertimeChange(idx, displayLeftTeam, e.target.value)}
-                    className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                    style={{ borderColor: leftTeamColors.primary }}
-                    min="0"
-                    placeholder="0"
-                  />
-                </div>
-                {/* Home team (bottom) */}
-                <div className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 60px' }}>
-                  <div className="flex items-center gap-2">
-                    {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-5 h-5 object-contain" />}
-                    <span className="text-sm">{rightTeamAbbr}</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={ot[displayRightTeam]}
-                    onChange={(e) => handleOvertimeChange(idx, displayRightTeam, e.target.value)}
-                    className="w-full px-2 py-1 border-2 rounded text-center text-sm"
-                    style={{ borderColor: rightTeamColors.primary }}
-                    min="0"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>
