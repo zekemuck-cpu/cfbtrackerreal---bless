@@ -1604,7 +1604,21 @@ export default function TeamYear() {
             )}
             {/* Bowl Game Result (only if not in CFP) - clickable link to game */}
             {!cfpResult && teamBowlGame && (() => {
-              const bowlGameId = teamBowlGame.id || `bowl-${selectedYear}-${(teamBowlGame.bowlName || 'bowl').toLowerCase().replace(/\s+/g, '-')}`
+              // Try to find actual game ID from games[] array if not set
+              // This handles legacy bowl data from bowlGamesByYear that doesn't have id
+              let bowlGameId = teamBowlGame.id
+              if (!bowlGameId && teamBowlGame.bowlName) {
+                const matchingGame = (currentDynasty.games || []).find(g =>
+                  g.isBowlGame &&
+                  isSameYear(g.year, selectedYear) &&
+                  g.bowlName === teamBowlGame.bowlName
+                )
+                bowlGameId = matchingGame?.id
+              }
+              // Fallback to pattern-based ID for Game.jsx to resolve
+              if (!bowlGameId) {
+                bowlGameId = `bowl-${selectedYear}-${(teamBowlGame.bowlName || 'bowl').toLowerCase().replace(/\s+/g, '-')}`
+              }
               return (
                 <Link
                   to={`${pathPrefix}/game/${bowlGameId}`}
@@ -1627,7 +1641,19 @@ export default function TeamYear() {
             })()}
             {/* Conference Championship Badge - only show for winners, clickable link to game */}
             {teamCCGame && wonCC && (() => {
-              const ccGameId = teamCCGame.id || `cc-${selectedYear}-${(teamCCGame.conference || 'cc').toLowerCase().replace(/\s+/g, '-')}`
+              // Try to find actual game ID from games[] array if not set
+              let ccGameId = teamCCGame.id
+              if (!ccGameId && teamCCGame.conference) {
+                const matchingGame = (currentDynasty.games || []).find(g =>
+                  g.isConferenceChampionship &&
+                  isSameYear(g.year, selectedYear) &&
+                  g.conference === teamCCGame.conference
+                )
+                ccGameId = matchingGame?.id
+              }
+              if (!ccGameId) {
+                ccGameId = `cc-${selectedYear}-${(teamCCGame.conference || 'cc').toLowerCase().replace(/\s+/g, '-')}`
+              }
               return (
                 <Link
                   to={`${pathPrefix}/game/${ccGameId}`}
@@ -1650,7 +1676,19 @@ export default function TeamYear() {
             })()}
             {/* Bowl Game Badge - only show clickable version if in CFP (otherwise shown above) */}
             {cfpResult && teamBowlGame && (() => {
-              const bowlGameId = teamBowlGame.id || `bowl-${selectedYear}-${(teamBowlGame.bowlName || 'bowl').toLowerCase().replace(/\s+/g, '-')}`
+              // Try to find actual game ID from games[] array if not set
+              let bowlGameId = teamBowlGame.id
+              if (!bowlGameId && teamBowlGame.bowlName) {
+                const matchingGame = (currentDynasty.games || []).find(g =>
+                  g.isBowlGame &&
+                  isSameYear(g.year, selectedYear) &&
+                  g.bowlName === teamBowlGame.bowlName
+                )
+                bowlGameId = matchingGame?.id
+              }
+              if (!bowlGameId) {
+                bowlGameId = `bowl-${selectedYear}-${(teamBowlGame.bowlName || 'bowl').toLowerCase().replace(/\s+/g, '-')}`
+              }
               return (
                 <Link
                   to={`${pathPrefix}/game/${bowlGameId}`}
