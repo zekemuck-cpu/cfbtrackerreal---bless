@@ -2280,6 +2280,7 @@ export default function Dashboard() {
         const teamRecord = getCurrentTeamRecord(currentDynasty)
         const headerWins = teamRecord?.wins || 0
         const headerLosses = teamRecord?.losses || 0
+
         // Get rank from the most recent game (if unranked, userRank will be null/undefined)
         const lastGame = currentYearGames.length > 0 ? currentYearGames[currentYearGames.length - 1] : null
         const currentRank = lastGame?.perspective?.userRank

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamRecord } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -361,20 +361,8 @@ export default function TeamYear() {
   }
 
   // Conference with custom conferences support (year-specific)
-  const customConferences = getCustomConferencesForYear(currentDynasty, selectedYear)
-  // Get conference for the team - check manual override first
-  const manualConference = currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear]
-  // Fall back to checking custom conferences
-  let baseConference = null
-  if (customConferences) {
-    for (const [conf, teams] of Object.entries(customConferences)) {
-      if (teams.includes(teamAbbr)) {
-        baseConference = conf
-        break
-      }
-    }
-  }
-  const conference = manualConference || baseConference
+  // Uses getTeamConferenceForDynasty which checks: manual override -> custom conferences -> default conferences
+  const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr, selectedYear)
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
   const mascotName = team.name
   const teamLogo = team.logo
@@ -780,13 +768,6 @@ export default function TeamYear() {
     return result === 'loss' || result === 'L'
   }).length
 
-  // Use centralized single-source-of-truth record
-  // The getTeamRecord function handles the fallback chain:
-  // 1. New tid-based structure (teams[tid].byYear[year].record)
-  // 2. Legacy structure (teamRecordsByTeamYear)
-  // 3. Calculate from games
-  const centralizedRecord = getTeamRecord(currentDynasty, tid, selectedYear)
-
   // Get the last known opponent record from games where this team was the opponent
   // This gives us the most recent record entered by the user during game input
   // Uses perspective to find games where user played against this team
@@ -930,11 +911,15 @@ export default function TeamYear() {
 
   const seasonStats = getSeasonTeamStats()
 
-  // Use the centralized record as the single source of truth
-  // The centralized function already handles the fallback chain internally
-  const displayRecord = centralizedRecord ? {
-    wins: centralizedRecord.wins,
-    losses: centralizedRecord.losses,
+  // Calculate record directly from games to ensure accuracy
+  // The stored record may be stale if games were added/removed without updating it
+  const calculatedRecord = calculateTeamRecordFromGames(currentDynasty, tid, selectedYear)
+
+  // Use calculated record as the authoritative source of truth for display
+  // This ensures the displayed record always matches actual games played
+  const displayRecord = calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0) ? {
+    wins: calculatedRecord.wins,
+    losses: calculatedRecord.losses,
     pointsFor: null,
     pointsAgainst: null
   } : null

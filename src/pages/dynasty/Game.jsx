@@ -8,7 +8,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../../services/geminiService'
+import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
@@ -608,10 +608,13 @@ export default function Game() {
     return getRecordAsOfGame(currentDynasty, game, perspective.userTid)
   })()
 
-  // Parse links
-  const parseLinks = (linksString) => {
-    if (!linksString) return []
-    return linksString.split(',').map(link => link.trim()).filter(link => link)
+  // Parse links - handles both array (new format) and comma-separated string (legacy format)
+  const parseLinks = (linksData) => {
+    if (!linksData) return []
+    if (Array.isArray(linksData)) {
+      return linksData.map(link => link.trim()).filter(link => link)
+    }
+    return linksData.split(',').map(link => link.trim()).filter(link => link)
   }
   const links = parseLinks(game.links)
 
@@ -623,6 +626,20 @@ export default function Game() {
 
   // Imgur album/gallery links (not direct images)
   const isImgurAlbumLink = (url) => /imgur\.com\/(a|gallery)\//.test(url)
+
+  // Imgur single post link (imgur.com/XXX but not album/gallery)
+  const isImgurPostLink = (url) => {
+    // Match imgur.com/XXX where XXX is an image ID (not a/, gallery/, or already i.imgur.com)
+    if (url.includes('i.imgur.com')) return false
+    if (isImgurAlbumLink(url)) return false
+    return /imgur\.com\/([a-zA-Z0-9]{5,8})(?:\?|$|#)/.test(url) || /imgur\.com\/([a-zA-Z0-9]{5,8})$/.test(url)
+  }
+
+  // Convert Imgur post URL to direct image URL
+  const getImgurDirectUrl = (url) => {
+    const match = url.match(/imgur\.com\/([a-zA-Z0-9]{5,8})/)
+    return match ? `https://i.imgur.com/${match[1]}.jpg` : null
+  }
 
   // Direct image links (including i.imgur.com direct images, but NOT album pages)
   const isImageLink = (url) => {
@@ -669,22 +686,25 @@ export default function Game() {
     setTokenUsage(null)
 
     try {
-      // Get the user's API key
-      const apiKey = await getGeminiApiKey(user.uid)
+      // Get user's AI configuration (provider, model, API keys)
+      const aiConfig = await getAiConfig(user.uid)
+      const provider = aiConfig?.provider || 'gemini'
+      const apiKey = aiConfig?.apiKeys?.[provider]
+
       if (!apiKey) {
-        setRecapError('No API key found. Please add your Gemini API key in AI Settings.')
+        setRecapError(`No API key found. Please add your ${provider === 'gemini' ? 'Gemini' : provider} API key in AI Settings.`)
         setIsGeneratingRecap(false)
         return
       }
 
-      // Fetch custom instructions and model preference
+      // Fetch custom instructions
       const customInstructions = await getCustomRecapInstructions(user.uid)
-      const model = await getGeminiModel(user.uid)
+      const model = aiConfig?.model || 'gemini-2.5-flash'
 
       // Generate the recap with streaming - returns { text, usage }
       const result = await generateGameRecap(currentDynasty, game, apiKey, (partialText) => {
         setStreamingRecap(partialText)
-      }, customInstructions, user.uid, model)
+      }, customInstructions, user.uid, model, provider)
 
       // Capture token usage
       if (result.usage) {
@@ -2004,6 +2024,26 @@ export default function Game() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
+                )
+              } else if (isImgurPostLink(link)) {
+                // Imgur single post - convert to direct image and embed
+                const directUrl = getImgurDirectUrl(link)
+                return (
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-700">
+                    <a href={link} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={directUrl}
+                        alt={`Imgur image ${index + 1}`}
+                        className="w-full h-auto"
+                        onError={(e) => {
+                          // If .jpg fails, try .png
+                          if (e.target.src.endsWith('.jpg')) {
+                            e.target.src = e.target.src.replace('.jpg', '.png')
+                          }
+                        }}
+                      />
+                    </a>
+                  </div>
                 )
               } else if (isImageLink(link)) {
                 return (

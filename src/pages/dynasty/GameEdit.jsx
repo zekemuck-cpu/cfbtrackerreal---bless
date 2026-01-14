@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
@@ -8,7 +8,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../../services/geminiService'
+import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -137,6 +137,10 @@ export default function GameEdit() {
   const [currentGameId, setCurrentGameId] = useState(isNewGameFromUrl ? null : gameId)
   const [gameCreated, setGameCreated] = useState(!isNewGameFromUrl)
 
+  // CRITICAL: Use ref to prevent race condition in game creation
+  // State updates are async and can cause duplicate game creation if effect runs twice quickly
+  const gameCreationInProgressRef = useRef(false)
+
   // isNewGame means we haven't created a game record yet
   const isNewGame = !gameCreated
 
@@ -185,7 +189,8 @@ export default function GameEdit() {
     team2ConfRecord: '',
     location: queryLocation || 'home', // home, away, neutral
     aiRecap: '',
-    isConferenceGame: false
+    isConferenceGame: false,
+    links: [''] // Array of media links (YouTube, images, etc.) - always has at least one empty entry for input
   })
 
   // Find existing game or set up new game data
@@ -377,15 +382,48 @@ export default function GameEdit() {
   // Create game record immediately when opening a new game
   useEffect(() => {
     const createInitialGame = async () => {
+      // Guard 1: Basic state checks
       if (!isNewGameFromUrl || gameCreated || !currentDynasty?.id) return
       if (!team1Tid && !team2Tid) return // Wait for team data
+
+      // Guard 2: CRITICAL - Use ref to prevent race condition
+      // React state updates are async, so if this effect runs twice quickly,
+      // both calls could pass the state check above before setGameCreated takes effect
+      if (gameCreationInProgressRef.current) {
+        console.log('[GameEdit] Game creation already in progress, skipping duplicate attempt')
+        return
+      }
+      gameCreationInProgressRef.current = true
+
+      const targetWeek = queryWeek ? parseInt(queryWeek) : null
+      const targetYear = queryYear ? parseInt(queryYear) : currentDynasty.currentYear
+      const targetGameType = queryGameType || 'regular'
+
+      // Guard 3: Check if a game already exists for this week/year/gameType
+      // This prevents duplicates even if the ref guard somehow fails
+      const existingGames = currentDynasty.games || []
+      const duplicateGame = existingGames.find(g =>
+        Number(g.week) === targetWeek &&
+        Number(g.year) === targetYear &&
+        g.gameType === targetGameType &&
+        (g.team1Tid === team1Tid || g.team2Tid === team1Tid || g.userTid === team1Tid)
+      )
+
+      if (duplicateGame) {
+        console.log('[GameEdit] Game already exists for this week/year/gameType, using existing:', duplicateGame.id)
+        setCurrentGameId(duplicateGame.id)
+        setGameCreated(true)
+        gameCreationInProgressRef.current = false
+        navigate(`${pathPrefix}/game/${duplicateGame.id}/edit`, { replace: true, state: location.state })
+        return
+      }
 
       const newGameId = `game-${Date.now()}`
       const initialGameData = {
         id: newGameId,
-        week: queryWeek ? parseInt(queryWeek) : '',
-        year: queryYear ? parseInt(queryYear) : currentDynasty.currentYear,
-        gameType: queryGameType || 'regular',
+        week: targetWeek ?? '',
+        year: targetYear,
+        gameType: targetGameType,
         team1Tid: team1Tid || null,
         team2Tid: team2Tid || null,
         team1Score: 0,
@@ -407,6 +445,8 @@ export default function GameEdit() {
         navigate(`${pathPrefix}/game/${newGameId}/edit`, { replace: true, state: location.state })
       } catch (error) {
         console.error('Error creating initial game:', error)
+      } finally {
+        gameCreationInProgressRef.current = false
       }
     }
 
@@ -460,7 +500,13 @@ export default function GameEdit() {
         team2ConfRecord: existingGame.team2ConfRecord || '',
         location: locationValue,
         aiRecap: existingGame.aiRecap || existingGame.gameNote || '',
-        isConferenceGame: existingGame.isConferenceGame || isConferenceGame
+        isConferenceGame: existingGame.isConferenceGame || isConferenceGame,
+        // Handle both old format (comma-separated string) and new format (array)
+        links: Array.isArray(existingGame.links)
+          ? [...existingGame.links.filter(l => l.trim()), ''] // Existing array + empty input
+          : existingGame.links
+            ? [...existingGame.links.split(',').map(l => l.trim()).filter(l => l), ''] // Convert string to array
+            : [''] // Default empty input
       })
     } else if (isNewGame && team1Tid && team2Tid) {
       // New game - fetch ratings and calculate records
@@ -623,7 +669,11 @@ export default function GameEdit() {
         ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
         ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
         ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
-        ...(existingGame?.links && { links: existingGame.links })
+        // Save links as array (filter out empty entries)
+        ...(() => {
+          const validLinks = formData.links.filter(l => l.trim())
+          return validLinks.length > 0 ? { links: validLinks } : {}
+        })()
       }
 
       // Update or add game
@@ -727,15 +777,19 @@ export default function GameEdit() {
     setStreamingRecap('')
 
     try {
-      const apiKey = await getGeminiApiKey(user.uid)
+      // Get user's AI configuration (provider, model, API keys)
+      const aiConfig = await getAiConfig(user.uid)
+      const provider = aiConfig?.provider || 'gemini'
+      const apiKey = aiConfig?.apiKeys?.[provider]
+
       if (!apiKey) {
-        setRecapError('No API key configured. Add your Gemini API key in AI Settings.')
+        setRecapError(`No API key configured. Add your ${provider === 'gemini' ? 'Gemini' : provider} API key in AI Settings.`)
         return
       }
 
-      // Fetch custom instructions and model preference
+      // Fetch custom instructions
       const customInstructions = await getCustomRecapInstructions(user.uid)
-      const model = await getGeminiModel(user.uid)
+      const model = aiConfig?.model || 'gemini-2.5-flash'
 
       // Build game object for recap generation
       const gameForRecap = {
@@ -750,10 +804,10 @@ export default function GameEdit() {
         year: gameYear
       }
 
-      // Use streaming to show progress
+      // Use streaming to show progress (pass provider as last parameter)
       const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
         setStreamingRecap(partialText)
-      }, customInstructions, user.uid, model)
+      }, customInstructions, user.uid, model, provider)
 
       setFormData(prev => ({ ...prev, aiRecap: result.text }))
       setStreamingRecap('')
@@ -1274,6 +1328,66 @@ export default function GameEdit() {
           rows={8}
           placeholder="Write a game recap or use AI to generate one..."
         />
+      </div>
+
+      {/* Media Links */}
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-bold text-gray-800">Media Links</h3>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <span>YouTube videos will embed automatically</span>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">Add links to highlight videos, images, or related content.</p>
+        <div className="space-y-2">
+          {formData.links.map((link, index) => (
+            <div key={index} className="flex gap-2">
+              <input
+                type="url"
+                value={link}
+                onChange={(e) => {
+                  const newLinks = [...formData.links]
+                  newLinks[index] = e.target.value
+                  // Add new empty input if typing in last box and it now has content
+                  if (index === formData.links.length - 1 && e.target.value.trim()) {
+                    newLinks.push('')
+                  }
+                  setFormData({ ...formData, links: newLinks })
+                }}
+                className="flex-1 px-3 py-2 border-2 rounded-lg font-mono text-sm"
+                placeholder="https://youtube.com/watch?v=..."
+              />
+              {/* Show remove button only for filled entries (not the empty input box) */}
+              {link.trim() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newLinks = formData.links.filter((_, i) => i !== index)
+                    // Ensure there's always at least one empty input
+                    if (newLinks.length === 0 || newLinks.every(l => l.trim())) {
+                      newLinks.push('')
+                    }
+                    setFormData({ ...formData, links: newLinks })
+                  }}
+                  className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Remove link"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        {formData.links.filter(l => l.trim()).length > 0 && (
+          <div className="mt-3 text-xs text-gray-500">
+            {formData.links.filter(l => l.trim()).length} link(s) added
+          </div>
+        )}
       </div>
 
       {/* Game Settings */}

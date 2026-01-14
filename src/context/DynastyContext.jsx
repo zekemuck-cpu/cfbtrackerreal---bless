@@ -358,7 +358,9 @@ function getTeamScoreInfo(game, tid, abbr = null) {
  * @returns {{ wins, losses, confWins, confLosses }}
  */
 export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
-  if (!dynasty || !tid || !year) return { wins: 0, losses: 0, confWins: 0, confLosses: 0 }
+  if (!dynasty || !tid || !year) {
+    return { wins: 0, losses: 0, confWins: 0, confLosses: 0 }
+  }
 
   const games = dynasty.games || []
   const { upToGameId, upToWeek, includeUpToWeek = true } = options
@@ -375,6 +377,23 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 
     if (!isInGame) return false
     if (!hasValidScores(g)) return false
+    return true
+  })
+
+  // CRITICAL: Deduplicate games by week + gameType to prevent double-counting
+  // This handles cases where duplicate game records exist for the same matchup
+  const seenGames = new Map()
+  teamGames = teamGames.filter(g => {
+    // Create a unique key for each game slot: week + gameType (or 'regular' if not set)
+    const gameType = g.gameType || 'regular'
+    const week = g.week ?? 0
+    const key = `${week}-${gameType}`
+
+    if (seenGames.has(key)) {
+      // Duplicate detected - skip silently (use DangerZone to clean up)
+      return false
+    }
+    seenGames.set(key, g.id)
     return true
   })
 
@@ -416,8 +435,8 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 }
 
 /**
- * Get the stored team record (single source of truth)
- * Falls back to calculation if not stored
+ * Get the team record (single source of truth)
+ * Always calculates from actual games to ensure accuracy
  * @param {Object} dynasty - Dynasty object
  * @param {number|string} tidOrAbbr - Team ID or abbreviation
  * @param {number} year - Year
@@ -428,26 +447,9 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
 
   // Handle abbr input for backward compatibility
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
-  const abbr = getAbbrFromTid(tid)
 
-  // Try new tid-based structure first
-  const tidRecord = dynasty.teams?.[tid]?.byYear?.[year]?.record
-  if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
-    return tidRecord
-  }
-
-  // Try legacy structure
-  const legacyRecord = dynasty.teamRecordsByTeamYear?.[abbr]?.[year]
-  if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
-    return {
-      wins: legacyRecord.wins,
-      losses: legacyRecord.losses,
-      confWins: legacyRecord.confWins || 0,
-      confLosses: legacyRecord.confLosses || 0
-    }
-  }
-
-  // Calculate from games as fallback
+  // Always calculate from games - this is the authoritative source of truth
+  // Stored records are only used as a cache for Firestore updates
   return calculateTeamRecordFromGames(dynasty, tid, year)
 }
 
@@ -457,9 +459,12 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
  */
 export function getCurrentTeamRecord(dynasty) {
   if (!dynasty) return null
+
   const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
+
   if (!tid || !year) return null
+
   return getTeamRecord(dynasty, tid, year)
 }
 

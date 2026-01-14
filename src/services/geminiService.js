@@ -1,6 +1,7 @@
 /**
- * Gemini AI Service
+ * AI Service
  * Handles context building and API calls for AI-generated content
+ * Supports multiple providers: Gemini, OpenAI, Anthropic, OpenRouter
  */
 
 import { doc, getDoc, setDoc } from 'firebase/firestore'
@@ -8,20 +9,24 @@ import { db } from '../config/firebase'
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr } from '../data/teamRegistry'
 import { getUserGamePerspective } from '../context/DynastyContext'
+import { getProvider, getDefaultModel as getProviderDefaultModel } from './providers'
 
 // ============================================
-// API KEY MANAGEMENT
+// API KEY MANAGEMENT (Legacy + Multi-Provider)
 // ============================================
 
 /**
- * Fetch the user's Gemini API key from Firestore
+ * Fetch the user's Gemini API key from Firestore (legacy support)
  */
 export async function getGeminiApiKey(userId) {
   if (!userId) return null
 
   try {
     const userDoc = await getDoc(doc(db, 'users', userId))
-    return userDoc.exists() ? userDoc.data().geminiApiKey : null
+    if (!userDoc.exists()) return null
+    const data = userDoc.data()
+    // Check new structure first, then legacy
+    return data.apiKeys?.gemini || data.geminiApiKey || null
   } catch (error) {
     console.error('Error fetching Gemini API key:', error)
     return null
@@ -34,6 +39,156 @@ export async function getGeminiApiKey(userId) {
  */
 export async function getGeminiModel(userId) {
   return 'gemini-2.5-flash'
+}
+
+// ============================================
+// MULTI-PROVIDER API KEY & SETTINGS
+// ============================================
+
+/**
+ * Get user's AI configuration (provider, model, and API keys)
+ */
+export async function getAiConfig(userId) {
+  if (!userId) return null
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    if (!userDoc.exists()) return null
+
+    const data = userDoc.data()
+
+    // Build config from new structure with fallback to legacy
+    return {
+      provider: data.aiProvider || 'gemini',
+      model: data.aiModel || 'gemini-2.5-flash',
+      apiKeys: {
+        gemini: data.apiKeys?.gemini || data.geminiApiKey || null,
+        openai: data.apiKeys?.openai || null,
+        anthropic: data.apiKeys?.anthropic || null,
+        openrouter: data.apiKeys?.openrouter || null
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching AI config:', error)
+    return null
+  }
+}
+
+/**
+ * Get API key for a specific provider
+ */
+export async function getApiKey(userId, providerName) {
+  if (!userId || !providerName) return null
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    if (!userDoc.exists()) return null
+
+    const data = userDoc.data()
+
+    // Check new structure first
+    if (data.apiKeys?.[providerName]) {
+      return data.apiKeys[providerName]
+    }
+
+    // Legacy fallback for Gemini
+    if (providerName === 'gemini' && data.geminiApiKey) {
+      return data.geminiApiKey
+    }
+
+    return null
+  } catch (error) {
+    console.error(`Error fetching ${providerName} API key:`, error)
+    return null
+  }
+}
+
+/**
+ * Save API key for a specific provider
+ */
+export async function saveApiKey(userId, providerName, apiKey) {
+  if (!userId || !providerName) {
+    return { success: false, message: 'Missing user ID or provider' }
+  }
+
+  try {
+    const updates = {
+      [`apiKeys.${providerName}`]: apiKey || null,
+      updatedAt: new Date().toISOString()
+    }
+
+    // Also update legacy field for backwards compatibility
+    if (providerName === 'gemini') {
+      updates.geminiApiKey = apiKey || null
+    }
+
+    await setDoc(doc(db, 'users', userId), updates, { merge: true })
+    return { success: true, message: 'API key saved' }
+  } catch (error) {
+    console.error(`Error saving ${providerName} API key:`, error)
+    return { success: false, message: error.message }
+  }
+}
+
+/**
+ * Get user's selected AI provider
+ */
+export async function getSelectedProvider(userId) {
+  if (!userId) return 'gemini'
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    if (!userDoc.exists()) return 'gemini'
+    return userDoc.data().aiProvider || 'gemini'
+  } catch (error) {
+    console.error('Error fetching selected provider:', error)
+    return 'gemini'
+  }
+}
+
+/**
+ * Set user's selected AI provider and model
+ */
+export async function setSelectedProvider(userId, providerName, modelId = null) {
+  if (!userId || !providerName) {
+    return { success: false, message: 'Missing user ID or provider' }
+  }
+
+  try {
+    const updates = {
+      aiProvider: providerName,
+      updatedAt: new Date().toISOString()
+    }
+
+    // Set model to provider default if not specified
+    if (modelId) {
+      updates.aiModel = modelId
+    } else {
+      updates.aiModel = getProviderDefaultModel(providerName)
+    }
+
+    await setDoc(doc(db, 'users', userId), updates, { merge: true })
+    return { success: true, message: 'Provider updated' }
+  } catch (error) {
+    console.error('Error setting provider:', error)
+    return { success: false, message: error.message }
+  }
+}
+
+/**
+ * Get user's selected model
+ */
+export async function getSelectedModel(userId) {
+  if (!userId) return 'gemini-2.5-flash'
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId))
+    if (!userDoc.exists()) return 'gemini-2.5-flash'
+    return userDoc.data().aiModel || 'gemini-2.5-flash'
+  } catch (error) {
+    console.error('Error fetching selected model:', error)
+    return 'gemini-2.5-flash'
+  }
 }
 
 // ============================================
@@ -1572,6 +1727,13 @@ Write like a real sports journalist. Do NOT overuse abbreviations like "ARST", "
 - BAD: "ARST defeated ISU 27-17. ARST's defense was strong. ISU couldn't score."
 - GOOD: "Arkansas State defeated Iowa State 27-17. The Red Wolves' defense was dominant. The Cyclones couldn't find the end zone."
 
+**VERIFY CLAIMS AGAINST QUARTER SCORES - CRITICAL:**
+Before writing any claims about "scoreless" periods, "shutout halves", or "held them without points", you MUST verify against the QUARTER-BY-QUARTER SCORES:
+- If you say "Team X held Team Y scoreless in the second half" - CHECK that Q3 AND Q4 both show 0 for Team Y
+- If you say "Team X shut out Team Y in the final 30 minutes" - same verification required
+- If Q4 shows points scored, you CANNOT claim they were "scoreless in the final minutes"
+- Example: If quarters show Team Y: Q1=0, Q2=6, Q3=0, Q4=7, you CANNOT say they were "scoreless in the second half" because they scored 7 in Q4
+
 **ABSOLUTELY DO NOT:**
 1. Do NOT make up specific times for touchdowns (like "with 3:00 left in the first quarter") unless in SCORING SUMMARY
 2. Do NOT invent play-by-play descriptions (like "chipped away at the deficit" or "mounted a final drive") unless you have actual play data
@@ -1579,7 +1741,8 @@ Write like a real sports journalist. Do NOT overuse abbreviations like "ARST", "
 4. Do NOT create fictional narrative about how drives unfolded unless you have the scoring summary
 5. Do NOT make up quotes from players or coaches
 6. Do NOT speculate about injuries, weather, crowd, or atmosphere
-7. If data is limited, write a SHORT factual recap - do NOT pad with invented details`
+7. If data is limited, write a SHORT factual recap - do NOT pad with invented details
+8. Do NOT claim a team was "scoreless" in any quarter or half without verifying the quarter scores show 0 for those periods`
 
 /**
  * Build the prompt for a game recap
@@ -1613,16 +1776,28 @@ ${ctx.team2Ranking ? `${ctx.team2FullName} Ranking: #${ctx.team2Ranking}` : ''}`
 
   // Add quarter-by-quarter scores if available
   // Support both new format (team1/team2) and legacy format (team/opponent)
+  // Use explicit labels to avoid alignment confusion
   if (ctx.quarters) {
     const team1Quarters = ctx.quarters.team1 || ctx.quarters.team || {}
     const team2Quarters = ctx.quarters.team2 || ctx.quarters.opponent || {}
+
+    // Calculate half scores for clarity
+    const team1FirstHalf = (parseInt(team1Quarters.Q1) || 0) + (parseInt(team1Quarters.Q2) || 0)
+    const team1SecondHalf = (parseInt(team1Quarters.Q3) || 0) + (parseInt(team1Quarters.Q4) || 0)
+    const team2FirstHalf = (parseInt(team2Quarters.Q1) || 0) + (parseInt(team2Quarters.Q2) || 0)
+    const team2SecondHalf = (parseInt(team2Quarters.Q3) || 0) + (parseInt(team2Quarters.Q4) || 0)
+
     prompt += `\n
 ===========================================
 QUARTER-BY-QUARTER SCORES
 ===========================================
-         Q1   Q2   Q3   Q4   ${ctx.overtimes ? 'OT   ' : ''}Final
-${ctx.team1FullName}:  ${team1Quarters.Q1 ?? '-'}    ${team1Quarters.Q2 ?? '-'}    ${team1Quarters.Q3 ?? '-'}    ${team1Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.team ?? '-') + '    ' : ''}${ctx.team1Score}
-${ctx.team2FullName}:  ${team2Quarters.Q1 ?? '-'}    ${team2Quarters.Q2 ?? '-'}    ${team2Quarters.Q3 ?? '-'}    ${team2Quarters.Q4 ?? '-'}    ${ctx.overtimes ? (ctx.overtimes[0]?.opponent ?? '-') + '    ' : ''}${ctx.team2Score}`
+${ctx.team1FullName}:
+  Q1: ${team1Quarters.Q1 ?? '-'}, Q2: ${team1Quarters.Q2 ?? '-'}, Q3: ${team1Quarters.Q3 ?? '-'}, Q4: ${team1Quarters.Q4 ?? '-'}${ctx.overtimes ? ', OT: ' + (ctx.overtimes[0]?.team ?? '-') : ''}
+  First Half: ${team1FirstHalf}, Second Half: ${team1SecondHalf}, Final: ${ctx.team1Score}
+
+${ctx.team2FullName}:
+  Q1: ${team2Quarters.Q1 ?? '-'}, Q2: ${team2Quarters.Q2 ?? '-'}, Q3: ${team2Quarters.Q3 ?? '-'}, Q4: ${team2Quarters.Q4 ?? '-'}${ctx.overtimes ? ', OT: ' + (ctx.overtimes[0]?.opponent ?? '-') : ''}
+  First Half: ${team2FirstHalf}, Second Half: ${team2SecondHalf}, Final: ${ctx.team2Score}`
   }
 
   // Add scoring summary (CRITICAL for game flow narrative)
@@ -2140,27 +2315,48 @@ export async function getCustomRecapInstructions(userId) {
 }
 
 /**
- * Generate a game recap
+ * Generate a game recap using any supported AI provider
  * @param {object} dynasty - The dynasty data
  * @param {object} game - The game data
- * @param {string} apiKey - Gemini API key
+ * @param {string} apiKey - API key for the provider
  * @param {function} onChunk - Optional callback for streaming (receives accumulated text)
  * @param {string} customInstructions - Optional custom writing instructions
  * @param {string} userId - Optional user ID for usage tracking
+ * @param {string} model - Model ID to use
+ * @param {string} providerName - Provider name (gemini, openai, anthropic, openrouter). Defaults to gemini for backwards compatibility.
  * @returns {object} { text, usage } - The generated text and token usage info (when streaming)
  */
-export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null, userId = null, model = 'gemini-2.5-flash') {
+export async function generateGameRecap(dynasty, game, apiKey, onChunk = null, customInstructions = null, userId = null, model = 'gemini-2.5-flash', providerName = 'gemini') {
   const context = buildGameRecapContext(dynasty, game)
   const prompt = buildGameRecapPrompt(context, customInstructions)
 
   let result
-  if (onChunk) {
-    // Streaming returns { text, usage }
-    result = await generateWithGeminiStreaming(apiKey, prompt, onChunk, 3, model)
-  } else {
-    // Non-streaming returns just text
-    const text = await generateWithGemini(apiKey, prompt, 3, model)
-    result = { text, usage: null }
+
+  // Use provider abstraction for all providers
+  try {
+    const provider = getProvider(providerName)
+    const options = { model, maxRetries: 3 }
+
+    if (onChunk) {
+      // Streaming returns { text, usage }
+      result = await provider.generateStreaming(apiKey, prompt, onChunk, options)
+    } else {
+      // Non-streaming returns just text
+      const text = await provider.generate(apiKey, prompt, options)
+      result = { text, usage: null }
+    }
+  } catch (providerError) {
+    // Fallback to legacy Gemini functions if provider not found (shouldn't happen)
+    if (providerError.message?.includes('Unknown AI provider')) {
+      if (onChunk) {
+        result = await generateWithGeminiStreaming(apiKey, prompt, onChunk, 3, model)
+      } else {
+        const text = await generateWithGemini(apiKey, prompt, 3, model)
+        result = { text, usage: null }
+      }
+    } else {
+      throw providerError
+    }
   }
 
   // Track usage if userId provided

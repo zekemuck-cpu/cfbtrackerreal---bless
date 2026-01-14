@@ -7,12 +7,15 @@ import DynastyContext from '../../context/DynastyContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { DEFAULT_GAME_RECAP_INSTRUCTIONS, getApiUsageStats } from '../../services/geminiService'
+import { PROVIDER_INFO, getModelsForProvider, getDefaultModel, testApiKey } from '../../services/providers'
 
 // Default neutral colors when not in dynasty context
 const NEUTRAL_COLORS = {
-  primary: '#1e40af',    // Blue
-  secondary: '#f1f5f9'   // Light gray
+  primary: '#1e40af',
+  secondary: '#f1f5f9'
 }
+
+const PROVIDER_LIST = ['gemini', 'openai', 'anthropic', 'openrouter']
 
 export default function AISettings() {
   const { user } = useAuth()
@@ -28,8 +31,13 @@ export default function AISettings() {
   const primaryBgText = getContrastTextColor(teamColors.primary)
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
-  const [apiKey, setApiKey] = useState('')
-  const [savedKey, setSavedKey] = useState('')
+  // Provider & Model selection
+  const [selectedProvider, setSelectedProvider] = useState('gemini')
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash')
+
+  // API Key state (per provider)
+  const [apiKeys, setApiKeys] = useState({})
+  const [currentKeyInput, setCurrentKeyInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -47,7 +55,7 @@ export default function AISettings() {
   const [usageStats, setUsageStats] = useState(null)
   const [loadingUsage, setLoadingUsage] = useState(false)
 
-  // Load existing API key and custom instructions on mount
+  // Load existing settings on mount
   useEffect(() => {
     const loadUserSettings = async () => {
       if (!user?.uid) {
@@ -59,19 +67,29 @@ export default function AISettings() {
         const userDoc = await getDoc(doc(db, 'users', user.uid))
         if (userDoc.exists()) {
           const data = userDoc.data()
-          if (data.geminiApiKey) {
-            setSavedKey(data.geminiApiKey)
-            setApiKey(data.geminiApiKey)
+
+          // Load provider preference
+          setSelectedProvider(data.aiProvider || 'gemini')
+          setSelectedModel(data.aiModel || 'gemini-2.5-flash')
+
+          // Load API keys (new structure + legacy)
+          const keys = {
+            gemini: data.apiKeys?.gemini || data.geminiApiKey || '',
+            openai: data.apiKeys?.openai || '',
+            anthropic: data.apiKeys?.anthropic || '',
+            openrouter: data.apiKeys?.openrouter || ''
           }
+          setApiKeys(keys)
+          setCurrentKeyInput(keys[data.aiProvider || 'gemini'] || '')
+
+          // Load custom instructions
           if (data.gameRecapInstructions) {
             setSavedInstructions(data.gameRecapInstructions)
             setCustomInstructions(data.gameRecapInstructions)
           } else {
-            // Use default if no custom instructions saved
             setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
           }
         } else {
-          // No user doc yet, use default
           setCustomInstructions(DEFAULT_GAME_RECAP_INSTRUCTIONS)
         }
       } catch (error) {
@@ -83,6 +101,12 @@ export default function AISettings() {
 
     loadUserSettings()
   }, [user?.uid])
+
+  // Update key input when provider changes
+  useEffect(() => {
+    setCurrentKeyInput(apiKeys[selectedProvider] || '')
+    setStatus(null)
+  }, [selectedProvider, apiKeys])
 
   // Load usage stats
   useEffect(() => {
@@ -100,7 +124,6 @@ export default function AISettings() {
     loadUsageStats()
   }, [user?.uid])
 
-  // Refresh usage stats
   const refreshUsageStats = async () => {
     if (!user?.uid) return
     setLoadingUsage(true)
@@ -113,21 +136,65 @@ export default function AISettings() {
     setLoadingUsage(false)
   }
 
-  // Save API key to Firebase
+  // Handle provider change
+  const handleProviderChange = async (newProvider) => {
+    setSelectedProvider(newProvider)
+    const defaultModel = getDefaultModel(newProvider)
+    setSelectedModel(defaultModel)
+
+    // Save to Firestore
+    if (user?.uid) {
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          aiProvider: newProvider,
+          aiModel: defaultModel,
+          updatedAt: new Date().toISOString()
+        }, { merge: true })
+      } catch (error) {
+        console.error('Error saving provider preference:', error)
+      }
+    }
+  }
+
+  // Handle model change
+  const handleModelChange = async (newModel) => {
+    setSelectedModel(newModel)
+    if (user?.uid) {
+      try {
+        await setDoc(doc(db, 'users', user.uid), {
+          aiModel: newModel,
+          updatedAt: new Date().toISOString()
+        }, { merge: true })
+      } catch (error) {
+        console.error('Error saving model preference:', error)
+      }
+    }
+  }
+
+  // Save API key
   const handleSave = async () => {
-    if (!user?.uid || !apiKey.trim()) return
+    if (!user?.uid || !currentKeyInput.trim()) return
 
     setSaving(true)
     setStatus(null)
 
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        geminiApiKey: apiKey.trim(),
+      const updates = {
+        [`apiKeys.${selectedProvider}`]: currentKeyInput.trim(),
+        aiProvider: selectedProvider,
+        aiModel: selectedModel,
         email: user.email,
         updatedAt: new Date().toISOString()
-      }, { merge: true })
+      }
 
-      setSavedKey(apiKey.trim())
+      // Also update legacy field for Gemini
+      if (selectedProvider === 'gemini') {
+        updates.geminiApiKey = currentKeyInput.trim()
+      }
+
+      await setDoc(doc(db, 'users', user.uid), updates, { merge: true })
+
+      setApiKeys(prev => ({ ...prev, [selectedProvider]: currentKeyInput.trim() }))
       setStatus({ success: true, message: 'API key saved successfully!' })
     } catch (error) {
       console.error('Error saving API key:', error)
@@ -139,30 +206,17 @@ export default function AISettings() {
 
   // Test the API key
   const handleTest = async () => {
-    if (!apiKey.trim()) return
+    if (!currentKeyInput.trim()) return
 
     setTesting(true)
     setStatus(null)
 
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'Say "Hello! Your API key is working." and nothing else.' }] }]
-          })
-        }
-      )
-
-      if (response.ok) {
-        const data = await response.json()
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Response received'
-        setStatus({ success: true, message: `Key works! ${text}` })
+      const isValid = await testApiKey(selectedProvider, currentKeyInput.trim())
+      if (isValid) {
+        setStatus({ success: true, message: 'API key is valid and working!' })
       } else {
-        const error = await response.json()
-        setStatus({ success: false, message: error.error?.message || 'Invalid API key' })
+        setStatus({ success: false, message: 'Invalid API key. Please check and try again.' })
       }
     } catch (error) {
       setStatus({ success: false, message: 'Test failed: ' + error.message })
@@ -179,13 +233,19 @@ export default function AISettings() {
     setStatus(null)
 
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        geminiApiKey: null,
+      const updates = {
+        [`apiKeys.${selectedProvider}`]: null,
         updatedAt: new Date().toISOString()
-      }, { merge: true })
+      }
 
-      setSavedKey('')
-      setApiKey('')
+      if (selectedProvider === 'gemini') {
+        updates.geminiApiKey = null
+      }
+
+      await setDoc(doc(db, 'users', user.uid), updates, { merge: true })
+
+      setApiKeys(prev => ({ ...prev, [selectedProvider]: '' }))
+      setCurrentKeyInput('')
       setStatus({ success: true, message: 'API key removed' })
     } catch (error) {
       console.error('Error removing API key:', error)
@@ -255,17 +315,16 @@ export default function AISettings() {
     )
   }
 
-  // Determine if we're in standalone mode (not inside a dynasty)
   const isStandalone = !dynastyContext || !currentDynasty
+  const providerInfo = PROVIDER_INFO[selectedProvider]
+  const models = getModelsForProvider(selectedProvider)
+  const hasApiKey = !!apiKeys[selectedProvider]
 
   return (
     <div className="space-y-6">
       {/* Back link for standalone mode */}
       {isStandalone && (
-        <Link
-          to="/"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        >
+        <Link to="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -274,60 +333,91 @@ export default function AISettings() {
       )}
 
       {/* Header */}
-      <div
-        className="rounded-xl p-5 sm:p-6"
-        style={{
-          backgroundColor: teamColors.primary,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: `${primaryBgText}20` }}
-          >
-            <svg className="w-6 h-6" fill="none" stroke={primaryBgText} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: primaryBgText }}>
-              AI Settings
-            </h1>
-            <p className="text-sm" style={{ color: primaryBgText, opacity: 0.8 }}>
-              {isStandalone
-                ? 'Configure AI features for all your dynasties'
-                : 'Connect Google Gemini to generate AI-powered content'
-              }
-            </p>
-          </div>
+      <div className="rounded-xl p-5 sm:p-6" style={{ backgroundColor: teamColors.primary, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+        <h1 className="text-xl sm:text-2xl font-bold" style={{ color: primaryBgText }}>AI Settings</h1>
+        <p className="text-sm mt-1" style={{ color: primaryBgText, opacity: 0.8 }}>
+          Configure AI features for generating game recaps and other content
+        </p>
+      </div>
+
+      {/* Provider Selection */}
+      <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
+        <h2 className="text-lg font-bold mb-4" style={{ color: secondaryBgText }}>AI Provider</h2>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {PROVIDER_LIST.map(providerName => {
+            const info = PROVIDER_INFO[providerName]
+            const isSelected = selectedProvider === providerName
+            const hasKey = !!apiKeys[providerName]
+
+            return (
+              <button
+                key={providerName}
+                onClick={() => handleProviderChange(providerName)}
+                className="p-4 rounded-lg border-2 transition-all text-left"
+                style={{
+                  borderColor: isSelected ? teamColors.primary : 'transparent',
+                  backgroundColor: isSelected ? `${teamColors.primary}15` : '#fff'
+                }}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-sm" style={{ color: secondaryBgText }}>
+                    {info.displayName}
+                  </span>
+                  {hasKey && (
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  )}
+                </div>
+                <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                  {info.description}
+                </p>
+              </button>
+            )
+          })}
         </div>
+
+        {/* Model Selection */}
+        {models.length > 0 && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2" style={{ color: secondaryBgText }}>Model</label>
+            <select
+              value={selectedModel}
+              onChange={(e) => handleModelChange(e.target.value)}
+              className="w-full sm:w-auto px-4 py-2 rounded-lg border-2 bg-white"
+              style={{ borderColor: `${teamColors.primary}30` }}
+            >
+              {models.map(model => (
+                <option key={model.id} value={model.id}>
+                  {model.name} - {model.description}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Status Banner */}
       <div
         className="rounded-lg p-4 flex items-center gap-3"
         style={{
-          backgroundColor: savedKey ? '#ecfdf5' : '#fef3c7',
-          border: `2px solid ${savedKey ? '#10b981' : '#f59e0b'}`
+          backgroundColor: hasApiKey ? '#ecfdf5' : '#fef3c7',
+          border: `2px solid ${hasApiKey ? '#10b981' : '#f59e0b'}`
         }}
       >
-        <div className={`w-3 h-3 rounded-full ${savedKey ? 'bg-green-500' : 'bg-yellow-500'}`} />
-        <span className={savedKey ? 'text-green-800' : 'text-amber-800'}>
-          {savedKey ? 'API Key Connected - AI features are enabled!' : 'No API Key - Follow the steps below to enable AI features'}
+        <div className={`w-3 h-3 rounded-full ${hasApiKey ? 'bg-green-500' : 'bg-yellow-500'}`} />
+        <span className={hasApiKey ? 'text-green-800' : 'text-amber-800'}>
+          {hasApiKey
+            ? `${providerInfo.displayName} connected - AI features are enabled!`
+            : `No ${providerInfo.displayName} API key - Follow the steps below to enable AI features`
+          }
         </span>
       </div>
 
       {/* Usage Stats Section */}
-      {savedKey && (
-        <div
-          className="rounded-lg p-5"
-          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-        >
+      {hasApiKey && selectedProvider === 'gemini' && (
+        <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold" style={{ color: secondaryBgText }}>
-              API Usage
-            </h2>
+            <h2 className="text-lg font-bold" style={{ color: secondaryBgText }}>API Usage</h2>
             <button
               onClick={refreshUsageStats}
               disabled={loadingUsage}
@@ -345,7 +435,6 @@ export default function AISettings() {
             </div>
           ) : usageStats ? (
             <div className="space-y-4">
-              {/* Today's Usage */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium" style={{ color: secondaryBgText }}>Today's Requests</span>
@@ -362,234 +451,73 @@ export default function AISettings() {
                     }}
                   />
                 </div>
-                <p className="text-xs mt-1" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                  {((usageStats.today.requests / usageStats.limits.requestsPerDay) * 100).toFixed(1)}% of daily limit used
-                </p>
               </div>
 
-              {/* Token Usage */}
-              {usageStats.today.totalTokens > 0 && (
-                <div className="p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}10` }}>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.promptTokens.toLocaleString()}</p>
-                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Input Tokens</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.outputTokens.toLocaleString()}</p>
-                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Output Tokens</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold" style={{ color: teamColors.primary }}>{usageStats.today.totalTokens.toLocaleString()}</p>
-                      <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>Total Tokens</p>
-                    </div>
+              {usageStats.allTime.requests > 0 && (
+                <div className="pt-3 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span style={{ color: secondaryBgText, opacity: 0.8 }}>All-Time</span>
+                    <span style={{ color: secondaryBgText }}>
+                      {usageStats.allTime.requests.toLocaleString()} requests
+                    </span>
                   </div>
                 </div>
               )}
-
-              {/* Last 7 Days */}
-              {usageStats.last7Days.some(d => d.requests > 0) && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-2" style={{ color: secondaryBgText }}>Last 7 Days</h3>
-                  <div className="space-y-1">
-                    {usageStats.last7Days.map((day, idx) => (
-                      <div key={day.date} className="flex items-center justify-between text-xs">
-                        <span style={{ color: secondaryBgText, opacity: 0.8 }}>
-                          {idx === 0 ? 'Today' : idx === 1 ? 'Yesterday' : new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                        </span>
-                        <span style={{ color: secondaryBgText }}>
-                          {day.requests} request{day.requests !== 1 ? 's' : ''}
-                          {day.totalTokens > 0 && ` (${(day.totalTokens / 1000).toFixed(1)}k tokens)`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* All-Time Stats */}
-              <div className="pt-3 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
-                <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: secondaryBgText, opacity: 0.8 }}>All-Time Usage</span>
-                  <span style={{ color: secondaryBgText }}>
-                    {usageStats.allTime.requests.toLocaleString()} requests
-                    {usageStats.allTime.totalTokens > 0 && ` / ${(usageStats.allTime.totalTokens / 1000).toFixed(1)}k tokens`}
-                  </span>
-                </div>
-              </div>
-
-              {/* Manage Link */}
-              <div className="pt-2">
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs underline"
-                  style={{ color: teamColors.primary }}
-                >
-                  View detailed usage in Google AI Studio
-                </a>
-              </div>
             </div>
           ) : (
             <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.7 }}>
-              No usage data yet. Generate some AI content to see your stats!
+              No usage data yet.
             </p>
           )}
         </div>
       )}
 
-      {/* What is this section */}
-      <div
-        className="rounded-lg p-5"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-      >
-        <h2 className="text-lg font-bold mb-3" style={{ color: secondaryBgText }}>
-          What is this?
-        </h2>
-        <p className="text-sm leading-relaxed" style={{ color: secondaryBgText, opacity: 0.9 }}>
-          By connecting your own Google Gemini API key, you can unlock AI-powered features throughout the app.
-          Generate season recaps, player bios, game summaries, and more with a single click.
-        </p>
-        <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15` }}>
-          <p className="text-sm font-medium" style={{ color: secondaryBgText }}>
-            Your key is stored securely in your account and works across all your devices.
-          </p>
-        </div>
-      </div>
-
-      {/* Step by Step Instructions */}
-      <div
-        className="rounded-lg p-5"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-      >
+      {/* Setup Instructions */}
+      <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
         <h2 className="text-lg font-bold mb-4" style={{ color: secondaryBgText }}>
-          How to Get Your Free API Key
+          Setup {providerInfo.displayName}
         </h2>
 
-        <div className="space-y-4">
-          {/* Step 1 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              1
+        <div className="space-y-3">
+          {providerInfo.setupSteps.map((step, idx) => (
+            <div key={idx} className="flex gap-3">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+              >
+                {idx + 1}
+              </div>
+              <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.9 }}>{step}</p>
             </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Create a Google Cloud Project</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                First, go to{' '}
-                <a
-                  href="https://console.cloud.google.com/projectcreate"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-medium"
-                  style={{ color: teamColors.primary }}
-                >
-                  console.cloud.google.com/projectcreate
-                </a>
-                {' '}and create a new project. Give it any name (like "Dynasty Tracker AI") and click <strong>Create</strong>.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              2
-            </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Go to Google AI Studio</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Visit{' '}
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-medium"
-                  style={{ color: teamColors.primary }}
-                >
-                  aistudio.google.com/apikey
-                </a>
-                {' '}and sign in with your Google account (the same one you use for this app).
-              </p>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              3
-            </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Create an API Key</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Click the blue <strong>"Create API key"</strong> button, then select the project you just created from the dropdown.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 4 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              4
-            </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Copy Your Key</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Your API key will appear (it starts with "AIza..."). Click the copy button next to it.
-              </p>
-            </div>
-          </div>
-
-          {/* Step 5 */}
-          <div className="flex gap-4">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold"
-              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-            >
-              5
-            </div>
-            <div>
-              <h3 className="font-semibold" style={{ color: secondaryBgText }}>Paste It Below</h3>
-              <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                Paste your API key in the field below and click "Save". That's it - you're done!
-              </p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Cost info */}
-        <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: '#ecfdf5', border: '1px solid #10b981' }}>
-          <div className="flex gap-2">
-            <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <div className="text-green-800 text-sm">
-              <p className="font-semibold">100% Free</p>
-              <p className="mt-1">Google's Gemini API is free to use. No credit card required. You get 1,500 requests per day - way more than you'll ever need for this app.</p>
-            </div>
+        <a
+          href={providerInfo.setupUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+        >
+          Go to {providerInfo.displayName}
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+
+        {selectedProvider === 'gemini' && (
+          <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: '#ecfdf5', border: '1px solid #10b981' }}>
+            <p className="text-sm text-green-800">
+              <strong>Free tier:</strong> 1,500 requests/day - no credit card required!
+            </p>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* API Key Input Section */}
-      <div
-        className="rounded-lg p-5"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-      >
+      {/* API Key Input */}
+      <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
         <h2 className="text-lg font-bold mb-4" style={{ color: secondaryBgText }}>
-          Your API Key
+          {providerInfo.displayName} API Key
         </h2>
 
         {loading ? (
@@ -599,42 +527,37 @@ export default function AISettings() {
           </div>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Paste your API key here (starts with AIza...)"
-                  className="w-full px-4 py-3 rounded-lg border-2 focus:outline-none transition-colors font-mono text-sm"
-                  style={{
-                    borderColor: `${teamColors.primary}50`,
-                    backgroundColor: '#fff'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showKey ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
+            <div className="relative">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={currentKeyInput}
+                onChange={(e) => setCurrentKeyInput(e.target.value)}
+                placeholder={providerInfo.keyPlaceholder}
+                className="w-full px-4 py-3 pr-12 rounded-lg border-2 focus:outline-none font-mono text-sm"
+                style={{ borderColor: `${teamColors.primary}50`, backgroundColor: '#fff' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showKey ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
             </div>
 
             <div className="flex flex-wrap gap-3 mt-4">
               <button
                 onClick={handleSave}
-                disabled={saving || !apiKey.trim() || apiKey === savedKey}
+                disabled={saving || !currentKeyInput.trim() || currentKeyInput === apiKeys[selectedProvider]}
                 className="px-5 py-2.5 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
               >
@@ -643,14 +566,14 @@ export default function AISettings() {
 
               <button
                 onClick={handleTest}
-                disabled={testing || !apiKey.trim()}
+                disabled={testing || !currentKeyInput.trim()}
                 className="px-5 py-2.5 rounded-lg font-medium text-sm border-2 hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{ borderColor: teamColors.primary, color: teamColors.primary }}
               >
                 {testing ? 'Testing...' : 'Test Key'}
               </button>
 
-              {savedKey && (
+              {hasApiKey && (
                 <button
                   onClick={handleRemove}
                   disabled={saving}
@@ -662,11 +585,8 @@ export default function AISettings() {
               )}
             </div>
 
-            {/* Status message */}
             {status && (
-              <div
-                className={`mt-4 p-3 rounded-lg text-sm ${status.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}
-              >
+              <div className={`mt-4 p-3 rounded-lg text-sm ${status.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
                 {status.success ? '✓' : '✗'} {status.message}
               </div>
             )}
@@ -674,129 +594,103 @@ export default function AISettings() {
         )}
       </div>
 
-      {/* FAQ Section */}
-      <div
-        className="rounded-lg p-5"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-      >
-        <h2 className="text-lg font-bold mb-4" style={{ color: secondaryBgText }}>
-          Frequently Asked Questions
-        </h2>
-
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Is this really free?</h3>
-            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-              Yes! Google provides 1,500 free API requests per day. For generating dynasty content, you'd use maybe 10-20 per session at most.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Is my API key secure?</h3>
-            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-              Yes, your key is stored in your private account data and syncs across your devices. It's only used to generate content for your dynasty.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Can I revoke the key later?</h3>
-            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-              Yes! You can delete your key from Google AI Studio at any time, or remove it from this app using the "Remove Key" button above.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="font-semibold" style={{ color: secondaryBgText }}>What can I generate with AI?</h3>
-            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
-              Once connected, you'll see "Generate with AI" buttons throughout the app - for season summaries, player bios, game recaps, recruiting class write-ups, and more. (Coming soon!)
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Game Recap Prompt Section */}
-      <div
-        className="rounded-lg p-5"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}
-      >
-        <div
-          className="flex items-center justify-between cursor-pointer"
+      {/* Custom Prompt Editor */}
+      <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
+        <button
           onClick={() => setShowPromptEditor(!showPromptEditor)}
+          className="w-full flex items-center justify-between"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold" style={{ color: secondaryBgText }}>
               Game Recap Prompt
             </h2>
             {savedInstructions && (
-              <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
                 Customized
               </span>
             )}
           </div>
           <svg
             className={`w-5 h-5 transition-transform ${showPromptEditor ? 'rotate-180' : ''}`}
-            style={{ color: secondaryBgText }}
             fill="none"
-            stroke="currentColor"
+            stroke={secondaryBgText}
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-        </div>
-
-        <p className="text-sm mt-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-          Customize the instructions given to the AI when generating game recaps.
-        </p>
+        </button>
 
         {showPromptEditor && (
           <div className="mt-4 space-y-4">
-            <div className="text-xs p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15`, color: secondaryBgText }}>
-              <strong>Tip:</strong> Use <code className="bg-gray-200 px-1 rounded">[HOME_TEAM]</code> as a placeholder - it will be replaced with the actual home team name when generating.
-            </div>
+            <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.8 }}>
+              Customize the AI instructions for generating game recaps. Use [HOME_TEAM] as a placeholder.
+            </p>
 
             <textarea
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border-2 focus:outline-none transition-colors text-sm font-mono"
-              style={{
-                borderColor: `${teamColors.primary}50`,
-                backgroundColor: '#fff',
-                minHeight: '300px',
-                resize: 'vertical'
-              }}
-              placeholder="Enter custom instructions for the AI..."
+              rows={12}
+              className="w-full px-4 py-3 rounded-lg border-2 focus:outline-none font-mono text-xs"
+              style={{ borderColor: `${teamColors.primary}50`, backgroundColor: '#fff' }}
             />
 
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleSavePrompt}
-                disabled={savingPrompt || customInstructions === savedInstructions || (customInstructions === DEFAULT_GAME_RECAP_INSTRUCTIONS && !savedInstructions)}
+                disabled={savingPrompt || customInstructions === savedInstructions}
                 className="px-5 py-2.5 rounded-lg font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
                 style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
               >
                 {savingPrompt ? 'Saving...' : 'Save Prompt'}
               </button>
 
-              <button
-                onClick={handleResetPrompt}
-                disabled={savingPrompt || (!savedInstructions && customInstructions === DEFAULT_GAME_RECAP_INSTRUCTIONS)}
-                className="px-5 py-2.5 rounded-lg font-medium text-sm border-2 hover:opacity-90 transition-opacity disabled:opacity-50"
-                style={{ borderColor: teamColors.primary, color: teamColors.primary }}
-              >
-                Reset to Default
-              </button>
+              {savedInstructions && (
+                <button
+                  onClick={handleResetPrompt}
+                  disabled={savingPrompt}
+                  className="px-5 py-2.5 rounded-lg font-medium text-sm border-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+                >
+                  Reset to Default
+                </button>
+              )}
             </div>
 
-            {/* Prompt status message */}
             {promptStatus && (
-              <div
-                className={`p-3 rounded-lg text-sm ${promptStatus.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}
-              >
+              <div className={`p-3 rounded-lg text-sm ${promptStatus.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
                 {promptStatus.success ? '✓' : '✗'} {promptStatus.message}
               </div>
             )}
           </div>
         )}
+      </div>
+
+      {/* FAQ */}
+      <div className="rounded-lg p-5" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}30` }}>
+        <h2 className="text-lg font-bold mb-4" style={{ color: secondaryBgText }}>FAQ</h2>
+
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Is my API key secure?</h3>
+            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
+              Yes, your key is stored in your private account data. It's only used to generate content for your dynasty.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Which provider should I use?</h3>
+            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
+              Gemini is recommended for most users (free tier). OpenRouter offers access to many models with pay-per-use pricing.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold" style={{ color: secondaryBgText }}>Can I switch providers?</h3>
+            <p className="text-sm mt-1" style={{ color: secondaryBgText, opacity: 0.8 }}>
+              Yes! You can save API keys for multiple providers and switch between them anytime.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )

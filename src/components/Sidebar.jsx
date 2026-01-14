@@ -93,7 +93,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
     { name: 'AI Settings', path: '/ai-settings', isAdmin: true, isAI: true },
-    { name: 'Admin Tools', path: `${pathPrefix}/admin`, isAdmin: true }
+    { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 
   const isActive = (path) => {
@@ -158,7 +158,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
             })}
           </div>
 
-          {/* Admin Tools Section - separated at bottom */}
+          {/* Danger Zone Section - separated at bottom */}
           {!isViewOnly && (
             <div className="mt-4 pt-4 border-t" style={{ borderColor: secondaryBgText === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }}>
               {navItems.filter(item => item.isAdmin).map((item) => {
