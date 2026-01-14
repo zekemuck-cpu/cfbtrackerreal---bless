@@ -1172,24 +1172,28 @@ export default function Team() {
         </div>
       </div>
 
-      {/* Season-by-Season History - Moved to top */}
-      <div
-        className="rounded-lg shadow-lg overflow-hidden"
-        style={{
-          backgroundColor: teamInfo.backgroundColor,
-          border: `3px solid ${teamInfo.textColor}`
-        }}
-      >
-        <div
-          className="px-4 py-3"
-          style={{ backgroundColor: teamInfo.textColor }}
-        >
-          <h2 className="text-lg font-bold" style={{ color: teamPrimaryText }}>
-            Season-by-Season History
-          </h2>
-        </div>
+      {/* Main Two-Column Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Season History */}
+        <div className="space-y-6">
+          {/* Season-by-Season History */}
+          <div
+            className="rounded-lg shadow-lg overflow-hidden"
+            style={{
+              backgroundColor: teamInfo.backgroundColor,
+              border: `3px solid ${teamInfo.textColor}`
+            }}
+          >
+            <div
+              className="px-4 py-3"
+              style={{ backgroundColor: teamInfo.textColor }}
+            >
+              <h2 className="text-lg font-bold" style={{ color: teamPrimaryText }}>
+                Season-by-Season History
+              </h2>
+            </div>
 
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
           {[...yearRecords].reverse().map((yr) => {
             const isNationalChamp = yr.cfpResult?.type === 'champion'
             const madePlayoff = yr.cfpResult && yr.cfpResult.type !== 'pending'
@@ -1286,28 +1290,32 @@ export default function Team() {
               </Link>
             )
           })}
+            </div>
+          </div>
         </div>
-      </div>
+        {/* End Left Column */}
 
-      {/* Team Accomplishments */}
-      <div
-        className="rounded-lg shadow-lg overflow-hidden"
-        style={{
-          backgroundColor: teamInfo.backgroundColor,
-          border: `3px solid ${teamInfo.textColor}`
-        }}
-      >
-        <div
-          className="px-4 py-3"
-          style={{ backgroundColor: teamInfo.textColor }}
-        >
+        {/* Right Column: Accomplishments & User History */}
+        <div className="space-y-6">
+          {/* Team Accomplishments */}
+          <div
+            className="rounded-lg shadow-lg overflow-hidden"
+            style={{
+              backgroundColor: teamInfo.backgroundColor,
+              border: `3px solid ${teamInfo.textColor}`
+            }}
+          >
+            <div
+              className="px-4 py-3"
+              style={{ backgroundColor: teamInfo.textColor }}
+            >
           <h2 className="text-lg font-bold" style={{ color: teamPrimaryText }}>
             Team Accomplishments
           </h2>
         </div>
 
         <div className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
             {/* All-Time Record - Clickable */}
             <button
               onClick={() => setShowAllTimeModal(true)}
@@ -1487,6 +1495,10 @@ export default function Team() {
           </div>
         </div>
       </div>
+        </div>
+        {/* End Right Column */}
+      </div>
+      {/* End Main Two-Column Grid */}
 
       {/* Games Against Modal */}
       {showGamesModal && (

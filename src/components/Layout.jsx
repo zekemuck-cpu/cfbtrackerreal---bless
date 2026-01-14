@@ -321,13 +321,12 @@ export default function Layout({ children }) {
   }
 
 
-  // Page background - neutral pages get gray, team/player pages use viewed team's colors
+  // Page background - use neutral backgrounds for cleaner, more professional look
   const getPageBg = () => {
     if (isHomePage) return '#111827' // Dark background for home page (gray-900)
-    if (isCFPBracketPage || isGamePage || isCoachCareerPage || isNeutralPage) return '#374151'
-    if (isPlayerPageWithDifferentTeam && playerTeamInfo) return playerTeamInfo.backgroundColor
-    if (isTeamPage && viewedTeamInfo) return viewedTeamInfo.backgroundColor
-    return useTeamTheme ? teamColors.primary : '#f3f4f6'
+    // All dynasty pages use a clean light gray background
+    if (isDynastyPage) return '#f1f5f9' // slate-100 - professional neutral background
+    return '#f3f4f6' // gray-100 fallback
   }
   const pageBg = getPageBg()
 
@@ -521,7 +520,14 @@ export default function Layout({ children }) {
       </header>
 
       <main className={`flex-1 ${isHomePage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage ? '' : 'container mx-auto'}`}>
-        {children}
+        {/* Dynasty pages get a max-width container for better desktop experience */}
+        {isDynastyPage ? (
+          <div className="max-w-[1400px] mx-auto w-full">
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </main>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}

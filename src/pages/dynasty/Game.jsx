@@ -627,6 +627,12 @@ export default function Game() {
   // Imgur album/gallery links (not direct images)
   const isImgurAlbumLink = (url) => /imgur\.com\/(a|gallery)\//.test(url)
 
+  // Extract Imgur album/gallery ID from URL
+  const getImgurAlbumId = (url) => {
+    const match = url.match(/imgur\.com\/(?:a|gallery)\/([a-zA-Z0-9]+)/)
+    return match ? match[1] : null
+  }
+
   // Imgur single post link (imgur.com/XXX but not album/gallery)
   const isImgurPostLink = (url) => {
     // Match imgur.com/XXX where XXX is an image ID (not a/, gallery/, or already i.imgur.com)
@@ -858,6 +864,9 @@ export default function Game() {
   const leftData = getTeamData(leftTeam)
   const rightData = getTeamData(rightTeam)
 
+  // Check if game has been played (has scores)
+  const gameIsPlayed = game.isPlayed || (game.team1Score > 0 || game.team2Score > 0)
+
   // Determine which team is "home" in the boxScore sense (matching BoxScoreSheetModal logic)
   // For home/neutral games: user is home in boxScore, opponent is away
   // For away games: opponent is home in boxScore, user is away
@@ -867,10 +876,13 @@ export default function Game() {
   const boxScoreAwayTeamData = boxScoreHomeIsUser ? getTeamData('opponent') : getTeamData('user')
 
   // Winner takes more of the gradient with smooth blend - winner gets 70%, blend zone in middle
+  // For unplayed games, use 50-50 split
   const leftWon = leftData.isWinner
-  const headerGradient = leftWon
-    ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 55%, ${rightData.colors.primary} 85%, ${rightData.colors.primary} 100%)`
-    : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
+  const headerGradient = !gameIsPlayed
+    ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 40%, ${rightData.colors.primary} 60%, ${rightData.colors.primary} 100%)`
+    : leftWon
+      ? `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 55%, ${rightData.colors.primary} 85%, ${rightData.colors.primary} 100%)`
+      : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
 
   return (
     <div className="space-y-4">
@@ -977,28 +989,34 @@ export default function Game() {
             </Link>
 
             {/* Scores */}
-            <div className="flex items-center gap-3 sm:gap-5">
-              <div className="text-center">
-                <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}>
-                  {leftData.score}
-                </div>
-              </div>
+            {gameIsPlayed ? (
+                <div className="flex items-center gap-3 sm:gap-5">
+                  <div className="text-center">
+                    <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                      {leftData.score}
+                    </div>
+                  </div>
 
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-gray-500 text-xs font-medium">FINAL</span>
-                {game.overtimes && game.overtimes.length > 0 && (
-                  <span className="text-gray-400 text-[10px] font-bold">
-                    {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
-                  </span>
-                )}
-              </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs font-medium text-gray-500">FINAL</span>
+                    {game.overtimes && game.overtimes.length > 0 && (
+                      <span className="text-gray-400 text-[10px] font-bold">
+                        {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
+                      </span>
+                    )}
+                  </div>
 
-              <div className="text-center">
-                <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}>
-                  {rightData.score}
+                  <div className="text-center">
+                    <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                      {rightData.score}
+                    </div>
+                  </div>
                 </div>
+            ) : (
+              <div className="flex flex-col items-center py-2">
+                <span className="text-sm font-bold text-yellow-500">UPCOMING</span>
               </div>
-            </div>
+            )}
 
             {/* Right Team */}
             <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
@@ -1099,8 +1117,8 @@ export default function Game() {
         </div>
       )}
 
-      {/* Game Recap Section */}
-      {!isViewOnly && (
+      {/* Game Recap Section - only show for played games */}
+      {!isViewOnly && gameIsPlayed && (
         <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
           <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
             <h3 className="font-bold text-white text-sm uppercase tracking-wide">
@@ -1997,33 +2015,46 @@ export default function Game() {
                   </div>
                 )
               } else if (isImgurAlbumLink(link)) {
-                // Imgur album/gallery - show as a styled link card (can't embed due to X-Frame-Options)
+                // Imgur album/gallery - embed using iframe
+                const albumId = getImgurAlbumId(link)
                 return (
-                  <a
-                    key={index}
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-4 bg-gray-800 rounded-xl hover:bg-gray-750 transition-colors group ring-1 ring-gray-700"
-                  >
-                    {/* Imgur logo/icon */}
-                    <div className="w-14 h-14 rounded-xl bg-[#1BB76E] flex items-center justify-center flex-shrink-0">
-                      <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"/>
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-white font-medium group-hover:text-green-400 transition-colors">
-                        Imgur Album
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-700 bg-gray-800">
+                    {/* Header with link to open in new tab */}
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded bg-[#1BB76E] flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z"/>
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-white">Imgur Album</span>
                       </div>
-                      <div className="text-sm text-gray-400 truncate">
-                        {link}
-                      </div>
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-gray-400 hover:text-green-400 transition-colors flex items-center gap-1"
+                      >
+                        Open in Imgur
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
                     </div>
-                    <svg className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
+                    {/* Imgur embed iframe */}
+                    <div className="relative w-full" style={{ minHeight: '500px' }}>
+                      <iframe
+                        src={`https://imgur.com/a/${albumId}/embed?pub=true&ref=https://dynastytracker.vercel.app&analytics=false`}
+                        width="100%"
+                        height="500"
+                        frameBorder="0"
+                        scrolling="no"
+                        allowFullScreen
+                        className="w-full"
+                        style={{ overflow: 'hidden' }}
+                      />
+                    </div>
+                  </div>
                 )
               } else if (isImgurPostLink(link)) {
                 // Imgur single post - convert to direct image and embed

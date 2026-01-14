@@ -22,6 +22,15 @@ function getGameOrder(g) {
   return g.week || 0
 }
 
+// Check if a game has been played (has scores entered)
+function isGamePlayed(g) {
+  if (g.isPlayed) return true
+  // Check if either team has a score > 0
+  const team1Score = g.team1Score ?? g.teamScore ?? 0
+  const team2Score = g.team2Score ?? g.opponentScore ?? 0
+  return team1Score > 0 || team2Score > 0
+}
+
 /**
  * Simplified ticker sections - returns array of sections with guaranteed valid data
  */
@@ -54,7 +63,7 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    // Get current team's games with perspective attached
+    // Get current team's games with perspective attached (only played games)
     const currentTeamGames = (dynasty.games || [])
       .map(g => {
         const perspective = getUserGamePerspective(g, dynasty)
@@ -63,8 +72,8 @@ export function useTickerSections(dynasty) {
       .filter(g => {
         if (!g) return false
         const info = getGameInfo(g)
-        // Check if this game is for the current team and has a result
-        return info?.userTeamAbbr === teamAbbr && g.perspective
+        // Check if this game is for the current team, has a result, and has been played
+        return info?.userTeamAbbr === teamAbbr && g.perspective && isGamePlayed(g)
       })
       .sort((a, b) => Number(b.year) - Number(a.year))
 
@@ -113,18 +122,39 @@ export function useTickerSections(dynasty) {
 
     // === 2. UPCOMING GAME (only if in regular season with upcoming game) ===
     const schedule = getCurrentSchedule(dynasty)
-    const upcoming = schedule?.find(g => isSameWeek(g.week, dynasty.currentWeek) && !g.result)
-    if (upcoming?.opponent && dynasty.currentPhase === 'regular_season') {
-      const oppAbbr = getTeamAbbr(upcoming.opponent, teams)
-      const loc = upcoming.location === 'away' ? '@' : 'vs'
-      sections.push({
-        type: 'upcoming',
-        label: `WEEK ${dynasty.currentWeek}`,
-        teamLogo: teamAbbr,
-        teamRecord: record,
-        opponentLogo: oppAbbr,
-        items: [{ id: 'next', label: 'NEXT', labelColor: '#fcd34d', text: `${loc} ${oppAbbr}` }]
-      })
+    const upcoming = schedule?.find(g => isSameWeek(g.week, dynasty.currentWeek))
+
+    if (upcoming && dynasty.currentPhase === 'regular_season') {
+      // Check if it's a BYE week
+      if (upcoming.isBye || upcoming.opponent === 'BYE') {
+        sections.push({
+          type: 'upcoming',
+          label: `WEEK ${dynasty.currentWeek}`,
+          teamLogo: teamAbbr,
+          teamRecord: record,
+          items: [{ id: 'bye', label: 'BYE', labelColor: '#9ca3af', text: 'No game this week' }]
+        })
+      } else if (upcoming.opponent) {
+        // Check if game has already been played (has a linked game with scores)
+        const linkedGame = upcoming.gameId ? (dynasty.games || []).find(g => g.id === upcoming.gameId) : null
+        const hasResult = linkedGame && (linkedGame.team1Score !== undefined || linkedGame.teamScore !== undefined)
+
+        if (!hasResult) {
+          // Get opponent abbreviation - prefer opponentTid, fall back to opponent string
+          const oppAbbr = upcoming.opponentTid
+            ? (teams[upcoming.opponentTid]?.abbr || getTeamAbbr(upcoming.opponent, teams))
+            : getTeamAbbr(upcoming.opponent, teams)
+          const loc = upcoming.location === 'away' ? '@' : 'vs'
+          sections.push({
+            type: 'upcoming',
+            label: `WEEK ${dynasty.currentWeek}`,
+            teamLogo: teamAbbr,
+            teamRecord: record,
+            opponentLogo: oppAbbr,
+            items: [{ id: 'next', label: 'NEXT', labelColor: '#fcd34d', text: `${loc} ${oppAbbr}` }]
+          })
+        }
+      }
     }
 
     // === 3. GAME LOG ===
@@ -185,38 +215,38 @@ export function useTickerSections(dynasty) {
         text: `${info?.userScore ?? lastGameWithStats.teamScore}-${info?.opponentScore ?? lastGameWithStats.opponentScore}`
       }]
 
-      // Top passer
-      const passer = stats?.passing?.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
-      if (passer?.yards > 0) {
+      // Top passer - field names: cmp, att, yds, td, int, playerName
+      const passer = stats?.passing?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      if (passer?.yds > 0) {
         const pid = findPlayerPid(passer.playerName)
         items.push({
           id: 'qb',
           label: passer.playerName || 'QB',
-          text: `${passer.comp || 0}/${passer.attempts || 0}, ${passer.yards} yds, ${passer.tD || 0} TD`,
+          text: `${passer.cmp || 0}/${passer.att || 0}, ${passer.yds} yds, ${passer.td || 0} TD`,
           link: pid ? `/player/${pid}` : null
         })
       }
 
-      // Top rusher
-      const rusher = stats?.rushing?.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
-      if (rusher?.yards > 0) {
+      // Top rusher - field names: car, yds, td, playerName
+      const rusher = stats?.rushing?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      if (rusher?.yds > 0) {
         const pid = findPlayerPid(rusher.playerName)
         items.push({
           id: 'rb',
           label: rusher.playerName || 'RB',
-          text: `${rusher.carries || 0} car, ${rusher.yards} yds${rusher.tD > 0 ? `, ${rusher.tD} TD` : ''}`,
+          text: `${rusher.car || 0} car, ${rusher.yds} yds${rusher.td > 0 ? `, ${rusher.td} TD` : ''}`,
           link: pid ? `/player/${pid}` : null
         })
       }
 
-      // Top receiver
-      const receiver = stats?.receiving?.sort((a, b) => (b.yards || 0) - (a.yards || 0))[0]
-      if (receiver?.yards > 0) {
+      // Top receiver - field names: rec, yds, td, playerName
+      const receiver = stats?.receiving?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      if (receiver?.yds > 0) {
         const pid = findPlayerPid(receiver.playerName)
         items.push({
           id: 'wr',
           label: receiver.playerName || 'WR',
-          text: `${receiver.receptions || 0} rec, ${receiver.yards} yds${receiver.tD > 0 ? `, ${receiver.tD} TD` : ''}`,
+          text: `${receiver.rec || 0} rec, ${receiver.yds} yds${receiver.td > 0 ? `, ${receiver.td} TD` : ''}`,
           link: pid ? `/player/${pid}` : null
         })
       }
@@ -288,7 +318,7 @@ export function useTickerSections(dynasty) {
     // === 6. MY POSTSEASON HISTORY (user's bowls + CFP games with scores) ===
     const postseasonTypes = ['bowl', 'cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const postseasonGames = (dynasty.games || [])
-      .filter(g => postseasonTypes.includes(g.gameType))
+      .filter(g => postseasonTypes.includes(g.gameType) && isGamePlayed(g))
       .map(g => {
         const perspective = getUserGamePerspective(g, dynasty)
         return perspective ? { ...g, perspective } : null
@@ -353,7 +383,7 @@ export function useTickerSections(dynasty) {
 
     // === 7. CFP BRACKETS BY YEAR (from games[] array) ===
     const cfpGameTypes = ['cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
-    const allCfpGames = (dynasty.games || []).filter(g => cfpGameTypes.includes(g.gameType))
+    const allCfpGames = (dynasty.games || []).filter(g => cfpGameTypes.includes(g.gameType) && isGamePlayed(g))
     const cfpYears = [...new Set(allCfpGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
 
     // Helper to determine winner from scores
@@ -468,8 +498,8 @@ export function useTickerSections(dynasty) {
     })
 
     // === 8. LEAGUE BOWL GAMES BY YEAR ===
-    // Get all bowl games (including CPU vs CPU) grouped by year
-    const allBowlGames = (dynasty.games || []).filter(g => g.gameType === 'bowl')
+    // Get all bowl games (including CPU vs CPU) grouped by year - only played games
+    const allBowlGames = (dynasty.games || []).filter(g => g.gameType === 'bowl' && isGamePlayed(g))
     const bowlYears = [...new Set(allBowlGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
 
     bowlYears.forEach(bowlYear => {
@@ -635,8 +665,9 @@ export function useTickerSections(dynasty) {
     }
 
     // === 10. CAREER SUMMARY - Each season individually ===
-    // Uses perspective to find all games where user coached
+    // Uses perspective to find all games where user coached (only played games)
     const allUserGames = (dynasty.games || [])
+      .filter(g => isGamePlayed(g))
       .map(g => {
         const perspective = getUserGamePerspective(g, dynasty)
         return perspective ? { ...g, perspective } : null

@@ -138,14 +138,23 @@ export default function CoachCareer() {
   // Get current team abbreviation
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
+  // Helper to check if a game has been played (has scores entered)
+  const isGamePlayed = (g) => {
+    if (g.isPlayed) return true
+    const team1Score = g.team1Score ?? g.teamScore ?? 0
+    const team2Score = g.team2Score ?? g.opponentScore ?? 0
+    return team1Score > 0 || team2Score > 0
+  }
+
   // Helper to check for win (uses unified game perspective)
   const isWin = (g) => g.perspective?.userWon === true
   const isLoss = (g) => g.perspective && !g.perspective.userWon
 
   // Calculate stats for a specific team stint (either from history or current team)
   const calculateStintStats = (teamName, startYear, endYear, isCurrentTeam = false) => {
-    // Filter games for this team during this period using unified perspective
+    // Filter games for this team during this period using unified perspective (only played games)
     const games = (currentDynasty.games || []).filter(g => {
+      if (!isGamePlayed(g)) return false // Skip unplayed games
       const gameYear = Number(g.year)
       if (gameYear < startYear || gameYear > endYear) return false
 
@@ -192,10 +201,10 @@ export default function CoachCareer() {
   // Uses unified game format with perspective from coachTeamByYear
   const buildCoachingHistory = () => {
     const history = []
-    // Filter for user games using unified perspective
+    // Filter for user games using unified perspective (only played games)
     // Use historical mode to include ALL teams coached (not just current team for current year)
     const userGames = (currentDynasty.games || [])
-      .filter(g => getUserGamePerspective(g, currentDynasty, { useHistorical: true }) !== null)
+      .filter(g => isGamePlayed(g) && getUserGamePerspective(g, currentDynasty, { useHistorical: true }) !== null)
       .map(g => ({
         ...g,
         perspective: getUserGamePerspective(g, currentDynasty, { useHistorical: true })

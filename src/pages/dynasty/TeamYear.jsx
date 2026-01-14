@@ -2427,23 +2427,12 @@ export default function TeamYear() {
                        game.isConferenceChampionship ? 'CCG' :
                        `Wk ${game.week}`
 
-              // Content for the game display - new design with W/L badge on left
+              // Content for the game display - W/L badge on right
               const gameContent = (
                 <div className="flex items-center w-full overflow-hidden">
-                  {/* Week/Result Badge */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : oppColors.textColor,
-                      color: hasResult ? '#fff' : oppColors.backgroundColor
-                    }}
-                  >
-                    {hasResult ? (isWin ? 'W' : 'L') : weekLabel}
-                  </div>
-
                   {/* Game Info */}
                   <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-l-xl min-w-0"
                     style={{ backgroundColor: oppColors.backgroundColor }}
                   >
                     <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -2487,11 +2476,6 @@ export default function TeamYear() {
                             {oppMascot || displayOpponent}
                           </span>
                         </div>
-                        {hasResult && (
-                          <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: oppColors.textColor }}>
-                            {weekLabel}
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -2508,10 +2492,21 @@ export default function TeamYear() {
                         </div>
                       ) : (
                         <span className="text-[10px] sm:text-xs font-medium opacity-70" style={{ color: oppColors.textColor }}>
-                          Scheduled
+                          —
                         </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Week/Result Badge - Now on right */}
+                  <div
+                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-r-xl font-bold text-[10px] sm:text-sm"
+                    style={{
+                      backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : oppColors.textColor,
+                      color: hasResult ? '#fff' : oppColors.backgroundColor
+                    }}
+                  >
+                    {hasResult ? (isWin ? 'W' : 'L') : weekLabel}
                   </div>
                 </div>
               )
@@ -2697,20 +2692,9 @@ export default function TeamYear() {
                   style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
                 >
                   <div className="flex items-center w-full overflow-hidden">
-                    {/* Week Badge */}
-                    <div
-                      className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                      style={{
-                        backgroundColor: oppColors.textColor,
-                        color: oppColors.backgroundColor
-                      }}
-                    >
-                      Bowl
-                    </div>
-
                     {/* Game Info */}
                     <div
-                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-l-xl min-w-0"
                       style={{ backgroundColor: oppColors.backgroundColor }}
                     >
                       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
@@ -2753,9 +2737,20 @@ export default function TeamYear() {
                       {/* Status */}
                       <div className="flex-shrink-0 text-right ml-1">
                         <span className="text-[10px] sm:text-xs font-medium opacity-70" style={{ color: oppColors.textColor }}>
-                          Scheduled
+                          —
                         </span>
                       </div>
+                    </div>
+
+                    {/* Week Badge - Now on right */}
+                    <div
+                      className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-r-xl font-bold text-[10px] sm:text-sm"
+                      style={{
+                        backgroundColor: oppColors.textColor,
+                        color: oppColors.backgroundColor
+                      }}
+                    >
+                      Bowl
                     </div>
                   </div>
                 </div>

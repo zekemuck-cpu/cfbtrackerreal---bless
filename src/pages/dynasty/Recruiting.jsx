@@ -169,6 +169,41 @@ export default function Recruiting() {
     return years.sort((a, b) => b - a) // Most recent first
   }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamAbbr, currentDynasty?.currentYear])
 
+  // Get all teams that have recruiting classes entered
+  const teamsWithRecruitingClasses = useMemo(() => {
+    const recruitingData = currentDynasty?.recruitingCommitmentsByTeamYear || {}
+    const teamsWithData = []
+
+    Object.entries(recruitingData).forEach(([abbr, yearData]) => {
+      // Check if this team has any actual recruits in any year
+      const hasRecruits = Object.values(yearData).some(yearCommitments => {
+        return Object.values(yearCommitments).some(weekCommitments => {
+          return Array.isArray(weekCommitments) && weekCommitments.length > 0
+        })
+      })
+
+      if (hasRecruits) {
+        // Get tid from abbreviation
+        const tid = getTidFromAbbr(abbr)
+        const teamData = tid ? teamsSource[tid] : null
+        teamsWithData.push({
+          abbr,
+          tid,
+          name: teamData?.name || abbr,
+          logo: teamData?.logo || null
+        })
+      }
+    })
+
+    // Sort alphabetically by name
+    return teamsWithData.sort((a, b) => a.name.localeCompare(b.name))
+  }, [currentDynasty?.recruitingCommitmentsByTeamYear, teamsSource])
+
+  // Handle team change - navigate to new team's recruiting page
+  const handleTeamChange = (newTid) => {
+    navigate(`${pathPrefix}/recruiting/${newTid}/${selectedYear}`)
+  }
+
   // Handle year change - navigate to new URL
   const handleYearChange = (newYear) => {
     navigate(`${pathPrefix}/recruiting/${selectedTid}/${newYear}`)
@@ -736,8 +771,30 @@ export default function Recruiting() {
             </div>
           </div>
 
-          {/* Year Selector and Edit Button */}
-          <div className="flex items-center gap-3">
+          {/* Team/Year Selectors and Edit Button */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Team Selector - only show if multiple teams have recruiting classes */}
+            {teamsWithRecruitingClasses.length > 1 && (
+              <>
+                <label className="text-sm font-medium" style={{ color: secondaryBgText }}>
+                  Team:
+                </label>
+                <select
+                  value={selectedTid}
+                  onChange={(e) => handleTeamChange(Number(e.target.value))}
+                  className="px-3 py-2 rounded-lg border-2 font-semibold"
+                  style={{
+                    borderColor: teamColors.primary,
+                    backgroundColor: teamColors.secondary,
+                    color: secondaryBgText
+                  }}
+                >
+                  {teamsWithRecruitingClasses.map(team => (
+                    <option key={team.tid} value={team.tid}>{team.name}</option>
+                  ))}
+                </select>
+              </>
+            )}
             <label className="text-sm font-medium" style={{ color: secondaryBgText }}>
               Season:
             </label>
@@ -938,7 +995,7 @@ export default function Recruiting() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {allCommitments.map((recruit, index) => {
               const player = findPlayerByName(recruit.name, recruit.recruitYear)
-              const teamsData = dynasty?.teams || dynasty?.customTeams
+              const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
               const transferTeamFullName = recruit.previousTeam ? (getMascotName(recruit.previousTeam, teamsData) || recruit.previousTeam) : null
               const transferTeamColors = transferTeamFullName ? getTeamColors(transferTeamFullName, teamsData) : null
               const transferTeamLogo = transferTeamFullName ? getTeamLogo(transferTeamFullName, teamsData) : null

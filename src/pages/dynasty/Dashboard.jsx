@@ -76,6 +76,16 @@ export default function Dashboard() {
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
+  // Helper to check if a game has actually been played (has scores)
+  // Games are created when schedule is saved, but aren't "played" until scores are entered
+  const isGameActuallyPlayed = (game) => {
+    if (!game) return false
+    if (game.isPlayed) return true
+    const team1Score = game.team1Score ?? game.teamScore ?? 0
+    const team2Score = game.team2Score ?? game.opponentScore ?? 0
+    return team1Score > 0 || team2Score > 0
+  }
+
   // Use team-centric helper functions for all team-specific data
   // getScheduleWithGameData merges game records into schedule entries
   const teamSchedule = useMemo(() => getScheduleWithGameData(currentDynasty), [currentDynasty])
@@ -281,6 +291,52 @@ export default function Dashboard() {
   const [showRecruitOverallsModal, setShowRecruitOverallsModal] = useState(false)
   const [showPortalTransferClassModal, setShowPortalTransferClassModal] = useState(false)
   const [showFringeCaseClassModal, setShowFringeCaseClassModal] = useState(false)
+
+  // Roster sorting state
+  const [rosterSort, setRosterSort] = useState('position') // 'position', 'jerseyNumber', 'name', 'class'
+  const [rosterSortDir, setRosterSortDir] = useState('asc')
+
+  // Roster sort handler
+  const handleRosterSort = (column) => {
+    if (rosterSort === column) {
+      setRosterSortDir(rosterSortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setRosterSort(column)
+      setRosterSortDir('asc')
+    }
+  }
+
+  // Roster sorting function
+  const posOrder = ['QB', 'RB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'LE', 'RE', 'DT', 'LOLB', 'MLB', 'ROLB', 'CB', 'FS', 'SS', 'K', 'P']
+  const classOrder = ['FR', 'SO', 'JR', 'SR']
+
+  const sortRoster = (roster) => {
+    return [...roster].sort((a, b) => {
+      let comparison = 0
+      switch (rosterSort) {
+        case 'jerseyNumber':
+          comparison = (a.jerseyNumber || 999) - (b.jerseyNumber || 999)
+          break
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '')
+          break
+        case 'position':
+          const posA = posOrder.indexOf(a.position)
+          const posB = posOrder.indexOf(b.position)
+          comparison = (posA === -1 ? 999 : posA) - (posB === -1 ? 999 : posB)
+          if (comparison === 0) comparison = (b.overall || 0) - (a.overall || 0)
+          break
+        case 'class':
+          const classA = classOrder.indexOf(a.year)
+          const classB = classOrder.indexOf(b.year)
+          comparison = (classA === -1 ? 999 : classA) - (classB === -1 ? 999 : classB)
+          break
+        default:
+          comparison = 0
+      }
+      return rosterSortDir === 'asc' ? comparison : -comparison
+    })
+  }
 
   // Player match confirmation states
   const [showPlayerMatchConfirm, setShowPlayerMatchConfirm] = useState(false)
@@ -2287,100 +2343,92 @@ export default function Dashboard() {
 
         return (
           <div
-            className="rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-            style={{
-              backgroundColor: teamColors.primary,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.1)'
-            }}
+            className="bg-white rounded-xl overflow-hidden"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}
           >
-            <Link
-              to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-              className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0"
-            >
-              {(() => {
-                // Get logo from user's current team (using userId as source of truth)
-                let logoUrl = null
-                if (userTeamData) {
-                  logoUrl = userTeamData.logo || userTeamData.logoUrl
-                }
-                if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
-                return logoUrl ? (
-                  <div
-                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                      padding: '4px'
-                    }}
-                  >
-                    <img
-                      src={logoUrl}
-                      alt={`${userTeamName} logo`}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                ) : null
-              })()}
-              <div className="min-w-0">
-                <h2 className="text-lg sm:text-2xl font-bold truncate tracking-tight" style={{ color: primaryBgText }}>
-                  {currentRank && <span className="mr-1.5 sm:mr-2 opacity-90">#{currentRank}</span>}
-                  {userTeamName}
-                </h2>
-                <p className="text-sm sm:text-base font-medium mt-0.5 flex items-center gap-1.5" style={{ color: primaryBgText, opacity: 0.85 }}>
-                  <span>{headerWins}-{headerLosses}</span>
-                  {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
-                    <>
-                      <span>•</span>
-                      <span>{userTeamConference}</span>
-                      {getConferenceLogo(userTeamConference) && (
-                        <img
-                          src={getConferenceLogo(userTeamConference)}
-                          alt={userTeamConference}
-                          className="h-4 sm:h-5 w-auto object-contain"
-                        />
-                      )}
-                    </>
-                  )}
-                </p>
-              </div>
-            </Link>
-            {teamRatings && (
-              <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
-                <div className="text-center px-3 sm:px-4 py-2 rounded-lg" style={{ backgroundColor: teamColors.secondary, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
-                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: secondaryBgText, opacity: 0.6 }}>OVR</div>
-                  <div className="text-lg sm:text-xl font-bold" style={{ color: secondaryBgText }}>{teamRatings.overall}</div>
-                </div>
-                <div className="text-center px-3 sm:px-4 py-2 rounded-lg" style={{ backgroundColor: teamColors.secondary, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
-                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: secondaryBgText, opacity: 0.6 }}>OFF</div>
-                  <div className="text-lg sm:text-xl font-bold" style={{ color: secondaryBgText }}>{teamRatings.offense}</div>
-                </div>
-                <div className="text-center px-3 sm:px-4 py-2 rounded-lg" style={{ backgroundColor: teamColors.secondary, boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
-                  <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: secondaryBgText, opacity: 0.6 }}>DEF</div>
-                  <div className="text-lg sm:text-xl font-bold" style={{ color: secondaryBgText }}>{teamRatings.defense}</div>
-                </div>
-                {!isViewOnly && (
-                  <button
-                    onClick={() => setShowTeamRatingsModal(true)}
-                    className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-                    style={{ color: primaryBgText }}
-                    title="Edit Team Ratings"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                )}
+            {/* Team color accent bar */}
+            <div className="h-1.5" style={{ backgroundColor: teamColors.primary }} />
 
-                {/* Coaching Staff Popup (HC only) */}
-                {!isViewOnly && currentDynasty.coachPosition === 'HC' && teamCoachingStaff && (
-                  <div className="relative">
+            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <Link
+                to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                className="flex items-center gap-4 hover:opacity-80 transition-all min-w-0"
+              >
+                {(() => {
+                  // Get logo from user's current team (using userId as source of truth)
+                  let logoUrl = null
+                  if (userTeamData) {
+                    logoUrl = userTeamData.logo || userTeamData.logoUrl
+                  }
+                  if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
+                  return logoUrl ? (
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
+                      <img
+                        src={logoUrl}
+                        alt={`${userTeamName} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : null
+                })()}
+                <div className="min-w-0">
+                  <h2 className="text-xl sm:text-2xl font-bold truncate text-gray-900">
+                    {currentRank && <span className="mr-1.5 sm:mr-2 text-gray-500">#{currentRank}</span>}
+                    {userTeamName}
+                  </h2>
+                  <p className="text-sm sm:text-base text-gray-500 mt-0.5 flex items-center gap-2">
+                    <span className="font-semibold text-gray-700">{headerWins}-{headerLosses}</span>
+                    {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
+                      <>
+                        <span className="text-gray-300">•</span>
+                        <span>{userTeamConference}</span>
+                        {getConferenceLogo(userTeamConference) && (
+                          <img
+                            src={getConferenceLogo(userTeamConference)}
+                            alt={userTeamConference}
+                            className="h-4 sm:h-5 w-auto object-contain opacity-70"
+                          />
+                        )}
+                      </>
+                    )}
+                  </p>
+                </div>
+              </Link>
+              {teamRatings && (
+                <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
+                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">OVR</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.overall}</div>
+                  </div>
+                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">OFF</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.offense}</div>
+                  </div>
+                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">DEF</div>
+                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.defense}</div>
+                  </div>
+                  {!isViewOnly && (
                     <button
-                      onClick={() => setShowCoachingStaffPopup(!showCoachingStaffPopup)}
-                      onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
-                      className="p-2 rounded-lg hover:opacity-70 transition-opacity"
-                      style={{ color: primaryBgText }}
-                      title="Coaching Staff"
+                      onClick={() => setShowTeamRatingsModal(true)}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      title="Edit Team Ratings"
                     >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                  )}
+
+                  {/* Coaching Staff Popup (HC only) */}
+                  {!isViewOnly && currentDynasty.coachPosition === 'HC' && teamCoachingStaff && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowCoachingStaffPopup(!showCoachingStaffPopup)}
+                        onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                        title="Coaching Staff"
+                      >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
@@ -2506,22 +2554,23 @@ export default function Dashboard() {
                     )}
                   </div>
                 )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         )
       })()}
 
-      {/* Phase-Specific Content */}
-      {currentDynasty.currentPhase === 'preseason' ? (
-        <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
-          }}
-        >
-          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+      {/* Main Content Grid - Two columns on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Phase-Specific Tasks */}
+        <div className="space-y-6">
+          {/* Phase-Specific Content */}
+          {currentDynasty.currentPhase === 'preseason' ? (
+        <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-900">
             Pre-Season Setup
           </h3>
           <div className="space-y-2 sm:space-y-3">
@@ -2758,36 +2807,29 @@ export default function Dashboard() {
           </div>
 
           {canAdvanceFromPreseason() && (
-            <div
-              className="mt-6 p-4 rounded-lg border-2"
-              style={{
-                backgroundColor: `${teamColors.primary}10`,
-                borderColor: teamColors.primary
-              }}
-            >
-              <p className="text-sm font-medium" style={{ color: teamColors.primary }}>
+            <div className="mt-4 p-4 rounded-lg bg-green-50 border border-green-200">
+              <p className="text-sm font-medium text-green-700">
                 ✓ Pre-season setup complete! Click "Advance Week" in the header to start the season.
               </p>
             </div>
           )}
+          </div>
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
-        <div
-          className="rounded-lg shadow-lg p-6"
-          style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
-          }}
-        >
+        <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="p-6">
           <h3 className="text-lg font-semibold mb-4" style={{ color: secondaryBgText }}>
             {currentDynasty.currentYear} Regular Season - Week {currentDynasty.currentWeek}
           </h3>
           <div className="space-y-3">
             {(() => {
               const scheduledGame = teamSchedule?.find(g => Number(g.week) === Number(currentDynasty.currentWeek))
-              const playedGame = findCurrentTeamGame(currentDynasty,
+              const gameRecord = findCurrentTeamGame(currentDynasty,
                 g => Number(g.week) === Number(currentDynasty.currentWeek) && Number(g.year) === Number(currentDynasty.currentYear)
               )
+              // Only consider a game "played" if it has actual scores
+              const playedGame = isGameActuallyPlayed(gameRecord) ? gameRecord : null
               const mascotName = scheduledGame ? getMascotName(scheduledGame.opponent) : null
               const opponentName = mascotName || (scheduledGame ? getTeamNameFromAbbr(scheduledGame.opponent) : 'TBD')
 
@@ -2850,8 +2892,9 @@ export default function Dashboard() {
                     {isViewOnly ? <ViewOnlyBadge /> : (
                       <button
                         onClick={() => {
-                          if (playedGame) {
-                            navigate(`${pathPrefix}/game/${playedGame.id}/edit`, { state: { from: location.pathname } })
+                          // Use gameRecord (not playedGame) for navigation - game might exist but not yet played
+                          if (gameRecord) {
+                            navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
                           } else {
                             // New game - navigate with query params
                             // team1 = home team, team2 = away team (for neutral, user team is team1)
@@ -2949,6 +2992,7 @@ export default function Dashboard() {
                 </>
               )
             })()}
+          </div>
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
@@ -6861,36 +6905,122 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Schedule Section */}
-      <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+          {/* Roster Section - Desktop Only (below tasks) */}
+          <div className="hidden lg:block">
+            <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+              <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+              <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                    {currentDynasty.currentYear} Roster
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {teamRoster.length} Players
+                  </p>
+                </div>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {teamRoster.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50">
+                      <tr className="border-b border-gray-200">
+                        <th
+                          className="text-left py-2 px-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handleRosterSort('name')}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span
+                              className="text-xs text-gray-400 cursor-pointer hover:text-gray-600"
+                              onClick={(e) => { e.stopPropagation(); handleRosterSort('jerseyNumber'); }}
+                            >
+                              #
+                              {rosterSort === 'jerseyNumber' && (
+                                <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </span>
+                            <span>Player</span>
+                            {rosterSort === 'name' && (
+                              <span className="text-xs">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th
+                          className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handleRosterSort('position')}
+                        >
+                          Pos
+                          {rosterSort === 'position' && (
+                            <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </th>
+                        <th className="text-center py-2 px-2 font-semibold text-gray-600 w-12">OVR</th>
+                        <th
+                          className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
+                          onClick={() => handleRosterSort('class')}
+                        >
+                          Yr
+                          {rosterSort === 'class' && (
+                            <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortRoster(teamRoster).map((player, idx) => (
+                        <tr
+                          key={player.pid}
+                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
+                        >
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
+                              <span className="font-medium text-gray-900 truncate">{player.name}</span>
+                            </div>
+                          </td>
+                          <td className="text-center py-2 px-2 text-gray-600">{player.position}</td>
+                          <td className="text-center py-2 px-2 font-semibold text-gray-900">{player.overall || '-'}</td>
+                          <td className="text-center py-2 px-2 text-gray-600 text-xs">{player.year || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-8">
+                    No players on roster yet
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* End Left Column */}
+
+        {/* Right Column: Schedule */}
+        <div>
+          {/* Schedule Section */}
+      <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+        {/* Team color accent bar */}
+        <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+
         {/* Schedule Header */}
-        <div
-          className="px-5 py-4 sm:px-6 sm:py-5"
-          style={{ backgroundColor: teamColors.primary }}
-        >
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold text-white">
-                  {currentDynasty.currentYear} Schedule
-                </h2>
-                <p className="text-xs sm:text-sm text-white/70">
-                  {wins}-{losses} Record
-                </p>
-              </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                {currentDynasty.currentYear} Schedule
+              </h2>
+              <p className="text-sm text-gray-500">
+                {wins}-{losses} Record
+              </p>
             </div>
             {!isViewOnly && (
               <button
                 onClick={() => setShowScheduleModal(true)}
-                className="p-2 sm:p-2.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
                 title="Edit Schedule"
               >
-                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
@@ -6899,7 +7029,7 @@ export default function Dashboard() {
         </div>
 
         {/* Schedule Body */}
-        <div className="p-3 sm:p-4" style={{ backgroundColor: teamColors.secondary }}>
+        <div className="p-3 sm:p-4">
           {teamSchedule && teamSchedule.length > 0 ? (
             <div className="space-y-2">
               {teamSchedule.map((entry, index) => {
@@ -6908,21 +7038,14 @@ export default function Dashboard() {
                   return (
                     <div
                       key={index}
-                      className="rounded-xl overflow-hidden"
-                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                      className="rounded-lg overflow-hidden border border-gray-100"
                     >
                       <div className="flex items-center w-full overflow-hidden">
-                        <div
-                          className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                          style={{ backgroundColor: `${secondaryBgText}15`, color: secondaryBgText }}
-                        >
-                          Wk {entry.week}
+                        <div className="flex-1 flex items-center justify-center py-2 sm:py-3 px-2 sm:px-4 bg-gray-50">
+                          <span className="text-sm sm:text-base font-semibold text-gray-400">BYE WEEK</span>
                         </div>
-                        <div
-                          className="flex-1 flex items-center justify-center py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl"
-                          style={{ backgroundColor: '#f5f5f5' }}
-                        >
-                          <span className="text-sm sm:text-base font-semibold text-gray-500">BYE WEEK</span>
+                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm bg-gray-100 text-gray-500">
+                          Wk {entry.week}
                         </div>
                       </div>
                     </div>
@@ -6965,59 +7088,18 @@ export default function Dashboard() {
                   )
                 }
 
-                const TeamNameClickable = ({ isInsideLink }) => {
-                  if (isInsideLink) {
-                    return (
-                      <span
-                        className="text-xs sm:text-base font-semibold truncate hover:underline cursor-pointer"
-                        style={{ color: opponentColors.textColor }}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
-                      >
-                        {opponentName}
-                      </span>
-                    )
-                  }
-                  return (
-                    <Link
-                      to={teamPageUrl}
-                      className="text-xs sm:text-base font-semibold truncate hover:underline"
-                      style={{ color: opponentColors.textColor }}
-                    >
-                      {opponentName}
-                    </Link>
-                  )
-                }
-
                 const renderGameContent = (isInsideLink) => (
                   <div className="flex items-center w-full overflow-hidden">
-                    {/* Week Badge */}
-                    <div
-                      className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                      style={{
-                        backgroundColor: entry.isPlayed
-                          ? (isWin ? '#22c55e' : '#ef4444')
-                          : isCurrentWeek
-                            ? teamColors.primary
-                            : `${secondaryBgText}15`,
-                        color: entry.isPlayed || isCurrentWeek ? '#fff' : secondaryBgText
-                      }}
-                    >
-                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${entry.week}`}
-                    </div>
-
                     {/* Game Info */}
                     <div
-                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
+                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
                       style={{ backgroundColor: opponentColors.backgroundColor }}
                     >
                       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
                         {/* Location Badge */}
                         <span
                           className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                          style={{
-                            backgroundColor: `${opponentColors.textColor}15`,
-                            color: opponentColors.textColor
-                          }}
+                          style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: opponentColors.textColor }}
                         >
                           {entry.location === 'away' ? '@' : 'vs'}
                         </span>
@@ -7037,11 +7119,19 @@ export default function Dashboard() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1">
                             {entry.perspective?.opponentRank && (
-                              <span className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${opponentColors.textColor}15`, color: opponentColors.textColor }}>
+                              <span
+                                className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0"
+                                style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: opponentColors.textColor }}
+                              >
                                 #{entry.perspective.opponentRank}
                               </span>
                             )}
-                            <TeamNameClickable isInsideLink={isInsideLink} />
+                            <span
+                              className="text-xs sm:text-base font-semibold truncate"
+                              style={{ color: opponentColors.textColor }}
+                            >
+                              {opponentName}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -7049,20 +7139,43 @@ export default function Dashboard() {
                       {/* Score / Status */}
                       <div className="flex-shrink-0 text-right ml-1">
                         {entry.isPlayed ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: opponentColors.textColor }}>
+                          <div
+                            className="text-sm sm:text-lg font-bold tabular-nums"
+                            style={{ color: opponentColors.textColor }}
+                          >
                             {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
                             {playedGame?.overtimes && playedGame.overtimes.length > 0 && (
-                              <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
+                              <span
+                                className="ml-0.5 text-[8px] sm:text-xs font-medium"
+                                style={{ color: opponentColors.textColor, opacity: 0.7 }}
+                              >
                                 {playedGame.overtimes.length > 1 ? `${playedGame.overtimes.length}OT` : 'OT'}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: opponentColors.textColor, opacity: 0.5 }}>
+                          <span
+                            className="text-xs sm:text-sm font-medium"
+                            style={{ color: opponentColors.textColor, opacity: 0.5 }}
+                          >
                             —
                           </span>
                         )}
                       </div>
+                    </div>
+
+                    {/* Week/Result Badge - Now on right */}
+                    <div
+                      className={`w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm ${
+                        entry.isPlayed
+                          ? (isWin ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
+                          : isCurrentWeek
+                            ? 'text-white'
+                            : 'bg-gray-100 text-gray-500'
+                      }`}
+                      style={isCurrentWeek && !entry.isPlayed ? { backgroundColor: teamColors.primary } : {}}
+                    >
+                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${entry.week}`}
                     </div>
                   </div>
                 )
@@ -7072,8 +7185,7 @@ export default function Dashboard() {
                     <Link
                       key={index}
                       to={`${pathPrefix}/game/${playedGame.id}`}
-                      className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                      className="block rounded-lg overflow-hidden hover:bg-gray-100 transition-all duration-200 border border-gray-100"
                     >
                       {renderGameContent(true)}
                     </Link>
@@ -7083,12 +7195,8 @@ export default function Dashboard() {
                 return (
                   <div
                     key={index}
-                    className={`rounded-xl overflow-hidden ${isCurrentWeek ? 'animate-pulse-subtle' : ''}`}
-                    style={{
-                      boxShadow: isCurrentWeek
-                        ? `0 2px 12px ${teamColors.primary}40`
-                        : '0 2px 8px rgba(0,0,0,0.06)'
-                    }}
+                    className={`rounded-lg overflow-hidden border ${isCurrentWeek ? 'border-2' : 'border-gray-100'}`}
+                    style={isCurrentWeek ? { borderColor: teamColors.primary } : {}}
                   >
                     {renderGameContent(false)}
                   </div>
@@ -7673,21 +7781,114 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <div style={{ color: secondaryBgText, opacity: 0.5 }} className="mb-4">
+            <div className="text-gray-300 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium mb-2" style={{ color: secondaryBgText }}>
+            <h3 className="text-lg font-medium mb-2 text-gray-900">
               No Schedule Yet
             </h3>
-            <p style={{ color: secondaryBgText, opacity: 0.8 }}>
+            <p className="text-gray-500">
               Add your season schedule to get started.
             </p>
           </div>
         )}
         </div>
       </div>
+        </div>
+        {/* End Right Column */}
+
+        {/* Roster Section - Mobile Only (below schedule) */}
+        <div className="lg:hidden">
+          <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+            <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                  {currentDynasty.currentYear} Roster
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {teamRoster.length} Players
+                </p>
+              </div>
+            </div>
+            <div className="max-h-[400px] overflow-y-auto">
+              {teamRoster.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-gray-50">
+                    <tr className="border-b border-gray-200">
+                      <th
+                        className="text-left py-2 px-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleRosterSort('name')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span
+                            className="text-xs text-gray-400 cursor-pointer hover:text-gray-600"
+                            onClick={(e) => { e.stopPropagation(); handleRosterSort('jerseyNumber'); }}
+                          >
+                            #
+                            {rosterSort === 'jerseyNumber' && (
+                              <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </span>
+                          <span>Player</span>
+                          {rosterSort === 'name' && (
+                            <span className="text-xs">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleRosterSort('position')}
+                      >
+                        Pos
+                        {rosterSort === 'position' && (
+                          <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </th>
+                      <th className="text-center py-2 px-2 font-semibold text-gray-600 w-12">OVR</th>
+                      <th
+                        className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
+                        onClick={() => handleRosterSort('class')}
+                      >
+                        Yr
+                        {rosterSort === 'class' && (
+                          <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                        )}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortRoster(teamRoster).map((player, idx) => (
+                      <tr
+                        key={player.pid}
+                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
+                      >
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
+                            <span className="font-medium text-gray-900 truncate">{player.name}</span>
+                          </div>
+                        </td>
+                        <td className="text-center py-2 px-2 text-gray-600">{player.position}</td>
+                        <td className="text-center py-2 px-2 font-semibold text-gray-900">{player.overall || '-'}</td>
+                        <td className="text-center py-2 px-2 text-gray-600 text-xs">{player.year || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No players on roster yet
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* End Main Content Grid */}
 
       {/* Modals */}
       <ScheduleEntryModal
