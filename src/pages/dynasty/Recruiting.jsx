@@ -270,9 +270,9 @@ export default function Recruiting() {
     const maxExistingPID = existingPlayers.reduce((max, p) => Math.max(max, p.pid || 0), 0)
     let nextPID = Math.max(maxExistingPID + 1, currentDynasty.nextPID || 1)
 
-    // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
-    const teamTid = getTidFromAbbr(teamAbbr)
-    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
+    // CRITICAL: Use tid directly - tid is the ONLY source of truth
+    // selectedTid is already the tid from URL or current user's team
+    const teamsByYearValue = selectedTid
 
     const classToYear = {
       'HS': 'Fr',
@@ -352,7 +352,7 @@ export default function Recruiting() {
           weight: recruit.weight || 0,
           hometown: recruit.hometown || '',
           state: recruit.state || '',
-          team: teamTid || teamAbbr, // Use tid for team storage
+          team: selectedTid, // Use tid for team storage - tid is ONLY source of truth
           isRecruit: true,
           recruitYear: selectedYear,
           // IMMUTABLE roster history - recruits will be on team starting NEXT year

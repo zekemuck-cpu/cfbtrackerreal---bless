@@ -34,6 +34,7 @@ import FinalPollsModal from '../../components/FinalPollsModal'
 import TeamStatsModal from '../../components/TeamStatsModal'
 import AwardsModal from '../../components/AwardsModal'
 import AllAmericansModal from '../../components/AllAmericansModal'
+import AllConferenceModal from '../../components/AllConferenceModal'
 import PlayerMatchConfirmModal from '../../components/PlayerMatchConfirmModal'
 import ReturningPlayerConfirmModal from '../../components/ReturningPlayerConfirmModal'
 import NewJobEditModal from '../../components/NewJobEditModal'
@@ -276,6 +277,7 @@ export default function Dashboard() {
   const [showTeamStatsModal, setShowTeamStatsModal] = useState(false)
   const [showAwardsModal, setShowAwardsModal] = useState(false)
   const [showAllAmericansModal, setShowAllAmericansModal] = useState(false)
+  const [showAllConferenceModal, setShowAllConferenceModal] = useState(false)
   const [showCoachingStaffPopup, setShowCoachingStaffPopup] = useState(false)
   const [suppressPopupHover, setSuppressPopupHover] = useState(false) // Prevents hover popup after layout shifts
   const coachingStaffButtonRef = useRef(null)
@@ -831,41 +833,18 @@ export default function Dashboard() {
     }
   }
 
-  // Handle all-americans/all-conference data save with player matching
+  // Handle All-Americans data save with player matching
   const handleAllAmericansSave = async (data) => {
     const year = currentDynasty.currentYear
 
-    // Combine all entries for processing
-    const allEntries = []
+    // Process All-Americans entries
+    if (data.allAmericans && data.allAmericans.length > 0) {
+      const aaEntries = data.allAmericans.map(entry => ({
+        ...entry,
+        name: entry.player,
+        honorCategory: 'allAmericans'
+      }))
 
-    // All-Americans
-    if (data.allAmericans) {
-      data.allAmericans.forEach(entry => {
-        allEntries.push({
-          ...entry,
-          name: entry.player,
-          honorCategory: 'allAmericans'
-        })
-      })
-    }
-
-    // All-Conference
-    if (data.allConference) {
-      data.allConference.forEach(entry => {
-        allEntries.push({
-          ...entry,
-          name: entry.player,
-          honorCategory: 'allConference'
-        })
-      })
-    }
-
-    // Process All-Americans first
-    const aaEntries = allEntries.filter(e => e.honorCategory === 'allAmericans')
-    const acEntries = allEntries.filter(e => e.honorCategory === 'allConference')
-
-    // Start with All-Americans
-    if (aaEntries.length > 0) {
       const result = await processHonorPlayers(
         currentDynasty.id,
         'allAmericans',
@@ -881,9 +860,7 @@ export default function Dashboard() {
           year,
           rawData: data,
           confirmations: result.confirmations,
-          transferDecisions: [],
-          // Track remaining to process
-          remainingAC: acEntries
+          transferDecisions: []
         })
         setCurrentConfirmIndex(0)
         setPlayerMatchConfirmation(result.confirmations[0])
@@ -892,8 +869,32 @@ export default function Dashboard() {
       }
     }
 
-    // Process All-Conference
-    if (acEntries.length > 0) {
+    // No confirmations needed - save the All-Americans data
+    const existingByYear = currentDynasty.allAmericansByYear || {}
+    const existingYearData = existingByYear[year] || {}
+    await updateDynasty(currentDynasty.id, {
+      allAmericansByYear: {
+        ...existingByYear,
+        [year]: {
+          ...existingYearData,
+          allAmericans: data.allAmericans || []
+        }
+      }
+    })
+  }
+
+  // Handle All-Conference data save with player matching
+  const handleAllConferenceSave = async (data) => {
+    const year = currentDynasty.currentYear
+
+    // Process All-Conference entries
+    if (data.allConference && data.allConference.length > 0) {
+      const acEntries = data.allConference.map(entry => ({
+        ...entry,
+        name: entry.player,
+        honorCategory: 'allConference'
+      }))
+
       const result = await processHonorPlayers(
         currentDynasty.id,
         'allConference',
@@ -918,28 +919,17 @@ export default function Dashboard() {
       }
     }
 
-    // No confirmations needed - save the data
-    // Transform allConference to be grouped by conference
-    const transformedData = { ...data }
-    if (data.allConference && data.allConference.length > 0) {
-      const allConferenceByConference = {}
-      data.allConference.forEach(entry => {
-        // Determine conference from the player's school (using custom conferences)
-        const conference = getTeamConference(entry.school, customConferences) || 'Unknown'
-        if (!allConferenceByConference[conference]) {
-          allConferenceByConference[conference] = []
-        }
-        allConferenceByConference[conference].push(entry)
-      })
-      transformedData.allConferenceByConference = allConferenceByConference
-      // Keep original allConference for backwards compatibility
-    }
-
+    // No confirmations needed - save the All-Conference data (already grouped by conference)
     const existingByYear = currentDynasty.allAmericansByYear || {}
+    const existingYearData = existingByYear[year] || {}
     await updateDynasty(currentDynasty.id, {
       allAmericansByYear: {
         ...existingByYear,
-        [year]: transformedData
+        [year]: {
+          ...existingYearData,
+          allConference: data.allConference || [],
+          allConferenceByConference: data.allConferenceByConference || {}
+        }
       }
     })
   }
@@ -966,7 +956,9 @@ export default function Dashboard() {
       if (p.pid) reasonByPid[p.pid] = p.reason
     })
 
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    // CRITICAL: Get tid directly - tid is the ONLY source of truth
+    const teamTid = getCurrentTeamTid(currentDynasty)
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName // For display only
 
     // Get previous list to detect removals
     const previousLeavingPids = new Set(
@@ -980,7 +972,12 @@ export default function Dashboard() {
         const reason = reasonByPid[player.pid] || 'Unknown'
         const isTransfer = reason === 'Transfer' || reason === 'Encouraged Transfer'
         const isDeparture = reason === 'Graduating' || reason === 'Pro Draft'
-        const playerTeam = player.team || teamAbbr
+        // Get player's team as tid - ALWAYS use tid for movement data
+        let playerTeamTid = player.team
+        if (typeof playerTeamTid === 'string') {
+          playerTeamTid = getTidFromAbbr(playerTeamTid) || teamTid
+        }
+        const playerTeam = playerTeamTid || teamTid
 
         // Check if player was already marked as leaving (don't duplicate movement)
         const alreadyHasMovement = (player.movements || []).some(m =>
@@ -1143,9 +1140,9 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-    const teamTid = getTidFromAbbr(teamAbbr)
-    // ALWAYS use tid for team storage - tid is the single source of truth
+    // CRITICAL: Get tid directly - tid is the ONLY source of truth
+    const teamTid = getCurrentTeamTid(currentDynasty)
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName // For display only
     const existingByTeamYear = currentDynasty.transferDestinationsByTeamYear || {}
 
     // Update player records with their new team
@@ -1157,10 +1154,21 @@ export default function Dashboard() {
       )
       if (playerIndex !== -1 && dest.newTeam) {
         const player = updatedPlayers[playerIndex]
-        const oldTeam = player.team || teamAbbr
+        // Get old team as tid - ALWAYS use tid
+        let oldTeamTid = player.team
+        if (typeof oldTeamTid === 'string') {
+          oldTeamTid = getTidFromAbbr(oldTeamTid) || teamTid
+        }
+        if (!oldTeamTid) oldTeamTid = teamTid
+
+        // Get newTeam as tid (dest.newTeam could be abbr from sheet)
+        let newTeamTid = dest.newTeam
+        if (typeof newTeamTid === 'string') {
+          newTeamTid = getTidFromAbbr(newTeamTid)
+        }
 
         // Check if this is a RECOMMIT (destination = their current team)
-        const isRecommit = dest.newTeam === oldTeam || dest.newTeam === teamAbbr
+        const isRecommit = newTeamTid === oldTeamTid || newTeamTid === teamTid
 
         if (isRecommit) {
           // Player recommitted - they're staying on the team!
@@ -1168,7 +1176,7 @@ export default function Dashboard() {
             year: Number(year),
             type: 'recommit',
             from: null,
-            to: oldTeam,
+            to: oldTeamTid,
             reason: 'Recommitted after entering portal',
             timestamp: Date.now()
           }
@@ -1179,8 +1187,7 @@ export default function Dashboard() {
           )
 
           // ALWAYS use tid for teamsByYear storage
-          const oldTeamTid = typeof oldTeam === 'number' ? oldTeam : getTidFromAbbr(oldTeam)
-          const teamsByYearValue = oldTeamTid || teamTid || oldTeam
+          const teamsByYearValue = oldTeamTid
 
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1193,27 +1200,23 @@ export default function Dashboard() {
           }
         } else {
           // Normal transfer to another team
-          // Add transfer movement (for display/history)
+          // Add transfer movement - ALWAYS use tid
           const transferMovement = {
             year: Number(year),
             type: 'transfer',
-            from: oldTeam,
-            to: dest.newTeam,
+            from: oldTeamTid,
+            to: newTeamTid,
             timestamp: Date.now()
           }
-
-          // ALWAYS use tid for teamsByYear storage
-          const newTeamTid = getTidFromAbbr(dest.newTeam)
-          const teamsByYearValue = newTeamTid || dest.newTeam
 
           // Update teamsByYear to new team, update current team with tid
           updatedPlayers[playerIndex] = {
             ...player,
-            team: newTeamTid || dest.newTeam, // Use tid for current team
+            team: newTeamTid, // Use tid for current team
             movements: [...(player.movements || []), transferMovement],
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              [String(nextYear)]: teamsByYearValue
+              [String(nextYear)]: newTeamTid
             }
           }
         }
@@ -1308,7 +1311,8 @@ export default function Dashboard() {
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const existingChangesAll = currentDynasty.positionChangesByYear || {}
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    // CRITICAL: Get tid directly - tid is the ONLY source of truth
+    const teamTid = getCurrentTeamTid(currentDynasty)
 
     // Update player positions in the players array for any NEW changes
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -1332,7 +1336,7 @@ export default function Dashboard() {
       playerName: c.playerName,
       oldPosition: c.oldPosition,
       newPosition: c.newPosition,
-      team: teamAbbr
+      team: teamTid // ALWAYS use tid
     }))
 
     await updateDynasty(currentDynasty.id, {
@@ -1617,10 +1621,11 @@ export default function Dashboard() {
 
   // Process recruiting save after all confirmations are complete
   const processRecruitingCommitmentsSave = async (recruits, year, commitmentKey, confirmedReturning, confirmedNew) => {
-    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
-    const teamTid = getTidFromAbbr(teamAbbr)
-    // ALWAYS use tid for teamsByYear storage - tid is the single source of truth
-    const teamsByYearValue = teamTid || teamAbbr // Fallback to abbr only if tid lookup fails
+    // CRITICAL: Get tid directly - tid is the ONLY source of truth
+    const teamTid = getCurrentTeamTid(currentDynasty)
+    const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName // For display/key lookups only
+    // teamsByYear MUST store tid (number), never abbreviation
+    const teamsByYearValue = teamTid
 
     // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
@@ -1664,7 +1669,7 @@ export default function Dashboard() {
     })
 
     // Get existing recruits from OTHER weeks (not the current commitment key) to avoid duplicating
-    const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, teamTid || teamAbbr, year)
+    const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, teamTid, year)
     const existingRecruitNames = new Set()
 
     // Only collect names from OTHER commitment keys (not the current one being saved)
@@ -1738,7 +1743,7 @@ export default function Dashboard() {
       // Create movement for this recruit - use tid for team references
       const movementType = isPortalPlayer ? MOVEMENT_TYPES.PORTAL_IN : MOVEMENT_TYPES.RECRUITED
       const fromTeam = isPortalPlayer ? (recruit.previousTeam || null) : null
-      const recruitMovement = createMovement(year, movementType, fromTeam, teamTid || teamAbbr)
+      const recruitMovement = createMovement(year, movementType, fromTeam, teamTid)
 
       return {
         pid,
@@ -1754,7 +1759,7 @@ export default function Dashboard() {
         weight: recruit.weight || 0,
         hometown: recruit.hometown || '',
         state: recruit.state || '',
-        team: teamTid || teamAbbr, // Tag player with team tid
+        team: teamTid, // Tag player with team tid
         isRecruit: true,
         recruitYear: year, // The recruiting class year (they play NEXT year)
         // IMMUTABLE roster history - recruits will be on team starting NEXT year
@@ -1789,8 +1794,8 @@ export default function Dashboard() {
           const recommitMovement = createMovement(
             year,
             MOVEMENT_TYPES.RECOMMIT,
-            teamTid || teamAbbr, // from (they were on this team)
-            teamTid || teamAbbr, // to (they're staying on this team)
+            teamTid, // from (they were on this team)
+            teamTid, // to (they're staying on this team)
             'Returned from portal'
           )
 
@@ -1813,7 +1818,7 @@ export default function Dashboard() {
             transferredTo: null,
             transferredFrom: null,
             // Update team assignment with tid
-            team: teamTid || teamAbbr,
+            team: teamTid,
             teamsByYear: {
               ...p.teamsByYear,
               [year + 1]: teamsByYearValue // Add them to next year's roster
@@ -2113,7 +2118,7 @@ export default function Dashboard() {
 
   // Handle player match confirmation response
   const handlePlayerMatchConfirm = async (isSamePlayer) => {
-    const { honorType, entries, year, confirmations, transferDecisions, rawData, remainingAC } = pendingHonorData
+    const { honorType, entries, year, confirmations, transferDecisions, rawData } = pendingHonorData
     const currentConfirm = confirmations[currentConfirmIndex]
 
     // Add this decision
@@ -2142,32 +2147,6 @@ export default function Dashboard() {
       )
 
       if (result.success) {
-        // If this was allAmericans and we have remaining allConference to process
-        if (honorType === 'allAmericans' && remainingAC && remainingAC.length > 0) {
-          const acResult = await processHonorPlayers(
-            currentDynasty.id,
-            'allConference',
-            remainingAC,
-            year,
-            []
-          )
-
-          if (acResult.needsConfirmation) {
-            setPendingHonorData({
-              honorType: 'allConference',
-              entries: remainingAC,
-              year,
-              rawData,
-              confirmations: acResult.confirmations,
-              transferDecisions: []
-            })
-            setCurrentConfirmIndex(0)
-            setPlayerMatchConfirmation(acResult.confirmations[0])
-            setShowPlayerMatchConfirm(true)
-            return
-          }
-        }
-
         // All done - save the raw data to the appropriate year structure
         if (honorType === 'awards') {
           const existingByYear = currentDynasty.awardsByYear || {}
@@ -2177,26 +2156,31 @@ export default function Dashboard() {
               [year]: rawData
             }
           })
-        } else {
-          // Transform allConference to be grouped by conference
-          const transformedData = { ...rawData }
-          if (rawData.allConference && rawData.allConference.length > 0) {
-            const allConferenceByConference = {}
-            rawData.allConference.forEach(entry => {
-              const conference = getTeamConference(entry.school, customConferences) || 'Unknown'
-              if (!allConferenceByConference[conference]) {
-                allConferenceByConference[conference] = []
-              }
-              allConferenceByConference[conference].push(entry)
-            })
-            transformedData.allConferenceByConference = allConferenceByConference
-          }
-
+        } else if (honorType === 'allAmericans') {
+          // Save All-Americans data
           const existingByYear = currentDynasty.allAmericansByYear || {}
+          const existingYearData = existingByYear[year] || {}
           await updateDynasty(currentDynasty.id, {
             allAmericansByYear: {
               ...existingByYear,
-              [year]: transformedData
+              [year]: {
+                ...existingYearData,
+                allAmericans: rawData.allAmericans || []
+              }
+            }
+          })
+        } else if (honorType === 'allConference') {
+          // Save All-Conference data (already grouped by conference from rawData)
+          const existingByYear = currentDynasty.allAmericansByYear || {}
+          const existingYearData = existingByYear[year] || {}
+          await updateDynasty(currentDynasty.id, {
+            allAmericansByYear: {
+              ...existingByYear,
+              [year]: {
+                ...existingYearData,
+                allConference: rawData.allConference || [],
+                allConferenceByConference: rawData.allConferenceByConference || {}
+              }
             }
           })
         }
@@ -5243,11 +5227,9 @@ export default function Dashboard() {
                       )
                     })()}
 
-                    {/* Task: All-Americans & All-Conference Entry */}
+                    {/* Task: All-Americans Entry */}
                     {(() => {
-                      const hasAllAmericans = currentDynasty?.allAmericansByYear?.[currentDynasty.currentYear] &&
-                        ((currentDynasty.allAmericansByYear[currentDynasty.currentYear].allAmericans?.length > 0) ||
-                         (currentDynasty.allAmericansByYear[currentDynasty.currentYear].allConference?.length > 0))
+                      const hasAllAmericans = currentDynasty?.allAmericansByYear?.[currentDynasty.currentYear]?.allAmericans?.length > 0
                       const taskNumber = !userInCFPChampionship ? 8 : 7
 
                       return (
@@ -5272,11 +5254,11 @@ export default function Dashboard() {
                             </div>
                             <div className="min-w-0">
                               <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllAmericans ? '#16a34a' : secondaryBgText }}>
-                                All-Americans & All-Conference
+                                All-Americans
                               </div>
                               {hasAllAmericans && (
                                 <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
-                                  ✓ All-Americans and All-Conference selections entered
+                                  ✓ All-Americans selections entered
                                 </div>
                               )}
                             </div>
@@ -5287,6 +5269,53 @@ export default function Dashboard() {
                             style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                           >
                             {hasAllAmericans ? 'Edit' : 'Enter'}
+                          </button>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Task: All-Conference Entry */}
+                    {(() => {
+                      const hasAllConference = currentDynasty?.allAmericansByYear?.[currentDynasty.currentYear]?.allConference?.length > 0
+                      const taskNumber = !userInCFPChampionship ? 9 : 8
+
+                      return (
+                        <div
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
+                            hasAllConference ? 'border-green-200 bg-green-50' : ''
+                          }`}
+                          style={!hasAllConference ? { borderColor: `${teamColors.primary}30` } : {}}
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div
+                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                hasAllConference ? 'bg-green-500 text-white' : ''
+                              }`}
+                              style={!hasAllConference ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            >
+                              {hasAllConference ? (
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllConference ? '#16a34a' : secondaryBgText }}>
+                                All-Conference
+                              </div>
+                              {hasAllConference && (
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                  ✓ All-Conference selections entered
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setShowAllConferenceModal(true)}
+                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
+                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                          >
+                            {hasAllConference ? 'Edit' : 'Enter'}
                           </button>
                         </div>
                       )
@@ -8727,11 +8756,20 @@ export default function Dashboard() {
         teamColors={teamColors}
       />
 
-      {/* All-Americans & All-Conference Entry Modal (End of Season Recap) */}
+      {/* All-Americans Entry Modal (End of Season Recap) */}
       <AllAmericansModal
         isOpen={showAllAmericansModal}
         onClose={() => setShowAllAmericansModal(false)}
         onSave={handleAllAmericansSave}
+        currentYear={currentDynasty.currentYear}
+        teamColors={teamColors}
+      />
+
+      {/* All-Conference Entry Modal (End of Season Recap) */}
+      <AllConferenceModal
+        isOpen={showAllConferenceModal}
+        onClose={() => setShowAllConferenceModal(false)}
+        onSave={handleAllConferenceSave}
         currentYear={currentDynasty.currentYear}
         teamColors={teamColors}
       />

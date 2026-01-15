@@ -62,7 +62,8 @@
       "WebFetch(domain:www.cfblabs.com)",
       "WebFetch(domain:forums.operationsports.com)",
       "Bash(git config:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": [],
     "ask": []

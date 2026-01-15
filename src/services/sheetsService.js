@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase'
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
-import { getAbbrFromTeamName, getTidFromAbbr } from '../data/teamRegistry'
+import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
@@ -140,38 +140,21 @@ function isTidBasedTeams(teamsObj) {
   return keys.length > 0 && keys.some(k => !isNaN(parseInt(k)))
 }
 
-// Build combined team list with teambuilder teams, excluding replaced teams
+// Build combined team list from dynasty.teams (tid-based)
 // Returns object of { abbr: { name, backgroundColor, textColor } }
-// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
+// dynasty.teams is the source of truth - teambuilder teams simply replace the data at their tid
 function getTeamsWithCustom(customTeams = null) {
-  // Check if we're dealing with tid-based teams (new format)
+  // Check if we're dealing with tid-based teams (dynasty.teams format)
   if (isTidBasedTeams(customTeams)) {
-    // New tid-based format: { tid: { tid, abbr, name, primaryColor, secondaryColor, isTeambuilder, replacedTeam } }
-    const replacedTeamAbbrs = new Set()
-
-    // Find all replaced team abbreviations
-    for (const team of Object.values(customTeams)) {
-      if (team.isTeambuilder && team.replacedTeam?.abbr) {
-        replacedTeamAbbrs.add(team.replacedTeam.abbr)
-      }
-    }
-
+    // dynasty.teams is keyed by tid - just use it directly as the source of truth
     const teams = {}
 
-    // Add standard FBS teams from teamAbbreviations, excluding replaced ones
-    for (const [abbr, teamData] of Object.entries(teamAbbreviations)) {
-      if (!replacedTeamAbbrs.has(abbr)) {
-        teams[abbr] = teamData
-      }
-    }
-
-    // Add/override with dynasty.teams data (includes teambuilder teams with correct colors)
     for (const team of Object.values(customTeams)) {
       if (team.abbr) {
         teams[team.abbr] = {
           name: team.name,
-          backgroundColor: team.primaryColor || teamAbbreviations[team.abbr]?.backgroundColor,
-          textColor: team.secondaryColor || teamAbbreviations[team.abbr]?.textColor
+          backgroundColor: team.primaryColor || '#333333',
+          textColor: team.secondaryColor || '#FFFFFF'
         }
       }
     }
@@ -2853,10 +2836,11 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
 }
 
 // Generate conditional formatting rules for team colors in bowl sheet
-function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount) {
+function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount, customTeams = null) {
   const rules = []
+  const teams = getTeamsWithCustom(customTeams)
 
-  for (const [abbr, teamData] of Object.entries(teamAbbreviations)) {
+  for (const [abbr, teamData] of Object.entries(teams)) {
     rules.push({
       addConditionalFormatRule: {
         rule: {
@@ -3133,9 +3117,9 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
-    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount),
+    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, customTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount)
+    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, customTeams)
   ]
 
   // Execute batch update
@@ -3569,9 +3553,9 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
-    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount),
+    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, customTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount)
+    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, customTeams)
   ]
 
   // Execute batch update
@@ -4179,9 +4163,9 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
       }
     },
     // Add conditional formatting for team colors (Higher Seed column - column B)
-    ...generateBowlTeamFormattingRules(sheetId, 1, 4),
+    ...generateBowlTeamFormattingRules(sheetId, 1, 4, customTeams),
     // Add conditional formatting for team colors (Lower Seed column - column C)
-    ...generateBowlTeamFormattingRules(sheetId, 2, 4)
+    ...generateBowlTeamFormattingRules(sheetId, 2, 4, customTeams)
   ]
 
   await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
@@ -8114,6 +8098,925 @@ export async function readAllAmericansFromSheet(spreadsheetId, year) {
   }
 }
 
+// List of FBS conferences for All-Conference sheets
+const ALL_CONFERENCES = [
+  'Big Ten', 'SEC', 'Big 12', 'ACC', 'Pac-12',
+  'Mountain West', 'American', 'Sun Belt', 'Conference USA', 'MAC'
+]
+
+/**
+ * Create All-Americans Only sheet (no All-Conference section)
+ * Structure: One tab per year (most recent first), each with First/Second/Freshman teams
+ * 12 columns (3 teams × 4 cols each: Position, Player, Team, Class)
+ * 28 rows total: 1 header + 2 team headers + 25 position rows
+ */
+export async function createAllAmericansOnlySheet(currentYear, allAmericansByYear = {}, customTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+
+    const numPositions = ALL_AMERICAN_POSITIONS.length // 25
+    // Row layout:
+    // Row 1: "All-Americans" header (merged)
+    // Row 2: "First-Team" | "Second-Team" | "Freshman Team" (each merged over 4 cols)
+    // Row 3: Position | Player | Team | Class (repeated 3x)
+    // Rows 4-28: Position data rows (25 positions)
+    const totalRows = 3 + numPositions // 28 rows
+
+    // Get all years to create tabs for (current year first, then past years descending)
+    const pastYears = Object.keys(allAmericansByYear)
+      .map(y => parseInt(y))
+      .filter(y => y < currentYear)
+      .sort((a, b) => b - a)
+    const allYears = [currentYear, ...pastYears]
+
+    // Create sheet definitions for each year
+    const sheets = allYears.map((year, index) => ({
+      properties: {
+        title: `${year}`,
+        index: index,
+        gridProperties: {
+          rowCount: totalRows,
+          columnCount: 12,
+          frozenRowCount: 3
+        }
+      }
+    }))
+
+    // Create the spreadsheet with all year tabs
+    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        properties: {
+          title: `All-Americans`
+        },
+        sheets
+      })
+    })
+
+    if (!createResponse.ok) {
+      const error = await createResponse.json()
+      throw new Error(`Failed to create spreadsheet: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const spreadsheet = await createResponse.json()
+    const spreadsheetId = spreadsheet.spreadsheetId
+
+    // Build a map of year -> sheetId for each tab
+    const sheetIdsByYear = {}
+    spreadsheet.sheets.forEach(sheet => {
+      const yearTitle = sheet.properties.title
+      sheetIdsByYear[yearTitle] = sheet.properties.sheetId
+    })
+
+    // Prepare batch update requests for ALL tabs
+    const requests = []
+
+    // Apply formatting to each year tab
+    for (const year of allYears) {
+      const sheetId = sheetIdsByYear[`${year}`]
+      if (!sheetId && sheetId !== 0) continue
+
+      // Set column widths: Position(60), Player(150), Team(60), Class(60) × 3
+      const colWidths = [60, 150, 60, 60, 60, 150, 60, 60, 60, 150, 60, 60]
+      colWidths.forEach((width, index) => {
+        requests.push({
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'COLUMNS',
+              startIndex: index,
+              endIndex: index + 1
+            },
+            properties: { pixelSize: width },
+            fields: 'pixelSize'
+          }
+        })
+      })
+
+      // Set row heights
+      requests.push({
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'ROWS',
+            startIndex: 0,
+            endIndex: totalRows
+          },
+          properties: { pixelSize: 24 },
+          fields: 'pixelSize'
+        }
+      })
+
+      // Main header row - taller
+      requests.push({
+        updateDimensionProperties: {
+          range: { sheetId, dimension: 'ROWS', startIndex: 0, endIndex: 1 },
+          properties: { pixelSize: 32 },
+          fields: 'pixelSize'
+        }
+      })
+
+      // === MERGE CELLS ===
+
+      // Row 1: "All-Americans" merged across all 12 columns
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+
+      // Row 2: Team headers merged (First-Team: 0-3, Second-Team: 4-7, Freshman Team: 8-11)
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 4 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 4, endColumnIndex: 8 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 8, endColumnIndex: 12 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+
+      // === FORMATTING ===
+
+      // Main header - dark background, white text
+      const mainHeaderFormat = {
+        backgroundColor: { red: 0.1, green: 0.1, blue: 0.1 },
+        textFormat: {
+          foregroundColor: { red: 1, green: 1, blue: 1 },
+          bold: true,
+          fontSize: 14,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: mainHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Team headers (Row 2) - lighter background
+      const teamHeaderFormat = {
+        backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
+        textFormat: {
+          foregroundColor: { red: 1, green: 1, blue: 1 },
+          bold: true,
+          fontSize: 11,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: teamHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Column headers (Row 3) - gray background
+      const colHeaderFormat = {
+        backgroundColor: { red: 0.85, green: 0.85, blue: 0.85 },
+        textFormat: {
+          foregroundColor: { red: 0, green: 0, blue: 0 },
+          bold: true,
+          fontSize: 10,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: colHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Data rows - light background, centered
+      const dataFormat = {
+        backgroundColor: { red: 1, green: 1, blue: 1 },
+        textFormat: {
+          fontSize: 10,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 3, endRowIndex: totalRows, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: dataFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Alternate row colors for data rows
+      for (let i = 3; i < totalRows; i++) {
+        if (i % 2 === 1) {
+          requests.push({
+            repeatCell: {
+              range: { sheetId, startRowIndex: i, endRowIndex: i + 1, startColumnIndex: 0, endColumnIndex: 12 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 }
+                }
+              },
+              fields: 'userEnteredFormat.backgroundColor'
+            }
+          })
+        }
+      }
+
+      // Add data validation for Team columns (2, 6, 10) and Class columns (3, 7, 11)
+      // Data rows start at row 4 (index 3) and end at row 28 (index totalRows-1)
+      const teamColumns = [2, 6, 10]
+      const classColumns = [3, 7, 11]
+
+      teamColumns.forEach(colIndex => {
+        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, customTeams))
+        // Add conditional formatting for team colors
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, customTeams))
+      })
+
+      classColumns.forEach(colIndex => {
+        requests.push(generateClassValidation(sheetId, colIndex, 3, totalRows))
+      })
+    }
+
+    // Apply formatting
+    if (requests.length > 0) {
+      await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ requests })
+      })
+    }
+
+    // Now write the data to each tab
+    const valueRanges = []
+
+    for (const year of allYears) {
+      const isPastYear = year !== currentYear
+      const yearData = allAmericansByYear[year] || {}
+
+      // Index existing data by position for each designation (arrays to handle multiple per position)
+      const aaFirst = {}
+      const aaSecond = {}
+      const aaFreshman = {}
+
+      if (yearData.allAmericans) {
+        yearData.allAmericans.forEach(entry => {
+          const pos = entry.position
+          if (entry.designation === 'first') {
+            if (!aaFirst[pos]) aaFirst[pos] = []
+            aaFirst[pos].push(entry)
+          } else if (entry.designation === 'second') {
+            if (!aaSecond[pos]) aaSecond[pos] = []
+            aaSecond[pos].push(entry)
+          } else if (entry.designation === 'freshman') {
+            if (!aaFreshman[pos]) aaFreshman[pos] = []
+            aaFreshman[pos].push(entry)
+          }
+        })
+      }
+
+      // Track which entries have been used (to handle multiple slots per position)
+      const usedFirst = {}
+      const usedSecond = {}
+      const usedFreshman = {}
+
+      // Build values array for this year tab
+      const values = []
+
+      // Row 1: Main header
+      values.push(['All-Americans', '', '', '', '', '', '', '', '', '', '', ''])
+
+      // Row 2: Team headers
+      values.push(['First-Team', '', '', '', 'Second-Team', '', '', '', 'Freshman Team', '', '', ''])
+
+      // Row 3: Column headers
+      values.push([
+        'Position', 'Player', 'Team', 'Class',
+        'Position', 'Player', 'Team', 'Class',
+        'Position', 'Player', 'Team', 'Class'
+      ])
+
+      // Rows 4-28: Position data
+      ALL_AMERICAN_POSITIONS.forEach(pos => {
+        // Get next unused entry for each designation (for positions with multiple slots like WR, HB)
+        const firstEntries = aaFirst[pos] || []
+        const secondEntries = aaSecond[pos] || []
+        const freshmanEntries = aaFreshman[pos] || []
+
+        if (!usedFirst[pos]) usedFirst[pos] = 0
+        if (!usedSecond[pos]) usedSecond[pos] = 0
+        if (!usedFreshman[pos]) usedFreshman[pos] = 0
+
+        const first = isPastYear && firstEntries[usedFirst[pos]] ? firstEntries[usedFirst[pos]++] : null
+        const second = isPastYear && secondEntries[usedSecond[pos]] ? secondEntries[usedSecond[pos]++] : null
+        const freshman = isPastYear && freshmanEntries[usedFreshman[pos]] ? freshmanEntries[usedFreshman[pos]++] : null
+
+        values.push([
+          pos, first?.player || '', first?.school || '', first?.class || '',
+          pos, second?.player || '', second?.school || '', second?.class || '',
+          pos, freshman?.player || '', freshman?.school || '', freshman?.class || ''
+        ])
+      })
+
+      valueRanges.push({
+        range: `'${year}'!A1:L${totalRows}`,
+        values
+      })
+    }
+
+    // Write all values
+    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: valueRanges
+      })
+    })
+
+    return {
+      spreadsheetId,
+      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+    }
+  } catch (error) {
+    console.error('Error creating all-americans only sheet:', error)
+    throw error
+  }
+}
+
+/**
+ * Read All-Americans data from All-Americans Only sheet
+ * @param spreadsheetId - The Google Sheets ID
+ * @param year - The year tab to read from
+ */
+export async function readAllAmericansOnlyFromSheet(spreadsheetId, year) {
+  try {
+    const accessToken = await getAccessToken()
+
+    const numPositions = ALL_AMERICAN_POSITIONS.length
+
+    // Read all data from the specified year tab (28 rows)
+    const response = await fetch(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L28`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to read data: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const data = await response.json()
+    const rows = data.values || []
+
+    // Extract All-Americans data starting at row 4 (index 3)
+    const allAmericans = []
+    for (let i = 0; i < numPositions; i++) {
+      const row = rows[3 + i] || []
+
+      // First-Team (cols 0-3)
+      if (row[1]) {
+        allAmericans.push({
+          team: 'all-american',
+          designation: 'first',
+          position: row[0] || ALL_AMERICAN_POSITIONS[i],
+          player: row[1],
+          school: (row[2] || '').toUpperCase(),
+          class: row[3] || ''
+        })
+      }
+
+      // Second-Team (cols 4-7)
+      if (row[5]) {
+        allAmericans.push({
+          team: 'all-american',
+          designation: 'second',
+          position: row[4] || ALL_AMERICAN_POSITIONS[i],
+          player: row[5],
+          school: (row[6] || '').toUpperCase(),
+          class: row[7] || ''
+        })
+      }
+
+      // Freshman Team (cols 8-11)
+      if (row[9]) {
+        allAmericans.push({
+          team: 'all-american',
+          designation: 'freshman',
+          position: row[8] || ALL_AMERICAN_POSITIONS[i],
+          player: row[9],
+          school: (row[10] || '').toUpperCase(),
+          class: row[11] || ''
+        })
+      }
+    }
+
+    return { allAmericans }
+  } catch (error) {
+    console.error('Error reading all-americans only data:', error)
+    throw error
+  }
+}
+
+/**
+ * Create All-Conference sheet for a specific year
+ * Structure: One tab per conference (10 tabs), each with First/Second/Freshman teams
+ * 12 columns (3 teams × 4 cols each: Position, Player, Team, Class)
+ * 28 rows total: 1 header + 2 team headers + 25 position rows
+ */
+export async function createAllConferenceSheet(year, allConferenceByConference = {}, customConferences = null, customTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+
+    const numPositions = ALL_AMERICAN_POSITIONS.length // 25
+    const totalRows = 3 + numPositions // 28 rows
+
+    // Use custom conferences if available, otherwise default
+    const conferences = customConferences && Object.keys(customConferences).length > 0
+      ? Object.keys(customConferences).sort()
+      : ALL_CONFERENCES
+
+    // Create sheet definitions for each conference
+    const sheets = conferences.map((conf, index) => ({
+      properties: {
+        title: conf,
+        index: index,
+        gridProperties: {
+          rowCount: totalRows,
+          columnCount: 12,
+          frozenRowCount: 3
+        }
+      }
+    }))
+
+    // Create the spreadsheet with all conference tabs
+    const createResponse = await fetch(`${SHEETS_API_BASE}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        properties: {
+          title: `${year} All-Conference`
+        },
+        sheets
+      })
+    })
+
+    if (!createResponse.ok) {
+      const error = await createResponse.json()
+      throw new Error(`Failed to create spreadsheet: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const spreadsheet = await createResponse.json()
+    const spreadsheetId = spreadsheet.spreadsheetId
+
+    // Build a map of conference -> sheetId for each tab
+    const sheetIdsByConf = {}
+    spreadsheet.sheets.forEach(sheet => {
+      const confTitle = sheet.properties.title
+      sheetIdsByConf[confTitle] = sheet.properties.sheetId
+    })
+
+    // Prepare batch update requests for ALL tabs
+    const requests = []
+
+    // Apply formatting to each conference tab
+    for (const conf of conferences) {
+      const sheetId = sheetIdsByConf[conf]
+      if (!sheetId && sheetId !== 0) continue
+
+      // Set column widths: Position(60), Player(150), Team(60), Class(60) × 3
+      const colWidths = [60, 150, 60, 60, 60, 150, 60, 60, 60, 150, 60, 60]
+      colWidths.forEach((width, index) => {
+        requests.push({
+          updateDimensionProperties: {
+            range: {
+              sheetId: sheetId,
+              dimension: 'COLUMNS',
+              startIndex: index,
+              endIndex: index + 1
+            },
+            properties: { pixelSize: width },
+            fields: 'pixelSize'
+          }
+        })
+      })
+
+      // Set row heights
+      requests.push({
+        updateDimensionProperties: {
+          range: {
+            sheetId: sheetId,
+            dimension: 'ROWS',
+            startIndex: 0,
+            endIndex: totalRows
+          },
+          properties: { pixelSize: 24 },
+          fields: 'pixelSize'
+        }
+      })
+
+      // Main header row - taller
+      requests.push({
+        updateDimensionProperties: {
+          range: { sheetId, dimension: 'ROWS', startIndex: 0, endIndex: 1 },
+          properties: { pixelSize: 32 },
+          fields: 'pixelSize'
+        }
+      })
+
+      // === MERGE CELLS ===
+
+      // Row 1: Conference name merged across all 12 columns
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+
+      // Row 2: Team headers merged (First-Team: 0-3, Second-Team: 4-7, Freshman Team: 8-11)
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 4 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 4, endColumnIndex: 8 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+      requests.push({
+        mergeCells: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 8, endColumnIndex: 12 },
+          mergeType: 'MERGE_ALL'
+        }
+      })
+
+      // === FORMATTING ===
+
+      // Main header - dark background, white text
+      const mainHeaderFormat = {
+        backgroundColor: { red: 0.1, green: 0.1, blue: 0.1 },
+        textFormat: {
+          foregroundColor: { red: 1, green: 1, blue: 1 },
+          bold: true,
+          fontSize: 14,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: mainHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Team headers (Row 2) - lighter background
+      const teamHeaderFormat = {
+        backgroundColor: { red: 0.2, green: 0.2, blue: 0.2 },
+        textFormat: {
+          foregroundColor: { red: 1, green: 1, blue: 1 },
+          bold: true,
+          fontSize: 11,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: teamHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Column headers (Row 3) - gray background
+      const colHeaderFormat = {
+        backgroundColor: { red: 0.85, green: 0.85, blue: 0.85 },
+        textFormat: {
+          foregroundColor: { red: 0, green: 0, blue: 0 },
+          bold: true,
+          fontSize: 10,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: colHeaderFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Data rows - light background, centered
+      const dataFormat = {
+        backgroundColor: { red: 1, green: 1, blue: 1 },
+        textFormat: {
+          fontSize: 10,
+          fontFamily: 'Barlow'
+        },
+        horizontalAlignment: 'CENTER',
+        verticalAlignment: 'MIDDLE'
+      }
+
+      requests.push({
+        repeatCell: {
+          range: { sheetId, startRowIndex: 3, endRowIndex: totalRows, startColumnIndex: 0, endColumnIndex: 12 },
+          cell: { userEnteredFormat: dataFormat },
+          fields: 'userEnteredFormat'
+        }
+      })
+
+      // Alternate row colors for data rows
+      for (let i = 3; i < totalRows; i++) {
+        if (i % 2 === 1) {
+          requests.push({
+            repeatCell: {
+              range: { sheetId, startRowIndex: i, endRowIndex: i + 1, startColumnIndex: 0, endColumnIndex: 12 },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.95, green: 0.95, blue: 0.95 }
+                }
+              },
+              fields: 'userEnteredFormat.backgroundColor'
+            }
+          })
+        }
+      }
+
+      // Add data validation for Team columns (2, 6, 10) and Class columns (3, 7, 11)
+      // Data rows start at row 4 (index 3) and end at row 28 (index totalRows-1)
+      const teamColumns = [2, 6, 10]
+      const classColumns = [3, 7, 11]
+
+      teamColumns.forEach(colIndex => {
+        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, customTeams))
+        // Add conditional formatting for team colors
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, customTeams))
+      })
+
+      classColumns.forEach(colIndex => {
+        requests.push(generateClassValidation(sheetId, colIndex, 3, totalRows))
+      })
+    }
+
+    // Apply formatting
+    if (requests.length > 0) {
+      await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ requests })
+      })
+    }
+
+    // Now write the data to each conference tab
+    const valueRanges = []
+
+    for (const conf of conferences) {
+      const confData = allConferenceByConference[conf] || []
+
+      // Index existing data by position for each designation (arrays to handle multiple per position)
+      const acFirst = {}
+      const acSecond = {}
+      const acFreshman = {}
+
+      confData.forEach(entry => {
+        const pos = entry.position
+        if (entry.designation === 'first') {
+          if (!acFirst[pos]) acFirst[pos] = []
+          acFirst[pos].push(entry)
+        } else if (entry.designation === 'second') {
+          if (!acSecond[pos]) acSecond[pos] = []
+          acSecond[pos].push(entry)
+        } else if (entry.designation === 'freshman') {
+          if (!acFreshman[pos]) acFreshman[pos] = []
+          acFreshman[pos].push(entry)
+        }
+      })
+
+      // Track which entries have been used (to handle multiple slots per position)
+      const usedFirst = {}
+      const usedSecond = {}
+      const usedFreshman = {}
+
+      // Build values array for this conference tab
+      const values = []
+
+      // Row 1: Conference header
+      values.push([`All-${conf}`, '', '', '', '', '', '', '', '', '', '', ''])
+
+      // Row 2: Team headers
+      values.push(['First-Team', '', '', '', 'Second-Team', '', '', '', 'Freshman Team', '', '', ''])
+
+      // Row 3: Column headers
+      values.push([
+        'Position', 'Player', 'Team', 'Class',
+        'Position', 'Player', 'Team', 'Class',
+        'Position', 'Player', 'Team', 'Class'
+      ])
+
+      // Rows 4-28: Position data
+      ALL_AMERICAN_POSITIONS.forEach(pos => {
+        // Get next unused entry for each designation (for positions with multiple slots like WR, HB)
+        const firstEntries = acFirst[pos] || []
+        const secondEntries = acSecond[pos] || []
+        const freshmanEntries = acFreshman[pos] || []
+
+        if (!usedFirst[pos]) usedFirst[pos] = 0
+        if (!usedSecond[pos]) usedSecond[pos] = 0
+        if (!usedFreshman[pos]) usedFreshman[pos] = 0
+
+        const first = firstEntries[usedFirst[pos]] ? firstEntries[usedFirst[pos]++] : null
+        const second = secondEntries[usedSecond[pos]] ? secondEntries[usedSecond[pos]++] : null
+        const freshman = freshmanEntries[usedFreshman[pos]] ? freshmanEntries[usedFreshman[pos]++] : null
+
+        values.push([
+          pos, first?.player || '', first?.school || '', first?.class || '',
+          pos, second?.player || '', second?.school || '', second?.class || '',
+          pos, freshman?.player || '', freshman?.school || '', freshman?.class || ''
+        ])
+      })
+
+      valueRanges.push({
+        range: `'${conf}'!A1:L${totalRows}`,
+        values
+      })
+    }
+
+    // Write all values
+    await fetch(`${SHEETS_API_BASE}/${spreadsheetId}/values:batchUpdate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: valueRanges
+      })
+    })
+
+    return {
+      spreadsheetId,
+      spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+    }
+  } catch (error) {
+    console.error('Error creating all-conference sheet:', error)
+    throw error
+  }
+}
+
+/**
+ * Read All-Conference data from All-Conference sheet
+ * @param spreadsheetId - The Google Sheets ID
+ * @param conferences - Array of conference names (tabs) to read from
+ */
+export async function readAllConferenceFromSheet(spreadsheetId, conferences = ALL_CONFERENCES) {
+  try {
+    const accessToken = await getAccessToken()
+
+    const numPositions = ALL_AMERICAN_POSITIONS.length
+    const allConferenceByConference = {}
+
+    // Read data from each conference tab
+    for (const conf of conferences) {
+      const response = await fetch(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/'${encodeURIComponent(conf)}'!A1:L28`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        }
+      )
+
+      if (!response.ok) {
+        // Tab might not exist, skip it
+        console.warn(`Could not read tab '${conf}', skipping`)
+        continue
+      }
+
+      const data = await response.json()
+      const rows = data.values || []
+
+      // Extract All-Conference data starting at row 4 (index 3)
+      const confEntries = []
+      for (let i = 0; i < numPositions; i++) {
+        const row = rows[3 + i] || []
+
+        // First-Team (cols 0-3)
+        if (row[1]) {
+          confEntries.push({
+            team: 'all-conference',
+            designation: 'first',
+            position: row[0] || ALL_AMERICAN_POSITIONS[i],
+            player: row[1],
+            school: (row[2] || '').toUpperCase(),
+            class: row[3] || ''
+          })
+        }
+
+        // Second-Team (cols 4-7)
+        if (row[5]) {
+          confEntries.push({
+            team: 'all-conference',
+            designation: 'second',
+            position: row[4] || ALL_AMERICAN_POSITIONS[i],
+            player: row[5],
+            school: (row[6] || '').toUpperCase(),
+            class: row[7] || ''
+          })
+        }
+
+        // Freshman Team (cols 8-11)
+        if (row[9]) {
+          confEntries.push({
+            team: 'all-conference',
+            designation: 'freshman',
+            position: row[8] || ALL_AMERICAN_POSITIONS[i],
+            player: row[9],
+            school: (row[10] || '').toUpperCase(),
+            class: row[11] || ''
+          })
+        }
+      }
+
+      if (confEntries.length > 0) {
+        allConferenceByConference[conf] = confEntries
+      }
+    }
+
+    // Also return flattened array for backwards compatibility
+    const allConference = []
+    for (const conf of Object.keys(allConferenceByConference)) {
+      allConference.push(...allConferenceByConference[conf])
+    }
+
+    return {
+      allConference,
+      allConferenceByConference
+    }
+  } catch (error) {
+    console.error('Error reading all-conference data:', error)
+    throw error
+  }
+}
+
 // Transfer/Leaving reasons for Players Leaving sheet
 const LEAVING_REASONS = [
   'Graduating',
@@ -8776,14 +9679,13 @@ function starsNumberToSymbol(num) {
 
 // Create Recruiting Commitments sheet
 // Max scholarships per class is 35, so we use 35 rows
-export async function createRecruitingSheet(dynastyName, year, teamAbbreviationsData, existingCommitments = []) {
+export async function createRecruitingSheet(dynastyName, year, customTeams = null, existingCommitments = []) {
   try {
     const accessToken = await getAccessToken()
 
-    // Get all team abbreviations for Previous Team dropdown
-    const teamAbbrs = Object.keys(teamAbbreviationsData).filter(key =>
-      typeof teamAbbreviationsData[key] === 'object' && teamAbbreviationsData[key].name
-    ).sort()
+    // Get teams from dynasty.teams (tid-based) - source of truth
+    const teams = getTeamsWithCustom(customTeams)
+    const teamAbbrs = Object.keys(teams).sort()
 
     const totalRows = Math.max(35, existingCommitments.length + 10) // Max 35 scholarships per class
 
@@ -8980,7 +9882,7 @@ export async function createRecruitingSheet(dynastyName, year, teamAbbreviations
 
     // Add conditional formatting for Previous Team column (team colors)
     for (const abbr of teamAbbrs) {
-      const teamData = teamAbbreviationsData[abbr]
+      const teamData = teams[abbr]
       if (!teamData?.backgroundColor || !teamData?.textColor) continue
 
       const bgColor = hexToRgb(teamData.backgroundColor)
@@ -10018,12 +10920,13 @@ export async function readRecruitOverallsFromSheet(spreadsheetId) {
 // ============================================
 
 // Generate conditional formatting rules for team colors in scoring summary
-function generateScoringTeamFormattingRules(sheetId, teamAbbr1, teamAbbr2, rowCount) {
+function generateScoringTeamFormattingRules(sheetId, teamAbbr1, teamAbbr2, rowCount, customTeams = null) {
   const rules = []
-  const teams = [teamAbbr1, teamAbbr2]
+  const teamsData = getTeamsWithCustom(customTeams)
+  const teamAbbrs = [teamAbbr1, teamAbbr2]
 
-  for (const abbr of teams) {
-    const teamData = teamAbbreviations[abbr] || teamAbbreviations[abbr.toUpperCase()]
+  for (const abbr of teamAbbrs) {
+    const teamData = teamsData[abbr] || teamsData[abbr?.toUpperCase()]
     if (!teamData) continue
 
     // Add rule for uppercase version
@@ -10331,7 +11234,7 @@ async function prefillPlayerStatsData(spreadsheetId, accessToken, existingData) 
 
 // Create a scoring summary sheet
 // existingData: optional array of scoring plays to pre-fill (from game.boxScore.scoringSummary)
-export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year, week, homeRoster = [], awayRoster = [], existingData = []) {
+export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year, week, homeRoster = [], awayRoster = [], existingData = [], customTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -10369,7 +11272,7 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
     const sheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize with headers, formatting, and dropdowns
-    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster)
+    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, customTeams)
 
     // Pre-fill with existing scoring data if provided
     if (existingData && existingData.length > 0) {
@@ -10434,7 +11337,7 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
 }
 
 // Initialize scoring summary sheet with headers, formatting, and dropdowns
-async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster = [], awayRoster = []) {
+async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster = [], awayRoster = [], customTeams = null) {
   // Combine both rosters for player dropdown
   const allPlayers = [...homeRoster, ...awayRoster].sort()
 
@@ -10643,7 +11546,7 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
   }
 
   // Add conditional formatting for team colors
-  const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount)
+  const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, customTeams)
   requests.push(...teamFormattingRules)
 
   // Send batch update
@@ -10872,12 +11775,13 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
 }
 
 // Initialize team stats sheet with single tab, 3 columns (Stat, Away, Home)
-async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr) {
+async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, customTeams = null) {
   const requests = []
 
-  // Get team colors
-  const awayTeamData = teamAbbreviations[awayTeamAbbr]
-  const homeTeamData = teamAbbreviations[homeTeamAbbr]
+  // Get team colors from dynasty.teams (source of truth)
+  const teams = getTeamsWithCustom(customTeams)
+  const awayTeamData = teams[awayTeamAbbr]
+  const homeTeamData = teams[homeTeamAbbr]
   const awayBgColor = awayTeamData ? hexToRgb(awayTeamData.backgroundColor) : { red: 0.2, green: 0.2, blue: 0.2 }
   const awayTextColor = awayTeamData ? hexToRgb(awayTeamData.textColor) : { red: 1, green: 1, blue: 1 }
   const homeBgColor = homeTeamData ? hexToRgb(homeTeamData.backgroundColor) : { red: 0.2, green: 0.2, blue: 0.2 }
@@ -11204,7 +12108,7 @@ async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
  * @param {Array} transferringPlayers - Players who are transferring out
  * @returns {Object} { spreadsheetId, spreadsheetUrl }
  */
-export async function createTransferDestinationsSheet(dynastyName, year, transferringPlayers) {
+export async function createTransferDestinationsSheet(dynastyName, year, transferringPlayers, customTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -11255,10 +12159,9 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
     const spreadsheetId = spreadsheet.spreadsheetId
     const sheetId = spreadsheet.sheets[0].properties.sheetId
 
-    // Get all team abbreviations for dropdown
-    const teamAbbrs = Object.keys(teamAbbreviations).filter(key =>
-      typeof teamAbbreviations[key] === 'object' && teamAbbreviations[key].name
-    ).sort()
+    // Get all team abbreviations for dropdown (uses customTeams if provided)
+    const teams = getTeamsWithCustom(customTeams)
+    const teamAbbrs = Object.keys(teams).sort()
 
     // Build batch update requests
     const requests = []
@@ -11347,7 +12250,7 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
 
     // Add conditional formatting for team colors
     for (const abbr of teamAbbrs) {
-      const teamInfo = teamAbbreviations[abbr]
+      const teamInfo = teams[abbr]
       if (!teamInfo?.backgroundColor && !teamInfo?.textColor) continue
 
       const bgColor = teamInfo.backgroundColor || '#FFFFFF'
@@ -11479,7 +12382,8 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
     if (!user) throw new Error('User not authenticated')
 
     const accessToken = await getAccessToken()
-    const allTeamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
+    const teams = getTeamsWithCustom(customTeams)
+    const allTeamAbbrs = Object.keys(teams).sort()
 
     // Create spreadsheet
     const createResponse = await fetch(`${SHEETS_API_BASE}`, {
@@ -11574,7 +12478,7 @@ export async function createRosterHistorySheet(dynastyName, years = [2025, 2026]
     // Add conditional formatting for each team's colors (for each year column)
     years.forEach((_, yearIndex) => {
       allTeamAbbrs.forEach(abbr => {
-        const teamInfo = teamAbbreviations[abbr]
+        const teamInfo = teams[abbr]
         if (teamInfo?.backgroundColor) {
           const bgColor = hexToRgb(teamInfo.backgroundColor)
           const textColor = hexToRgb(teamInfo.textColor || '#FFFFFF')

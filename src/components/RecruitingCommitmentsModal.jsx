@@ -110,7 +110,7 @@ export default function RecruitingCommitmentsModal({
           const sheetInfo = await createRecruitingSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            teamAbbreviations,
+            currentDynasty?.teams || null,
             existingCommitments // Pass all previous commitments to pre-populate
           )
           setSheetId(sheetInfo.spreadsheetId)

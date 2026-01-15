@@ -7,7 +7,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamConference, conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
-import AllAmericansModal from '../../components/AllAmericansModal'
+import AllConferenceModal from '../../components/AllConferenceModal'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 // Map abbreviation to mascot name for logo lookup
@@ -289,8 +289,8 @@ export default function AllConference() {
     navigate(`${pathPrefix}/all-conference/${displayYear}/${encodeConference(conf)}`)
   }
 
-  // Handle save from modal - transforms and saves all-conference data grouped by conference
-  const handleAllAmericansSave = async (data) => {
+  // Handle save from modal - saves all-conference data grouped by conference
+  const handleAllConferenceSave = async (data) => {
     const year = displayYear
 
     // Process All-Conference entries for player matching
@@ -329,30 +329,7 @@ export default function AllConference() {
       }
     }
 
-    // Transform allConference to be grouped by conference
-    const transformedData = { ...data }
-    if (data.allConference && data.allConference.length > 0) {
-      const existingByConf = currentDynasty.allAmericansByYear?.[year]?.allConferenceByConference || {}
-      const newByConf = { ...existingByConf }
-
-      data.allConference.forEach(entry => {
-        const conference = getTeamConferenceForDynasty(currentDynasty, entry.school, year) || 'Unknown'
-        if (!newByConf[conference]) {
-          newByConf[conference] = []
-        }
-        // Check for duplicates before adding
-        const isDupe = newByConf[conference].some(existing =>
-          existing.player === entry.player &&
-          existing.school === entry.school &&
-          existing.designation === entry.designation
-        )
-        if (!isDupe) {
-          newByConf[conference].push(entry)
-        }
-      })
-      transformedData.allConferenceByConference = newByConf
-    }
-
+    // Data already comes grouped by conference from readAllConferenceFromSheet
     const existingByYear = currentDynasty.allAmericansByYear || {}
     const existingYearData = existingByYear[year] || {}
     await updateDynasty(currentDynasty.id, {
@@ -360,7 +337,8 @@ export default function AllConference() {
         ...existingByYear,
         [year]: {
           ...existingYearData,
-          ...transformedData
+          allConference: data.allConference || [],
+          allConferenceByConference: data.allConferenceByConference || {}
         }
       }
     })
@@ -648,11 +626,11 @@ export default function AllConference() {
         </div>
       )}
 
-      {/* All-Americans/All-Conference Modal */}
-      <AllAmericansModal
+      {/* All-Conference Modal */}
+      <AllConferenceModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        onSave={handleAllAmericansSave}
+        onSave={handleAllConferenceSave}
         currentYear={displayYear}
         teamColors={teamColors}
       />

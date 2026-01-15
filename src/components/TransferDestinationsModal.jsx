@@ -141,7 +141,8 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
           const sheetInfo = await createTransferDestinationsSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
-            transferringPlayers
+            transferringPlayers,
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
 

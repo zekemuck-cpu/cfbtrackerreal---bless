@@ -1225,7 +1225,13 @@ export function getTeam(teams, tid) {
  * @returns {number|null} Team ID or null
  */
 export function getTidFromAbbr(abbr) {
-  if (!abbr) return null
+  if (!abbr && abbr !== 0) return null
+  // If already a number (tid), return it directly
+  if (typeof abbr === 'number') return abbr
+  // If it's a string that looks like a number, parse and return
+  if (typeof abbr === 'string' && /^\d+$/.test(abbr)) return parseInt(abbr, 10)
+  // Otherwise lookup by abbreviation
+  if (typeof abbr !== 'string') return null
   return ABBR_TO_TID[abbr.toUpperCase()] || null
 }
 

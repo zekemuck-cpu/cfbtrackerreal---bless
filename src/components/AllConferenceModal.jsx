@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
 import {
-  createAllAmericansOnlySheet,
-  readAllAmericansOnlyFromSheet,
+  createAllConferenceSheet,
+  readAllConferenceFromSheet,
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
@@ -15,7 +15,7 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
+export default function AllConferenceModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
@@ -28,13 +28,12 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
   const [isMobile, setIsMobile] = useState(false)
   const [showAuthError, setShowAuthError] = useState(false)
   const [useEmbedded, setUseEmbedded] = useState(() => {
-    // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
-  // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
+  // Ref to prevent concurrent sheet creation
   const creatingSheetRef = useRef(false)
 
   useEffect(() => {
@@ -76,28 +75,34 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
   useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
-        const existingSheetId = currentDynasty?.allAmericansSheetIdByYear?.[currentYear]
+        // Check for existing sheet for this year
+        const existingSheetId = currentDynasty?.allConferenceSheetIdByYear?.[currentYear]
         if (existingSheetId) {
           setSheetId(existingSheetId)
           return
         }
-        // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
-          // Pass allAmericansByYear for pre-filling past years
-          const allAmericansByYear = currentDynasty?.allAmericansByYear || {}
-          const sheetInfo = await createAllAmericansOnlySheet(currentYear, allAmericansByYear, currentDynasty?.teams || currentDynasty?.customTeams)
+          // Get existing all-conference data grouped by conference for pre-filling
+          const allConferenceByConference = currentDynasty?.allAmericansByYear?.[currentYear]?.allConferenceByConference || {}
+          // Get custom conferences for this year (if any)
+          const customConferences = currentDynasty?.conferencesByYear?.[currentYear] || null
+          // Get custom teams for dropdown validation
+          const customTeams = currentDynasty?.teams || currentDynasty?.customTeams || null
+          const sheetInfo = await createAllConferenceSheet(
+            currentYear,
+            allConferenceByConference,
+            customConferences,
+            customTeams
+          )
           setSheetId(sheetInfo.spreadsheetId)
-          const existingByYear = currentDynasty?.allAmericansSheetIdByYear || {}
+          const existingByYear = currentDynasty?.allConferenceSheetIdByYear || {}
           await updateDynasty(currentDynasty.id, {
-            allAmericansSheetIdByYear: { ...existingByYear, [currentYear]: sheetInfo.spreadsheetId }
+            allConferenceSheetIdByYear: { ...existingByYear, [currentYear]: sheetInfo.spreadsheetId }
           })
         } catch (error) {
-          console.error('Failed to create all-americans sheet:', error)
-          if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
-            setShowAuthError(true)
-          }
+          console.error('Failed to create all-conference sheet:', error)
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -118,8 +123,8 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
     if (!sheetId) return
     setSyncing(true)
     try {
-      // Read from the current year tab
-      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear)
+      // Read from all conference tabs
+      const data = await readAllConferenceFromSheet(sheetId)
       await onSave(data)
       onClose()
     } catch (error) {
@@ -138,10 +143,8 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      // Read from the current year tab
-      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear)
+      const data = await readAllConferenceFromSheet(sheetId)
       await onSave(data)
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
       setShowDeletedNote(true)
@@ -165,9 +168,9 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
     setRegenerating(true)
     try {
       await deleteGoogleSheet(sheetId)
-      const existingByYear = currentDynasty?.allAmericansSheetIdByYear || {}
+      const existingByYear = currentDynasty?.allConferenceSheetIdByYear || {}
       await updateDynasty(currentDynasty.id, {
-        allAmericansSheetIdByYear: { ...existingByYear, [currentYear]: null }
+        allConferenceSheetIdByYear: { ...existingByYear, [currentYear]: null }
       })
       setSheetId(null)
       setRetryCount(c => c + 1)
@@ -187,14 +190,15 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
 
   if (!isOpen) return null
 
-  const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, `${currentYear}`) : null
+  // Default to first conference tab for embed
+  const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, 'ACC') : null
   const isLoading = creatingSheet
 
   return (
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4" style={{ margin: 0 }} onMouseDown={handleClose}>
       <div className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6" style={{ backgroundColor: teamColors.secondary }} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>{currentYear} All-Americans</h2>
+          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>{currentYear} All-Conference</h2>
           <button onClick={handleClose} className="hover:opacity-70" style={{ color: teamColors.primary }}>
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -204,7 +208,8 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: teamColors.primary, borderTopColor: 'transparent' }} />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>Creating All-Americans Sheet...</p>
+              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>Creating All-Conference Sheet...</p>
+              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>10 conference tabs</p>
             </div>
           </div>
         ) : showDeletedNote ? (
@@ -212,7 +217,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
             <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
               <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>Saved & Moved to Trash!</p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>All-Americans selections saved.</p>
+              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>All-Conference selections saved.</p>
             </div>
           </div>
         ) : sheetId ? (
@@ -241,7 +246,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
                   <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
                   <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Enter Player, Team, Class for each position</span></li>
+                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Each tab is a conference - fill in Player, Team, Class</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
                     <li className="flex gap-2"><span className="font-bold">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
@@ -258,7 +263,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
               </div>
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Americans" onSessionError={() => setShowAuthError(true)} />
+                <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Conference" onSessionError={() => setShowAuthError(true)} />
               </div>
             )}
           </div>
