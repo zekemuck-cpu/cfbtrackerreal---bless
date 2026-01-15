@@ -108,30 +108,33 @@ export default function Recruiting() {
     )
   }
 
-  // Use dynasty.teams if available, otherwise fall back to TEAMS
-  const teamsSource = currentDynasty?.teams || TEAMS
-
   // Get current team abbreviation (for redirect if no URL params)
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
-  const currentTeamTid = resolveTid(currentTeamAbbr, teamsSource)
+  const currentTeamTid = resolveTid(currentTeamAbbr, TEAMS)
 
   // Parse tid from URL or use current user's team
   const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
 
-  // Get team from tid
-  const team = teamsSource[selectedTid]
-  const teamAbbr = team?.abbr || currentTeamAbbr  // Keep for backwards compatibility with data lookups
+  // Get team from TEAMS (base registry) and merge with any dynasty teambuilder customizations
+  const baseTeam = TEAMS[selectedTid]
+  const dynastyTeam = currentDynasty?.teams?.[selectedTid]
+  // Merge: dynasty team data (teambuilder) overrides base TEAMS data
+  const team = baseTeam ? { ...baseTeam, ...dynastyTeam } : dynastyTeam
+  const teamAbbr = team?.abbr || baseTeam?.abbr || currentTeamAbbr  // Keep for backwards compatibility with data lookups
   const selectedYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : currentDynasty?.currentYear)
 
-  // Get team info for display from team data
-  const teamFullName = team?.name || teamAbbr
-  const teamLogo = team?.logo || null
+  // Get team info for display - prefer dynasty teambuilder data, fall back to base TEAMS
+  const teamFullName = team?.name || baseTeam?.name || teamAbbr
+  const teamLogo = team?.logo || baseTeam?.logo || null
 
   // Use the viewed team's colors from team data
   const teamColors = {
-    primary: team?.primaryColor || '#1F2937',
-    secondary: team?.secondaryColor || '#F3F4F6'
+    primary: team?.primaryColor || baseTeam?.primaryColor || '#1F2937',
+    secondary: team?.secondaryColor || baseTeam?.secondaryColor || '#F3F4F6'
   }
+
+  // Combined teams source for lookups (TEAMS + dynasty customizations)
+  const teamsSource = currentDynasty?.teams || TEAMS
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 

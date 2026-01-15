@@ -224,10 +224,6 @@ export default function AllAmericans() {
   const handleAllAmericansSave = async (data) => {
     const year = displayYear
 
-    console.log('[AllAmericans] Saving data for year:', year)
-    console.log('[AllAmericans] All-Americans count:', data.allAmericans?.length || 0)
-    console.log('[AllAmericans] All-Conference count:', data.allConference?.length || 0)
-
     // Process All-Americans for player matching
     if (data.allAmericans && data.allAmericans.length > 0) {
       const aaEntries = data.allAmericans.map(entry => ({
@@ -236,15 +232,30 @@ export default function AllAmericans() {
         honorCategory: 'allAmericans'
       }))
 
-      console.log('[AllAmericans] Processing All-Americans entries:', aaEntries.length)
-      const aaResult = await processHonorPlayers(
+      // First attempt - may return with confirmations needed for potential transfers
+      let aaResult = await processHonorPlayers(
         currentDynasty.id,
         'allAmericans',
         aaEntries,
         year,
         []
       )
-      console.log('[AllAmericans] All-Americans processHonorPlayers result:', aaResult)
+
+      // If confirmations are needed (potential transfers detected), auto-decide to create new players
+      if (aaResult.needsConfirmation && aaResult.confirmations?.length > 0) {
+        const autoDecisions = aaResult.confirmations.map(conf => ({
+          entryIndex: conf.entryIndex,
+          isSamePlayer: false // Create as new player
+        }))
+
+        await processHonorPlayers(
+          currentDynasty.id,
+          'allAmericans',
+          aaEntries,
+          year,
+          autoDecisions
+        )
+      }
     }
 
     // Process All-Conference for player matching
@@ -255,15 +266,30 @@ export default function AllAmericans() {
         honorCategory: 'allConference'
       }))
 
-      console.log('[AllAmericans] Processing All-Conference entries:', acEntries.length)
-      const acResult = await processHonorPlayers(
+      // First attempt - may return with confirmations needed for potential transfers
+      let acResult = await processHonorPlayers(
         currentDynasty.id,
         'allConference',
         acEntries,
         year,
         []
       )
-      console.log('[AllAmericans] All-Conference processHonorPlayers result:', acResult)
+
+      // If confirmations are needed (potential transfers detected), auto-decide to create new players
+      if (acResult.needsConfirmation && acResult.confirmations?.length > 0) {
+        const autoDecisions = acResult.confirmations.map(conf => ({
+          entryIndex: conf.entryIndex,
+          isSamePlayer: false // Create as new player
+        }))
+
+        await processHonorPlayers(
+          currentDynasty.id,
+          'allConference',
+          acEntries,
+          year,
+          autoDecisions
+        )
+      }
     }
 
     // Save the raw data to allAmericansByYear

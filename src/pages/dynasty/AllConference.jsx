@@ -301,13 +301,32 @@ export default function AllConference() {
         honorCategory: 'allConference'
       }))
 
-      await processHonorPlayers(
+      // First attempt - may return with confirmations needed for potential transfers
+      let result = await processHonorPlayers(
         currentDynasty.id,
         'allConference',
         acEntries,
         year,
         []
       )
+
+      // If confirmations are needed (potential transfers detected), auto-decide to create new players
+      // This ensures all All-Conference players get PIDs and are linkable
+      if (result.needsConfirmation && result.confirmations?.length > 0) {
+        const autoDecisions = result.confirmations.map(conf => ({
+          entryIndex: conf.entryIndex,
+          isSamePlayer: false // Create as new player (different person with same name)
+        }))
+
+        // Call again with the decisions to create new players
+        await processHonorPlayers(
+          currentDynasty.id,
+          'allConference',
+          acEntries,
+          year,
+          autoDecisions
+        )
+      }
     }
 
     // Transform allConference to be grouped by conference

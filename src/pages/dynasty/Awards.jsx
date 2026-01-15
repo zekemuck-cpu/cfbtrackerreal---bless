@@ -255,25 +255,39 @@ export default function Awards() {
       name: data.player
     })).filter(e => e.player) // Only entries with a player name
 
-    // Process honors - this will find/create players
-    const result = await processHonorPlayers(
+    // First attempt - may return with confirmations needed for potential transfers
+    let result = await processHonorPlayers(
       currentDynasty.id,
       'awards',
       entries,
       year,
-      [] // No transfer decisions
+      []
     )
 
-    if (!result.needsConfirmation) {
-      // Save the awards data
-      const existingByYear = currentDynasty.awardsByYear || {}
-      await updateDynasty(currentDynasty.id, {
-        awardsByYear: {
-          ...existingByYear,
-          [year]: awards
-        }
-      })
+    // If confirmations are needed (potential transfers detected), auto-decide to create new players
+    if (result.needsConfirmation && result.confirmations?.length > 0) {
+      const autoDecisions = result.confirmations.map(conf => ({
+        entryIndex: conf.entryIndex,
+        isSamePlayer: false // Create as new player
+      }))
+
+      await processHonorPlayers(
+        currentDynasty.id,
+        'awards',
+        entries,
+        year,
+        autoDecisions
+      )
     }
+
+    // Save the awards data
+    const existingByYear = currentDynasty.awardsByYear || {}
+    await updateDynasty(currentDynasty.id, {
+      awardsByYear: {
+        ...existingByYear,
+        [year]: awards
+      }
+    })
 
     setShowAwardsModal(false)
   }
