@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -100,12 +100,29 @@ const getMascotName = (abbr, teamsData = null) => {
 
 export default function BowlHistory() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedBowl, setExpandedBowl] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const bowlRefs = useRef({})
+
+  // Auto-expand and scroll to bowl from URL parameter
+  useEffect(() => {
+    const bowlFromUrl = searchParams.get('bowl')
+    if (bowlFromUrl) {
+      setExpandedBowl(bowlFromUrl)
+      // Wait for render then scroll
+      setTimeout(() => {
+        const element = bowlRefs.current[bowlFromUrl]
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+    }
+  }, [searchParams])
 
   if (!currentDynasty) return null
 
@@ -428,7 +445,11 @@ export default function BowlHistory() {
             const isExpanded = expandedBowl === bowlName
 
             return (
-              <div key={bowlName}>
+              <div
+                key={bowlName}
+                ref={el => bowlRefs.current[bowlName] = el}
+                style={{ scrollMarginTop: '100px' }}
+              >
                 {/* Bowl Header */}
                 <button
                   onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}

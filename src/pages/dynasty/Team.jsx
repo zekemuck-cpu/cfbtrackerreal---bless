@@ -615,34 +615,37 @@ export default function Team() {
       const yearResults = cfpResults[year] || {}
       const games = []
 
-      // First, check user games from games[] array for this team and year
-      // Use perspective to find games where user coached this team
-      const userCfpGames = allGames
-        .filter(g => g.year === yearNum && getCfpRound(g))
-        .map(g => {
-          const perspective = getUserGamePerspective(g, currentDynasty)
-          return perspective ? { ...g, perspective } : null
-        })
-        .filter(g => {
-          if (!g) return false
-          // Check if user was coaching this team in this game
-          // Direct tid comparison - userTid from perspective (coachTeamByYear) vs tid from URL
-          return g.perspective?.userTid === tid
-        })
+      // Check ALL CFP games from games[] array for this team and year
+      // This includes both user-coached games and CPU games
+      const cfpGamesForTeam = allGames.filter(g => {
+        if (g.year !== yearNum || !getCfpRound(g)) return false
+        // Check if this team participated (via tid or abbreviation)
+        const team1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+        const team2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+        const team1Abbr = team1Info?.abbr || g.team1 || g.userTeam
+        const team2Abbr = team2Info?.abbr || g.team2 || g.opponent
+        return team1Abbr === teamAbbr || team2Abbr === teamAbbr
+      })
 
-      userCfpGames.forEach(g => {
+      cfpGamesForTeam.forEach(g => {
         const round = getCfpRound(g)
-        const won = g.perspective?.userWon ?? (g.result === 'W' || g.result === 'win')
-        // Get opponent info from perspective or fallback
-        const opponentInfo = g.perspective?.opponentTid
-          ? getGameTeamInfo(teams, g.perspective.opponentTid)
-          : null
-        const opponent = opponentInfo?.abbr || g.opponent
+        // Determine if this team is team1 or team2
+        const team1Info = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid) : null
+        const team2Info = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid) : null
+        const team1Abbr = team1Info?.abbr || g.team1 || g.userTeam
+        const team2Abbr = team2Info?.abbr || g.team2 || g.opponent
+        const isTeam1 = team1Abbr === teamAbbr
+
+        const teamScore = isTeam1 ? g.team1Score : g.team2Score
+        const opponentScore = isTeam1 ? g.team2Score : g.team1Score
+        const opponent = isTeam1 ? team2Abbr : team1Abbr
+        const won = teamScore > opponentScore
+
         games.push({
           round,
           opponent,
-          teamScore: g.perspective?.userScore ?? g.teamScore,
-          opponentScore: g.perspective?.opponentScore ?? g.opponentScore,
+          teamScore,
+          opponentScore,
           won,
           gameId: g.id
         })

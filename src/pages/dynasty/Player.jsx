@@ -1611,7 +1611,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right text-gray-500">{calcPct(y.passing.td, y.passing.att)}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.passing.int}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{calcPct(y.passing.int, y.passing.att)}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.int > 0 ? (y.passing.td / y.passing.int).toFixed(2).replace('.', ':') : (y.passing.td > 0 ? '∞' : '0:00')}</td>
+                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.int > 0 ? `${(y.passing.td / y.passing.int).toFixed(2)}:1` : (y.passing.td > 0 ? '∞' : '-')}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.passing.lng}</td>
                                 <td className="px-2 py-2 text-right text-gray-500">{y.passing.sacks}</td>
                               </tr>
@@ -1636,7 +1636,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right">{calcPct(careerPassing.td, careerPassing.att)}</td>
                           <td className="px-2 py-2 text-right">{careerPassing.int}</td>
                           <td className="px-2 py-2 text-right">{calcPct(careerPassing.int, careerPassing.att)}</td>
-                          <td className="px-2 py-2 text-right">{careerPassing.int > 0 ? (careerPassing.td / careerPassing.int).toFixed(2).replace('.', ':') : (careerPassing.td > 0 ? '∞' : '0:00')}</td>
+                          <td className="px-2 py-2 text-right">{careerPassing.int > 0 ? `${(careerPassing.td / careerPassing.int).toFixed(2)}:1` : (careerPassing.td > 0 ? '∞' : '-')}</td>
                           <td className="px-2 py-2 text-right">{careerPassing.lng}</td>
                           <td className="px-2 py-2 text-right">{careerPassing.sacks}</td>
                         </tr>

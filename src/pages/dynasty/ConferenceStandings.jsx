@@ -10,6 +10,30 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
+// Extract school name from full mascot name (e.g., "Miami Hurricanes" -> "Miami")
+const getSchoolName = (mascotName) => {
+  if (!mascotName) return null
+  // Handle special multi-word mascots first
+  const specialMascots = [
+    'Crimson Tide', 'Blue Hens', 'Fightin\' Blue Hens', 'Golden Flashes', 'Mean Green',
+    'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
+    'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
+    'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',
+    'Sun Devils', 'Wolf Pack', 'Black Knights', 'Tar Heels', 'Red Storm'
+  ]
+  for (const mascot of specialMascots) {
+    if (mascotName.endsWith(mascot)) {
+      return mascotName.slice(0, -mascot.length).trim()
+    }
+  }
+  // Default: remove last word (single-word mascot)
+  const parts = mascotName.split(' ')
+  if (parts.length > 1) {
+    return parts.slice(0, -1).join(' ')
+  }
+  return mascotName
+}
+
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
   // Try tid-based lookup first if teams data provided
@@ -143,7 +167,6 @@ export default function ConferenceStandings() {
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
-  const [expandedConference, setExpandedConference] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConferencesModal, setShowConferencesModal] = useState(false)
 
@@ -264,153 +287,136 @@ export default function ConferenceStandings() {
         </div>
       </div>
 
-      {/* Conference Standings List */}
+      {/* Conference Standings Grid */}
       {Object.keys(yearStandings).length > 0 ? (
-        <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-          <div className="divide-y divide-gray-600">
-            {filteredConferences.map(conferenceName => {
-              const teams = getConferenceData(yearStandings, conferenceName)
-              const isExpanded = expandedConference === conferenceName
-              const hasData = teams.length > 0
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {filteredConferences.map(conferenceName => {
+            const teams = getConferenceData(yearStandings, conferenceName)
+            const hasData = teams.length > 0
 
-              if (!hasData && searchQuery) return null
+            if (!hasData && searchQuery) return null
 
-              return (
-                <div key={conferenceName}>
-                  {/* Conference Header */}
-                  <button
-                    onClick={() => setExpandedConference(isExpanded ? null : conferenceName)}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-gray-700 transition-colors"
-                  >
-                    {/* Conference Logo */}
-                    <div className="w-14 h-14 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border-2 border-gray-500 p-1">
-                      {getConferenceLogo(conferenceName) ? (
-                        <img
-                          src={getConferenceLogo(conferenceName)}
-                          alt={`${conferenceName} logo`}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-2xl font-bold text-gray-600">
-                          {conferenceName.charAt(0)}
-                        </span>
-                      )}
+            return (
+              <div
+                key={conferenceName}
+                className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600"
+                style={{ maxWidth: '600px' }}
+              >
+                {/* Conference Header */}
+                <div className="flex items-center gap-3 p-3 border-b border-gray-600">
+                  {/* Conference Logo */}
+                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border border-gray-500 p-1">
+                    {getConferenceLogo(conferenceName) ? (
+                      <img
+                        src={getConferenceLogo(conferenceName)}
+                        alt={`${conferenceName} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-lg font-bold text-gray-600">
+                        {conferenceName.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Conference Name and Stats */}
+                  <div className="flex-1">
+                    <div className="font-bold text-white">
+                      {conferenceName}
                     </div>
-
-                    {/* Conference Name and Stats */}
-                    <div className="flex-1 text-left">
-                      <div className="font-bold text-lg text-white">
-                        {conferenceName}
-                      </div>
-                      <div className="text-sm text-gray-400">
-                        {hasData ? `${teams.length} teams` : 'No standings data'}
-                      </div>
+                    <div className="text-xs text-gray-400">
+                      {hasData ? `${teams.length} teams` : 'No standings data'}
                     </div>
-
-                    {/* Expand Icon */}
-                    <div className="text-white">
-                      <svg
-                        className={`w-6 h-6 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </button>
-
-                  {/* Expanded Standings Table */}
-                  {isExpanded && hasData && (
-                    <div className="px-4 pb-4 bg-gray-700">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-xs uppercase tracking-wider text-gray-300">
-                            <th className="py-2 px-1 text-left w-8">#</th>
-                            <th className="py-2 px-1 text-left">Team</th>
-                            <th className="py-2 px-1 text-center w-8">W</th>
-                            <th className="py-2 px-1 text-center w-8">L</th>
-                            <th className="py-2 px-1 text-center w-10">PF</th>
-                            <th className="py-2 px-1 text-center w-10">PA</th>
-                            <th className="py-2 px-1 text-center w-12">+/-</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {teams
-                            .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-                            .map((team, idx) => {
-                              const teamAbbr = team.team
-                              const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-                              const logo = mascotName ? getTeamLogo(mascotName) : null
-                              const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
-                              const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
-
-                              return (
-                                <tr
-                                  key={teamAbbr || idx}
-                                  className="bg-white border-b border-gray-200 last:border-b-0 hover:bg-gray-50"
-                                >
-                                  <td className="py-2 px-1">
-                                    <span className="font-bold text-gray-700">
-                                      {team.rank || idx + 1}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-1">
-                                    <Link
-                                      to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-                                      className="flex items-center gap-1 sm:gap-2 hover:opacity-80"
-                                    >
-                                      {logo && (
-                                        <img src={logo} alt="" className="w-5 h-5 sm:w-6 sm:h-6 object-contain flex-shrink-0" />
-                                      )}
-                                      <span
-                                        className="font-semibold truncate text-xs sm:text-sm"
-                                        style={{ color: colors.primary }}
-                                      >
-                                        {teamAbbr}
-                                      </span>
-                                    </Link>
-                                  </td>
-                                  <td className="py-2 px-1 text-center font-bold text-gray-700">
-                                    {team.wins || 0}
-                                  </td>
-                                  <td className="py-2 px-1 text-center font-bold text-gray-700">
-                                    {team.losses || 0}
-                                  </td>
-                                  <td className="py-2 px-1 text-center font-medium text-gray-600">
-                                    {team.pointsFor || 0}
-                                  </td>
-                                  <td className="py-2 px-1 text-center font-medium text-gray-600">
-                                    {team.pointsAgainst || 0}
-                                  </td>
-                                  <td
-                                    className="py-2 px-1 text-center font-bold"
-                                    style={{
-                                      color: pointDiff > 0 ? '#16a34a' : pointDiff < 0 ? '#dc2626' : '#6b7280'
-                                    }}
-                                  >
-                                    {pointDiff > 0 ? '+' : ''}{pointDiff}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* No data message */}
-                  {isExpanded && !hasData && (
-                    <div className="px-4 pb-4 text-center py-6 bg-gray-700">
-                      <p className="text-gray-400">
-                        No standings data for this conference in {displayYear}.
-                      </p>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              )
-            })}
-          </div>
+
+                {/* Standings Table */}
+                {hasData ? (
+                  <div className="p-2">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs uppercase tracking-wider text-gray-400">
+                          <th className="py-1 px-1 text-left w-6">#</th>
+                          <th className="py-1 px-1 text-left">Team</th>
+                          <th className="py-1 px-1 text-center w-8">W</th>
+                          <th className="py-1 px-1 text-center w-8">L</th>
+                          <th className="py-1 px-1 text-center w-10">PF</th>
+                          <th className="py-1 px-1 text-center w-10">PA</th>
+                          <th className="py-1 px-1 text-center w-10">+/-</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teams
+                          .sort((a, b) => (a.rank || 0) - (b.rank || 0))
+                          .map((team, idx) => {
+                            const teamAbbr = team.team
+                            const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
+                            const logo = mascotName ? getTeamLogo(mascotName) : null
+                            const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
+                            const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
+
+                            return (
+                              <tr
+                                key={teamAbbr || idx}
+                                className="bg-white border-b border-gray-200 last:border-b-0 hover:bg-gray-50"
+                              >
+                                <td className="py-1.5 px-1">
+                                  <span className="font-bold text-gray-700 text-xs">
+                                    {team.rank || idx + 1}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-1">
+                                  <Link
+                                    to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
+                                    className="flex items-center gap-1.5 hover:opacity-80"
+                                  >
+                                    {logo && (
+                                      <img src={logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
+                                    )}
+                                    <span
+                                      className="font-semibold truncate text-xs"
+                                      style={{ color: colors.primary }}
+                                    >
+                                      {getSchoolName(mascotName) || teamAbbr}
+                                    </span>
+                                  </Link>
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-bold text-gray-700 text-xs">
+                                  {team.wins || 0}
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-bold text-gray-700 text-xs">
+                                  {team.losses || 0}
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-medium text-gray-600 text-xs">
+                                  {team.pointsFor || 0}
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-medium text-gray-600 text-xs">
+                                  {team.pointsAgainst || 0}
+                                </td>
+                                <td
+                                  className="py-1.5 px-1 text-center font-bold text-xs"
+                                  style={{
+                                    color: pointDiff > 0 ? '#16a34a' : pointDiff < 0 ? '#dc2626' : '#6b7280'
+                                  }}
+                                >
+                                  {pointDiff > 0 ? '+' : ''}{pointDiff}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-4 text-center">
+                    <p className="text-gray-400 text-sm">
+                      No standings data for {displayYear}.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">

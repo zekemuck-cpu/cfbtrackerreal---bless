@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective } from '../../context/DynastyContext'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -121,6 +121,17 @@ export default function CFPBracket() {
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingGameData, setEditingGameData] = useState(null)
+  const [bracketScale, setBracketScale] = useState(0.7)
+
+  // Scale bracket based on screen size
+  useEffect(() => {
+    const updateScale = () => {
+      setBracketScale(window.innerWidth >= 1024 ? 0.8 : 0.7)
+    }
+    updateScale()
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
+  }, [])
 
   if (!currentDynasty) {
     return <div className="p-6">Loading...</div>
@@ -337,6 +348,7 @@ export default function CFPBracket() {
     const txtColor = teamData?.textColor || '#D1D5DB'
     const mascotName = team ? mascotMap[team] : null
     const logo = mascotName ? getTeamLogo(mascotName) : null
+    const isLoser = score !== undefined && !isWinner
 
     return (
       <div
@@ -346,7 +358,8 @@ export default function CFPBracket() {
           width: `${SLOT_WIDTH}px`,
           height: `${SLOT_HEIGHT}px`,
           borderColor: team ? 'transparent' : '#6B7280',
-          opacity: score !== undefined && !isWinner ? 0.6 : 1
+          opacity: isLoser ? 0.85 : 1,
+          filter: isLoser ? 'grayscale(30%)' : 'none'
         }}
       >
         <span className="text-lg font-bold w-8 opacity-70" style={{ color: txtColor }}>
@@ -746,18 +759,21 @@ export default function CFPBracket() {
   }
 
   return (
-    <div className="p-4">
+    <div
+      className="rounded-lg p-4"
+      style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}
+    >
       <div className="flex items-center justify-center gap-3 md:gap-6 mb-6 md:mb-10">
         <img src="https://i.imgur.com/ZKD9dQJ.png" alt="CFP Logo" className="h-10 md:h-20" />
-        <h1 className="text-xl md:text-4xl font-bold" style={{ color: textColor }}>
+        <h1 className="text-xl md:text-4xl font-bold text-white">
           <select
             value={displayYear}
             onChange={(e) => handleYearChange(parseInt(e.target.value))}
             className="bg-transparent font-bold cursor-pointer hover:opacity-80 transition-opacity appearance-none pr-1"
             style={{
-              color: textColor,
+              color: '#fff',
               outline: 'none',
-              borderBottom: `2px solid ${textColor}40`
+              borderBottom: '2px solid rgba(255,255,255,0.4)'
             }}
           >
             {availableYears.map(year => (
@@ -768,14 +784,17 @@ export default function CFPBracket() {
         </h1>
       </div>
 
-      {/* Bracket Container - scrollable on small screens, centered on large */}
-      <div className="overflow-x-auto">
+      {/* Bracket Container - scaled down */}
+      <div className="overflow-x-auto" style={{ height: `${(BRACKET_HEIGHT + 250) * bracketScale}px` }}>
         <div
-          className="mx-auto"
-          style={{ width: `${BRACKET_WIDTH}px`, minWidth: `${BRACKET_WIDTH}px` }}
+          style={{
+            width: `${BRACKET_WIDTH}px`,
+            transform: `scale(${bracketScale})`,
+            transformOrigin: 'top left'
+          }}
         >
           {/* Round Labels */}
-          <div className="flex mb-6 text-xl font-bold" style={{ color: textColor }}>
+          <div className="flex mb-6 text-xl font-bold text-white">
             <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px` }} className="text-center">First Round</div>
             <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center">Quarterfinals</div>
             <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center">Semifinals</div>
@@ -927,7 +946,7 @@ export default function CFPBracket() {
             {/* Trophy */}
             <div className="absolute text-center" style={{ top: CHAMP + MATCHUP_HEIGHT + 30, left: COL4, width: `${SLOT_WIDTH}px` }}>
               <img src="https://i.imgur.com/3goz1NK.png" alt="CFP Trophy" className="h-32 mx-auto mb-3" />
-              <div className="text-lg font-bold" style={{ color: textColor }}>National Champion</div>
+              <div className="text-lg font-bold text-white">National Champion</div>
             </div>
           </div>
         </div>

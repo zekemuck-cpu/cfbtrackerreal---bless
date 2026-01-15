@@ -174,10 +174,15 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Helper function to normalize player names for URL
+// Helper function to normalize player names for comparison
 const normalizePlayerName = (name) => {
   if (!name) return ''
-  return name.trim().toLowerCase()
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')        // Collapse multiple spaces to single space
+    .replace(/['']/g, "'")       // Normalize curly apostrophes to straight
+    .replace(/[""]/g, '"')       // Normalize curly quotes to straight
 }
 
 // Helper function to clean player names by removing prefix symbols (stars, bullets, etc.)
@@ -357,7 +362,8 @@ export default function AllConference() {
   // Helper function to find player by name and optionally school
   const findPlayerByNameAndSchool = (playerName, school) => {
     if (!playerName || !currentDynasty.players) return null
-    const normalizedName = normalizePlayerName(playerName)
+    // Clean and normalize the player name (remove star prefixes, normalize spaces/quotes)
+    const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
     const normalizedSchool = school?.toUpperCase()
 
     // Helper to check if player's team matches the school

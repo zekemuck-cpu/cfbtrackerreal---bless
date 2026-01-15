@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
@@ -111,11 +111,28 @@ const CONFERENCES = [
 
 export default function ConferenceChampionshipHistory() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedConference, setExpandedConference] = useState(null)
+  const conferenceRefs = useRef({})
   // Modal state removed - now using game pages instead
+
+  // Auto-expand and scroll to conference from URL parameter
+  useEffect(() => {
+    const conferenceFromUrl = searchParams.get('conference')
+    if (conferenceFromUrl) {
+      setExpandedConference(conferenceFromUrl)
+      // Wait for render then scroll
+      setTimeout(() => {
+        const element = conferenceRefs.current[conferenceFromUrl]
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+    }
+  }, [searchParams])
 
   if (!currentDynasty) return null
 
@@ -259,7 +276,11 @@ export default function ConferenceChampionshipHistory() {
             const isExpanded = expandedConference === conferenceName
 
             return (
-              <div key={conferenceName}>
+              <div
+                key={conferenceName}
+                ref={el => conferenceRefs.current[conferenceName] = el}
+                style={{ scrollMarginTop: '100px' }}
+              >
                 {/* Conference Header */}
                 <button
                   onClick={() => setExpandedConference(isExpanded ? null : conferenceName)}

@@ -647,7 +647,7 @@ export default function TeamStats() {
       yardsPerGame: p.games > 0 ? (p.yards / p.games).toFixed(1) : '0.0',
       tdPct: p.attempts > 0 ? ((p.tD / p.attempts) * 100).toFixed(1) : '0.0',
       intPct: p.attempts > 0 ? ((p.iNT / p.attempts) * 100).toFixed(1) : '0.0',
-      tdIntRatio: p.iNT > 0 ? (p.tD / p.iNT).toFixed(2).replace('.', ':') : (p.tD > 0 ? '∞' : '0:00')
+      tdIntRatio: p.iNT > 0 ? `${(p.tD / p.iNT).toFixed(2)}:1` : (p.tD > 0 ? '∞' : '-')
     })).filter(p => p.comp > 0 || p.attempts > 0)
 
     const rushing = rawRushing.map(p => ({

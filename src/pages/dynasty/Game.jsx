@@ -920,7 +920,7 @@ export default function Game() {
               </Link>
             ) : game.isConferenceChampionship ? (
               <Link
-                to={`${pathPrefix}/conference-championship-history`}
+                to={`${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`}
                 className="text-white text-center hover:underline"
               >
                 <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
@@ -928,7 +928,7 @@ export default function Game() {
               </Link>
             ) : game.isBowlGame ? (
               <Link
-                to={`${pathPrefix}/bowl-history`}
+                to={`${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`}
                 className="text-white text-center hover:underline"
               >
                 <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
