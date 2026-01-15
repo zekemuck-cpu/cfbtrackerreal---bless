@@ -992,7 +992,7 @@ export default function TeamYear() {
   // Exclude CFP games - they have their own badges
   // Check both tid and abbr for team matching (supports both unified and legacy formats)
   const bowlGamesFromGames = allGamesArray.filter(g =>
-    g.isBowlGame && isSameYear(g.year, selectedYear) &&
+    (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) && isSameYear(g.year, selectedYear) &&
     (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
     g.team1Score !== null && g.team1Score !== undefined &&
     !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship &&
@@ -1609,7 +1609,7 @@ export default function TeamYear() {
               let bowlGameId = teamBowlGame.id
               if (!bowlGameId && teamBowlGame.bowlName) {
                 const matchingGame = (currentDynasty.games || []).find(g =>
-                  g.isBowlGame &&
+                  (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) &&
                   isSameYear(g.year, selectedYear) &&
                   g.bowlName === teamBowlGame.bowlName
                 )
@@ -1680,7 +1680,7 @@ export default function TeamYear() {
               let bowlGameId = teamBowlGame.id
               if (!bowlGameId && teamBowlGame.bowlName) {
                 const matchingGame = (currentDynasty.games || []).find(g =>
-                  g.isBowlGame &&
+                  (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) &&
                   isSameYear(g.year, selectedYear) &&
                   g.bowlName === teamBowlGame.bowlName
                 )
