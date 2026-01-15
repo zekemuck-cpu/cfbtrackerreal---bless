@@ -8,6 +8,7 @@ const SCREENSHOTS = [
   { url: 'https://i.imgur.com/RflYzae.png', caption: 'Dashboard' },
   { url: 'https://i.imgur.com/QBgvS3M.png', caption: 'Team Stats' },
   { url: 'https://i.imgur.com/FNpdolf.png', caption: 'Player Profile' },
+  { url: 'https://i.imgur.com/T152n1f.png', caption: 'Schedule' },
   { url: 'https://i.imgur.com/D9eQz1c.png', caption: 'Roster Management' },
   { url: 'https://i.imgur.com/jslB1bq.png', caption: 'CFP Bracket' },
   { url: 'https://i.imgur.com/EGStRRA.png', caption: 'Bowl History' },

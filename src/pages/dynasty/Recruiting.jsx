@@ -820,51 +820,71 @@ export default function Recruiting() {
           border: `3px solid ${teamColors.primary}`
         }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          {/* Team Logo and Title */}
-          <div className="flex items-center gap-4">
-            {teamLogo && (
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0"
+        {/* Header - Team Info and Controls */}
+        <div className="flex flex-col gap-4 mb-6">
+          {/* Row 1: Team Logo and Title (centered on mobile, left on larger) */}
+          <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              {teamLogo && (
+                <div
+                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    border: `3px solid ${teamColors.secondary}`,
+                    padding: '3px'
+                  }}
+                >
+                  <img
+                    src={teamLogo}
+                    alt={teamFullName}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+              <div className="text-center sm:text-left">
+                <Link
+                  to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
+                  className="text-xl sm:text-2xl font-bold hover:underline"
+                  style={{ color: secondaryBgText }}
+                >
+                  {teamFullName}
+                </Link>
+                <p className="text-sm font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                  {isAllSeasons ? 'All-Time Recruiting' : `${selectedYear} Recruiting Class`}
+                </p>
+              </div>
+            </div>
+
+            {/* Edit Button - shown on right side on larger screens */}
+            {!isViewOnly && !isAllSeasons && (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="hidden sm:flex px-3 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors items-center gap-2"
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  border: `3px solid ${teamColors.secondary}`,
-                  padding: '3px'
+                  backgroundColor: teamColors.primary,
+                  color: primaryBgText
                 }}
               >
-                <img
-                  src={teamLogo}
-                  alt={teamFullName}
-                  className="w-full h-full object-contain"
-                />
-              </div>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit
+              </button>
             )}
-            <div>
-              <Link
-                to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
-                className="text-2xl font-bold hover:underline"
-                style={{ color: secondaryBgText }}
-              >
-                {teamFullName}
-              </Link>
-              <p className="text-sm font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                {isAllSeasons ? 'All-Time Recruiting' : `${selectedYear} Recruiting Class`}
-              </p>
-            </div>
           </div>
 
-          {/* Team/Year Selectors and Edit Button */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Row 2: Team/Year Selectors (centered, stacked on very small screens) */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
             {/* Team Selector - only show if multiple teams have recruiting classes */}
             {teamsWithRecruitingClasses.length > 1 && (
-              <>
-                <label className="text-sm font-medium" style={{ color: secondaryBgText }}>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium whitespace-nowrap" style={{ color: secondaryBgText }}>
                   Team:
                 </label>
                 <select
                   value={selectedTid}
                   onChange={(e) => handleTeamChange(Number(e.target.value))}
-                  className="px-3 py-2 rounded-lg border-2 font-semibold"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-2 font-semibold text-sm sm:text-base"
                   style={{
                     borderColor: teamColors.primary,
                     backgroundColor: teamColors.secondary,
@@ -875,36 +895,39 @@ export default function Recruiting() {
                     <option key={team.tid} value={team.tid}>{team.name}</option>
                   ))}
                 </select>
-              </>
+              </div>
             )}
-            <label className="text-sm font-medium" style={{ color: secondaryBgText }}>
-              Season:
-            </label>
-            <select
-              value={selectedYear}
-              onChange={(e) => handleYearChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              className="px-3 py-2 rounded-lg border-2 font-semibold"
-              style={{
-                borderColor: teamColors.primary,
-                backgroundColor: teamColors.secondary,
-                color: secondaryBgText
-              }}
-            >
-              {availableYears.length > 0 && (
-                <option value="all">All Seasons</option>
-              )}
-              {availableYears.length > 0 ? (
-                availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))
-              ) : (
-                <option value={selectedYear}>{selectedYear}</option>
-              )}
-            </select>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium whitespace-nowrap" style={{ color: secondaryBgText }}>
+                Season:
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-2 font-semibold text-sm sm:text-base"
+                style={{
+                  borderColor: teamColors.primary,
+                  backgroundColor: teamColors.secondary,
+                  color: secondaryBgText
+                }}
+              >
+                {availableYears.length > 0 && (
+                  <option value="all">All Seasons</option>
+                )}
+                {availableYears.length > 0 ? (
+                  availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))
+                ) : (
+                  <option value={selectedYear}>{selectedYear}</option>
+                )}
+              </select>
+            </div>
+            {/* Edit Button - shown inline on mobile only */}
             {!isViewOnly && !isAllSeasons && (
               <button
                 onClick={() => setShowEditModal(true)}
-                className="px-3 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center gap-2"
+                className="sm:hidden px-2 py-1.5 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center gap-1 text-sm"
                 style={{
                   backgroundColor: teamColors.primary,
                   color: primaryBgText
@@ -974,11 +997,11 @@ export default function Recruiting() {
           )
 
           return (
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6">
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 mb-6 max-w-lg sm:max-w-none mx-auto">
               {/* National Rank - hide when viewing all seasons */}
               {!isAllSeasons && (
-                <div className="px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15`, minWidth: '80px' }}>
-                  <div className="text-xl font-bold" style={{ color: teamColors.primary }}>
+                <div className="px-2 sm:px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15` }}>
+                  <div className="text-lg sm:text-xl font-bold" style={{ color: teamColors.primary }}>
                     {nationalRank ? `#${nationalRank}` : '—'}
                   </div>
                   <div className="text-xs font-medium mt-0.5" style={{ color: secondaryBgText, opacity: 0.7 }}>Rank</div>
@@ -986,8 +1009,8 @@ export default function Recruiting() {
               )}
               {/* Total recruits when viewing all seasons */}
               {isAllSeasons && (
-                <div className="px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15`, minWidth: '80px' }}>
-                  <div className="text-xl font-bold" style={{ color: teamColors.primary }}>
+                <div className="px-2 sm:px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15` }}>
+                  <div className="text-lg sm:text-xl font-bold" style={{ color: teamColors.primary }}>
                     {classStats.total}
                   </div>
                   <div className="text-xs font-medium mt-0.5" style={{ color: secondaryBgText, opacity: 0.7 }}>Total</div>
@@ -997,75 +1020,70 @@ export default function Recruiting() {
               {/* 5-Star */}
               <button
                 onClick={() => toggleStarFilter(5)}
-                className={`px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
                   selectedStars.includes(5) ? 'ring-2 ring-offset-1 ring-yellow-500 scale-105' : 'hover:scale-105'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(5) ? '#FEF3C7' : '#FEF3C720',
-                  width: '70px'
+                  backgroundColor: selectedStars.includes(5) ? '#FEF3C7' : '#FEF3C720'
                 }}
               >
-                <div className="text-xl font-bold" style={{ color: '#B45309' }}>{classStats.fiveStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#B45309' }}>{classStats.fiveStars}</div>
                 <MiniStars count={5} />
               </button>
 
               {/* 4-Star */}
               <button
                 onClick={() => toggleStarFilter(4)}
-                className={`px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
                   selectedStars.includes(4) ? 'ring-2 ring-offset-1 ring-indigo-500 scale-105' : 'hover:scale-105'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(4) ? '#E0E7FF' : '#E0E7FF20',
-                  width: '70px'
+                  backgroundColor: selectedStars.includes(4) ? '#E0E7FF' : '#E0E7FF20'
                 }}
               >
-                <div className="text-xl font-bold" style={{ color: '#4338CA' }}>{classStats.fourStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#4338CA' }}>{classStats.fourStars}</div>
                 <MiniStars count={4} />
               </button>
 
               {/* 3-Star */}
               <button
                 onClick={() => toggleStarFilter(3)}
-                className={`px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
                   selectedStars.includes(3) ? 'ring-2 ring-offset-1 ring-blue-500 scale-105' : 'hover:scale-105'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(3) ? '#DBEAFE' : '#DBEAFE20',
-                  width: '70px'
+                  backgroundColor: selectedStars.includes(3) ? '#DBEAFE' : '#DBEAFE20'
                 }}
               >
-                <div className="text-xl font-bold" style={{ color: '#1D4ED8' }}>{classStats.threeStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#1D4ED8' }}>{classStats.threeStars}</div>
                 <MiniStars count={3} />
               </button>
 
               {/* 2-Star */}
               <button
                 onClick={() => toggleStarFilter(2)}
-                className={`px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
                   selectedStars.includes(2) ? 'ring-2 ring-offset-1 ring-gray-400 scale-105' : 'hover:scale-105'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(2) ? '#E5E7EB' : '#F3F4F620',
-                  width: '70px'
+                  backgroundColor: selectedStars.includes(2) ? '#E5E7EB' : '#F3F4F620'
                 }}
               >
-                <div className="text-xl font-bold" style={{ color: '#6B7280' }}>{classStats.twoStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#6B7280' }}>{classStats.twoStars}</div>
                 <MiniStars count={2} />
               </button>
 
               {/* 1-Star */}
               <button
                 onClick={() => toggleStarFilter(1)}
-                className={`px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
                   selectedStars.includes(1) ? 'ring-2 ring-offset-1 ring-gray-300 scale-105' : 'hover:scale-105'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(1) ? '#F3F4F6' : '#F3F4F610',
-                  width: '70px'
+                  backgroundColor: selectedStars.includes(1) ? '#F3F4F6' : '#F3F4F610'
                 }}
               >
-                <div className="text-xl font-bold" style={{ color: '#9CA3AF' }}>{classStats.oneStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#9CA3AF' }}>{classStats.oneStars}</div>
                 <MiniStars count={1} />
               </button>
             </div>
@@ -1097,53 +1115,50 @@ export default function Recruiting() {
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-14 h-14 object-cover rounded-lg border-2 flex-shrink-0"
+                        className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border-2 flex-shrink-0"
                         style={{ borderColor: teamColors.primary }}
                       />
                     )}
 
-                    <div className="flex-1 min-w-0 flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3
-                          className="font-bold text-lg truncate"
-                          style={{ color: player ? teamColors.primary : secondaryBgText }}
+                    <div className="flex-1 min-w-0">
+                      {/* Name - always visible, wraps on small screens */}
+                      <h3
+                        className="font-bold text-sm sm:text-lg leading-tight"
+                        style={{ color: player ? teamColors.primary : secondaryBgText }}
+                      >
+                        {recruit.name || 'Unknown'}
+                      </h3>
+                      {/* Position, Class, Stars row */}
+                      <div className="flex items-center flex-wrap gap-1 sm:gap-2 mt-1">
+                        <span
+                          className="px-1.5 sm:px-2 py-0.5 rounded text-xs font-bold"
+                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                         >
-                          {recruit.name || 'Unknown'}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-1">
+                          {recruit.position || 'ATH'}
+                        </span>
+                        {isAllSeasons && recruit.recruitYear && (
                           <span
-                            className="px-2 py-0.5 rounded text-xs font-bold"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            className="px-1.5 sm:px-2 py-0.5 rounded text-xs font-bold"
+                            style={{ backgroundColor: secondaryBgText, color: teamColors.secondary, opacity: 0.8 }}
                           >
-                            {recruit.position || 'ATH'}
+                            {recruit.recruitYear}
                           </span>
-                          {isAllSeasons && recruit.recruitYear && (
-                            <span
-                              className="px-2 py-0.5 rounded text-xs font-bold"
-                              style={{ backgroundColor: secondaryBgText, color: teamColors.secondary, opacity: 0.8 }}
-                            >
-                              {recruit.recruitYear}
-                            </span>
-                          )}
-                          <span className="text-xs font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                            {recruit.class || 'HS'}
-                          </span>
+                        )}
+                        <span className="text-xs font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                          {recruit.class || 'HS'}
+                        </span>
+                        <div className="ml-auto">
+                          <StarRating stars={recruit.stars} size="sm" />
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <StarRating stars={recruit.stars} />
-                        {recruit.nationalRank && (
-                          <span className="text-xs font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                            #{recruit.nationalRank} Nat'l
-                          </span>
-                        )}
-                        {(recruit.stateRank || recruit.positionRank) && (
-                          <div className="flex flex-col items-end text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
-                            {recruit.stateRank && <span>#{recruit.stateRank} in State</span>}
-                            {recruit.positionRank && <span>#{recruit.positionRank} {recruit.position}</span>}
-                          </div>
-                        )}
-                      </div>
+                      {/* Rankings row - below name/position */}
+                      {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                          {recruit.nationalRank && <span>#{recruit.nationalRank} Nat'l</span>}
+                          {recruit.stateRank && <span>#{recruit.stateRank} in State</span>}
+                          {recruit.positionRank && <span>#{recruit.positionRank} {recruit.position}</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
 
