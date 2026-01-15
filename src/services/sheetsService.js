@@ -6291,6 +6291,16 @@ export async function readConferenceStandingsFromSheet(spreadsheetId) {
       standings[conf].sort((a, b) => a.rank - b.rank)
     })
 
+    // Debug log the parsed standings
+    console.log('[ConferenceStandings] Parsed standings from sheet:', {
+      conferences: Object.keys(standings),
+      totalTeams: Object.values(standings).flat().length,
+      sampleData: Object.entries(standings).slice(0, 2).map(([conf, teams]) => ({
+        conference: conf,
+        teams: teams.slice(0, 3).map(t => `${t.team}: ${t.wins}-${t.losses}`)
+      }))
+    })
+
     return standings
   } catch (error) {
     console.error('Error reading conference standings:', error)

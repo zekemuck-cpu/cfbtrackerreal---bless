@@ -854,10 +854,16 @@ export default function Team() {
     const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
     const yearStandings = standingsByYear[year] || {}
 
-    for (const confTeams of Object.values(yearStandings)) {
+    console.log(`[Team:${teamAbbr}] getTeamRecordFromStandings(${year}):`, {
+      hasStandingsForYear: !!yearStandings && Object.keys(yearStandings).length > 0,
+      conferences: Object.keys(yearStandings)
+    })
+
+    for (const [confName, confTeams] of Object.entries(yearStandings)) {
       if (Array.isArray(confTeams)) {
         const teamData = confTeams.find(t => t && t.team === teamAbbr)
         if (teamData) {
+          console.log(`[Team:${teamAbbr}] Found in ${confName}:`, teamData)
           return {
             wins: teamData.wins || 0,
             losses: teamData.losses || 0
@@ -865,6 +871,7 @@ export default function Team() {
         }
       }
     }
+    console.log(`[Team:${teamAbbr}] Not found in any conference standings for ${year}`)
     return null
   }
 
@@ -882,6 +889,11 @@ export default function Team() {
       // Check legacy abbreviation format (userTeam/opponent)
       if (g.userTeam === teamAbbr || g.opponent === teamAbbr) return true
       return false
+    })
+
+    console.log(`[Team:${teamAbbr}] getTeamRecordFromGames(${year}):`, {
+      gamesFound: teamGames.length,
+      tid
     })
 
     if (teamGames.length === 0) return null
@@ -921,7 +933,28 @@ export default function Team() {
       }
     })
 
+    console.log(`[Team:${teamAbbr}] Calculated from games: ${wins}-${losses}`)
     return { wins, losses }
+  }
+
+  // Get team record from stored teamRecordsByTeamYear (populated by conference standings save)
+  const getTeamRecordFromStoredRecords = (year) => {
+    // Check legacy structure first
+    const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[year]
+    if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
+      console.log(`[Team:${teamAbbr}] Found in teamRecordsByTeamYear:`, legacyRecord)
+      return legacyRecord
+    }
+
+    // Check tid-based structure
+    const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[year]?.record
+    if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
+      console.log(`[Team:${teamAbbr}] Found in teams[${tid}].byYear[${year}].record:`, tidRecord)
+      return tidRecord
+    }
+
+    console.log(`[Team:${teamAbbr}] No stored record found for ${year}`)
+    return null
   }
 
   // Check if team won conference championship in a year
@@ -986,13 +1019,39 @@ export default function Team() {
     return teamRank?.rank || null
   }
 
-  // Calculate record for each year from conference standings (or games played as fallback)
+  // Calculate record for each year from multiple sources (priority: standings > stored > games)
   const yearRecords = years.map(year => {
     const standingsRecord = getTeamRecordFromStandings(year)
+    const storedRecord = getTeamRecordFromStoredRecords(year)
     const gamesRecord = getTeamRecordFromGames(year)
-    // Use standings record if it has games played, otherwise fall back to games record
+
+    // Priority: conference standings > stored records > calculated from games
     const standingsHasGames = standingsRecord && (standingsRecord.wins > 0 || standingsRecord.losses > 0)
-    const record = standingsHasGames ? standingsRecord : (gamesRecord || standingsRecord)
+    const storedHasGames = storedRecord && (storedRecord.wins > 0 || storedRecord.losses > 0)
+
+    let record, source
+    if (standingsHasGames) {
+      record = standingsRecord
+      source = 'standings'
+    } else if (storedHasGames) {
+      record = storedRecord
+      source = 'stored'
+    } else if (gamesRecord) {
+      record = gamesRecord
+      source = 'games'
+    } else {
+      record = standingsRecord || storedRecord
+      source = 'none'
+    }
+
+    console.log(`[Team:${teamAbbr}] Year ${year} record decision:`, {
+      standingsRecord,
+      storedRecord,
+      gamesRecord,
+      finalRecord: record,
+      source
+    })
+
     const bowlResult = getBowlResultForYear(year)
     const ccWin = getConferenceChampionshipForYear(year)
     const cfpResult = getCFPResultForYear(year)

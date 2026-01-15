@@ -7495,6 +7495,8 @@ export function DynastyProvider({ children }) {
    * @returns {Object} { success, needsConfirmation, confirmations, message }
    */
   const processHonorPlayers = async (dynastyId, honorType, entries, year, transferDecisions = []) => {
+    console.log(`[processHonorPlayers] Starting - honorType: ${honorType}, entries: ${entries.length}, year: ${year}`)
+
     const isDev = import.meta.env.VITE_DEV_MODE === 'true'
     let dynasty
 
@@ -7509,11 +7511,13 @@ export function DynastyProvider({ children }) {
     }
 
     if (!dynasty) {
+      console.log('[processHonorPlayers] Dynasty not found!')
       return { success: false, message: 'Dynasty not found' }
     }
 
     const existingPlayers = [...(dynasty.players || [])]
     let nextPID = dynasty.nextPID || (existingPlayers.length + 1)
+    console.log(`[processHonorPlayers] Existing players: ${existingPlayers.length}, nextPID: ${nextPID}`)
 
     // Track which entries need confirmation
     const confirmations = []
@@ -7598,6 +7602,7 @@ export function DynastyProvider({ children }) {
 
     // If there are confirmations needed, return them
     if (confirmations.length > 0) {
+      console.log(`[processHonorPlayers] Needs confirmation for ${confirmations.length} players - returning early`)
       return {
         success: false,
         needsConfirmation: true,
@@ -7605,6 +7610,8 @@ export function DynastyProvider({ children }) {
         message: `${confirmations.length} player(s) may be transfers and need confirmation`
       }
     }
+
+    console.log(`[processHonorPlayers] No confirmations needed. Updates: ${playersToUpdate.length}, Creates: ${playersToCreate.length}`)
 
     // Apply updates to existing players
     // Use filter instead of find to get ALL updates for each player (e.g., multiple awards)

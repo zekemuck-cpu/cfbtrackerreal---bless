@@ -486,16 +486,13 @@ export default function AllConference() {
     return (
       <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
         <div
-          className="px-4 py-3 flex items-center gap-3"
+          className="px-4 py-3 flex items-center justify-between"
           style={{ backgroundColor: badgeColor }}
         >
-          <svg className="w-6 h-6" fill="none" stroke="#FFFFFF" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-          </svg>
           <h2 className="text-lg font-bold text-white">
             {title}
           </h2>
-          <span className="ml-auto text-sm text-white opacity-80">
+          <span className="text-sm text-white opacity-80">
             {players.length} selections
           </span>
         </div>

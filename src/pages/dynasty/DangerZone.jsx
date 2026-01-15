@@ -181,7 +181,12 @@ export default function DangerZone() {
       const duplicateIds = []
 
       games.forEach(game => {
-        const key = `${game.year ?? 0}-${game.week ?? 0}-${game.gameType || 'regular'}-${game.team1Tid || game.userTid || 0}`
+        // For bowl games, use bowlName as key (week can vary)
+        // For regular games, use week + team as key
+        const isBowlGame = game.isBowlGame || game.gameType === 'bowl'
+        const key = isBowlGame
+          ? `${game.year ?? 0}-bowl-${(game.bowlName || '').toLowerCase()}-${game.team1Tid || game.userTid || 0}`
+          : `${game.year ?? 0}-${game.week ?? 0}-${game.gameType || 'regular'}-${game.team1Tid || game.userTid || 0}`
         if (seenGames.has(key)) {
           const existingGame = games.find(g => g.id === seenGames.get(key))
           const existingHasScores = existingGame && (existingGame.team1Score > 0 || existingGame.team2Score > 0)
@@ -397,15 +402,13 @@ export default function DangerZone() {
             buttonText="Fix"
             onClick={handleFixTransfers}
             status={transferFixStatus}
-            variant="danger"
           />
           <ActionCard
-            title="Remove Orphans"
-            description="Emergency fix for ghost roster entries"
-            buttonText="Remove"
+            title="Fix Ghost Players"
+            description="Fixes ghost roster entries"
+            buttonText="Fix"
             onClick={handleOrphanCleanup}
             status={orphanCleanupStatus}
-            variant="danger"
           />
         </div>
       </div>

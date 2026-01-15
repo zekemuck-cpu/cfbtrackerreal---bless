@@ -219,6 +219,10 @@ export default function AllAmericans() {
   const handleAllAmericansSave = async (data) => {
     const year = displayYear
 
+    console.log('[AllAmericans] Saving data for year:', year)
+    console.log('[AllAmericans] All-Americans count:', data.allAmericans?.length || 0)
+    console.log('[AllAmericans] All-Conference count:', data.allConference?.length || 0)
+
     // Process All-Americans for player matching
     if (data.allAmericans && data.allAmericans.length > 0) {
       const aaEntries = data.allAmericans.map(entry => ({
@@ -227,13 +231,15 @@ export default function AllAmericans() {
         honorCategory: 'allAmericans'
       }))
 
-      await processHonorPlayers(
+      console.log('[AllAmericans] Processing All-Americans entries:', aaEntries.length)
+      const aaResult = await processHonorPlayers(
         currentDynasty.id,
         'allAmericans',
         aaEntries,
         year,
         []
       )
+      console.log('[AllAmericans] All-Americans processHonorPlayers result:', aaResult)
     }
 
     // Process All-Conference for player matching
@@ -244,13 +250,15 @@ export default function AllAmericans() {
         honorCategory: 'allConference'
       }))
 
-      await processHonorPlayers(
+      console.log('[AllAmericans] Processing All-Conference entries:', acEntries.length)
+      const acResult = await processHonorPlayers(
         currentDynasty.id,
         'allConference',
         acEntries,
         year,
         []
       )
+      console.log('[AllAmericans] All-Conference processHonorPlayers result:', acResult)
     }
 
     // Save the raw data to allAmericansByYear
@@ -265,6 +273,7 @@ export default function AllAmericans() {
         }
       }
     })
+    console.log('[AllAmericans] Save complete')
   }
 
   // Filter all-americans
@@ -411,16 +420,13 @@ export default function AllAmericans() {
     return (
       <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
         <div
-          className="px-4 py-3 flex items-center gap-3"
+          className="px-4 py-3 flex items-center justify-between"
           style={{ backgroundColor: badgeColor }}
         >
-          <svg className="w-6 h-6" fill="none" stroke="#FFFFFF" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-          </svg>
           <h2 className="text-lg font-bold text-white">
             {title}
           </h2>
-          <span className="ml-auto text-sm text-white opacity-80">
+          <span className="text-sm text-white opacity-80">
             {players.length} selections
           </span>
         </div>

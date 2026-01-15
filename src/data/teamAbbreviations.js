@@ -251,21 +251,27 @@ export function getSelectableTeamsList(customTeams = null) {
   if (isTidBasedTeams(customTeams)) {
     // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
     const replacedTeamAbbrs = new Set()
+    const teambuilderAbbrs = []
 
-    // Find all replaced team abbreviations
+    // Find all replaced team abbreviations and teambuilder teams
     for (const team of Object.values(customTeams)) {
-      if (team.isTeambuilder && team.replacedTeam?.abbr) {
-        replacedTeamAbbrs.add(team.replacedTeam.abbr)
+      if (team.isTeambuilder) {
+        // Only add non-FCS teambuilder teams to selectable list
+        if (!team.isFCS) {
+          teambuilderAbbrs.push(team.abbr)
+        }
+        if (team.replacedTeam?.abbr) {
+          replacedTeamAbbrs.add(team.replacedTeam.abbr)
+        }
       }
     }
 
-    // Get FBS teams from the tid-based teams (they already have isFCS flag)
-    const fbsTeams = Object.values(customTeams)
-      .filter(team => !team.isFCS && team.abbr)
-      .filter(team => !replacedTeamAbbrs.has(team.abbr))
-      .map(team => team.abbr)
+    // Start with full static FBS team list, exclude replaced teams, add teambuilder teams
+    const fbsTeams = Object.keys(teamAbbreviations)
+      .filter(abbr => !teamAbbreviations[abbr].isFCS)
+      .filter(abbr => !replacedTeamAbbrs.has(abbr))
 
-    return fbsTeams.sort()
+    return [...fbsTeams, ...teambuilderAbbrs].sort()
   }
 
   // Old customTeams format
@@ -293,21 +299,23 @@ export function getSchedulableTeamsList(customTeams = null) {
   if (isTidBasedTeams(customTeams)) {
     // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
     const replacedTeamAbbrs = new Set()
+    const teambuilderAbbrs = []
 
-    // Find all replaced team abbreviations
+    // Find all replaced team abbreviations and teambuilder teams
     for (const team of Object.values(customTeams)) {
-      if (team.isTeambuilder && team.replacedTeam?.abbr) {
-        replacedTeamAbbrs.add(team.replacedTeam.abbr)
+      if (team.isTeambuilder) {
+        teambuilderAbbrs.push(team.abbr)
+        if (team.replacedTeam?.abbr) {
+          replacedTeamAbbrs.add(team.replacedTeam.abbr)
+        }
       }
     }
 
-    // Get all teams from the tid-based teams
-    const allTeams = Object.values(customTeams)
-      .filter(team => team.abbr)
-      .filter(team => !replacedTeamAbbrs.has(team.abbr))
-      .map(team => team.abbr)
+    // Start with full static team list, exclude replaced teams, add teambuilder teams
+    const allTeams = Object.keys(teamAbbreviations)
+      .filter(abbr => !replacedTeamAbbrs.has(abbr))
 
-    return allTeams.sort()
+    return [...allTeams, ...teambuilderAbbrs].sort()
   }
 
   // Old customTeams format

@@ -294,16 +294,13 @@ export default function Rankings() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Media Poll */}
         <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-          <div className="px-4 py-3 flex items-center gap-3 bg-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="white" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-            </svg>
+          <div className="px-4 py-3 bg-gray-700">
             <h2 className="text-lg font-bold text-white">
               Media Poll
             </h2>
           </div>
 
-          <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
+          <div className="p-4 space-y-2">
             {mediaPoll.length > 0 ? (
               mediaPoll
                 .sort((a, b) => a.rank - b.rank)
@@ -325,16 +322,13 @@ export default function Rankings() {
 
         {/* Coaches Poll */}
         <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-          <div className="px-4 py-3 flex items-center gap-3 bg-gray-700">
-            <svg className="w-6 h-6" fill="none" stroke="white" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+          <div className="px-4 py-3 bg-gray-700">
             <h2 className="text-lg font-bold text-white">
               Coaches Poll
             </h2>
           </div>
 
-          <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
+          <div className="p-4 space-y-2">
             {coachesPoll.length > 0 ? (
               coachesPoll
                 .sort((a, b) => a.rank - b.rank)

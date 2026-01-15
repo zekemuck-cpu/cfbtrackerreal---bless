@@ -8609,12 +8609,72 @@ export default function Dashboard() {
         onSave={async (standings) => {
           const year = currentDynasty.currentYear
           const existingByYear = currentDynasty.conferenceStandingsByYear || {}
+
+          // Debug log incoming standings
+          console.log('[ConferenceStandings] Saving standings for year:', year)
+          console.log('[ConferenceStandings] Conferences:', Object.keys(standings))
+          console.log('[ConferenceStandings] Total teams:', Object.values(standings).flat().length)
+
+          // Build team record updates from standings
+          // This ensures all teams have their records stored for the year
+          const teamRecordUpdates = {}
+          const teamsUpdates = {}
+
+          Object.entries(standings).forEach(([conference, teams]) => {
+            teams.forEach(teamData => {
+              const abbr = teamData.team
+              const tid = getTidFromAbbr(abbr)
+              const record = { wins: teamData.wins, losses: teamData.losses }
+
+              // Update legacy structure
+              if (!teamRecordUpdates[abbr]) {
+                teamRecordUpdates[abbr] = {}
+              }
+              teamRecordUpdates[abbr][year] = record
+
+              // Update tid-based structure if tid found
+              if (tid) {
+                if (!teamsUpdates[tid]) {
+                  teamsUpdates[tid] = { byYear: {} }
+                }
+                teamsUpdates[tid].byYear[year] = { record }
+              }
+
+              console.log(`[ConferenceStandings] ${abbr} (tid:${tid}): ${record.wins}-${record.losses}`)
+            })
+          })
+
+          // Merge with existing team records
+          const existingTeamRecords = currentDynasty.teamRecordsByTeamYear || {}
+          const mergedTeamRecords = { ...existingTeamRecords }
+          Object.entries(teamRecordUpdates).forEach(([abbr, yearRecords]) => {
+            mergedTeamRecords[abbr] = { ...(mergedTeamRecords[abbr] || {}), ...yearRecords }
+          })
+
+          // Merge with existing teams data
+          const existingTeams = currentDynasty.teams || {}
+          const mergedTeams = { ...existingTeams }
+          Object.entries(teamsUpdates).forEach(([tid, data]) => {
+            if (!mergedTeams[tid]) mergedTeams[tid] = {}
+            if (!mergedTeams[tid].byYear) mergedTeams[tid].byYear = {}
+            mergedTeams[tid].byYear[year] = {
+              ...(mergedTeams[tid].byYear[year] || {}),
+              ...data.byYear[year]
+            }
+          })
+
+          console.log('[ConferenceStandings] Saving to Firestore with team records')
+
           await updateDynasty(currentDynasty.id, {
             conferenceStandingsByYear: {
               ...existingByYear,
               [year]: standings
-            }
+            },
+            teamRecordsByTeamYear: mergedTeamRecords,
+            teams: mergedTeams
           })
+
+          console.log('[ConferenceStandings] Save complete')
         }}
         currentYear={currentDynasty.currentYear}
         teamColors={teamColors}

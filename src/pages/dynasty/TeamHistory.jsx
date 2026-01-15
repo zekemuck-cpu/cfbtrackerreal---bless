@@ -371,12 +371,14 @@ export default function TeamHistory() {
             </div>
           </div>
 
-          {/* Offensive Stats */}
-          <div className="mb-6">
-            <h4 className="text-lg font-bold mb-3" style={{ color: primaryText }}>
-              Offensive Statistics
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {/* Stats Grid - Two columns on desktop */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* Offensive Stats */}
+            <div>
+              <h4 className="text-lg font-bold mb-3" style={{ color: primaryText }}>
+                Offensive Statistics
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-2 gap-3">
               <div
                 className="p-3 rounded-lg border"
                 style={{
@@ -496,15 +498,15 @@ export default function TeamHistory() {
                   {season.defRedzoneTDPct ? `${season.defRedzoneTDPct}%` : '-'}
                 </div>
               </div>
+              </div>
             </div>
-          </div>
 
-          {/* Statistical Leaders */}
-          <div>
-            <h4 className="text-lg font-bold mb-3" style={{ color: primaryText }}>
-              Statistical Leaders
-            </h4>
-            <div className="grid md:grid-cols-2 gap-4">
+            {/* Statistical Leaders */}
+            <div>
+              <h4 className="text-lg font-bold mb-3" style={{ color: primaryText }}>
+                Statistical Leaders
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Passing Leader */}
               <div
                 className="p-4 rounded-lg border-2"
@@ -665,6 +667,7 @@ export default function TeamHistory() {
                 <div className="text-xs mt-1" style={{ color: secondaryText, opacity: 0.7 }}>
                   Team INTs/Game: {season.intLeader.teamIntsPerGame || '-'}
                 </div>
+              </div>
               </div>
             </div>
           </div>

@@ -219,6 +219,26 @@ All team win/loss records use a centralized system. **Do NOT calculate records i
 
 ---
 
+## Conference Standings → Team Records Flow
+
+When conference standings are saved (during offseason), records for ALL teams are now stored:
+
+1. **Data Entry**: User enters standings via Google Sheets modal (`ConferenceStandingsModal.jsx`)
+2. **Save Process** (`Dashboard.jsx` onSave):
+   - Saves to `conferenceStandingsByYear[year][conference]` - primary standings data
+   - Also updates `teamRecordsByTeamYear[abbr][year]` - legacy record storage
+   - Also updates `teams[tid].byYear[year].record` - tid-based record storage
+
+3. **Record Display** (in `Team.jsx` and `TeamYear.jsx`):
+   - Priority: `conferenceStandingsByYear` > `teamRecordsByTeamYear` > calculated from games
+   - This ensures all 130+ FBS teams show correct records, not just teams the user played against
+
+**Debug logs** (search console for):
+- `[ConferenceStandings]` - Save process logs
+- `[TeamYear:ABBR]` - Record source selection
+
+---
+
 ## Important Notes
 
 ### Firestore Updates

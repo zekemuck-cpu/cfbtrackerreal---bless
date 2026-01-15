@@ -1648,14 +1648,18 @@ export function getLogoFromTid(teams, tid) {
  * @returns {Object} { primary, secondary } colors or defaults
  */
 export function getColorsFromTid(teams, tid) {
-  if (!teams || tid == null) {
+  if (tid == null) {
     return { primary: '#374151', secondary: '#FFFFFF' }
   }
-  const team = teams[tid]
-  return {
-    primary: team?.primaryColor || '#374151',
-    secondary: team?.secondaryColor || '#FFFFFF'
-  }
+  // Check dynasty.teams first, then fall back to static TEAMS
+  const dynastyTeam = teams?.[tid]
+  const staticTeam = TEAMS[tid]
+
+  // Use colors from dynasty.teams if they exist, otherwise from TEAMS
+  const primary = dynastyTeam?.primaryColor || staticTeam?.primaryColor || '#374151'
+  const secondary = dynastyTeam?.secondaryColor || staticTeam?.secondaryColor || '#FFFFFF'
+
+  return { primary, secondary }
 }
 
 /**

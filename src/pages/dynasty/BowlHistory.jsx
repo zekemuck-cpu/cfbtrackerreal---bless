@@ -127,14 +127,15 @@ export default function BowlHistory() {
     const games = currentDynasty.games || []
 
     // Find bowl games from the unified games[] array using gameType
+    // Only include played games (not UPCOMING) - use isPlayed flag or non-zero scores
     const bowlGamesFromArray = games.filter(g => {
       const gameType = detectGameType(g)
       const isBowlType = gameType === GAME_TYPES.BOWL ||
                          gameType === GAME_TYPES.CFP_QUARTERFINAL ||
                          gameType === GAME_TYPES.CFP_SEMIFINAL ||
                          gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      return isBowlType && g.bowlName === bowlName &&
-             g.team1Score !== null && g.team1Score !== undefined
+      const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
+      return isBowlType && g.bowlName === bowlName && isPlayed
     })
 
     const teams = currentDynasty?.teams || TEAMS
@@ -269,13 +270,15 @@ export default function BowlHistory() {
     const games = currentDynasty.games || []
 
     // Count bowl games from games[] array using gameType
+    // Only include played games (not UPCOMING) - use isPlayed flag or non-zero scores
     const bowlGamesInArray = games.filter(g => {
       const gameType = detectGameType(g)
       const isBowlType = gameType === GAME_TYPES.BOWL ||
                          gameType === GAME_TYPES.CFP_QUARTERFINAL ||
                          gameType === GAME_TYPES.CFP_SEMIFINAL ||
                          gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      return isBowlType && g.team1Score !== null && g.team1Score !== undefined
+      const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
+      return isBowlType && isPlayed
     }).length
 
     // With unified migration, all bowl games are in games[] array
@@ -487,19 +490,21 @@ export default function BowlHistory() {
                       const team1Colors = team1Mascot ? getTeamColors(team1Mascot) : { primary: '#666', secondary: '#fff' }
                       const team2Colors = team2Mascot ? getTeamColors(team2Mascot) : { primary: '#666', secondary: '#fff' }
 
-                      // Generate game ID for navigation - ALWAYS include year to handle multiple years
+                      // Generate game ID for navigation
+                      // Prefer actual game ID from gameRef when available (most reliable)
+                      // Fall back to generated IDs for legacy data
                       const gameBowlName = game.bowlName || bowlName
                       const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
-                      // Use slot ID system for CFP bowls, bowl- prefix for regular bowl games
-                      // NOTE: We always generate a proper ID with year, even if gameRef.id exists,
-                      // because older games may have IDs without years (e.g., "fiesta" instead of "cfpsf2-2025")
                       let gameId
-                      if (game.isCFP) {
+                      if (game.gameRef?.id) {
+                        // Use actual game ID from database
+                        gameId = game.gameRef.id
+                      } else if (game.isCFP) {
                         // CFP games use slot IDs (cfpqf1, cfpsf1, cfpnc)
                         const slotId = getSlotIdFromBowlName(gameBowlName)
                         gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
                       } else {
-                        // Regular bowl games use bowl-{year}-{slug} format
+                        // Regular bowl games use bowl-{year}-{slug} format as fallback
                         gameId = `bowl-${game.year}-${bowlSlug}`
                       }
 

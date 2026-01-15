@@ -928,18 +928,71 @@ export default function TeamYear() {
 
   const seasonStats = getSeasonTeamStats()
 
-  // Calculate record directly from games to ensure accuracy
-  // The stored record may be stale if games were added/removed without updating it
-  const calculatedRecord = calculateTeamRecordFromGames(currentDynasty, tid, selectedYear)
+  // Get record from multiple sources (priority: standings > stored > calculated from games)
+  // Normalize year to number for consistent lookups
+  const yearNum = Number(selectedYear)
 
-  // Use calculated record as the authoritative source of truth for display
-  // This ensures the displayed record always matches actual games played
-  const displayRecord = calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0) ? {
-    wins: calculatedRecord.wins,
-    losses: calculatedRecord.losses,
-    pointsFor: null,
-    pointsAgainst: null
-  } : null
+  // 1. Conference standings (most authoritative for full season records)
+  const getRecordFromStandings = () => {
+    // Check both number and string keys for year
+    const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
+                          currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
+    for (const confTeams of Object.values(yearStandings)) {
+      if (Array.isArray(confTeams)) {
+        // Match by abbreviation (case-insensitive for safety)
+        const teamData = confTeams.find(t => t && t.team?.toUpperCase() === teamAbbr?.toUpperCase())
+        if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
+          return { wins: teamData.wins, losses: teamData.losses }
+        }
+      }
+    }
+    return null
+  }
+
+  // 2. Stored team records (populated when conference standings saved)
+  const getRecordFromStored = () => {
+    // Check both number and string keys for year
+    const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[yearNum] ||
+                         currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
+    if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
+      return legacyRecord
+    }
+    const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.record ||
+                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.record
+    if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
+      return tidRecord
+    }
+    return null
+  }
+
+  // 3. Calculate from games (fallback for user's own games)
+  const calculatedRecord = calculateTeamRecordFromGames(currentDynasty, tid, yearNum)
+
+  // Determine which record to display (priority: standings > stored > games)
+  const standingsRecord = getRecordFromStandings()
+  const storedRecord = getRecordFromStored()
+
+  let displayRecord = null
+  let recordSource = 'none'
+
+  if (standingsRecord) {
+    displayRecord = { ...standingsRecord, pointsFor: null, pointsAgainst: null }
+    recordSource = 'standings'
+  } else if (storedRecord) {
+    displayRecord = { ...storedRecord, pointsFor: null, pointsAgainst: null }
+    recordSource = 'stored'
+  } else if (calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0)) {
+    displayRecord = {
+      wins: calculatedRecord.wins,
+      losses: calculatedRecord.losses,
+      pointsFor: null,
+      pointsAgainst: null
+    }
+    recordSource = 'games'
+  }
+
+  // Debug log (only once per mount, not on every render)
+  // console.log(`[TeamYear:${teamAbbr}] Record for ${yearNum}: source=${recordSource}`, displayRecord)
 
   // Get team ratings for this year
   const teamRatings = currentDynasty.teamRatingsByTeamYear?.[teamAbbr]?.[selectedYear] || null
@@ -994,7 +1047,8 @@ export default function TeamYear() {
   const bowlGamesFromGames = allGamesArray.filter(g =>
     (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) && isSameYear(g.year, selectedYear) &&
     (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
-    g.team1Score !== null && g.team1Score !== undefined &&
+    // Only include played games (not UPCOMING) - use same pattern as elsewhere in codebase
+    (g.isPlayed || g.team1Score > 0 || g.team2Score > 0) &&
     !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship &&
     g.gameType !== GAME_TYPES.CFP_FIRST_ROUND && g.gameType !== GAME_TYPES.CFP_QUARTERFINAL &&
     g.gameType !== GAME_TYPES.CFP_SEMIFINAL && g.gameType !== GAME_TYPES.CFP_CHAMPIONSHIP
