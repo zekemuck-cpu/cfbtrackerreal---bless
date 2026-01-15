@@ -126,7 +126,14 @@ export default function CFPBracket() {
   // Scale bracket based on screen size
   useEffect(() => {
     const updateScale = () => {
-      setBracketScale(window.innerWidth >= 1024 ? 0.8 : 0.7)
+      const width = window.innerWidth
+      if (width < 640) {
+        setBracketScale(0.45) // Mobile - zoom out more
+      } else if (width < 1024) {
+        setBracketScale(0.7)  // Tablet
+      } else {
+        setBracketScale(0.8)  // Desktop
+      }
     }
     updateScale()
     window.addEventListener('resize', updateScale)
@@ -784,15 +791,23 @@ export default function CFPBracket() {
         </h1>
       </div>
 
-      {/* Bracket Container - scaled down */}
-      <div className="overflow-x-auto" style={{ height: `${(BRACKET_HEIGHT + 250) * bracketScale}px` }}>
+      {/* Bracket Container - scaled down, single scroll context */}
+      <div className="overflow-x-auto">
+        {/* Wrapper reserves correct visual space for scaled content */}
         <div
           style={{
-            width: `${BRACKET_WIDTH}px`,
-            transform: `scale(${bracketScale})`,
-            transformOrigin: 'top left'
+            width: `${BRACKET_WIDTH * bracketScale}px`,
+            height: `${(BRACKET_HEIGHT + 250) * bracketScale}px`
           }}
         >
+          {/* Scaled bracket content */}
+          <div
+            style={{
+              width: `${BRACKET_WIDTH}px`,
+              transform: `scale(${bracketScale})`,
+              transformOrigin: 'top left'
+            }}
+          >
           {/* Round Labels */}
           <div className="flex mb-6 text-xl font-bold text-white">
             <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px` }} className="text-center">First Round</div>
@@ -949,6 +964,7 @@ export default function CFPBracket() {
               <div className="text-lg font-bold text-white">National Champion</div>
             </div>
           </div>
+        </div>
         </div>
       </div>
 
