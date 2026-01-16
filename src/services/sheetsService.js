@@ -1,4 +1,5 @@
-import { auth } from '../config/firebase'
+// Note: Firebase auth import removed - we use OAuth tokens from localStorage directly
+// This allows Google Sheets to work with free tier (IndexedDB) users who have signed in with Google
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
@@ -53,10 +54,7 @@ async function shareSheetPublicly(spreadsheetId, accessToken) {
 // Create a new Google Sheet for a dynasty
 export async function createDynastySheet(dynastyName, coachName, year) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
-    // Get OAuth access token from localStorage
+    // Get OAuth access token from localStorage (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet
@@ -159,6 +157,23 @@ function getTeamsWithCustom(customTeams = null) {
       }
     }
 
+    // If we got teams from dynasty.teams, return them
+    // Otherwise fall back to DEFAULT_TEAMS (from teamRegistry)
+    if (Object.keys(teams).length > 0) {
+      return teams
+    }
+
+    // Fallback: use DEFAULT_TEAMS if dynasty.teams didn't have valid abbr fields
+    console.warn('[getTeamsWithCustom] dynasty.teams exists but has no valid abbr fields, falling back to DEFAULT_TEAMS')
+    for (const team of Object.values(DEFAULT_TEAMS)) {
+      if (team.abbr) {
+        teams[team.abbr] = {
+          name: team.name,
+          backgroundColor: team.primaryColor || '#333333',
+          textColor: team.secondaryColor || '#FFFFFF'
+        }
+      }
+    }
     return teams
   }
 
@@ -994,9 +1009,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
 // Create a Schedule-only Google Sheet
 export async function createScheduleSheet(dynastyName, year, userTeamName, existingSchedule = [], customTeams = null) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with just Schedule tab
@@ -1053,9 +1066,7 @@ export async function createScheduleSheet(dynastyName, year, userTeamName, exist
 // Create a Roster-only Google Sheet
 export async function createRosterSheet(dynastyName, year) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with just Roster tab
@@ -1725,9 +1736,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
 // Read schedule data from a Schedule-only sheet
 export async function readScheduleFromScheduleSheet(spreadsheetId) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     const response = await fetch(
@@ -1770,9 +1779,7 @@ export async function readScheduleFromScheduleSheet(spreadsheetId) {
 // Read roster data from a Roster-only sheet
 export async function readRosterFromRosterSheet(spreadsheetId) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     const response = await fetch(
@@ -1837,9 +1844,7 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
 // Pre-fill roster data into a Roster-only sheet
 export async function prefillRosterSheet(spreadsheetId, players) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Helper to split name into first and last
@@ -1925,9 +1930,7 @@ export function getSingleSheetEmbedUrl(spreadsheetId) {
 // Read schedule data from sheet
 export async function readScheduleFromSheet(spreadsheetId) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     const response = await fetch(
@@ -1975,9 +1978,7 @@ export async function deleteGoogleSheet(spreadsheetId) {
       throw new Error('No spreadsheet ID provided')
     }
 
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Use Drive API to trash the file
@@ -2021,9 +2022,7 @@ export async function restoreGoogleSheet(spreadsheetId) {
       throw new Error('No spreadsheet ID provided')
     }
 
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Use Drive API to untrash the file
@@ -2063,9 +2062,7 @@ export async function restoreGoogleSheet(spreadsheetId) {
 // Read roster data from sheet (12 columns)
 export async function readRosterFromSheet(spreadsheetId) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     const response = await fetch(
@@ -2156,9 +2153,7 @@ export async function readRosterFromSheet(spreadsheetId) {
 // Write existing schedule and roster data to a sheet
 export async function writeExistingDataToSheet(spreadsheetId, schedule, players, userTeamAbbr) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Prepare schedule data (rows 2-13, columns A-D)
@@ -4996,9 +4991,7 @@ export async function readConferencesFromSheet(spreadsheetId) {
  */
 export async function createStatsEntrySheet(dynastyName, year, players = []) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with Stats tab
@@ -5410,9 +5403,7 @@ export async function createDetailedStatsSheet(dynastyName, year, playerStats = 
   // aggregatedStats is an object keyed by player name, containing their aggregated box score stats
   // Format: { 'Player Name': { passing: {...}, rushing: {...}, ... }, ... }
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
 
     const tabNames = Object.keys(DETAILED_STATS_TABS)
@@ -12378,9 +12369,7 @@ export async function readTransferDestinationsFromSheet(spreadsheetId) {
  */
 export async function createRosterHistorySheet(dynastyName, years = [2025, 2026], customTeams = null) {
   try {
-    const user = auth.currentUser
-    if (!user) throw new Error('User not authenticated')
-
+    // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
     const teams = getTeamsWithCustom(customTeams)
     const allTeamAbbrs = Object.keys(teams).sort()

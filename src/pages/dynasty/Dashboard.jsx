@@ -1476,15 +1476,40 @@ export default function Dashboard() {
 
     // Store selections for tracking (in case we need to regenerate)
     const existingSelections = currentDynasty.portalTransferClassByYear || {}
+    const userTid = getUserTeamTid(currentDynasty)
 
-    await updateDynasty(currentDynasty.id, {
+    const updates = {
       players: updatedPlayers,
       portalTransferClassByYear: {
         ...existingSelections,
         [year]: classSelections
       },
       [`portalTransferClassSheetId_${year}`]: null // Clear year-specific sheet ID since task is complete
-    })
+    }
+
+    // Also write to tid-based structure
+    if (userTid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[userTid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [userTid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              portalTransferClass: classSelections
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
 
   }
 
@@ -1514,15 +1539,40 @@ export default function Dashboard() {
 
     // Store selections for tracking
     const existingSelections = currentDynasty.fringeCaseClassByYear || {}
+    const userTid = getUserTeamTid(currentDynasty)
 
-    await updateDynasty(currentDynasty.id, {
+    const updates = {
       players: updatedPlayers,
       fringeCaseClassByYear: {
         ...existingSelections,
         [year]: classSelections
       },
       fringeCaseClassSheetId: null // Clear sheet ID since task is complete
-    })
+    }
+
+    // Also write to tid-based structure
+    if (userTid && currentDynasty.teams) {
+      const existingTeams = currentDynasty.teams
+      const existingTeamData = existingTeams[userTid] || {}
+      const existingByYear = existingTeamData.byYear || {}
+      const existingYearData = existingByYear[year] || {}
+
+      updates.teams = {
+        ...existingTeams,
+        [userTid]: {
+          ...existingTeamData,
+          byYear: {
+            ...existingByYear,
+            [year]: {
+              ...existingYearData,
+              fringeCaseClass: classSelections
+            }
+          }
+        }
+      }
+    }
+
+    await updateDynasty(currentDynasty.id, updates)
 
   }
 

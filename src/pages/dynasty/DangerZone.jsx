@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
+import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 
 export default function DangerZone() {
   const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly } = useDynasty()
+  const { user } = useAuth()
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -31,6 +34,11 @@ export default function DangerZone() {
   const [showTeambuilderEditModal, setShowTeambuilderEditModal] = useState(false)
   const [selectedTeambuilderTid, setSelectedTeambuilderTid] = useState(null)
   const [showHelp, setShowHelp] = useState(false)
+
+  // Storage tier testing state
+  const [currentStorageTier, setCurrentStorageTier] = useState(storageService.getTier())
+  const [debugEnabled, setDebugEnabled] = useState(true)
+  const [storageInfo, setStorageInfo] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -562,6 +570,122 @@ export default function DangerZone() {
                 </p>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Storage Tier Testing (Dev) */}
+      <div>
+        <SectionHeader
+          title="Storage Tier Testing"
+          subtitle="Dev tool - switch between IndexedDB and Firebase"
+        />
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#f0fdf4', border: '2px solid #86efac' }}>
+          {/* Current Status */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${currentStorageTier === STORAGE_TIER.FREE ? 'bg-blue-500' : 'bg-purple-500'}`} />
+              <span className="text-sm font-medium text-gray-800">
+                Current: <strong>{currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB (Free)' : 'Firebase (Premium)'}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={debugEnabled}
+                  onChange={(e) => {
+                    setDebugEnabled(e.target.checked)
+                    storageService.setDebug(e.target.checked)
+                  }}
+                  className="w-3 h-3 rounded"
+                />
+                Debug logs
+              </label>
+            </div>
+          </div>
+
+          {/* Tier Toggle Buttons */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => {
+                storageService.setTier(STORAGE_TIER.FREE)
+                console.log('[StorageTierTest] Switched to IndexedDB (Free tier) - reloading page...')
+                window.location.reload()
+              }}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
+                currentStorageTier === STORAGE_TIER.FREE
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              IndexedDB (Free)
+            </button>
+            <button
+              onClick={() => {
+                if (!user) {
+                  alert('You must be logged in to test Firebase storage')
+                  return
+                }
+                storageService.setTier(STORAGE_TIER.PREMIUM, user.uid)
+                console.log('[StorageTierTest] Switched to Firebase (Premium tier) - reloading page...')
+                window.location.reload()
+              }}
+              className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
+                currentStorageTier === STORAGE_TIER.PREMIUM
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              Firebase (Premium)
+            </button>
+          </div>
+
+          {/* Reset Button */}
+          <button
+            onClick={() => {
+              storageService.clearPersistedTier()
+              console.log('[StorageTierTest] Cleared persisted tier - reloading page...')
+              window.location.reload()
+            }}
+            className="w-full px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mb-4"
+          >
+            Reset to Default (use user's actual tier)
+          </button>
+
+          {/* IndexedDB Info */}
+          <div className="space-y-2 text-xs text-gray-600">
+            <div className="flex justify-between">
+              <span>User ID:</span>
+              <span className="font-mono">{user?.uid || 'Not logged in'}</span>
+            </div>
+            <button
+              onClick={async () => {
+                const info = await indexedDBStorage.getStorageInfo()
+                setStorageInfo(info)
+              }}
+              className="w-full px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+            >
+              Check IndexedDB Storage Usage
+            </button>
+            {storageInfo && (
+              <div className="p-2 rounded bg-white border text-xs">
+                <div>Used: {(storageInfo.used / 1024 / 1024).toFixed(2)} MB</div>
+                <div>Quota: {(storageInfo.quota / 1024 / 1024).toFixed(0)} MB</div>
+                <div>Usage: {storageInfo.percent}%</div>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions */}
+          <div className="mt-4 p-2 rounded bg-yellow-50 border border-yellow-200 text-xs text-yellow-800">
+            <strong>Testing instructions:</strong>
+            <ol className="list-decimal ml-4 mt-1 space-y-1">
+              <li>Open browser console (F12) to see debug logs</li>
+              <li>Switch between tiers (page will reload)</li>
+              <li>Perform actions (save game, update roster, etc.)</li>
+              <li>Watch console for [IndexedDB] or [Firebase] logs</li>
+            </ol>
           </div>
         </div>
       </div>

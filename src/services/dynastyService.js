@@ -15,6 +15,7 @@ import {
   deleteField
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { indexedDBStorage } from './storage'
 
 const DYNASTIES_COLLECTION = 'dynasties'
 const PLAYERS_SUBCOLLECTION = 'players'
@@ -198,13 +199,23 @@ export function generateShareCode() {
   return code
 }
 
-// Migrate localStorage data to Firestore for a user
+// Migrate local data (localStorage and IndexedDB) to Firestore for a user
 export async function migrateLocalStorageData(userId) {
   try {
-    const localData = localStorage.getItem('cfb-dynasties')
-    if (!localData) return []
+    // Check both localStorage (legacy) and IndexedDB (new) for data to migrate
+    const localStorageData = localStorage.getItem('cfb-dynasties')
+    const indexedDBData = await indexedDBStorage.getDynasties()
 
-    const dynasties = JSON.parse(localData)
+    // Combine data sources, preferring IndexedDB if both exist
+    let dynasties = []
+    if (indexedDBData && indexedDBData.length > 0) {
+      dynasties = indexedDBData
+    } else if (localStorageData) {
+      dynasties = JSON.parse(localStorageData)
+    }
+
+    if (dynasties.length === 0) return []
+
     const migratedDynasties = []
 
     for (const dynasty of dynasties) {
@@ -214,12 +225,13 @@ export async function migrateLocalStorageData(userId) {
       migratedDynasties.push(newDynasty)
     }
 
-    // Clear localStorage after successful migration
+    // Clear local storage after successful migration
     localStorage.removeItem('cfb-dynasties')
+    await indexedDBStorage.clearAll()
 
     return migratedDynasties
   } catch (error) {
-    console.error('Error migrating localStorage data:', error)
+    console.error('Error migrating local data:', error)
     throw error
   }
 }

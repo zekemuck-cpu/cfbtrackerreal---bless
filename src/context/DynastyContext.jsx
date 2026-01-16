@@ -15,6 +15,7 @@ import {
   saveGamesToSubcollection,
   migrateDynastyToSubcollections
 } from '../services/dynastyService'
+import { indexedDBStorage, storageService } from '../services/storage'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getTeamName } from '../data/teamAbbreviations'
 import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
@@ -1289,16 +1290,17 @@ export function resolveTeamAbbr(dynasty, abbr) {
 export function getCurrentSchedule(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.schedule) {
     return dynasty.teams[tid].byYear[year].schedule
   }
 
-  // Try old team-centric structure (schedulesByTeamYear)
+  // Try old team-centric structure (schedulesByTeamYear) - need abbr for legacy lookup
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   const teamYearSchedule = dynasty.schedulesByTeamYear?.[teamAbbr]?.[year]
   if (teamYearSchedule) {
     return teamYearSchedule
@@ -1613,16 +1615,17 @@ export function getCurrentPreseasonSetup(dynasty) {
 
   if (!dynasty) return defaultSetup
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.preseasonSetup) {
     return dynasty.teams[tid].byYear[year].preseasonSetup
   }
 
-  // Try old team-centric structure (preseasonSetupByTeamYear)
+  // Try old team-centric structure (preseasonSetupByTeamYear) - need abbr for legacy lookup
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   const teamYearSetup = dynasty.preseasonSetupByTeamYear?.[teamAbbr]?.[year]
   if (teamYearSetup) {
     return teamYearSetup
@@ -1646,16 +1649,17 @@ export function getCurrentTeamRatings(dynasty) {
 
   if (!dynasty) return defaultRatings
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.teamRatings) {
     return dynasty.teams[tid].byYear[year].teamRatings
   }
 
-  // Try old team-centric structure (teamRatingsByTeamYear)
+  // Try old team-centric structure (teamRatingsByTeamYear) - need abbr for legacy lookup
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   const teamYearRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[year]
   if (teamYearRatings) {
     return teamYearRatings
@@ -1679,16 +1683,17 @@ export function getCurrentCoachingStaff(dynasty) {
 
   if (!dynasty) return defaultStaff
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
-  const tid = getTidFromAbbr(teamAbbr)
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.coachingStaff) {
     return dynasty.teams[tid].byYear[year].coachingStaff
   }
 
-  // Try old team-centric structure (coachingStaffByTeamYear)
+  // Try old team-centric structure (coachingStaffByTeamYear) - need abbr for legacy lookup
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   const teamYearStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
   if (teamYearStaff) {
     return teamYearStaff
@@ -1718,7 +1723,9 @@ export function getCurrentCoachingStaff(dynasty) {
 export function getCurrentGoogleSheet(dynasty) {
   if (!dynasty) return { googleSheetId: null, googleSheetUrl: null }
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
 
   // Try new team-centric structure first
   const teamSheet = dynasty.googleSheetsByTeam?.[teamAbbr]
@@ -1739,16 +1746,17 @@ export function getCurrentGoogleSheet(dynasty) {
 export function getCurrentRecruits(dynasty) {
   if (!dynasty) return []
 
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const tid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.recruits) {
     return dynasty.teams[tid].byYear[year].recruits
   }
 
-  // Try old team-centric structure (recruitsByTeamYear)
+  // Try old team-centric structure (recruitsByTeamYear) - need abbr for legacy lookup
+  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   const teamYearRecruits = dynasty.recruitsByTeamYear?.[teamAbbr]?.[year]
   if (teamYearRecruits) {
     return teamYearRecruits
@@ -1787,11 +1795,13 @@ const CLASS_PROGRESSION = {
 export function getPlayersNeedingClassConfirmation(dynasty) {
   if (!dynasty) return []
 
-  // CRITICAL: Use tid for team comparison
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
   const teamTid = getCurrentTeamTid(dynasty)
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
   const year = dynasty.currentYear
   const players = dynasty.players || []
+
+  // Only get teamAbbr for logging
+  const teamAbbr = getAbbrFromTid(dynasty.teams, teamTid) || dynasty.teamName
 
   console.log('[getPlayersNeedingClassConfirmation] teamTid:', teamTid, 'teamAbbr:', teamAbbr, 'year:', year)
   console.log('[getPlayersNeedingClassConfirmation] Total players:', players.length)
@@ -1962,22 +1972,28 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
   if (!dynasty) return { hcName: null, ocName: null, dcName: null }
 
   // If no team specified, get the coach's team for that year
+  let tid = null
   if (!teamAbbr) {
     const coachTeam = getCoachTeamForYear(dynasty, year)
     teamAbbr = coachTeam?.team
+    // Also get tid from coachTeam if it has it
+    tid = coachTeam?.tid || (teamAbbr ? getTidFromAbbr(teamAbbr) : null)
   }
 
-  if (!teamAbbr) {
-    // Fallback to current team
-    teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  if (!teamAbbr && !tid) {
+    // CRITICAL: Fallback to current team using tid directly
+    tid = getCurrentTeamTid(dynasty)
+    teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
+  } else if (!tid && teamAbbr) {
+    // Have abbr but not tid - resolve it
+    tid = getTidFromAbbr(teamAbbr)
   }
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
   let staff = tid && dynasty.teams?.[tid]?.byYear?.[year]?.lockedCoachingStaff
 
   // Fall back to locked coaching staff (old format, set at end of Week 12)
-  if (!staff) {
+  if (!staff && teamAbbr) {
     staff = dynasty.lockedCoachingStaffByYear?.[teamAbbr]?.[year]
   }
 
@@ -1987,14 +2003,14 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
   }
 
   // Fall back to team-centric coaching staff (old format, may have been updated after firings)
-  if (!staff) {
+  if (!staff && teamAbbr) {
     staff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
   }
 
   // ONLY fall back to legacy coaching staff if this is the user's CURRENT team
   // This prevents showing the user's coordinators on other teams' pages
-  const userCurrentTeam = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-  if (!staff && teamAbbr === userCurrentTeam) {
+  const userCurrentTid = getCurrentTeamTid(dynasty)
+  if (!staff && tid === userCurrentTid) {
     staff = dynasty.coachingStaff || { hcName: null, ocName: null, dcName: null }
   }
 
@@ -2261,7 +2277,9 @@ export function migrateRosterData(dynasty) {
   }
 
   const currentYear = dynasty.currentYear
-  const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+  // CRITICAL: Get tid directly - tid is the ONLY source of truth
+  const teamTid = getCurrentTeamTid(dynasty)
+  const teamAbbr = getAbbrFromTid(dynasty.teams, teamTid) || dynasty.teamName
 
   let needsUpdate = false
   const fixedPlayers = dynasty.players.map(player => {
@@ -2292,7 +2310,6 @@ export function migrateRosterData(dynasty) {
     // (This fixes players who went through Signing Day before the code fix)
     if (!player.leftTeam && !player.isRecruit && !player.isHonorOnly) {
       // Check if player should be on current team (handles both tid and abbr)
-      const teamTid = dynasty.currentTid || getTidFromAbbr(teamAbbr)
       const playerTeamMatches = !player.team ||
         player.team === teamAbbr ||
         player.team === teamTid ||
@@ -3471,22 +3488,31 @@ export function DynastyProvider({ children }) {
 
   // Load dynasties when user changes
   useEffect(() => {
-    // In dev mode, use localStorage fallback (even without user)
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
-    if (isDev) {
-      // Load from localStorage in dev mode
-      const saved = localStorage.getItem('cfb-dynasties')
-      if (saved) {
+    // Load any persisted tier setting from localStorage (for testing tier switching)
+    storageService.loadPersistedTier()
+
+    // Check storage tier - free tier uses IndexedDB, premium uses Firebase
+    const useLocalStorage = !storageService.isPremium()
+    if (useLocalStorage) {
+      // Load from IndexedDB (free tier - local storage)
+      const loadFromIndexedDB = async () => {
         try {
-          const parsed = JSON.parse(saved)
-          // Apply all migrations to dynasties
-          const migratedDynasties = applyMigrations(parsed)
-          setDynasties(migratedDynasties)
+          // First, migrate any existing localStorage data to IndexedDB
+          await indexedDBStorage.migrateFromLocalStorage()
+
+          // Then load from IndexedDB
+          const saved = await indexedDBStorage.getDynasties()
+          if (saved && saved.length > 0) {
+            // Apply all migrations to dynasties
+            const migratedDynasties = applyMigrations(saved)
+            setDynasties(migratedDynasties)
+          }
         } catch (error) {
-          console.error('Error loading dynasties:', error)
+          console.error('Error loading dynasties from IndexedDB:', error)
         }
+        setLoading(false)
       }
-      setLoading(false)
+      loadFromIndexedDB()
       return
     }
 
@@ -3638,17 +3664,20 @@ export function DynastyProvider({ children }) {
     return () => unsubscribe()
   }, [user, migrated, currentDynasty?.id])
 
-  // Save to localStorage in dev mode
+  // Save to IndexedDB in dev mode
   useEffect(() => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
 
     // Don't save during initial load
     if (loading) return
 
-    if (isDev && dynasties.length > 0) {
-      localStorage.setItem('cfb-dynasties', JSON.stringify(dynasties))
+    if (useLocalStorage && dynasties.length > 0) {
+      // Save to IndexedDB (async, fire and forget)
+      indexedDBStorage.saveDynasties(dynasties).catch(error => {
+        console.error('Error saving dynasties to IndexedDB:', error)
+      })
     }
-    // Note: We don't remove from localStorage when empty to avoid accidental data loss
+    // Note: We don't remove data when empty to avoid accidental data loss
   }, [dynasties, loading])
 
   const createDynasty = async (dynastyData) => {
@@ -3757,13 +3786,13 @@ export function DynastyProvider({ children }) {
       } : {})
     }
 
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
 
     // Note: Google Sheet is created lazily when user opens Schedule Entry modal
     // This avoids creating sheets that may never be used
 
-    if (isDev || !user) {
-      // Dev mode: use localStorage
+    if (useLocalStorage || !user) {
+      // Dev mode: use IndexedDB
       const newDynasty = {
         id: Date.now().toString(),
         ...newDynastyData,
@@ -3771,10 +3800,10 @@ export function DynastyProvider({ children }) {
         lastModified: Date.now()
       }
 
-      // Immediately save to localStorage before updating state
+      // Immediately save to IndexedDB before updating state
       const existingDynasties = dynasties
       const updatedDynasties = [...existingDynasties, newDynasty]
-      localStorage.setItem('cfb-dynasties', JSON.stringify(updatedDynasties))
+      await indexedDBStorage.saveDynasties(updatedDynasties)
 
       setDynasties(updatedDynasties)
       setCurrentDynasty(newDynasty)
@@ -3803,7 +3832,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     const { skipLastModified = false } = options
 
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
@@ -3862,18 +3891,17 @@ export function DynastyProvider({ children }) {
       ...(skipLastModified ? {} : { lastModified: Date.now() })
     })
 
-    if (isDev || !user) {
-      // Dev mode: update local state
+    if (useLocalStorage || !user) {
+      // Dev mode: update IndexedDB
 
-      // CRITICAL FIX: Read from localStorage to get the absolute latest data
+      // CRITICAL FIX: Read from IndexedDB to get the absolute latest data
       // This prevents race conditions when multiple updates happen in quick succession
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
 
       const updated = currentDynasties.map(d => (String(d.id) === String(dynastyId) ? { ...d, ...updatesWithTimestamp } : d))
 
-      // Immediately save to localStorage
-      localStorage.setItem('cfb-dynasties', JSON.stringify(updated))
+      // Immediately save to IndexedDB
+      await indexedDBStorage.saveDynasties(updated)
 
       setDynasties(updated)
 
@@ -4009,21 +4037,20 @@ export function DynastyProvider({ children }) {
 
   const deleteDynasty = async (dynastyId) => {
 
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
 
-    if (isDev || !user) {
-      // Dev mode: delete from local state
+    if (useLocalStorage || !user) {
+      // Dev mode: delete from IndexedDB
       const updated = dynasties.filter(d => {
         const match = String(d.id) !== String(dynastyId)
         return match
       })
 
-
-      // Immediately save to localStorage
+      // Immediately save to IndexedDB
       if (updated.length > 0) {
-        localStorage.setItem('cfb-dynasties', JSON.stringify(updated))
+        await indexedDBStorage.saveDynasties(updated)
       } else {
-        localStorage.removeItem('cfb-dynasties')
+        await indexedDBStorage.clearAll()
       }
 
       setDynasties(updated)
@@ -4072,13 +4099,12 @@ export function DynastyProvider({ children }) {
     // Clean the gameData of any undefined values
     const cleanGameData = removeUndefined(gameData)
 
-    // CRITICAL: Read from localStorage to get the latest data
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    // CRITICAL: Read from IndexedDB to get the latest data
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -4403,12 +4429,11 @@ export function DynastyProvider({ children }) {
   // Add or update CPU bowl games as proper game entries in the games[] array
   // This ensures ALL games (user and CPU) are stored uniformly
   const saveCPUBowlGames = async (dynastyId, bowlGames, year, week = 'week1') => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -4499,12 +4524,11 @@ export function DynastyProvider({ children }) {
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -4627,12 +4651,11 @@ export function DynastyProvider({ children }) {
   // This ensures ALL games (user and CPU) are stored uniformly
   const saveCPUConferenceChampionships = async (dynastyId, championships, year) => {
     console.log('[saveCPUCC] Called with:', { dynastyId, championships, year })
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6296,13 +6319,12 @@ export function DynastyProvider({ children }) {
   }
 
   const saveSchedule = async (dynastyId, schedule, options = {}) => {
-    // CRITICAL: Read from localStorage to get the latest data
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    // CRITICAL: Read from IndexedDB to get the latest data
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6357,7 +6379,7 @@ export function DynastyProvider({ children }) {
     // Base updates - always save to team-specific structures
     let scheduleUpdates
 
-    if (isDev || !user) {
+    if (useLocalStorage || !user) {
       scheduleUpdates = {
         // Store in NEW tid-based byYear structure
         teams: {
@@ -6432,13 +6454,12 @@ export function DynastyProvider({ children }) {
   }
 
   const saveRoster = async (dynastyId, players, options = {}) => {
-    // CRITICAL: Read from localStorage to get the latest data (including any recent schedule save)
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    // CRITICAL: Read from IndexedDB to get the latest data (including any recent schedule save)
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6656,7 +6677,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const rosterUpdates = isDev || !user
+    const rosterUpdates = useLocalStorage || !user
       ? {
           players: finalPlayers,
           nextPID: newNextPID,
@@ -6708,12 +6729,11 @@ export function DynastyProvider({ children }) {
   }
 
   const saveTeamRatings = async (dynastyId, ratings) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6747,7 +6767,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const teamRatingsUpdates = isDev || !user
+    const teamRatingsUpdates = useLocalStorage || !user
       ? {
           // Store in NEW tid-based byYear structure
           teams: {
@@ -6809,12 +6829,11 @@ export function DynastyProvider({ children }) {
 
   // Save team year info (record, conference) for any team/year combination
   const saveTeamYearInfo = async (dynastyId, teamAbbr, year, info) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6838,7 +6857,7 @@ export function DynastyProvider({ children }) {
       const teamRecords = existingRecords[teamAbbr] || {}
       const recordData = { wins: info.wins, losses: info.losses }
 
-      if (isDev || !user) {
+      if (useLocalStorage || !user) {
         // NEW tid-based byYear structure
         if (tid) {
           const existingTeams = dynasty.teams || {}
@@ -6882,7 +6901,7 @@ export function DynastyProvider({ children }) {
       const existingConferences = dynasty.conferenceByTeamYear || {}
       const teamConferences = existingConferences[teamAbbr] || {}
 
-      if (isDev || !user) {
+      if (useLocalStorage || !user) {
         // NEW tid-based byYear structure
         if (tid) {
           const existingTeams = updates.teams || dynasty.teams || {}
@@ -6927,12 +6946,11 @@ export function DynastyProvider({ children }) {
   }
 
   const saveCoachingStaff = async (dynastyId, staff) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -6966,7 +6984,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const coachingStaffUpdates = isDev || !user
+    const coachingStaffUpdates = useLocalStorage || !user
       ? {
           // Store in NEW tid-based byYear structure
           teams: {
@@ -7027,12 +7045,11 @@ export function DynastyProvider({ children }) {
   }
 
   const updatePlayer = async (dynastyId, updatedPlayer, yearStats = null) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -7151,12 +7168,11 @@ export function DynastyProvider({ children }) {
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -7217,12 +7233,11 @@ export function DynastyProvider({ children }) {
   // Sync all players' stats to match box score totals for a given year
   const syncAllPlayersStats = async (dynastyId, year) => {
     console.log('syncAllPlayersStats called with:', { dynastyId, year })
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
@@ -7413,12 +7428,11 @@ export function DynastyProvider({ children }) {
       const conferences = await readConferencesFromSheet(conferencesSheetId)
 
       // Save to dynasty
-      const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+      const useLocalStorage = !storageService.isPremium()
 
-      if (isDev || !user) {
-        // Dev mode: Use localStorage with spread operator
-        const currentData = localStorage.getItem('cfb-dynasties')
-        const currentDynasties = currentData ? JSON.parse(currentData) : []
+      if (useLocalStorage || !user) {
+        // Dev mode: Use IndexedDB
+        const currentDynasties = await indexedDBStorage.getDynasties() || []
         const dynastyToUpdate = currentDynasties.find(d => d.id === dynastyId)
         if (dynastyToUpdate) {
           dynastyToUpdate.customConferences = conferences
@@ -7427,7 +7441,7 @@ export function DynastyProvider({ children }) {
             conferencesEntered: true
           }
           dynastyToUpdate.lastModified = Date.now()
-          localStorage.setItem('cfb-dynasties', JSON.stringify(currentDynasties))
+          await indexedDBStorage.saveDynasties(currentDynasties)
           setDynasties(currentDynasties)
           if (currentDynasty?.id === dynastyId) {
             setCurrentDynasty(dynastyToUpdate)
@@ -7540,20 +7554,19 @@ export function DynastyProvider({ children }) {
           cleanDynastyData.isPublic = false
 
           // Save the dynasty using createDynasty logic
-          const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+          const useLocalStorage = !storageService.isPremium()
 
-          if (isDev || !user) {
-            // Dev mode: localStorage - needs an ID
+          if (useLocalStorage || !user) {
+            // Dev mode: IndexedDB - needs an ID
             reportProgress('creating', 'Creating dynasty...', 20)
             const newId = Date.now().toString()
             const importedDynasty = {
               ...cleanDynastyData,
               id: newId
             }
-            const currentData = localStorage.getItem('cfb-dynasties')
-            const currentDynasties = currentData ? JSON.parse(currentData) : []
+            const currentDynasties = await indexedDBStorage.getDynasties() || []
             const updatedDynasties = [...currentDynasties, importedDynasty]
-            localStorage.setItem('cfb-dynasties', JSON.stringify(updatedDynasties))
+            await indexedDBStorage.saveDynasties(updatedDynasties)
             setDynasties(updatedDynasties)
             reportProgress('complete', 'Import complete!', 100)
           } else {
@@ -7644,12 +7657,11 @@ export function DynastyProvider({ children }) {
   const processHonorPlayers = async (dynastyId, honorType, entries, year, transferDecisions = []) => {
     console.log(`[processHonorPlayers] Starting - honorType: ${honorType}, entries: ${entries.length}, year: ${year}`)
 
-    const isDev = import.meta.env.VITE_DEV_MODE === 'true'
+    const useLocalStorage = !storageService.isPremium()
     let dynasty
 
-    if (isDev || !user) {
-      const currentData = localStorage.getItem('cfb-dynasties')
-      const currentDynasties = currentData ? JSON.parse(currentData) : dynasties
+    if (useLocalStorage || !user) {
+      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
     } else {
       dynasty = String(currentDynasty?.id) === String(dynastyId)
