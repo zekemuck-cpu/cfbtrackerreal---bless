@@ -344,8 +344,60 @@ export default function Home() {
             className="hidden"
           />
 
+          {/* Subscription Status */}
+          <div className="mt-8 max-w-md mx-auto">
+            <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+              <div className="flex items-center justify-center gap-3">
+                {isPremium ? (
+                  <>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-600 text-white">
+                      Premium
+                    </span>
+                    <span className="text-xs text-gray-400">Cloud sync enabled</span>
+                    {user && (
+                      <button
+                        onClick={() => manageSubscription()}
+                        className="px-3 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      >
+                        Manage
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-600 text-gray-200">
+                      Free
+                    </span>
+                    <span className="text-xs text-gray-400">Local storage</span>
+                    {user ? (
+                      <button
+                        onClick={async () => {
+                          setUpgrading(true)
+                          try {
+                            await upgradeToPremium()
+                          } catch (error) {
+                            console.error('Upgrade error:', error)
+                            alert('Failed to start upgrade. Please try again.')
+                          } finally {
+                            setUpgrading(false)
+                          }
+                        }}
+                        disabled={upgrading}
+                        className="px-3 py-1 rounded text-xs font-medium bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50"
+                      >
+                        {upgrading ? 'Loading...' : 'Upgrade $4.99/mo'}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-500">Sign in to upgrade</span>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Storage Tier Toggle (Dev Tool) */}
-          <div className="mt-8">
+          <div className="mt-4">
             <button
               onClick={() => setShowStorageToggle(!showStorageToggle)}
               className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1 mx-auto"
@@ -353,7 +405,7 @@ export default function Home() {
               <svg className={`w-3 h-3 transition-transform ${showStorageToggle ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
               </svg>
-              Storage: {currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB' : 'Firebase'}
+              Dev: {currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB' : 'Firebase'}
             </button>
             {showStorageToggle && (
               <div className="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-700 max-w-xs mx-auto">
