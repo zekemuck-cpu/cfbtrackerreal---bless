@@ -1955,8 +1955,11 @@ export default function TeamYear() {
         )
       })()}
 
-      {/* Main Content Grid - Two columns on desktop */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Main Content Grid - Two columns on desktop only if there's schedule content */}
+      {(() => {
+        const hasScheduleContent = teamYearGames.length > 0 || (isUserTeam && teamCFPGames.length > 0)
+        return (
+      <div className={`grid grid-cols-1 ${hasScheduleContent ? 'lg:grid-cols-2' : ''} gap-6`}>
         {/* Left Column: Roster */}
         <div className="space-y-6">
           {/* Roster Section - All Teams */}
@@ -2945,6 +2948,8 @@ export default function TeamYear() {
       )}
         </div>
       </div>
+        )
+      })()}
 
       {/* GameEntryModal removed - now using game pages instead */}
 

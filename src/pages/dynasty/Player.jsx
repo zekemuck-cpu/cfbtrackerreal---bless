@@ -2410,74 +2410,87 @@ export default function Player() {
       })()}
 
       {/* Awards Section - all honors in one place */}
-      {(powHonors.confPOW > 0 || powHonors.nationalPOW > 0 ||
-        (player.awards && player.awards.length > 0) ||
-        (player.allAmericans && player.allAmericans.length > 0) ||
-        (player.allConference && player.allConference.length > 0)) && (
-        <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
-        >
-          <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Awards</h2>
-          <div className="space-y-1">
-            {/* POW honors */}
-            {powHonors.confPOW > 0 && (
-              <button
-                onClick={() => handleAccoladeClick('confPOW')}
-                className="block text-left hover:opacity-70 transition-opacity"
-                style={{ color: secondaryText }}
-              >
-                <span className="font-semibold">Conference Player of the Week</span>
-                <span className="opacity-70"> ({powHonors.confPOW}x)</span>
-              </button>
-            )}
-            {powHonors.nationalPOW > 0 && (
-              <button
-                onClick={() => handleAccoladeClick('nationalPOW')}
-                className="block text-left hover:opacity-70 transition-opacity"
-                style={{ color: secondaryText }}
-              >
-                <span className="font-semibold">National Player of the Week</span>
-                <span className="opacity-70"> ({powHonors.nationalPOW}x)</span>
-              </button>
-            )}
-            {/* Awards (Heisman, etc.) */}
-            {player.awards?.map((award, idx) => {
-              const awardName = award.award
-                ? award.award.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim()
-                : 'Award'
-              return (
-                <div key={`award-${idx}`} style={{ color: secondaryText }}>
-                  <span className="font-semibold">{awardName}</span>
-                  <span className="opacity-70"> ({award.year})</span>
-                </div>
-              )
-            })}
-            {/* All-Americans */}
-            {player.allAmericans?.map((aa, idx) => {
-              const designation = aa.designation === 'first' ? '1st Team' :
-                                  aa.designation === 'second' ? '2nd Team' : 'Freshman'
-              return (
-                <div key={`aa-${idx}`} style={{ color: secondaryText }}>
-                  <span className="font-semibold">{designation} All-American</span>
-                  <span className="opacity-70"> ({aa.year})</span>
-                </div>
-              )
-            })}
-            {/* All-Conference */}
-            {player.allConference?.map((ac, idx) => {
-              const designation = ac.designation === 'first' ? '1st Team' :
-                                  ac.designation === 'second' ? '2nd Team' : 'Freshman'
-              return (
-                <div key={`ac-${idx}`} style={{ color: secondaryText }}>
-                  <span className="font-semibold">{designation} All-Conference</span>
-                  <span className="opacity-70"> ({ac.year})</span>
-                </div>
-              )
-            })}
+      {(() => {
+        // Award display name mapping
+        const awardLabels = {
+          heisman: 'Heisman Trophy',
+          heismanFinalist: 'Heisman Finalist',
+          allAm1st: 'All-American 1st Team',
+          allAm2nd: 'All-American 2nd Team',
+          allAmFr: 'Freshman All-American',
+          allConf1st: 'All-Conference 1st Team',
+          allConf2nd: 'All-Conference 2nd Team',
+          allConfFr: 'Freshman All-Conference',
+          confPOW: 'Conference Player of the Week',
+          nationalPOW: 'National Player of the Week',
+          confPOY: 'Conference Player of the Year',
+          confOPOY: 'Conference Offensive POY',
+          confDPOY: 'Conference Defensive POY',
+          confFreshmanOY: 'Conference Freshman of the Year',
+          bowlMVP: 'Bowl Game MVP',
+          cfpChampMVP: 'CFP Championship MVP',
+        }
+
+        // Get accolades from new format
+        const accolades = player.accolades || []
+
+        // Check if we have any awards to show
+        const hasAwards = powHonors.confPOW > 0 || powHonors.nationalPOW > 0 || accolades.length > 0
+
+        if (!hasAwards) return null
+
+        // Group accolades by award type for counting multiples
+        const accoladesByType = accolades.reduce((acc, a) => {
+          if (!acc[a.award]) acc[a.award] = []
+          acc[a.award].push(a.year)
+          return acc
+        }, {})
+
+        return (
+          <div
+            className="rounded-lg shadow-lg p-4 sm:p-6"
+            style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
+          >
+            <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Awards</h2>
+            <div className="space-y-1">
+              {/* POW honors from game data */}
+              {powHonors.confPOW > 0 && (
+                <button
+                  onClick={() => handleAccoladeClick('confPOW')}
+                  className="block text-left hover:opacity-70 transition-opacity"
+                  style={{ color: secondaryText }}
+                >
+                  <span className="font-semibold">Conference Player of the Week</span>
+                  <span className="opacity-70"> ({powHonors.confPOW}x)</span>
+                </button>
+              )}
+              {powHonors.nationalPOW > 0 && (
+                <button
+                  onClick={() => handleAccoladeClick('nationalPOW')}
+                  className="block text-left hover:opacity-70 transition-opacity"
+                  style={{ color: secondaryText }}
+                >
+                  <span className="font-semibold">National Player of the Week</span>
+                  <span className="opacity-70"> ({powHonors.nationalPOW}x)</span>
+                </button>
+              )}
+              {/* Accolades from player.accolades array (excluding POW which comes from game data) */}
+              {Object.entries(accoladesByType)
+                .filter(([award]) => award !== 'confPOW' && award !== 'nationalPOW')
+                .map(([award, years]) => {
+                  const label = awardLabels[award] || award
+                  const sortedYears = [...years].sort((a, b) => b - a)
+                  return (
+                    <div key={award} style={{ color: secondaryText }}>
+                      <span className="font-semibold">{label}</span>
+                      <span className="opacity-70"> ({sortedYears.join(', ')})</span>
+                    </div>
+                  )
+                })}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Notes & Media */}
       {(player.notes || (player.links && player.links.length > 0)) && (

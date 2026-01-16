@@ -425,15 +425,52 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
         // Draft info (for departed players)
         draftRound: player.draftRound || '',
 
-        // Accolades
-        confPOW: player.confPOW || 0,
-        nationalPOW: player.nationalPOW || 0,
-        allConf1st: player.allConf1st || 0,
-        allConf2nd: player.allConf2nd || 0,
-        allConfFr: player.allConfFr || 0,
-        allAm1st: player.allAm1st || 0,
-        allAm2nd: player.allAm2nd || 0,
-        allAmFr: player.allAmFr || 0,
+        // Accolades - array of { year, award } entries
+        // Migrate from old format if needed (old format had counts like confPOW: 2)
+        accolades: (() => {
+          // If player already has new format, use it
+          if (player.accolades && player.accolades.length > 0) {
+            return player.accolades
+          }
+
+          // Check for old format fields
+          const oldFields = [
+            { field: 'confPOW', award: 'confPOW' },
+            { field: 'nationalPOW', award: 'nationalPOW' },
+            { field: 'allConf1st', award: 'allConf1st' },
+            { field: 'allConf2nd', award: 'allConf2nd' },
+            { field: 'allConfFr', award: 'allConfFr' },
+            { field: 'allAm1st', award: 'allAm1st' },
+            { field: 'allAm2nd', award: 'allAm2nd' },
+            { field: 'allAmFr', award: 'allAmFr' },
+          ]
+
+          const hasOldData = oldFields.some(({ field }) => (player[field] || 0) > 0)
+          if (!hasOldData) return []
+
+          // Get player's active years, sorted descending (most recent first)
+          const playerYears = Object.keys(player.teamsByYear || {})
+            .map(y => parseInt(y))
+            .filter(y => !isNaN(y))
+            .sort((a, b) => b - a) // Descending
+
+          if (playerYears.length === 0) return []
+
+          // Convert old counts to array entries
+          const migrated = []
+          for (const { field, award } of oldFields) {
+            const count = player[field] || 0
+            for (let i = 0; i < count; i++) {
+              // Assign to years in order (most recent first), cycling if needed
+              const year = playerYears[Math.min(i, playerYears.length - 1)]
+              migrated.push({ year, award })
+            }
+          }
+
+          // Sort by year descending
+          migrated.sort((a, b) => b.year - a.year)
+          return migrated
+        })(),
 
         // Stats for selected year
         passing_completions: yearStats.passing.completions,
@@ -713,14 +750,8 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
       overallProgression: formData.overallProgression,
       overallRatingChange: formData.overallRatingChange,
       draftRound: formData.draftRound,
-      confPOW: num(formData.confPOW),
-      nationalPOW: num(formData.nationalPOW),
-      allConf1st: num(formData.allConf1st),
-      allConf2nd: num(formData.allConf2nd),
-      allConfFr: num(formData.allConfFr),
-      allAm1st: num(formData.allAm1st),
-      allAm2nd: num(formData.allAm2nd),
-      allAmFr: num(formData.allAmFr),
+      // Accolades - filter out incomplete entries
+      accolades: (formData.accolades || []).filter(a => a.year && a.award),
       notes: formData.notes,
       links: formData.links,
       // Roster History - which team this player was on each year
@@ -1238,40 +1269,118 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
               {renderSectionHeader('accolades', 'Accolades')}
               {isExpanded('accolades') && (
                 <div className="p-4" style={{ backgroundColor: teamColors.secondary }}>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>Conf POW</label>
-                      <input type="text" name="confPOW" value={formData.confPOW ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>Nat'l POW</label>
-                      <input type="text" name="nationalPOW" value={formData.nationalPOW ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>All-Conf 1st</label>
-                      <input type="text" name="allConf1st" value={formData.allConf1st ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>All-Conf 2nd</label>
-                      <input type="text" name="allConf2nd" value={formData.allConf2nd ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>All-Am 1st</label>
-                      <input type="text" name="allAm1st" value={formData.allAm1st ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>All-Am 2nd</label>
-                      <input type="text" name="allAm2nd" value={formData.allAm2nd ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>Fr All-Conf</label>
-                      <input type="text" name="allConfFr" value={formData.allConfFr ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium mb-1.5" style={labelStyle}>Fr All-Am</label>
-                      <input type="text" name="allAmFr" value={formData.allAmFr ?? ''} onChange={handleChange} className="w-full px-3 py-2.5 rounded-lg border-2 text-sm" style={inputStyle} />
-                    </div>
-                  </div>
+                  {(() => {
+                    // Available awards
+                    const awardOptions = [
+                      { value: 'heisman', label: 'Heisman Trophy' },
+                      { value: 'heismanFinalist', label: 'Heisman Finalist' },
+                      { value: 'allAm1st', label: 'All-American 1st Team' },
+                      { value: 'allAm2nd', label: 'All-American 2nd Team' },
+                      { value: 'allAmFr', label: 'Freshman All-American' },
+                      { value: 'allConf1st', label: 'All-Conference 1st Team' },
+                      { value: 'allConf2nd', label: 'All-Conference 2nd Team' },
+                      { value: 'allConfFr', label: 'Freshman All-Conference' },
+                      { value: 'confPOW', label: 'Conference Player of the Week' },
+                      { value: 'nationalPOW', label: 'National Player of the Week' },
+                      { value: 'confPOY', label: 'Conference Player of the Year' },
+                      { value: 'confOPOY', label: 'Conference Offensive POY' },
+                      { value: 'confDPOY', label: 'Conference Defensive POY' },
+                      { value: 'confFreshmanOY', label: 'Conference Freshman of the Year' },
+                      { value: 'bowlMVP', label: 'Bowl Game MVP' },
+                      { value: 'cfpChampMVP', label: 'CFP Championship MVP' },
+                    ]
+
+                    // Get player's active years from teamsByYear
+                    const playerYears = Object.keys(formData.teamsByYear || {})
+                      .map(y => parseInt(y))
+                      .filter(y => !isNaN(y))
+                      .sort((a, b) => a - b)
+
+                    // Ensure we have at least some years to show
+                    const yearOptions = playerYears.length > 0
+                      ? playerYears
+                      : [dynasty?.currentYear || new Date().getFullYear()]
+
+                    // Get current accolades, ensure it's always an array with at least one empty entry
+                    const accolades = formData.accolades || []
+                    const displayAccolades = [...accolades]
+
+                    // Auto-add empty row if last entry is complete or there are no entries
+                    const lastEntry = displayAccolades[displayAccolades.length - 1]
+                    if (displayAccolades.length === 0 || (lastEntry?.year && lastEntry?.award)) {
+                      displayAccolades.push({ year: '', award: '' })
+                    }
+
+                    const handleAccoladeChange = (index, field, value) => {
+                      const newAccolades = [...(formData.accolades || [])]
+
+                      // If this index doesn't exist yet (it's the empty row), create it
+                      if (index >= newAccolades.length) {
+                        newAccolades.push({ year: '', award: '' })
+                      }
+
+                      newAccolades[index] = { ...newAccolades[index], [field]: value }
+                      setFormData(prev => ({ ...prev, accolades: newAccolades }))
+                    }
+
+                    const handleDeleteAccolade = (index) => {
+                      const newAccolades = (formData.accolades || []).filter((_, i) => i !== index)
+                      setFormData(prev => ({ ...prev, accolades: newAccolades }))
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        {displayAccolades.map((accolade, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <select
+                              value={accolade.year || ''}
+                              onChange={(e) => handleAccoladeChange(index, 'year', e.target.value ? parseInt(e.target.value) : '')}
+                              className="px-3 py-2 rounded-lg border-2 text-sm"
+                              style={inputStyle}
+                            >
+                              <option value="">Season</option>
+                              {yearOptions.map(year => (
+                                <option key={year} value={year}>{year}</option>
+                              ))}
+                            </select>
+                            <select
+                              value={accolade.award || ''}
+                              onChange={(e) => handleAccoladeChange(index, 'award', e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-lg border-2 text-sm"
+                              style={inputStyle}
+                            >
+                              <option value="">Select Award</option>
+                              {awardOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                              ))}
+                            </select>
+                            {/* Only show delete button for saved entries (not the auto-added empty row) */}
+                            {index < (formData.accolades || []).length && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAccolade(index)}
+                                className="p-2 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
+                                title="Delete accolade"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                            {/* Placeholder space for empty row to maintain alignment */}
+                            {index >= (formData.accolades || []).length && (
+                              <div className="w-9"></div>
+                            )}
+                          </div>
+                        ))}
+                        {(formData.accolades || []).length === 0 && (
+                          <p className="text-xs opacity-60" style={{ color: teamColors.text }}>
+                            No accolades yet. Select a season and award above to add one.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </div>
