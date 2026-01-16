@@ -82,6 +82,13 @@ export function isPremiumSubscription(subscriptionData) {
  * @returns {Promise<string>} Checkout URL to redirect to
  */
 export async function createCheckoutSession(userId, userEmail) {
+  // Check if we're in development mode (Replit/localhost)
+  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('replit');
+
+  if (isDev) {
+    throw new Error('Stripe checkout is only available in production. Deploy to Vercel to test payments.');
+  }
+
   try {
     const response = await fetch('/api/create-checkout-session', {
       method: 'POST',
@@ -92,8 +99,15 @@ export async function createCheckoutSession(userId, userEmail) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create checkout session');
+      const errorText = await response.text();
+      let errorMessage = 'Failed to create checkout session';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        // Response wasn't JSON
+      }
+      throw new Error(errorMessage);
     }
 
     const { url } = await response.json();
@@ -110,6 +124,13 @@ export async function createCheckoutSession(userId, userEmail) {
  * @returns {Promise<string>} Portal URL to redirect to
  */
 export async function createPortalSession(userId) {
+  // Check if we're in development mode (Replit/localhost)
+  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('replit');
+
+  if (isDev) {
+    throw new Error('Stripe portal is only available in production. Deploy to Vercel to manage subscriptions.');
+  }
+
   try {
     const response = await fetch('/api/create-portal-session', {
       method: 'POST',
@@ -120,8 +141,15 @@ export async function createPortalSession(userId) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create portal session');
+      const errorText = await response.text();
+      let errorMessage = 'Failed to create portal session';
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        // Response wasn't JSON
+      }
+      throw new Error(errorMessage);
     }
 
     const { url } = await response.json();

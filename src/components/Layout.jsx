@@ -49,6 +49,7 @@ export default function Layout({ children }) {
 
   const isDynastyPage = location.pathname.startsWith('/dynasty/')
   const isHomePage = location.pathname === '/' || location.pathname === '/home'
+  const isAccountPage = location.pathname === '/account'
   const useTeamTheme = isDynastyPage && currentDynasty
   const isCFPBracketPage = location.pathname.includes('/cfp-bracket')
   const isGamePage = location.pathname.includes('/game/')
@@ -366,7 +367,7 @@ export default function Layout({ children }) {
 
   // Page background - use neutral backgrounds for cleaner, more professional look
   const getPageBg = () => {
-    if (isHomePage) return '#111827' // Dark background for home page (gray-900)
+    if (isHomePage || isAccountPage) return '#111827' // Dark background for home and account pages (gray-900)
     // All dynasty pages use a clean light gray background
     if (isDynastyPage) return '#f1f5f9' // slate-100 - professional neutral background
     return '#f3f4f6' // gray-100 fallback
@@ -614,7 +615,7 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main className={`flex-1 ${isHomePage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage ? '' : 'container mx-auto'}`}>
+      <main className={`flex-1 ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
         {/* Dynasty pages get a max-width container for better desktop experience */}
         {isDynastyPage ? (
           <div className="max-w-[1400px] mx-auto w-full">

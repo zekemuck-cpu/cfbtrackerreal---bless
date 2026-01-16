@@ -47,7 +47,7 @@ export default function Account() {
         <h1 className="text-xl sm:text-2xl font-bold text-white mb-6">Account</h1>
 
         {/* Profile Card */}
-        <div className="bg-gray-800/90 backdrop-blur rounded-xl p-4 sm:p-5 border border-gray-700 mb-4">
+        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg mb-4">
           <div className="flex items-center gap-3">
             {user.photoURL ? (
               <img
@@ -61,89 +61,121 @@ export default function Account() {
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-white truncate">
+              <div className="font-semibold text-gray-900 truncate">
                 {user.displayName || 'User'}
               </div>
-              <div className="text-sm text-gray-400 truncate">{user.email}</div>
+              <div className="text-sm text-gray-500 truncate">{user.email}</div>
             </div>
             {isPremium ? (
-              <span className="px-2.5 py-1 text-xs font-semibold bg-purple-600 text-white rounded-full">
+              <span className="px-2.5 py-1 text-xs font-semibold bg-amber-500 text-white rounded-full">
                 Premium
               </span>
             ) : (
-              <span className="px-2.5 py-1 text-xs font-semibold bg-gray-600 text-gray-200 rounded-full">
+              <span className="px-2.5 py-1 text-xs font-semibold bg-gray-200 text-gray-700 rounded-full">
                 Free
               </span>
             )}
           </div>
         </div>
 
-        {/* Subscription Card */}
-        {isPremium ? (
-          <div className="bg-gray-800/90 backdrop-blur rounded-xl p-4 sm:p-5 border border-purple-500/30">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-semibold text-white">Premium Member</div>
-                <div className="text-sm text-purple-300">Thanks for your support!</div>
-              </div>
+        {/* Premium Member Card (for premium users) */}
+        {isPremium && (
+          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg border-2 border-amber-200 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-semibold text-gray-900">Premium Member</div>
+              <span className="text-sm text-amber-600">Thanks for your support!</span>
             </div>
             <button
               onClick={() => manageSubscription?.()}
-              className="w-full px-4 py-2.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors"
+              className="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
             >
               Manage Subscription
             </button>
           </div>
-        ) : (
-          <div className="bg-gray-800/90 backdrop-blur rounded-xl p-4 sm:p-5 border border-gray-700">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <span className="font-semibold text-white">Upgrade to Premium</span>
-              </div>
-              <span className="text-purple-400 font-bold">$4.99/mo</span>
-            </div>
-
-            <ul className="text-sm text-gray-300 space-y-2.5 mb-5">
-              <li className="flex items-start gap-2.5">
-                <svg className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                </svg>
-                <span><strong className="text-white">Cloud Sync</strong> - Access your dynasties from any device</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <svg className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span><strong className="text-white">Automatic Backups</strong> - Never lose your progress</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <svg className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                <span><strong className="text-white">Share Dynasties</strong> - Show off your achievements</span>
-              </li>
-            </ul>
-
-            <button
-              onClick={handleUpgrade}
-              disabled={upgrading}
-              className="w-full px-4 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
-            >
-              {upgrading ? 'Processing...' : 'Upgrade to Premium'}
-            </button>
-            <p className="text-center text-gray-500 text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
-          </div>
         )}
+
+        {/* Feature Comparison & Upgrade Card */}
+        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg mb-4">
+          <h2 className="font-semibold text-gray-900 mb-4 text-center">
+            {isPremium ? 'Your Plan' : 'Compare Plans'}
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 pr-4 font-medium text-gray-600">Feature</th>
+                  <th className="text-center py-2 px-3 font-medium text-gray-600">Free</th>
+                  <th className="text-center py-2 px-3 font-medium text-amber-600">Premium</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-700">
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Dynasty Tracking</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Player Stats & Records</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Google Sheets Import</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Storage Location</td>
+                  <td className="text-center py-2.5 px-3 text-gray-500">Device Only</td>
+                  <td className="text-center py-2.5 px-3 text-amber-600">Cloud</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Multi-Device Sync</td>
+                  <td className="text-center py-2.5 px-3 text-gray-400">—</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+                <tr className="border-b border-gray-100">
+                  <td className="py-2.5 pr-4">Automatic Backups</td>
+                  <td className="text-center py-2.5 px-3 text-gray-400">—</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 pr-4">Share Dynasties</td>
+                  <td className="text-center py-2.5 px-3 text-gray-400">—</td>
+                  <td className="text-center py-2.5 px-3 text-green-600">✓</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Upgrade Section (only for non-premium users) */}
+          {!isPremium && (
+            <div className="mt-5 pt-5 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <span className="font-semibold text-gray-900">Upgrade to Premium</span>
+                <span className="text-amber-600 font-bold">$4.99/mo</span>
+              </div>
+              <button
+                onClick={handleUpgrade}
+                disabled={upgrading}
+                className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-400 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              >
+                {upgrading ? 'Processing...' : 'Upgrade to Premium'}
+              </button>
+              <p className="text-center text-gray-400 text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Transparency Note */}
+        <div className="bg-gray-800/80 rounded-xl p-4 text-center">
+          <p className="text-sm text-gray-300">
+            <span className="font-medium text-gray-200">Why charge for Premium?</span>
+            <br />
+            This app is a passion project, not a money-maker. Cloud storage costs real money to maintain,
+            so Premium simply covers those server costs. All core features remain free forever.
+          </p>
+        </div>
 
         {/* Back Link */}
         <Link
