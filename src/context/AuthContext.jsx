@@ -6,6 +6,12 @@ import {
   GoogleAuthProvider
 } from 'firebase/auth'
 import { auth, googleProvider } from '../config/firebase'
+import {
+  subscribeToUserSubscription,
+  isPremiumSubscription,
+  redirectToCheckout,
+  redirectToPortal
+} from '../services/subscriptionService'
 
 const AuthContext = createContext()
 
@@ -22,7 +28,10 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tokenExpiringSoon, setTokenExpiringSoon] = useState(false)
+  const [subscription, setSubscription] = useState(null)
+  const [isPremium, setIsPremium] = useState(false)
   const refreshTimerRef = useRef(null)
+  const subscriptionUnsubRef = useRef(null)
 
   // Set up a timer to warn when token is about to expire
   const setupTokenRefreshTimer = (expiryTime) => {
@@ -76,6 +85,9 @@ export function AuthProvider({ children }) {
           clearTimeout(refreshTimerRef.current)
         }
         setTokenExpiringSoon(false)
+        // Clear subscription state
+        setSubscription(null)
+        setIsPremium(false)
       }
     })
 
@@ -86,6 +98,31 @@ export function AuthProvider({ children }) {
       }
     }
   }, [])
+
+  // Subscribe to user subscription updates
+  useEffect(() => {
+    if (!user) {
+      // Clean up subscription listener
+      if (subscriptionUnsubRef.current) {
+        subscriptionUnsubRef.current()
+        subscriptionUnsubRef.current = null
+      }
+      return
+    }
+
+    // Subscribe to real-time subscription updates
+    subscriptionUnsubRef.current = subscribeToUserSubscription(user.uid, (subData) => {
+      setSubscription(subData)
+      setIsPremium(isPremiumSubscription(subData))
+    })
+
+    return () => {
+      if (subscriptionUnsubRef.current) {
+        subscriptionUnsubRef.current()
+        subscriptionUnsubRef.current = null
+      }
+    }
+  }, [user])
 
   const signInWithGoogle = async () => {
     try {
@@ -174,10 +211,28 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('google_access_token')
       localStorage.removeItem('google_token_expiry')
       setAccessToken(null)
+      setSubscription(null)
+      setIsPremium(false)
     } catch (error) {
       console.error('Error signing out:', error)
       throw error
     }
+  }
+
+  // Upgrade to premium subscription
+  const upgradeToPremium = async () => {
+    if (!user) {
+      throw new Error('Must be signed in to upgrade')
+    }
+    await redirectToCheckout(user.uid, user.email)
+  }
+
+  // Open subscription management portal
+  const manageSubscription = async () => {
+    if (!user) {
+      throw new Error('Must be signed in to manage subscription')
+    }
+    await redirectToPortal(user.uid)
   }
 
   const value = {
@@ -185,9 +240,13 @@ export function AuthProvider({ children }) {
     accessToken,
     loading,
     tokenExpiringSoon,
+    subscription,
+    isPremium,
     signInWithGoogle,
     signOut,
-    refreshSession
+    refreshSession,
+    upgradeToPremium,
+    manageSubscription
   }
 
   return (

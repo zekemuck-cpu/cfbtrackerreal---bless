@@ -3281,7 +3281,7 @@ export function useDynasty() {
 }
 
 export function DynastyProvider({ children }) {
-  const { user } = useAuth()
+  const { user, isPremium } = useAuth()
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -3486,10 +3486,15 @@ export function DynastyProvider({ children }) {
     })
   }
 
-  // Load dynasties when user changes
+  // Load dynasties when user or premium status changes
   useEffect(() => {
     // Load any persisted tier setting from localStorage (for testing tier switching)
-    storageService.loadPersistedTier()
+    const hasPersistedTier = storageService.loadPersistedTier()
+
+    // If no persisted tier (no test override), initialize based on actual subscription status
+    if (!hasPersistedTier && user) {
+      storageService.initialize({ isPremium, uid: user.uid })
+    }
 
     // Check storage tier - free tier uses IndexedDB, premium uses Firebase
     const useLocalStorage = !storageService.isPremium()
@@ -3662,7 +3667,7 @@ export function DynastyProvider({ children }) {
     })
 
     return () => unsubscribe()
-  }, [user, migrated, currentDynasty?.id])
+  }, [user, isPremium, migrated, currentDynasty?.id])
 
   // Save to IndexedDB in dev mode
   useEffect(() => {
