@@ -34,6 +34,7 @@ import GameEdit from './pages/dynasty/GameEdit'
 import TeamStats from './pages/dynasty/TeamStats'
 import DangerZone from './pages/dynasty/DangerZone'
 import AISettings from './pages/dynasty/AISettings'
+import Account from './pages/Account'
 // View-only wrapper (no auth required)
 import ViewDynasty from './pages/ViewDynasty'
 // Public pages
@@ -122,6 +123,13 @@ function AppRoutes() {
                 <ProtectedRoute>
                   <Layout>
                     <AISettings />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Account />
                   </Layout>
                 </ProtectedRoute>
               } />

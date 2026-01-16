@@ -48,11 +48,16 @@ export default async function handler(req, res) {
         const customerId = session.customer;
         const subscriptionId = session.subscription;
 
+        console.log(`[Webhook] checkout.session.completed - userId: ${firebaseUserId}, customer: ${customerId}, subscription: ${subscriptionId}`);
+
         if (firebaseUserId) {
-          console.log(`[Webhook] User ${firebaseUserId} completed checkout`);
+          console.log(`[Webhook] Retrieving subscription details...`);
 
           // Get subscription details
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          console.log(`[Webhook] Subscription status: ${subscription.status}`);
+
+          console.log(`[Webhook] Updating Firestore for user ${firebaseUserId}...`);
 
           // Update user in Firestore
           await db.collection('users').doc(firebaseUserId).set({
@@ -64,7 +69,9 @@ export default async function handler(req, res) {
             updatedAt: new Date(),
           }, { merge: true });
 
-          console.log(`[Webhook] Updated user ${firebaseUserId} to premium`);
+          console.log(`[Webhook] Successfully updated user ${firebaseUserId} to premium`);
+        } else {
+          console.log(`[Webhook] WARNING: No firebaseUserId in session metadata`);
         }
         break;
       }
@@ -148,7 +155,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ received: true });
   } catch (error) {
-    console.error('[Webhook] Error processing event:', error);
-    return res.status(500).json({ error: 'Webhook handler failed' });
+    console.error('[Webhook] Error processing event:', error.message);
+    console.error('[Webhook] Error stack:', error.stack);
+    return res.status(500).json({ error: 'Webhook handler failed', message: error.message });
   }
 }

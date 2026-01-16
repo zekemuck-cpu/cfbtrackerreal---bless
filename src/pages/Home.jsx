@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { storageService, STORAGE_TIER } from '../services/storage'
 import { getTeamColors } from '../data/teamColors'
 import { getTeamLogo } from '../data/teams'
 import { getConferenceLogo } from '../data/conferenceLogos'
@@ -11,6 +10,7 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import ConfirmModal from '../components/ConfirmModal'
 import ShareDynastyModal from '../components/ShareDynastyModal'
+import StorageSwitchModal from '../components/StorageSwitchModal'
 import BouncingLogos from '../components/BouncingLogos'
 
 // Helper to get team's conference from dynasty data
@@ -99,11 +99,12 @@ function getWeekPhaseDisplay(dynasty) {
 }
 
 export default function Home() {
-  const { dynasties, deleteDynasty, importDynasty, exportDynasty, updateDynasty, createDynasty, loading } = useDynasty()
-  const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
+  const { dynasties, deleteDynasty, importDynasty, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
+  const { user, isPremium, upgradeToPremium } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [upgrading, setUpgrading] = useState(false)
+  const [storageSwitchDynasty, setStorageSwitchDynasty] = useState(null)
 
   // Sort dynasties by lastModified (most recent first)
   const sortedDynasties = [...dynasties].sort((a, b) => {
@@ -122,8 +123,6 @@ export default function Home() {
   const [deletingAll, setDeletingAll] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [shareDynasty, setShareDynasty] = useState(null)
-  const [showStorageToggle, setShowStorageToggle] = useState(false)
-  const currentStorageTier = storageService.getTier()
   const fileInputRef = useRef(null)
   const hasDynasties = dynasties.length > 0
   const nonStarredDynasties = dynasties.filter(d => !d.favorite)
@@ -228,6 +227,12 @@ export default function Home() {
     setShowShareModal(true)
   }
 
+  const handleStorageClick = (e, dynasty) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setStorageSwitchDynasty(dynasty)
+  }
+
   const handleImportClick = () => {
     fileInputRef.current?.click()
   }
@@ -277,9 +282,14 @@ export default function Home() {
 
     setDeletingAll(true)
     try {
-      // Delete all non-starred dynasties
-      for (const dynasty of nonStarredDynasties) {
+      // Delete all non-starred dynasties with delay to prevent Firestore overload
+      for (let i = 0; i < nonStarredDynasties.length; i++) {
+        const dynasty = nonStarredDynasties[i]
         await deleteDynasty(dynasty.id)
+        // Add delay between deletions to prevent "Write stream exhausted" error
+        if (i < nonStarredDynasties.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
       }
     } catch (error) {
       console.error('Error deleting dynasties:', error)
@@ -396,59 +406,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Storage Tier Toggle (Dev Tool) */}
-          <div className="mt-4">
-            <button
-              onClick={() => setShowStorageToggle(!showStorageToggle)}
-              className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1 mx-auto"
-            >
-              <svg className={`w-3 h-3 transition-transform ${showStorageToggle ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-              Dev: {currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB' : 'Firebase'}
-            </button>
-            {showStorageToggle && (
-              <div className="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-700 max-w-xs mx-auto">
-                <div className="flex gap-2 mb-2">
-                  <button
-                    onClick={() => {
-                      storageService.setTier(STORAGE_TIER.FREE)
-                      window.location.reload()
-                    }}
-                    className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-                      currentStorageTier === STORAGE_TIER.FREE
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    IndexedDB
-                  </button>
-                  <button
-                    onClick={() => {
-                      storageService.setTier(STORAGE_TIER.PREMIUM)
-                      window.location.reload()
-                    }}
-                    className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-                      currentStorageTier === STORAGE_TIER.PREMIUM
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    Firebase
-                  </button>
-                </div>
-                <button
-                  onClick={() => {
-                    storageService.clearPersistedTier()
-                    window.location.reload()
-                  }}
-                  className="w-full px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-                >
-                  Reset to Default
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       ) : (
         <div>
@@ -492,115 +449,6 @@ export default function Home() {
             onChange={handleFileChange}
             className="hidden"
           />
-
-          {/* Subscription Status & Storage */}
-          <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {isPremium ? (
-                  <>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-600 text-white">
-                      Premium
-                    </span>
-                    <span className="text-xs text-gray-400">Cloud sync enabled</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-600 text-gray-200">
-                      Free
-                    </span>
-                    <span className="text-xs text-gray-400">Local storage only</span>
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {user && !isPremium && (
-                  <button
-                    onClick={async () => {
-                      setUpgrading(true)
-                      try {
-                        await upgradeToPremium()
-                      } catch (error) {
-                        console.error('Upgrade error:', error)
-                        alert('Failed to start upgrade. Please try again.')
-                      } finally {
-                        setUpgrading(false)
-                      }
-                    }}
-                    disabled={upgrading}
-                    className="px-3 py-1 rounded text-xs font-medium bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-50"
-                  >
-                    {upgrading ? 'Loading...' : 'Upgrade $4.99/mo'}
-                  </button>
-                )}
-                {user && isPremium && (
-                  <button
-                    onClick={() => manageSubscription()}
-                    className="px-3 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  >
-                    Manage
-                  </button>
-                )}
-                {!user && (
-                  <span className="text-xs text-gray-500">Sign in to upgrade</span>
-                )}
-              </div>
-            </div>
-
-            {/* Dev Storage Toggle (collapsible) */}
-            <div className="mt-2 pt-2 border-t border-gray-700">
-              <button
-                onClick={() => setShowStorageToggle(!showStorageToggle)}
-                className="text-xs text-gray-500 hover:text-gray-400 flex items-center gap-1"
-              >
-                <svg className={`w-3 h-3 transition-transform ${showStorageToggle ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-                Dev: {currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB' : 'Firebase'}
-              </button>
-              {showStorageToggle && (
-                <div className="mt-2 p-2 bg-gray-900 rounded border border-gray-700">
-                  <div className="flex gap-2 mb-2">
-                    <button
-                      onClick={() => {
-                        storageService.setTier(STORAGE_TIER.FREE)
-                        window.location.reload()
-                      }}
-                      className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-                        currentStorageTier === STORAGE_TIER.FREE
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      }`}
-                    >
-                      IndexedDB
-                    </button>
-                    <button
-                      onClick={() => {
-                        storageService.setTier(STORAGE_TIER.PREMIUM)
-                        window.location.reload()
-                      }}
-                      className={`flex-1 px-2 py-1 rounded text-xs font-medium ${
-                        currentStorageTier === STORAGE_TIER.PREMIUM
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      }`}
-                    >
-                      Firebase
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => {
-                      storageService.clearPersistedTier()
-                      window.location.reload()
-                    }}
-                    className="w-full px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
 
           <div className="grid gap-3 sm:gap-4">
             {sortedDynasties.map((dynasty) => {
@@ -680,13 +528,27 @@ export default function Home() {
                             {conference ? `${conference} • ` : ''}{dynasty.currentYear}
                           </p>
                         </div>
-                        <p
-                          className="text-[10px] sm:text-xs mt-0.5 opacity-70 truncate"
-                          style={{ color: textColor }}
-                        >
-                          {weekPhase}
-                          {relativeTime && <span className="ml-1 sm:ml-2">• {relativeTime}</span>}
-                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p
+                            className="text-[10px] sm:text-xs opacity-70 truncate"
+                            style={{ color: textColor }}
+                          >
+                            {weekPhase}
+                            {relativeTime && <span className="ml-1 sm:ml-2">• {relativeTime}</span>}
+                          </p>
+                          {/* Storage type badge */}
+                          <button
+                            onClick={(e) => handleStorageClick(e, dynasty)}
+                            className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
+                              dynasty.storageType === 'cloud'
+                                ? 'bg-purple-500/30 text-purple-200 hover:bg-purple-500/50'
+                                : 'bg-blue-500/30 text-blue-200 hover:bg-blue-500/50'
+                            }`}
+                            title={dynasty.storageType === 'cloud' ? 'Stored in cloud (syncs across devices)' : 'Stored locally (this device only)'}
+                          >
+                            {dynasty.storageType === 'cloud' ? 'Cloud' : 'Local'}
+                          </button>
+                        </div>
                       </div>
                     </Link>
 
@@ -1037,6 +899,26 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Storage Switch Modal */}
+      <StorageSwitchModal
+        isOpen={!!storageSwitchDynasty}
+        onClose={() => setStorageSwitchDynasty(null)}
+        dynasty={storageSwitchDynasty}
+        isPremium={isPremium}
+        onMigrate={migrateDynastyStorage}
+        onUpgrade={async () => {
+          setStorageSwitchDynasty(null)
+          if (upgradeToPremium) {
+            setUpgrading(true)
+            try {
+              await upgradeToPremium()
+            } finally {
+              setUpgrading(false)
+            }
+          }
+        }}
+      />
     </div>
   )
 }

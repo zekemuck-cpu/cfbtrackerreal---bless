@@ -1,27 +1,32 @@
 /**
  * Storage Service - Main Entry Point
  *
- * Routes storage operations to the appropriate backend:
- * - Free tier: IndexedDB (local storage)
- * - Paid tier: Firebase (cloud sync)
+ * PER-DYNASTY STORAGE ARCHITECTURE
  *
- * Usage:
- *   import { storageService } from './services/storage/storageService';
+ * Each dynasty has a `storageType` field: 'local' | 'cloud'
+ * - 'local' = IndexedDB (device only, no account needed)
+ * - 'cloud' = Firebase (syncs across devices, requires premium)
  *
- *   // Initialize with user (call after auth)
- *   storageService.initialize(user);
- *
- *   // Use storage operations
- *   const dynasties = await storageService.getDynasties();
+ * This service:
+ * - Loads dynasties from BOTH backends
+ * - Routes operations to the correct backend based on dynasty.storageType
+ * - Allows premium users to create in either location
+ * - Provides migration between local and cloud
  */
 
 import { indexedDBStorage } from './indexedDBStorage';
 import { firebaseStorage } from './firebaseStorage';
 
-// Storage tier constants
+// Storage type constants (per dynasty)
+export const STORAGE_TYPE = {
+  LOCAL: 'local',   // IndexedDB
+  CLOUD: 'cloud'    // Firebase
+};
+
+// Legacy exports for backward compatibility
 export const STORAGE_TIER = {
-  FREE: 'free',      // IndexedDB (local)
-  PREMIUM: 'premium' // Firebase (cloud)
+  FREE: 'free',
+  PREMIUM: 'premium'
 };
 
 // Debug logging
@@ -33,181 +38,257 @@ const log = (...args) => {
 /**
  * Storage Service
  *
- * Automatically routes to correct storage backend based on user tier.
+ * Routes operations to correct backend based on each dynasty's storageType.
  */
 export const storageService = {
-  _currentTier: STORAGE_TIER.FREE,
   _user: null,
+  _userId: null,
+  _isPremium: false,
   _initialized: false,
 
   /**
-   * Initialize storage service with user
-   * Call this after authentication
-   * @param {Object|null} user - User object with isPremium flag, or null for free tier
+   * Initialize storage service with user info
+   * @param {Object} options - { isPremium, uid }
    */
-  initialize(user) {
-    this._user = user;
+  initialize({ isPremium = false, uid = null } = {}) {
+    this._isPremium = isPremium;
+    this._userId = uid;
 
-    // Determine tier based on user
-    // For now: authenticated users with isPremium get Firebase, others get IndexedDB
-    if (user?.isPremium) {
-      this._currentTier = STORAGE_TIER.PREMIUM;
-      firebaseStorage.setUserId(user.uid);
-    } else {
-      this._currentTier = STORAGE_TIER.FREE;
+    if (uid) {
+      firebaseStorage.setUserId(uid);
     }
 
     this._initialized = true;
-    log(`Initialized with tier: ${this._currentTier}, user: ${user?.uid || 'none'}`);
+    log(`Initialized - isPremium: ${isPremium}, userId: ${uid || 'none'}`);
   },
 
   /**
-   * Force a specific tier (for testing or migration)
-   * @param {string} tier - STORAGE_TIER.FREE or STORAGE_TIER.PREMIUM
-   * @param {string} userId - Firebase user ID (required for premium tier)
+   * Check if user has premium (can use cloud storage)
+   * @returns {boolean}
    */
-  setTier(tier, userId = null) {
-    const previousTier = this._currentTier;
-    this._currentTier = tier;
-
-    if (tier === STORAGE_TIER.PREMIUM && userId) {
-      firebaseStorage.setUserId(userId);
-      // Store userId for reload persistence
-      localStorage.setItem('cfb-storage-userId', userId);
-    }
-
-    // Persist tier setting to localStorage for reload persistence
-    localStorage.setItem('cfb-storage-tier', tier);
-
-    log(`Tier changed: ${previousTier} → ${tier}`);
+  isPremium() {
+    return this._isPremium;
   },
 
   /**
-   * Load persisted tier from localStorage (called on app init)
-   * @returns {boolean} True if tier was restored from localStorage
+   * Get user ID (for Firebase operations)
+   * @returns {string|null}
    */
-  loadPersistedTier() {
-    const savedTier = localStorage.getItem('cfb-storage-tier');
-    const savedUserId = localStorage.getItem('cfb-storage-userId');
-
-    if (savedTier) {
-      this._currentTier = savedTier;
-      if (savedTier === STORAGE_TIER.PREMIUM && savedUserId) {
-        firebaseStorage.setUserId(savedUserId);
-      }
-      log(`Restored tier from localStorage: ${savedTier}`);
-      return true;
-    }
-    return false;
+  getUserId() {
+    return this._userId;
   },
 
   /**
-   * Clear persisted tier (revert to default behavior)
-   */
-  clearPersistedTier() {
-    localStorage.removeItem('cfb-storage-tier');
-    localStorage.removeItem('cfb-storage-userId');
-    log('Cleared persisted tier setting');
-  },
-
-  /**
-   * Set debug mode for all storage services
-   * @param {boolean} enabled - Whether to enable debug logging
+   * Set debug mode
+   * @param {boolean} enabled
    */
   setDebug(enabled) {
     DEBUG = enabled;
     indexedDBStorage.setDebug(enabled);
-    log(`Debug mode ${enabled ? 'enabled' : 'disabled'} for all storage services`);
+    log(`Debug mode ${enabled ? 'enabled' : 'disabled'}`);
   },
 
-  /**
-   * Get current storage tier
-   * @returns {string} Current tier
-   */
+  // Legacy methods for backward compatibility
   getTier() {
-    return this._currentTier;
+    return this._isPremium ? STORAGE_TIER.PREMIUM : STORAGE_TIER.FREE;
   },
 
-  /**
-   * Check if using premium (cloud) storage
-   * @returns {boolean}
-   */
-  isPremium() {
-    return this._currentTier === STORAGE_TIER.PREMIUM;
+  setTier() {
+    // No-op - tier is now determined by dynasty.storageType
+    log('setTier is deprecated - storage is now per-dynasty');
   },
 
-  /**
-   * Get the active storage backend
-   * @returns {Object} indexedDBStorage or firebaseStorage
-   */
+  loadPersistedTier() {
+    // Clean up old localStorage keys
+    localStorage.removeItem('cfb-storage-tier');
+    localStorage.removeItem('cfb-storage-userId');
+    return false;
+  },
+
+  clearPersistedTier() {
+    localStorage.removeItem('cfb-storage-tier');
+    localStorage.removeItem('cfb-storage-userId');
+  },
+
   getStorage() {
-    return this.isPremium() ? firebaseStorage : indexedDBStorage;
+    // Legacy - returns local storage as default
+    return indexedDBStorage;
   },
 
   // ============================================================================
-  // STORAGE OPERATIONS - Delegated to active backend
+  // STORAGE OPERATIONS - Now routes based on dynasty.storageType
   // ============================================================================
 
   /**
-   * Get all dynasties
+   * Get storage backend for a dynasty
+   * @param {Object|string} dynastyOrType - Dynasty object or storageType string
+   * @returns {Object} Storage backend
+   */
+  getStorageFor(dynastyOrType) {
+    const storageType = typeof dynastyOrType === 'string'
+      ? dynastyOrType
+      : dynastyOrType?.storageType;
+
+    return storageType === STORAGE_TYPE.CLOUD ? firebaseStorage : indexedDBStorage;
+  },
+
+  /**
+   * Get ALL dynasties from both local and cloud storage
    * @returns {Promise<Array>}
    */
   async getDynasties() {
-    return this.getStorage().getDynasties();
+    const results = [];
+
+    // Always get local dynasties
+    try {
+      const localDynasties = await indexedDBStorage.getDynasties();
+      // Ensure they have storageType set
+      for (const dynasty of localDynasties) {
+        results.push({
+          ...dynasty,
+          storageType: STORAGE_TYPE.LOCAL
+        });
+      }
+      log(`Loaded ${localDynasties.length} local dynasties`);
+    } catch (error) {
+      console.error('[Storage] Error loading local dynasties:', error);
+    }
+
+    // Get cloud dynasties if user is signed in
+    if (this._userId) {
+      try {
+        const cloudDynasties = await firebaseStorage.getDynasties();
+        // Ensure they have storageType set
+        for (const dynasty of cloudDynasties) {
+          results.push({
+            ...dynasty,
+            storageType: STORAGE_TYPE.CLOUD
+          });
+        }
+        log(`Loaded ${cloudDynasties.length} cloud dynasties`);
+      } catch (error) {
+        console.error('[Storage] Error loading cloud dynasties:', error);
+      }
+    }
+
+    log(`Total dynasties loaded: ${results.length}`);
+    return results;
   },
 
   /**
-   * Save all dynasties (mainly for IndexedDB)
+   * Save all dynasties - routes each to correct backend
    * @param {Array} dynasties
-   * @returns {Promise<void>}
    */
   async saveDynasties(dynasties) {
-    return this.getStorage().saveDynasties(dynasties);
+    const localDynasties = dynasties.filter(d => d.storageType !== STORAGE_TYPE.CLOUD);
+    const cloudDynasties = dynasties.filter(d => d.storageType === STORAGE_TYPE.CLOUD);
+
+    if (localDynasties.length > 0) {
+      await indexedDBStorage.saveDynasties(localDynasties);
+    }
+    // Cloud dynasties are saved individually, not in bulk
   },
 
   /**
    * Get a single dynasty by ID
    * @param {string} dynastyId
+   * @param {string} storageType - Optional hint for which storage to check first
    * @returns {Promise<Object|null>}
    */
-  async getDynasty(dynastyId) {
-    return this.getStorage().getDynasty(dynastyId);
+  async getDynasty(dynastyId, storageType = null) {
+    // If we know the storage type, check that first
+    if (storageType === STORAGE_TYPE.CLOUD && this._userId) {
+      const dynasty = await firebaseStorage.getDynasty(dynastyId);
+      if (dynasty) {
+        return { ...dynasty, storageType: STORAGE_TYPE.CLOUD };
+      }
+    } else if (storageType === STORAGE_TYPE.LOCAL) {
+      const dynasty = await indexedDBStorage.getDynasty(dynastyId);
+      if (dynasty) {
+        return { ...dynasty, storageType: STORAGE_TYPE.LOCAL };
+      }
+    }
+
+    // Check both backends
+    const localDynasty = await indexedDBStorage.getDynasty(dynastyId);
+    if (localDynasty) {
+      return { ...localDynasty, storageType: STORAGE_TYPE.LOCAL };
+    }
+
+    if (this._userId) {
+      const cloudDynasty = await firebaseStorage.getDynasty(dynastyId);
+      if (cloudDynasty) {
+        return { ...cloudDynasty, storageType: STORAGE_TYPE.CLOUD };
+      }
+    }
+
+    return null;
   },
 
   /**
    * Create a new dynasty
    * @param {Object} dynasty
+   * @param {string} storageType - Where to create it ('local' or 'cloud')
    * @returns {Promise<Object>}
    */
-  async createDynasty(dynasty) {
-    return this.getStorage().createDynasty(dynasty);
+  async createDynasty(dynasty, storageType = STORAGE_TYPE.LOCAL) {
+    // Premium required for cloud storage
+    if (storageType === STORAGE_TYPE.CLOUD && !this._isPremium) {
+      console.warn('[Storage] Cloud storage requires premium. Creating locally.');
+      storageType = STORAGE_TYPE.LOCAL;
+    }
+
+    const storage = this.getStorageFor(storageType);
+    const result = await storage.createDynasty({
+      ...dynasty,
+      storageType
+    });
+
+    return { ...result, storageType };
   },
 
   /**
    * Update a dynasty
    * @param {string} dynastyId
    * @param {Object} updates
+   * @param {string} storageType - Which storage backend to use
    * @returns {Promise<Object|void>}
    */
-  async updateDynasty(dynastyId, updates) {
-    return this.getStorage().updateDynasty(dynastyId, updates);
+  async updateDynasty(dynastyId, updates, storageType = null) {
+    // If no storage type provided, find the dynasty first
+    if (!storageType) {
+      const dynasty = await this.getDynasty(dynastyId);
+      storageType = dynasty?.storageType || STORAGE_TYPE.LOCAL;
+    }
+
+    const storage = this.getStorageFor(storageType);
+    return storage.updateDynasty(dynastyId, updates);
   },
 
   /**
    * Delete a dynasty
    * @param {string} dynastyId
+   * @param {string} storageType - Which storage backend
    * @returns {Promise<void>}
    */
-  async deleteDynasty(dynastyId) {
-    return this.getStorage().deleteDynasty(dynastyId);
+  async deleteDynasty(dynastyId, storageType = null) {
+    // If no storage type provided, find the dynasty first
+    if (!storageType) {
+      const dynasty = await this.getDynasty(dynastyId);
+      storageType = dynasty?.storageType || STORAGE_TYPE.LOCAL;
+    }
+
+    const storage = this.getStorageFor(storageType);
+    return storage.deleteDynasty(dynastyId);
   },
 
   /**
-   * Clear all storage
+   * Clear all storage (both local and cloud)
    * @returns {Promise<void>}
    */
   async clearAll() {
-    return this.getStorage().clearAll();
+    await indexedDBStorage.clearAll();
+    // Don't clear cloud storage - too dangerous
   },
 
   /**
@@ -215,7 +296,7 @@ export const storageService = {
    * @returns {Promise<boolean>}
    */
   async isAvailable() {
-    return this.getStorage().isAvailable();
+    return indexedDBStorage.isAvailable();
   },
 
   // ============================================================================
@@ -223,145 +304,173 @@ export const storageService = {
   // ============================================================================
 
   /**
-   * Migrate data from free tier (IndexedDB) to premium tier (Firebase)
-   * Call when user upgrades to premium
-   * @param {string} userId - Firebase user ID
-   * @returns {Promise<{success: boolean, migratedCount: number}>}
+   * Migrate a single dynasty from local to cloud
+   * @param {string} dynastyId
+   * @returns {Promise<{success: boolean, dynasty?: Object}>}
    */
-  async migrateToCloud(userId) {
+  async migrateDynastyToCloud(dynastyId) {
+    if (!this._isPremium || !this._userId) {
+      return { success: false, error: 'Premium required for cloud storage' };
+    }
+
     try {
-      console.log('[Storage] Starting migration to cloud...');
-
-      // Get all dynasties from IndexedDB
-      const localDynasties = await indexedDBStorage.getDynasties();
-
-      if (localDynasties.length === 0) {
-        console.log('[Storage] No local dynasties to migrate');
-        return { success: true, migratedCount: 0 };
+      // Get the local dynasty
+      const dynasty = await indexedDBStorage.getDynasty(dynastyId);
+      if (!dynasty) {
+        return { success: false, error: 'Dynasty not found' };
       }
 
-      // Set up Firebase storage with user ID
-      firebaseStorage.setUserId(userId);
+      // Create in cloud
+      const cloudDynasty = await firebaseStorage.createDynasty({
+        ...dynasty,
+        storageType: STORAGE_TYPE.CLOUD
+      });
 
-      // Migrate each dynasty
-      let migratedCount = 0;
-      for (const dynasty of localDynasties) {
-        try {
-          await firebaseStorage.createDynasty(dynasty);
-          migratedCount++;
-          console.log(`[Storage] Migrated dynasty: ${dynasty.name}`);
-        } catch (error) {
-          console.error(`[Storage] Failed to migrate dynasty ${dynasty.name}:`, error);
-        }
-      }
+      // Delete from local
+      await indexedDBStorage.deleteDynasty(dynastyId);
 
-      // Optionally clear local storage after successful migration
-      if (migratedCount === localDynasties.length) {
-        // await indexedDBStorage.clearAll();
-        console.log('[Storage] Migration complete - local data preserved as backup');
-      }
-
-      return { success: true, migratedCount };
+      log(`Migrated dynasty ${dynastyId} to cloud`);
+      return { success: true, dynasty: cloudDynasty };
     } catch (error) {
-      console.error('[Storage] Migration failed:', error);
-      return { success: false, migratedCount: 0 };
+      console.error('[Storage] Migration to cloud failed:', error);
+      return { success: false, error: error.message };
     }
   },
 
   /**
-   * Migrate data from premium tier (Firebase) to free tier (IndexedDB)
-   * Call when user downgrades from premium
-   * @returns {Promise<{success: boolean, migratedCount: number}>}
+   * Migrate a single dynasty from cloud to local
+   * @param {string} dynastyId
+   * @returns {Promise<{success: boolean, dynasty?: Object}>}
    */
-  async migrateToLocal() {
+  async migrateDynastyToLocal(dynastyId) {
     try {
-      console.log('[Storage] Starting migration to local...');
-
-      // Get all dynasties from Firebase
-      const cloudDynasties = await firebaseStorage.getDynasties();
-
-      if (cloudDynasties.length === 0) {
-        console.log('[Storage] No cloud dynasties to migrate');
-        return { success: true, migratedCount: 0 };
+      // Get the cloud dynasty
+      const dynasty = await firebaseStorage.getDynasty(dynastyId);
+      if (!dynasty) {
+        return { success: false, error: 'Dynasty not found' };
       }
 
-      // Get existing local dynasties to avoid duplicates
-      const existingLocal = await indexedDBStorage.getDynasties();
-      const existingIds = new Set(existingLocal.map(d => d.id));
+      // Create locally
+      const localDynasty = await indexedDBStorage.createDynasty({
+        ...dynasty,
+        storageType: STORAGE_TYPE.LOCAL
+      });
 
-      // Migrate each dynasty that doesn't already exist locally
-      let migratedCount = 0;
-      for (const dynasty of cloudDynasties) {
-        if (!existingIds.has(dynasty.id)) {
-          try {
-            await indexedDBStorage.createDynasty(dynasty);
-            migratedCount++;
-            console.log(`[Storage] Migrated dynasty to local: ${dynasty.name}`);
-          } catch (error) {
-            console.error(`[Storage] Failed to migrate dynasty ${dynasty.name}:`, error);
-          }
-        }
-      }
+      // Delete from cloud
+      await firebaseStorage.deleteDynasty(dynastyId);
 
-      return { success: true, migratedCount };
+      log(`Migrated dynasty ${dynastyId} to local`);
+      return { success: true, dynasty: localDynasty };
     } catch (error) {
       console.error('[Storage] Migration to local failed:', error);
-      return { success: false, migratedCount: 0 };
+      return { success: false, error: error.message };
     }
   },
 
   /**
-   * Check for existing localStorage data and migrate to IndexedDB
-   * Call on app initialization for backward compatibility
-   * @returns {Promise<boolean>} True if migration occurred
+   * Migrate ALL local dynasties to cloud (for premium upgrade)
+   * @returns {Promise<{success: boolean, migratedCount: number}>}
+   */
+  async migrateAllToCloud() {
+    if (!this._isPremium || !this._userId) {
+      return { success: false, migratedCount: 0, error: 'Premium required' };
+    }
+
+    try {
+      const localDynasties = await indexedDBStorage.getDynasties();
+      let migratedCount = 0;
+
+      for (const dynasty of localDynasties) {
+        const result = await this.migrateDynastyToCloud(dynasty.id);
+        if (result.success) {
+          migratedCount++;
+        }
+      }
+
+      return { success: true, migratedCount };
+    } catch (error) {
+      return { success: false, migratedCount: 0, error: error.message };
+    }
+  },
+
+  /**
+   * Legacy: Migrate from old localStorage to IndexedDB
+   * @returns {Promise<boolean>}
    */
   async migrateFromLocalStorage() {
     return indexedDBStorage.migrateFromLocalStorage();
   },
 
+  // Legacy aliases
+  async migrateToCloud(userId) {
+    if (userId && !this._userId) {
+      firebaseStorage.setUserId(userId);
+      this._userId = userId;
+    }
+    return this.migrateAllToCloud();
+  },
+
+  async migrateToLocal() {
+    // Migrate all cloud dynasties to local
+    try {
+      const cloudDynasties = await firebaseStorage.getDynasties();
+      let migratedCount = 0;
+
+      for (const dynasty of cloudDynasties) {
+        const result = await this.migrateDynastyToLocal(dynasty.id);
+        if (result.success) {
+          migratedCount++;
+        }
+      }
+
+      return { success: true, migratedCount };
+    } catch (error) {
+      return { success: false, migratedCount: 0 };
+    }
+  },
+
   // ============================================================================
-  // PREMIUM-ONLY FEATURES
+  // PREMIUM FEATURES
   // ============================================================================
 
   /**
-   * Subscribe to real-time updates (Premium only)
+   * Subscribe to real-time updates for cloud dynasties
    * @param {Function} callback
    * @returns {Function} Unsubscribe function
    */
   subscribe(callback) {
-    if (!this.isPremium()) {
-      console.warn('[Storage] Real-time sync is a premium feature');
+    if (!this._userId) {
       return () => {};
     }
     return firebaseStorage.subscribe(callback);
   },
 
   /**
-   * Get players from subcollection (Premium only, for migrated dynasties)
+   * Get players from subcollection (for migrated cloud dynasties)
    * @param {string} dynastyId
+   * @param {string} storageType
    * @returns {Promise<Array>}
    */
-  async getPlayers(dynastyId) {
-    if (!this.isPremium()) {
-      // Free tier: players are in dynasty.players
-      const dynasty = await this.getDynasty(dynastyId);
-      return dynasty?.players || [];
+  async getPlayers(dynastyId, storageType = null) {
+    if (storageType === STORAGE_TYPE.CLOUD) {
+      return firebaseStorage.getPlayers(dynastyId);
     }
-    return firebaseStorage.getPlayers(dynastyId);
+    const dynasty = await indexedDBStorage.getDynasty(dynastyId);
+    return dynasty?.players || [];
   },
 
   /**
-   * Get games from subcollection (Premium only, for migrated dynasties)
+   * Get games from subcollection (for migrated cloud dynasties)
    * @param {string} dynastyId
+   * @param {string} storageType
    * @returns {Promise<Array>}
    */
-  async getGames(dynastyId) {
-    if (!this.isPremium()) {
-      // Free tier: games are in dynasty.games
-      const dynasty = await this.getDynasty(dynastyId);
-      return dynasty?.games || [];
+  async getGames(dynastyId, storageType = null) {
+    if (storageType === STORAGE_TYPE.CLOUD) {
+      return firebaseStorage.getGames(dynastyId);
     }
-    return firebaseStorage.getGames(dynastyId);
+    const dynasty = await indexedDBStorage.getDynasty(dynastyId);
+    return dynasty?.games || [];
   }
 };
 

@@ -572,7 +572,7 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
 
     if (snapshot.empty) return
 
-    // Delete in batches
+    // Delete in batches with delay to prevent Firestore overload
     for (let i = 0; i < snapshot.docs.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
       const batchDocs = snapshot.docs.slice(i, i + BATCH_SIZE)
@@ -582,6 +582,11 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
       }
 
       await batch.commit()
+
+      // Add delay between batches to prevent "Write stream exhausted" error
+      if (i + BATCH_SIZE < snapshot.docs.length) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
     }
   } catch (error) {
     console.error(`Error deleting ${subcollectionName} subcollection:`, error)
@@ -596,10 +601,9 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
 export async function deleteDynastyWithSubcollections(dynastyId) {
   try {
     // Delete subcollections first (Firestore doesn't auto-delete them)
-    await Promise.all([
-      deleteSubcollection(dynastyId, PLAYERS_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, GAMES_SUBCOLLECTION)
-    ])
+    // Do this sequentially to avoid overwhelming Firestore write stream
+    await deleteSubcollection(dynastyId, PLAYERS_SUBCOLLECTION)
+    await deleteSubcollection(dynastyId, GAMES_SUBCOLLECTION)
 
     // Then delete the main document
     await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId))
