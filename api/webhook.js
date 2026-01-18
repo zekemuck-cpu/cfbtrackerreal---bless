@@ -66,6 +66,8 @@ export default async function handler(req, res) {
             subscriptionId: subscriptionId,
             subscriptionStatus: subscription.status,
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
             updatedAt: new Date(),
           }, { merge: true });
 
@@ -94,10 +96,12 @@ export default async function handler(req, res) {
             tier: isPremium ? 'premium' : 'free',
             subscriptionStatus: subscription.status,
             currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            cancelAt: subscription.cancel_at ? new Date(subscription.cancel_at * 1000) : null,
             updatedAt: new Date(),
           });
 
-          console.log(`[Webhook] Updated subscription for user ${userDoc.id}: ${subscription.status}`);
+          console.log(`[Webhook] Updated subscription for user ${userDoc.id}: ${subscription.status}, cancelAtPeriodEnd: ${subscription.cancel_at_period_end}`);
         }
         break;
       }
@@ -115,13 +119,18 @@ export default async function handler(req, res) {
         if (!usersSnapshot.empty) {
           const userDoc = usersSnapshot.docs[0];
 
+          // Subscription has ended - user goes back to free tier
+          // Set pendingDowngrade flag so frontend can trigger migration
           await userDoc.ref.update({
             tier: 'free',
             subscriptionStatus: 'canceled',
+            cancelAtPeriodEnd: false,
+            cancelAt: null,
+            pendingDowngrade: true, // Flag for frontend to migrate data to local
             updatedAt: new Date(),
           });
 
-          console.log(`[Webhook] Subscription canceled for user ${userDoc.id}`);
+          console.log(`[Webhook] Subscription ended for user ${userDoc.id} - set pendingDowngrade flag`);
         }
         break;
       }

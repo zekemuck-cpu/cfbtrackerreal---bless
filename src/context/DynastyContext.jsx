@@ -16,6 +16,8 @@ import {
   migrateDynastyToSubcollections
 } from '../services/dynastyService'
 import { indexedDBStorage, storageService } from '../services/storage'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../config/firebase'
 import { createDynastySheet, deleteGoogleSheet, writeExistingDataToSheet, createConferencesSheet, readConferencesFromSheet } from '../services/sheetsService'
 import { getTeamName } from '../data/teamAbbreviations'
 import { getTeamConference, getConferencesWithCustomTeams } from '../data/conferenceTeams'
@@ -3281,7 +3283,7 @@ export function useDynasty() {
 }
 
 export function DynastyProvider({ children }) {
-  const { user, isPremium } = useAuth()
+  const { user, isPremium, subscription } = useAuth()
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -3718,6 +3720,78 @@ export function DynastyProvider({ children }) {
     }
     // Note: We don't remove data when empty to avoid accidental data loss
   }, [dynasties, loading])
+
+  // Auto-migrate cloud dynasties to local when premium subscription expires
+  // This ensures users don't lose their data when downgrading
+  useEffect(() => {
+    // Only run if user is signed in and has pendingDowngrade flag
+    if (!user || !subscription?.pendingDowngrade) return
+
+    // Don't run during initial load
+    if (loading) return
+
+    // Find all cloud dynasties that need to be migrated
+    const cloudDynasties = dynasties.filter(d => d.storageType === 'cloud')
+
+    if (cloudDynasties.length === 0) {
+      // No cloud dynasties to migrate, just clear the flag
+      console.log('[DynastyContext] No cloud dynasties to migrate, clearing pendingDowngrade flag')
+      updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
+        .catch(err => console.error('Failed to clear pendingDowngrade flag:', err))
+      return
+    }
+
+    // Migrate each cloud dynasty to local storage
+    const migrateCloudDynastiesToLocal = async () => {
+      console.log(`[DynastyContext] Premium expired - migrating ${cloudDynasties.length} cloud dynasties to local storage`)
+
+      let migratedCount = 0
+      const newLocalDynasties = []
+
+      for (const dynasty of cloudDynasties) {
+        try {
+          // Create a local copy with storageType: 'local'
+          const localDynasty = {
+            ...dynasty,
+            storageType: 'local',
+            _migratedFromCloud: true,
+            _migratedAt: new Date().toISOString()
+          }
+
+          newLocalDynasties.push(localDynasty)
+          migratedCount++
+          console.log(`[DynastyContext] Prepared dynasty ${dynasty.id} (${dynasty.teamName}) for local storage`)
+        } catch (error) {
+          console.error(`[DynastyContext] Failed to prepare dynasty ${dynasty.id} for migration:`, error)
+        }
+      }
+
+      if (newLocalDynasties.length > 0) {
+        // Save all to IndexedDB
+        await indexedDBStorage.saveDynasties(newLocalDynasties)
+
+        // Update state to reflect the migration
+        setDynasties(prev => {
+          // Remove cloud versions and add local versions
+          const cloudIds = new Set(cloudDynasties.map(d => d.id))
+          const nonCloudDynasties = prev.filter(d => !cloudIds.has(d.id))
+          return [...nonCloudDynasties, ...newLocalDynasties]
+        })
+
+        console.log(`[DynastyContext] Successfully migrated ${migratedCount} dynasties to local storage`)
+      }
+
+      // Clear the pendingDowngrade flag
+      try {
+        await updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
+        console.log('[DynastyContext] Cleared pendingDowngrade flag')
+      } catch (error) {
+        console.error('[DynastyContext] Failed to clear pendingDowngrade flag:', error)
+      }
+    }
+
+    migrateCloudDynastiesToLocal()
+  }, [user, subscription?.pendingDowngrade, dynasties, loading])
 
   const createDynasty = async (dynastyData) => {
     const startYear = parseInt(dynastyData.startYear)

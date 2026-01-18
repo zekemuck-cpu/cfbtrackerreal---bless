@@ -128,11 +128,51 @@ export default function Account() {
 
         {/* Premium Member Card (for premium users) */}
         {isPremium && (
-          <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg border-2 border-amber-200 mb-4">
+          <div className={`bg-white rounded-xl p-4 sm:p-5 shadow-lg mb-4 ${subscription?.cancelAtPeriodEnd ? 'border-2 border-orange-300' : 'border-2 border-amber-200'}`}>
             <div className="flex items-center justify-between mb-3">
               <div className="font-semibold text-gray-900">Premium Member</div>
-              <span className="text-sm text-amber-600">Thanks for your support!</span>
+              {subscription?.cancelAtPeriodEnd ? (
+                <span className="text-sm text-orange-600">Canceling</span>
+              ) : (
+                <span className="text-sm text-amber-600">Thanks for your support!</span>
+              )}
             </div>
+
+            {/* Billing Info */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
+              {subscription?.cancelAtPeriodEnd ? (
+                <div className="text-orange-700">
+                  <div className="font-medium mb-1">Subscription ending</div>
+                  <div className="text-orange-600">
+                    Your premium access expires on{' '}
+                    <span className="font-semibold">
+                      {subscription?.currentPeriodEnd?.toDate?.()?.toLocaleDateString() ||
+                        (subscription?.currentPeriodEnd && new Date(subscription.currentPeriodEnd).toLocaleDateString()) ||
+                        'N/A'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-orange-500 mt-1">
+                    Your dynasties will be migrated to local storage when premium ends.
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Next billing date:</span>
+                    <span className="font-medium text-gray-900">
+                      {subscription?.currentPeriodEnd?.toDate?.()?.toLocaleDateString() ||
+                        (subscription?.currentPeriodEnd && new Date(subscription.currentPeriodEnd).toLocaleDateString()) ||
+                        'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span>Amount:</span>
+                    <span className="font-medium text-gray-900">$4.99</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => manageSubscription?.()}
               className="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors"
