@@ -16,6 +16,12 @@
 
 import { indexedDBStorage } from './indexedDBStorage';
 import { firebaseStorage } from './firebaseStorage';
+import {
+  createDynasty as createDynastyInFirestore,
+  updateDynasty as updateDynastyInFirestore,
+  savePlayersToSubcollection,
+  saveGamesToSubcollection
+} from '../dynastyService';
 
 // Storage type constants (per dynasty)
 export const STORAGE_TYPE = {
@@ -305,6 +311,7 @@ export const storageService = {
 
   /**
    * Migrate a single dynasty from local to cloud
+   * Uses subcollections for players/games to avoid 1MB document limit
    * @param {string} dynastyId
    * @returns {Promise<{success: boolean, dynasty?: Object}>}
    */
@@ -320,17 +327,52 @@ export const storageService = {
         return { success: false, error: 'Dynasty not found' };
       }
 
-      // Create in cloud
-      const cloudDynasty = await firebaseStorage.createDynasty({
-        ...dynasty,
-        storageType: STORAGE_TYPE.CLOUD
+      log(`Migrating dynasty ${dynastyId} to cloud with subcollections...`);
+
+      // Extract players and games - these go to subcollections
+      const { players, games, id, ...mainDynastyData } = dynasty;
+
+      // Create the main dynasty document WITHOUT players and games
+      // This keeps the main document under Firestore's 1MB limit
+      const cloudDynasty = await createDynastyInFirestore(this._userId, {
+        ...mainDynastyData,
+        storageType: STORAGE_TYPE.CLOUD,
+        _subcollectionsMigrated: true, // Mark as using subcollections
+        // Store counts for reference
+        _playerCount: players?.length || 0,
+        _gameCount: games?.length || 0
       });
 
-      // Delete from local
+      const cloudDynastyId = cloudDynasty.id;
+      log(`Created main document ${cloudDynastyId}, now saving subcollections...`);
+
+      // Save players to subcollection
+      if (players && players.length > 0) {
+        try {
+          await savePlayersToSubcollection(cloudDynastyId, players);
+          log(`Saved ${players.length} players to subcollection`);
+        } catch (playerErr) {
+          console.error('[Storage] Failed to save players subcollection:', playerErr);
+          // Don't fail the whole migration - players can be re-synced later
+        }
+      }
+
+      // Save games to subcollection
+      if (games && games.length > 0) {
+        try {
+          await saveGamesToSubcollection(cloudDynastyId, games);
+          log(`Saved ${games.length} games to subcollection`);
+        } catch (gameErr) {
+          console.error('[Storage] Failed to save games subcollection:', gameErr);
+          // Don't fail the whole migration - games can be re-synced later
+        }
+      }
+
+      // Delete from local only after successful cloud creation
       await indexedDBStorage.deleteDynasty(dynastyId);
 
-      log(`Migrated dynasty ${dynastyId} to cloud`);
-      return { success: true, dynasty: cloudDynasty };
+      log(`Migrated dynasty ${dynastyId} to cloud as ${cloudDynastyId}`);
+      return { success: true, dynasty: { ...cloudDynasty, players, games } };
     } catch (error) {
       console.error('[Storage] Migration to cloud failed:', error);
       return { success: false, error: error.message };

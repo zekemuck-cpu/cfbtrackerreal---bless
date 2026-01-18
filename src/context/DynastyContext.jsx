@@ -3489,6 +3489,7 @@ export function DynastyProvider({ children }) {
   // Load dynasties - ALWAYS loads from both local and cloud (if signed in)
   // Each dynasty has a storageType field ('local' or 'cloud') to track where it lives
   useEffect(() => {
+    console.log('[DynastyContext] Loading dynasties effect triggered. isPremium:', isPremium, 'user:', user?.uid)
     // Initialize storage service with user info
     storageService.initialize({ isPremium, uid: user?.uid })
 
@@ -3503,6 +3504,7 @@ export function DynastyProvider({ children }) {
 
         // Load from IndexedDB
         const saved = await indexedDBStorage.getDynasties()
+        console.log('[DynastyContext] Loaded from IndexedDB:', saved?.length || 0, 'dynasties', saved?.map(d => ({ id: d.id, name: d.teamName })))
         // Tag each with storageType: 'local'
         localDynastiesRef = (saved || []).map(d => ({
           ...d,
@@ -3532,19 +3534,12 @@ export function DynastyProvider({ children }) {
     }
 
     // User is signed in - load BOTH local and cloud dynasties
-    // Legacy migration: only for premium users who should have cloud storage
-    // Non-premium users keep their data local, so don't migrate to Firestore
-    const migrateData = async () => {
-      if (!migrated && isPremium) {
-        try {
-          await migrateLocalStorageData(user.uid)
-          setMigrated(true)
-        } catch (error) {
-          console.error('Migration error:', error)
-        }
-      }
-    }
-    migrateData()
+    // NOTE: Automatic migration is DISABLED. Users must manually migrate dynasties
+    // through the Storage Switch Modal to avoid duplicates and size limit issues.
+    // The old migrateLocalStorageData() caused problems:
+    // - Created duplicate dynasties in Firestore
+    // - Failed for large dynasties (>1MB) without proper subcollection handling
+    // - Cleared IndexedDB even on partial failures
 
     // Load local dynasties first, then subscribe to cloud updates
     loadLocalDynasties().then(localDynasties => {
@@ -3557,6 +3552,7 @@ export function DynastyProvider({ children }) {
 
     // Subscribe to real-time updates for cloud dynasties (Firestore)
     const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties) => {
+      console.log('[DynastyContext] Firestore subscription callback. Cloud dynasties:', firestoreDynasties?.length || 0, firestoreDynasties?.map(d => ({ id: d.id, name: d.teamName })))
       // Check if we should skip this update (we just manually updated local state)
       if (skipListenerUpdatesCountRef.current > 0) {
         skipListenerUpdatesCountRef.current--
@@ -3600,56 +3596,25 @@ export function DynastyProvider({ children }) {
       // Reload local dynasties to get fresh data
       const freshLocalDynasties = await loadLocalDynasties()
 
-      // AUTO-MIGRATE: If user is NOT premium but has cloud dynasties, migrate them to local
-      // This handles users whose subscription expired or who shouldn't have cloud data
-      let dynastiesToUse = cloudDynastiesWithSubcollections
-      if (!isPremium && cloudDynastiesWithSubcollections.length > 0) {
-        console.log(`[AutoMigrate] Non-premium user has ${cloudDynastiesWithSubcollections.length} cloud dynasties, migrating to local...`)
-
-        // Convert cloud dynasties to local and save to IndexedDB
-        const convertedToLocal = cloudDynastiesWithSubcollections.map(d => ({
-          ...d,
-          storageType: 'local'
-        }))
-
-        // Merge with existing local dynasties (avoid duplicates)
-        const existingLocalIds = new Set(freshLocalDynasties.map(d => d.id))
-        const newLocalDynasties = convertedToLocal.filter(d => !existingLocalIds.has(d.id))
-        const allLocalDynasties = [...freshLocalDynasties, ...newLocalDynasties]
-
-        // Save all to IndexedDB
-        await indexedDBStorage.saveDynasties(allLocalDynasties)
-
-        // Delete from Firestore (fire and forget, with delays to avoid overload)
-        for (let i = 0; i < cloudDynastiesWithSubcollections.length; i++) {
-          const dynasty = cloudDynastiesWithSubcollections[i]
-          try {
-            if (dynasty._subcollectionsMigrated) {
-              await deleteDynastyWithSubcollections(dynasty.id)
-            } else {
-              await deleteDynastyFromFirestore(dynasty.id)
-            }
-            console.log(`[AutoMigrate] Deleted cloud dynasty ${dynasty.id} from Firestore`)
-          } catch (err) {
-            console.error(`[AutoMigrate] Failed to delete dynasty ${dynasty.id} from Firestore:`, err)
-          }
-          // Add delay between deletions to avoid Firestore overload
-          if (i < cloudDynastiesWithSubcollections.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 300))
-          }
-        }
-
-        console.log(`[AutoMigrate] Migration complete. ${newLocalDynasties.length} dynasties moved to local storage.`)
-
-        // Use the converted local dynasties instead of cloud
-        dynastiesToUse = convertedToLocal
-      }
+      // NOTE: Auto-migration for non-premium users is DISABLED.
+      // Previously this would copy cloud dynasties to local and DELETE from Firestore,
+      // which was too aggressive and caused data loss. Now we just show both.
+      // Users can manually migrate through the Storage Switch Modal if needed.
+      const dynastiesToUse = cloudDynastiesWithSubcollections
 
       // Combine local and cloud dynasties with deduplication
       // dynastiesToUse is either: cloud dynasties (premium) or converted-to-local dynasties (non-premium)
       const usedIds = new Set(dynastiesToUse.map(d => d.id))
       const uniqueLocalDynasties = freshLocalDynasties.filter(d => !usedIds.has(d.id))
       const allDynasties = [...uniqueLocalDynasties, ...dynastiesToUse]
+
+      console.log('[DynastyContext] Merging dynasties:', {
+        freshLocal: freshLocalDynasties?.length || 0,
+        dynastiesToUse: dynastiesToUse?.length || 0,
+        uniqueLocal: uniqueLocalDynasties?.length || 0,
+        total: allDynasties?.length || 0,
+        isPremium
+      })
 
       // Apply all migrations
       const migratedDynasties = applyMigrations(allDynasties)

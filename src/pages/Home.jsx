@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, getTeamConferenceForDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { getTeamColors } from '../data/teamColors'
 import { getTeamLogo } from '../data/teams'
@@ -17,33 +17,17 @@ import BouncingLogos from '../components/BouncingLogos'
 function getDynastyTeamConference(dynasty) {
   if (!dynasty.teamName) return null
 
-  // FIRST: Use the actual dynasty.conference field - this is the source of truth
-  // It gets updated when the coach changes teams
-  if (dynasty.conference) {
-    return dynasty.conference
-  }
-
-  // FALLBACK: Look up conference if dynasty.conference isn't set (legacy data)
   // Get tid - prefer currentTid, fallback to lookup from teamName
   const tid = dynasty.currentTid || getTidFromTeamName(dynasty.teamName, dynasty.teams)
-  if (!tid) return null
+  if (!tid) return dynasty.conference || null
 
   // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
   // This ensures teambuilder teams inherit the replaced team's conference position
   const originalTeamAbbr = TEAMS[tid]?.abbr
-  if (!originalTeamAbbr) return null
+  if (!originalTeamAbbr) return dynasty.conference || null
 
-  // Check custom conferences first (if user has set them)
-  if (dynasty.conferences && Object.keys(dynasty.conferences).length > 0) {
-    for (const [confName, teams] of Object.entries(dynasty.conferences)) {
-      if (teams.includes(originalTeamAbbr)) {
-        return confName
-      }
-    }
-  }
-
-  // Fall back to default conference mapping
-  return getTeamConference(originalTeamAbbr)
+  // Use the shared helper that checks custom conferences properly
+  return getTeamConferenceForDynasty(dynasty, originalTeamAbbr)
 }
 
 // Helper to format relative time (e.g., "2 hours ago")
@@ -100,7 +84,7 @@ function getWeekPhaseDisplay(dynasty) {
 
 export default function Home() {
   const { dynasties, deleteDynasty, importDynasty, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
-  const { user, isPremium, upgradeToPremium } = useAuth()
+  const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [upgrading, setUpgrading] = useState(false)

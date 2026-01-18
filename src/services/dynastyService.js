@@ -25,21 +25,32 @@ const GAMES_SUBCOLLECTION = 'games'
 const BATCH_SIZE = 450
 
 /**
- * Recursively sanitize an object by removing empty string keys
- * Firestore doesn't allow empty string keys in documents
+ * Recursively sanitize an object for Firestore
+ * - Removes empty string keys (Firestore doesn't allow them)
+ * - Removes undefined values (Firestore doesn't allow them)
+ * - Converts undefined to null in arrays to preserve indices
  * @param {any} obj - The object to sanitize
  * @returns {any} - The sanitized object
  */
 function sanitizeForFirestore(obj) {
-  if (obj === null || obj === undefined) return obj
+  if (obj === null) return null
+  if (obj === undefined) return null // Convert undefined to null at top level
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeForFirestore(item))
+    // For arrays, convert undefined to null to preserve indices
+    return obj.map(item => item === undefined ? null : sanitizeForFirestore(item))
   }
   if (typeof obj === 'object') {
+    // Handle Date objects
+    if (obj instanceof Date) return obj
+    // Handle Firestore Timestamp objects
+    if (obj.toDate && typeof obj.toDate === 'function') return obj
+
     const result = {}
     for (const [key, value] of Object.entries(obj)) {
       // Skip empty string keys
       if (key === '') continue
+      // Skip undefined values entirely (don't include in result)
+      if (value === undefined) continue
       result[key] = sanitizeForFirestore(value)
     }
     return result
@@ -96,8 +107,11 @@ export function subscribeToDynasties(userId, callback) {
 // Create a new dynasty
 export async function createDynasty(userId, dynastyData) {
   try {
+    // Sanitize data to remove undefined values (Firestore doesn't allow them)
+    const sanitizedData = sanitizeForFirestore(dynastyData)
+
     const docRef = await addDoc(collection(db, DYNASTIES_COLLECTION), {
-      ...dynastyData,
+      ...sanitizedData,
       userId,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -105,7 +119,7 @@ export async function createDynasty(userId, dynastyData) {
 
     return {
       id: docRef.id,
-      ...dynastyData,
+      ...sanitizedData,
       userId
     }
   } catch (error) {
@@ -119,8 +133,11 @@ export async function updateDynasty(dynastyId, updates) {
   try {
     const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
 
+    // Sanitize data to remove undefined values (Firestore doesn't allow them)
+    const sanitizedUpdates = sanitizeForFirestore(updates)
+
     await updateDoc(docRef, {
-      ...updates,
+      ...sanitizedUpdates,
       updatedAt: serverTimestamp()
     })
   } catch (error) {

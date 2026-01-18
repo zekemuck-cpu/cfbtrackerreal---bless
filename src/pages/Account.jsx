@@ -2,10 +2,58 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BouncingLogos from '../components/BouncingLogos'
+import { doc, setDoc, Timestamp } from 'firebase/firestore'
+import { db } from '../config/firebase'
 
 export default function Account() {
-  const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
+  const { user, isPremium, upgradeToPremium, manageSubscription, subscription } = useAuth()
   const [upgrading, setUpgrading] = useState(false)
+  const [devStatus, setDevStatus] = useState(null)
+  const [showDevTools, setShowDevTools] = useState(false)
+
+  // Dev tool: manually grant premium status
+  const handleGrantPremium = async () => {
+    if (!user) return
+    setDevStatus('granting')
+    try {
+      const thirtyDaysFromNow = new Date()
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
+
+      await setDoc(doc(db, 'users', user.uid), {
+        tier: 'premium',
+        subscriptionStatus: 'active',
+        currentPeriodEnd: Timestamp.fromDate(thirtyDaysFromNow),
+        updatedAt: Timestamp.now(),
+        // Mark as dev-granted so we know it's not from Stripe
+        _devGranted: true
+      }, { merge: true })
+
+      setDevStatus('granted')
+    } catch (error) {
+      console.error('Failed to grant premium:', error)
+      setDevStatus('error')
+    }
+  }
+
+  // Dev tool: remove premium status
+  const handleRevokePremium = async () => {
+    if (!user) return
+    setDevStatus('revoking')
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        tier: 'free',
+        subscriptionStatus: null,
+        currentPeriodEnd: null,
+        updatedAt: Timestamp.now(),
+        _devGranted: false
+      }, { merge: true })
+
+      setDevStatus('revoked')
+    } catch (error) {
+      console.error('Failed to revoke premium:', error)
+      setDevStatus('error')
+    }
+  }
 
   const handleUpgrade = async () => {
     if (!upgradeToPremium) return
@@ -176,6 +224,97 @@ export default function Account() {
             so Premium simply covers those server costs. All core features remain free forever.
           </p>
         </div>
+
+        {/* Dev Tools (hidden by default) */}
+        {user && (
+          <div className="bg-gray-900/90 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowDevTools(!showDevTools)}
+              className="w-full px-4 py-3 flex items-center justify-between text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              <span>Dev Tools</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${showDevTools ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showDevTools && (
+              <div className="px-4 pb-4 space-y-4">
+                {/* Current Status */}
+                <div className="p-3 bg-gray-800 rounded-lg text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">User ID:</span>
+                    <span className="font-mono text-gray-200">{user.uid}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Tier:</span>
+                    <span className={isPremium ? 'text-amber-400' : 'text-gray-200'}>
+                      {subscription?.tier || 'free'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Status:</span>
+                    <span className="text-gray-200">{subscription?.subscriptionStatus || 'none'}</span>
+                  </div>
+                  {subscription?.currentPeriodEnd && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Expires:</span>
+                      <span className="text-gray-200">
+                        {subscription.currentPeriodEnd.toDate?.()?.toLocaleDateString() ||
+                          new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {subscription?._devGranted && (
+                    <div className="text-amber-500 text-center mt-2">Dev-granted premium</div>
+                  )}
+                </div>
+
+                {/* Grant/Revoke Buttons */}
+                <div className="flex gap-2">
+                  {!isPremium ? (
+                    <button
+                      onClick={handleGrantPremium}
+                      disabled={devStatus === 'granting'}
+                      className="flex-1 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {devStatus === 'granting' ? 'Granting...' : 'Grant Premium (Dev)'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleRevokePremium}
+                      disabled={devStatus === 'revoking'}
+                      className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {devStatus === 'revoking' ? 'Revoking...' : 'Revoke Premium (Dev)'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Status Messages */}
+                {devStatus === 'granted' && (
+                  <p className="text-green-400 text-sm text-center">Premium granted for 30 days!</p>
+                )}
+                {devStatus === 'revoked' && (
+                  <p className="text-gray-400 text-sm text-center">Premium revoked, back to free tier.</p>
+                )}
+                {devStatus === 'error' && (
+                  <p className="text-red-400 text-sm text-center">Error - check console for details.</p>
+                )}
+
+                {/* Warning */}
+                <p className="text-xs text-gray-500 text-center">
+                  This bypasses Stripe for testing. In production, use real payment flow.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Back Link */}
         <Link
