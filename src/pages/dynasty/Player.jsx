@@ -1440,7 +1440,7 @@ export default function Player() {
           <div className="px-4 py-3">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               {/* Stars */}
-              {recruitmentInfo.stars && Number(recruitmentInfo.stars) > 0 && (
+              {Number(recruitmentInfo.stars) > 0 && (
                 <div className="flex items-center gap-1">
                   <div className="flex gap-0.5">
                     {[...Array(5)].map((_, i) => (
@@ -1454,20 +1454,20 @@ export default function Player() {
                   </span>
                 </div>
               )}
-              {/* Rankings */}
-              {recruitmentInfo.nationalRank && Number(recruitmentInfo.nationalRank) > 0 && (
+              {/* Rankings - Use Number() > 0 directly to avoid React rendering 0 */}
+              {Number(recruitmentInfo.nationalRank) > 0 && (
                 <div className="text-sm" style={{ color: primaryText }}>
                   <span className="font-bold">#{recruitmentInfo.nationalRank}</span>
                   <span style={{ opacity: 0.6 }}> National</span>
                 </div>
               )}
-              {recruitmentInfo.positionRank && Number(recruitmentInfo.positionRank) > 0 && (
+              {Number(recruitmentInfo.positionRank) > 0 && (
                 <div className="text-sm" style={{ color: primaryText }}>
                   <span className="font-bold">#{recruitmentInfo.positionRank}</span>
                   <span style={{ opacity: 0.6 }}> {player.position}</span>
                 </div>
               )}
-              {recruitmentInfo.stateRank && Number(recruitmentInfo.stateRank) > 0 && (
+              {Number(recruitmentInfo.stateRank) > 0 && (
                 <div className="text-sm" style={{ color: primaryText }}>
                   <span className="font-bold">#{recruitmentInfo.stateRank}</span>
                   <span style={{ opacity: 0.6 }}> {recruitmentInfo.state || player.state}</span>

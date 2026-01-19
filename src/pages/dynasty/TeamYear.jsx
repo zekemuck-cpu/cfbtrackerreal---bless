@@ -1165,10 +1165,11 @@ export default function TeamYear() {
 
   // Find players associated with this team for the selected year
   // Uses the unified isPlayerOnRoster() helper - teamsByYear is the source of truth
+  // Use tid (number) for consistent filtering with Dashboard
   const allPlayers = currentDynasty.players || []
 
   const teamPlayers = allPlayers.filter(p =>
-    isPlayerOnRoster(p, teamAbbr, selectedYear)
+    isPlayerOnRoster(p, tid, selectedYear)
   )
 
 

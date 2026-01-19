@@ -1527,46 +1527,48 @@ export default function TeamStats() {
         </div>
       </div>
 
-      {/* Player Stats Sections */}
-      {hasPlayerStats && (
-        <div className="space-y-4">
-          {/* Player Stats Header with Edit Buttons */}
-          <div
-            className="rounded-xl shadow-lg p-4"
-            style={{ backgroundColor: teamColors.primary }}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-lg font-bold" style={{ color: primaryText }}>
-                Player Statistics
-              </h3>
-              {!isViewOnly && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowPlayerStatsModal(true)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-1.5 bg-white/20"
-                    style={{ color: primaryText }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Games/Snaps
-                  </button>
-                  <button
-                    onClick={() => setShowDetailedStatsModal(true)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-1.5 bg-white/20"
-                    style={{ color: primaryText }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Detailed Stats
-                  </button>
-                </div>
-              )}
-            </div>
+      {/* Player Stats Sections - Header always visible for Google Sheets access */}
+      <div className="space-y-4">
+        {/* Player Stats Header with Edit Buttons - Always show */}
+        <div
+          className="rounded-xl shadow-lg p-4"
+          style={{ backgroundColor: teamColors.primary }}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-lg font-bold" style={{ color: primaryText }}>
+              Player Statistics
+            </h3>
+            {!isViewOnly && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowPlayerStatsModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-1.5 bg-white/20"
+                  style={{ color: primaryText }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Games/Snaps
+                </button>
+                <button
+                  onClick={() => setShowDetailedStatsModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-colors flex items-center gap-1.5 bg-white/20"
+                  style={{ color: primaryText }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Detailed Stats
+                </button>
+              </div>
+            )}
           </div>
+        </div>
 
-          <PlayerStatsTable
+        {/* Stats tables only show when there's data */}
+        {hasPlayerStats ? (
+          <>
+            <PlayerStatsTable
             category="passing"
             title="Passing"
             columns={statColumns.passing}
@@ -1620,8 +1622,13 @@ export default function TeamStats() {
             columns={statColumns.puntReturn}
             data={playerStats.puntReturn}
           />
-        </div>
-      )}
+          </>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            No player statistics entered yet. Use the buttons above to enter stats via Google Sheets.
+          </div>
+        )}
+      </div>
 
       {/* Team Statistics */}
       {(teamStats.gamesWithStats > 0 || stats.games.length > 0) && (

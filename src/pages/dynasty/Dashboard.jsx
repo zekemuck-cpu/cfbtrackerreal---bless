@@ -310,8 +310,14 @@ export default function Dashboard() {
     }
   }
 
-  // Roster sorting function
-  const posOrder = ['QB', 'RB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'LE', 'RE', 'DT', 'LOLB', 'MLB', 'ROLB', 'CB', 'FS', 'SS', 'K', 'P']
+  // Roster sorting function - comprehensive position order matching TeamYear (QB -> P)
+  const posOrder = [
+    'QB', 'HB', 'RB', 'FB', 'WR', 'TE',
+    'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
+    'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
+    'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
+    'CB', 'FS', 'SS', 'S', 'K', 'P'
+  ]
   const classOrder = ['FR', 'SO', 'JR', 'SR']
 
   const sortRoster = (roster) => {
@@ -5071,13 +5077,21 @@ export default function Dashboard() {
 
                     {/* Task: GP/Snaps Entry */}
                     {(() => {
-                      // Check if user has actually saved GP/Snaps for this year (not just inferred from box scores)
+                      // Check if user has actually saved GP/Snaps for this year OR has box score data
                       const year = currentDynasty.currentYear
-                      const isCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
+                      const explicitlyCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
+
+                      // Count players with gamesPlayed set OR appearing in box scores
+                      const yearGames = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(year))
+                      const hasBoxScoreData = yearGames.some(g => g.boxScore && (g.boxScore.home || g.boxScore.away))
+
                       const playerCount = currentDynasty?.players?.filter(p => {
                         const yearStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
                         return yearStats && (yearStats.gamesPlayed || yearStats.snapsPlayed)
                       }).length || 0
+
+                      // Task is "done" if explicitly completed OR has box score data
+                      const isCompleted = explicitlyCompleted || hasBoxScoreData
                       const taskNumber = !userInCFPChampionship ? 2 : 1
 
                       return (
@@ -5106,7 +5120,9 @@ export default function Dashboard() {
                               </div>
                               {isCompleted && (
                                 <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
-                                  ✓ Stats entered for {playerCount} players
+                                  {hasBoxScoreData && !explicitlyCompleted
+                                    ? `✓ Stats available from ${yearGames.filter(g => g.boxScore).length} box scores`
+                                    : `✓ Stats entered for ${playerCount} players`}
                                 </div>
                               )}
                             </div>
@@ -5127,9 +5143,15 @@ export default function Dashboard() {
                       // Check if user has actually saved Detailed Stats for this year
                       const year = currentDynasty.currentYear
                       const gpSnapsCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
+
+                      // Also check for box score data - unlocks this task too
+                      const yearGames = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(year))
+                      const hasBoxScoreData = yearGames.some(g => g.boxScore && (g.boxScore.home || g.boxScore.away))
+
                       const isCompleted = currentDynasty?.detailedStatsCompletedByYear?.[year] || currentDynasty?.detailedStatsCompletedByYear?.[String(year)]
                       const taskNumber = !userInCFPChampionship ? 3 : 2
-                      const isLocked = !gpSnapsCompleted
+                      // Unlock if GP/Snaps completed OR has box score data
+                      const isLocked = !gpSnapsCompleted && !hasBoxScoreData
 
                       return (
                         <div
@@ -8611,27 +8633,42 @@ export default function Dashboard() {
         isOpen={showStatsEntryModal}
         onClose={() => setShowStatsEntryModal(false)}
         onSave={async (stats) => {
-          const year = Number(currentDynasty.currentYear)
+          // Use String year key for consistency with DetailedStatsEntryModal
+          const year = String(currentDynasty.currentYear)
+          console.log('[StatsEntryModal onSave] Saving stats for year:', year)
+          console.log('[StatsEntryModal onSave] Stats from sheet:', stats.length, 'entries')
+
+          let matchedCount = 0
+          let unmatchedCount = 0
 
           // Update each player's statsByYear with gamesPlayed/snapsPlayed
           const updatedPlayers = (currentDynasty.players || []).map(player => {
             // Find this player's stats in the returned array
+            // Use Number() for PID comparison to handle type differences (string vs number)
             const playerStats = stats.find(s =>
-              s.pid === player.pid ||
+              (s.pid && player.pid && Number(s.pid) === Number(player.pid)) ||
               (s.name && player.name && s.name.toLowerCase().trim() === player.name.toLowerCase().trim())
             )
 
-            if (!playerStats) return player
+            if (!playerStats) {
+              unmatchedCount++
+              return player
+            }
 
+            matchedCount++
             const existingStatsByYear = { ...(player.statsByYear || {}) }
+            // Check both string and number keys for existing stats
+            const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
             existingStatsByYear[year] = {
-              ...(existingStatsByYear[year] || {}),
+              ...existingYearStats,
               gamesPlayed: playerStats.gamesPlayed,
               snapsPlayed: playerStats.snapsPlayed
             }
 
             return { ...player, statsByYear: existingStatsByYear }
           })
+
+          console.log('[StatsEntryModal onSave] Matched:', matchedCount, 'Unmatched:', unmatchedCount)
 
           // Mark GP/Snaps as completed for this year
           const existingGpSnapsCompleted = currentDynasty.gpSnapsCompletedByYear || {}

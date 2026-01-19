@@ -1544,8 +1544,9 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
 export function getCurrentRoster(dynasty) {
   if (!dynasty) return []
 
-  // Use currentTid if available (new system), fallback to abbr lookup (old system)
-  const tid = dynasty.currentTid || getTidFromTeamName(dynasty.teamName, dynasty.teams)
+  // Use getCurrentTeamTid which properly checks userId: 'currentUser' as source of truth
+  // This ensures roster matches what Dashboard and Team pages display
+  const tid = getCurrentTeamTid(dynasty)
   const currentYear = dynasty.currentYear
   const allPlayers = dynasty.players || []
 
@@ -1801,12 +1802,48 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
   const teamTid = getCurrentTeamTid(dynasty)
   const year = dynasty.currentYear
   const players = dynasty.players || []
+  const games = dynasty.games || []
 
   // Only get teamAbbr for logging
   const teamAbbr = getAbbrFromTid(dynasty.teams, teamTid) || dynasty.teamName
 
-  console.log('[getPlayersNeedingClassConfirmation] teamTid:', teamTid, 'teamAbbr:', teamAbbr, 'year:', year)
-  console.log('[getPlayersNeedingClassConfirmation] Total players:', players.length)
+  console.log('[getPlayersNeedingClassConfirmation] teamTid:', teamTid, 'year:', year)
+
+  // Helper to normalize names for matching (same as boxScoreAggregator)
+  const normalizeName = (name) => {
+    if (!name) return ''
+    return name.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
+  }
+
+  // Helper to count games from box scores for a player
+  const countGamesFromBoxScores = (playerName) => {
+    const normalizedPlayerName = normalizeName(playerName)
+    let gameCount = 0
+
+    // Filter to games for this year
+    const yearGames = games.filter(g => Number(g.year) === Number(year))
+
+    yearGames.forEach(game => {
+      const boxScore = game.boxScore
+      if (!boxScore) return
+
+      // Check if player appears in either home or away box score
+      const checkSide = (side) => {
+        if (!boxScore[side]) return false
+        return Object.values(boxScore[side]).some(category =>
+          Array.isArray(category) && category.some(p =>
+            normalizeName(p.playerName) === normalizedPlayerName
+          )
+        )
+      }
+
+      if (checkSide('home') || checkSide('away')) {
+        gameCount++
+      }
+    })
+
+    return gameCount
+  }
 
   // Helper to check if player's team matches current team (handles tid and abbr)
   const isOnCurrentTeam = (p) => {
@@ -1842,26 +1879,39 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
     // Check team membership using tid comparison
     if (!isOnCurrentTeam(p)) return false
     // Already RS players don't need confirmation (they'll progress normally)
-    if (p.year?.startsWith('RS ')) return false
+    // Check both player.year and classByYear for the current year (classByYear is source of truth)
+    const playerClassThisYear = p.classByYear?.[year] || p.classByYear?.[String(year)] || p.year
+    if (playerClassThisYear?.startsWith('RS ')) return false
     // Must have a valid class/year field
-    if (!p.year) return false
+    if (!p.year && !playerClassThisYear) return false
     return true
   })
 
-  console.log('[getPlayersNeedingClassConfirmation] Active players on team:', activePlayers.length)
+  console.log('[getPlayersNeedingClassConfirmation] Active players needing check:', activePlayers.length)
 
-  // Find players with null/undefined gamesPlayed (read from player.statsByYear)
+  // Find players with null/undefined gamesPlayed AND no box score data
   const needsConfirmation = activePlayers.filter(player => {
     const yearStats = player.statsByYear?.[year] || player.statsByYear?.[String(year)]
     const gamesPlayed = yearStats?.gamesPlayed
-    return gamesPlayed === null || gamesPlayed === undefined
+
+    // If gamesPlayed is explicitly set, no confirmation needed
+    if (gamesPlayed !== null && gamesPlayed !== undefined) {
+      return false
+    }
+
+    // Check if player has box score data - if so, we can derive games from that
+    const boxScoreGames = countGamesFromBoxScores(player.name)
+    if (boxScoreGames > 0) {
+      // Player has box score data, so we know they played - no confirmation needed
+      // (The actual gamesPlayed will be calculated from box scores during class advancement)
+      return false
+    }
+
+    // No explicit gamesPlayed AND no box score data - needs confirmation
+    return true
   })
 
   console.log('[getPlayersNeedingClassConfirmation] Players needing confirmation:', needsConfirmation.length)
-  if (needsConfirmation.length > 0 && needsConfirmation.length <= 10) {
-    console.log('[getPlayersNeedingClassConfirmation] Players:', needsConfirmation.map(p => p.name))
-  }
-
   return needsConfirmation
 }
 
@@ -5421,6 +5471,37 @@ export function DynastyProvider({ children }) {
         // Get games played from player.statsByYear
         const yearStats = player.statsByYear?.[previousSeasonYear] || player.statsByYear?.[String(previousSeasonYear)]
         let gamesPlayed = yearStats?.gamesPlayed
+
+        // If gamesPlayed not set, try to count from box scores
+        if (gamesPlayed === null || gamesPlayed === undefined) {
+          const normalizeName = (name) => {
+            if (!name) return ''
+            return name.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
+          }
+          const normalizedPlayerName = normalizeName(player.name)
+          const yearGames = (dynasty.games || []).filter(g => Number(g.year) === Number(previousSeasonYear))
+          let boxScoreGames = 0
+
+          yearGames.forEach(game => {
+            const boxScore = game.boxScore
+            if (!boxScore) return
+            const checkSide = (side) => {
+              if (!boxScore[side]) return false
+              return Object.values(boxScore[side]).some(category =>
+                Array.isArray(category) && category.some(p =>
+                  normalizeName(p.playerName) === normalizedPlayerName
+                )
+              )
+            }
+            if (checkSide('home') || checkSide('away')) {
+              boxScoreGames++
+            }
+          })
+
+          if (boxScoreGames > 0) {
+            gamesPlayed = boxScoreGames
+          }
+        }
 
         // Use confirmation if provided (for null gamesPlayed cases)
         if ((gamesPlayed === null || gamesPlayed === undefined) && classConfirmations[player.pid] !== undefined) {
