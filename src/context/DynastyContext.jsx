@@ -5386,206 +5386,123 @@ export function DynastyProvider({ children }) {
         console.error('[advanceWeek] Error adding career entry:', err)
       }
 
-      // CLASS PROGRESSION - Also happens at year flip
-      // Progress all players' classes based on games played in the previous season
+      // ============================================================
+      // SIMPLE ROSTER CARRYOVER LOGIC:
+      // 1. Was player on this team's roster last season?
+      // 2. Are they in Players Leaving? If NO → carry over
+      // ============================================================
+
       const previousSeasonYear = Number(dynasty.currentYear) // The year that just ended
-      console.log('[advanceWeek] previousSeasonYear:', previousSeasonYear)
-
-      // CRITICAL: Get tid directly - tid is the ONLY source of truth
       const teamTid = getCurrentTeamTid(dynasty)
-      console.log('[advanceWeek] teamTid from getCurrentTeamTid:', teamTid)
+
+      console.log('[advanceWeek] YEAR FLIP - previousSeasonYear:', previousSeasonYear, 'nextYear:', nextYear, 'teamTid:', teamTid)
+
       if (!teamTid) {
-        console.error('[advanceWeek] CRITICAL: No teamTid found for year flip! Cannot progress players.')
-      }
-      // teamsByYear MUST store tid (number), never abbreviation
-      const teamsByYearValue = teamTid
-
-      const players = dynasty.players || []
-      console.log('[advanceWeek] Total players to process:', players.length)
-
-      // Get helper to check data by year (for legacy structures)
-      const getByYearHelper = (obj, year) => obj?.[year] ?? obj?.[String(year)] ?? obj?.[Number(year)]
-
-      // Get players leaving data to skip them during class progression
-      const playersLeavingThisYear = getPlayersLeaving(dynasty, teamTid, previousSeasonYear)
-      const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
-      console.log('[advanceWeek] Players leaving this year:', playersLeavingThisYear.length, 'PIDs:', Array.from(leavingPids))
-
-      // Helper to check if a teamsByYear value matches the current team
-      // teamsByYear values should be tids (numbers), but handle legacy abbr strings for backwards compat
-      const isTeamMatch = (value) => {
-        if (!value || !teamTid) return false
-        if (typeof value === 'number') return value === teamTid
-        // Legacy: if stored as abbr string, convert to tid and compare
-        const valueTid = getTidFromAbbr(value)
-        return valueTid === teamTid
+        console.error('[advanceWeek] CRITICAL: No teamTid found! Cannot process roster.')
       }
 
-      // Progress each player's class
-      const progressedPlayers = players.map(player => {
-        // Skip honor-only players
-        if (player.isHonorOnly) return player
+      const allPlayers = dynasty.players || []
 
-        // Helper to check if player.team matches current team (handles both tid and abbr)
-        const playerTeamMatchesCurrent = () => {
-          if (player.team === undefined || player.team === null) return false
-          if (typeof player.team === 'number') return player.team === teamTid
-          // Legacy: if stored as abbr string, convert to tid and compare
-          const playerTeamTid = getTidFromAbbr(player.team)
-          return playerTeamTid === teamTid
+      // Get Players Leaving list - these players should NOT be carried over
+      const playersLeavingList = getPlayersLeaving(dynasty, teamTid, previousSeasonYear)
+      const leavingPids = new Set(playersLeavingList.map(p => p.pid).filter(Boolean))
+      const leavingNames = new Set(playersLeavingList.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
+      console.log('[advanceWeek] Players Leaving count:', playersLeavingList.length)
+
+      // Helper to check if player was on THIS team last season
+      const wasOnTeamLastSeason = (player) => {
+        // Method 1: teamsByYear[previousSeasonYear] === teamTid
+        const teamLastYear = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
+        if (teamLastYear) {
+          const matchesTid = typeof teamLastYear === 'number' ? teamLastYear === teamTid : getTidFromAbbr(teamLastYear) === teamTid
+          if (matchesTid) return true
+          // If they have a DIFFERENT team recorded for last year, they weren't on this team
+          return false
         }
 
-        // Check teamsByYear for this season
-        const playerTeamThisSeason = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
-
-        // Check if player is on THIS team via teamsByYear
-        const isOnTeamViaTeamsByYear = playerTeamThisSeason && isTeamMatch(playerTeamThisSeason)
-
-        // Check if player is on THIS team via team field
-        const isOnTeamViaTeamField = playerTeamMatchesCurrent()
-
-        // Check if player has ANY year on this team in teamsByYear
-        const hasAnyYearOnTeam = Object.values(player.teamsByYear || {}).some(t => isTeamMatch(t))
-
-        // INCLUSIVE CHECK: Player is on this team if ANY of these are true:
-        // 1. teamsByYear[previousYear] matches
-        // 2. player.team field matches
-        // 3. Any year in teamsByYear matches this team
-        const isOnThisTeam = isOnTeamViaTeamsByYear || isOnTeamViaTeamField || hasAnyYearOnTeam
-
-        // Skip players NOT on this team
-        if (!isOnThisTeam) return player
-
-        // If teamsByYear has a DIFFERENT team for this year, skip (they transferred)
-        if (playerTeamThisSeason && !isTeamMatch(playerTeamThisSeason)) return player
-
-        // Skip recruits (they get converted when advanceToNewSeason runs)
-        if (player.isRecruit) return player
-
-        // Skip players who are leaving (from Players Leaving task)
-        if (leavingPids.has(player.pid)) return player
-
-        // Skip players who already have next year's team set (processed by Transfer Destinations)
-        if (player.teamsByYear?.[nextYear]) return player
-
-        // Get games played from player.statsByYear
-        const yearStats = player.statsByYear?.[previousSeasonYear] || player.statsByYear?.[String(previousSeasonYear)]
-        let gamesPlayed = yearStats?.gamesPlayed
-
-        // If gamesPlayed not set, try to count from box scores
-        if (gamesPlayed === null || gamesPlayed === undefined) {
-          const normalizeName = (name) => {
-            if (!name) return ''
-            return name.toLowerCase().trim().replace(/[^a-z0-9]/g, '')
-          }
-          const normalizedPlayerName = normalizeName(player.name)
-          const yearGames = (dynasty.games || []).filter(g => Number(g.year) === Number(previousSeasonYear))
-          let boxScoreGames = 0
-
-          yearGames.forEach(game => {
-            const boxScore = game.boxScore
-            if (!boxScore) return
-            const checkSide = (side) => {
-              if (!boxScore[side]) return false
-              return Object.values(boxScore[side]).some(category =>
-                Array.isArray(category) && category.some(p =>
-                  normalizeName(p.playerName) === normalizedPlayerName
-                )
-              )
-            }
-            if (checkSide('home') || checkSide('away')) {
-              boxScoreGames++
-            }
-          })
-
-          if (boxScoreGames > 0) {
-            gamesPlayed = boxScoreGames
-          }
+        // Method 2: player.team field matches this team (and no conflicting teamsByYear data)
+        if (player.team !== undefined && player.team !== null) {
+          const playerTeamTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team)
+          if (playerTeamTid === teamTid) return true
         }
 
-        // Use confirmation if provided (for null gamesPlayed cases)
-        if ((gamesPlayed === null || gamesPlayed === undefined) && classConfirmations[player.pid] !== undefined) {
-          gamesPlayed = classConfirmations[player.pid] ? 5 : 0 // Treat as 5+ or 0
-        }
+        // No team data - can't confirm they were on this team
+        return false
+      }
 
-        // Use classByYear as source of truth for player's class in the previous season
-        const currentClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
-        const isAlreadyRS = currentClass?.startsWith('RS ')
-        let newYear = currentClass
-
-        // Apply class progression based on games played
-        if (gamesPlayed !== null && gamesPlayed !== undefined) {
-          if (gamesPlayed <= 4 && !isAlreadyRS) {
-            // Redshirt: add RS prefix (played 4 or fewer games)
-            newYear = 'RS ' + currentClass
-          } else {
-            // Normal progression
-            newYear = CLASS_PROGRESSION[currentClass] || currentClass
-          }
-        } else {
-          // No games data - default to normal progression
-          newYear = CLASS_PROGRESSION[currentClass] || currentClass
-        }
-
-        // Update player with new class and ensure teamsByYear is set for the new season
-        // CRITICAL: Set teamsByYear[nextYear] = tid so roster filtering works immediately
-        return {
-          ...player,
-          year: newYear,
-          classByYear: {
-            ...(player.classByYear || {}),
-            [nextYear]: newYear
-          },
-          teamsByYear: {
-            ...(player.teamsByYear || {}),
-            [nextYear]: teamsByYearValue
-          }
-        }
-      })
-
-      // BULLETPROOF FIX: Second pass to ensure ALL continuing players have teamsByYear[nextYear]
-      // This catches any players that slipped through the isOnThisTeam check
-      console.log('[advanceWeek] Starting second pass to ensure all continuing players have nextYear set')
-      let playersCarriedOver = 0
-      let playersMissingNextYear = 0
-
-      const bulletproofPlayers = progressedPlayers.map(player => {
-        // Skip honor-only players
-        if (player.isHonorOnly) return player
-
-        // Skip recruits (they're handled in week 7→8)
-        if (player.isRecruit) return player
-
-        // Skip players who are leaving (have a departure movement for this year or are in leaving list)
-        if (leavingPids.has(player.pid)) return player
-
-        // Skip players who have already been marked with departure movement
+      // Helper to check if player is leaving
+      const isPlayerLeaving = (player) => {
+        if (leavingPids.has(player.pid)) return true
+        if (player.name && leavingNames.has(player.name.toLowerCase().trim())) return true
+        // Check for departure movements
         const hasDeparture = (player.movements || []).some(m =>
           (m.type === 'departure' || m.type === 'entered_portal' || m.type === 'transfer') &&
-          Number(m.year) === Number(previousSeasonYear)
+          Number(m.year) === previousSeasonYear
         )
-        if (hasDeparture) return player
+        return hasDeparture
+      }
 
-        // Skip players whose teamsByYear has a DIFFERENT team for the previous year
-        // (they weren't on this team last season)
-        const playerTeamPrevYear = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
-        if (playerTeamPrevYear && !isTeamMatch(playerTeamPrevYear)) return player
+      let carriedOver = 0
+      let notCarriedOver = 0
+      let recruitsSkipped = 0
+      let otherTeamSkipped = 0
 
-        // Check if player already has nextYear set
-        const hasNextYear = player.teamsByYear?.[nextYear] ?? player.teamsByYear?.[String(nextYear)]
-        if (hasNextYear) {
-          playersCarriedOver++
+      const processedPlayers = allPlayers.map(player => {
+        // Skip honor-only players (historical records)
+        if (player.isHonorOnly) return player
+
+        // Skip recruits (they're handled at week 7→8)
+        if (player.isRecruit) {
+          recruitsSkipped++
           return player
         }
 
-        // Player should be on this team but doesn't have nextYear set - fix it!
-        playersMissingNextYear++
-        console.log(`[advanceWeek] FIXING: Player "${player.name}" (pid=${player.pid}) missing teamsByYear[${nextYear}], adding them`)
+        // Skip players who already have nextYear set (already processed)
+        const hasNextYear = player.teamsByYear?.[nextYear] ?? player.teamsByYear?.[String(nextYear)]
+        if (hasNextYear) {
+          carriedOver++
+          return player
+        }
 
-        // If player has classByYear for previous year but not for next year, progress their class
-        const prevClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
-        const hasNextYearClass = player.classByYear?.[nextYear] || player.classByYear?.[String(nextYear)]
-        let newClass = hasNextYearClass || CLASS_PROGRESSION[prevClass] || prevClass
+        // Check if player was on THIS team last season
+        if (!wasOnTeamLastSeason(player)) {
+          otherTeamSkipped++
+          return player
+        }
+
+        // Check if player is leaving
+        if (isPlayerLeaving(player)) {
+          notCarriedOver++
+          return player
+        }
+
+        // ========== CARRY OVER THIS PLAYER ==========
+        carriedOver++
+
+        // Get their class for progression
+        const currentClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
+        const isAlreadyRS = currentClass?.startsWith('RS ')
+
+        // Get games played to determine redshirt
+        const yearStats = player.statsByYear?.[previousSeasonYear] || player.statsByYear?.[String(previousSeasonYear)]
+        let gamesPlayed = yearStats?.gamesPlayed
+
+        // Use class confirmation if provided
+        if ((gamesPlayed === null || gamesPlayed === undefined) && classConfirmations[player.pid] !== undefined) {
+          gamesPlayed = classConfirmations[player.pid] ? 5 : 0
+        }
+
+        // Determine new class
+        let newClass = currentClass
+        if (gamesPlayed !== null && gamesPlayed !== undefined) {
+          if (gamesPlayed <= 4 && !isAlreadyRS) {
+            newClass = 'RS ' + currentClass // Redshirt
+          } else {
+            newClass = CLASS_PROGRESSION[currentClass] || currentClass
+          }
+        } else {
+          newClass = CLASS_PROGRESSION[currentClass] || currentClass
+        }
 
         return {
           ...player,
@@ -5596,14 +5513,14 @@ export function DynastyProvider({ children }) {
           },
           teamsByYear: {
             ...(player.teamsByYear || {}),
-            [nextYear]: teamsByYearValue
+            [nextYear]: teamTid
           }
         }
       })
 
-      console.log(`[advanceWeek] Second pass complete: ${playersCarriedOver} already had nextYear, ${playersMissingNextYear} were fixed`)
+      console.log(`[advanceWeek] Roster carryover: ${carriedOver} carried over, ${notCarriedOver} leaving, ${recruitsSkipped} recruits, ${otherTeamSkipped} other teams`)
 
-      additionalUpdates.players = bulletproofPlayers
+      additionalUpdates.players = processedPlayers
       // Mark that class progression has been done for this year
       additionalUpdates.classProgressionDoneForYear = nextYear
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 6 && nextWeek === 7) {
@@ -5632,10 +5549,7 @@ export function DynastyProvider({ children }) {
       const playersLeavingList = getPlayersLeaving(dynasty, teamTid, previousSeasonYear)
       const leavingPidsSet = new Set(playersLeavingList.map(p => p.pid).filter(Boolean))
 
-      console.log('[advanceWeek] Week 6→7: Ensuring all continuing players have currentYear set')
-      let playersFixed = 0
-
-      // Process all players: add draft info AND ensure teamsByYear[currentYear] for continuing players
+      // Process all players: add draft info only (roster carryover should have happened at week 5→6)
       const updatedPlayers = players.map(player => {
         let updated = { ...player }
         let modified = false
@@ -5648,53 +5562,13 @@ export function DynastyProvider({ children }) {
           modified = true
         }
 
-        // BULLETPROOF: Ensure continuing players have teamsByYear[currentSeasonYear]
-        // Skip honor-only, recruits, and leaving players
-        if (!player.isHonorOnly && !player.isRecruit && !leavingPidsSet.has(player.pid)) {
-          // Check if player has departure movement
-          const hasDeparture = (player.movements || []).some(m =>
-            (m.type === 'departure' || m.type === 'entered_portal' || m.type === 'transfer') &&
-            Number(m.year) === Number(previousSeasonYear)
-          )
-
-          if (!hasDeparture) {
-            // Check if player is missing current year in teamsByYear
-            const hasCurrentYear = updated.teamsByYear?.[currentSeasonYear] || updated.teamsByYear?.[String(currentSeasonYear)]
-            if (!hasCurrentYear) {
-              // Check if player was on this team in the previous year OR has no team data (assume current team)
-              const prevYearTeam = updated.teamsByYear?.[previousSeasonYear] ?? updated.teamsByYear?.[String(previousSeasonYear)]
-              const playerTeamTid = typeof updated.team === 'number' ? updated.team : getTidFromAbbr(updated.team)
-              const isOnThisTeam = !prevYearTeam || prevYearTeam === teamTid || playerTeamTid === teamTid || !updated.team
-
-              if (isOnThisTeam) {
-                playersFixed++
-                console.log(`[advanceWeek] Week 6→7 FIXING: Player "${player.name}" missing teamsByYear[${currentSeasonYear}]`)
-
-                updated.teamsByYear = {
-                  ...(updated.teamsByYear || {}),
-                  [currentSeasonYear]: teamsByYearValue
-                }
-
-                // Also ensure classByYear is set
-                if (!updated.classByYear?.[currentSeasonYear] && !updated.classByYear?.[String(currentSeasonYear)]) {
-                  updated.classByYear = {
-                    ...(updated.classByYear || {}),
-                    [currentSeasonYear]: updated.year
-                  }
-                }
-                modified = true
-              }
-            }
-          }
-        }
-
         return modified ? updated : player
       })
 
-      console.log(`[advanceWeek] Week 6→7: Fixed ${playersFixed} players missing currentYear`)
-
-      // Always update players (we need to ensure the fix is applied)
-      additionalUpdates.players = updatedPlayers
+      // Only update if there were changes
+      if (updatedPlayers.some((p, i) => p !== players[i])) {
+        additionalUpdates.players = updatedPlayers
+      }
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 7 && nextWeek === 8) {
       // Week 7→8 transition (after Training Camp tasks complete)
       // NOW convert recruits to active players (after user had chance to enter Recruit Overalls)
