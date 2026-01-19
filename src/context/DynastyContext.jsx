@@ -5432,13 +5432,25 @@ export function DynastyProvider({ children }) {
       }
 
       let carriedOver = 0
+      let alreadyHadNextYear = 0
       let notCarriedOver = 0
       let recruitsSkipped = 0
       let otherTeamSkipped = 0
+      let honorOnlySkipped = 0
+
+      // Debug: Count how many players have teamsByYear[previousSeasonYear] set
+      const playersWithPrevYear = allPlayers.filter(p => {
+        const t = p.teamsByYear?.[previousSeasonYear] ?? p.teamsByYear?.[String(previousSeasonYear)]
+        return t !== undefined && t !== null
+      })
+      console.log(`[advanceWeek] Players with teamsByYear[${previousSeasonYear}]: ${playersWithPrevYear.length}`)
 
       const processedPlayers = allPlayers.map(player => {
         // Skip honor-only players (historical records)
-        if (player.isHonorOnly) return player
+        if (player.isHonorOnly) {
+          honorOnlySkipped++
+          return player
+        }
 
         // Skip recruits (they're handled at week 7→8)
         if (player.isRecruit) {
@@ -5449,7 +5461,7 @@ export function DynastyProvider({ children }) {
         // Skip players who already have nextYear set (already processed)
         const hasNextYear = player.teamsByYear?.[nextYear] ?? player.teamsByYear?.[String(nextYear)]
         if (hasNextYear) {
-          carriedOver++
+          alreadyHadNextYear++
           return player
         }
 
@@ -5507,7 +5519,14 @@ export function DynastyProvider({ children }) {
         }
       })
 
-      console.log(`[advanceWeek] Roster carryover: ${carriedOver} carried over, ${notCarriedOver} leaving, ${recruitsSkipped} recruits, ${otherTeamSkipped} other teams`)
+      console.log(`[advanceWeek] Roster carryover results:`)
+      console.log(`  - Carried over: ${carriedOver}`)
+      console.log(`  - Already had nextYear: ${alreadyHadNextYear}`)
+      console.log(`  - Leaving (not carried): ${notCarriedOver}`)
+      console.log(`  - Recruits (skipped): ${recruitsSkipped}`)
+      console.log(`  - Other teams (skipped): ${otherTeamSkipped}`)
+      console.log(`  - Honor-only (skipped): ${honorOnlySkipped}`)
+      console.log(`  - TOTAL PLAYERS: ${allPlayers.length}`)
 
       additionalUpdates.players = processedPlayers
       // Mark that class progression has been done for this year
