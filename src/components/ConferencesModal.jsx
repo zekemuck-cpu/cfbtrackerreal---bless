@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty, getCustomConferencesForYear } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
@@ -84,23 +84,29 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
     }
   }, [isOpen, sheetId, useEmbedded])
 
-  // Get conference data for sheet creation
+  // Get conference data for sheet creation - memoized to prevent recalculation on every render
   // Uses getCustomConferencesForYear which walks back through years automatically
-  const getConferencesForSheet = () => {
-    const currentYear = currentDynasty?.currentYear
-    if (!currentYear) return null
+  const conferenceData = useMemo(() => {
+    try {
+      const currentYear = currentDynasty?.currentYear
+      if (!currentYear) return null
 
-    // Get the effective conferences for the current year (may be inherited from previous year)
-    const effectiveConferences = getCustomConferencesForYear(currentDynasty, currentYear)
-    if (!effectiveConferences) return null
+      // Get the effective conferences for the current year (may be inherited from previous year)
+      const effectiveConferences = getCustomConferencesForYear(currentDynasty, currentYear)
+      if (!effectiveConferences) return null
 
-    // Return as year-keyed object for sheet creation
-    // Include all historical years plus current year with effective data
-    const byYear = currentDynasty?.customConferencesByYear || {}
-    return { ...byYear, [currentYear]: effectiveConferences }
-  }
+      // Return as year-keyed object for sheet creation
+      // Include all historical years plus current year with effective data
+      const byYear = currentDynasty?.customConferencesByYear || {}
+      return { ...byYear, [currentYear]: effectiveConferences }
+    } catch (error) {
+      console.error('[ConferencesModal] Error getting conference data:', error)
+      return null
+    }
+  }, [currentDynasty?.currentYear, currentDynasty?.customConferencesByYear, currentDynasty?.customConferences])
 
-  const hasExistingConferences = !!getConferencesForSheet()
+  const getConferencesForSheet = () => conferenceData
+  const hasExistingConferences = !!conferenceData
 
   // Create Conferences sheet when modal opens
   useEffect(() => {

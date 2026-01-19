@@ -5,7 +5,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
@@ -1775,23 +1775,22 @@ export default function Game() {
         )
       })()}
 
-      {/* Game Details Section */}
-      {(!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)) || game.gameNote ? (
+      {/* Game Details Section - show if user game (ratings might come from preseason setup) or has notes/POW */}
+      {(!isCPUGame || game.gameNote) ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
           {/* Team Matchup Card */}
-          {!isCPUGame && (game.team1Overall || game.team2Overall || game.opponentOverall || game.opponentOffense || game.opponentDefense) && (() => {
-            // For unified format: user ratings in team1*, opponent ratings in team2*
-            // Fallback to teamRatingsByTeamYear for user if team1* not set (legacy games)
-            const gameUserTeam = displayTeamAbbr
+          {!isCPUGame && (() => {
+            // Get user team ratings from preseason setup (uses tid-based lookup)
+            const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
             const gameYear = game.year
-            const fallbackUserRatings = currentDynasty?.teamRatingsByTeamYear?.[gameUserTeam]?.[gameYear] || {}
+            const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, gameYear)
 
-            // User team ratings: prefer game.team1* (unified), fallback to teamRatingsByTeamYear
+            // User team ratings: prefer game.team1* (unified), then stored preseason ratings
             const userRatings = {
-              ovr: game.team1Overall ?? fallbackUserRatings?.overall,
-              off: game.team1Offense ?? fallbackUserRatings?.offense,
-              def: game.team1Defense ?? fallbackUserRatings?.defense
+              ovr: game.team1Overall ?? storedUserRatings?.overall,
+              off: game.team1Offense ?? storedUserRatings?.offense,
+              def: game.team1Defense ?? storedUserRatings?.defense
             }
             // Opponent ratings: prefer game.team2* (unified), fallback to game.opponent*
             const oppRatings = {
@@ -1799,6 +1798,11 @@ export default function Game() {
               off: game.team2Offense ?? game.opponentOffense,
               def: game.team2Defense ?? game.opponentDefense
             }
+
+            // Only show if we have ratings for at least one team
+            const hasUserRatings = userRatings.ovr || userRatings.off || userRatings.def
+            const hasOppRatings = oppRatings.ovr || oppRatings.off || oppRatings.def
+            if (!hasUserRatings && !hasOppRatings) return null
 
             // Get ratings for both teams to compare based on left/right positioning
             const leftIsOpponent = leftTeam !== 'user'

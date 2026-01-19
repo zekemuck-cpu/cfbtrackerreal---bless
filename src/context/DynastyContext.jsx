@@ -1678,6 +1678,57 @@ export function getCurrentTeamRatings(dynasty) {
 }
 
 /**
+ * Get team ratings for a specific team and year
+ * Works for both user team and other teams
+ * @param {Object} dynasty - Dynasty object
+ * @param {number|string} tidOrAbbr - Team ID or abbreviation
+ * @param {number|string} year - Year to get ratings for
+ * @returns {{ overall, offense, defense }}
+ */
+export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
+  const defaultRatings = { overall: null, offense: null, defense: null }
+
+  if (!dynasty || !tidOrAbbr || !year) return defaultRatings
+
+  // Resolve tid from abbr if needed
+  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  const yearNum = Number(year)
+
+  // Try NEW tid-based byYear structure first
+  if (tid && dynasty.teams?.[tid]?.byYear?.[yearNum]?.teamRatings) {
+    return dynasty.teams[tid].byYear[yearNum].teamRatings
+  }
+
+  // Try with string year key
+  if (tid && dynasty.teams?.[tid]?.byYear?.[String(yearNum)]?.teamRatings) {
+    return dynasty.teams[tid].byYear[String(yearNum)].teamRatings
+  }
+
+  // Try legacy teamRatingsByTeamYear (uses abbr)
+  const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(dynasty.teams, tid)
+  if (teamAbbr) {
+    const legacyRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[yearNum] ||
+                          dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[String(yearNum)]
+    if (legacyRatings) {
+      return legacyRatings
+    }
+  }
+
+  // CRITICAL: For the current user team and current year, fall back to dynasty.teamRatings
+  // This handles the case where ratings are entered but not yet stored in byYear structure
+  const currentTid = getCurrentTeamTid(dynasty)
+  const currentYear = Number(dynasty.currentYear)
+  if (tid === currentTid && yearNum === currentYear && dynasty.teamRatings) {
+    const tr = dynasty.teamRatings
+    if (tr.overall || tr.offense || tr.defense) {
+      return tr
+    }
+  }
+
+  return defaultRatings
+}
+
+/**
  * Get coaching staff for current team and year
  * Note: Coaching staff carries over from year to year (unlike schedule/ratings)
  */
@@ -2089,19 +2140,39 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
 
 /**
  * Get custom conferences for a specific year
+ * Walks back through previous years to find the most recent conference alignment
  * Falls back to legacy customConferences, then to null (use defaults)
  */
 export function getCustomConferencesForYear(dynasty, year) {
-  if (!dynasty) return null
+  if (!dynasty || !year) return null
 
-  // Check year-specific first
-  const byYear = dynasty.customConferencesByYear?.[year]
-  if (byYear && Object.keys(byYear).length > 0) {
+  const yearNum = Number(year)
+  if (isNaN(yearNum)) return null
+
+  // Check year-specific first (try both number and string keys)
+  const byYear = dynasty.customConferencesByYear?.[yearNum] || dynasty.customConferencesByYear?.[String(yearNum)]
+  if (byYear && typeof byYear === 'object' && Object.keys(byYear).length > 0) {
     return byYear
   }
 
+  // Walk back through previous years to find the most recent conference alignment
+  // This handles cases where conferences weren't carried over properly
+  if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
+    const startYear = Number(dynasty.startYear) || 2024
+    // Safety limit: only look back 10 years max
+    const minYear = Math.max(startYear, yearNum - 10)
+
+    for (let y = yearNum - 1; y >= minYear; y--) {
+      // Try both number and string keys
+      const prevYearConf = dynasty.customConferencesByYear[y] || dynasty.customConferencesByYear[String(y)]
+      if (prevYearConf && typeof prevYearConf === 'object' && Object.keys(prevYearConf).length > 0) {
+        return prevYearConf
+      }
+    }
+  }
+
   // Fall back to legacy customConferences
-  if (dynasty.customConferences && Object.keys(dynasty.customConferences).length > 0) {
+  if (dynasty.customConferences && typeof dynasty.customConferences === 'object' && Object.keys(dynasty.customConferences).length > 0) {
     return dynasty.customConferences
   }
 
@@ -5531,6 +5602,28 @@ export function DynastyProvider({ children }) {
       additionalUpdates.players = processedPlayers
       // Mark that class progression has been done for this year
       additionalUpdates.classProgressionDoneForYear = nextYear
+
+      // ============================================================
+      // CARRY OVER CUSTOM CONFERENCES TO NEXT YEAR
+      // Copy the exact conference alignment from the previous year
+      // ============================================================
+      const prevYearConferences = dynasty.customConferencesByYear?.[previousSeasonYear]
+      if (prevYearConferences && Object.keys(prevYearConferences).length > 0) {
+        console.log('[advanceWeek] Carrying over custom conferences from', previousSeasonYear, 'to', nextYear)
+        additionalUpdates.customConferencesByYear = {
+          ...(dynasty.customConferencesByYear || {}),
+          [nextYear]: prevYearConferences
+        }
+        // Also update legacy field for backward compatibility
+        additionalUpdates.customConferences = prevYearConferences
+      } else if (dynasty.customConferences && Object.keys(dynasty.customConferences).length > 0) {
+        // Fallback: if we have legacy customConferences but no year-specific, carry that forward
+        console.log('[advanceWeek] Carrying over legacy custom conferences to', nextYear)
+        additionalUpdates.customConferencesByYear = {
+          ...(dynasty.customConferencesByYear || {}),
+          [nextYear]: dynasty.customConferences
+        }
+      }
     } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 6 && nextWeek === 7) {
       // Week 6→7 transition (after Signing Day tasks complete)
       // With the new system, departures and transfers are handled directly in:

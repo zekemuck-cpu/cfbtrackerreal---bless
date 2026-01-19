@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getCurrentSchedule, getUserGamePerspective, getCurrentTeamRecord } from '../../context/DynastyContext'
+import { getCurrentSchedule, getUserGamePerspective, getTeamRecord } from '../../context/DynastyContext'
 import { TEAMS, resolveTid, getGameTeamInfo, getAbbrFromTeamName, getCurrentTeamTid, getTidFromAbbr } from '../../data/teamRegistry'
 import { isSameWeek, isSameYear } from '../../utils/compareUtils'
 
@@ -88,8 +88,9 @@ export function useTickerSections(dynasty) {
 
     seasonGames = seasonGames.sort((a, b) => getGameOrder(a) - getGameOrder(b))
 
-    // Use centralized single-source-of-truth record
-    const teamRecord = getCurrentTeamRecord(dynasty)
+    // Use centralized single-source-of-truth record for displayYear (not currentYear)
+    // This ensures record matches the displayed games even after advancing to a new season
+    const teamRecord = getTeamRecord(dynasty, currentTeamTid, displayYear)
     const wins = teamRecord?.wins || 0
     const losses = teamRecord?.losses || 0
     const record = `${wins}-${losses}`

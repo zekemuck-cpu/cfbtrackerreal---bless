@@ -377,20 +377,23 @@ export default function GameEdit() {
   const getTeamRatings = (tid, year) => {
     if (!tid) return { overall: '', offense: '', defense: '' }
     const abbr = teamsSource[tid]?.abbr
+    const yearNum = Number(year)
 
     // Try multiple storage locations for ratings
-    // 1. New tid-based byYear structure
-    let ratings = currentDynasty?.teams?.[tid]?.byYear?.[year]?.ratings
+    // 1. New tid-based byYear structure (teamRatings, not ratings)
+    let ratings = currentDynasty?.teams?.[tid]?.byYear?.[yearNum]?.teamRatings ||
+                  currentDynasty?.teams?.[tid]?.byYear?.[String(yearNum)]?.teamRatings
 
-    // 2. teamRatingsByYear[abbr][year] structure
-    if (!ratings) {
-      ratings = currentDynasty?.teamRatingsByYear?.[abbr]?.[year]
+    // 2. teamRatingsByTeamYear[abbr][year] structure (legacy)
+    if (!ratings && abbr) {
+      ratings = currentDynasty?.teamRatingsByTeamYear?.[abbr]?.[yearNum] ||
+                currentDynasty?.teamRatingsByTeamYear?.[abbr]?.[String(yearNum)]
     }
 
-    // 3. If this is the current user team and current year, check teamRatings
+    // 3. If this is the current user team and current year, check dynasty.teamRatings
     const currentUserTid = currentDynasty?.currentTid
-    const currentYear = currentDynasty?.currentYear
-    if (!ratings && tid === currentUserTid && Number(year) === Number(currentYear)) {
+    const currentYear = Number(currentDynasty?.currentYear)
+    if (!ratings && tid === currentUserTid && yearNum === currentYear) {
       ratings = currentDynasty?.teamRatings
     }
 
@@ -1236,44 +1239,47 @@ export default function GameEdit() {
             </div>
           </div>
 
-          {/* Ratings - hidden for user team */}
-          {!isTeam1UserTeam && (
-            <div className="mb-4">
-              <label className="text-sm font-semibold text-gray-700 block mb-2">Team Ratings</label>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Overall</label>
-                  <input
-                    type="number"
-                    value={formData.team1Overall}
-                    onChange={(e) => setFormData({ ...formData, team1Overall: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Offense</label>
-                  <input
-                    type="number"
-                    value={formData.team1Offense}
-                    onChange={(e) => setFormData({ ...formData, team1Offense: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Defense</label>
-                  <input
-                    type="number"
-                    value={formData.team1Defense}
-                    onChange={(e) => setFormData({ ...formData, team1Defense: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
+          {/* Ratings - show for all teams, auto-filled from preseason for user team */}
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-gray-700 block mb-2">
+              Team Ratings
+              {isTeam1UserTeam && formData.team1Overall && (
+                <span className="font-normal text-xs text-green-600 ml-2">(from preseason setup)</span>
+              )}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                <input
+                  type="number"
+                  value={formData.team1Overall}
+                  onChange={(e) => setFormData({ ...formData, team1Overall: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Offense</label>
+                <input
+                  type="number"
+                  value={formData.team1Offense}
+                  onChange={(e) => setFormData({ ...formData, team1Offense: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Defense</label>
+                <input
+                  type="number"
+                  value={formData.team1Defense}
+                  onChange={(e) => setFormData({ ...formData, team1Defense: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
               </div>
             </div>
-          )}
+          </div>
 
           {/* Record - hidden for user team */}
           {!isTeam1UserTeam && (
@@ -1333,44 +1339,47 @@ export default function GameEdit() {
             </div>
           </div>
 
-          {/* Ratings - hidden for user team */}
-          {!isTeam2UserTeam && (
-            <div className="mb-4">
-              <label className="text-sm font-semibold text-gray-700 block mb-2">Team Ratings</label>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Overall</label>
-                  <input
-                    type="number"
-                    value={formData.team2Overall}
-                    onChange={(e) => setFormData({ ...formData, team2Overall: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Offense</label>
-                  <input
-                    type="number"
-                    value={formData.team2Offense}
-                    onChange={(e) => setFormData({ ...formData, team2Offense: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Defense</label>
-                  <input
-                    type="number"
-                    value={formData.team2Defense}
-                    onChange={(e) => setFormData({ ...formData, team2Defense: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
-                    min="0" max="99"
-                  />
-                </div>
+          {/* Ratings - show for all teams, auto-filled from preseason for user team */}
+          <div className="mb-4">
+            <label className="text-sm font-semibold text-gray-700 block mb-2">
+              Team Ratings
+              {isTeam2UserTeam && formData.team2Overall && (
+                <span className="font-normal text-xs text-green-600 ml-2">(from preseason setup)</span>
+              )}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                <input
+                  type="number"
+                  value={formData.team2Overall}
+                  onChange={(e) => setFormData({ ...formData, team2Overall: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Offense</label>
+                <input
+                  type="number"
+                  value={formData.team2Offense}
+                  onChange={(e) => setFormData({ ...formData, team2Offense: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Defense</label>
+                <input
+                  type="number"
+                  value={formData.team2Defense}
+                  onChange={(e) => setFormData({ ...formData, team2Defense: e.target.value })}
+                  className="w-full px-2 py-1 border rounded text-center"
+                  min="0" max="99"
+                />
               </div>
             </div>
-          )}
+          </div>
 
           {/* Record - hidden for user team */}
           {!isTeam2UserTeam && (
