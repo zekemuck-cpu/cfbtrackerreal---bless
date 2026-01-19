@@ -5410,24 +5410,13 @@ export function DynastyProvider({ children }) {
       console.log('[advanceWeek] Players Leaving count:', playersLeavingList.length)
 
       // Helper to check if player was on THIS team last season
+      // ONLY uses teamsByYear - this is the SINGLE source of truth
       const wasOnTeamLastSeason = (player) => {
-        // Method 1: teamsByYear[previousSeasonYear] === teamTid
         const teamLastYear = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
-        if (teamLastYear) {
-          const matchesTid = typeof teamLastYear === 'number' ? teamLastYear === teamTid : getTidFromAbbr(teamLastYear) === teamTid
-          if (matchesTid) return true
-          // If they have a DIFFERENT team recorded for last year, they weren't on this team
-          return false
-        }
-
-        // Method 2: player.team field matches this team (and no conflicting teamsByYear data)
-        if (player.team !== undefined && player.team !== null) {
-          const playerTeamTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team)
-          if (playerTeamTid === teamTid) return true
-        }
-
-        // No team data - can't confirm they were on this team
-        return false
+        if (!teamLastYear) return false // No record = not on roster last year
+        // Check if it matches this team
+        if (typeof teamLastYear === 'number') return teamLastYear === teamTid
+        return getTidFromAbbr(teamLastYear) === teamTid
       }
 
       // Helper to check if player is leaving
