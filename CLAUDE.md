@@ -189,12 +189,33 @@ All stats stored in `player.statsByYear[year]`. Box score saves update via delta
 
 ## Unified Game System
 
-All games in `games[]` array with `gameType` field:
-- Types: `regular`, `conference_championship`, `bowl`, `cfp_first_round`, `cfp_quarterfinal`, `cfp_semifinal`, `cfp_championship`
-- **CPU games**: Have `team1Tid`/`team2Tid` but NO `userTid`
-- **User games**: Have `userTid` and `opponentTid`
+All games in `games[]` array use the same format - NO distinction between user/CPU games:
 
-**Player game logs**: Based on box score presence, NOT `userTeam` (handles coach job changes correctly).
+```javascript
+{
+  id: 'game-xxx',
+  year: 2028,
+  week: 5,                    // or 'Bowl', 'CCG'
+  gameType: 'regular',        // regular, conference_championship, bowl, cfp_*
+
+  // Team identification (tid-based, NOT user-centric)
+  team1Tid: 136,              // First team
+  team2Tid: 42,               // Second team
+  team1Score: 28,
+  team2Score: 21,
+
+  // Home/Away (single source of truth)
+  homeTeamTid: 136,           // Which team is home (null = neutral site)
+}
+```
+
+**Key conventions:**
+- `homeTeamTid` = source of truth for home/away (null for neutral site games like bowls)
+- `location` field: `'home'` = team1 is home, `'away'` = team2 is home, `'neutral'` = no home
+- **NO `userTid`** - user involvement determined by comparing user's tid with team1Tid/team2Tid
+- **NO legacy fields** (`userTeam`, `opponent`, `teamScore`, `opponentScore`) in new saves
+
+**Player game logs**: Based on box score presence, NOT team fields (handles coach job changes correctly).
 
 ### Game Edit Page
 

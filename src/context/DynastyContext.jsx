@@ -3721,77 +3721,17 @@ export function DynastyProvider({ children }) {
     // Note: We don't remove data when empty to avoid accidental data loss
   }, [dynasties, loading])
 
-  // Auto-migrate cloud dynasties to local when premium subscription expires
-  // This ensures users don't lose their data when downgrading
+  // Clear pendingDowngrade flag if set (legacy from old auto-migration system)
+  // We no longer auto-migrate - instead cloud dynasties become read-only for non-premium users
+  // Users must manually export and import as local to continue editing
   useEffect(() => {
-    // Only run if user is signed in and has pendingDowngrade flag
     if (!user || !subscription?.pendingDowngrade) return
 
-    // Don't run during initial load
-    if (loading) return
-
-    // Find all cloud dynasties that need to be migrated
-    const cloudDynasties = dynasties.filter(d => d.storageType === 'cloud')
-
-    if (cloudDynasties.length === 0) {
-      // No cloud dynasties to migrate, just clear the flag
-      console.log('[DynastyContext] No cloud dynasties to migrate, clearing pendingDowngrade flag')
-      updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
-        .catch(err => console.error('Failed to clear pendingDowngrade flag:', err))
-      return
-    }
-
-    // Migrate each cloud dynasty to local storage
-    const migrateCloudDynastiesToLocal = async () => {
-      console.log(`[DynastyContext] Premium expired - migrating ${cloudDynasties.length} cloud dynasties to local storage`)
-
-      let migratedCount = 0
-      const newLocalDynasties = []
-
-      for (const dynasty of cloudDynasties) {
-        try {
-          // Create a local copy with storageType: 'local'
-          const localDynasty = {
-            ...dynasty,
-            storageType: 'local',
-            _migratedFromCloud: true,
-            _migratedAt: new Date().toISOString()
-          }
-
-          newLocalDynasties.push(localDynasty)
-          migratedCount++
-          console.log(`[DynastyContext] Prepared dynasty ${dynasty.id} (${dynasty.teamName}) for local storage`)
-        } catch (error) {
-          console.error(`[DynastyContext] Failed to prepare dynasty ${dynasty.id} for migration:`, error)
-        }
-      }
-
-      if (newLocalDynasties.length > 0) {
-        // Save all to IndexedDB
-        await indexedDBStorage.saveDynasties(newLocalDynasties)
-
-        // Update state to reflect the migration
-        setDynasties(prev => {
-          // Remove cloud versions and add local versions
-          const cloudIds = new Set(cloudDynasties.map(d => d.id))
-          const nonCloudDynasties = prev.filter(d => !cloudIds.has(d.id))
-          return [...nonCloudDynasties, ...newLocalDynasties]
-        })
-
-        console.log(`[DynastyContext] Successfully migrated ${migratedCount} dynasties to local storage`)
-      }
-
-      // Clear the pendingDowngrade flag
-      try {
-        await updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
-        console.log('[DynastyContext] Cleared pendingDowngrade flag')
-      } catch (error) {
-        console.error('[DynastyContext] Failed to clear pendingDowngrade flag:', error)
-      }
-    }
-
-    migrateCloudDynastiesToLocal()
-  }, [user, subscription?.pendingDowngrade, dynasties, loading])
+    // Just clear the flag - no auto-migration
+    console.log('[DynastyContext] Premium expired - cloud dynasties are now read-only. Clearing pendingDowngrade flag.')
+    updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
+      .catch(err => console.error('Failed to clear pendingDowngrade flag:', err))
+  }, [user, subscription?.pendingDowngrade])
 
   const createDynasty = async (dynastyData) => {
     const startYear = parseInt(dynastyData.startYear)
@@ -7609,18 +7549,42 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  const exportDynasty = (dynastyId) => {
-
+  const exportDynasty = async (dynastyId) => {
     // Find the dynasty to export
-    const dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+    let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
 
     if (!dynasty) {
-      console.error('Dynasty not found:', dynastyId)
-      throw new Error('Dynasty not found')
+      alert('Dynasty not found')
+      return
     }
 
+    // For cloud dynasties with subcollections, ensure we have the latest data
+    // This is especially important for read-only users where initial load might have failed
+    if (dynasty.storageType === 'cloud' && dynasty._subcollectionsMigrated) {
+      try {
+        const [players, games] = await Promise.all([
+          getPlayersSubcollection(dynasty.id),
+          getGamesSubcollection(dynasty.id)
+        ])
+
+        // Merge fresh data with dynasty
+        dynasty = {
+          ...dynasty,
+          players: players || [],
+          games: games || []
+        }
+      } catch (err) {
+        console.error('Failed to fetch subcollection data for export:', err)
+        // Continue with whatever data we have in state
+      }
+    }
+
+    // Remove internal fields that shouldn't be exported
+    const exportData = { ...dynasty }
+    delete exportData._firestoreId
+
     // Convert to JSON string with pretty formatting
-    const jsonString = JSON.stringify(dynasty, null, 2)
+    const jsonString = JSON.stringify(exportData, null, 2)
 
     // Create a blob and download link
     const blob = new Blob([jsonString], { type: 'application/json' })
@@ -7649,7 +7613,6 @@ export function DynastyProvider({ children }) {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-
   }
 
   /**
@@ -7660,7 +7623,6 @@ export function DynastyProvider({ children }) {
    *   Stages: 'parsing', 'creating', 'players', 'games', 'complete'
    */
   const importDynasty = async (jsonFile, onProgress = null) => {
-
     const reportProgress = (stage, message, progress, detail = null) => {
       if (onProgress) {
         onProgress({ stage, message, progress, detail })
@@ -7674,7 +7636,15 @@ export function DynastyProvider({ children }) {
         try {
           // Stage 1: Parse the JSON file
           reportProgress('parsing', 'Reading file...', 5)
-          const dynastyData = JSON.parse(e.target.result)
+          const rawContent = e.target.result
+
+          let dynastyData
+          try {
+            dynastyData = JSON.parse(rawContent)
+          } catch (parseError) {
+            throw new Error(`JSON parse error: ${parseError.message}`)
+          }
+
           reportProgress('parsing', 'File parsed successfully', 10)
 
           // Remove fields that would link this to the original dynasty
@@ -7699,21 +7669,29 @@ export function DynastyProvider({ children }) {
           // Ensure the imported dynasty starts as private with no share code
           cleanDynastyData.isPublic = false
 
+          // IMPORTANT: Set storageType to 'local' for imported dynasties
+          cleanDynastyData.storageType = 'local'
+
           // Save the dynasty using createDynasty logic
           const useLocalStorage = !storageService.isPremium()
 
           if (useLocalStorage || !user) {
-            // Dev mode: IndexedDB - needs an ID
+            // Local storage: IndexedDB - needs an ID
             reportProgress('creating', 'Creating dynasty...', 20)
             const newId = Date.now().toString()
+
             const importedDynasty = {
               ...cleanDynastyData,
-              id: newId
+              id: newId,
+              storageType: 'local'
             }
+
             const currentDynasties = await indexedDBStorage.getDynasties() || []
             const updatedDynasties = [...currentDynasties, importedDynasty]
+
             await indexedDBStorage.saveDynasties(updatedDynasties)
             setDynasties(updatedDynasties)
+
             reportProgress('complete', 'Import complete!', 100)
           } else {
             // Production mode: Firestore - use subcollections for players and games
@@ -7777,7 +7755,6 @@ export function DynastyProvider({ children }) {
           resolve(cleanDynastyData)
         } catch (error) {
           console.error('Error importing dynasty:', error)
-          // Return the actual error message for better debugging
           reject(new Error(error.message || 'Invalid JSON file or corrupted dynasty data'))
         }
       }
@@ -9159,11 +9136,16 @@ export function DynastyProvider({ children }) {
   // Get custom teams from current dynasty for easy access
   const customTeams = currentDynasty?.customTeams || null
 
+  // Cloud dynasties are read-only for non-premium users
+  // They can view but not edit until they export and import as local
+  const isViewOnly = currentDynasty?.storageType === 'cloud' && !isPremium
+
   const value = {
     dynasties,
     currentDynasty,
     customTeams,
     loading,
+    isViewOnly,
     createDynasty,
     updateDynasty,
     deleteDynasty,

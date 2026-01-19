@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
-import { getCurrentTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getTidFromAbbr, TEAMS } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals, getEncourageTransfers } from '../context/DynastyContext'
 // Stats are read directly from player.statsByYear (single source of truth)
 
@@ -851,6 +851,30 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
       ? teamList.filter(t => t.toLowerCase().includes(search.toLowerCase()))
       : teamList
 
+    // Convert tid (number) to display name - handles both tid and abbreviation inputs
+    const getDisplayValue = (val) => {
+      if (!val) return ''
+      // If it's a number (tid), look up the team abbreviation
+      if (typeof val === 'number') {
+        const team = dynasty?.teams?.[val]
+        if (team) return team.abbr || team.name || String(val)
+        // Fallback: try to get from TEAMS constant
+        const fallbackTeam = TEAMS[val]
+        if (fallbackTeam) return fallbackTeam.abbr || fallbackTeam.name || String(val)
+        return String(val)
+      }
+      // If it's a string that looks like a number, also try to look up
+      if (typeof val === 'string' && /^\d+$/.test(val)) {
+        const tid = parseInt(val, 10)
+        const team = dynasty?.teams?.[tid]
+        if (team) return team.abbr || team.name || val
+        const fallbackTeam = TEAMS[tid]
+        if (fallbackTeam) return fallbackTeam.abbr || fallbackTeam.name || val
+      }
+      // Otherwise return as-is (it's already an abbreviation)
+      return val
+    }
+
     useEffect(() => {
       const handleClickOutside = (e) => {
         if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -907,7 +931,7 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
         <input
           ref={inputRef}
           type="text"
-          value={isOpen ? search : value}
+          value={isOpen ? search : getDisplayValue(value)}
           onChange={(e) => {
             setSearch(e.target.value)
             setIsOpen(true)

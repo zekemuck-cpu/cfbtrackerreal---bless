@@ -521,17 +521,34 @@ export default function Home() {
                             {relativeTime && <span className="ml-1 sm:ml-2">• {relativeTime}</span>}
                           </p>
                           {/* Storage type badge */}
-                          <button
-                            onClick={(e) => handleStorageClick(e, dynasty)}
-                            className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${
-                              dynasty.storageType === 'cloud'
-                                ? 'bg-purple-500/30 text-purple-200 hover:bg-purple-500/50'
-                                : 'bg-blue-500/30 text-blue-200 hover:bg-blue-500/50'
-                            }`}
-                            title={dynasty.storageType === 'cloud' ? 'Stored in cloud (syncs across devices)' : 'Stored locally (this device only)'}
-                          >
-                            {dynasty.storageType === 'cloud' ? 'Cloud' : 'Local'}
-                          </button>
+                          {(() => {
+                            const isCloudReadOnly = dynasty.storageType === 'cloud' && !isPremium
+                            const badgeClass = isCloudReadOnly
+                              ? 'bg-amber-500/40 text-amber-200 hover:bg-amber-500/60'
+                              : dynasty.storageType === 'cloud'
+                                ? 'bg-yellow-500/40 text-yellow-200 hover:bg-yellow-500/60'
+                                : 'bg-slate-500/40 text-slate-200 hover:bg-slate-500/60'
+                            const badgeTitle = isCloudReadOnly
+                              ? 'Cloud dynasty (read-only without Premium)'
+                              : dynasty.storageType === 'cloud'
+                                ? 'Stored in cloud (syncs across devices)'
+                                : 'Stored locally (this device only)'
+                            const badgeText = isCloudReadOnly
+                              ? 'Read-only'
+                              : dynasty.storageType === 'cloud'
+                                ? 'Cloud'
+                                : 'Local'
+
+                            return (
+                              <button
+                                onClick={(e) => handleStorageClick(e, dynasty)}
+                                className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded-full font-medium transition-colors ${badgeClass}`}
+                                title={badgeTitle}
+                              >
+                                {badgeText}
+                              </button>
+                            )
+                          })()}
                         </div>
                       </div>
                     </Link>

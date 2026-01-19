@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useDynasty, GAME_TYPES, detectGameType } from '../context/DynastyContext'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { bowlLogos, getAllBowlNames } from '../data/bowlLogos'
+import { getTidFromAbbr } from '../data/teamRegistry'
 
 export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -144,16 +145,24 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
             gameType = existingGame.gameType
           }
 
+          // UNIFIED FORMAT: Use tids, not abbreviations
+          const team1Tid = getTidFromAbbr(gameData.team1)
+          const team2Tid = getTidFromAbbr(gameData.team2)
+          const winnerTid = winner ? getTidFromAbbr(winner) : null
+
           updatedGames.push({
             ...(existingGame || {}),
             id: gameId,
             year: Number(year),
             bowlName,
-            team1: gameData.team1,
-            team2: gameData.team2,
+            // UNIFIED: tid-based team identification
+            team1Tid,
+            team2Tid,
             team1Score,
             team2Score,
-            winner,
+            // Bowl games are neutral site
+            homeTeamTid: null,
+            winnerTid,
             gameType,
             bowlWeek: gameData.bowlWeek || 'week1',
             isBowlGame: gameType === GAME_TYPES.BOWL

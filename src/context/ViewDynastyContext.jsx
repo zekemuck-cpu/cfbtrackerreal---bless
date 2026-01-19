@@ -22,7 +22,8 @@ export function useDynastyCompat() {
   if (dynastyContext) {
     return {
       ...dynastyContext,
-      isViewOnly: false
+      // Use the context's isViewOnly flag (cloud dynasties are read-only for non-premium users)
+      isViewOnly: dynastyContext.isViewOnly || false
     }
   }
 

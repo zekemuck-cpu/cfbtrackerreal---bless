@@ -20,6 +20,8 @@ export default function StorageSwitchModal({
   const currentStorage = dynasty.storageType || 'local'
   const targetStorage = currentStorage === 'local' ? 'cloud' : 'local'
   const isUpgradeRequired = targetStorage === 'cloud' && !isPremium
+  // Cloud dynasty without premium = read-only, show export/import instructions
+  const isCloudReadOnly = currentStorage === 'cloud' && !isPremium
 
   const handleMigrate = async () => {
     if (isUpgradeRequired) {
@@ -128,6 +130,26 @@ export default function StorageSwitchModal({
           )}
         </div>
 
+        {/* Cloud read-only message for non-premium users */}
+        {isCloudReadOnly && (
+          <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <h3 className="text-sm font-semibold text-amber-400 mb-2">
+              This dynasty is read-only
+            </h3>
+            <p className="text-sm text-amber-300/80 mb-3">
+              Without Premium, you can view this cloud dynasty but not edit it. To continue editing:
+            </p>
+            <ol className="text-sm text-amber-300/80 list-decimal list-inside space-y-1 mb-3">
+              <li>Download a backup using the download button on the Home page</li>
+              <li>Use "Import" to upload the backup as a new local dynasty</li>
+              <li>Delete this cloud version when ready</li>
+            </ol>
+            <p className="text-xs text-amber-300/60">
+              Or upgrade to Premium to edit cloud dynasties directly.
+            </p>
+          </div>
+        )}
+
         {/* Upgrade required message */}
         {isUpgradeRequired && (
           <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -150,35 +172,37 @@ export default function StorageSwitchModal({
           <button
             onClick={onClose}
             disabled={migrating}
-            className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50"
+            className={`${isCloudReadOnly ? 'w-full' : 'flex-1'} px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50`}
           >
-            Cancel
+            {isCloudReadOnly ? 'Close' : 'Cancel'}
           </button>
-          <button
-            onClick={handleMigrate}
-            disabled={migrating}
-            className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 ${
-              isUpgradeRequired
-                ? 'bg-yellow-600 hover:bg-yellow-500'
-                : targetStorage === 'cloud'
-                  ? 'bg-purple-600 hover:bg-purple-500'
-                  : 'bg-blue-600 hover:bg-blue-500'
-            }`}
-          >
-            {migrating ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Migrating...
-              </span>
-            ) : isUpgradeRequired ? (
-              'Upgrade to Premium'
-            ) : (
-              `Move to ${targetStorage === 'cloud' ? 'Cloud' : 'Local'}`
-            )}
-          </button>
+          {!isCloudReadOnly && (
+            <button
+              onClick={handleMigrate}
+              disabled={migrating}
+              className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 ${
+                isUpgradeRequired
+                  ? 'bg-yellow-600 hover:bg-yellow-500'
+                  : targetStorage === 'cloud'
+                    ? 'bg-purple-600 hover:bg-purple-500'
+                    : 'bg-blue-600 hover:bg-blue-500'
+              }`}
+            >
+              {migrating ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Migrating...
+                </span>
+              ) : isUpgradeRequired ? (
+                'Upgrade to Premium'
+              ) : (
+                `Move to ${targetStorage === 'cloud' ? 'Cloud' : 'Local'}`
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

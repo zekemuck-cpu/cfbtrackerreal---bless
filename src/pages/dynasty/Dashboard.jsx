@@ -59,7 +59,7 @@ const normalizePlayerName = (name) => {
 }
 
 export default function Dashboard() {
-  const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly } = useDynasty()
+  const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
   const navigate = useNavigate()
@@ -2329,6 +2329,46 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Cloud Read-Only Banner - show when user has cloud dynasty but no premium */}
+      {isViewOnly && currentDynasty?.storageType === 'cloud' && !shareCode && (
+        <div className="rounded-lg shadow-lg p-4 bg-amber-50 border-2 border-amber-300">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-amber-800">Cloud Dynasty - Read Only</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                This dynasty is stored in the cloud and requires Premium to edit.
+                Download a backup and import it as a new local dynasty to continue editing, or upgrade to Premium.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => exportDynasty(currentDynasty.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Backup
+                </button>
+                <Link
+                  to="/account"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  Upgrade to Premium
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Note: Google Sheets are now created lazily when user opens entry modals */}
 
       {/* New Job Banner - show when user is taking a new job */}
@@ -2998,21 +3038,26 @@ export default function Dashboard() {
                               navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
                             } else {
                               // New game - navigate with query params
-                              // team1 = home team, team2 = away team (for neutral, user team is team1)
+                              // UNIFIED CONVENTION:
+                              // - team1 = user's team (always)
+                              // - team2 = opponent
+                              // - location tells us which team is HOME:
+                              //   'home' = team1 is home, 'away' = team2 is home, 'neutral' = no home team
                               const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
                               const scheduleLocation = scheduledGame?.location?.toLowerCase() || 'home'
-                              const isAway = scheduleLocation === 'away'
                               const isNeutral = scheduleLocation === 'neutral'
-                              // For neutral games, user team is team1; for home/away, determine by location
-                              const team1 = isAway ? opponentTid : userTeamTid
-                              const team2 = isAway ? userTeamTid : opponentTid
+                              // User is always team1, opponent is always team2
+                              const team1 = userTeamTid
+                              const team2 = opponentTid
+                              // location from schedule: 'home' = user is home = team1 is home
+                              //                        'away' = user is away = team2 is home
                               const params = new URLSearchParams({
                                 week: currentDynasty.currentWeek?.toString() || '',
                                 year: currentDynasty.currentYear?.toString() || '',
                                 gameType: 'regular',
                                 ...(team1 && { team1Tid: team1.toString() }),
                                 ...(team2 && { team2Tid: team2.toString() }),
-                                location: isNeutral ? 'neutral' : (isAway ? 'away' : 'home')
+                                location: isNeutral ? 'neutral' : scheduleLocation
                               })
                               navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
                             }

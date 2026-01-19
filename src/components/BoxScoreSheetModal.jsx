@@ -64,27 +64,42 @@ export default function BoxScoreSheetModal({
   const resolvedTeam1 = game?.team1 || (game?.team1Tid ? getOriginalTeamAbbr(game.team1Tid) : null) || ''
   const resolvedTeam2 = game?.team2 || (game?.team2Tid ? getOriginalTeamAbbr(game.team2Tid) : null) || ''
 
-  // Determine teams based on game type (CPU vs user game)
-  // CPU games are identified by having team1/team2 (or tids) but no userTeam field
-  const isCPUGame = !game?.userTeam && resolvedTeam1 && resolvedTeam2
+  // Determine teams based on game data
+  // Use homeTeamTid as the source of truth for determining home/away
   const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName || ''
   // Ensure opponent is an abbreviation (convert full name if needed)
   const rawOpponent = game?.opponent || ''
   const opponentAbbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
-  // For CPU games: team1 = home, team2 = away
-  // For user games: based on location (home/neutral = user is home)
-  const isUserHome = !isCPUGame && (game?.location === 'home' || game?.location === 'neutral')
+  // Determine home and away teams using homeTeamTid as source of truth
+  // homeTeamTid = null means neutral site
   let homeTeamAbbr, awayTeamAbbr, homeTeamName, awayTeamName
-  if (isCPUGame) {
-    homeTeamAbbr = resolvedTeam1 || 'Team 1'
-    awayTeamAbbr = resolvedTeam2 || 'Team 2'
+
+  if (game?.homeTeamTid !== undefined) {
+    // Use homeTeamTid to determine home/away (most reliable)
+    const team1IsHome = game.homeTeamTid === game.team1Tid
+    const team2IsHome = game.homeTeamTid === game.team2Tid
+
+    if (team1IsHome) {
+      homeTeamAbbr = resolvedTeam1 || 'Home'
+      awayTeamAbbr = resolvedTeam2 || 'Away'
+    } else if (team2IsHome) {
+      homeTeamAbbr = resolvedTeam2 || 'Home'
+      awayTeamAbbr = resolvedTeam1 || 'Away'
+    } else {
+      // Neutral site (homeTeamTid is null) - use standard convention: team1 @ team2
+      awayTeamAbbr = resolvedTeam1 || 'Away'
+      homeTeamAbbr = resolvedTeam2 || 'Home'
+    }
     homeTeamName = homeTeamAbbr
     awayTeamName = awayTeamAbbr
   } else {
-    // For non-CPU games, use user team and opponent with fallbacks
-    homeTeamAbbr = (isUserHome ? userTeamAbbr : opponentAbbr) || resolvedTeam1 || 'Home'
-    awayTeamAbbr = (isUserHome ? opponentAbbr : userTeamAbbr) || resolvedTeam2 || 'Away'
+    // Fallback to location field for legacy games
+    const locationLower = (game?.location || '').toLowerCase()
+    const isUserHome = locationLower === 'home' || locationLower === 'neutral'
+
+    homeTeamAbbr = (isUserHome ? userTeamAbbr : opponentAbbr) || resolvedTeam2 || 'Home'
+    awayTeamAbbr = (isUserHome ? opponentAbbr : userTeamAbbr) || resolvedTeam1 || 'Away'
     homeTeamName = (isUserHome ? currentDynasty?.teamName : opponentAbbr) || homeTeamAbbr
     awayTeamName = (isUserHome ? opponentAbbr : currentDynasty?.teamName) || awayTeamAbbr
   }

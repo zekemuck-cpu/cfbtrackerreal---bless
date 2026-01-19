@@ -441,6 +441,17 @@ export default function GameEdit() {
       }
 
       const newGameId = `game-${Date.now()}`
+
+      // Determine homeTeamTid at creation time based on queryLocation
+      // This ensures home/away display is correct from the start
+      let initialHomeTeamTid = null
+      const isNeutralGameType = targetGameType !== 'regular'
+      if (!isNeutralGameType) {
+        if (queryLocation === 'home') initialHomeTeamTid = team1Tid
+        else if (queryLocation === 'away') initialHomeTeamTid = team2Tid
+        // For neutral or unspecified, leave as null
+      }
+
       const initialGameData = {
         id: newGameId,
         week: targetWeek ?? '',
@@ -450,6 +461,8 @@ export default function GameEdit() {
         team2Tid: team2Tid || null,
         team1Score: 0,
         team2Score: 0,
+        homeTeamTid: initialHomeTeamTid,
+        location: queryLocation || 'home', // Store location for fallback
         ...(queryBowlName && { bowlName: queryBowlName, isBowlGame: true }),
         ...(queryGameType === 'conference_championship' && { isConferenceChampionship: true }),
         ...(queryGameType === 'cfp_first_round' && { isCFPFirstRound: true }),
@@ -491,13 +504,37 @@ export default function GameEdit() {
       const score1 = existingGame.team1Score ?? existingGame.teamScore
       const score2 = existingGame.team2Score ?? existingGame.opponentScore
 
-      // Resolve location
-      let locationValue = 'neutral'
-      if (existingGame.homeTeamTid) {
-        locationValue = existingGame.homeTeamTid === resolvedTeam1Tid ? 'home' :
-          existingGame.homeTeamTid === resolvedTeam2Tid ? 'away' : 'neutral'
+      // Resolve location - PRIORITY ORDER:
+      // 1. homeTeamTid (most reliable, computed field) - handles both user and CPU games
+      // 2. existingGame.location (direct storage)
+      // 3. Schedule entry location (for games created from schedule)
+      // 4. Default to 'home' for user games, 'neutral' for CPU games
+      let locationValue = 'home' // Default: team1 is home
+
+      if (existingGame.homeTeamTid !== undefined) {
+        // homeTeamTid is explicitly set (could be a tid number or null for neutral site)
+        if (existingGame.homeTeamTid === null) {
+          // Neutral site game (bowls, CFP, conference championships)
+          locationValue = 'neutral'
+        } else if (existingGame.homeTeamTid === resolvedTeam1Tid) {
+          locationValue = 'home' // team1 is home
+        } else if (existingGame.homeTeamTid === resolvedTeam2Tid) {
+          locationValue = 'away' // team2 is home
+        } else {
+          locationValue = 'neutral' // homeTeamTid doesn't match either team
+        }
       } else if (existingGame.location) {
         locationValue = existingGame.location
+      } else {
+        // Check schedule entry for location (fallback for older games)
+        const scheduleEntries = currentDynasty?.schedule || []
+        const scheduleEntry = scheduleEntries.find(s =>
+          s.gameId === existingGame.id ||
+          (Number(s.week) === Number(existingGame.week) && s.opponentTid === existingGame.team2Tid)
+        )
+        if (scheduleEntry?.location) {
+          locationValue = scheduleEntry.location
+        }
       }
 
       setFormData({
@@ -577,13 +614,17 @@ export default function GameEdit() {
   }
 
   const handleQuarterChange = (teamKey, quarter, value) => {
+    // Parse as integer to handle cases like "07" → "7"
+    // Keep empty string as empty (for placeholder display)
+    const parsedValue = value === '' ? '' : String(parseInt(value, 10) || 0)
+
     const defaultQuarters = { Q1: '', Q2: '', Q3: '', Q4: '' }
     const currentQuarters = formData.quarters || { team1: defaultQuarters, team2: defaultQuarters }
     const newQuarters = {
       ...currentQuarters,
       [teamKey]: {
         ...(currentQuarters[teamKey] || defaultQuarters),
-        [quarter]: value
+        [quarter]: parsedValue
       }
     }
 
@@ -621,8 +662,11 @@ export default function GameEdit() {
   }
 
   const handleOvertimeChange = (index, teamKey, value) => {
+    // Parse as integer to handle cases like "07" → "7"
+    const parsedValue = value === '' ? '' : String(parseInt(value, 10) || 0)
+
     const newOvertimes = [...formData.overtimes]
-    newOvertimes[index] = { ...newOvertimes[index], [teamKey]: value }
+    newOvertimes[index] = { ...newOvertimes[index], [teamKey]: parsedValue }
 
     const newFormData = { ...formData, overtimes: newOvertimes }
     newFormData.team1Score = calculateTotalFromQuarters('team1', formData.quarters, newOvertimes).toString()
@@ -676,7 +720,7 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
-        userTid: existingGame?.userTid || team1Tid,
+        // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Set game type flags from existingGame or gameType query param for new games
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
@@ -786,7 +830,7 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
-        userTid: existingGame?.userTid || team1Tid,
+        // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Preserve game type flags
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
@@ -1568,7 +1612,12 @@ export default function GameEdit() {
           onClose={() => setShowBoxScoreModal(false)}
           onSave={handleBoxScoreSave}
           sheetType={boxScoreModalType}
-          game={existingGame || {
+          game={existingGame ? {
+            ...existingGame,
+            // Override homeTeamTid with current form state if changed
+            homeTeamTid: formData.location === 'home' ? team1Tid :
+                         formData.location === 'away' ? team2Tid : null
+          } : {
             id: currentGameId,
             team1Tid,
             team2Tid,
@@ -1576,7 +1625,9 @@ export default function GameEdit() {
             team2: team2Abbr || getOriginalTeamAbbr(team2Tid) || 'Team 2',
             year: gameYear,
             week: gameWeek,
-            location: formData.location
+            location: formData.location,
+            homeTeamTid: formData.location === 'home' ? team1Tid :
+                         formData.location === 'away' ? team2Tid : null
           }}
           teamColors={team1Colors}
         />

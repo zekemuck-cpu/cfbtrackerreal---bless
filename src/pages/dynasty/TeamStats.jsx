@@ -353,7 +353,7 @@ export default function TeamStats() {
         return false
       })
 
-    const games = filteredGames.map(g => {
+    const mappedGames = filteredGames.map(g => {
         // Determine if selected team is team1 or team2 (or userTeam)
         const isTeam1 = g.team1Tid === selectedTid
         const isTeam2 = g.team2Tid === selectedTid
@@ -375,30 +375,140 @@ export default function TeamStats() {
           opponentScore = g.teamScore
         }
 
-        // Determine win/loss from selected team's perspective
-        const won = teamScore > opponentScore
+        // Check if game has been completed (has actual scores)
+        // Must have BOTH scores as numbers > 0, or at least one score > 0
+        const hasActualScores = (typeof teamScore === 'number' && typeof opponentScore === 'number' &&
+                                 (teamScore > 0 || opponentScore > 0))
+        const hasScores = hasActualScores || g.completed === true
+
+        // Determine win/loss from selected team's perspective (only if game completed)
+        const won = hasScores ? teamScore > opponentScore : null
+
+        // Determine home/away/neutral
+        const isHomeGame = g.homeTeamTid === selectedTid || g.location === 'Home' || g.location === 'home'
+        const isNeutralGame = g.homeTeamTid === null || g.location === 'Neutral' || g.location === 'neutral'
+        const isAwayGame = !isHomeGame && !isNeutralGame
+
+        // Calculate favorite/underdog status dynamically if not already set
+        // Uses team1/team2 data (game-centric, not user-centric)
+        let computedFavoriteStatus = g.favoriteStatus
+        if (!computedFavoriteStatus && g.team1Tid && g.team2Tid) {
+          // Get team1 and team2 data
+          const team1Tid = g.team1Tid
+          const team2Tid = g.team2Tid
+          const homeTeamTid = g.homeTeamTid // null = neutral site
+
+          // Look up rankings from game data first, then could extend to rankings history
+          const team1Rank = g.team1Rank ? parseInt(g.team1Rank) : null
+          const team2Rank = g.team2Rank ? parseInt(g.team2Rank) : null
+
+          // Look up overall ratings - first from game data, then from dynasty team data
+          const userTid = g.userTid
+          let team1Overall = null
+          let team2Overall = null
+
+          // Try game-stored overalls first - check team1Overall/team2Overall directly
+          if (g.team1Overall) {
+            team1Overall = parseInt(g.team1Overall)
+          }
+          if (g.team2Overall) {
+            team2Overall = parseInt(g.team2Overall)
+          }
+
+          // Also check userOverall/opponentOverall (user-centric) - map to team1/team2
+          if (!team1Overall || !team2Overall) {
+            if (g.userOverall || g.opponentOverall) {
+              if (userTid === team1Tid) {
+                if (!team1Overall && g.userOverall) team1Overall = parseInt(g.userOverall)
+                if (!team2Overall && g.opponentOverall) team2Overall = parseInt(g.opponentOverall)
+              } else if (userTid === team2Tid) {
+                if (!team1Overall && g.opponentOverall) team1Overall = parseInt(g.opponentOverall)
+                if (!team2Overall && g.userOverall) team2Overall = parseInt(g.userOverall)
+              }
+            }
+          }
+
+          // Fall back to dynasty team ratings if not on game
+          if (!team1Overall) {
+            const team1Ratings = currentDynasty.teams?.[team1Tid]?.byYear?.[selectedYear]?.teamRatings
+            team1Overall = team1Ratings?.overall ? parseInt(team1Ratings.overall) : null
+          }
+          if (!team2Overall) {
+            const team2Ratings = currentDynasty.teams?.[team2Tid]?.byYear?.[selectedYear]?.teamRatings
+            team2Overall = team2Ratings?.overall ? parseInt(team2Ratings.overall) : null
+          }
+
+          // Home advantage values
+          const homeAdvantageOverall = homeTeamTid === null ? 0 : 3
+          const homeAdvantageRanking = homeTeamTid === null ? 0 : 5
+
+          // Determine which team is the favorite (independent of selected team)
+          let team1IsFavorite = null // null = can't determine
+
+          // Case 1: One ranked, one unranked - ranked team is favorite
+          if (team1Rank && !team2Rank) {
+            team1IsFavorite = true
+          } else if (!team1Rank && team2Rank) {
+            team1IsFavorite = false
+          } else if (team1Rank && team2Rank) {
+            // Case 2: Both ranked - lower rank number is favorite (with home advantage)
+            const team1IsHome = homeTeamTid === team1Tid
+            const adjustedTeam1Rank = team1IsHome ? team1Rank - homeAdvantageRanking : team1Rank
+            const adjustedTeam2Rank = homeTeamTid === team2Tid ? team2Rank - homeAdvantageRanking : team2Rank
+            team1IsFavorite = adjustedTeam1Rank < adjustedTeam2Rank
+          } else if (team1Overall && team2Overall) {
+            // Case 3: Both unranked - use overall ratings (with home advantage)
+            const team1IsHome = homeTeamTid === team1Tid
+            const adjustedTeam1Overall = team1IsHome ? team1Overall + homeAdvantageOverall : team1Overall
+            const adjustedTeam2Overall = homeTeamTid === team2Tid ? team2Overall + homeAdvantageOverall : team2Overall
+            if (adjustedTeam1Overall > adjustedTeam2Overall) {
+              team1IsFavorite = true
+            } else if (adjustedTeam1Overall < adjustedTeam2Overall) {
+              team1IsFavorite = false
+            } else {
+              // Tie - home team is favorite
+              team1IsFavorite = homeTeamTid === team1Tid
+            }
+          }
+
+          // Now determine if the SELECTED team was the favorite or underdog
+          if (team1IsFavorite !== null) {
+            const selectedTeamIsTeam1 = selectedTid === team1Tid
+            computedFavoriteStatus = (selectedTeamIsTeam1 === team1IsFavorite) ? 'favorite' : 'underdog'
+          }
+
+        }
+
+        // Get opponent tid (the other team)
+        const opponentTid = isTeam1 ? g.team2Tid : (isTeam2 ? g.team1Tid : null)
 
         // Create perspective object for compatibility with existing code
         const perspective = {
           userTid: selectedTid,
+          opponentTid: opponentTid,
           userWon: won,
-          isHome: g.homeTeamTid === selectedTid || g.location === 'Home' || g.location === 'home',
-          isAway: (g.homeTeamTid !== undefined && g.homeTeamTid !== null && g.homeTeamTid !== selectedTid) ||
-                  g.location === 'Road' || g.location === 'Away' || g.location === 'road' || g.location === 'away',
-          isNeutral: g.homeTeamTid === null || g.location === 'Neutral' || g.location === 'neutral'
+          userScore: teamScore,
+          opponentScore: opponentScore,
+          hasScores,
+          isHome: isHomeGame,
+          isAway: isAwayGame,
+          isNeutral: isNeutralGame
         }
 
-        return { ...g, perspective, teamScore, opponentScore }
+        return { ...g, perspective, teamScore, opponentScore, hasScores, computedFavoriteStatus }
       })
+
+    // Filter to only completed games for record calculations
+    const games = mappedGames.filter(g => g.hasScores)
 
     const wins = games.filter(isWin).length
     const losses = games.filter(isLoss).length
 
-    const favoriteGames = games.filter(g => g.favoriteStatus === 'favorite')
+    const favoriteGames = games.filter(g => g.computedFavoriteStatus === 'favorite')
     const favoriteWins = favoriteGames.filter(isWin).length
     const favoriteLosses = favoriteGames.filter(isLoss).length
 
-    const underdogGames = games.filter(g => g.favoriteStatus === 'underdog')
+    const underdogGames = games.filter(g => g.computedFavoriteStatus === 'underdog')
     const underdogWins = underdogGames.filter(isWin).length
     const underdogLosses = underdogGames.filter(isLoss).length
 
