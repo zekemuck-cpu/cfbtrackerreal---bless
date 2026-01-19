@@ -1693,8 +1693,19 @@ export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
   // Resolve tid from abbr if needed
   const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
   const yearNum = Number(year)
+  const currentTid = getCurrentTeamTid(dynasty)
+  const currentYear = Number(dynasty.currentYear)
 
-  // Try NEW tid-based byYear structure first
+  // PRIORITY 1: For current user team and current year, use dynasty.teamRatings
+  // This ensures we always get the LATEST ratings if user updates them mid-season
+  if (tid === currentTid && yearNum === currentYear && dynasty.teamRatings) {
+    const tr = dynasty.teamRatings
+    if (tr.overall || tr.offense || tr.defense) {
+      return tr
+    }
+  }
+
+  // PRIORITY 2: Try NEW tid-based byYear structure (for past years or other teams)
   if (tid && dynasty.teams?.[tid]?.byYear?.[yearNum]?.teamRatings) {
     return dynasty.teams[tid].byYear[yearNum].teamRatings
   }
@@ -1704,24 +1715,13 @@ export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[String(yearNum)].teamRatings
   }
 
-  // Try legacy teamRatingsByTeamYear (uses abbr)
+  // PRIORITY 3: Try legacy teamRatingsByTeamYear (uses abbr)
   const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(dynasty.teams, tid)
   if (teamAbbr) {
     const legacyRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[yearNum] ||
                           dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[String(yearNum)]
     if (legacyRatings) {
       return legacyRatings
-    }
-  }
-
-  // CRITICAL: For the current user team and current year, fall back to dynasty.teamRatings
-  // This handles the case where ratings are entered but not yet stored in byYear structure
-  const currentTid = getCurrentTeamTid(dynasty)
-  const currentYear = Number(dynasty.currentYear)
-  if (tid === currentTid && yearNum === currentYear && dynasty.teamRatings) {
-    const tr = dynasty.teamRatings
-    if (tr.overall || tr.offense || tr.defense) {
-      return tr
     }
   }
 

@@ -378,23 +378,30 @@ export default function GameEdit() {
     if (!tid) return { overall: '', offense: '', defense: '' }
     const abbr = teamsSource[tid]?.abbr
     const yearNum = Number(year)
+    const currentUserTid = currentDynasty?.currentTid
+    const currentYear = Number(currentDynasty?.currentYear)
 
-    // Try multiple storage locations for ratings
-    // 1. New tid-based byYear structure (teamRatings, not ratings)
-    let ratings = currentDynasty?.teams?.[tid]?.byYear?.[yearNum]?.teamRatings ||
-                  currentDynasty?.teams?.[tid]?.byYear?.[String(yearNum)]?.teamRatings
+    let ratings = null
 
-    // 2. teamRatingsByTeamYear[abbr][year] structure (legacy)
+    // PRIORITY 1: For current user team and current year, use dynasty.teamRatings
+    // This ensures we always get the LATEST ratings if user updates them mid-season
+    if (tid === currentUserTid && yearNum === currentYear && currentDynasty?.teamRatings) {
+      const tr = currentDynasty.teamRatings
+      if (tr.overall || tr.offense || tr.defense) {
+        ratings = tr
+      }
+    }
+
+    // PRIORITY 2: New tid-based byYear structure (for past years or other teams)
+    if (!ratings) {
+      ratings = currentDynasty?.teams?.[tid]?.byYear?.[yearNum]?.teamRatings ||
+                currentDynasty?.teams?.[tid]?.byYear?.[String(yearNum)]?.teamRatings
+    }
+
+    // PRIORITY 3: teamRatingsByTeamYear[abbr][year] structure (legacy)
     if (!ratings && abbr) {
       ratings = currentDynasty?.teamRatingsByTeamYear?.[abbr]?.[yearNum] ||
                 currentDynasty?.teamRatingsByTeamYear?.[abbr]?.[String(yearNum)]
-    }
-
-    // 3. If this is the current user team and current year, check dynasty.teamRatings
-    const currentUserTid = currentDynasty?.currentTid
-    const currentYear = Number(currentDynasty?.currentYear)
-    if (!ratings && tid === currentUserTid && yearNum === currentYear) {
-      ratings = currentDynasty?.teamRatings
     }
 
     return {
@@ -1244,7 +1251,7 @@ export default function GameEdit() {
             <label className="text-sm font-semibold text-gray-700 block mb-2">
               Team Ratings
               {isTeam1UserTeam && formData.team1Overall && (
-                <span className="font-normal text-xs text-green-600 ml-2">(from preseason setup)</span>
+                <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
               )}
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -1344,7 +1351,7 @@ export default function GameEdit() {
             <label className="text-sm font-semibold text-gray-700 block mb-2">
               Team Ratings
               {isTeam2UserTeam && formData.team2Overall && (
-                <span className="font-normal text-xs text-green-600 ml-2">(from preseason setup)</span>
+                <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
               )}
             </label>
             <div className="grid grid-cols-3 gap-2">
