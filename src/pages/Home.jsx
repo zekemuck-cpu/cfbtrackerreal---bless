@@ -447,7 +447,7 @@ export default function Home() {
             className="hidden"
           />
 
-          <div className="grid gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4">
             {sortedDynasties.map((dynasty) => {
               const teams = dynasty.teams || dynasty.customTeams
               const colors = getTeamColors(dynasty.teamName, teams)
@@ -475,14 +475,14 @@ export default function Home() {
               return (
                 <div
                   key={dynasty.id}
-                  className="rounded-xl p-3 sm:p-5 transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
+                  className="rounded-xl p-3 sm:p-5 transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl overflow-hidden"
                   style={{
                     backgroundColor: colors.primary,
                     border: `2px solid ${colors.secondary}`,
                     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)'
                   }}
                 >
-                  <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4 w-full">
                     <Link
                       to={`/dynasty/${dynasty.id}`}
                       className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0"
@@ -567,7 +567,7 @@ export default function Home() {
                     </Link>
 
                     {/* Action buttons - inline on all sizes */}
-                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-auto">
                         {/* Favorite button */}
                         <button
                           onClick={(e) => handleFavoriteClick(e, dynasty)}
