@@ -1098,7 +1098,58 @@ export default function Dashboard() {
       }
     })
 
+    // Update player records with draft information
+    const updatedPlayers = [...(currentDynasty.players || [])]
+    draftResults.forEach(entry => {
+      const playerIndex = updatedPlayers.findIndex(p =>
+        p.name?.toLowerCase().trim() === entry.playerName?.toLowerCase().trim()
+      )
+      if (playerIndex !== -1) {
+        const player = updatedPlayers[playerIndex]
+        const existingMovements = player.movements || []
+
+        // Check if draft movement already exists for this year
+        const hasDraftMovement = existingMovements.some(m =>
+          m.year === year && m.type === 'departure' && m.reason === 'Pro Draft'
+        )
+
+        if (!hasDraftMovement) {
+          updatedPlayers[playerIndex] = {
+            ...player,
+            // Store draft info on player record
+            draftYear: year,
+            draftRound: entry.draftRound,
+            // Add departure movement for draft
+            movements: [
+              ...existingMovements,
+              {
+                year,
+                type: 'departure',
+                reason: 'Pro Draft',
+                from: tid,
+                draftRound: entry.draftRound,
+                timestamp: Date.now()
+              }
+            ]
+          }
+        } else {
+          // Update existing draft movement with round info
+          updatedPlayers[playerIndex] = {
+            ...player,
+            draftYear: year,
+            draftRound: entry.draftRound,
+            movements: existingMovements.map(m =>
+              (m.year === year && m.type === 'departure' && m.reason === 'Pro Draft')
+                ? { ...m, draftRound: entry.draftRound }
+                : m
+            )
+          }
+        }
+      }
+    })
+
     const updates = {
+      players: updatedPlayers,
       draftResultsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
@@ -6248,8 +6299,15 @@ export default function Dashboard() {
               const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
               const draftDeclarees = playersLeavingThisYear.filter(p => p.reason === 'Pro Draft')
               const hasDraftDeclarees = draftDeclarees.length > 0
-              const hasDraftResultsData = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length > 0
-              const draftResultsCount = currentDynasty?.draftResultsByYear?.[offseasonDataYear]?.length || 0
+
+              // Check draft results - tid-based first, then legacy draftResultsByTeamYear
+              const userTidForDraft = getUserTeamTid(currentDynasty)
+              const userAbbrForDraft = getCurrentTeamAbbr(currentDynasty)
+              const draftResultsFromTid = currentDynasty?.teams?.[userTidForDraft]?.byYear?.[offseasonDataYear]?.draftResults
+              const draftResultsFromLegacy = currentDynasty?.draftResultsByTeamYear?.[userAbbrForDraft]?.[offseasonDataYear]
+              const draftResultsData = draftResultsFromTid || draftResultsFromLegacy || []
+              const hasDraftResultsData = draftResultsData.length > 0
+              const draftResultsCount = draftResultsData.length
 
               // Check recruiting commitments for this week - TID-BASED with signing_ key
               const userTidForCommits = getUserTeamTid(currentDynasty)

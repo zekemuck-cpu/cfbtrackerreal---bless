@@ -9293,28 +9293,8 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
     })
   }
 
-  // Add player name dropdown validation for Player column (only if we have players)
-  if (playerNames && playerNames.length > 0) {
-    requests.push({
-      setDataValidation: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: 1,
-          endRowIndex: totalRows + 1,
-          startColumnIndex: 0,
-          endColumnIndex: 1
-        },
-        rule: {
-          condition: {
-            type: 'ONE_OF_LIST',
-            values: playerNames.map(name => ({ userEnteredValue: name }))
-          },
-          showCustomUi: true,
-          strict: false // Allow custom entries in case player isn't in list
-        }
-      }
-    })
-  }
+  // Note: Player name dropdown validation already added above with strict: true
+  // No duplicate validation needed - dropdowns enforce selection from list only
 
   // Execute all requests
   await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
