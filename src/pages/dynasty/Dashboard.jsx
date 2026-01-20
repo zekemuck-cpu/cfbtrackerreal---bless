@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -486,6 +486,62 @@ export default function Dashboard() {
       setNewDCName('')
     }
   }, [currentDynasty?.id, currentDynasty?.pendingCoordinatorHires])
+
+  // Auto-create CFP game shells if seeds exist but shells are missing
+  // This handles dynasties where seeds were saved before the shell system was implemented
+  useEffect(() => {
+    if (!currentDynasty?.id || isViewOnly) return
+
+    const year = currentDynasty.currentYear
+    const seeds = currentDynasty.cfpSeedsByYear?.[year] || []
+    if (seeds.length < 12) return // Need all 12 seeds
+
+    // Check if shells already exist with VALID tids (numbers, not objects)
+    const existingShells = (currentDynasty.games || []).filter(g =>
+      g.cfpSlot && Number(g.year) === Number(year)
+    )
+
+    // Also check that tids are numbers, not objects (bug fix for bad shells)
+    const hasValidTids = existingShells.every(g =>
+      (g.team1Tid === null || typeof g.team1Tid === 'number') &&
+      (g.team2Tid === null || typeof g.team2Tid === 'number')
+    )
+
+    // Check if QF opponents need to be populated from first round winners
+    const firstRoundGames = existingShells.filter(g => g.cfpRound === 'first_round')
+    const qfGames = existingShells.filter(g => g.cfpRound === 'quarterfinal')
+    const hasCompletedFirstRound = firstRoundGames.some(g => g.team1Score !== null && g.team2Score !== null)
+    const qfNeedsOpponents = qfGames.some(g => g.team1Tid !== null && g.team2Tid === null)
+    const needsWinnerPropagation = hasCompletedFirstRound && qfNeedsOpponents
+
+    if (existingShells.length >= 11 && hasValidTids && !needsWinnerPropagation) return // Valid shells already exist
+
+    // Convert seeds array to tid-based format: { 1: tid, 2: tid, ... }
+    const seedsWithTid = {}
+    for (const entry of seeds) {
+      if (entry.seed && entry.team) {
+        const tid = entry.tid || getTidFromAbbr(entry.team)
+        if (tid) {
+          seedsWithTid[entry.seed] = tid
+        }
+      }
+    }
+
+    // Create shells
+    const existingGames = currentDynasty.games || []
+    let updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year)
+
+    // Re-propagate first round winners to QF shells (in case FR was saved before shells existed)
+    const frGamesToPropagate = updatedGames.filter(g => g.cfpRound === 'first_round' && Number(g.year) === Number(year))
+    for (const frGame of frGamesToPropagate) {
+      if (frGame.team1Score !== null && frGame.team2Score !== null && frGame.cfpSlot) {
+        updatedGames = propagateCFPWinner(updatedGames, frGame)
+      }
+    }
+
+    // Save the shells
+    updateDynasty(currentDynasty.id, { games: updatedGames })
+  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly])
 
   if (!currentDynasty) return null
 
@@ -3591,6 +3647,7 @@ export default function Dashboard() {
             const totalEnteredWeek2 = enteredBowlWeek2 + enteredCFPQuarterfinals
             const userBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPFirstRoundShell = findUserCFPGameShell(currentDynasty, 'first_round', currentDynasty.currentYear)
             const userBowlIsWeek1 = selectedBowl && isBowlInWeek1(selectedBowl)
             const userBowlIsWeek2 = selectedBowl && isBowlInWeek2(selectedBowl)
 
@@ -3607,16 +3664,19 @@ export default function Dashboard() {
             // All bowl games for dropdown (CFP options removed - handled automatically)
             const allBowlGames = getAllBowlGamesList()
 
-            // Check if user's team is in the CFP
+            // Check if user's team is in the CFP - prefer tid lookup
             const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear] || []
-            const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
+            // Check tid first, then abbr for backward compatibility
+            const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid || s.team === userTeamAbbr)?.seed || null
 
-            // Calculate CFP first round opponent (5v12, 6v11, 7v10, 8v9)
+            // Calculate CFP first round opponent (5v12, 6v11, 7v10, 8v9) - returns tid
             const getCFPFirstRoundOpponent = (seed) => {
               if (!seed || seed < 5 || seed > 12) return null
               const opponentSeed = 17 - seed // 5->12, 6->11, 7->10, 8->9
-              return cfpSeeds.find(s => s.seed === opponentSeed)?.team || null
+              const opponentEntry = cfpSeeds.find(s => s.seed === opponentSeed)
+              // Return tid if available, otherwise abbr for backward compatibility
+              return opponentEntry?.tid || opponentEntry?.team || null
             }
 
             const userCFPOpponent = getCFPFirstRoundOpponent(userCFPSeed)
@@ -3624,7 +3684,10 @@ export default function Dashboard() {
             const userInCFPFirstRound = userCFPSeed && userCFPSeed >= 5 && userCFPSeed <= 12
 
             // CFP Quarterfinals tracking
+            // Try to find via findCurrentTeamGame (works when both teams have tids set)
+            // Also check for shell (works even when team2Tid is null for bye seeds)
             const userCFPQuarterfinalGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPQuarterfinalShell = findUserCFPGameShell(currentDynasty, 'quarterfinal', currentDynasty.currentYear)
             const firstRoundResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.firstRound || []
 
             // User is in QF if they have a bye (seed 1-4) OR won their First Round game (seed 5-12)
@@ -3632,36 +3695,44 @@ export default function Dashboard() {
             const userWonFirstRound = userCFPFirstRoundGame?.perspective?.userWon
             const userInCFPQuarterfinal = userHasCFPBye || (userInCFPFirstRound && userWonFirstRound)
 
-            // Calculate QF opponent based on bracket matchups
-            // Sugar Bowl: #4 vs 5/12 winner, Orange Bowl: #1 vs 8/9 winner
-            // Rose Bowl: #3 vs 6/11 winner, Cotton Bowl: #2 vs 7/10 winner
+            // Get QF opponent - prioritize shell's team2Tid, fallback to legacy lookup
             const getCFPQuarterfinalOpponent = () => {
               if (!userInCFPQuarterfinal) return null
 
-              // QF matchup structure
+              // First check if the QF shell has the opponent tid set
+              const qfShell = userCFPQuarterfinalShell || userCFPQuarterfinalGame
+              if (qfShell) {
+                // Get opponent tid from shell (user could be team1 or team2)
+                const userTid = currentDynasty.currentTid
+                const opponentTid = qfShell.team1Tid === userTid ? qfShell.team2Tid : qfShell.team1Tid
+                if (opponentTid) return opponentTid // Return tid directly
+              }
+
+              // Fallback: calculate from bracket matchups (legacy)
               const qfMatchups = {
-                1: { opponentSeeds: [8, 9] },   // #1 vs 8/9 winner (Orange Bowl)
-                2: { opponentSeeds: [7, 10] },  // #2 vs 7/10 winner (Cotton Bowl)
-                3: { opponentSeeds: [6, 11] },  // #3 vs 6/11 winner (Rose Bowl)
-                4: { opponentSeeds: [5, 12] },  // #4 vs 5/12 winner (Sugar Bowl)
-                5: { hostSeed: 4 }, 12: { hostSeed: 4 },  // 5/12 winner plays #4
-                6: { hostSeed: 3 }, 11: { hostSeed: 3 },  // 6/11 winner plays #3
-                7: { hostSeed: 2 }, 10: { hostSeed: 2 },  // 7/10 winner plays #2
-                8: { hostSeed: 1 }, 9: { hostSeed: 1 }    // 8/9 winner plays #1
+                1: { opponentSeeds: [8, 9] },
+                2: { opponentSeeds: [7, 10] },
+                3: { opponentSeeds: [6, 11] },
+                4: { opponentSeeds: [5, 12] },
+                5: { hostSeed: 4 }, 12: { hostSeed: 4 },
+                6: { hostSeed: 3 }, 11: { hostSeed: 3 },
+                7: { hostSeed: 2 }, 10: { hostSeed: 2 },
+                8: { hostSeed: 1 }, 9: { hostSeed: 1 }
               }
 
               if (userHasCFPBye) {
-                // Seeds 1-4: opponent is the First Round winner
                 const matchup = qfMatchups[userCFPSeed]
                 const [seedA, seedB] = matchup.opponentSeeds
                 const firstRoundGame = firstRoundResults.find(g =>
                   (g.seed1 === seedA && g.seed2 === seedB) || (g.seed1 === seedB && g.seed2 === seedA)
                 )
-                return firstRoundGame?.winner || null
+                // Return winnerTid if available, otherwise winner abbr
+                return firstRoundGame?.winnerTid || firstRoundGame?.winner || null
               } else if (userWonFirstRound) {
-                // Seeds 5-12 who won: opponent is the bye team (host seed)
                 const hostSeed = qfMatchups[userCFPSeed]?.hostSeed
-                return hostSeed ? cfpSeeds.find(s => s.seed === hostSeed)?.team : null
+                const hostEntry = hostSeed ? cfpSeeds.find(s => s.seed === hostSeed) : null
+                // Return tid if available, otherwise abbr
+                return hostEntry?.tid || hostEntry?.team || null
               }
               return null
             }
@@ -3684,6 +3755,7 @@ export default function Dashboard() {
 
             // CFP Semifinals tracking
             const userCFPSemifinalGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPSemifinalShell = findUserCFPGameShell(currentDynasty, 'semifinal', currentDynasty.currentYear)
             // Uses unified format: check perspective for win
             const userWonQuarterfinal = userCFPQuarterfinalGame?.perspective?.userWon
             const userInCFPSemifinal = userInCFPQuarterfinal && userWonQuarterfinal
@@ -3691,19 +3763,28 @@ export default function Dashboard() {
             // Get quarterfinal results to calculate SF opponent
             const quarterfinalResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.quarterfinals || []
 
-            // Calculate SF opponent based on QF results
+            // Calculate SF opponent - prioritize shell's team2Tid, fallback to legacy lookup
             // Peach Bowl: Orange Bowl winner (1/8/9) vs Sugar Bowl winner (4/5/12)
             // Fiesta Bowl: Cotton Bowl winner (2/7/10) vs Rose Bowl winner (3/6/11)
             const getCFPSemifinalOpponent = () => {
               if (!userInCFPSemifinal) return null
 
+              // First check if the SF shell has the opponent tid set
+              const sfShell = userCFPSemifinalShell || userCFPSemifinalGame
+              if (sfShell) {
+                // Get opponent tid from shell (user could be team1 or team2)
+                const userTid = currentDynasty.currentTid
+                const opponentTid = sfShell.team1Tid === userTid ? sfShell.team2Tid : sfShell.team1Tid
+                if (opponentTid) return opponentTid // Return tid directly
+              }
+
+              // Fallback: calculate from bracket matchups (legacy)
               // Determine which SF the user is in based on their seed
               // Seeds 1,8,9 play in Orange Bowl -> Peach Bowl SF
               // Seeds 4,5,12 play in Sugar Bowl -> Peach Bowl SF
               // Seeds 2,7,10 play in Cotton Bowl -> Fiesta Bowl SF
               // Seeds 3,6,11 play in Rose Bowl -> Fiesta Bowl SF
               const peachBowlSeeds = [1, 8, 9, 4, 5, 12]
-              const fiestaBowlSeeds = [2, 7, 10, 3, 6, 11]
 
               const userInPeachBowl = peachBowlSeeds.includes(userCFPSeed)
 
@@ -3715,11 +3796,13 @@ export default function Dashboard() {
                 const sugarSeeds = [4, 5, 12]
                 const opponentBowlSeeds = orangeSeeds.includes(userCFPSeed) ? sugarSeeds : orangeSeeds
                 const opponentQFGame = quarterfinalResults.find(g => {
-                  const team1Seed = cfpSeeds.find(s => s.team === g.team1)?.seed
-                  const team2Seed = cfpSeeds.find(s => s.team === g.team2)?.seed
+                  // Check tid first, then fallback to abbr
+                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
+                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
                   return opponentBowlSeeds.includes(team1Seed) || opponentBowlSeeds.includes(team2Seed)
                 })
-                return opponentQFGame?.winner || null
+                // Return winnerTid if available, otherwise fall back to winner abbr
+                return opponentQFGame?.winnerTid || opponentQFGame?.winner || null
               } else {
                 // User's opponent is the winner from the other QF in Fiesta Bowl
                 // If user was in Cotton (2/7/10), opponent is Rose winner (3/6/11)
@@ -3728,11 +3811,13 @@ export default function Dashboard() {
                 const roseSeeds = [3, 6, 11]
                 const opponentBowlSeeds = cottonSeeds.includes(userCFPSeed) ? roseSeeds : cottonSeeds
                 const opponentQFGame = quarterfinalResults.find(g => {
-                  const team1Seed = cfpSeeds.find(s => s.team === g.team1)?.seed
-                  const team2Seed = cfpSeeds.find(s => s.team === g.team2)?.seed
+                  // Check tid first, then fallback to abbr
+                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
+                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
                   return opponentBowlSeeds.includes(team1Seed) || opponentBowlSeeds.includes(team2Seed)
                 })
-                return opponentQFGame?.winner || null
+                // Return winnerTid if available, otherwise fall back to winner abbr
+                return opponentQFGame?.winnerTid || opponentQFGame?.winner || null
               }
             }
 
@@ -3749,6 +3834,7 @@ export default function Dashboard() {
 
             // CFP Championship tracking
             const userCFPChampionshipGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPChampionshipShell = findUserCFPGameShell(currentDynasty, 'championship', currentDynasty.currentYear)
             // Uses unified format: check perspective for win
             const userWonSemifinal = userCFPSemifinalGame?.perspective?.userWon
             const userInCFPChampionship = userInCFPSemifinal && userWonSemifinal
@@ -3759,23 +3845,35 @@ export default function Dashboard() {
             const legacySemifinalResults = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.semifinals || []
             const semifinalResults = unifiedSemifinalResults.length > 0 ? unifiedSemifinalResults : legacySemifinalResults
 
-            // Calculate Championship opponent from SF results
+            // Calculate Championship opponent - prioritize shell's team2Tid, fallback to legacy lookup
             const getCFPChampionshipOpponent = () => {
               if (!userInCFPChampionship) return null
 
+              // First check if the NC shell has the opponent tid set
+              const ncShell = userCFPChampionshipShell || userCFPChampionshipGame
+              if (ncShell) {
+                // Get opponent tid from shell (user could be team1 or team2)
+                const userTid = currentDynasty.currentTid
+                const opponentTid = ncShell.team1Tid === userTid ? ncShell.team2Tid : ncShell.team1Tid
+                if (opponentTid) return opponentTid // Return tid directly
+              }
+
+              // Fallback: calculate from SF results (legacy)
               // User's opponent is the winner of the other semifinal
               const peachBowlSeeds = [1, 8, 9, 4, 5, 12]
               const userInPeachBowl = peachBowlSeeds.includes(userCFPSeed)
 
               // Find the SF game the user was NOT in
               const opponentSF = semifinalResults.find(g => {
-                const team1Seed = cfpSeeds.find(s => s.team === g.team1)?.seed
-                const team2Seed = cfpSeeds.find(s => s.team === g.team2)?.seed
+                // Check tid first, then fallback to abbr
+                const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
+                const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
                 const gameInPeachBowl = peachBowlSeeds.includes(team1Seed) || peachBowlSeeds.includes(team2Seed)
                 // If user was in Peach, opponent is from Fiesta (not in Peach)
                 return userInPeachBowl ? !gameInPeachBowl : gameInPeachBowl
               })
-              return opponentSF?.winner || null
+              // Return winnerTid if available, otherwise fall back to winner abbr
+              return opponentSF?.winnerTid || opponentSF?.winner || null
             }
 
             const userChampOpponent = getCFPChampionshipOpponent()
@@ -4076,10 +4174,13 @@ export default function Dashboard() {
                         </div>
                         <button
                           onClick={() => {
-                            if (userCFPFirstRoundGame) {
-                              navigate(`${pathPrefix}/game/${userCFPFirstRoundGame.id}/edit`, { state: { from: location.pathname } })
+                            // Use game with perspective first, then shell, then create new
+                            const gameToEdit = userCFPFirstRoundGame || userCFPFirstRoundShell
+                            if (gameToEdit) {
+                              navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
-                              const opponentTid = getTidFromAbbr(userCFPOpponent)
+                              // userCFPOpponent can be tid (number) or abbr (string)
+                              const opponentTid = typeof userCFPOpponent === 'number' ? userCFPOpponent : getTidFromAbbr(userCFPOpponent)
                               const params = new URLSearchParams({
                                 week: 'CFP First Round',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -4093,7 +4194,7 @@ export default function Dashboard() {
                           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                         >
-                          {userCFPFirstRoundGame ? 'Edit' : 'Enter'}
+                          {(userCFPFirstRoundGame || (userCFPFirstRoundShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
                         </button>
                       </div>
                     )}
@@ -4485,33 +4586,36 @@ export default function Dashboard() {
                     )}
 
                     {/* Task: Enter YOUR CFP Quarterfinal Game (if in CFP and advancing to QF) */}
-                    {/* userWonFirstRound bypasses hasBowlWeek1Data check since First Round winners already played their "week 1" game */}
-                    {userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data) && (
+                    {/* Bye teams (seeds 1-4) see this immediately in Bowl Week 2; First Round winners see it after winning */}
+                    {userInCFPQuarterfinal && (userHasCFPBye || userWonFirstRound || hasBowlWeek1Data) && (() => {
+                      // Check if game has actual scores entered (not just a shell)
+                      const qfGamePlayed = userCFPQuarterfinalGame && userCFPQuarterfinalGame.team1Score !== null && userCFPQuarterfinalGame.team2Score !== null
+                      return (
                       <div
                         className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                          userCFPQuarterfinalGame ? 'bg-green-50' : ''
+                          qfGamePlayed ? 'bg-green-50' : ''
                         }`}
-                        style={!userCFPQuarterfinalGame ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                        style={!qfGamePlayed ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
                             className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              userCFPQuarterfinalGame ? 'bg-green-500 text-white' : ''
+                              qfGamePlayed ? 'bg-green-500 text-white' : ''
                             }`}
-                            style={!userCFPQuarterfinalGame ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
+                            style={!qfGamePlayed ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
-                            {userCFPQuarterfinalGame ? (
+                            {qfGamePlayed ? (
                               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">{(bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) ? 3 : 2}</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPQuarterfinalGame ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: qfGamePlayed ? '#16a34a' : secondaryBgText }}>
                               Enter Your {userQFBowlName} Game (CFP QF)
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: userCFPQuarterfinalGame ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
-                              {userCFPQuarterfinalGame
+                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: qfGamePlayed ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                              {qfGamePlayed
                                 ? `✓ ${userCFPQuarterfinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}`
                                 : `#${userCFPSeed} vs ${userQFOpponent ? getMascotName(userQFOpponent) : 'TBD'}`}
                             </div>
@@ -4519,10 +4623,13 @@ export default function Dashboard() {
                         </div>
                         <button
                           onClick={() => {
-                            if (userCFPQuarterfinalGame) {
-                              navigate(`${pathPrefix}/game/${userCFPQuarterfinalGame.id}/edit`, { state: { from: location.pathname } })
+                            // Use game with perspective first, then shell, then create new
+                            const gameToEdit = userCFPQuarterfinalGame || userCFPQuarterfinalShell
+                            if (gameToEdit) {
+                              navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                             } else {
-                              const opponentTid = getTidFromAbbr(userQFOpponent)
+                              // userQFOpponent can be a tid (number) or abbreviation (string)
+                              const opponentTid = typeof userQFOpponent === 'number' ? userQFOpponent : getTidFromAbbr(userQFOpponent)
                               const params = new URLSearchParams({
                                 week: 'CFP Quarterfinal',
                                 year: currentDynasty.currentYear?.toString() || '',
@@ -4537,10 +4644,10 @@ export default function Dashboard() {
                           className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm self-end sm:self-auto transition-all hover:shadow-md active:scale-[0.98]"
                           style={{ backgroundColor: teamColors.primary, color: primaryBgText, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                         >
-                          {userCFPQuarterfinalGame ? 'Edit' : 'Enter'}
+                          {qfGamePlayed ? 'Edit' : 'Enter'}
                         </button>
                       </div>
-                    )}
+                      )})()}
 
                     {/* Task: Taking a New Job? (appears every bowl week until accepted) */}
                     {(() => {
@@ -5578,10 +5685,13 @@ export default function Dashboard() {
                       </div>
                       <button
                         onClick={() => {
-                          if (userCFPSemifinalGame) {
-                            navigate(`${pathPrefix}/game/${userCFPSemifinalGame.id}/edit`, { state: { from: location.pathname } })
+                          // Use game with perspective first, then shell, then create new
+                          const gameToEdit = userCFPSemifinalGame || userCFPSemifinalShell
+                          if (gameToEdit) {
+                            navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
-                            const opponentTid = getTidFromAbbr(userSFOpponent)
+                            // userSFOpponent can be tid (number) or abbr (string)
+                            const opponentTid = typeof userSFOpponent === 'number' ? userSFOpponent : getTidFromAbbr(userSFOpponent)
                             const params = new URLSearchParams({
                               week: 'CFP Semifinal',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -5596,7 +5706,7 @@ export default function Dashboard() {
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                         style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                       >
-                        {userCFPSemifinalGame ? 'Edit' : 'Enter'}
+                        {(userCFPSemifinalGame || (userCFPSemifinalShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
                       </button>
                     </div>
                   )}
@@ -5706,10 +5816,13 @@ export default function Dashboard() {
                       </div>
                       <button
                         onClick={() => {
-                          if (userCFPChampionshipGame) {
-                            navigate(`${pathPrefix}/game/${userCFPChampionshipGame.id}/edit`, { state: { from: location.pathname } })
+                          // Use game with perspective first, then shell, then create new
+                          const gameToEdit = userCFPChampionshipGame || userCFPChampionshipShell
+                          if (gameToEdit) {
+                            navigate(`${pathPrefix}/game/${gameToEdit.id}/edit`, { state: { from: location.pathname } })
                           } else {
-                            const opponentTid = getTidFromAbbr(userChampOpponent)
+                            // userChampOpponent can be tid (number) or abbr (string)
+                            const opponentTid = typeof userChampOpponent === 'number' ? userChampOpponent : getTidFromAbbr(userChampOpponent)
                             const params = new URLSearchParams({
                               week: 'CFP Championship',
                               year: currentDynasty.currentYear?.toString() || '',
@@ -5724,7 +5837,7 @@ export default function Dashboard() {
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                         style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                       >
-                        {userCFPChampionshipGame ? 'Edit' : 'Enter'}
+                        {(userCFPChampionshipGame || (userCFPChampionshipShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
                       </button>
                     </div>
                     )
@@ -8460,11 +8573,33 @@ export default function Dashboard() {
         onSave={async (seeds) => {
           const year = currentDynasty.currentYear
           const existingByYear = currentDynasty.cfpSeedsByYear || {}
+
+          // Convert seeds array to tid-based format: { 1: tid, 2: tid, ... }
+          // seeds comes in as: [{ seed: 1, team: 'OSU' }, { seed: 2, team: 'MICH' }, ...]
+          const seedsWithTid = {}
+          for (const entry of seeds) {
+            if (entry.seed && entry.team) {
+              const tid = getTidFromAbbr(entry.team)
+              if (tid) {
+                seedsWithTid[entry.seed] = tid
+              }
+            }
+          }
+
+          // Create/update all 11 CFP game shells
+          const existingGames = currentDynasty.games || []
+          const updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year)
+
           await updateDynasty(currentDynasty.id, {
             cfpSeedsByYear: {
               ...existingByYear,
-              [year]: seeds
-            }
+              [year]: seeds // Keep legacy format for backward compatibility
+            },
+            cfpSeedsByYearTid: {
+              ...(currentDynasty.cfpSeedsByYearTid || {}),
+              [year]: seedsWithTid // New tid-based format
+            },
+            games: updatedGames
           })
         }}
         currentYear={currentDynasty.currentYear}

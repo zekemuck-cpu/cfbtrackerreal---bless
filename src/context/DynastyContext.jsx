@@ -51,7 +51,7 @@ import {
   addCareerEntry
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
-import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId } from '../data/cfpConstants'
+import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS } from '../data/cfpConstants'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -146,6 +146,7 @@ export function getUserGamePerspective(game, dynasty, options = {}) {
 
     // Check if user's team played in this game (by tid)
     const isUserGame = game.team1Tid === effectiveUserTid || game.team2Tid === effectiveUserTid
+
     if (!isUserGame) return null  // User's team didn't play
 
     const isUserTeam1 = game.team1Tid === effectiveUserTid
@@ -287,6 +288,396 @@ export function getCFPGames(dynasty, year) {
            type === GAME_TYPES.CFP_SEMIFINAL ||
            type === GAME_TYPES.CFP_CHAMPIONSHIP
   })
+}
+
+// ============================================================================
+// CFP GAME SHELL SYSTEM - Upfront game creation when seeds are entered
+// ============================================================================
+
+/**
+ * Get CFP game type from bracket slot round
+ */
+function getCFPGameTypeFromRound(round) {
+  switch (round) {
+    case 'first_round': return GAME_TYPES.CFP_FIRST_ROUND
+    case 'quarterfinal': return GAME_TYPES.CFP_QUARTERFINAL
+    case 'semifinal': return GAME_TYPES.CFP_SEMIFINAL
+    case 'championship': return GAME_TYPES.CFP_CHAMPIONSHIP
+    default: return null
+  }
+}
+
+/**
+ * Get legacy flag name for a CFP round
+ */
+function getCFPLegacyFlag(round) {
+  switch (round) {
+    case 'first_round': return 'isCFPFirstRound'
+    case 'quarterfinal': return 'isCFPQuarterfinal'
+    case 'semifinal': return 'isCFPSemifinal'
+    case 'championship': return 'isCFPChampionship'
+    default: return null
+  }
+}
+
+/**
+ * Create or update all 11 CFP game shells when seeds are entered
+ * If shells already exist, updates team assignments while preserving scores
+ *
+ * @param {Array} existingGames - Current games array from dynasty
+ * @param {Object} seedsWithTid - Seeds mapped to tids: { 1: tid, 2: tid, ..., 12: tid }
+ * @param {number} year - The year for these CFP games
+ * @returns {Array} Updated games array with CFP shells created/updated
+ */
+export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year) {
+  if (!seedsWithTid || Object.keys(seedsWithTid).length === 0) {
+    return existingGames
+  }
+
+  const games = [...existingGames]
+  const gameIdToIndex = new Map(games.map((g, i) => [g.id, i]))
+
+  for (const [slotId, config] of Object.entries(CFP_BRACKET_SLOTS)) {
+    const gameId = `${slotId}-${year}`
+    const existingIndex = gameIdToIndex.get(gameId)
+
+    // Determine teams based on round
+    let team1Tid = null
+    let team2Tid = null
+
+    if (config.round === 'first_round') {
+      // First round - both teams known from seeds
+      team1Tid = seedsWithTid[config.higherSeed] ?? null
+      team2Tid = seedsWithTid[config.lowerSeed] ?? null
+    } else if (config.round === 'quarterfinal') {
+      // Quarterfinal - bye seed known, opponent TBD (from first round winner)
+      team1Tid = seedsWithTid[config.byeSeed] ?? null
+      team2Tid = null // Will be populated when first round winner is determined
+    } else {
+      // Semifinals and Championship - both teams TBD
+      team1Tid = null
+      team2Tid = null
+    }
+
+    const gameType = getCFPGameTypeFromRound(config.round)
+    const legacyFlag = getCFPLegacyFlag(config.round)
+
+    if (existingIndex !== undefined) {
+      // Update existing shell - preserve scores if entered
+      const existing = games[existingIndex]
+      games[existingIndex] = {
+        ...existing,
+        // Update teams (for first round and bye seeds)
+        team1Tid: team1Tid ?? existing.team1Tid,
+        team2Tid: team2Tid ?? existing.team2Tid,
+        // Preserve scores if already entered
+        team1Score: existing.team1Score,
+        team2Score: existing.team2Score,
+        // Ensure all metadata is set
+        cfpSlot: slotId,
+        cfpRound: config.round,
+        bowlName: config.bowl || null,
+        gameType,
+        [legacyFlag]: true
+      }
+    } else {
+      // Create new shell
+      const newGame = {
+        id: gameId,
+        year: Number(year),
+        week: `Bowl ${config.week}`,
+        gameType,
+        team1Tid,
+        team2Tid,
+        team1Score: null,
+        team2Score: null,
+        homeTeamTid: null, // CFP games are neutral site
+        cfpSlot: slotId,
+        cfpRound: config.round,
+        bowlName: config.bowl || null,
+        [legacyFlag]: true
+      }
+      games.push(newGame)
+    }
+  }
+
+  return games
+}
+
+/**
+ * Propagate CFP winner to the next round game shell
+ * Called after a CFP game is saved with a result
+ *
+ * @param {Array} games - Current games array
+ * @param {Object} savedGame - The game that was just saved with scores
+ * @returns {Array} Updated games array with winner propagated
+ */
+export function propagateCFPWinner(games, savedGame) {
+  if (!savedGame.cfpSlot) return games
+
+  const config = CFP_BRACKET_SLOTS[savedGame.cfpSlot]
+  if (!config || !config.feedsInto) return games // Championship or invalid slot
+
+  // Determine winner
+  if (savedGame.team1Score === null || savedGame.team2Score === null) return games // No scores yet
+
+  const winnerTid = savedGame.team1Score > savedGame.team2Score
+    ? savedGame.team1Tid
+    : savedGame.team2Tid
+
+  if (!winnerTid) return games
+
+  // Find next round game
+  const nextSlot = config.feedsInto
+  const nextConfig = CFP_BRACKET_SLOTS[nextSlot]
+  const nextGameId = `${nextSlot}-${savedGame.year}`
+
+  const updatedGames = games.map(g => {
+    if (g.id !== nextGameId) return g
+
+    // Determine which position winner goes to
+    if (typeof nextConfig.feedsFrom === 'string') {
+      // Single feeder (quarterfinals) - winner goes to team2 position
+      // (team1 is the bye seed)
+      if (nextConfig.feedsFrom === savedGame.cfpSlot) {
+        return { ...g, team2Tid: winnerTid }
+      }
+    } else if (Array.isArray(nextConfig.feedsFrom)) {
+      // Multiple feeders (SF/NC) - position based on index
+      const feedIndex = nextConfig.feedsFrom.indexOf(savedGame.cfpSlot)
+      if (feedIndex === 0) {
+        return { ...g, team1Tid: winnerTid }
+      } else if (feedIndex === 1) {
+        return { ...g, team2Tid: winnerTid }
+      }
+    }
+    return g
+  })
+
+  return updatedGames
+}
+
+/**
+ * Check if a team won a CFP game
+ */
+export function isCFPGameWinner(game, tid) {
+  if (game.team1Score === null || game.team2Score === null) return false
+  const winnerTid = game.team1Score > game.team2Score ? game.team1Tid : game.team2Tid
+  return winnerTid === tid
+}
+
+/**
+ * Check if a team lost a CFP game
+ */
+export function isCFPGameLoser(game, tid) {
+  if (game.team1Score === null || game.team2Score === null) return false
+  const loserTid = game.team1Score > game.team2Score ? game.team2Tid : game.team1Tid
+  return loserTid === tid
+}
+
+/**
+ * Get user's CFP game status for the current bowl week
+ * Returns information about whether user has a game and its status
+ *
+ * @param {Object} dynasty - Dynasty object
+ * @param {number} year - Year
+ * @param {number|string} bowlWeek - Bowl week number (1-4)
+ * @returns {Object|null} Game status info or null if not in CFP
+ */
+export function getUserCFPGameStatus(dynasty, year, bowlWeek) {
+  const userTid = dynasty.currentTid
+  const seeds = dynasty.cfpSeedsByYear?.[year]
+
+  if (!seeds || !userTid) return null
+
+  // Find user's seed (seeds can be { 1: tid, 2: tid, ... } or old array format)
+  let userSeed = null
+  if (Array.isArray(seeds)) {
+    // Legacy array format: [{ seed: 1, team: 'OSU', tid: 42 }, ...]
+    const seedEntry = seeds.find(s => s.tid === userTid)
+    userSeed = seedEntry?.seed
+  } else {
+    // New tid-keyed format: { 1: tid, 2: tid, ... }
+    const entry = Object.entries(seeds).find(([, tid]) => tid === userTid)
+    userSeed = entry ? Number(entry[0]) : null
+  }
+
+  if (!userSeed) return null // User not in CFP
+
+  const games = dynasty.games || []
+  const week = Number(bowlWeek)
+
+  // Helper to find user's game for a specific round
+  const findUserGameByRound = (round) => {
+    return games.find(g =>
+      Number(g.year) === Number(year) &&
+      g.cfpRound === round &&
+      (g.team1Tid === userTid || g.team2Tid === userTid)
+    )
+  }
+
+  // Helper to check if user advanced past a round
+  const didUserAdvance = (round) => {
+    const game = findUserGameByRound(round)
+    return game && isCFPGameWinner(game, userTid)
+  }
+
+  // Helper to check if user lost in a round
+  const didUserLose = (round) => {
+    const game = findUserGameByRound(round)
+    return game && isCFPGameLoser(game, userTid)
+  }
+
+  // Determine expected game based on week and seed
+  if (week === 1) {
+    // Bowl Week 1: Seeds 5-12 play First Round
+    if (userSeed >= 5 && userSeed <= 12) {
+      const game = findUserGameByRound('first_round')
+      if (game) {
+        const opponentTid = game.team1Tid === userTid ? game.team2Tid : game.team1Tid
+        return {
+          game,
+          round: 'first_round',
+          opponentKnown: opponentTid !== null,
+          opponentTid,
+          hasResult: game.team1Score !== null && game.team2Score !== null,
+          userSeed
+        }
+      }
+    }
+    // Seeds 1-4 have bye in week 1
+    return null
+  }
+
+  if (week === 2) {
+    // Bowl Week 2: Quarterfinals
+    // Seeds 1-4 enter, plus first round winners
+
+    // If seed 1-4, they play in QF
+    if (userSeed >= 1 && userSeed <= 4) {
+      const game = findUserGameByRound('quarterfinal')
+      if (game) {
+        const opponentTid = game.team1Tid === userTid ? game.team2Tid : game.team1Tid
+        return {
+          game,
+          round: 'quarterfinal',
+          opponentKnown: opponentTid !== null,
+          opponentTid,
+          hasResult: game.team1Score !== null && game.team2Score !== null,
+          userSeed
+        }
+      }
+    }
+
+    // If seed 5-12, check if they won first round
+    if (userSeed >= 5 && userSeed <= 12) {
+      if (didUserLose('first_round')) {
+        return { eliminated: true, round: 'first_round', userSeed }
+      }
+      if (didUserAdvance('first_round')) {
+        const game = findUserGameByRound('quarterfinal')
+        if (game) {
+          const opponentTid = game.team1Tid === userTid ? game.team2Tid : game.team1Tid
+          return {
+            game,
+            round: 'quarterfinal',
+            opponentKnown: opponentTid !== null,
+            opponentTid,
+            hasResult: game.team1Score !== null && game.team2Score !== null,
+            userSeed
+          }
+        }
+      }
+      // First round not played yet
+      return null
+    }
+    return null
+  }
+
+  if (week === 3) {
+    // Bowl Week 3: Semifinals
+    if (didUserLose('first_round') || didUserLose('quarterfinal')) {
+      return { eliminated: true, round: didUserLose('first_round') ? 'first_round' : 'quarterfinal', userSeed }
+    }
+    if (didUserAdvance('quarterfinal')) {
+      const game = findUserGameByRound('semifinal')
+      if (game) {
+        const opponentTid = game.team1Tid === userTid ? game.team2Tid : game.team1Tid
+        return {
+          game,
+          round: 'semifinal',
+          opponentKnown: opponentTid !== null,
+          opponentTid,
+          hasResult: game.team1Score !== null && game.team2Score !== null,
+          userSeed
+        }
+      }
+    }
+    return null
+  }
+
+  if (week === 4) {
+    // Bowl Week 4: Championship
+    if (didUserLose('first_round') || didUserLose('quarterfinal') || didUserLose('semifinal')) {
+      const lostRound = didUserLose('first_round') ? 'first_round' :
+                        didUserLose('quarterfinal') ? 'quarterfinal' : 'semifinal'
+      return { eliminated: true, round: lostRound, userSeed }
+    }
+    if (didUserAdvance('semifinal')) {
+      const game = findUserGameByRound('championship')
+      if (game) {
+        const opponentTid = game.team1Tid === userTid ? game.team2Tid : game.team1Tid
+        return {
+          game,
+          round: 'championship',
+          opponentKnown: opponentTid !== null,
+          opponentTid,
+          hasResult: game.team1Score !== null && game.team2Score !== null,
+          userSeed
+        }
+      }
+    }
+    return null
+  }
+
+  return null
+}
+
+/**
+ * Get the round name for display
+ */
+export function getCFPRoundDisplayName(round) {
+  switch (round) {
+    case 'first_round': return 'CFP First Round'
+    case 'quarterfinal': return 'CFP Quarterfinal'
+    case 'semifinal': return 'CFP Semifinal'
+    case 'championship': return 'National Championship'
+    default: return 'CFP Game'
+  }
+}
+
+/**
+ * Find user's CFP game shell for a specific round
+ * Unlike findCurrentTeamGame, this finds shells even when team2Tid is null
+ *
+ * @param {Object} dynasty - Dynasty object
+ * @param {string} round - CFP round: 'first_round', 'quarterfinal', 'semifinal', 'championship'
+ * @param {number} year - Year
+ * @returns {Object|null} The game shell or null
+ */
+export function findUserCFPGameShell(dynasty, round, year) {
+  if (!dynasty) return null
+
+  const userTid = dynasty.currentTid
+  if (!userTid) return null
+
+  const games = dynasty.games || []
+
+  return games.find(g =>
+    Number(g.year) === Number(year) &&
+    g.cfpRound === round &&
+    (g.team1Tid === userTid || g.team2Tid === userTid)
+  ) || null
 }
 
 // ============================================================================
@@ -4730,6 +5121,7 @@ export function DynastyProvider({ children }) {
   // Save CFP games in unified format to games[] array
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
+  // UPDATED: Now properly updates existing game shells created at seed entry time
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
     const useLocalStorage = !storageService.isPremium()
     let dynasty
@@ -4744,16 +5136,14 @@ export function DynastyProvider({ children }) {
     }
 
     if (!dynasty) {
-      console.error('Dynasty not found:', dynastyId)
+      console.error('[saveCFPGames] Dynasty not found:', dynastyId)
       return
     }
 
-    const existingGames = dynasty.games || []
+    // Start with all existing games - we'll update shells in place
+    let updatedGames = [...(dynasty.games || [])]
 
-    // Get user's team tid for this year to check if game involves user's team
-    const userTidForYear = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
-
-    // Determine which legacy flag to check based on round type
+    // Determine which legacy flag to use based on round type
     const legacyFlagMap = {
       [GAME_TYPES.CFP_FIRST_ROUND]: 'isCFPFirstRound',
       [GAME_TYPES.CFP_QUARTERFINAL]: 'isCFPQuarterfinal',
@@ -4761,29 +5151,6 @@ export function DynastyProvider({ children }) {
       [GAME_TYPES.CFP_CHAMPIONSHIP]: 'isCFPChampionship'
     }
     const legacyFlag = legacyFlagMap[roundType]
-
-    // Filter out existing games of this type for this year
-    // BUT preserve user's game if it was entered separately
-    // User's game detected by: team1Tid or team2Tid matches user's coached team for this year
-    // (Also supports legacy userTeam field during transition)
-    const filteredGames = existingGames.filter(g => {
-      const isThisRoundType = g.gameType === roundType || g[legacyFlag]
-      const isThisYear = Number(g.year) === Number(year)
-      if (isThisRoundType && isThisYear) {
-        // Check if this is user's game (unified format: team1Tid/team2Tid match, legacy: userTeam field)
-        const isUserGame = (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) ||
-                          (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear)
-        // Keep user's game - it will be merged/updated below if also in gamesData
-        return isUserGame
-      }
-      return true
-    })
-
-    // Build new games array
-    const newGames = []
-
-    // Get user's team tid for this year to determine if it's a user game
-    const userTid = dynasty.coachTeamByYear?.[year]?.tid || getCurrentTeamTid(dynasty)
 
     for (const gameData of gamesData) {
       // Skip incomplete games - support both tid and abbr inputs
@@ -4813,45 +5180,51 @@ export function DynastyProvider({ children }) {
       const winnerTid = team1Score > team2Score ? team1Tid : team2Tid
 
       // UNIFIED FORMAT: Use tid-based fields only
-      // User's team is determined at read time via coachTeamByYear[year].tid
       const unifiedGame = {
         id: gameId,
         year: Number(year),
         gameType: roundType,
-        // Team identification (tid only)
         team1Tid,
         team2Tid,
-        // Scores
         team1Score,
         team2Score,
-        // Home/away (CFP games are neutral site)
-        homeTeamTid: null,
-        // Winner
+        homeTeamTid: null, // CFP games are neutral site
         winnerTid,
-        // CFP-specific metadata
         seed1: gameData.seed1,
         seed2: gameData.seed2,
         bowlName: gameData.bowlName,
-        // Legacy flags for backward compatibility during transition
+        cfpSlot: slotId, // For shell system
+        cfpRound: roundType === GAME_TYPES.CFP_FIRST_ROUND ? 'first_round' :
+                  roundType === GAME_TYPES.CFP_QUARTERFINAL ? 'quarterfinal' :
+                  roundType === GAME_TYPES.CFP_SEMIFINAL ? 'semifinal' : 'championship',
         [legacyFlag]: true,
-        createdAt: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       }
 
-      // Check if this game already exists (user's game preserved above)
-      const existingIndex = filteredGames.findIndex(g => g.id === gameId)
+      // Find existing shell/game by ID
+      const existingIndex = updatedGames.findIndex(g => g.id === gameId)
+
       if (existingIndex >= 0) {
-        // Update existing game
-        filteredGames[existingIndex] = { ...filteredGames[existingIndex], ...unifiedGame }
+        // Update existing shell - preserve any existing data not being overwritten
+        updatedGames[existingIndex] = {
+          ...updatedGames[existingIndex],
+          ...unifiedGame
+        }
       } else {
-        newGames.push(unifiedGame)
+        // No shell exists - add new game (fallback for legacy data)
+        unifiedGame.createdAt = new Date().toISOString()
+        updatedGames.push(unifiedGame)
+      }
+
+      // Propagate winner to next round if this game feeds into another
+      if (winnerTid) {
+        updatedGames = propagateCFPWinner(updatedGames, { ...unifiedGame, cfpSlot: slotId })
       }
     }
 
-    const updatedGames = [...filteredGames, ...newGames]
-
     await updateDynasty(dynastyId, { games: updatedGames })
 
-    return newGames
+    return gamesData
   }
 
   // Add or update CPU conference championship games as proper game entries in the games[] array

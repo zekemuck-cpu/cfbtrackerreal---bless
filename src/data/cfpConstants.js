@@ -1,6 +1,109 @@
 // CFP Game Slot IDs and Mappings
 // Each CFP game has a fixed slot ID that never changes
 
+// Comprehensive bracket configuration for game shell system
+// This defines the complete bracket structure with propagation relationships
+export const CFP_BRACKET_SLOTS = {
+  // First Round - seeds 5-12 play, on-campus games
+  cfpfr1: {
+    round: 'first_round',
+    week: 1,
+    higherSeed: 5,
+    lowerSeed: 12,
+    feedsInto: 'cfpqf2',
+    name: 'First Round - 5 vs 12'
+  },
+  cfpfr2: {
+    round: 'first_round',
+    week: 1,
+    higherSeed: 8,
+    lowerSeed: 9,
+    feedsInto: 'cfpqf1',
+    name: 'First Round - 8 vs 9'
+  },
+  cfpfr3: {
+    round: 'first_round',
+    week: 1,
+    higherSeed: 6,
+    lowerSeed: 11,
+    feedsInto: 'cfpqf3',
+    name: 'First Round - 6 vs 11'
+  },
+  cfpfr4: {
+    round: 'first_round',
+    week: 1,
+    higherSeed: 7,
+    lowerSeed: 10,
+    feedsInto: 'cfpqf4',
+    name: 'First Round - 7 vs 10'
+  },
+
+  // Quarterfinals - top 4 seeds get bye, play first round winners
+  cfpqf1: {
+    round: 'quarterfinal',
+    week: 2,
+    byeSeed: 1,
+    feedsFrom: 'cfpfr2',  // Winner of 8v9
+    feedsInto: 'cfpsf1',
+    bowl: 'Sugar Bowl',
+    name: 'Sugar Bowl (CFP Quarterfinal)'
+  },
+  cfpqf2: {
+    round: 'quarterfinal',
+    week: 2,
+    byeSeed: 4,
+    feedsFrom: 'cfpfr1',  // Winner of 5v12
+    feedsInto: 'cfpsf1',
+    bowl: 'Orange Bowl',
+    name: 'Orange Bowl (CFP Quarterfinal)'
+  },
+  cfpqf3: {
+    round: 'quarterfinal',
+    week: 2,
+    byeSeed: 3,
+    feedsFrom: 'cfpfr3',  // Winner of 6v11
+    feedsInto: 'cfpsf2',
+    bowl: 'Rose Bowl',
+    name: 'Rose Bowl (CFP Quarterfinal)'
+  },
+  cfpqf4: {
+    round: 'quarterfinal',
+    week: 2,
+    byeSeed: 2,
+    feedsFrom: 'cfpfr4',  // Winner of 7v10
+    feedsInto: 'cfpsf2',
+    bowl: 'Cotton Bowl',
+    name: 'Cotton Bowl (CFP Quarterfinal)'
+  },
+
+  // Semifinals
+  cfpsf1: {
+    round: 'semifinal',
+    week: 3,
+    feedsFrom: ['cfpqf1', 'cfpqf2'],  // Sugar vs Orange winners
+    feedsInto: 'cfpnc',
+    bowl: 'Peach Bowl',
+    name: 'Peach Bowl (CFP Semifinal)'
+  },
+  cfpsf2: {
+    round: 'semifinal',
+    week: 3,
+    feedsFrom: ['cfpqf3', 'cfpqf4'],  // Rose vs Cotton winners
+    feedsInto: 'cfpnc',
+    bowl: 'Fiesta Bowl',
+    name: 'Fiesta Bowl (CFP Semifinal)'
+  },
+
+  // Championship
+  cfpnc: {
+    round: 'championship',
+    week: 4,
+    feedsFrom: ['cfpsf1', 'cfpsf2'],
+    bowl: 'National Championship',
+    name: 'National Championship'
+  }
+}
+
 // First Round matchups (seeds)
 export const CFP_FIRST_ROUND_SLOTS = {
   cfpfr1: { seed1: 5, seed2: 12, name: 'First Round - 5 vs 12' },

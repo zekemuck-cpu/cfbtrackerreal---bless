@@ -259,6 +259,119 @@ Schedule entries link directly to game records via `gameId`. Games are created w
 
 ---
 
+## CFP Game Shell System (January 2026)
+
+The College Football Playoff uses a "shell" system where all 11 CFP game records are pre-created when seeds are entered, then populated with scores as games are played.
+
+### Shell Structure
+
+When CFP seeds (1-12) are saved, game shells are automatically created:
+
+| Round | Count | Week | Slots |
+|-------|-------|------|-------|
+| First Round | 4 | Bowl 1 | cfpfr1, cfpfr2, cfpfr3, cfpfr4 |
+| Quarterfinals | 4 | Bowl 2 | cfpqf1, cfpqf2, cfpqf3, cfpqf4 |
+| Semifinals | 2 | Bowl 3 | cfpsf1, cfpsf2 |
+| Championship | 1 | Bowl 4 | cfpnc |
+
+### Key Files
+
+- `src/data/cfpConstants.js` - Bracket structure with `CFP_BRACKET_SLOTS` configuration
+- `src/context/DynastyContext.jsx`:
+  - `createOrUpdateCFPGameShells(games, seedsWithTid, year)` - Creates shells when seeds saved
+  - `propagateCFPWinner(games, savedGame)` - Propagates winner to next round shell
+  - `findUserCFPGameShell(dynasty, round, year)` - Find user's game shell by round
+  - `saveCFPGames(dynastyId, gamesData, year, roundType)` - Save CFP game results
+- `src/pages/dynasty/Dashboard.jsx` - Auto-shell-creation useEffect for legacy dynasties
+
+### Shell Game Format (tid-based)
+
+```javascript
+{
+  id: 'cfpqf1-2029',           // {slotId}-{year}
+  year: 2029,
+  week: 'Bowl 2',
+  gameType: 'cfp_quarterfinal',
+  team1Tid: 42,                 // Bye seed team (known at creation)
+  team2Tid: 131,                // Opponent (set via winner propagation)
+  team1Score: null,             // Set when game played
+  team2Score: null,
+  homeTeamTid: null,            // CFP games are neutral site
+  cfpSlot: 'cfpqf1',            // Slot identifier
+  cfpRound: 'quarterfinal',     // Round identifier
+  bowlName: 'Sugar Bowl',
+  isCFPQuarterfinal: true       // Legacy flag
+}
+```
+
+### Winner Propagation
+
+When a CFP game is saved with scores, the winner's tid is automatically propagated to the next round:
+
+- First Round winner → fills `team2Tid` of corresponding QF shell
+- QF winners → fill `team1Tid`/`team2Tid` of SF shells
+- SF winners → fill `team1Tid`/`team2Tid` of NC shell
+
+Configuration in `CFP_BRACKET_SLOTS`:
+```javascript
+cfpfr2: {
+  round: 'first_round',
+  feedsInto: 'cfpqf1',  // Winner goes to Sugar Bowl
+  ...
+}
+cfpsf1: {
+  round: 'semifinal',
+  feedsFrom: ['cfpqf1', 'cfpqf2'],  // Receives Sugar & Orange winners
+  feedsInto: 'cfpnc',
+  ...
+}
+```
+
+### Dashboard Auto-Shell Creation
+
+For legacy dynasties where seeds were saved before the shell system existed, Dashboard.jsx includes a useEffect that:
+1. Detects when seeds exist but shells are missing (or have invalid tids)
+2. Creates shells using `createOrUpdateCFPGameShells()`
+3. Re-propagates first round winners to QF shells if needed
+
+### Opponent Lookup Functions (Dashboard.jsx)
+
+All opponent lookup functions prioritize shell tids over legacy lookups:
+
+```javascript
+// Pattern for all rounds (QF, SF, NC):
+const getCFPQuarterfinalOpponent = () => {
+  // 1. First check shell's team2Tid
+  const qfShell = userCFPQuarterfinalShell || userCFPQuarterfinalGame
+  if (qfShell) {
+    const userTid = currentDynasty.currentTid
+    const opponentTid = qfShell.team1Tid === userTid ? qfShell.team2Tid : qfShell.team1Tid
+    if (opponentTid) return opponentTid  // Return tid directly
+  }
+
+  // 2. Fallback to legacy bracket calculation
+  // ...returns tid or abbr for backward compatibility
+}
+```
+
+### CFP Seed Entry Format
+
+Seeds stored in `dynasty.cfpSeedsByYear[year]`:
+```javascript
+[
+  { seed: 1, team: 'UGA', tid: 42 },
+  { seed: 2, team: 'OSU', tid: 68 },
+  // ... seeds 3-12
+]
+```
+
+**Important**: When looking up user's seed, check tid first:
+```javascript
+const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid || s.team === userTeamAbbr)?.seed
+```
+
+---
+
 ## Team Record System (Single Source of Truth)
 
 All team win/loss records use a centralized system. **Do NOT calculate records inline** - use these functions from `DynastyContext.jsx`:
