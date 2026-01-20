@@ -146,6 +146,93 @@ export default function CoachCareer() {
     return team1Score > 0 || team2Score > 0
   }
 
+  // Compute favorite status dynamically (same logic as TeamStats.jsx)
+  const computeFavoriteStatus = (g, userTid) => {
+    // Return existing status if already set
+    if (g.favoriteStatus) return g.favoriteStatus
+
+    // Need team1Tid and team2Tid to calculate
+    if (!g.team1Tid || !g.team2Tid) return null
+
+    const team1Tid = g.team1Tid
+    const team2Tid = g.team2Tid
+    const homeTeamTid = g.homeTeamTid // null = neutral site
+
+    // Get rankings from game data
+    const team1Rank = g.team1Rank ? parseInt(g.team1Rank) : null
+    const team2Rank = g.team2Rank ? parseInt(g.team2Rank) : null
+
+    // Get overall ratings
+    let team1Overall = g.team1Overall ? parseInt(g.team1Overall) : null
+    let team2Overall = g.team2Overall ? parseInt(g.team2Overall) : null
+
+    // Also check userOverall/opponentOverall (user-centric) - map to team1/team2
+    if (!team1Overall || !team2Overall) {
+      const gameUserTid = g.userTid
+      if (g.userOverall || g.opponentOverall) {
+        if (gameUserTid === team1Tid) {
+          if (!team1Overall && g.userOverall) team1Overall = parseInt(g.userOverall)
+          if (!team2Overall && g.opponentOverall) team2Overall = parseInt(g.opponentOverall)
+        } else if (gameUserTid === team2Tid) {
+          if (!team1Overall && g.opponentOverall) team1Overall = parseInt(g.opponentOverall)
+          if (!team2Overall && g.userOverall) team2Overall = parseInt(g.userOverall)
+        }
+      }
+    }
+
+    // Fall back to dynasty team ratings
+    const gameYear = g.year
+    if (!team1Overall) {
+      const team1Ratings = currentDynasty.teams?.[team1Tid]?.byYear?.[gameYear]?.teamRatings
+      team1Overall = team1Ratings?.overall ? parseInt(team1Ratings.overall) : null
+    }
+    if (!team2Overall) {
+      const team2Ratings = currentDynasty.teams?.[team2Tid]?.byYear?.[gameYear]?.teamRatings
+      team2Overall = team2Ratings?.overall ? parseInt(team2Ratings.overall) : null
+    }
+
+    // Home advantage values
+    const homeAdvantageOverall = homeTeamTid === null ? 0 : 3
+    const homeAdvantageRanking = homeTeamTid === null ? 0 : 5
+
+    // Determine which team is the favorite
+    let team1IsFavorite = null
+
+    // Case 1: One ranked, one unranked - ranked team is favorite
+    if (team1Rank && !team2Rank) {
+      team1IsFavorite = true
+    } else if (!team1Rank && team2Rank) {
+      team1IsFavorite = false
+    } else if (team1Rank && team2Rank) {
+      // Case 2: Both ranked - lower rank number is favorite (with home advantage)
+      const team1IsHome = homeTeamTid === team1Tid
+      const adjustedTeam1Rank = team1IsHome ? team1Rank - homeAdvantageRanking : team1Rank
+      const adjustedTeam2Rank = homeTeamTid === team2Tid ? team2Rank - homeAdvantageRanking : team2Rank
+      team1IsFavorite = adjustedTeam1Rank < adjustedTeam2Rank
+    } else if (team1Overall && team2Overall) {
+      // Case 3: Both unranked - use overall ratings (with home advantage)
+      const team1IsHome = homeTeamTid === team1Tid
+      const adjustedTeam1Overall = team1IsHome ? team1Overall + homeAdvantageOverall : team1Overall
+      const adjustedTeam2Overall = homeTeamTid === team2Tid ? team2Overall + homeAdvantageOverall : team2Overall
+      if (adjustedTeam1Overall > adjustedTeam2Overall) {
+        team1IsFavorite = true
+      } else if (adjustedTeam1Overall < adjustedTeam2Overall) {
+        team1IsFavorite = false
+      } else {
+        // Tie - home team is favorite
+        team1IsFavorite = homeTeamTid === team1Tid
+      }
+    }
+
+    // Determine if the user's team was the favorite or underdog
+    if (team1IsFavorite !== null) {
+      const userTeamIsTeam1 = userTid === team1Tid
+      return (userTeamIsTeam1 === team1IsFavorite) ? 'favorite' : 'underdog'
+    }
+
+    return null
+  }
+
   // Helper to check for win (uses unified game perspective)
   const isWin = (g) => g.perspective?.userWon === true
   const isLoss = (g) => g.perspective && !g.perspective.userWon
@@ -168,17 +255,23 @@ export default function CoachCareer() {
       perspective: getUserGamePerspective(g, currentDynasty)
     }))
 
-    const wins = games.filter(isWin).length
-    const losses = games.filter(isLoss).length
+    // Add computed favorite status to each game
+    const gamesWithStatus = games.map(g => ({
+      ...g,
+      computedFavoriteStatus: computeFavoriteStatus(g, g.perspective?.userTid)
+    }))
+
+    const wins = gamesWithStatus.filter(isWin).length
+    const losses = gamesWithStatus.filter(isLoss).length
     const overallRecord = `${wins}-${losses}`
 
-    // Calculate favorite/underdog records
-    const favoriteGames = games.filter(g => g.favoriteStatus === 'favorite')
+    // Calculate favorite/underdog records using computed status
+    const favoriteGames = gamesWithStatus.filter(g => g.computedFavoriteStatus === 'favorite')
     const favoriteWins = favoriteGames.filter(isWin).length
     const favoriteLosses = favoriteGames.filter(isLoss).length
     const favoriteRecord = `${favoriteWins}-${favoriteLosses}`
 
-    const underdogGames = games.filter(g => g.favoriteStatus === 'underdog')
+    const underdogGames = gamesWithStatus.filter(g => g.computedFavoriteStatus === 'underdog')
     const underdogWins = underdogGames.filter(isWin).length
     const underdogLosses = underdogGames.filter(isLoss).length
     const underdogRecord = `${underdogWins}-${underdogLosses}`
@@ -253,19 +346,26 @@ export default function CoachCareer() {
       const years = games.map(g => Number(g.year)).filter(y => !isNaN(y) && y > 1900 && y < 3000)
       const startYear = years.length > 0 ? Math.min(...years) : (currentDynasty.startYear || 2024)
       const endYear = years.length > 0 ? Math.max(...years) : (currentDynasty.currentYear || 2024)
-      const wins = games.filter(isWin).length
-      const losses = games.filter(isLoss).length
 
-      // Get favorite/underdog games
-      const favoriteGames = games.filter(g => g.favoriteStatus === 'favorite')
+      // Add computed favorite status to each game
+      const gamesWithStatus = games.map(g => ({
+        ...g,
+        computedFavoriteStatus: computeFavoriteStatus(g, g.perspective?.userTid)
+      }))
+
+      const wins = gamesWithStatus.filter(isWin).length
+      const losses = gamesWithStatus.filter(isLoss).length
+
+      // Get favorite/underdog games using computed status
+      const favoriteGames = gamesWithStatus.filter(g => g.computedFavoriteStatus === 'favorite')
       const favoriteWins = favoriteGames.filter(isWin).length
       const favoriteLosses = favoriteGames.filter(isLoss).length
-      const underdogGames = games.filter(g => g.favoriteStatus === 'underdog')
+      const underdogGames = gamesWithStatus.filter(g => g.computedFavoriteStatus === 'underdog')
       const underdogWins = underdogGames.filter(isWin).length
       const underdogLosses = underdogGames.filter(isLoss).length
 
       // Bowl games (regular bowls only, not CFP) - use gameType for cleaner filtering
-      const bowlGames = games.filter(g => {
+      const bowlGames = gamesWithStatus.filter(g => {
         const gameType = detectGameType(g)
         return gameType === GAME_TYPES.BOWL
       })
@@ -273,7 +373,7 @@ export default function CoachCareer() {
       const bowlLosses = bowlGames.filter(isLoss).length
 
       // CFP games - all CFP rounds
-      const cfpGames = games.filter(g => {
+      const cfpGames = gamesWithStatus.filter(g => {
         const gameType = detectGameType(g)
         return gameType === GAME_TYPES.CFP_FIRST_ROUND ||
                gameType === GAME_TYPES.CFP_QUARTERFINAL ||
@@ -284,7 +384,7 @@ export default function CoachCareer() {
       const cfpLosses = cfpGames.filter(isLoss).length
 
       // Conference championship games
-      const confChampGames = games.filter(g => detectGameType(g) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP)
+      const confChampGames = gamesWithStatus.filter(g => detectGameType(g) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP)
       const confChampWins = confChampGames.filter(isWin).length
 
       // Count unique CFP years (playoff appearances)
@@ -309,7 +409,7 @@ export default function CoachCareer() {
         confChampGames,
         confChampionships: confChampWins,
         playoffAppearances: cfpYears,
-        games
+        games: gamesWithStatus
       }
     }).sort((a, b) => a.startYear - b.startYear)
 
@@ -378,19 +478,72 @@ export default function CoachCareer() {
 
   const coachingHistory = buildCoachingHistory()
 
+  // Gather coach awards for each stint
+  const awardsByYear = currentDynasty.awardsByYear || {}
+  const coachName = currentDynasty.coachName || ''
+
+  // Add coach awards to each stint
+  coachingHistory.forEach(stint => {
+    const stintAwards = []
+
+    // Check each year in this stint for awards
+    for (let year = stint.startYear; year <= stint.endYear; year++) {
+      const yearAwards = awardsByYear[year] || {}
+
+      // Check Bear Bryant Coach of the Year
+      const bryantAward = yearAwards.bearBryantCoachOfTheYear
+      if (bryantAward) {
+        // Match by team abbreviation or coach name
+        const matchesTeam = bryantAward.team === stint.teamAbbr
+        const matchesName = coachName && bryantAward.player?.toLowerCase().includes(coachName.toLowerCase())
+        if (matchesTeam || matchesName) {
+          stintAwards.push({
+            year,
+            award: 'Bear Bryant Coach of the Year',
+            shortName: 'Bear Bryant',
+            recipient: bryantAward.player
+          })
+        }
+      }
+
+      // Check Broyles Award (assistant coaches)
+      const broylesAward = yearAwards.broyles
+      if (broylesAward) {
+        // Match by team abbreviation only (Broyles is for assistants, not head coach)
+        if (broylesAward.team === stint.teamAbbr) {
+          stintAwards.push({
+            year,
+            award: 'Broyles Award',
+            shortName: 'Broyles',
+            recipient: broylesAward.player
+          })
+        }
+      }
+    }
+
+    stint.coachAwards = stintAwards
+  })
+
   // Calculate overall career totals
   const careerTotals = coachingHistory.reduce((totals, stint) => {
     return {
       wins: totals.wins + stint.wins,
       losses: totals.losses + stint.losses,
-      teams: totals.teams + 1
+      teams: totals.teams + 1,
+      coachOfYearAwards: totals.coachOfYearAwards + (stint.coachAwards?.filter(a => a.shortName === 'Bear Bryant').length || 0)
     }
-  }, { wins: 0, losses: 0, teams: 0 })
+  }, { wins: 0, losses: 0, teams: 0, coachOfYearAwards: 0 })
 
   // Get team colors for current team (used for header)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const primaryText = getContrastTextColor(teamColors?.primary || '#4B5563')
   const secondaryText = getContrastTextColor(teamColors?.secondary || '#FFFFFF')
+
+  // Get team colors for the modal (based on selected stint's team)
+  const selectedStint = selectedTeamForModal ? coachingHistory.find(s => s.teamName === selectedTeamForModal) : null
+  const modalTeamColors = useTeamColors(selectedTeamForModal, currentDynasty?.teams || currentDynasty?.customTeams)
+  const modalPrimaryText = getContrastTextColor(modalTeamColors?.primary || '#4B5563')
+  const modalSecondaryText = getContrastTextColor(modalTeamColors?.secondary || '#FFFFFF')
 
   // Get games for the modal
   const getGamesForModal = () => {
@@ -459,6 +612,17 @@ export default function CoachCareer() {
           <span>{coachingHistory.length} Team{coachingHistory.length !== 1 ? 's' : ''}</span>
           <span>|</span>
           <span>{currentDynasty.startYear} - Present</span>
+          {careerTotals.coachOfYearAwards > 0 && (
+            <>
+              <span>|</span>
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                </svg>
+                {careerTotals.coachOfYearAwards}x Coach of the Year
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -688,6 +852,35 @@ export default function CoachCareer() {
               </div>
             </div>
 
+            {/* Coach Awards - only show if there are any */}
+            {stint.coachAwards && stint.coachAwards.length > 0 && (
+              <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: `${stintColors.primary}15` }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: stintColors.primary, opacity: 0.8 }}>
+                  COACHING AWARDS
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {stint.coachAwards.map((award, idx) => (
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium"
+                      style={{
+                        backgroundColor: stintColors.primary,
+                        color: stintPrimaryText
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      <span>{award.year} {award.shortName}</span>
+                      {award.shortName === 'Broyles' && award.recipient && (
+                        <span className="opacity-75">({award.recipient})</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Season-by-Season History */}
             {(() => {
               // Build year-by-year data for this stint
@@ -855,16 +1048,16 @@ export default function CoachCareer() {
         >
           <div
             className="rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
-            style={{ backgroundColor: teamColors.secondary }}
+            style={{ backgroundColor: modalTeamColors.secondary }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
             <div
               className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-              style={{ backgroundColor: teamColors.primary }}
+              style={{ backgroundColor: modalTeamColors.primary }}
             >
               <div>
-                <h3 className="text-xl font-bold" style={{ color: primaryText }}>
+                <h3 className="text-xl font-bold" style={{ color: modalPrimaryText }}>
                   {gamesModalType === 'favorite' ? 'Games as Favorite' :
                    gamesModalType === 'underdog' ? 'Games as Underdog' :
                    gamesModalType === 'all' ? 'All Games' :
@@ -872,14 +1065,14 @@ export default function CoachCareer() {
                    gamesModalType === 'confChamp' ? 'Conference Championship Games' :
                    gamesModalType === 'cfp' ? 'CFP Games' : 'Games'}
                 </h3>
-                <p className="text-sm mt-0.5 opacity-80" style={{ color: primaryText }}>
+                <p className="text-sm mt-0.5 opacity-80" style={{ color: modalPrimaryText }}>
                   {sortedGames.length} game{sortedGames.length !== 1 ? 's' : ''}
                 </p>
               </div>
               <button
                 onClick={() => setShowGamesModal(false)}
                 className="p-2 rounded-full hover:bg-white/20 transition-colors"
-                style={{ color: primaryText }}
+                style={{ color: modalPrimaryText }}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -890,7 +1083,7 @@ export default function CoachCareer() {
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-4">
               {sortedGames.length === 0 ? (
-                <div className="text-center py-12 opacity-60" style={{ color: secondaryText }}>
+                <div className="text-center py-12 opacity-60" style={{ color: modalSecondaryText }}>
                   <svg className="w-16 h-16 mx-auto mb-4 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
                   </svg>
@@ -904,7 +1097,7 @@ export default function CoachCareer() {
                       {/* Year Header - scrolls with content */}
                       <div
                         className="px-3 py-2 rounded-lg mb-2 font-bold text-sm"
-                        style={{ backgroundColor: teamColors.primary, color: primaryText }}
+                        style={{ backgroundColor: modalTeamColors.primary, color: modalPrimaryText }}
                       >
                         {year} Season
                       </div>

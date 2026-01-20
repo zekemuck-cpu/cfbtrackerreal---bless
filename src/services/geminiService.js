@@ -386,12 +386,138 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
 
 /**
  * Get team ratings for a team/year
+ * Checks tid-based storage first, then falls back to legacy abbr-based storage
  */
 function getTeamRatings(dynasty, teamAbbr, year) {
-  if (!dynasty?.teamRatingsByTeamYear?.[teamAbbr]?.[year]) {
-    return null
+  // Try tid-based lookup first (new format)
+  if (dynasty?.teams) {
+    // Find tid from abbr
+    for (const [tid, teamData] of Object.entries(dynasty.teams)) {
+      if (teamData?.abbr === teamAbbr || teamData?.name?.includes(teamAbbr)) {
+        const tidRatings = teamData?.byYear?.[year]?.teamRatings
+        if (tidRatings) return tidRatings
+      }
+    }
   }
-  return dynasty.teamRatingsByTeamYear[teamAbbr][year]
+
+  // Fall back to legacy abbr-based lookup
+  if (dynasty?.teamRatingsByTeamYear?.[teamAbbr]?.[year]) {
+    return dynasty.teamRatingsByTeamYear[teamAbbr][year]
+  }
+
+  return null
+}
+
+/**
+ * Convert a numeric rating to a descriptive talent level
+ */
+function describeTalentLevel(rating) {
+  if (!rating || isNaN(rating)) return null
+  const r = parseInt(rating)
+  if (r >= 92) return 'elite'
+  if (r >= 87) return 'very talented'
+  if (r >= 82) return 'solid'
+  if (r >= 77) return 'average'
+  if (r >= 72) return 'below average'
+  return 'rebuilding'
+}
+
+/**
+ * Build a talent comparison description for two teams
+ */
+function buildTalentContext(team1Ratings, team2Ratings, team1Name, team2Name, team1Won) {
+  if (!team1Ratings?.overall && !team2Ratings?.overall) return null
+
+  const lines = []
+
+  // Get overall ratings
+  const t1Overall = parseInt(team1Ratings?.overall) || 0
+  const t2Overall = parseInt(team2Ratings?.overall) || 0
+  const t1Offense = parseInt(team1Ratings?.offense) || 0
+  const t1Defense = parseInt(team1Ratings?.defense) || 0
+  const t2Offense = parseInt(team2Ratings?.offense) || 0
+  const t2Defense = parseInt(team2Ratings?.defense) || 0
+
+  // Describe overall talent matchup
+  if (t1Overall && t2Overall) {
+    const diff = Math.abs(t1Overall - t2Overall)
+    const t1Level = describeTalentLevel(t1Overall)
+    const t2Level = describeTalentLevel(t2Overall)
+
+    if (diff <= 3) {
+      lines.push(`This was an evenly matched game between two ${t1Level} programs.`)
+    } else if (diff <= 7) {
+      const favorite = t1Overall > t2Overall ? team1Name : team2Name
+      const underdog = t1Overall > t2Overall ? team2Name : team1Name
+      lines.push(`${favorite} entered as the more talented team, though ${underdog} was competitive.`)
+    } else if (diff <= 12) {
+      const favorite = t1Overall > t2Overall ? team1Name : team2Name
+      const underdog = t1Overall > t2Overall ? team2Name : team1Name
+      const favLevel = t1Overall > t2Overall ? t1Level : t2Level
+      const undLevel = t1Overall > t2Overall ? t2Level : t1Level
+      lines.push(`${favorite} (${favLevel} roster) was a clear favorite over ${underdog} (${undLevel} roster).`)
+
+      // Check for upset
+      const favoriteWon = (t1Overall > t2Overall && team1Won) || (t2Overall > t1Overall && !team1Won)
+      if (!favoriteWon) {
+        lines.push(`This result qualifies as a significant upset based on roster talent.`)
+      }
+    } else {
+      const favorite = t1Overall > t2Overall ? team1Name : team2Name
+      const underdog = t1Overall > t2Overall ? team2Name : team1Name
+      lines.push(`${favorite} was a heavy favorite with a major talent advantage over ${underdog}.`)
+
+      // Check for major upset
+      const favoriteWon = (t1Overall > t2Overall && team1Won) || (t2Overall > t1Overall && !team1Won)
+      if (!favoriteWon) {
+        lines.push(`This is a major upset - ${underdog} overcame a significant talent gap.`)
+      }
+    }
+  } else if (t1Overall) {
+    lines.push(`${team1Name} entered with a ${describeTalentLevel(t1Overall)} roster.`)
+  } else if (t2Overall) {
+    lines.push(`${team2Name} entered with a ${describeTalentLevel(t2Overall)} roster.`)
+  }
+
+  // Describe unit strengths/weaknesses if interesting
+  if (t1Offense && t1Defense) {
+    const offDiff = t1Offense - t1Defense
+    if (offDiff >= 8) {
+      lines.push(`${team1Name} is an offense-first team with a high-powered attack.`)
+    } else if (offDiff <= -8) {
+      lines.push(`${team1Name} is built around a dominant defense.`)
+    }
+  }
+
+  if (t2Offense && t2Defense) {
+    const offDiff = t2Offense - t2Defense
+    if (offDiff >= 8) {
+      lines.push(`${team2Name} relies heavily on their explosive offense.`)
+    } else if (offDiff <= -8) {
+      lines.push(`${team2Name} is a defense-first program.`)
+    }
+  }
+
+  // Key matchup insight
+  if (t1Offense && t2Defense) {
+    const matchupDiff = t1Offense - t2Defense
+    if (matchupDiff >= 10) {
+      lines.push(`Key matchup: ${team1Name}'s potent offense against ${team2Name}'s weaker defense.`)
+    } else if (matchupDiff <= -10) {
+      lines.push(`Key matchup: ${team2Name}'s stout defense against ${team1Name}'s offense.`)
+    }
+  }
+
+  if (t2Offense && t1Defense) {
+    const matchupDiff = t2Offense - t1Defense
+    if (matchupDiff >= 10) {
+      lines.push(`Key matchup: ${team2Name}'s potent offense against ${team1Name}'s weaker defense.`)
+    } else if (matchupDiff <= -10) {
+      lines.push(`Key matchup: ${team1Name}'s stout defense against ${team2Name}'s offense.`)
+    }
+  }
+
+  return lines.length > 0 ? lines.join('\n') : null
 }
 
 /**
@@ -1861,6 +1987,18 @@ Passing (CMP-ATT-YDS):  ${home.completions ?? '-'}-${home.passAttempts ?? '-'}-$
 Turnovers:              ${home.turnovers ?? '-'}         ${away.turnovers ?? '-'}
 3rd Down:               ${home['3rdDownConv'] ?? '-'}/${home['3rdDownAtt'] ?? '-'}       ${away['3rdDownConv'] ?? '-'}/${away['3rdDownAtt'] ?? '-'}
 Possession:             ${home.possMinutes ?? ''}:${String(home.possSeconds ?? '').padStart(2, '0')}      ${away.possMinutes ?? ''}:${String(away.possSeconds ?? '').padStart(2, '0')}`
+  }
+
+  // Add talent/roster context based on team ratings
+  const talentContext = buildTalentContext(ctx.team1Ratings, ctx.team2Ratings, ctx.team1FullName, ctx.team2FullName, ctx.team1Won)
+  if (talentContext) {
+    prompt += `\n
+===========================================
+TALENT & ROSTER CONTEXT
+===========================================
+${talentContext}
+
+Use this context to inform your narrative about favorites, underdogs, and upsets. Do NOT mention specific rating numbers.`
   }
 
   // Add season context for user games
