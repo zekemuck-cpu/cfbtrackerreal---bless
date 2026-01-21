@@ -11425,7 +11425,7 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
             values: PAT_RESULTS.map(result => ({ userEnteredValue: result }))
           },
           showCustomUi: true,
-          strict: false // Allow empty for non-TD plays
+          strict: true // No free text - use empty option for non-TD plays
         }
       }
     },

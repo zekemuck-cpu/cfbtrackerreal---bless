@@ -93,6 +93,7 @@ export const SCORE_TYPES = [
 
 // PAT Result dropdown options (for after touchdowns)
 export const PAT_RESULTS = [
+  '',  // Empty option for non-TD plays (FG, Safety)
   'Made XP',
   'Missed XP',
   'Blocked XP',

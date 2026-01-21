@@ -159,7 +159,7 @@ export default function GameEdit() {
 
   // Box score sheet modal state
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
-  const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'home', 'away', 'scoring', 'teamStats'
+  const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'homeStats', 'awayStats', 'scoring', 'teamStats'
 
   // AI Recap state
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
@@ -922,9 +922,9 @@ export default function GameEdit() {
           updatedGame.boxScore.teamStats = data
         } else if (boxScoreModalType === 'scoring') {
           updatedGame.boxScore.scoringSummary = data
-        } else if (boxScoreModalType === 'home') {
+        } else if (boxScoreModalType === 'homeStats') {
           updatedGame.boxScore.home = data
-        } else if (boxScoreModalType === 'away') {
+        } else if (boxScoreModalType === 'awayStats') {
           updatedGame.boxScore.away = data
         }
 
@@ -1441,10 +1441,16 @@ export default function GameEdit() {
               </button>
 
               <button
-                onClick={() => openBoxScoreModal('home')}
+                onClick={() => openBoxScoreModal('homeStats')}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
               >
-                <div className="text-2xl mb-2">👥</div>
+                <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
+                  {team1Logo ? (
+                    <img src={team1Logo} alt={team1Abbr} className="h-8 w-8 object-contain" />
+                  ) : (
+                    <span className="text-2xl">👥</span>
+                  )}
+                </div>
                 <div className="text-sm font-medium text-gray-700">{team1Abbr} Stats</div>
                 {existingGame?.homeStatsSheetId && (
                   <div className="text-xs text-green-600 mt-1">Connected</div>
@@ -1452,10 +1458,16 @@ export default function GameEdit() {
               </button>
 
               <button
-                onClick={() => openBoxScoreModal('away')}
+                onClick={() => openBoxScoreModal('awayStats')}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
               >
-                <div className="text-2xl mb-2">👥</div>
+                <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
+                  {team2Logo ? (
+                    <img src={team2Logo} alt={team2Abbr} className="h-8 w-8 object-contain" />
+                  ) : (
+                    <span className="text-2xl">👥</span>
+                  )}
+                </div>
                 <div className="text-sm font-medium text-gray-700">{team2Abbr} Stats</div>
                 {existingGame?.awayStatsSheetId && (
                   <div className="text-xs text-green-600 mt-1">Connected</div>
