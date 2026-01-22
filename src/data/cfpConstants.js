@@ -4,31 +4,54 @@
 // All 6 NY6 bowls that rotate between QF and SF hosting
 export const CFP_NY6_BOWLS = ['Sugar Bowl', 'Orange Bowl', 'Rose Bowl', 'Cotton Bowl', 'Peach Bowl', 'Fiesta Bowl']
 
-// Default slot-to-bowl mapping (used when no config is provided)
-// Maps each bracket position (slot) to its default bowl name
+// Default seed-based bowl mapping (used when no config is provided)
+// Maps each bye seed's QF game to a bowl name
 // In real CFP, these assignments rotate each year
 export const DEFAULT_BOWL_CONFIG = {
-  cfpqf1: 'Sugar Bowl',   // Seed 1 vs 8/9 winner
-  cfpqf2: 'Orange Bowl',  // Seed 4 vs 5/12 winner
-  cfpqf3: 'Rose Bowl',    // Seed 3 vs 6/11 winner
-  cfpqf4: 'Cotton Bowl',  // Seed 2 vs 7/10 winner
-  cfpsf1: 'Peach Bowl',   // QF1 winner vs QF2 winner
-  cfpsf2: 'Fiesta Bowl'   // QF3 winner vs QF4 winner
+  seed1: 'Sugar Bowl',    // Bowl for #1 seed's QF game
+  seed2: 'Cotton Bowl',   // Bowl for #2 seed's QF game
+  seed3: 'Rose Bowl',     // Bowl for #3 seed's QF game
+  seed4: 'Orange Bowl',   // Bowl for #4 seed's QF game
+  sf1: 'Peach Bowl',      // SF1 (1/4 bracket side)
+  sf2: 'Fiesta Bowl'      // SF2 (2/3 bracket side)
 }
 
-// Bracket position descriptions for UI
-export const SLOT_DESCRIPTIONS = {
-  cfpqf1: '#1 seed vs 8/9 winner',
-  cfpqf2: '#4 seed vs 5/12 winner',
-  cfpqf3: '#3 seed vs 6/11 winner',
-  cfpqf4: '#2 seed vs 7/10 winner',
-  cfpsf1: 'QF1 winner vs QF2 winner',
-  cfpsf2: 'QF3 winner vs QF4 winner'
+// Bracket position descriptions for UI (by seed)
+export const SEED_DESCRIPTIONS = {
+  seed1: '#1 seed vs 8/9 winner',
+  seed2: '#2 seed vs 7/10 winner',
+  seed3: '#3 seed vs 6/11 winner',
+  seed4: '#4 seed vs 5/12 winner',
+  sf1: 'SF1: 1/4 bracket winners',
+  sf2: 'SF2: 2/3 bracket winners'
 }
 
-// Get bowl name for a slot from configuration
+// Map bye seed to slot ID
+export const SEED_TO_SLOT = {
+  1: 'cfpqf1',
+  2: 'cfpqf4',
+  3: 'cfpqf3',
+  4: 'cfpqf2'
+}
+
+// Get bowl name for a bye seed from configuration
+export function getBowlForSeed(byeSeed, bowlConfig = DEFAULT_BOWL_CONFIG) {
+  const key = `seed${byeSeed}`
+  return bowlConfig?.[key] || DEFAULT_BOWL_CONFIG[key] || null
+}
+
+// Get bowl name for a slot from configuration (maps slot to seed first)
 export function getBowlForSlot(slotId, bowlConfig = DEFAULT_BOWL_CONFIG) {
-  return bowlConfig?.[slotId] || DEFAULT_BOWL_CONFIG[slotId] || null
+  // For semifinals, use sf1/sf2 keys directly
+  if (slotId === 'cfpsf1') return bowlConfig?.sf1 || DEFAULT_BOWL_CONFIG.sf1
+  if (slotId === 'cfpsf2') return bowlConfig?.sf2 || DEFAULT_BOWL_CONFIG.sf2
+
+  // For quarterfinals, map slot to seed
+  const slotToSeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
+  const seed = slotToSeed[slotId]
+  if (seed) return getBowlForSeed(seed, bowlConfig)
+
+  return null
 }
 
 // Comprehensive bracket configuration for game shell system

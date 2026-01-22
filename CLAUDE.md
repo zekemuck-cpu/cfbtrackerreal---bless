@@ -378,27 +378,29 @@ The NY6 bowls rotate which CFP games they host each year. Users configure bowl a
 **Storage**: `dynasty.cfpBowlConfigByYear[year]`:
 ```javascript
 {
-  cfpqf1: 'Sugar Bowl',   // #1 seed vs 8/9 winner
-  cfpqf2: 'Orange Bowl',  // #4 seed vs 5/12 winner
-  cfpqf3: 'Rose Bowl',    // #3 seed vs 6/11 winner
-  cfpqf4: 'Cotton Bowl',  // #2 seed vs 7/10 winner
-  cfpsf1: 'Peach Bowl',   // QF1 winner vs QF2 winner
-  cfpsf2: 'Fiesta Bowl'   // QF3 winner vs QF4 winner
+  seed1: 'Sugar Bowl',    // Bowl for #1 seed's QF game
+  seed2: 'Cotton Bowl',   // Bowl for #2 seed's QF game
+  seed3: 'Rose Bowl',     // Bowl for #3 seed's QF game
+  seed4: 'Orange Bowl',   // Bowl for #4 seed's QF game
+  sf1: 'Peach Bowl',      // SF1 (1/4 bracket side)
+  sf2: 'Fiesta Bowl'      // SF2 (2/3 bracket side)
 }
 ```
 
 **Key points:**
-- Config maps slot IDs to bowl names (not seeds to bowls)
-- Bracket structure (which seeds meet) is fixed; only bowl NAMES rotate
-- When shells are created, `bowlName` comes from `getBowlForSlot(slotId, config)`
-- Dashboard reads bowl names from game shells, not hardcoded values
+- Config maps bye seeds to bowl names (seed-based, not slot-based)
+- Bracket positions are fixed by seed (4, 1, 3, 2 top to bottom in QF)
+- Bowl names float to wherever configured
+- When shells are created, `bowlName` comes from `getBowlForSlot(slotId, config)` which maps slot→seed→bowl
+- Dashboard and CFPBracket read bowl names from config based on seed
 - If no config exists, `DEFAULT_BOWL_CONFIG` is used
 
 **Constants** (`src/data/cfpConstants.js`):
 - `CFP_NY6_BOWLS` - All 6 bowl names
-- `DEFAULT_BOWL_CONFIG` - Default slot-to-bowl mapping
-- `SLOT_DESCRIPTIONS` - Human-readable descriptions for UI
-- `getBowlForSlot(slotId, config)` - Get bowl name for a slot
+- `DEFAULT_BOWL_CONFIG` - Default seed-to-bowl mapping
+- `SEED_DESCRIPTIONS` - Human-readable descriptions for UI
+- `getBowlForSeed(byeSeed, config)` - Get bowl name for a bye seed
+- `getBowlForSlot(slotId, config)` - Get bowl name for a slot (maps to seed internally)
 
 ---
 

@@ -8,7 +8,7 @@ import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
-import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
+import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed } from '../../data/cfpConstants'
 // GameDetailModal removed - now using game pages instead
 import GameEntryModal from '../../components/GameEntryModal'
 
@@ -170,8 +170,11 @@ export default function CFPBracket() {
 
   const getTeamBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.team || null
 
-  // Get bowl name for a slot from config
-  const getBowlName = (slotId) => getBowlForSlot(slotId, bowlConfig)
+  // Get bowl name for a bye seed from config (for QF games)
+  const getQFBowlName = (byeSeed) => getBowlForSeed(byeSeed, bowlConfig)
+
+  // Get bowl name for semifinals from config
+  const getSFBowlName = (sfNum) => bowlConfig?.[`sf${sfNum}`] || DEFAULT_BOWL_CONFIG[`sf${sfNum}`]
 
   // UNIFIED: Get CFP results from games[] array with gameType filter
   const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
@@ -865,37 +868,37 @@ export default function CFPBracket() {
             <HLine top={R1_M4_CENTER} left={CONN_X1 + CONNECTOR_GAP / 2} width={CONNECTOR_GAP / 2} />
 
             {/* ===== QUARTERFINALS ===== */}
-            {/* Slot cfpqf1: 8 vs 9 winner plays #1 seed */}
-            <Matchup team1={getFirstRoundWinner(8, 9)} team2={s1} seed1={getWinnerSeed(8, 9)} seed2={1} style={{ top: QF_M1, left: COL2 }} round="Quarterfinal" bowl={getBowlName('cfpqf1')} gameData={getQFGameBySlot('cfpqf1')} slotId="cfpqf1" />
-            {/* Slot cfpqf2: 5 vs 12 winner plays #4 seed */}
-            <Matchup team1={getFirstRoundWinner(5, 12)} team2={s4} seed1={getWinnerSeed(5, 12)} seed2={4} style={{ top: QF_M2, left: COL2 }} round="Quarterfinal" bowl={getBowlName('cfpqf2')} gameData={getQFGameBySlot('cfpqf2')} slotId="cfpqf2" />
-            {/* Slot cfpqf3: 6 vs 11 winner plays #3 seed */}
-            <Matchup team1={getFirstRoundWinner(6, 11)} team2={s3} seed1={getWinnerSeed(6, 11)} seed2={3} style={{ top: QF_M3, left: COL2 }} round="Quarterfinal" bowl={getBowlName('cfpqf3')} gameData={getQFGameBySlot('cfpqf3')} slotId="cfpqf3" />
-            {/* Slot cfpqf4: 7 vs 10 winner plays #2 seed */}
-            <Matchup team1={getFirstRoundWinner(7, 10)} team2={s2} seed1={getWinnerSeed(7, 10)} seed2={2} style={{ top: QF_M4, left: COL2 }} round="Quarterfinal" bowl={getBowlName('cfpqf4')} gameData={getQFGameBySlot('cfpqf4')} slotId="cfpqf4" />
+            {/* Position 1: #4 seed vs 5/12 winner */}
+            <Matchup team1={getFirstRoundWinner(5, 12)} team2={s4} seed1={getWinnerSeed(5, 12)} seed2={4} style={{ top: QF_M1, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(4)} gameData={getQFGameBySlot('cfpqf2')} slotId="cfpqf2" />
+            {/* Position 2: #1 seed vs 8/9 winner */}
+            <Matchup team1={getFirstRoundWinner(8, 9)} team2={s1} seed1={getWinnerSeed(8, 9)} seed2={1} style={{ top: QF_M2, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(1)} gameData={getQFGameBySlot('cfpqf1')} slotId="cfpqf1" />
+            {/* Position 3: #3 seed vs 6/11 winner */}
+            <Matchup team1={getFirstRoundWinner(6, 11)} team2={s3} seed1={getWinnerSeed(6, 11)} seed2={3} style={{ top: QF_M3, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(3)} gameData={getQFGameBySlot('cfpqf3')} slotId="cfpqf3" />
+            {/* Position 4: #2 seed vs 7/10 winner */}
+            <Matchup team1={getFirstRoundWinner(7, 10)} team2={s2} seed1={getWinnerSeed(7, 10)} seed2={2} style={{ top: QF_M4, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(2)} gameData={getQFGameBySlot('cfpqf4')} slotId="cfpqf4" />
 
             {/* QF Bowl Logos - positioned on right side, centered between both team slots */}
             <img
-              src={getBowlLogo(getBowlName('cfpqf1'))}
-              alt={getBowlName('cfpqf1')}
+              src={getBowlLogo(getQFBowlName(4))}
+              alt={getQFBowlName(4)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: QF_M1 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
             />
             <img
-              src={getBowlLogo(getBowlName('cfpqf2'))}
-              alt={getBowlName('cfpqf2')}
+              src={getBowlLogo(getQFBowlName(1))}
+              alt={getQFBowlName(1)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: QF_M2 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
             />
             <img
-              src={getBowlLogo(getBowlName('cfpqf3'))}
-              alt={getBowlName('cfpqf3')}
+              src={getBowlLogo(getQFBowlName(3))}
+              alt={getQFBowlName(3)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: QF_M3 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
             />
             <img
-              src={getBowlLogo(getBowlName('cfpqf4'))}
-              alt={getBowlName('cfpqf4')}
+              src={getBowlLogo(getQFBowlName(2))}
+              alt={getQFBowlName(2)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: QF_M4 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
             />
@@ -914,19 +917,19 @@ export default function CFPBracket() {
             <HLine top={SF_M2_CENTER} left={VCONN_X2} width={COL3 - VCONN_X2} />
 
             {/* ===== SEMIFINALS ===== */}
-            {/* SF1: cfpqf1 winner vs cfpqf2 winner */}
+            {/* SF1: 4/1 bracket winners (cfpqf2 winner vs cfpqf1 winner) */}
             <Matchup
-              team1={getQFWinnerBySlot('cfpqf1')}
-              team2={getQFWinnerBySlot('cfpqf2')}
-              seed1={getSeedByTeam(getQFWinnerBySlot('cfpqf1'))}
-              seed2={getSeedByTeam(getQFWinnerBySlot('cfpqf2'))}
+              team1={getQFWinnerBySlot('cfpqf2')}
+              team2={getQFWinnerBySlot('cfpqf1')}
+              seed1={getSeedByTeam(getQFWinnerBySlot('cfpqf2'))}
+              seed2={getSeedByTeam(getQFWinnerBySlot('cfpqf1'))}
               style={{ top: SF_M1, left: COL3 }}
               round="Semifinal"
-              bowl={getBowlName('cfpsf1')}
+              bowl={getSFBowlName(1)}
               gameData={getSFGameBySlot('cfpsf1')}
               slotId="cfpsf1"
             />
-            {/* SF2: cfpqf3 winner vs cfpqf4 winner */}
+            {/* SF2: 3/2 bracket winners (cfpqf3 winner vs cfpqf4 winner) */}
             <Matchup
               team1={getQFWinnerBySlot('cfpqf3')}
               team2={getQFWinnerBySlot('cfpqf4')}
@@ -934,21 +937,21 @@ export default function CFPBracket() {
               seed2={getSeedByTeam(getQFWinnerBySlot('cfpqf4'))}
               style={{ top: SF_M2, left: COL3 }}
               round="Semifinal"
-              bowl={getBowlName('cfpsf2')}
+              bowl={getSFBowlName(2)}
               gameData={getSFGameBySlot('cfpsf2')}
               slotId="cfpsf2"
             />
 
             {/* SF Bowl Logos */}
             <img
-              src={getBowlLogo(getBowlName('cfpsf1'))}
-              alt={getBowlName('cfpsf1')}
+              src={getBowlLogo(getSFBowlName(1))}
+              alt={getSFBowlName(1)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: SF_M1 + MATCHUP_HEIGHT / 2 - 28, left: COL3 + SLOT_WIDTH - 10 }}
             />
             <img
-              src={getBowlLogo(getBowlName('cfpsf2'))}
-              alt={getBowlName('cfpsf2')}
+              src={getBowlLogo(getSFBowlName(2))}
+              alt={getSFBowlName(2)}
               className="absolute w-14 h-14 object-contain z-10"
               style={{ top: SF_M2 + MATCHUP_HEIGHT / 2 - 28, left: COL3 + SLOT_WIDTH - 10 }}
             />

@@ -9,7 +9,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
-import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SLOT_DESCRIPTIONS } from '../data/cfpConstants'
+import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SEED_DESCRIPTIONS } from '../data/cfpConstants'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -17,9 +17,9 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-// Slot IDs in order for UI (4 QF + 2 SF) - ordered by seed: 4, 1, 3, 2
-const QF_SLOTS = ['cfpqf2', 'cfpqf1', 'cfpqf3', 'cfpqf4']
-const SF_SLOTS = ['cfpsf1', 'cfpsf2']
+// Config keys in order for UI - QF by seed (4, 1, 3, 2) then SF
+const QF_KEYS = ['seed4', 'seed1', 'seed3', 'seed2']
+const SF_KEYS = ['sf1', 'sf2']
 
 export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -340,14 +340,14 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
               {/* Quarterfinals */}
               <p className="text-xs font-medium mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>Quarterfinals:</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                {QF_SLOTS.map(slotId => (
-                  <div key={slotId}>
+                {QF_KEYS.map(key => (
+                  <div key={key}>
                     <label className="text-xs block mb-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
-                      {SLOT_DESCRIPTIONS[slotId]}
+                      {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
-                      value={bowlConfig[slotId] || DEFAULT_BOWL_CONFIG[slotId]}
-                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [slotId]: e.target.value }))}
+                      value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
+                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
                       className="w-full px-2 py-1 rounded text-sm border"
                       style={{
                         borderColor: teamColors.primary,
@@ -366,14 +366,14 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
               {/* Semifinals */}
               <p className="text-xs font-medium mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>Semifinals:</p>
               <div className="grid grid-cols-2 gap-2">
-                {SF_SLOTS.map(slotId => (
-                  <div key={slotId}>
+                {SF_KEYS.map(key => (
+                  <div key={key}>
                     <label className="text-xs block mb-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
-                      {SLOT_DESCRIPTIONS[slotId]}
+                      {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
-                      value={bowlConfig[slotId] || DEFAULT_BOWL_CONFIG[slotId]}
-                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [slotId]: e.target.value }))}
+                      value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
+                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
                       className="w-full px-2 py-1 rounded text-sm border"
                       style={{
                         borderColor: teamColors.primary,
