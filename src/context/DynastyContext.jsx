@@ -51,7 +51,7 @@ import {
   addCareerEntry
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
-import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS } from '../data/cfpConstants'
+import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../data/cfpConstants'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -329,10 +329,13 @@ function getCFPLegacyFlag(round) {
  * @param {number} year - The year for these CFP games
  * @returns {Array} Updated games array with CFP shells created/updated
  */
-export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year) {
+export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, bowlConfig = null) {
   if (!seedsWithTid || Object.keys(seedsWithTid).length === 0) {
     return existingGames
   }
+
+  // Use provided config or fall back to defaults
+  const effectiveBowlConfig = bowlConfig || DEFAULT_BOWL_CONFIG
 
   const games = [...existingGames]
   const gameIdToIndex = new Map(games.map((g, i) => [g.id, i]))
@@ -344,11 +347,14 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year) {
     // Determine teams based on round
     let team1Tid = null
     let team2Tid = null
+    // Get bowl name from slot-based config (for QF and SF), fall back to default
+    let bowlName = getBowlForSlot(slotId, effectiveBowlConfig) || config.bowl || null
 
     if (config.round === 'first_round') {
-      // First round - both teams known from seeds
+      // First round - both teams known from seeds, no bowl name
       team1Tid = seedsWithTid[config.higherSeed] ?? null
       team2Tid = seedsWithTid[config.lowerSeed] ?? null
+      bowlName = null // First round games are on-campus, no bowl
     } else if (config.round === 'quarterfinal') {
       // Quarterfinal - bye seed known, opponent TBD (from first round winner)
       team1Tid = seedsWithTid[config.byeSeed] ?? null
@@ -376,7 +382,7 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year) {
         // Ensure all metadata is set
         cfpSlot: slotId,
         cfpRound: config.round,
-        bowlName: config.bowl || null,
+        bowlName,
         gameType,
         [legacyFlag]: true
       }
@@ -394,7 +400,7 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year) {
         homeTeamTid: null, // CFP games are neutral site
         cfpSlot: slotId,
         cfpRound: config.round,
-        bowlName: config.bowl || null,
+        bowlName,
         [legacyFlag]: true
       }
       games.push(newGame)

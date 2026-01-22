@@ -1,6 +1,36 @@
 // CFP Game Slot IDs and Mappings
 // Each CFP game has a fixed slot ID that never changes
 
+// All 6 NY6 bowls that rotate between QF and SF hosting
+export const CFP_NY6_BOWLS = ['Sugar Bowl', 'Orange Bowl', 'Rose Bowl', 'Cotton Bowl', 'Peach Bowl', 'Fiesta Bowl']
+
+// Default slot-to-bowl mapping (used when no config is provided)
+// Maps each bracket position (slot) to its default bowl name
+// In real CFP, these assignments rotate each year
+export const DEFAULT_BOWL_CONFIG = {
+  cfpqf1: 'Sugar Bowl',   // Seed 1 vs 8/9 winner
+  cfpqf2: 'Orange Bowl',  // Seed 4 vs 5/12 winner
+  cfpqf3: 'Rose Bowl',    // Seed 3 vs 6/11 winner
+  cfpqf4: 'Cotton Bowl',  // Seed 2 vs 7/10 winner
+  cfpsf1: 'Peach Bowl',   // QF1 winner vs QF2 winner
+  cfpsf2: 'Fiesta Bowl'   // QF3 winner vs QF4 winner
+}
+
+// Bracket position descriptions for UI
+export const SLOT_DESCRIPTIONS = {
+  cfpqf1: '#1 seed vs 8/9 winner',
+  cfpqf2: '#4 seed vs 5/12 winner',
+  cfpqf3: '#3 seed vs 6/11 winner',
+  cfpqf4: '#2 seed vs 7/10 winner',
+  cfpsf1: 'QF1 winner vs QF2 winner',
+  cfpsf2: 'QF3 winner vs QF4 winner'
+}
+
+// Get bowl name for a slot from configuration
+export function getBowlForSlot(slotId, bowlConfig = DEFAULT_BOWL_CONFIG) {
+  return bowlConfig?.[slotId] || DEFAULT_BOWL_CONFIG[slotId] || null
+}
+
 // Comprehensive bracket configuration for game shell system
 // This defines the complete bracket structure with propagation relationships
 export const CFP_BRACKET_SLOTS = {

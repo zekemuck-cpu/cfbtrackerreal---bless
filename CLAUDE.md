@@ -276,12 +276,13 @@ When CFP seeds (1-12) are saved, game shells are automatically created:
 
 ### Key Files
 
-- `src/data/cfpConstants.js` - Bracket structure with `CFP_BRACKET_SLOTS` configuration
+- `src/data/cfpConstants.js` - Bracket structure with `CFP_BRACKET_SLOTS` configuration, bowl config helpers
 - `src/context/DynastyContext.jsx`:
-  - `createOrUpdateCFPGameShells(games, seedsWithTid, year)` - Creates shells when seeds saved
+  - `createOrUpdateCFPGameShells(games, seedsWithTid, year, bowlConfig)` - Creates shells when seeds saved
   - `propagateCFPWinner(games, savedGame)` - Propagates winner to next round shell
   - `findUserCFPGameShell(dynasty, round, year)` - Find user's game shell by round
   - `saveCFPGames(dynastyId, gamesData, year, roundType)` - Save CFP game results
+- `src/components/CFPSeedsModal.jsx` - Seeds entry + bowl configuration UI
 - `src/pages/dynasty/Dashboard.jsx` - Auto-shell-creation useEffect for legacy dynasties
 
 ### Shell Game Format (tid-based)
@@ -369,6 +370,35 @@ Seeds stored in `dynasty.cfpSeedsByYear[year]`:
 ```javascript
 const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid || s.team === userTeamAbbr)?.seed
 ```
+
+### CFP Bowl Configuration (January 2026)
+
+The NY6 bowls rotate which CFP games they host each year. Users configure bowl assignments when entering seeds.
+
+**Storage**: `dynasty.cfpBowlConfigByYear[year]`:
+```javascript
+{
+  cfpqf1: 'Sugar Bowl',   // #1 seed vs 8/9 winner
+  cfpqf2: 'Orange Bowl',  // #4 seed vs 5/12 winner
+  cfpqf3: 'Rose Bowl',    // #3 seed vs 6/11 winner
+  cfpqf4: 'Cotton Bowl',  // #2 seed vs 7/10 winner
+  cfpsf1: 'Peach Bowl',   // QF1 winner vs QF2 winner
+  cfpsf2: 'Fiesta Bowl'   // QF3 winner vs QF4 winner
+}
+```
+
+**Key points:**
+- Config maps slot IDs to bowl names (not seeds to bowls)
+- Bracket structure (which seeds meet) is fixed; only bowl NAMES rotate
+- When shells are created, `bowlName` comes from `getBowlForSlot(slotId, config)`
+- Dashboard reads bowl names from game shells, not hardcoded values
+- If no config exists, `DEFAULT_BOWL_CONFIG` is used
+
+**Constants** (`src/data/cfpConstants.js`):
+- `CFP_NY6_BOWLS` - All 6 bowl names
+- `DEFAULT_BOWL_CONFIG` - Default slot-to-bowl mapping
+- `SLOT_DESCRIPTIONS` - Human-readable descriptions for UI
+- `getBowlForSlot(slotId, config)` - Get bowl name for a slot
 
 ---
 

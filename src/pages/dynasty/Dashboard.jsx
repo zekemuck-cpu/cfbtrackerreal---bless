@@ -527,9 +527,10 @@ export default function Dashboard() {
       }
     }
 
-    // Create shells
+    // Create shells with bowl configuration (if available)
+    const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[year] || null
     const existingGames = currentDynasty.games || []
-    let updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year)
+    let updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, bowlConfig)
 
     // Re-propagate first round winners to QF shells (in case FR was saved before shells existed)
     const frGamesToPropagate = updatedGames.filter(g => g.cfpRound === 'first_round' && Number(g.year) === Number(year))
@@ -3739,14 +3740,20 @@ export default function Dashboard() {
 
             const userQFOpponent = getCFPQuarterfinalOpponent()
 
-            // Get the bowl name for user's QF game
+            // Get the bowl name for user's QF game (from shell first, fallback to config-based lookup)
             const getUserQFBowlName = () => {
               if (!userInCFPQuarterfinal) return null
+
+              // First priority: get bowl name from the game shell
+              const qfShell = userCFPQuarterfinalShell || userCFPQuarterfinalGame
+              if (qfShell?.bowlName) return qfShell.bowlName
+
+              // Fallback: use hardcoded defaults (for backward compatibility with old data)
               const bowlBySeed = {
-                1: 'Orange Bowl', 8: 'Orange Bowl', 9: 'Orange Bowl',
+                1: 'Sugar Bowl', 8: 'Sugar Bowl', 9: 'Sugar Bowl',
                 2: 'Cotton Bowl', 7: 'Cotton Bowl', 10: 'Cotton Bowl',
                 3: 'Rose Bowl', 6: 'Rose Bowl', 11: 'Rose Bowl',
-                4: 'Sugar Bowl', 5: 'Sugar Bowl', 12: 'Sugar Bowl'
+                4: 'Orange Bowl', 5: 'Orange Bowl', 12: 'Orange Bowl'
               }
               return bowlBySeed[userCFPSeed] || null
             }
@@ -3823,11 +3830,19 @@ export default function Dashboard() {
 
             const userSFOpponent = getCFPSemifinalOpponent()
 
-            // Get the bowl name for user's SF game
+            // Get the bowl name for user's SF game (from shell first, fallback to bracket-based lookup)
             const getUserSFBowlName = () => {
               if (!userInCFPSemifinal) return null
-              const peachBowlSeeds = [1, 8, 9, 4, 5, 12]
-              return peachBowlSeeds.includes(userCFPSeed) ? 'Peach Bowl' : 'Fiesta Bowl'
+
+              // First priority: get bowl name from the game shell
+              const sfShell = userCFPSemifinalShell || userCFPSemifinalGame
+              if (sfShell?.bowlName) return sfShell.bowlName
+
+              // Fallback: use hardcoded defaults based on bracket structure
+              // Seeds 1,8,9,4,5,12 feed into SF1 (default: Peach Bowl)
+              // Seeds 2,7,10,3,6,11 feed into SF2 (default: Fiesta Bowl)
+              const sf1Seeds = [1, 8, 9, 4, 5, 12]
+              return sf1Seeds.includes(userCFPSeed) ? 'Peach Bowl' : 'Fiesta Bowl'
             }
 
             const userSFBowlName = getUserSFBowlName()
@@ -8570,7 +8585,7 @@ export default function Dashboard() {
       <CFPSeedsModal
         isOpen={showCFPSeedsModal}
         onClose={() => setShowCFPSeedsModal(false)}
-        onSave={async (seeds) => {
+        onSave={async (seeds, bowlConfig) => {
           const year = currentDynasty.currentYear
           const existingByYear = currentDynasty.cfpSeedsByYear || {}
 
@@ -8586,9 +8601,9 @@ export default function Dashboard() {
             }
           }
 
-          // Create/update all 11 CFP game shells
+          // Create/update all 11 CFP game shells with bowl configuration
           const existingGames = currentDynasty.games || []
-          const updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year)
+          const updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, bowlConfig)
 
           await updateDynasty(currentDynasty.id, {
             cfpSeedsByYear: {
@@ -8598,6 +8613,10 @@ export default function Dashboard() {
             cfpSeedsByYearTid: {
               ...(currentDynasty.cfpSeedsByYearTid || {}),
               [year]: seedsWithTid // New tid-based format
+            },
+            cfpBowlConfigByYear: {
+              ...(currentDynasty.cfpBowlConfigByYear || {}),
+              [year]: bowlConfig // Store bowl configuration per year
             },
             games: updatedGames
           })

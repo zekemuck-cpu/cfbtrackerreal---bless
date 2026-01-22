@@ -9,12 +9,17 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SLOT_DESCRIPTIONS } from '../data/cfpConstants'
 
 // Simple mobile detection
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
+
+// Slot IDs in order for UI (4 QF + 2 SF)
+const QF_SLOTS = ['cfpqf1', 'cfpqf2', 'cfpqf3', 'cfpqf4']
+const SF_SLOTS = ['cfpsf1', 'cfpsf2']
 
 export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -28,6 +33,10 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [bowlConfig, setBowlConfig] = useState(() => {
+    // Initialize from existing dynasty config or defaults
+    return currentDynasty?.cfpBowlConfigByYear?.[currentYear] || { ...DEFAULT_BOWL_CONFIG }
+  })
   const [showAuthError, setShowAuthError] = useState(false)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
@@ -123,13 +132,20 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
     }
   }, [isOpen])
 
+  // Reset bowl config when modal opens or year changes
+  useEffect(() => {
+    if (isOpen) {
+      setBowlConfig(currentDynasty?.cfpBowlConfigByYear?.[currentYear] || { ...DEFAULT_BOWL_CONFIG })
+    }
+  }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
+
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
 
     setSyncing(true)
     try {
       const seeds = await readCFPSeedsFromSheet(sheetId)
-      await onSave(seeds)
+      await onSave(seeds, bowlConfig)
       onClose()
     } catch (error) {
       console.error(error)
@@ -149,7 +165,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
     setDeletingSheet(true)
     try {
       const seeds = await readCFPSeedsFromSheet(sheetId)
-      await onSave(seeds)
+      await onSave(seeds, bowlConfig)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
@@ -309,6 +325,81 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
                 </div>
               </div>
             )}
+
+            {/* Bowl Configuration Section */}
+            <div className="mb-4 p-3 rounded-lg border" style={{ borderColor: teamColors.primary, backgroundColor: `${teamColors.primary}10` }}>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold" style={{ color: teamColors.primary }}>
+                  Bowl Game Assignments
+                </h4>
+                <span className="text-xs opacity-70" style={{ color: teamColors.primary }}>
+                  NY6 bowls rotate each year
+                </span>
+              </div>
+
+              {/* Quarterfinals */}
+              <p className="text-xs font-medium mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>Quarterfinals:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                {QF_SLOTS.map(slotId => (
+                  <div key={slotId}>
+                    <label className="text-xs block mb-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
+                      {SLOT_DESCRIPTIONS[slotId]}
+                    </label>
+                    <select
+                      value={bowlConfig[slotId] || DEFAULT_BOWL_CONFIG[slotId]}
+                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [slotId]: e.target.value }))}
+                      className="w-full px-2 py-1 rounded text-sm border"
+                      style={{
+                        borderColor: teamColors.primary,
+                        backgroundColor: teamColors.secondary,
+                        color: teamColors.primary
+                      }}
+                    >
+                      {CFP_NY6_BOWLS.map(bowl => (
+                        <option key={bowl} value={bowl}>{bowl}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              {/* Semifinals */}
+              <p className="text-xs font-medium mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>Semifinals:</p>
+              <div className="grid grid-cols-2 gap-2">
+                {SF_SLOTS.map(slotId => (
+                  <div key={slotId}>
+                    <label className="text-xs block mb-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
+                      {SLOT_DESCRIPTIONS[slotId]}
+                    </label>
+                    <select
+                      value={bowlConfig[slotId] || DEFAULT_BOWL_CONFIG[slotId]}
+                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [slotId]: e.target.value }))}
+                      className="w-full px-2 py-1 rounded text-sm border"
+                      style={{
+                        borderColor: teamColors.primary,
+                        backgroundColor: teamColors.secondary,
+                        color: teamColors.primary
+                      }}
+                    >
+                      {CFP_NY6_BOWLS.map(bowl => (
+                        <option key={bowl} value={bowl}>{bowl}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              {/* Validation warning if same bowl assigned to multiple slots */}
+              {(() => {
+                const bowls = Object.values(bowlConfig).filter(Boolean)
+                const hasDuplicates = bowls.length !== new Set(bowls).size
+                return hasDuplicates ? (
+                  <p className="text-xs mt-2 text-red-500 font-medium">
+                    Warning: Each bowl should only be assigned to one game
+                  </p>
+                ) : null
+              })()}
+            </div>
 
             {/* Toggle between embedded and new tab */}
             {!isMobile && (
