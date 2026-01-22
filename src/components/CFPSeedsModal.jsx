@@ -17,8 +17,8 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-// Slot IDs in order for UI (4 QF + 2 SF)
-const QF_SLOTS = ['cfpqf1', 'cfpqf2', 'cfpqf3', 'cfpqf4']
+// Slot IDs in order for UI (4 QF + 2 SF) - ordered by seed: 4, 1, 3, 2
+const QF_SLOTS = ['cfpqf2', 'cfpqf1', 'cfpqf3', 'cfpqf4']
 const SF_SLOTS = ['cfpsf1', 'cfpsf2']
 
 export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
