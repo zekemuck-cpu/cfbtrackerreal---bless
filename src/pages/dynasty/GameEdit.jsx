@@ -199,17 +199,27 @@ export default function GameEdit() {
 
     // Direct ID lookup - try currentGameId first (for newly created games), then gameId from URL
     const lookupId = currentGameId || gameId
+    console.log('[GameEdit] Looking up game:', { lookupId, gameId, currentGameId })
     if (!lookupId || lookupId === 'new') return null
 
     let found = currentDynasty.games.find(g => g.id === lookupId)
-    if (found) return found
+    if (found) {
+      console.log('[GameEdit] Found game by ID:', { id: found.id, cfpSlot: found.cfpSlot, bowlName: found.bowlName, team1Tid: found.team1Tid, team2Tid: found.team2Tid })
+      return found
+    }
 
     // CFP Slot ID pattern lookup
     const cfpParsed = parseCFPGameId(gameId)
     if (cfpParsed) {
       const { slotId, year } = cfpParsed
-      const qfBowlNames = { cfpqf1: 'Sugar Bowl', cfpqf2: 'Orange Bowl', cfpqf3: 'Rose Bowl', cfpqf4: 'Cotton Bowl' }
-      const sfBowlNames = { cfpsf1: 'Peach Bowl', cfpsf2: 'Fiesta Bowl' }
+      console.log('[GameEdit] CFP slot lookup:', { slotId, year })
+
+      // Get user's bowl config for this year
+      const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[year] || {}
+      const cfpSeeds = currentDynasty.cfpSeedsByYear?.[year] || []
+
+      // Map slot to bye seed for reliable lookup
+      const slotToByeSeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
       const frSeedMatchups = { cfpfr1: [5, 12], cfpfr2: [8, 9], cfpfr3: [6, 11], cfpfr4: [7, 10] }
 
       if (slotId.startsWith('cfpfr')) {
@@ -219,19 +229,54 @@ export default function GameEdit() {
           ((g.seed1 === seed1 && g.seed2 === seed2) || (g.seed1 === seed2 && g.seed2 === seed1))
         )
       } else if (slotId.startsWith('cfpqf')) {
-        found = currentDynasty.games.find(g =>
-          g.isCFPQuarterfinal && Number(g.year) === year && g.bowlName === qfBowlNames[slotId]
-        )
+        // Find QF game by bye seed (most reliable method)
+        const byeSeed = slotToByeSeed[slotId]
+        const byeSeedEntry = cfpSeeds.find(s => s.seed === byeSeed)
+        console.log('[GameEdit] QF lookup by bye seed:', { slotId, byeSeed, byeSeedEntry })
+
+        if (byeSeedEntry) {
+          found = currentDynasty.games.find(g => {
+            if (!g.isCFPQuarterfinal || Number(g.year) !== year) return false
+            // Check if bye seed team is in this game
+            if (byeSeedEntry.tid && (g.team1Tid === byeSeedEntry.tid || g.team2Tid === byeSeedEntry.tid)) return true
+            if (byeSeedEntry.team && (g.team1 === byeSeedEntry.team || g.team2 === byeSeedEntry.team)) return true
+            return false
+          })
+        }
+
+        // Fallback to cfpSlot match
+        if (!found) {
+          found = currentDynasty.games.find(g =>
+            g.isCFPQuarterfinal && Number(g.year) === year && g.cfpSlot === slotId
+          )
+          console.log('[GameEdit] QF fallback to cfpSlot:', { found: !!found })
+        }
       } else if (slotId.startsWith('cfpsf')) {
+        // Find SF game by cfpSlot first, then bowlName from config
         found = currentDynasty.games.find(g =>
-          g.isCFPSemifinal && Number(g.year) === year && g.bowlName === sfBowlNames[slotId]
+          g.isCFPSemifinal && Number(g.year) === year && g.cfpSlot === slotId
         )
+        if (!found) {
+          const sfBowl = slotId === 'cfpsf1' ? (bowlConfig.sf1 || 'Peach Bowl') : (bowlConfig.sf2 || 'Fiesta Bowl')
+          found = currentDynasty.games.find(g =>
+            g.isCFPSemifinal && Number(g.year) === year && g.bowlName === sfBowl
+          )
+        }
       } else if (slotId === 'cfpnc') {
         found = currentDynasty.games.find(g => g.isCFPChampionship && Number(g.year) === year)
       }
+
+      if (found) {
+        console.log('[GameEdit] Found CFP game:', { id: found.id, cfpSlot: found.cfpSlot, bowlName: found.bowlName, team1Tid: found.team1Tid, team2Tid: found.team2Tid })
+      } else {
+        console.log('[GameEdit] CFP game NOT found for slot:', slotId)
+        // Log all QF games for debugging
+        const qfGames = currentDynasty.games.filter(g => g.isCFPQuarterfinal && Number(g.year) === year)
+        console.log('[GameEdit] Available QF games:', qfGames.map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName, team1Tid: g.team1Tid, team2Tid: g.team2Tid })))
+      }
     }
     return found || null
-  }, [currentDynasty?.games, gameId, currentGameId])
+  }, [currentDynasty?.games, gameId, currentGameId, currentDynasty?.cfpBowlConfigByYear, currentDynasty?.cfpSeedsByYear])
 
   // Derive team data - merge dynasty.teams WITH TEAMS to preserve static team properties
   // dynasty.teams may have partial data (byYear, userId) that would overwrite complete team info
@@ -339,16 +384,47 @@ export default function GameEdit() {
     team1Conference === team2Conference && team1Conference !== 'Independent'
 
   // Display order: Away team on left/top, Home team on right/bottom
+  // For CFP games: Lower seed (better, e.g. #1) on left/top, Higher seed (worse, e.g. #12) on right/bottom
   // location 'home' = team1 is home, 'away' = team2 is home, 'neutral' = keep order
   const isTeam1Home = formData.location === 'home'
   const isTeam2Home = formData.location === 'away'
 
-  // Display variables - swap order so away is always first (left/top) and home is always second (right/bottom)
-  const displayLeftTeam = isTeam1Home ? 'team2' : 'team1'
-  const displayRightTeam = isTeam1Home ? 'team1' : 'team2'
+  // Check if this is a CFP game and get seeds
+  const isCFPGame = existingGame?.isCFPFirstRound || existingGame?.isCFPQuarterfinal ||
+                    existingGame?.isCFPSemifinal || existingGame?.isCFPChampionship ||
+                    gameType?.startsWith('cfp_')
 
-  const leftTeamTid = isTeam1Home ? team2Tid : team1Tid
-  const rightTeamTid = isTeam1Home ? team1Tid : team2Tid
+  // Get CFP seeds for each team
+  const getCFPSeedForTid = (tid) => {
+    if (!tid || !currentDynasty?.cfpSeedsByYear) return null
+    const cfpSeeds = currentDynasty.cfpSeedsByYear[gameYear] || currentDynasty.cfpSeedsByYear[String(gameYear)]
+    if (!cfpSeeds) return null
+    const seedEntry = cfpSeeds.find(s => s.tid === tid)
+    return seedEntry?.seed || null
+  }
+
+  // Get seeds from game data or calculate from cfpSeedsByYear
+  const team1Seed = existingGame?.seed1 || existingGame?.cfpSeed1 || getCFPSeedForTid(team1Tid)
+  const team2Seed = existingGame?.seed2 || existingGame?.cfpSeed2 || getCFPSeedForTid(team2Tid)
+
+  // For CFP games: swap so lower seed is on left (team with better seed number)
+  // Lower seed number = better team (e.g., #1 is better than #12)
+  const shouldSwapForCFP = isCFPGame && team1Seed && team2Seed && team1Seed > team2Seed
+
+  // Display variables - swap order based on home/away OR CFP seeding
+  let displayLeftTeam, displayRightTeam
+  if (isCFPGame && team1Seed && team2Seed) {
+    // CFP games: lower seed on left, higher seed on right
+    displayLeftTeam = team1Seed < team2Seed ? 'team1' : 'team2'
+    displayRightTeam = team1Seed < team2Seed ? 'team2' : 'team1'
+  } else {
+    // Regular games: away on left, home on right
+    displayLeftTeam = isTeam1Home ? 'team2' : 'team1'
+    displayRightTeam = isTeam1Home ? 'team1' : 'team2'
+  }
+
+  const leftTeamTid = displayLeftTeam === 'team1' ? team1Tid : team2Tid
+  const rightTeamTid = displayRightTeam === 'team1' ? team1Tid : team2Tid
   const leftTeamName = isTeam1Home ? team2Name : team1Name
   const rightTeamName = isTeam1Home ? team1Name : team2Name
   const leftTeamAbbr = isTeam1Home ? team2Abbr : team1Abbr
@@ -547,6 +623,30 @@ export default function GameEdit() {
         }
       }
 
+      // For CFP games, auto-fill ranks with seeds if not already set
+      const isCFP = existingGame.isCFPFirstRound || existingGame.isCFPQuarterfinal ||
+                    existingGame.isCFPSemifinal || existingGame.isCFPChampionship
+      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || []
+
+      const getCFPSeedForTid = (tid) => {
+        if (!tid || !cfpSeeds.length) return null
+        const entry = cfpSeeds.find(s => s.tid === tid)
+        return entry?.seed || null
+      }
+
+      // Get ranks - prefer existing ranks, fall back to CFP seeds for CFP games
+      let rank1 = existingGame.team1Rank?.toString() || existingGame.userRank?.toString() || ''
+      let rank2 = existingGame.team2Rank?.toString() || existingGame.opponentRank?.toString() || ''
+
+      if (isCFP && !rank1) {
+        const seed = getCFPSeedForTid(existingGame.team1Tid)
+        if (seed) rank1 = seed.toString()
+      }
+      if (isCFP && !rank2) {
+        const seed = getCFPSeedForTid(existingGame.team2Tid)
+        if (seed) rank2 = seed.toString()
+      }
+
       setFormData({
         team1Score: score1?.toString() || '',
         team2Score: score2?.toString() || '',
@@ -555,8 +655,8 @@ export default function GameEdit() {
           team2: { Q1: '', Q2: '', Q3: '', Q4: '' }
         },
         overtimes: existingGame.overtimes || [],
-        team1Rank: existingGame.team1Rank?.toString() || existingGame.userRank?.toString() || '',
-        team2Rank: existingGame.team2Rank?.toString() || existingGame.opponentRank?.toString() || '',
+        team1Rank: rank1,
+        team2Rank: rank2,
         team1Overall: existingGame.team1Overall?.toString() || team1Ratings.overall,
         team1Offense: existingGame.team1Offense?.toString() || team1Ratings.offense,
         team1Defense: existingGame.team1Defense?.toString() || team1Ratings.defense,
@@ -584,6 +684,19 @@ export default function GameEdit() {
       const team1Rec = calculateTeamRecord(team1Tid, gameYear)
       const team2Rec = calculateTeamRecord(team2Tid, gameYear)
 
+      // For CFP games, auto-fill ranks with seeds
+      const isCFPGameType = gameType?.startsWith('cfp_')
+      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || []
+      let rank1 = ''
+      let rank2 = ''
+
+      if (isCFPGameType && cfpSeeds.length) {
+        const seed1 = cfpSeeds.find(s => s.tid === team1Tid)?.seed
+        const seed2 = cfpSeeds.find(s => s.tid === team2Tid)?.seed
+        if (seed1) rank1 = seed1.toString()
+        if (seed2) rank2 = seed2.toString()
+      }
+
       setFormData(prev => ({
         ...prev,
         team1Overall: team1Ratings.overall,
@@ -594,6 +707,8 @@ export default function GameEdit() {
         team2Defense: team2Ratings.defense,
         team1Record: team1Rec,
         team2Record: team2Rec,
+        team1Rank: rank1 || prev.team1Rank,
+        team2Rank: rank2 || prev.team2Rank,
         location: queryLocation || prev.location,
         isConferenceGame
       }))
@@ -1441,35 +1556,35 @@ export default function GameEdit() {
               </button>
 
               <button
-                onClick={() => openBoxScoreModal('homeStats')}
+                onClick={() => openBoxScoreModal(displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
-                  {team1Logo ? (
-                    <img src={team1Logo} alt={team1Abbr} className="h-8 w-8 object-contain" />
+                  {leftTeamLogo ? (
+                    <img src={leftTeamLogo} alt={leftTeamAbbr} className="h-8 w-8 object-contain" />
                   ) : (
                     <span className="text-2xl">👥</span>
                   )}
                 </div>
-                <div className="text-sm font-medium text-gray-700">{team1Abbr} Stats</div>
-                {existingGame?.homeStatsSheetId && (
+                <div className="text-sm font-medium text-gray-700">{leftTeamAbbr} Stats</div>
+                {(displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
                   <div className="text-xs text-green-600 mt-1">Connected</div>
                 )}
               </button>
 
               <button
-                onClick={() => openBoxScoreModal('awayStats')}
+                onClick={() => openBoxScoreModal(displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')}
                 className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
-                  {team2Logo ? (
-                    <img src={team2Logo} alt={team2Abbr} className="h-8 w-8 object-contain" />
+                  {rightTeamLogo ? (
+                    <img src={rightTeamLogo} alt={rightTeamAbbr} className="h-8 w-8 object-contain" />
                   ) : (
                     <span className="text-2xl">👥</span>
                   )}
                 </div>
-                <div className="text-sm font-medium text-gray-700">{team2Abbr} Stats</div>
-                {existingGame?.awayStatsSheetId && (
+                <div className="text-sm font-medium text-gray-700">{rightTeamAbbr} Stats</div>
+                {(displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
                   <div className="text-xs text-green-600 mt-1">Connected</div>
                 )}
               </button>

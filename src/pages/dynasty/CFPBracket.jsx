@@ -204,25 +204,14 @@ export default function CFPBracket() {
 
     let team1Score, team2Score, winner
 
-    // Derive winner from winnerTid if available (for unified format)
-    if (game.winnerTid) {
-      const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
-      winner = winnerInfo?.abbr || game.winner
-    } else {
-      winner = game.winner
-    }
-
-    // Prefer unified format scores
-    if (game.team1Score !== undefined) {
+    // Prefer unified format scores - ALWAYS compute winner from scores (most reliable)
+    if (game.team1Score !== undefined && game.team1Score !== null) {
       team1Score = game.team1Score
       team2Score = game.team2Score
-      // Only compute winner from scores if not already set
-      if (!winner) {
-        winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
-      }
+      // Always compute winner from scores - this is the source of truth
+      winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
     } else if (perspective) {
       // Use perspective for user games with unified format
-      // Determine which team is team1 based on perspective
       const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
       const userAbbr = userTeamInfo?.abbr || game.userTeam
       if (userAbbr === team1) {
@@ -232,8 +221,10 @@ export default function CFPBracket() {
         team1Score = perspective.opponentScore
         team2Score = perspective.userScore
       }
-      // Only set winner if not already derived from winnerTid
-      if (!winner) {
+      // Compute winner from scores if available
+      if (team1Score !== undefined && team2Score !== undefined) {
+        winner = team1Score > team2Score ? team1 : team2Score > team1Score ? team2 : null
+      } else {
         winner = perspective.userWon ? userAbbr : (team1 === userAbbr ? team2 : team1)
       }
     } else if (game.teamScore !== undefined) {
@@ -242,11 +233,19 @@ export default function CFPBracket() {
       if (game.userTeam === team1) {
         team1Score = parseInt(game.teamScore)
         team2Score = parseInt(game.opponentScore)
-        if (!winner) winner = userWon ? team1 : team2
+        winner = userWon ? team1 : team2
       } else {
         team1Score = parseInt(game.opponentScore)
         team2Score = parseInt(game.teamScore)
-        if (!winner) winner = userWon ? team2 : team1
+        winner = userWon ? team2 : team1
+      }
+    } else {
+      // No scores available - fall back to winnerTid or winner field
+      if (game.winnerTid) {
+        const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+        winner = winnerInfo?.abbr || game.winner
+      } else {
+        winner = game.winner
       }
     }
 
@@ -320,14 +319,38 @@ export default function CFPBracket() {
     return null
   }
 
-  // Get QF game by slot ID (looks up by cfpSlot, falls back to bowlName for legacy data)
+  // Get QF game by slot ID
+  // Priority: 1) bye seed team match (MOST RELIABLE), 2) cfpSlot match, 3) bowlName fallback
   const getQFGameBySlot = (slotId) => {
-    // First try to find by slot ID
+    // Map slot to bye seed - this is the definitive mapping from bracket structure
+    const slotToBySeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
+    const byeSeed = slotToBySeed[slotId]
+
+    // FIRST: Find by bye seed team (most reliable - bye seed never changes)
+    if (byeSeed) {
+      const byeSeedEntry = cfpSeeds.find(s => s.seed === byeSeed)
+      const byeSeedTeam = byeSeedEntry?.team
+      const byeSeedTid = byeSeedEntry?.tid
+
+      if (byeSeedTeam || byeSeedTid) {
+        const byByeSeed = quarterfinalsResults.find(g => {
+          if (!g) return false
+          // Check if bye seed team is in this game
+          if (byeSeedTid && (g.team1Tid === byeSeedTid || g.team2Tid === byeSeedTid)) return true
+          if (byeSeedTeam && (g.team1 === byeSeedTeam || g.team2 === byeSeedTeam)) return true
+          return false
+        })
+        if (byByeSeed) return byByeSeed
+      }
+    }
+
+    // SECOND: Try to find by slot ID
     const bySlot = quarterfinalsResults.find(g => g && g.cfpSlot === slotId)
     if (bySlot) return bySlot
-    // Fallback: find by bowl name from config
-    const bowlName = getBowlName(slotId)
-    return quarterfinalsResults.find(g => g && g.bowlName === bowlName) || null
+
+    // THIRD: Fallback to bowl name from config
+    const fallbackBowlName = getBowlForSlot(slotId, bowlConfig)
+    return quarterfinalsResults.find(g => g && g.bowlName === fallbackBowlName) || null
   }
 
   const getQFWinnerBySlot = (slotId) => {
@@ -339,8 +362,8 @@ export default function CFPBracket() {
   const getSFGameBySlot = (slotId) => {
     const bySlot = semifinalsResults.find(g => g && g.cfpSlot === slotId)
     if (bySlot) return bySlot
-    const bowlName = getBowlName(slotId)
-    return semifinalsResults.find(g => g && g.bowlName === bowlName) || null
+    const fallbackBowlName = getBowlForSlot(slotId, bowlConfig)
+    return semifinalsResults.find(g => g && g.bowlName === fallbackBowlName) || null
   }
 
   const getSFWinnerBySlot = (slotId) => {
@@ -784,7 +807,7 @@ export default function CFPBracket() {
 
   return (
     <div
-      className="rounded-lg p-4"
+      className="p-4 -mx-4 -mt-6 -mb-6 min-h-[calc(100vh-80px)]"
       style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}
     >
       <div className="flex items-center justify-center gap-3 md:gap-6 mb-6 md:mb-10">

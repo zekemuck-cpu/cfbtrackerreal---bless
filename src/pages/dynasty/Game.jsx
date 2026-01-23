@@ -657,7 +657,8 @@ export default function Game() {
   }
 
   // Determine team positions (away vs home)
-  // For user games, use perspective. For CPU games, use homeTeamTid or default to team1
+  // For CFP games: Lower seed (better, e.g. #1) on left, Higher seed (worse, e.g. #12) on right
+  // For regular games: Away team on left, Home team on right
   let location
   if (perspective) {
     location = perspective.isHome ? 'home' : perspective.isAway ? 'away' : 'neutral'
@@ -673,8 +674,39 @@ export default function Game() {
       location = 'neutral' // Default for postseason
     }
   }
-  const leftTeam = location === 'home' ? 'opponent' : 'user'
-  const rightTeam = location === 'home' ? 'user' : 'opponent'
+
+  // Check if this is a CFP game and get seeds
+  const isCFPGame = game.isCFPFirstRound || game.isCFPQuarterfinal ||
+                    game.isCFPSemifinal || game.isCFPChampionship
+
+  // Get CFP seeds for each team
+  const getCFPSeedForTid = (tid) => {
+    if (!tid || !currentDynasty?.cfpSeedsByYear) return null
+    const cfpSeeds = currentDynasty.cfpSeedsByYear[game.year] || currentDynasty.cfpSeedsByYear[String(game.year)]
+    if (!cfpSeeds) return null
+    const seedEntry = cfpSeeds.find(s => s.tid === tid)
+    return seedEntry?.seed || null
+  }
+
+  // Get user and opponent tids
+  const userTid = perspective?.userTid || resolveTid(displayTeamAbbr, teams)
+  const oppTid = perspective?.opponentTid || resolveTid(opponentAbbr, teams)
+
+  // Get seeds from game data or calculate from cfpSeedsByYear
+  const userSeed = game.seed1 || game.cfpSeed1 || getCFPSeedForTid(userTid)
+  const oppSeed = game.seed2 || game.cfpSeed2 || getCFPSeedForTid(oppTid)
+
+  // For CFP games: determine left/right based on seeding (lower seed on left)
+  let leftTeam, rightTeam
+  if (isCFPGame && userSeed && oppSeed) {
+    // Lower seed number = better team, goes on left
+    leftTeam = userSeed < oppSeed ? 'user' : 'opponent'
+    rightTeam = userSeed < oppSeed ? 'opponent' : 'user'
+  } else {
+    // Regular games: away on left, home on right
+    leftTeam = location === 'home' ? 'opponent' : 'user'
+    rightTeam = location === 'home' ? 'user' : 'opponent'
+  }
 
   // Generate AI recap for this game
   const handleGenerateRecap = async () => {

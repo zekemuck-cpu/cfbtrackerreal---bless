@@ -9,6 +9,7 @@ import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
+import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 
 export default function DangerZone() {
   const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly } = useDynasty()
@@ -39,6 +40,9 @@ export default function DangerZone() {
   const [currentStorageTier, setCurrentStorageTier] = useState(storageService.getTier())
   const [debugEnabled, setDebugEnabled] = useState(true)
   const [storageInfo, setStorageInfo] = useState(null)
+
+  // CFP repair state
+  const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -223,6 +227,179 @@ export default function DangerZone() {
     }
   }
 
+  // Repair CFP game slot assignments
+  // Fixes misaligned games where bowlName doesn't match cfpSlot due to configurable bowl assignments
+  const handleRepairCFPGames = async () => {
+    setCfpRepairStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      const cfpBowlConfigByYear = currentDynasty.cfpBowlConfigByYear || {}
+      let fixedCount = 0
+      let checkedCount = 0
+
+      // Helper: Reverse lookup - find which seed a bowl is assigned to in the config
+      const getSeedForBowl = (bowlName, bowlConfig) => {
+        const config = bowlConfig || DEFAULT_BOWL_CONFIG
+        for (let seed = 1; seed <= 4; seed++) {
+          if (config[`seed${seed}`] === bowlName) return seed
+        }
+        // Fallback to default config
+        for (let seed = 1; seed <= 4; seed++) {
+          if (DEFAULT_BOWL_CONFIG[`seed${seed}`] === bowlName) return seed
+        }
+        return null
+      }
+
+      // Helper: Find SF slot by bowl name
+      const getSFSlotForBowl = (bowlName, bowlConfig) => {
+        const config = bowlConfig || DEFAULT_BOWL_CONFIG
+        if (config.sf1 === bowlName || (!config.sf1 && DEFAULT_BOWL_CONFIG.sf1 === bowlName)) return 'cfpsf1'
+        if (config.sf2 === bowlName || (!config.sf2 && DEFAULT_BOWL_CONFIG.sf2 === bowlName)) return 'cfpsf2'
+        // Fallback to defaults
+        if (bowlName === 'Peach Bowl') return 'cfpsf1'
+        if (bowlName === 'Fiesta Bowl') return 'cfpsf2'
+        return null
+      }
+
+      const updatedGames = games.map(game => {
+        // Only process CFP games
+        if (!game.isCFPQuarterfinal && !game.isCFPSemifinal && !game.isCFPChampionship && !game.isCFPFirstRound) {
+          return game
+        }
+
+        const year = game.year
+        const bowlConfig = cfpBowlConfigByYear[year] || {}
+        checkedCount++
+
+        // Handle Quarterfinals - find correct slot by bye seed (which top-4 seed is in the game)
+        if (game.isCFPQuarterfinal) {
+          const cfpSeeds = currentDynasty.cfpSeedsByYear?.[year] || []
+
+          // Find which bye seed (1-4) is in this game - this is the most reliable method
+          const findByeSeed = () => {
+            for (let seed = 1; seed <= 4; seed++) {
+              const seedEntry = cfpSeeds.find(s => s.seed === seed)
+              if (seedEntry) {
+                // Check if this seed's team is in the game (by tid or abbr)
+                if (seedEntry.tid && (game.team1Tid === seedEntry.tid || game.team2Tid === seedEntry.tid)) {
+                  return seed
+                }
+                if (seedEntry.team && (game.team1 === seedEntry.team || game.team2 === seedEntry.team)) {
+                  return seed
+                }
+              }
+            }
+            // Fallback to bowl name lookup (less reliable with custom configs)
+            if (game.bowlName) {
+              return getSeedForBowl(game.bowlName, bowlConfig)
+            }
+            return null
+          }
+
+          const seed = findByeSeed()
+          if (seed) {
+            const correctSlot = SEED_TO_SLOT[seed]
+            const correctId = getCFPGameId(correctSlot, year)
+
+            if (game.cfpSlot !== correctSlot || game.id !== correctId) {
+              console.log(`[CFP Repair] QF seed ${seed} (${game.bowlName}): ${game.cfpSlot} -> ${correctSlot}, id: ${game.id} -> ${correctId}`)
+              fixedCount++
+              return {
+                ...game,
+                cfpSlot: correctSlot,
+                id: correctId,
+                cfpRound: 'quarterfinal'
+              }
+            }
+          }
+        }
+
+        // Handle Semifinals
+        if (game.isCFPSemifinal && game.bowlName) {
+          const correctSlot = getSFSlotForBowl(game.bowlName, bowlConfig)
+          if (correctSlot) {
+            const correctId = getCFPGameId(correctSlot, year)
+
+            if (game.cfpSlot !== correctSlot || game.id !== correctId) {
+              console.log(`[CFP Repair] SF ${game.bowlName}: ${game.cfpSlot} -> ${correctSlot}, id: ${game.id} -> ${correctId}`)
+              fixedCount++
+              return {
+                ...game,
+                cfpSlot: correctSlot,
+                id: correctId,
+                cfpRound: 'semifinal'
+              }
+            }
+          }
+        }
+
+        // Handle Championship
+        if (game.isCFPChampionship) {
+          const correctSlot = 'cfpnc'
+          const correctId = getCFPGameId(correctSlot, year)
+
+          if (game.cfpSlot !== correctSlot || game.id !== correctId) {
+            console.log(`[CFP Repair] NC: ${game.cfpSlot} -> ${correctSlot}, id: ${game.id} -> ${correctId}`)
+            fixedCount++
+            return {
+              ...game,
+              cfpSlot: correctSlot,
+              id: correctId,
+              cfpRound: 'championship'
+            }
+          }
+        }
+
+        // Handle First Round (slot based on seed matchup)
+        if (game.isCFPFirstRound) {
+          // First round slots are determined by seed pairs, not bowl names
+          // cfpfr1: 5v12, cfpfr2: 8v9, cfpfr3: 6v11, cfpfr4: 7v10
+          const seedPairs = {
+            'cfpfr1': [5, 12],
+            'cfpfr2': [8, 9],
+            'cfpfr3': [6, 11],
+            'cfpfr4': [7, 10]
+          }
+
+          // Find correct slot based on seeds
+          let correctSlot = null
+          for (const [slot, [s1, s2]] of Object.entries(seedPairs)) {
+            if ((game.seed1 === s1 && game.seed2 === s2) || (game.seed1 === s2 && game.seed2 === s1)) {
+              correctSlot = slot
+              break
+            }
+          }
+
+          if (correctSlot) {
+            const correctId = getCFPGameId(correctSlot, year)
+            if (game.cfpSlot !== correctSlot || game.id !== correctId) {
+              console.log(`[CFP Repair] FR ${game.seed1}v${game.seed2}: ${game.cfpSlot} -> ${correctSlot}`)
+              fixedCount++
+              return {
+                ...game,
+                cfpSlot: correctSlot,
+                id: correctId,
+                cfpRound: 'first_round'
+              }
+            }
+          }
+        }
+
+        return game
+      })
+
+      if (fixedCount > 0) {
+        await updateDynasty(currentDynasty.id, { games: updatedGames })
+        setCfpRepairStatus({ success: true, message: `Fixed ${fixedCount} of ${checkedCount} CFP games` })
+      } else {
+        setCfpRepairStatus({ success: true, message: `All ${checkedCount} CFP games are correctly aligned!` })
+      }
+    } catch (error) {
+      console.error('[CFP Repair] Error:', error)
+      setCfpRepairStatus({ success: false, message: 'Repair failed: ' + error.message })
+    }
+  }
+
   const handleAnalyzeSize = () => {
     const result = analyzeDocumentSize(currentDynasty.id)
     if (result.success) setSizeAnalysis(result.analysis)
@@ -339,6 +516,7 @@ export default function DangerZone() {
             <div><strong>Fix Roster:</strong> Departed players still showing on roster</div>
             <div><strong>Sync Recruiting:</strong> Missing data on recruiting pages</div>
             <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
+            <div><strong>Repair CFP:</strong> Clicking CFP games opens wrong game page</div>
             <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
             <div><strong>Database Migration:</strong> "Exceeds maximum size" errors</div>
@@ -365,7 +543,7 @@ export default function DangerZone() {
           title="Quick Fixes"
           subtitle="Common issues, safe to run"
         />
-        <div className="grid sm:grid-cols-3 gap-3">
+        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
             title="Fix Roster"
             description="Removes departed players, fixes recruit assignments"
@@ -386,6 +564,13 @@ export default function DangerZone() {
             buttonText="Remove"
             onClick={handleDuplicateGameCleanup}
             status={duplicateGameCleanupStatus}
+          />
+          <ActionCard
+            title="Repair CFP Games"
+            description="Fixes misaligned CFP bracket slots and game links"
+            buttonText="Repair CFP"
+            onClick={handleRepairCFPGames}
+            status={cfpRepairStatus}
           />
         </div>
       </div>

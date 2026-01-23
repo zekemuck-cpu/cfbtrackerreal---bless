@@ -61,21 +61,26 @@ const mascotMap = {
   'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
 }
 
-// Semifinal bowl structure
-// Peach Bowl: Sugar Bowl winner vs Orange Bowl winner
-// Fiesta Bowl: Rose Bowl winner vs Cotton Bowl winner
-const SEMIFINAL_GAMES = [
+// Semifinal structure - USE SLOT IDs for QF lookup (bowl names are configurable!)
+// SF1 (cfpsf1): cfpqf1 winner vs cfpqf2 winner (1/4 bracket side)
+// SF2 (cfpsf2): cfpqf3 winner vs cfpqf4 winner (2/3 bracket side)
+// Bowl names come from user's config (sf1 and sf2 keys), not hardcoded
+const SEMIFINAL_STRUCTURE = [
   {
-    id: 'peach',
-    bowlName: 'Peach Bowl',
-    qfBowl1: 'Sugar Bowl',
-    qfBowl2: 'Orange Bowl'
+    id: 'sf1',
+    slotId: 'cfpsf1',
+    configKey: 'sf1',
+    defaultBowlName: 'Peach Bowl',
+    qfSlot1: 'cfpqf1', // #1 seed's QF
+    qfSlot2: 'cfpqf2'  // #4 seed's QF
   },
   {
-    id: 'fiesta',
-    bowlName: 'Fiesta Bowl',
-    qfBowl1: 'Rose Bowl',
-    qfBowl2: 'Cotton Bowl'
+    id: 'sf2',
+    slotId: 'cfpsf2',
+    configKey: 'sf2',
+    defaultBowlName: 'Fiesta Bowl',
+    qfSlot1: 'cfpqf3', // #3 seed's QF
+    qfSlot2: 'cfpqf4'  // #2 seed's QF
   }
 ]
 
@@ -140,6 +145,28 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
       const qfResults = getGamesByType(currentDynasty, GAME_TYPES.CFP_QUARTERFINAL, currentYear)
       const existingSemis = getGamesByType(currentDynasty, GAME_TYPES.CFP_SEMIFINAL, currentYear)
 
+      // ALSO look for any QF games from all games that have scores (might not be in shells)
+      const allGames = currentDynasty?.games || []
+      const allQFGamesWithScores = allGames.filter(g =>
+        g && Number(g.year) === Number(currentYear) &&
+        (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal' || (g.week === 'Bowl 2' && g.cfpSlot?.startsWith('cfpqf'))) &&
+        g.team1Score !== undefined && g.team1Score !== null && g.team1Score !== ''
+      )
+      console.log('[CFPSemifinalsModal] All QF games with scores:', allQFGamesWithScores.map(g => ({
+        id: g.id, cfpSlot: g.cfpSlot, team1Tid: g.team1Tid, team2Tid: g.team2Tid, team1Score: g.team1Score, team2Score: g.team2Score
+      })))
+
+      // Merge: prefer games with scores
+      const qfResultsEnhanced = [...qfResults]
+      allQFGamesWithScores.forEach(g => {
+        if (!qfResultsEnhanced.find(r => r.id === g.id)) {
+          qfResultsEnhanced.push(g)
+        }
+      })
+
+      // Get bowl configuration for correct bowl names
+      const bowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+
       // Fallback to cfpResultsByYear for backwards compatibility with old data
       const legacyQFResults = currentDynasty?.cfpResultsByYear?.[currentYear]?.quarterfinals || []
       const legacySemis = currentDynasty?.cfpResultsByYear?.[currentYear]?.semifinals || []
@@ -151,7 +178,6 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
           if (g.teamScore === undefined || g.teamScore === null || g.teamScore === '') return false
           // Check if it's a CFP semifinal
           if (g.isCFPSemifinal) return true
-          if (g.bowlName === 'Peach Bowl' || g.bowlName === 'Fiesta Bowl') return true
           return false
         })
 
@@ -168,9 +194,13 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         }
         // Fallback: compute from scores
         if (game.team1Score !== undefined && game.team2Score !== undefined) {
-          const t1 = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1
-          const t2 = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2
-          return game.team1Score > game.team2Score ? t1 : t2
+          const t1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
+          const t2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
+          const t1 = t1Info?.abbr || game.team1 || ''
+          const t2 = t2Info?.abbr || game.team2 || ''
+          const winner = Number(game.team1Score) > Number(game.team2Score) ? t1 : t2
+          console.log(`[getGameWinner] ${game.id}: t1Tid=${game.team1Tid}→${t1}, t2Tid=${game.team2Tid}→${t2}, scores=${game.team1Score}-${game.team2Score}, winner=${winner}`)
+          return winner
         }
         return ''
       }
@@ -187,22 +217,97 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         return game[legacyField] || ''
       }
 
-      const initialGames = SEMIFINAL_GAMES.map((sf, index) => {
-        // Get winners from quarterfinals - try unified format first, then legacy
-        const qf1 = qfResults.find(g => g && g.bowlName === sf.qfBowl1) ||
-                    legacyQFResults.find(g => g && g.bowlName === sf.qfBowl1)
-        const qf2 = qfResults.find(g => g && g.bowlName === sf.qfBowl2) ||
-                    legacyQFResults.find(g => g && g.bowlName === sf.qfBowl2)
+      // Map QF slots to bye seeds for reliable lookup
+      const qfSlotToByeSeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
+      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
 
-        // Check if we have existing semifinal data - try unified format first, then legacy
-        const existing = existingSemis.find(g => g && g.bowlName === sf.bowlName) ||
-                         legacySemis.find(g => g && g.bowlName === sf.bowlName)
+      // Helper to find QF game by slot - prioritize games WITH SCORES over empty shells
+      const findQFGameBySlot = (slotId) => {
+        const byeSeed = qfSlotToByeSeed[slotId]
 
-        // Determine teams - from existing data or quarterfinal winners (handle both formats)
-        const existingTeam1 = existing ? getTeamAbbr(existing, true) : ''
-        const existingTeam2 = existing ? getTeamAbbr(existing, false) : ''
-        const team1 = existingTeam1 || getGameWinner(qf1) || ''
-        const team2 = existingTeam2 || getGameWinner(qf2) || ''
+        // First: Look for a game with this cfpSlot that HAS scores
+        const bySlotWithScores = qfResultsEnhanced.find(g => g && g.cfpSlot === slotId &&
+          g.team1Score !== undefined && g.team1Score !== null && g.team1Score !== '')
+        if (bySlotWithScores) {
+          console.log(`[findQFGameBySlot] ${slotId}: Found by cfpSlot WITH scores`, {
+            gameId: bySlotWithScores.id, team1Score: bySlotWithScores.team1Score, team2Score: bySlotWithScores.team2Score
+          })
+          return bySlotWithScores
+        }
+
+        // Second: Find by bye seed team - look for games WITH scores first
+        if (byeSeed) {
+          const byeSeedEntry = cfpSeeds.find(s => s.seed === byeSeed)
+          if (byeSeedEntry) {
+            // Look for QF game with bye seed team that HAS scores
+            const withScores = qfResultsEnhanced.find(g => {
+              if (!g || g.team1Score === undefined || g.team1Score === null || g.team1Score === '') return false
+              if (byeSeedEntry.tid && (g.team1Tid === byeSeedEntry.tid || g.team2Tid === byeSeedEntry.tid)) return true
+              if (byeSeedEntry.team && (g.team1 === byeSeedEntry.team || g.team2 === byeSeedEntry.team)) return true
+              return false
+            })
+            if (withScores) {
+              console.log(`[findQFGameBySlot] ${slotId}: Found by bye seed ${byeSeed} WITH scores`, {
+                gameId: withScores.id, byeSeedTeam: byeSeedEntry.team
+              })
+              return withScores
+            }
+          }
+        }
+
+        // Third: Fall back to shell without scores (for display purposes)
+        const bySlot = qfResultsEnhanced.find(g => g && g.cfpSlot === slotId)
+        if (bySlot) {
+          console.log(`[findQFGameBySlot] ${slotId}: Found shell (no scores)`, { gameId: bySlot.id })
+          return bySlot
+        }
+
+        console.log(`[findQFGameBySlot] ${slotId}: No game found!`)
+        return null
+      }
+
+      // Log QF results in readable format
+      console.log('[CFPSemifinalsModal] QF Results (enhanced):')
+      qfResultsEnhanced.forEach((g, i) => {
+        console.log(`  QF[${i}]: id=${g?.id}, cfpSlot=${g?.cfpSlot}, bowl=${g?.bowlName}, t1=${g?.team1Tid}(${g?.team1}), t2=${g?.team2Tid}(${g?.team2}), scores=${g?.team1Score}-${g?.team2Score}, winner=${g?.winner}`)
+      })
+      console.log('[CFPSemifinalsModal] CFP Seeds (bye seeds 1-4):')
+      cfpSeeds.filter(s => s.seed <= 4).forEach(s => {
+        console.log(`  Seed ${s.seed}: ${s.team} (tid=${s.tid})`)
+      })
+      console.log('[CFPSemifinalsModal] Existing Semis:', existingSemis.map(g => ({
+        id: g?.id, cfpSlot: g?.cfpSlot, bowlName: g?.bowlName,
+        team1Tid: g?.team1Tid, team2Tid: g?.team2Tid
+      })))
+
+      const initialGames = SEMIFINAL_STRUCTURE.map((sf, index) => {
+        // Get bowl name from user's config, fallback to default
+        const bowlName = bowlConfig[sf.configKey] || sf.defaultBowlName
+
+        // CRITICAL: Find QF games by SLOT ID using bye seed matching
+        // This ensures we get the correct game regardless of bowl configuration
+        const qf1 = findQFGameBySlot(sf.qfSlot1)
+        const qf2 = findQFGameBySlot(sf.qfSlot2)
+
+        console.log(`[CFPSemifinalsModal] ${sf.id} (${bowlName}):`, {
+          qfSlot1: sf.qfSlot1, qfSlot2: sf.qfSlot2,
+          qf1: qf1 ? { id: qf1.id, cfpSlot: qf1.cfpSlot, team1Tid: qf1.team1Tid, team2Tid: qf1.team2Tid, winner: qf1.winner } : null,
+          qf2: qf2 ? { id: qf2.id, cfpSlot: qf2.cfpSlot, team1Tid: qf2.team1Tid, team2Tid: qf2.team2Tid, winner: qf2.winner } : null
+        })
+
+        // Check if we have existing semifinal data - try by slot first, then bowl name
+        const existing = existingSemis.find(g => g && g.cfpSlot === sf.slotId) ||
+                         existingSemis.find(g => g && g.bowlName === bowlName) ||
+                         legacySemis.find(g => g && g.bowlName === bowlName)
+
+        // CRITICAL: Always recalculate teams from QF winners - don't trust shell data
+        // Shell data can be stale if QF results changed or propagation was incorrect
+        const qf1Winner = getGameWinner(qf1)
+        const qf2Winner = getGameWinner(qf2)
+        const team1 = qf1Winner || (existing ? getTeamAbbr(existing, true) : '') || ''
+        const team2 = qf2Winner || (existing ? getTeamAbbr(existing, false) : '') || ''
+
+        console.log(`[CFPSemifinalsModal] ${sf.id} teams:`, { qf1Winner, qf2Winner, team1, team2 })
 
         // Check if user's team is in this game
         const userInThisGame = userTeamAbbr && (team1 === userTeamAbbr || team2 === userTeamAbbr)
@@ -228,13 +333,12 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
             if (userScore !== undefined) {
               return {
                 id: sf.id,
-                bowlName: sf.bowlName,
+                bowlName,
+                slotId: sf.slotId,
                 team1,
                 team2,
                 team1Score: userIsTeam1 ? userScore : oppScore,
                 team2Score: userIsTeam1 ? oppScore : userScore,
-                qfBowl1: sf.qfBowl1,
-                qfBowl2: sf.qfBowl2,
                 userGame: true // Flag to indicate this is user's game - NOT EDITABLE
               }
             }
@@ -246,13 +350,12 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
           if (hasExistingScores) {
             return {
               id: sf.id,
-              bowlName: sf.bowlName,
+              bowlName,
+              slotId: sf.slotId,
               team1,
               team2,
               team1Score: existing.team1Score,
               team2Score: existing.team2Score,
-              qfBowl1: sf.qfBowl1,
-              qfBowl2: sf.qfBowl2,
               userGame: true
             }
           }
@@ -260,13 +363,12 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
           // User's game exists but not yet entered
           return {
             id: sf.id,
-            bowlName: sf.bowlName,
+            bowlName,
+            slotId: sf.slotId,
             team1,
             team2,
             team1Score: '',
             team2Score: '',
-            qfBowl1: sf.qfBowl1,
-            qfBowl2: sf.qfBowl2,
             userGame: true,
             userGamePending: true
           }
@@ -275,13 +377,12 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         // CPU vs CPU game - use existing data or empty
         return {
           id: sf.id,
-          bowlName: sf.bowlName,
+          bowlName,
+          slotId: sf.slotId,
           team1,
           team2,
           team1Score: existing?.team1Score ?? '',
-          team2Score: existing?.team2Score ?? '',
-          qfBowl1: sf.qfBowl1,
-          qfBowl2: sf.qfBowl2
+          team2Score: existing?.team2Score ?? ''
         }
       })
 

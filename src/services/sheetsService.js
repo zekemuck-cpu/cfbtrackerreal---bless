@@ -4218,7 +4218,7 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId) {
 }
 
 // Create CFP Quarterfinals sheet with auto-filled teams
-export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = []) {
+export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4255,8 +4255,8 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
     const sheet = await response.json()
     const cfpSheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize sheet with headers and auto-filled teams
-    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals)
+    // Initialize sheet with headers and auto-filled teams (pass bowl config for correct bowl names)
+    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals, bowlConfig)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -4272,7 +4272,7 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
 }
 
 // Initialize CFP Quarterfinals sheet with teams
-async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = []) {
+async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null) {
   // Get seed teams
   const getTeamBySeed = (seed) => cfpSeeds?.find(s => s.seed === seed)?.team || ''
 
@@ -4292,30 +4292,39 @@ async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheet
     return existingQuarterfinals.find(g => g && g.bowlName === bowlName) || {}
   }
 
-  // Quarterfinal matchups with bowl games
-  // Team 1 = higher seed (1-4), Team 2 = lower seed (First Round winner)
-  // Sugar Bowl: #4 vs 5/12 winner
-  // Orange Bowl: #1 vs 8/9 winner
-  // Rose Bowl: #3 vs 6/11 winner
-  // Cotton Bowl: #2 vs 7/10 winner
+  // Default bowl config if not provided
+  const defaultBowlConfig = {
+    seed1: 'Sugar Bowl',
+    seed2: 'Cotton Bowl',
+    seed3: 'Rose Bowl',
+    seed4: 'Orange Bowl'
+  }
+  const effectiveBowlConfig = bowlConfig || defaultBowlConfig
+
+  // Get bowl name for a seed from config
+  const getBowlForSeed = (seed) => effectiveBowlConfig[`seed${seed}`] || defaultBowlConfig[`seed${seed}`]
+
+  // Quarterfinal matchups with bowl games - USE CONFIG for bowl names!
+  // Team 1 = bye seed (1-4), Team 2 = First Round winner
+  // Order in sheet: seed 4, seed 1, seed 3, seed 2 (matches bracket display order)
   const quarterfinals = [
     {
-      bowl: 'Sugar Bowl',
+      bowl: getBowlForSeed(4),
       team1: getTeamBySeed(4),
       team2: getFirstRoundWinner(5, 12)
     },
     {
-      bowl: 'Orange Bowl',
+      bowl: getBowlForSeed(1),
       team1: getTeamBySeed(1),
       team2: getFirstRoundWinner(8, 9)
     },
     {
-      bowl: 'Rose Bowl',
+      bowl: getBowlForSeed(3),
       team1: getTeamBySeed(3),
       team2: getFirstRoundWinner(6, 11)
     },
     {
-      bowl: 'Cotton Bowl',
+      bowl: getBowlForSeed(2),
       team1: getTeamBySeed(2),
       team2: getFirstRoundWinner(7, 10)
     }

@@ -135,17 +135,28 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       } else if (legacyChamp) {
         setGame(legacyChamp)
       } else {
-        // Get winners from semifinals - try unified format first, then legacy
-        const peachGame = sfResults.find(g => g && g.bowlName === 'Peach Bowl') ||
-                          legacySFResults.find(g => g && g.bowlName === 'Peach Bowl')
-        const fiestaGame = sfResults.find(g => g && g.bowlName === 'Fiesta Bowl') ||
-                           legacySFResults.find(g => g && g.bowlName === 'Fiesta Bowl')
+        // Get winners from semifinals - find by cfpSlot (most reliable), then fallback to bowl name
+        const bowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+        const sf1BowlName = bowlConfig.sf1 || 'Peach Bowl'
+        const sf2BowlName = bowlConfig.sf2 || 'Fiesta Bowl'
+
+        // Find SF1 (cfpsf1) - winner of 1/4 bracket side
+        const sf1Game = sfResults.find(g => g && g.cfpSlot === 'cfpsf1') ||
+                        sfResults.find(g => g && g.bowlName === sf1BowlName) ||
+                        legacySFResults.find(g => g && g.bowlName === sf1BowlName) ||
+                        legacySFResults.find(g => g && g.bowlName === 'Peach Bowl')
+
+        // Find SF2 (cfpsf2) - winner of 2/3 bracket side
+        const sf2Game = sfResults.find(g => g && g.cfpSlot === 'cfpsf2') ||
+                        sfResults.find(g => g && g.bowlName === sf2BowlName) ||
+                        legacySFResults.find(g => g && g.bowlName === sf2BowlName) ||
+                        legacySFResults.find(g => g && g.bowlName === 'Fiesta Bowl')
 
         setGame({
           id: 'championship',
           bowlName: 'National Championship',
-          team1: getGameWinner(peachGame),
-          team2: getGameWinner(fiestaGame),
+          team1: getGameWinner(sf1Game),
+          team2: getGameWinner(sf2Game),
           team1Score: '',
           team2Score: ''
         })

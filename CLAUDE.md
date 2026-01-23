@@ -724,3 +724,80 @@ await storageService.migrateFromLocalStorage()
 ```
 
 Users can upgrade/downgrade mid-dynasty - data structure is identical in both backends.
+
+---
+
+## CURRENT WORK: CFP Bracket/Modal Team Mismatch Bug (January 2026)
+
+### Problem Summary
+
+The CFP Semifinals modal and other CFP-related components display **wrong team matchups**. Example:
+- Rose Bowl (SF1) shows: Penn State (#2) vs Georgia (#5)
+- Should show: Winners of cfpqf1 (seed 1 side) vs cfpqf2 (seed 4 side)
+
+### Root Cause Analysis
+
+**Two interconnected issues:**
+
+1. **CFP Seeds lack `tid` values**: Seeds are stored with only `team` (abbreviation), not `tid`:
+   ```javascript
+   // Current (broken):
+   { seed: 1, team: 'CLEM' }  // tid is undefined!
+
+   // Should be:
+   { seed: 1, team: 'CLEM', tid: 21 }
+   ```
+
+2. **QF Shell Teams Don't Match Seeds**: The QF game shells have teams assigned to wrong slots:
+   - cfpqf1 (bye seed 1) has tid 21 → maps to PSU, but seed 1 is CLEM
+   - cfpqf4 (bye seed 2) has tid 82 → maps to CLEM, but seed 2 is PSU
+   - Teams are essentially SWAPPED between slots
+
+### Files Modified (Debug Logging Added)
+
+- `src/components/CFPSemifinalsModal.jsx` - Extensive debug logging for QF/SF lookups
+- `src/components/CFPChampionshipModal.jsx` - Fixed to use cfpSlot lookup instead of hardcoded bowl names
+- `src/context/DynastyContext.jsx` - Added `foundById` flag to prevent game ID override in `addGame`
+
+### Key Debug Logs to Check
+
+When opening CFP Semifinals modal, look for:
+```
+[CFPSemifinalsModal] QF Results (enhanced):
+  QF[0]: id=cfpqf1-2029, cfpSlot=cfpqf1, t1=21, t2=56, scores=31-23
+[CFPSemifinalsModal] CFP Seeds (bye seeds 1-4):
+  Seed 1: CLEM (tid=undefined)
+[getGameWinner] cfpqf1-2029: t1Tid=21→PSU, t2Tid=56→???, winner=PSU
+```
+
+### Next Steps to Fix
+
+1. **Fix CFP Seed Entry**: When seeds are saved, look up and store `tid` for each team:
+   ```javascript
+   // In saveCFPSeeds or similar:
+   const tid = getTidFromAbbr(seed.team)
+   seed.tid = tid
+   ```
+
+2. **Fix Shell Creation**: In `createOrUpdateCFPGameShells`, ensure team tids are correctly assigned to slots based on seed structure:
+   - cfpqf1 should have seed 1 team's tid
+   - cfpqf2 should have seed 4 team's tid
+   - cfpqf3 should have seed 3 team's tid
+   - cfpqf4 should have seed 2 team's tid
+
+3. **Add Repair Function**: In DangerZone admin, add option to re-create CFP shells with correct team assignments
+
+### Slot-to-Bye-Seed Mapping Reference
+
+```javascript
+const slotToByeSeed = {
+  cfpqf1: 1,  // #1 seed's QF game
+  cfpqf2: 4,  // #4 seed's QF game
+  cfpqf3: 3,  // #3 seed's QF game
+  cfpqf4: 2   // #2 seed's QF game
+}
+
+// Semifinal structure:
+// SF1 (cfpsf1): Winner of cfpqf1 vs Winner of cfpqf2 (1/4 bracket side)
+// SF2 (cfpsf2): Winner of cfpqf3 vs Winner of cfpqf4 (2/3 bracket side)
+```

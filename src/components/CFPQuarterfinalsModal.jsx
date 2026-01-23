@@ -95,13 +95,16 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
           const firstRoundResults = currentDynasty?.cfpResultsByYear?.[currentYear]?.firstRound || []
           // Get existing quarterfinals data for pre-filling scores
           const existingQuarterfinals = currentDynasty?.cfpResultsByYear?.[currentYear]?.quarterfinals || []
+          // Get bowl configuration for correct bowl name assignments
+          const bowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
 
           const sheetInfo = await createCFPQuarterfinalsSheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
             cfpSeeds,
             firstRoundResults,
-            existingQuarterfinals
+            existingQuarterfinals,
+            bowlConfig
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
@@ -413,7 +416,7 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
                 </div>
                 <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
                   <p><strong>Teams are auto-filled!</strong> Just enter the scores for each game.</p>
-                  <p><strong>Bowls:</strong> Sugar (vs #4), Orange (vs #1), Rose (vs #3), Cotton (vs #2)</p>
+                  <p><strong>Bowl assignments use your configured settings from CFP Seeds.</strong></p>
                 </div>
               </>
             )}
