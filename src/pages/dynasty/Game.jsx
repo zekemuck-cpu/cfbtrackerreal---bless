@@ -679,12 +679,13 @@ export default function Game() {
   const isCFPGame = game.isCFPFirstRound || game.isCFPQuarterfinal ||
                     game.isCFPSemifinal || game.isCFPChampionship
 
-  // Get CFP seeds for each team
+  // Get CFP seeds for each team by tid only
   const getCFPSeedForTid = (tid) => {
     if (!tid || !currentDynasty?.cfpSeedsByYear) return null
     const cfpSeeds = currentDynasty.cfpSeedsByYear[game.year] || currentDynasty.cfpSeedsByYear[String(game.year)]
     if (!cfpSeeds) return null
     const seedEntry = cfpSeeds.find(s => s.tid === tid)
+    console.log('[Game] getCFPSeedForTid:', { tid, gameYear: game.year, cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })), foundEntry: seedEntry })
     return seedEntry?.seed || null
   }
 
@@ -696,12 +697,19 @@ export default function Game() {
   const userSeed = game.seed1 || game.cfpSeed1 || getCFPSeedForTid(userTid)
   const oppSeed = game.seed2 || game.cfpSeed2 || getCFPSeedForTid(oppTid)
 
-  // For CFP games: determine left/right based on seeding (lower seed on left)
+  console.log('[Game] CFP seed resolution:', {
+    isCFPGame,
+    userTid, oppTid,
+    userSeed, oppSeed,
+    gameSeeds: { seed1: game.seed1, seed2: game.seed2, cfpSeed1: game.cfpSeed1, cfpSeed2: game.cfpSeed2 }
+  })
+
+  // For CFP games: determine left/right based on seeding (better seed on right)
   let leftTeam, rightTeam
   if (isCFPGame && userSeed && oppSeed) {
-    // Lower seed number = better team, goes on left
-    leftTeam = userSeed < oppSeed ? 'user' : 'opponent'
-    rightTeam = userSeed < oppSeed ? 'opponent' : 'user'
+    // Lower seed number = better team, goes on right/bottom
+    leftTeam = userSeed > oppSeed ? 'user' : 'opponent'
+    rightTeam = userSeed > oppSeed ? 'opponent' : 'user'
   } else {
     // Regular games: away on left, home on right
     leftTeam = location === 'home' ? 'opponent' : 'user'

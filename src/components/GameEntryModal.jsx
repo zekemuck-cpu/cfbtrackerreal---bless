@@ -759,13 +759,13 @@ export default function GameEntryModal({
         }
 
         // For CFP First Round without location, determine from seeds
-        // Use effectiveTeamAbbr (from viewing context) rather than user's current team
+        // Use effectiveTeamTid (from viewing context) rather than user's current team
         let effectiveLocation = gameToLoad.location || 'neutral'
         if (!gameToLoad.location && (gameToLoad.isCFPFirstRound || gameToLoad.gameType === 'cfp_first_round' || bowlName === 'CFP First Round')) {
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameToLoad.year || actualYear] || []
-          const teamSeed = cfpSeeds.find(s => s.team === effectiveTeamAbbr)?.seed
-          const opponentAbbr = getAbbrFromTeamName(derivedOpponent) || derivedOpponent
-          const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
+          const teamSeed = cfpSeeds.find(s => s.tid === effectiveTeamTid)?.seed
+          const opponentTid = gameToLoad.team2Tid || gameToLoad.opponentTid
+          const oppSeed = cfpSeeds.find(s => s.tid === opponentTid)?.seed
           if (teamSeed && oppSeed) {
             effectiveLocation = teamSeed < oppSeed ? 'home' : 'away'
           }
@@ -860,22 +860,34 @@ export default function GameEntryModal({
         ? currentDynasty?.games?.find(g =>
             g.isConferenceChampionship &&
             Number(g.year) === Number(actualYear) &&
-            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr))
+            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.team2Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr))
         : currentDynasty?.games?.find(g =>
             Number(g.week) === Number(actualWeekNumber) &&
             Number(g.year) === Number(actualYear) &&
-            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr)))
+            (g.userTid === effectiveTeamTid || g.team1Tid === effectiveTeamTid || g.team2Tid === effectiveTeamTid || g.userTeam === effectiveTeamAbbr)))
 
       if (foundGame) {
         // Handle both unified format (team1Score/team2Score) and legacy format (teamScore/opponentScore)
         const isUnifiedFormat = foundGame.team1Tid !== undefined && foundGame.team2Tid !== undefined
-        const teamScore = isUnifiedFormat ? foundGame.team1Score : foundGame.teamScore
-        const oppScore = isUnifiedFormat ? foundGame.team2Score : foundGame.opponentScore
+
+        // For unified format, determine if user is team1 or team2
+        // This is critical for CCG games where team order is arbitrary (not user-first)
+        const isUserTeam1 = isUnifiedFormat ? foundGame.team1Tid === effectiveTeamTid : true
+
+        // Map scores based on which team the user is
+        const teamScore = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team1Score : foundGame.team2Score)
+          : foundGame.teamScore
+        const oppScore = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team2Score : foundGame.team1Score)
+          : foundGame.opponentScore
 
         // Parse opponent record into parts
         let overallRecord = ''
         let conferenceRecord = ''
-        const opponentRecord = foundGame.opponentRecord || foundGame.team2Record
+        const opponentRecord = isUnifiedFormat
+          ? (isUserTeam1 ? (foundGame.team2Record || foundGame.opponentRecord) : (foundGame.team1Record || foundGame.opponentRecord))
+          : foundGame.opponentRecord
         if (opponentRecord) {
           const overallMatch = opponentRecord.match(/^(\d+-\d+)/)
           const confMatch = opponentRecord.match(/\((\d+-\d+)\)/)
@@ -896,18 +908,54 @@ export default function GameEntryModal({
           }
         }
 
-        // For unified format, team1 is user and team2 is opponent
-        const userRank = isUnifiedFormat ? foundGame.team1Rank : foundGame.userRank
-        const oppRank = isUnifiedFormat ? foundGame.team2Rank : foundGame.opponentRank
-        const oppOverall = isUnifiedFormat ? foundGame.team2Overall : foundGame.opponentOverall
-        const oppOffense = isUnifiedFormat ? foundGame.team2Offense : foundGame.opponentOffense
-        const oppDefense = isUnifiedFormat ? foundGame.team2Defense : foundGame.opponentDefense
+        // For unified format, map ranks/ratings based on which team user is
+        const userRank = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team1Rank : foundGame.team2Rank)
+          : foundGame.userRank
+        const oppRank = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team2Rank : foundGame.team1Rank)
+          : foundGame.opponentRank
+        const oppOverall = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team2Overall : foundGame.team1Overall)
+          : foundGame.opponentOverall
+        const oppOffense = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team2Offense : foundGame.team1Offense)
+          : foundGame.opponentOffense
+        const oppDefense = isUnifiedFormat
+          ? (isUserTeam1 ? foundGame.team2Defense : foundGame.team1Defense)
+          : foundGame.opponentDefense
 
-        // For unified format, derive opponent name from team2Tid
+        // For unified format, derive opponent name from the other team's tid
         let opponentName = foundGame.opponent
-        if (!opponentName && isUnifiedFormat && foundGame.team2Tid) {
-          const oppTeam = currentDynasty?.teams?.[foundGame.team2Tid]
-          opponentName = oppTeam?.name || ''
+        if (!opponentName && isUnifiedFormat) {
+          const opponentTid = isUserTeam1 ? foundGame.team2Tid : foundGame.team1Tid
+          if (opponentTid) {
+            const oppTeam = currentDynasty?.teams?.[opponentTid]
+            opponentName = oppTeam?.name || ''
+          }
+        }
+
+        // Map quarters based on which team user is
+        // quarters.team = team1's quarters, quarters.opponent = team2's quarters (when stored)
+        // If user is team2, we need to swap them for display
+        let mappedQuarters = foundGame.quarters || {
+          team: { Q1: '', Q2: '', Q3: '', Q4: '' },
+          opponent: { Q1: '', Q2: '', Q3: '', Q4: '' }
+        }
+        let mappedOvertimes = foundGame.overtimes || []
+        if (isUnifiedFormat && !isUserTeam1 && foundGame.quarters) {
+          // User is team2, so quarters.team has team1 (opponent) scores
+          // Swap so that quarters.team = user's scores for display
+          mappedQuarters = {
+            team: foundGame.quarters.opponent || { Q1: '', Q2: '', Q3: '', Q4: '' },
+            opponent: foundGame.quarters.team || { Q1: '', Q2: '', Q3: '', Q4: '' }
+          }
+          if (foundGame.overtimes && foundGame.overtimes.length > 0) {
+            mappedOvertimes = foundGame.overtimes.map(ot => ({
+              team: ot.opponent,
+              opponent: ot.team
+            }))
+          }
         }
 
         setGameData({
@@ -927,14 +975,8 @@ export default function GameEntryModal({
           aiRecap: foundGame.aiRecap || '',
           week: actualWeekNumber,
           year: actualYear,
-          quarters: foundGame.quarters || {
-            team: { Q1: '', Q2: '', Q3: '', Q4: '' },
-            opponent: { Q1: '', Q2: '', Q3: '', Q4: '' }
-          },
-          overtimes: getOvertimesForQuarters(
-            foundGame.quarters || { team: { Q1: '', Q2: '', Q3: '', Q4: '' }, opponent: { Q1: '', Q2: '', Q3: '', Q4: '' } },
-            foundGame.overtimes || []
-          )
+          quarters: mappedQuarters,
+          overtimes: getOvertimesForQuarters(mappedQuarters, mappedOvertimes)
         })
 
         // Load links
@@ -960,13 +1002,13 @@ export default function GameEntryModal({
       } else if (scheduledGame || isConferenceChampionship || bowlName || passedOpponent) {
         // New game - load from schedule, CC opponent, or bowl opponent
         // For CFP First Round, higher seed hosts (lower number = higher seed)
-        // Use effectiveTeamAbbr (from viewing context) rather than user's current team
+        // Use effectiveTeamTid (from viewing context) rather than user's current team
         let cfpLocation = 'neutral'
         if (bowlName === 'CFP First Round') {
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[actualYear] || []
-          const teamSeed = cfpSeeds.find(s => s.team === effectiveTeamAbbr)?.seed
-          const opponentAbbr = getAbbrFromTeamName(passedOpponent) || passedOpponent
-          const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed
+          const teamSeed = cfpSeeds.find(s => s.tid === effectiveTeamTid)?.seed
+          const opponentTid = getTidFromAbbr(passedOpponent)
+          const oppSeed = cfpSeeds.find(s => s.tid === opponentTid)?.seed
           if (teamSeed && oppSeed) {
             cfpLocation = teamSeed < oppSeed ? 'home' : 'away'
           }
@@ -1195,6 +1237,27 @@ export default function GameEntryModal({
     // Destructure to exclude overallRecord and conferenceRecord from the spread
     const { overallRecord: _or, conferenceRecord: _cr, ...restGameData } = gameData
 
+    // For unified format games where user is team2, swap quarters back to team1/team2 format for saving
+    // This prevents double-swapping on the next load (since load swaps and save would swap again)
+    const isUnifiedFormatGame = effectiveGame?.team1Tid !== undefined && effectiveGame?.team2Tid !== undefined
+    const isUserTeam1InOriginal = isUnifiedFormatGame ? effectiveGame.team1Tid === effectiveTeamTid : true
+    let quartersForSave = gameData.quarters
+    let overtimesForSave = gameData.overtimes
+    if (isUnifiedFormatGame && !isUserTeam1InOriginal && gameData.quarters) {
+      // User was team2 in original game, quarters were swapped on load for display
+      // Swap back so quarters.team = team1 (opponent) scores, quarters.opponent = team2 (user) scores
+      quartersForSave = {
+        team: gameData.quarters.opponent,
+        opponent: gameData.quarters.team
+      }
+      if (gameData.overtimes && gameData.overtimes.length > 0) {
+        overtimesForSave = gameData.overtimes.map(ot => ({
+          team: ot.opponent,
+          opponent: ot.team
+        }))
+      }
+    }
+
     // Helper to remove undefined values (Firestore doesn't accept undefined)
     const removeUndefined = (obj) => {
       return Object.fromEntries(
@@ -1297,8 +1360,9 @@ export default function GameEntryModal({
       natlDefensePOW: natlDefensePOW || null,
 
       // Quarter-by-quarter scoring and overtime
-      quarters: gameData.quarters,
-      overtimes: gameData.overtimes?.length > 0 ? gameData.overtimes : null,
+      // Use quartersForSave/overtimesForSave which handles swap-back for unified format games
+      quarters: quartersForSave,
+      overtimes: overtimesForSave?.length > 0 ? overtimesForSave : null,
 
       // Preserve special game type flags for backward compat
       ...(effectiveGame?.bowlName && { bowlName: effectiveGame.bowlName }),

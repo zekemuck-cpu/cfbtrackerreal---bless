@@ -3669,7 +3669,7 @@ export default function Dashboard() {
             const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
             const cfpSeeds = currentDynasty.cfpSeedsByYear?.[currentDynasty.currentYear] || []
             // Check tid first, then abbr for backward compatibility
-            const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid || s.team === userTeamAbbr)?.seed || null
+            const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
 
             // Calculate CFP first round opponent (5v12, 6v11, 7v10, 8v9) - returns tid
             const getCFPFirstRoundOpponent = (seed) => {
@@ -3804,8 +3804,8 @@ export default function Dashboard() {
                 const opponentBowlSeeds = orangeSeeds.includes(userCFPSeed) ? sugarSeeds : orangeSeeds
                 const opponentQFGame = quarterfinalResults.find(g => {
                   // Check tid first, then fallback to abbr
-                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
-                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
+                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid)?.seed
+                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid)?.seed
                   return opponentBowlSeeds.includes(team1Seed) || opponentBowlSeeds.includes(team2Seed)
                 })
                 // Return winnerTid if available, otherwise fall back to winner abbr
@@ -3819,8 +3819,8 @@ export default function Dashboard() {
                 const opponentBowlSeeds = cottonSeeds.includes(userCFPSeed) ? roseSeeds : cottonSeeds
                 const opponentQFGame = quarterfinalResults.find(g => {
                   // Check tid first, then fallback to abbr
-                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
-                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
+                  const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid)?.seed
+                  const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid)?.seed
                   return opponentBowlSeeds.includes(team1Seed) || opponentBowlSeeds.includes(team2Seed)
                 })
                 // Return winnerTid if available, otherwise fall back to winner abbr
@@ -3881,8 +3881,8 @@ export default function Dashboard() {
               // Find the SF game the user was NOT in
               const opponentSF = semifinalResults.find(g => {
                 // Check tid first, then fallback to abbr
-                const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid || s.team === g.team1)?.seed
-                const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid || s.team === g.team2)?.seed
+                const team1Seed = cfpSeeds.find(s => s.tid === g.team1Tid)?.seed
+                const team2Seed = cfpSeeds.find(s => s.tid === g.team2Tid)?.seed
                 const gameInPeachBowl = peachBowlSeeds.includes(team1Seed) || peachBowlSeeds.includes(team2Seed)
                 // If user was in Peach, opponent is from Fiesta (not in Peach)
                 return userInPeachBowl ? !gameInPeachBowl : gameInPeachBowl
@@ -5147,7 +5147,8 @@ export default function Dashboard() {
               const unifiedChampGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_CHAMPIONSHIP, currentDynasty.currentYear)
               const legacyChampData = currentDynasty.cfpResultsByYear?.[currentDynasty.currentYear]?.championship || []
               const champData = unifiedChampGames.length > 0 ? unifiedChampGames : legacyChampData
-              const hasChampData = champData.length > 0
+              // Check if actual scores are entered, not just that the shell exists
+              const hasChampData = champData.length > 0 && champData[0]?.team1Score !== null && champData[0]?.team1Score !== undefined
 
               return (
                 <>
@@ -5796,32 +5797,37 @@ export default function Dashboard() {
                     const sfGamesWithScores = sfData.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
                     const allSFComplete = sfGamesWithScores >= 2
 
+                    // Check if championship game has actual scores (not just shell)
+                    const userChampHasScores = userCFPChampionshipGame &&
+                      userCFPChampionshipGame.team1Score !== null &&
+                      userCFPChampionshipGame.team1Score !== undefined
+
                     return (
                     <div
                       className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        userCFPChampionshipGame ? 'border-green-200 bg-green-50' : ''
+                        userChampHasScores ? 'border-green-200 bg-green-50' : ''
                       }`}
-                      style={!userCFPChampionshipGame ? { borderColor: `${teamColors.primary}30` } : {}}
+                      style={!userChampHasScores ? { borderColor: `${teamColors.primary}30` } : {}}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
                           className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            userCFPChampionshipGame ? 'bg-green-500 text-white' : ''
+                            userChampHasScores ? 'bg-green-500 text-white' : ''
                           }`}
-                          style={!userCFPChampionshipGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          style={!userChampHasScores ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
-                          {userCFPChampionshipGame ? (
+                          {userChampHasScores ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPChampionshipGame ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: userChampHasScores ? '#16a34a' : secondaryBgText }}>
                             Enter Your National Championship Game
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPChampionshipGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
-                            {userCFPChampionshipGame
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userChampHasScores ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            {userChampHasScores
                               ? `✓ ${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
                               : allSFComplete
                                 ? `National Championship vs ${userChampOpponent ? getMascotName(userChampOpponent) || userChampOpponent : 'TBD'}`
@@ -5852,7 +5858,7 @@ export default function Dashboard() {
                         className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
                         style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                       >
-                        {(userCFPChampionshipGame || (userCFPChampionshipShell?.team1Score !== null)) ? 'Edit' : 'Enter'}
+                        {userChampHasScores ? 'Edit' : 'Enter'}
                       </button>
                     </div>
                     )
@@ -8605,10 +8611,16 @@ export default function Dashboard() {
           const existingGames = currentDynasty.games || []
           const updatedGames = createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, bowlConfig)
 
+          // Convert to tid-only format (no abbreviations stored)
+          const seedsTidOnly = seeds.map(s => ({
+            seed: s.seed,
+            tid: s.tid || getTidFromAbbr(s.team) // Prefer existing tid, fallback for legacy data
+          })).filter(s => s.tid) // Only include if tid resolved
+
           await updateDynasty(currentDynasty.id, {
             cfpSeedsByYear: {
               ...existingByYear,
-              [year]: seeds // Keep legacy format for backward compatibility
+              [year]: seedsTidOnly // tid-only format for teambuilder support
             },
             cfpSeedsByYearTid: {
               ...(currentDynasty.cfpSeedsByYearTid || {}),

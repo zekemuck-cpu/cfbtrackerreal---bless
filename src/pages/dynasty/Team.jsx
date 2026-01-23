@@ -344,9 +344,10 @@ export default function Team() {
     : null
 
   // Calculate conference titles dynamically from conferenceChampionshipsByYear
+  // Use tid-based comparison for teambuilder support
   const conferenceTitles = Object.values(currentDynasty.conferenceChampionshipsByYear || {})
     .flat()
-    .filter(cc => cc.winner === teamAbbr)
+    .filter(cc => cc.winnerTid === tid || cc.winner === teamAbbr)
     .length
 
   // Get all dynasty years (defined early for use in getFinalRanking)
@@ -608,7 +609,7 @@ export default function Team() {
 
     Object.entries(cfpSeeds).forEach(([year, yearSeeds]) => {
       if (!Array.isArray(yearSeeds)) return
-      const teamSeed = yearSeeds.find(s => s.team === teamAbbr)
+      const teamSeed = yearSeeds.find(s => s.tid === tid)
       if (!teamSeed) return
 
       const yearNum = parseInt(year)
@@ -656,16 +657,21 @@ export default function Team() {
       const existingRounds = new Set(games.map(g => g.round))
 
       // Check first round games from CPU results
+      // Helper for tid-based team matching (teambuilder support)
+      const isTeamInGame = (g) => g && (g.team1Tid === tid || g.team2Tid === tid || g.team1 === teamAbbr || g.team2 === teamAbbr)
+      const isTeamTeam1 = (g) => g.team1Tid === tid || g.team1 === teamAbbr
+      const didTeamWin = (g) => g.winnerTid === tid || g.winner === teamAbbr
+
       const firstRound = yearResults.firstRound || []
       firstRound.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('First Round')) {
-          const isTeam1 = g.team1 === teamAbbr
+        if (isTeamInGame(g) && !existingRounds.has('First Round')) {
+          const isTeam1 = isTeamTeam1(g)
           games.push({
             round: 'First Round',
             opponent: isTeam1 ? g.team2 : g.team1,
             teamScore: isTeam1 ? g.team1Score : g.team2Score,
             opponentScore: isTeam1 ? g.team2Score : g.team1Score,
-            won: g.winner === teamAbbr
+            won: didTeamWin(g)
           })
         }
       })
@@ -673,14 +679,14 @@ export default function Team() {
       // Check quarterfinals from CPU results
       const quarterfinals = yearResults.quarterfinals || []
       quarterfinals.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('Quarterfinals')) {
-          const isTeam1 = g.team1 === teamAbbr
+        if (isTeamInGame(g) && !existingRounds.has('Quarterfinals')) {
+          const isTeam1 = isTeamTeam1(g)
           games.push({
             round: 'Quarterfinals',
             opponent: isTeam1 ? g.team2 : g.team1,
             teamScore: isTeam1 ? g.team1Score : g.team2Score,
             opponentScore: isTeam1 ? g.team2Score : g.team1Score,
-            won: g.winner === teamAbbr
+            won: didTeamWin(g)
           })
         }
       })
@@ -688,28 +694,28 @@ export default function Team() {
       // Check semifinals from CPU results
       const semifinals = yearResults.semifinals || []
       semifinals.forEach(g => {
-        if (g && (g.team1 === teamAbbr || g.team2 === teamAbbr) && !existingRounds.has('Semifinals')) {
-          const isTeam1 = g.team1 === teamAbbr
+        if (isTeamInGame(g) && !existingRounds.has('Semifinals')) {
+          const isTeam1 = isTeamTeam1(g)
           games.push({
             round: 'Semifinals',
             opponent: isTeam1 ? g.team2 : g.team1,
             teamScore: isTeam1 ? g.team1Score : g.team2Score,
             opponentScore: isTeam1 ? g.team2Score : g.team1Score,
-            won: g.winner === teamAbbr
+            won: didTeamWin(g)
           })
         }
       })
 
       // Check championship from CPU results
       const championship = yearResults.championship?.[0]
-      if (championship && (championship.team1 === teamAbbr || championship.team2 === teamAbbr) && !existingRounds.has('Championship')) {
-        const isTeam1 = championship.team1 === teamAbbr
+      if (isTeamInGame(championship) && !existingRounds.has('Championship')) {
+        const isTeam1 = isTeamTeam1(championship)
         games.push({
           round: 'Championship',
           opponent: isTeam1 ? championship.team2 : championship.team1,
           teamScore: isTeam1 ? championship.team1Score : championship.team2Score,
           opponentScore: isTeam1 ? championship.team2Score : championship.team1Score,
-          won: championship.winner === teamAbbr
+          won: didTeamWin(championship)
         })
       }
 
@@ -807,13 +813,16 @@ export default function Team() {
     const titles = []
     Object.entries(currentDynasty.conferenceChampionshipsByYear || {}).forEach(([year, yearChamps]) => {
       yearChamps.forEach(cc => {
-        if (cc.winner === teamAbbr) {
+        // Use tid-based comparison for teambuilder support
+        const teamWon = cc.winnerTid === tid || cc.winner === teamAbbr
+        if (teamWon) {
+          const isTeam1 = cc.team1Tid === tid || cc.team1 === teamAbbr
           titles.push({
             year: parseInt(year),
             conference: cc.conference,
-            opponent: cc.team1 === teamAbbr ? cc.team2 : cc.team1,
-            teamScore: cc.team1 === teamAbbr ? cc.team1Score : cc.team2Score,
-            opponentScore: cc.team1 === teamAbbr ? cc.team2Score : cc.team1Score
+            opponent: isTeam1 ? cc.team2 : cc.team1,
+            teamScore: isTeam1 ? cc.team1Score : cc.team2Score,
+            opponentScore: isTeam1 ? cc.team2Score : cc.team1Score
           })
         }
       })
@@ -963,9 +972,10 @@ export default function Team() {
   // Check if team won conference championship in a year
   const getConferenceChampionshipForYear = (year) => {
     const yearChampionships = currentDynasty.conferenceChampionshipsByYear?.[year] || []
+    // Use tid-based comparison for teambuilder support
     const teamCC = yearChampionships.find(cc =>
-      cc && (cc.team1 === teamAbbr || cc.team2 === teamAbbr) &&
-      cc.winner === teamAbbr
+      cc && (cc.team1Tid === tid || cc.team2Tid === tid || cc.team1 === teamAbbr || cc.team2 === teamAbbr) &&
+      (cc.winnerTid === tid || cc.winner === teamAbbr)
     )
     return teamCC ? teamCC.conference : null
   }
@@ -973,40 +983,44 @@ export default function Team() {
   // Check if team was in CFP this year and where they were eliminated
   const getCFPResultForYear = (year) => {
     const cfpSeeds = currentDynasty.cfpSeedsByYear?.[year] || []
-    const teamSeed = cfpSeeds.find(s => s && s.team === teamAbbr)
+    const teamSeed = cfpSeeds.find(s => s && s.tid === tid)
     if (!teamSeed) return null
 
     const cfpResults = currentDynasty.cfpResultsByYear?.[year] || {}
 
+    // Helper for tid-based team matching (teambuilder support)
+    const isTeamInGame = (g) => g && (g.team1Tid === tid || g.team2Tid === tid || g.team1 === teamAbbr || g.team2 === teamAbbr)
+    const didTeamWin = (g) => g && (g.winnerTid === tid || g.winner === teamAbbr)
+
     // Check for national championship win
     const championship = cfpResults.championship?.[0]
-    if (championship && championship.winner === teamAbbr) {
+    if (didTeamWin(championship)) {
       return { type: 'champion', seed: teamSeed.seed }
     }
 
     // Check if lost in championship game
-    if (championship && (championship.team1 === teamAbbr || championship.team2 === teamAbbr)) {
+    if (isTeamInGame(championship)) {
       return { type: 'lost', round: 'Champ', seed: teamSeed.seed }
     }
 
     // Check if lost in semifinals
     const semifinals = cfpResults.semifinals || []
-    const sfGame = semifinals.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
-    if (sfGame && sfGame.winner && sfGame.winner !== teamAbbr) {
+    const sfGame = semifinals.find(g => isTeamInGame(g))
+    if (sfGame && (sfGame.winner || sfGame.winnerTid) && !didTeamWin(sfGame)) {
       return { type: 'lost', round: 'SF', seed: teamSeed.seed }
     }
 
     // Check if lost in quarterfinals
     const quarterfinals = cfpResults.quarterfinals || []
-    const qfGame = quarterfinals.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
-    if (qfGame && qfGame.winner && qfGame.winner !== teamAbbr) {
+    const qfGame = quarterfinals.find(g => isTeamInGame(g))
+    if (qfGame && (qfGame.winner || qfGame.winnerTid) && !didTeamWin(qfGame)) {
       return { type: 'lost', round: 'QF', seed: teamSeed.seed }
     }
 
     // Check if lost in first round (seeds 5-12 play first round)
     const firstRound = cfpResults.firstRound || []
-    const r1Game = firstRound.find(g => g && (g.team1 === teamAbbr || g.team2 === teamAbbr))
-    if (r1Game && r1Game.winner && r1Game.winner !== teamAbbr) {
+    const r1Game = firstRound.find(g => isTeamInGame(g))
+    if (r1Game && (r1Game.winner || r1Game.winnerTid) && !didTeamWin(r1Game)) {
       return { type: 'lost', round: 'R1', seed: teamSeed.seed }
     }
 

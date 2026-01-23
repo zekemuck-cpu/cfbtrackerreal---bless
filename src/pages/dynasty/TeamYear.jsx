@@ -2530,8 +2530,8 @@ export default function TeamYear() {
               } else if (game.isCFPFirstRound) {
                 // For first round, use seeds to determine slot
                 const cfpSeeds = currentDynasty.cfpSeedsByYear?.[selectedYear] || []
-                const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-                const userSeed = cfpSeeds.find(s => s && s.team === userTeamAbbr)?.seed
+                const userTid = currentDynasty.currentTid
+                const userSeed = cfpSeeds.find(s => s && s.tid === userTid)?.seed
                 const oppSeed = userSeed ? 17 - userSeed : null
                 const slotId = getFirstRoundSlotId(userSeed, oppSeed)
                 if (slotId) properGameId = getCFPGameId(slotId, selectedYear)

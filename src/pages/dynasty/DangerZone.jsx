@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -227,15 +227,43 @@ export default function DangerZone() {
     }
   }
 
-  // Repair CFP game slot assignments
-  // Fixes misaligned games where bowlName doesn't match cfpSlot due to configurable bowl assignments
+  // Repair CFP game slot assignments AND add tid fields to legacy data
+  // Fixes: 1) misaligned games, 2) missing tid in seeds, 3) missing tid in games
   const handleRepairCFPGames = async () => {
     setCfpRepairStatus('running')
     try {
       const games = currentDynasty.games || []
       const cfpBowlConfigByYear = currentDynasty.cfpBowlConfigByYear || {}
+      const cfpSeedsByYear = currentDynasty.cfpSeedsByYear || {}
       let fixedCount = 0
       let checkedCount = 0
+      let seedsFixedCount = 0
+
+      // PHASE 1: Fix CFP seeds - add tid where missing
+      const updatedCfpSeeds = {}
+      for (const [year, seeds] of Object.entries(cfpSeedsByYear)) {
+        if (!Array.isArray(seeds)) continue
+        let yearSeedsFixed = false
+        const fixedSeeds = seeds.map(seed => {
+          if (!seed) return seed
+          if (seed.tid) return seed // Already has tid
+          if (!seed.team) return seed // No team abbreviation to look up
+
+          // Look up tid from abbreviation
+          const tid = getTidFromAbbr(seed.team)
+          if (tid) {
+            yearSeedsFixed = true
+            seedsFixedCount++
+            console.log(`[CFP Repair] Seed ${seed.seed}: Added tid ${tid} for ${seed.team}`)
+            return { ...seed, tid }
+          }
+          return seed
+        })
+        updatedCfpSeeds[year] = fixedSeeds
+        if (yearSeedsFixed) {
+          console.log(`[CFP Repair] Fixed seeds for year ${year}`)
+        }
+      }
 
       // Helper: Reverse lookup - find which seed a bowl is assigned to in the config
       const getSeedForBowl = (bowlName, bowlConfig) => {
@@ -261,6 +289,7 @@ export default function DangerZone() {
         return null
       }
 
+      // PHASE 2: Fix CFP games - add tid fields and fix slots
       const updatedGames = games.map(game => {
         // Only process CFP games
         if (!game.isCFPQuarterfinal && !game.isCFPSemifinal && !game.isCFPChampionship && !game.isCFPFirstRound) {
@@ -270,6 +299,53 @@ export default function DangerZone() {
         const year = game.year
         const bowlConfig = cfpBowlConfigByYear[year] || {}
         checkedCount++
+
+        // Add tid fields if missing
+        let updatedGame = { ...game }
+        let gameModified = false
+
+        // Add team1Tid if missing but team1 exists
+        if (!updatedGame.team1Tid && updatedGame.team1) {
+          const tid = getTidFromAbbr(updatedGame.team1)
+          if (tid) {
+            updatedGame.team1Tid = tid
+            gameModified = true
+          }
+        }
+
+        // Add team2Tid if missing but team2 exists
+        if (!updatedGame.team2Tid && updatedGame.team2) {
+          const tid = getTidFromAbbr(updatedGame.team2)
+          if (tid) {
+            updatedGame.team2Tid = tid
+            gameModified = true
+          }
+        }
+
+        // Add winnerTid if missing but winner exists
+        if (!updatedGame.winnerTid && updatedGame.winner) {
+          const tid = getTidFromAbbr(updatedGame.winner)
+          if (tid) {
+            updatedGame.winnerTid = tid
+            gameModified = true
+          }
+        }
+
+        // Also try to compute winner from scores if not set
+        if (!updatedGame.winner && updatedGame.team1Score !== null && updatedGame.team2Score !== null) {
+          updatedGame.winner = updatedGame.team1Score > updatedGame.team2Score ? updatedGame.team1 : updatedGame.team2
+          if (updatedGame.winner) {
+            updatedGame.winnerTid = getTidFromAbbr(updatedGame.winner)
+            gameModified = true
+          }
+        }
+
+        if (gameModified) {
+          console.log(`[CFP Repair] Added tid fields to ${updatedGame.id || 'game'}`)
+          fixedCount++
+        }
+
+        game = updatedGame
 
         // Handle Quarterfinals - find correct slot by bye seed (which top-4 seed is in the game)
         if (game.isCFPQuarterfinal) {
@@ -388,9 +464,51 @@ export default function DangerZone() {
         return game
       })
 
-      if (fixedCount > 0) {
-        await updateDynasty(currentDynasty.id, { games: updatedGames })
-        setCfpRepairStatus({ success: true, message: `Fixed ${fixedCount} of ${checkedCount} CFP games` })
+      // PHASE 3: Re-propagate winners from all completed CFP games
+      // This ensures SF/NC shells have correct teams after slot fixes
+      let gamesAfterPropagation = [...updatedGames]
+      let propagatedCount = 0
+
+      // Process games in order: FR -> QF -> SF (NC doesn't propagate)
+      const cfpOrder = ['isCFPFirstRound', 'isCFPQuarterfinal', 'isCFPSemifinal']
+      for (const roundFlag of cfpOrder) {
+        const roundGames = gamesAfterPropagation.filter(g => g[roundFlag] && g.cfpSlot)
+        for (const game of roundGames) {
+          // Skip games without scores
+          if (game.team1Score === null || game.team1Score === undefined ||
+              game.team2Score === null || game.team2Score === undefined) {
+            continue
+          }
+
+          // Re-propagate winner
+          const beforePropagation = JSON.stringify(gamesAfterPropagation.map(g => ({ id: g.id, team1Tid: g.team1Tid, team2Tid: g.team2Tid })))
+          gamesAfterPropagation = propagateCFPWinner(gamesAfterPropagation, game)
+          const afterPropagation = JSON.stringify(gamesAfterPropagation.map(g => ({ id: g.id, team1Tid: g.team1Tid, team2Tid: g.team2Tid })))
+
+          if (beforePropagation !== afterPropagation) {
+            console.log(`[CFP Repair] Re-propagated winner from ${game.cfpSlot}`)
+            propagatedCount++
+          }
+        }
+      }
+
+      if (propagatedCount > 0) {
+        console.log(`[CFP Repair] Phase 3: Re-propagated ${propagatedCount} winners`)
+      }
+
+      const totalFixed = fixedCount + seedsFixedCount + propagatedCount
+      if (totalFixed > 0) {
+        const updates = { games: gamesAfterPropagation }
+        // Also update seeds if any were fixed
+        if (seedsFixedCount > 0) {
+          updates.cfpSeedsByYear = updatedCfpSeeds
+        }
+        await updateDynasty(currentDynasty.id, updates)
+        const messages = []
+        if (fixedCount > 0) messages.push(`${fixedCount} games`)
+        if (seedsFixedCount > 0) messages.push(`${seedsFixedCount} seeds`)
+        if (propagatedCount > 0) messages.push(`${propagatedCount} propagations`)
+        setCfpRepairStatus({ success: true, message: `Fixed ${messages.join(' and ')} across ${checkedCount} CFP games` })
       } else {
         setCfpRepairStatus({ success: true, message: `All ${checkedCount} CFP games are correctly aligned!` })
       }

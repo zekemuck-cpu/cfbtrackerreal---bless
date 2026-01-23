@@ -1432,6 +1432,14 @@ export function buildGameRecapContext(dynasty, game) {
     ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder)
     : []
 
+  // Determine if user is team1 or team2 in the original game data
+  // This affects how quarters are mapped since quarters.team/quarters.opponent
+  // are stored relative to team1/team2 order for CPU games and unified format CCG games
+  let isUserTeam1InGameData = true
+  if (isCurrentGameUserGame && hasUnifiedFormat && currentGamePerspective?.userTid) {
+    isUserTeam1InGameData = game.team1Tid === currentGamePerspective.userTid
+  }
+
   // Determine which box score side has which team's stats by checking teamAbbr
   // The box score teamStats has home.teamAbbr and away.teamAbbr to identify teams
   let team1Side = 'home'
@@ -1482,6 +1490,36 @@ export function buildGameRecapContext(dynasty, game) {
   if (game.boxScore) {
     team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder)
     team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder)
+  }
+
+  // Map quarters correctly based on team position in original game data
+  // For user games in the context, team1 = user, team2 = opponent
+  // But quarters may have been stored with team1/team2 semantics (for CCG/CPU games entered via GameEntryModal)
+  // where quarters.team = team1 and quarters.opponent = team2, regardless of which is the user
+  let mappedQuarters = null
+  let mappedOvertimes = null
+  if (game.quarters) {
+    if (isCurrentGameUserGame && !isUserTeam1InGameData) {
+      // User was team2 in game data, so quarters.team = team1 (opponent), quarters.opponent = team2 (user)
+      // Need to swap so that in the prompt, team1 (user in context) gets user's quarters
+      mappedQuarters = {
+        team: game.quarters.opponent,
+        opponent: game.quarters.team,
+        // Also handle team1/team2 keys if they exist
+        team1: game.quarters.team2 || game.quarters.opponent,
+        team2: game.quarters.team1 || game.quarters.team
+      }
+      // Also swap overtimes if present
+      if (game.overtimes) {
+        mappedOvertimes = game.overtimes.map(ot => ({
+          team: ot.opponent,
+          opponent: ot.team
+        }))
+      }
+    } else {
+      mappedQuarters = game.quarters
+      mappedOvertimes = game.overtimes
+    }
   }
 
   return {
@@ -1545,11 +1583,11 @@ export function buildGameRecapContext(dynasty, game) {
     // Box score highlights for both teams (enhanced with player info)
     boxScore: boxScoreContext,
 
-    // Quarter-by-quarter scores
-    quarters: game.quarters || null,
+    // Quarter-by-quarter scores (mapped to match team1=user, team2=opponent)
+    quarters: mappedQuarters,
 
-    // Overtime periods (if any)
-    overtimes: game.overtimes || null,
+    // Overtime periods (if any, mapped to match team1=user, team2=opponent)
+    overtimes: mappedOvertimes,
 
     // Scoring summary - each scoring play in order
     scoringSummary: game.boxScore?.scoringSummary || [],

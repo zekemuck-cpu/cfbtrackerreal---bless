@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useDynasty, GAME_TYPES, detectGameType } from '../context/DynastyContext'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { bowlLogos, getAllBowlNames } from '../data/bowlLogos'
-import { getTidFromAbbr } from '../data/teamRegistry'
+import { getTidFromAbbr, getOriginalTeamAbbr } from '../data/teamRegistry'
 
 export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -52,11 +52,23 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
         const year = Number(game.year)
         if (!bowlData[year]) bowlData[year] = {}
 
+        // Resolve team abbreviations from tid fields (preferred) or fallback to abbr fields
+        let team1Abbr = game.team1 || game.userTeam || ''
+        let team2Abbr = game.team2 || game.opponent || ''
+
+        // If tid fields exist, resolve them to abbreviations for display
+        if (game.team1Tid && !team1Abbr) {
+          team1Abbr = getOriginalTeamAbbr(game.team1Tid) || ''
+        }
+        if (game.team2Tid && !team2Abbr) {
+          team2Abbr = getOriginalTeamAbbr(game.team2Tid) || ''
+        }
+
         bowlData[year][game.bowlName] = {
           id: game.id,
           bowlName: game.bowlName,
-          team1: game.team1 || game.userTeam || '',
-          team2: game.team2 || game.opponent || '',
+          team1: team1Abbr,
+          team2: team2Abbr,
           team1Score: game.team1Score ?? '',
           team2Score: game.team2Score ?? '',
           gameType: gameType,

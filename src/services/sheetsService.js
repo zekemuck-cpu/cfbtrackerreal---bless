@@ -1763,10 +1763,15 @@ export async function readScheduleFromScheduleSheet(spreadsheetId) {
           location = 'away'
         }
 
+        const userTeamAbbr = (row[1] || '').toUpperCase()
+        const opponentAbbr = row[2].toUpperCase()
+
         return {
           week: parseInt(row[0]) || index + 1,
-          userTeam: (row[1] || '').toUpperCase(),
-          opponent: row[2].toUpperCase(),
+          userTeam: userTeamAbbr,
+          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr) : null,
+          opponent: opponentAbbr,
+          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr) : null,
           location
         }
       })
@@ -1958,10 +1963,15 @@ export async function readScheduleFromSheet(spreadsheetId) {
           location = 'away'
         }
 
+        const userTeamAbbr = (row[1] || '').toUpperCase()
+        const opponentAbbr = row[2].toUpperCase()
+
         return {
           week: parseInt(row[0]) || index + 1,
-          userTeam: (row[1] || '').toUpperCase(), // Convert to uppercase
-          opponent: row[2].toUpperCase(), // Convert to uppercase
+          userTeam: userTeamAbbr,
+          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr) : null,
+          opponent: opponentAbbr,
+          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr) : null,
           location
         }
       })
@@ -2673,20 +2683,40 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
     const rows = data.values || []
     console.log('[readCCSheet] Rows:', rows)
 
-    // Parse into structured data
-    const championships = rows.map(row => ({
-      conference: row[0] || '',
-      team1: (row[1] || '').toUpperCase(),
-      team2: (row[2] || '').toUpperCase(),
-      team1Score: row[3] ? parseInt(row[3]) : null,
-      team2Score: row[4] ? parseInt(row[4]) : null,
-      winner: null // Calculate based on scores
-    })).map(game => ({
-      ...game,
-      winner: game.team1Score !== null && game.team2Score !== null
-        ? (game.team1Score > game.team2Score ? game.team1 : game.team2)
-        : null
-    }))
+    // Parse into structured data with tid fields for teambuilder support
+    const championships = rows.map(row => {
+      const team1Abbr = (row[1] || '').toUpperCase()
+      const team2Abbr = (row[2] || '').toUpperCase()
+      const team1Score = row[3] ? parseInt(row[3]) : null
+      const team2Score = row[4] ? parseInt(row[4]) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+
+      // Determine winner by score
+      let winner = null
+      let winnerTid = null
+      if (team1Score !== null && team2Score !== null) {
+        if (team1Score > team2Score) {
+          winner = team1Abbr
+          winnerTid = team1Tid
+        } else {
+          winner = team2Abbr
+          winnerTid = team2Tid
+        }
+      }
+
+      return {
+        conference: row[0] || '',
+        team1: team1Abbr,
+        team2: team2Abbr,
+        team1Tid,
+        team2Tid,
+        team1Score,
+        team2Score,
+        winner,
+        winnerTid
+      }
+    })
 
     console.log('[readCCSheet] Parsed championships:', championships)
     return championships
@@ -2874,10 +2904,13 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
   const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
   const rowCount = bowlGames.length
 
-  // Build pre-filled team data for CFP First Round games
+  // Build pre-filled team data for CFP First Round games (tid-based lookup)
   const getTeamBySeed = (seed) => {
-    const seedData = cfpSeeds.find(s => s.seed === seed)
-    return seedData?.team || ''
+    const seedEntry = cfpSeeds?.find(s => s.seed === seed)
+    if (!seedEntry?.tid) return ''
+    // Look up in customTeams first, then DEFAULT_TEAMS
+    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    return teamData?.abbr || ''
   }
 
   // Helper to get existing bowl data by bowl name
@@ -3157,20 +3190,40 @@ export async function readBowlGamesFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse into structured data
-    const bowlGames = rows.map(row => ({
-      bowlName: row[0] || '',
-      team1: (row[1] || '').toUpperCase(),
-      team2: (row[2] || '').toUpperCase(),
-      team1Score: row[3] ? parseInt(row[3]) : null,
-      team2Score: row[4] ? parseInt(row[4]) : null,
-      winner: null
-    })).map(game => ({
-      ...game,
-      winner: game.team1Score !== null && game.team2Score !== null
-        ? (game.team1Score > game.team2Score ? game.team1 : game.team2)
-        : null
-    }))
+    // Parse into structured data with tid fields for teambuilder support
+    const bowlGames = rows.map(row => {
+      const team1Abbr = (row[1] || '').toUpperCase()
+      const team2Abbr = (row[2] || '').toUpperCase()
+      const team1Score = row[3] ? parseInt(row[3]) : null
+      const team2Score = row[4] ? parseInt(row[4]) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+
+      // Determine winner by score
+      let winner = null
+      let winnerTid = null
+      if (team1Score !== null && team2Score !== null) {
+        if (team1Score > team2Score) {
+          winner = team1Abbr
+          winnerTid = team1Tid
+        } else {
+          winner = team2Abbr
+          winnerTid = team2Tid
+        }
+      }
+
+      return {
+        bowlName: row[0] || '',
+        team1: team1Abbr,
+        team2: team2Abbr,
+        team1Tid,
+        team2Tid,
+        team1Score,
+        team2Score,
+        winner,
+        winnerTid
+      }
+    })
 
     return bowlGames
   } catch (error) {
@@ -3309,8 +3362,14 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
   const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
   const rowCount = bowlGames.length
 
-  // Helper to get team by seed
-  const getTeamBySeed = (seed) => cfpSeeds?.find(s => s.seed === seed)?.team || ''
+  // Helper to get team by seed (tid-based lookup)
+  const getTeamBySeed = (seed) => {
+    const seedEntry = cfpSeeds?.find(s => s.seed === seed)
+    if (!seedEntry?.tid) return ''
+    // Look up in customTeams first, then DEFAULT_TEAMS
+    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    return teamData?.abbr || ''
+  }
 
   // Helper to get First Round winner
   const getFirstRoundWinner = (seedA, seedB) => {
@@ -3593,20 +3652,40 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse into structured data
-    const bowlGames = rows.map(row => ({
-      bowlName: row[0] || '',
-      team1: (row[1] || '').toUpperCase(),
-      team2: (row[2] || '').toUpperCase(),
-      team1Score: row[3] ? parseInt(row[3]) : null,
-      team2Score: row[4] ? parseInt(row[4]) : null,
-      winner: null
-    })).map(game => ({
-      ...game,
-      winner: game.team1Score !== null && game.team2Score !== null
-        ? (game.team1Score > game.team2Score ? game.team1 : game.team2)
-        : null
-    }))
+    // Parse into structured data with tid fields for teambuilder support
+    const bowlGames = rows.map(row => {
+      const team1Abbr = (row[1] || '').toUpperCase()
+      const team2Abbr = (row[2] || '').toUpperCase()
+      const team1Score = row[3] ? parseInt(row[3]) : null
+      const team2Score = row[4] ? parseInt(row[4]) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+
+      // Determine winner by score
+      let winner = null
+      let winnerTid = null
+      if (team1Score !== null && team2Score !== null) {
+        if (team1Score > team2Score) {
+          winner = team1Abbr
+          winnerTid = team1Tid
+        } else {
+          winner = team2Abbr
+          winnerTid = team2Tid
+        }
+      }
+
+      return {
+        bowlName: row[0] || '',
+        team1: team1Abbr,
+        team2: team2Abbr,
+        team1Tid,
+        team2Tid,
+        team1Score,
+        team2Score,
+        winner,
+        winnerTid
+      }
+    })
 
     return bowlGames
   } catch (error) {
@@ -3909,11 +3988,16 @@ export async function readCFPSeedsFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse into structured data
-    const seeds = rows.map(row => ({
-      seed: row[0] ? parseInt(row[0]) : null,
-      team: (row[1] || '').toUpperCase()
-    })).filter(s => s.seed && s.team)
+    // Parse into structured data - ALWAYS include tid for teambuilder support
+    const seeds = rows.map(row => {
+      const seedNum = row[0] ? parseInt(row[0]) : null
+      const teamAbbr = (row[1] || '').toUpperCase()
+      const tid = teamAbbr ? getTidFromAbbr(teamAbbr) : null
+      return {
+        seed: seedNum,
+        tid              // PRIMARY identifier for teambuilder support
+      }
+    }).filter(s => s.seed && s.tid)  // Require tid
 
     return seeds
   } catch (error) {
@@ -4195,20 +4279,33 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse into structured data
-    const games = rows.map(row => ({
-      game: row[0] || '',
-      higherSeed: (row[1] || '').toUpperCase(),
-      lowerSeed: (row[2] || '').toUpperCase(),
-      higherSeedScore: row[3] ? parseInt(row[3]) : null,
-      lowerSeedScore: row[4] ? parseInt(row[4]) : null,
-      winner: null
-    })).map(game => ({
-      ...game,
-      winner: game.higherSeedScore !== null && game.lowerSeedScore !== null
-        ? (game.higherSeedScore > game.lowerSeedScore ? game.higherSeed : game.lowerSeed)
-        : null
-    }))
+    // Parse into structured data - ALWAYS include tid for teambuilder support
+    const games = rows.map(row => {
+      const gameName = row[0] || ''
+      const higherSeedAbbr = (row[1] || '').toUpperCase()
+      const lowerSeedAbbr = (row[2] || '').toUpperCase()
+      const higherSeedTid = higherSeedAbbr ? getTidFromAbbr(higherSeedAbbr) : null
+      const lowerSeedTid = lowerSeedAbbr ? getTidFromAbbr(lowerSeedAbbr) : null
+      const higherSeedScore = row[3] ? parseInt(row[3]) : null
+      const lowerSeedScore = row[4] ? parseInt(row[4]) : null
+
+      // Determine winner tid from scores
+      let winnerTid = null
+      if (higherSeedScore !== null && lowerSeedScore !== null) {
+        winnerTid = higherSeedScore > lowerSeedScore ? higherSeedTid : lowerSeedTid
+      }
+
+      return {
+        game: gameName,
+        higherSeed: higherSeedAbbr,     // Keep for backward compat
+        lowerSeed: lowerSeedAbbr,       // Keep for backward compat
+        higherSeedTid,                  // PRIMARY identifier
+        lowerSeedTid,                   // PRIMARY identifier
+        higherSeedScore,
+        lowerSeedScore,
+        winnerTid                       // PRIMARY identifier
+      }
+    })
 
     return games
   } catch (error) {
@@ -4218,7 +4315,7 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId) {
 }
 
 // Create CFP Quarterfinals sheet with auto-filled teams
-export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null) {
+export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, customTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4256,7 +4353,7 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
     const cfpSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize sheet with headers and auto-filled teams (pass bowl config for correct bowl names)
-    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals, bowlConfig)
+    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals, bowlConfig, customTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -4272,9 +4369,15 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
 }
 
 // Initialize CFP Quarterfinals sheet with teams
-async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null) {
-  // Get seed teams
-  const getTeamBySeed = (seed) => cfpSeeds?.find(s => s.seed === seed)?.team || ''
+async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, customTeams = null) {
+  // Get seed teams (tid-based lookup)
+  const getTeamBySeed = (seed) => {
+    const seedEntry = cfpSeeds?.find(s => s.seed === seed)
+    if (!seedEntry?.tid) return ''
+    // Look up in customTeams first, then DEFAULT_TEAMS
+    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    return teamData?.abbr || ''
+  }
 
   // Get First Round winner by seed numbers
   const getFirstRoundWinner = (seedA, seedB) => {
@@ -4459,26 +4562,45 @@ export async function readCFPQuarterfinalsFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse rows into games
-    const games = rows.map(row => {
+    // BULLETPROOF: Sheet rows are in fixed order by bye seed: 4, 1, 3, 2
+    // This maps row index to bye seed for slot determination
+    const rowToByeSeed = [4, 1, 3, 2]
+    const byeSeedToSlot = { 1: 'cfpqf1', 2: 'cfpqf4', 3: 'cfpqf3', 4: 'cfpqf2' }
+
+    // Parse rows into games - ALWAYS include tid and seed for bulletproof slot determination
+    const games = rows.map((row, index) => {
       const team1Score = row[3] ? parseInt(row[3]) : null
       const team2Score = row[4] ? parseInt(row[4]) : null
-      let winner = row[5] || null
+      const team1Abbr = row[1]?.toUpperCase() || ''
+      const team2Abbr = row[2]?.toUpperCase() || ''
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
 
-      // Auto-determine winner from scores if not specified
-      if (!winner && team1Score !== null && team2Score !== null) {
-        winner = team1Score > team2Score ? row[1] : row[2]
+      // Auto-determine winner from scores
+      let winnerTid = null
+      if (team1Score !== null && team2Score !== null) {
+        winnerTid = team1Score > team2Score ? team1Tid : team2Tid
       }
+
+      // CRITICAL: Include bye seed info for bulletproof slot determination
+      // Team1 is always the bye seed (1-4), Team2 is the first round winner
+      const byeSeed = rowToByeSeed[index]
+      const cfpSlot = byeSeedToSlot[byeSeed]
 
       return {
-        bowl: row[0] || '',
-        team1: row[1]?.toUpperCase() || '',
-        team2: row[2]?.toUpperCase() || '',
+        bowlName: row[0] || '',  // Use bowlName for consistency
+        team1: team1Abbr,        // Keep for backward compat
+        team2: team2Abbr,        // Keep for backward compat
+        team1Tid,                // PRIMARY identifier
+        team2Tid,                // PRIMARY identifier
         team1Score,
         team2Score,
-        winner: winner?.toUpperCase() || null
+        winnerTid,               // PRIMARY identifier
+        // BULLETPROOF slot determination
+        seed1: byeSeed,          // Bye seed (1-4) - always in team1 position
+        cfpSlot                  // Slot ID (cfpqf1, cfpqf2, cfpqf3, cfpqf4)
       }
-    }).filter(game => game.team1 && game.team2)
+    }).filter(game => game.team1Tid && game.team2Tid)  // Require tids
 
     return games
   } catch (error) {
@@ -6247,14 +6369,15 @@ export async function readConferenceStandingsFromSheet(spreadsheetId) {
     rows.forEach(row => {
       const conference = row[0]?.trim()
       const rank = parseInt(row[1]) || 0
-      const team = row[2]?.trim().toUpperCase() // Normalize to uppercase abbreviation
+      const teamAbbr = row[2]?.trim().toUpperCase() // Normalize to uppercase abbreviation
       const wins = parseInt(row[3]) || 0
       const losses = parseInt(row[4]) || 0
       const pointsFor = parseInt(row[5]) || 0
       const pointsAgainst = parseInt(row[6]) || 0
+      const tid = teamAbbr ? getTidFromAbbr(teamAbbr) : null
 
       // Skip empty rows, spacer rows, or rows without a team
-      if (!conference || !team || team === '') return
+      if (!conference || !teamAbbr || teamAbbr === '') return
 
       if (!standings[conference]) {
         standings[conference] = []
@@ -6262,7 +6385,8 @@ export async function readConferenceStandingsFromSheet(spreadsheetId) {
 
       standings[conference].push({
         rank,
-        team,
+        team: teamAbbr,  // Keep for backward compat
+        tid,             // PRIMARY identifier for teambuilder support
         wins,
         losses,
         pointsFor,
@@ -12340,10 +12464,14 @@ export async function readTransferDestinationsFromSheet(spreadsheetId) {
 
     const destinations = rows
       .filter(row => row[0] && row[1]) // Must have both player name and new team
-      .map(row => ({
-        playerName: row[0]?.trim() || '',
-        newTeam: row[1]?.trim().toUpperCase() || ''
-      }))
+      .map(row => {
+        const newTeamAbbr = row[1]?.trim().toUpperCase() || ''
+        return {
+          playerName: row[0]?.trim() || '',
+          newTeam: newTeamAbbr,  // Keep for backward compat
+          newTeamTid: newTeamAbbr ? getTidFromAbbr(newTeamAbbr) : null  // PRIMARY identifier
+        }
+      })
 
     return destinations
   } catch (error) {
@@ -12581,14 +12709,20 @@ export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2
       .filter(row => row[0] && row[1]) // Must have name and PID
       .map(row => {
         const teamsByYear = {}
+        const teamsByYearTid = {}  // New tid-based version
         years.forEach((year, i) => {
           const team = row[2 + i]?.trim().toUpperCase()
-          if (team) teamsByYear[year] = team
+          if (team) {
+            teamsByYear[year] = team  // Keep abbr for backward compat
+            const tid = getTidFromAbbr(team)
+            if (tid) teamsByYearTid[year] = tid  // PRIMARY identifier
+          }
         })
         return {
           playerName: row[0]?.trim() || '',
           pid: parseInt(row[1]) || null,
-          teamsByYear
+          teamsByYear,      // Keep for backward compat
+          teamsByYearTid    // PRIMARY identifier for teambuilder support
         }
       })
   } catch (error) {

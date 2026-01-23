@@ -11,7 +11,7 @@ import {
   getCFPQuarterfinalGameName,
   isBowlInWeek2
 } from '../services/sheetsService'
-import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -96,8 +96,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           // Get CFP data to pre-fill quarterfinal teams
           const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
 
-          // Helper to get seed by team abbreviation
-          const getSeedByTeam = (teamAbbr) => cfpSeeds.find(s => s.team === teamAbbr)?.seed
+          // Helper to get seed by tid
+          const getSeedByTid = (tid) => cfpSeeds.find(s => s.tid === tid)?.seed
 
           // Read CFP First Round results from unified games[] array
           // Transform to format expected by the sheet: { seed1, seed2, team1, team2, winner }
@@ -163,10 +163,10 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                 }
               }
 
-              // Compute seeds from cfpSeeds if not set on the game
-              if ((!seed1 || !seed2) && team1 && team2) {
-                const computedSeed1 = getSeedByTeam(team1)
-                const computedSeed2 = getSeedByTeam(team2)
+              // Compute seeds from cfpSeeds if not set on the game (use tid for lookup)
+              if ((!seed1 || !seed2) && (g.team1Tid || g.team2Tid)) {
+                const computedSeed1 = getSeedByTid(g.team1Tid)
+                const computedSeed2 = getSeedByTid(g.team2Tid)
                 // For first round, seeds are paired: 5v12, 6v11, 7v10, 8v9
                 // If we only have one seed, compute the other
                 if (computedSeed1 && !computedSeed2) {
@@ -196,8 +196,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP (seeds 1-12)
-          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
+          const userTeamTid = getCurrentTeamTid(currentDynasty)
+          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) // Still need abbr for winner comparison
+          const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
 
           if (userCFPSeed) {
             // Seeds 1-4 have bye, play in QF

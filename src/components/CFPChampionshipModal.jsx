@@ -74,27 +74,31 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
   })
   const [saving, setSaving] = useState(false)
 
-  // Get seed by team
-  const getSeedByTeam = (team) => {
+  // Get seed by tid
+  const getSeedByTid = (tid) => {
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
-    const seedEntry = cfpSeeds.find(s => s.team === team)
+    const seedEntry = cfpSeeds.find(s => s.tid === tid)
     return seedEntry?.seed || null
   }
 
-  // Get team info for display
-  const getTeamInfo = (abbr) => {
-    if (!abbr) return null
-    const teamData = teamAbbreviations[abbr]
-    const mascotName = mascotMap[abbr]
+  // Get team info for display by tid
+  const teams = currentDynasty?.teams || TEAMS
+  const getTeamInfoByTid = (tid) => {
+    if (!tid) return null
+    const teamData = getGameTeamInfo(teams, tid)
+    if (!teamData) return null
+    const abbr = teamData.abbr
+    const mascotName = mascotMap[abbr] || teamData.name
     const logo = mascotName ? getTeamLogo(mascotName) : null
     return {
       abbr,
+      tid,
       name: teamData?.name || abbr,
       fullMascot: mascotName,
-      backgroundColor: teamData?.backgroundColor || '#4B5563',
-      textColor: teamData?.textColor || '#FFFFFF',
+      backgroundColor: teamData?.primaryColor || teamAbbreviations[abbr]?.backgroundColor || '#4B5563',
+      textColor: teamData?.secondaryColor || teamAbbreviations[abbr]?.textColor || '#FFFFFF',
       logo,
-      seed: getSeedByTeam(abbr)
+      seed: getSeedByTid(tid)
     }
   }
 
@@ -130,6 +134,18 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
         return ''
       }
 
+      // Helper to get winner TID from a game
+      const getGameWinnerTid = (game) => {
+        if (!game) return null
+        // Try winnerTid first
+        if (game.winnerTid) return game.winnerTid
+        // Compute from scores
+        if (game.team1Score !== undefined && game.team2Score !== undefined) {
+          return Number(game.team1Score) > Number(game.team2Score) ? game.team1Tid : game.team2Tid
+        }
+        return null
+      }
+
       if (existingChamp) {
         setGame(existingChamp)
       } else if (legacyChamp) {
@@ -157,6 +173,8 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
           bowlName: 'National Championship',
           team1: getGameWinner(sf1Game),
           team2: getGameWinner(sf2Game),
+          team1Tid: getGameWinnerTid(sf1Game),  // Include tid for rendering
+          team2Tid: getGameWinnerTid(sf2Game),  // Include tid for rendering
           team1Score: '',
           team2Score: ''
         })
@@ -185,20 +203,32 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
   }
 
   const handleSave = async () => {
-    if (!game.team1 || !game.team2 || game.team1Score === '' || game.team2Score === '') {
+    // Check for teams by either abbreviation or tid
+    const hasTeam1 = game.team1 || game.team1Tid
+    const hasTeam2 = game.team2 || game.team2Tid
+    if (!hasTeam1 || !hasTeam2 || game.team1Score === '' || game.team2Score === '') {
       alert('Please enter scores for the game')
       return
     }
 
     setSaving(true)
     try {
+      // Get team abbreviations from tid if not present
+      const team1Abbr = game.team1 || (game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : '')
+      const team2Abbr = game.team2 || (game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : '')
+      const team1Score = parseInt(game.team1Score)
+      const team2Score = parseInt(game.team2Score)
+
       const processedGame = {
         ...game,
-        team1Score: parseInt(game.team1Score),
-        team2Score: parseInt(game.team2Score),
-        winner: parseInt(game.team1Score) > parseInt(game.team2Score) ? game.team1 : game.team2,
-        seed1: getSeedByTeam(game.team1),
-        seed2: getSeedByTeam(game.team2)
+        team1: team1Abbr,
+        team2: team2Abbr,
+        team1Score,
+        team2Score,
+        winner: team1Score > team2Score ? team1Abbr : team2Abbr,
+        winnerTid: team1Score > team2Score ? game.team1Tid : game.team2Tid,
+        seed1: getSeedByTid(game.team1Tid),
+        seed2: getSeedByTid(game.team2Tid)
       }
 
       await onSave([processedGame])
@@ -213,8 +243,8 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
 
   if (!isOpen) return null
 
-  const team1Info = getTeamInfo(game.team1)
-  const team2Info = getTeamInfo(game.team2)
+  const team1Info = getTeamInfoByTid(game.team1Tid)
+  const team2Info = getTeamInfoByTid(game.team2Tid)
 
   return (
     <div
@@ -323,7 +353,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
                   borderColor: '#FFD700'
                 }}
                 placeholder="0"
-                disabled={!game.team1}
+                disabled={!game.team1 && !game.team1Tid}
               />
               <div className="text-2xl font-black text-yellow-500">VS</div>
               <input
@@ -338,7 +368,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
                   borderColor: '#FFD700'
                 }}
                 placeholder="0"
-                disabled={!game.team2}
+                disabled={!game.team2 && !game.team2Tid}
               />
             </div>
 
@@ -386,7 +416,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
           <div className="flex gap-3">
             <button
               onClick={handleSave}
-              disabled={saving || !game.team1 || !game.team2}
+              disabled={saving || (!game.team1 && !game.team1Tid) || (!game.team2 && !game.team2Tid)}
               className="flex-1 px-6 py-4 rounded-xl font-bold text-black transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 text-lg"
               style={{
                 background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',

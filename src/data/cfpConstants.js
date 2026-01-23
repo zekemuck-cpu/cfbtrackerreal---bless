@@ -291,3 +291,58 @@ export const CFP_ALL_SLOTS_ORDER = [
   ...CFP_SEMIFINAL_ORDER,
   'cfpnc'
 ]
+
+// ============================================================
+// BULLETPROOF BRACKET FLOW - SINGLE SOURCE OF TRUTH
+// ============================================================
+// This defines EXACTLY how winners flow through the bracket.
+// cfpSlot is the ONLY identifier for bracket position.
+// Bowl names are display-only metadata.
+
+export const CFP_BRACKET_FLOW = {
+  // First Round: winners feed into QF team2 positions
+  // (QF team1 is always the bye seed)
+  firstRound: {
+    cfpfr1: { higherSeed: 5, lowerSeed: 12, feedsInto: 'cfpqf2', feedsPosition: 'team2' },
+    cfpfr2: { higherSeed: 8, lowerSeed: 9, feedsInto: 'cfpqf1', feedsPosition: 'team2' },
+    cfpfr3: { higherSeed: 6, lowerSeed: 11, feedsInto: 'cfpqf3', feedsPosition: 'team2' },
+    cfpfr4: { higherSeed: 7, lowerSeed: 10, feedsInto: 'cfpqf4', feedsPosition: 'team2' },
+  },
+
+  // Quarterfinals: bye seed in team1, FR winner in team2
+  // Winners feed into SF at specified positions
+  quarterfinals: {
+    cfpqf1: { byeSeed: 1, feedsInto: 'cfpsf1', feedsPosition: 'team1' },  // Seed 1 winner → SF1 team1
+    cfpqf2: { byeSeed: 4, feedsInto: 'cfpsf1', feedsPosition: 'team2' },  // Seed 4 winner → SF1 team2
+    cfpqf3: { byeSeed: 3, feedsInto: 'cfpsf2', feedsPosition: 'team1' },  // Seed 3 winner → SF2 team1
+    cfpqf4: { byeSeed: 2, feedsInto: 'cfpsf2', feedsPosition: 'team2' },  // Seed 2 winner → SF2 team2
+  },
+
+  // Semifinals: QF winners feed in, winners go to NC
+  semifinals: {
+    cfpsf1: { feedsFrom: ['cfpqf1', 'cfpqf2'], feedsInto: 'cfpnc', feedsPosition: 'team1' },  // 1/4 bracket → NC team1
+    cfpsf2: { feedsFrom: ['cfpqf3', 'cfpqf4'], feedsInto: 'cfpnc', feedsPosition: 'team2' },  // 2/3 bracket → NC team2
+  },
+
+  // Championship: SF winners
+  championship: {
+    cfpnc: { feedsFrom: ['cfpsf1', 'cfpsf2'], feedsInto: null, feedsPosition: null }
+  }
+}
+
+// Visual bracket display order (top to bottom on bracket view)
+export const BRACKET_DISPLAY_ORDER = {
+  firstRound: ['cfpfr1', 'cfpfr2', 'cfpfr3', 'cfpfr4'],  // 5v12, 8v9, 6v11, 7v10
+  quarterfinals: ['cfpqf2', 'cfpqf1', 'cfpqf3', 'cfpqf4'],  // Seed 4, 1, 3, 2 (visual order)
+  semifinals: ['cfpsf1', 'cfpsf2'],
+  championship: ['cfpnc']
+}
+
+// Get the bracket flow config for any slot
+export function getBracketFlowConfig(slotId) {
+  return CFP_BRACKET_FLOW.firstRound[slotId] ||
+         CFP_BRACKET_FLOW.quarterfinals[slotId] ||
+         CFP_BRACKET_FLOW.semifinals[slotId] ||
+         CFP_BRACKET_FLOW.championship[slotId] ||
+         null
+}

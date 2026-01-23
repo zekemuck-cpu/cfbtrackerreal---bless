@@ -5,7 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getColorsByAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getColorsByAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 
@@ -390,8 +390,12 @@ export default function CoachCareer() {
       // Count unique CFP years (playoff appearances)
       const cfpYears = new Set(cfpGames.map(g => g.year)).size
 
+      // Get tid for this team (for tid-based lookups with teambuilder support)
+      const teamTid = getTidFromAbbr(teamAbbr)
+
       return {
         teamAbbr,
+        teamTid,  // Add tid for teambuilder support
         teamName: getTeamFullName(teamAbbr),
         startYear,
         endYear,
@@ -897,9 +901,13 @@ export default function CoachCareer() {
                 const losses = yearGames.filter(g => g.perspective && !g.perspective.userWon).length
                 const hasRecord = yearGames.length > 0
 
+                // Helper for tid-based team matching (teambuilder support)
+                const isStintTeamInGame = (g) => g && (g.team1Tid === stint.teamTid || g.team2Tid === stint.teamTid || g.team1 === stint.teamAbbr || g.team2 === stint.teamAbbr)
+                const didStintTeamWin = (g) => g && (g.winnerTid === stint.teamTid || g.winner === stint.teamAbbr)
+
                 // Check for conference championship
                 const ccWins = currentDynasty.conferenceChampionshipsByYear?.[year] || []
-                const wonCC = ccWins.some(cc => cc.winner === stint.teamAbbr)
+                const wonCC = ccWins.some(cc => cc.winnerTid === stint.teamTid || cc.winner === stint.teamAbbr)
 
                 // Check for CFP result
                 const cfpResults = currentDynasty.cfpResultsByYear?.[year]
@@ -912,12 +920,12 @@ export default function CoachCareer() {
                     const roundGames = cfpResults[round] || []
                     for (const game of roundGames) {
                       if (!game) continue // Skip null/undefined entries
-                      if (game.team1 === stint.teamAbbr || game.team2 === stint.teamAbbr) {
-                        if (game.winner === stint.teamAbbr) {
+                      if (isStintTeamInGame(game)) {
+                        if (didStintTeamWin(game)) {
                           if (round === 'championship') {
                             cfpResult = { type: 'champion' }
                           }
-                        } else if (game.winner) {
+                        } else if (game.winner || game.winnerTid) {
                           cfpResult = { type: 'lost', round: roundLabels[round] }
                         }
                       }
@@ -931,13 +939,11 @@ export default function CoachCareer() {
                 if (!cfpResult) {
                   const bowlGamesData = currentDynasty.bowlGamesByYear?.[year]
                   const bowlGames = Array.isArray(bowlGamesData) ? bowlGamesData : []
-                  const teamBowl = bowlGames.find(b =>
-                    b && (b.team1 === stint.teamAbbr || b.team2 === stint.teamAbbr)
-                  )
-                  if (teamBowl && teamBowl.winner) {
+                  const teamBowl = bowlGames.find(b => isStintTeamInGame(b))
+                  if (teamBowl && (teamBowl.winner || teamBowl.winnerTid)) {
                     bowlResult = {
                       bowlName: teamBowl.bowlName?.replace(' Bowl', '') || 'Bowl',
-                      won: teamBowl.winner === stint.teamAbbr
+                      won: didStintTeamWin(teamBowl)
                     }
                   }
                 }

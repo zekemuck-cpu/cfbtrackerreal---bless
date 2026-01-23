@@ -11,7 +11,7 @@ import {
   getCFPFirstRoundGameName,
   isBowlInWeek1
 } from '../services/sheetsService'
-import { getCurrentTeamAbbr } from '../data/teamRegistry'
+import { getCurrentTeamTid } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -100,8 +100,8 @@ export default function BowlWeek1Modal({ isOpen, onClose, onSave, currentYear, t
           const excludeGames = []
 
           // Check if user is in CFP First Round (seeds 5-12)
-          const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-          const userCFPSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed || null
+          const userTeamTid = getCurrentTeamTid(currentDynasty)
+          const userCFPSeed = cfpSeeds.find(s => s.tid === userTeamTid)?.seed || null
           if (userCFPSeed >= 5 && userCFPSeed <= 12) {
             const cfpGameName = getCFPFirstRoundGameName(userCFPSeed)
             if (cfpGameName) {

@@ -51,7 +51,7 @@ import {
   addCareerEntry
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
-import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../data/cfpConstants'
+import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -338,13 +338,26 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
 
   // Use provided config or fall back to defaults
   const effectiveBowlConfig = bowlConfig || DEFAULT_BOWL_CONFIG
+  console.log('[createCFPGameShells] Creating/updating shells for year', year, 'with bowlConfig:', effectiveBowlConfig)
 
   const games = [...existingGames]
-  const gameIdToIndex = new Map(games.map((g, i) => [g.id, i]))
 
+  // Helper to find existing shell by cfpSlot (PRIMARY) or id (SECONDARY)
+  const findExistingShell = (slotId) => {
+    const bySlot = games.find(g => g.cfpSlot === slotId && Number(g.year) === Number(year))
+    if (bySlot) return { game: bySlot, index: games.indexOf(bySlot) }
+
+    const gameId = `${slotId}-${year}`
+    const byId = games.find(g => g.id === gameId)
+    if (byId) return { game: byId, index: games.indexOf(byId) }
+
+    return null
+  }
+
+  // Process all 11 CFP slots to ensure shells exist
   for (const [slotId, config] of Object.entries(CFP_BRACKET_SLOTS)) {
     const gameId = `${slotId}-${year}`
-    const existingIndex = gameIdToIndex.get(gameId)
+    const existing = findExistingShell(slotId)
 
     // Determine teams based on round
     let team1Tid = null
@@ -362,7 +375,7 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
       team1Tid = seedsWithTid[config.byeSeed] ?? null
       team2Tid = null // Will be populated when first round winner is determined
     } else {
-      // Semifinals and Championship - both teams TBD
+      // Semifinals and Championship - both teams TBD (will be filled by propagation)
       team1Tid = null
       team2Tid = null
     }
@@ -370,18 +383,23 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
     const gameType = getCFPGameTypeFromRound(config.round)
     const legacyFlag = getCFPLegacyFlag(config.round)
 
-    if (existingIndex !== undefined) {
-      // Update existing shell - preserve scores if entered
-      const existing = games[existingIndex]
-      games[existingIndex] = {
-        ...existing,
-        // Update teams (for first round and bye seeds)
-        team1Tid: team1Tid ?? existing.team1Tid,
-        team2Tid: team2Tid ?? existing.team2Tid,
+    if (existing) {
+      // Update existing shell - preserve scores and propagated teams
+      const existingGame = existing.game
+      games[existing.index] = {
+        ...existingGame,
+        // For FR/QF: set teams from seeds. For SF/NC: only set if we have data AND existing is null
+        team1Tid: (config.round === 'first_round' || config.round === 'quarterfinal')
+          ? (team1Tid ?? existingGame.team1Tid)
+          : (existingGame.team1Tid ?? team1Tid),  // Preserve propagated teams for SF/NC
+        team2Tid: (config.round === 'first_round')
+          ? (team2Tid ?? existingGame.team2Tid)
+          : (existingGame.team2Tid ?? team2Tid),  // Preserve propagated teams
         // Preserve scores if already entered
-        team1Score: existing.team1Score,
-        team2Score: existing.team2Score,
-        // Ensure all metadata is set
+        team1Score: existingGame.team1Score,
+        team2Score: existingGame.team2Score,
+        // CRITICAL: Always ensure cfpSlot is set correctly
+        id: gameId,
         cfpSlot: slotId,
         cfpRound: config.round,
         bowlName,
@@ -389,7 +407,7 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
         [legacyFlag]: true
       }
     } else {
-      // Create new shell
+      // Create new shell - CRITICAL for SF/NC shells that must exist for propagation!
       const newGame = {
         id: gameId,
         year: Number(year),
@@ -406,9 +424,11 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
         [legacyFlag]: true
       }
       games.push(newGame)
+      console.log('[createCFPGameShells] Created shell:', { id: gameId, cfpSlot: slotId, cfpRound: config.round, bowlName })
     }
   }
 
+  console.log('[createCFPGameShells] Total shells after creation:', games.filter(g => g.cfpSlot && Number(g.year) === Number(year)).length)
   return games
 }
 
@@ -416,50 +436,109 @@ export function createOrUpdateCFPGameShells(existingGames, seedsWithTid, year, b
  * Propagate CFP winner to the next round game shell
  * Called after a CFP game is saved with a result
  *
+ * BULLETPROOF VERSION: Uses CFP_BRACKET_FLOW with explicit feedsPosition
+ * and handles missing shells by creating them if necessary.
+ *
  * @param {Array} games - Current games array
  * @param {Object} savedGame - The game that was just saved with scores
  * @returns {Array} Updated games array with winner propagated
  */
 export function propagateCFPWinner(games, savedGame) {
-  if (!savedGame.cfpSlot) return games
+  const { cfpSlot } = savedGame
+  if (!cfpSlot) {
+    console.warn('[propagateCFPWinner] No cfpSlot on saved game, cannot propagate')
+    return games
+  }
 
-  const config = CFP_BRACKET_SLOTS[savedGame.cfpSlot]
-  if (!config || !config.feedsInto) return games // Championship or invalid slot
+  // Get config from CFP_BRACKET_FLOW (uses explicit feedsPosition)
+  const allFlowConfigs = {
+    ...CFP_BRACKET_FLOW.firstRound,
+    ...CFP_BRACKET_FLOW.quarterfinals,
+    ...CFP_BRACKET_FLOW.semifinals,
+    ...CFP_BRACKET_FLOW.championship
+  }
+  const flowConfig = allFlowConfigs[cfpSlot]
 
-  // Determine winner
-  if (savedGame.team1Score === null || savedGame.team2Score === null) return games // No scores yet
+  if (!flowConfig || !flowConfig.feedsInto) {
+    console.log(`[propagateCFPWinner] ${cfpSlot} has no feedsInto (championship or invalid slot)`)
+    return games
+  }
+
+  // Determine winner - need valid scores
+  if (savedGame.team1Score === null || savedGame.team2Score === null) {
+    console.log(`[propagateCFPWinner] ${cfpSlot} has no scores yet, skipping propagation`)
+    return games
+  }
 
   const winnerTid = savedGame.team1Score > savedGame.team2Score
     ? savedGame.team1Tid
     : savedGame.team2Tid
 
-  if (!winnerTid) return games
+  if (!winnerTid) {
+    console.warn(`[propagateCFPWinner] ${cfpSlot} could not determine winner tid`)
+    return games
+  }
 
-  // Find next round game
-  const nextSlot = config.feedsInto
-  const nextConfig = CFP_BRACKET_SLOTS[nextSlot]
-  const nextGameId = `${nextSlot}-${savedGame.year}`
+  const nextSlotId = flowConfig.feedsInto
+  const feedsPosition = flowConfig.feedsPosition  // 'team1' or 'team2' - explicit!
+  const year = savedGame.year
+  const expectedId = `${nextSlotId}-${year}`
 
-  const updatedGames = games.map(g => {
-    if (g.id !== nextGameId) return g
+  console.log(`[propagateCFPWinner] ${cfpSlot} winner (tid ${winnerTid}) → ${nextSlotId}.${feedsPosition}`)
 
-    // Determine which position winner goes to
-    if (typeof nextConfig.feedsFrom === 'string') {
-      // Single feeder (quarterfinals) - winner goes to team2 position
-      // (team1 is the bye seed)
-      if (nextConfig.feedsFrom === savedGame.cfpSlot) {
-        return { ...g, team2Tid: winnerTid }
-      }
-    } else if (Array.isArray(nextConfig.feedsFrom)) {
-      // Multiple feeders (SF/NC) - position based on index
-      const feedIndex = nextConfig.feedsFrom.indexOf(savedGame.cfpSlot)
-      if (feedIndex === 0) {
-        return { ...g, team1Tid: winnerTid }
-      } else if (feedIndex === 1) {
-        return { ...g, team2Tid: winnerTid }
-      }
+  // Find target shell by cfpSlot (PRIMARY) then by id (SECONDARY)
+  let targetIndex = games.findIndex(g => g.cfpSlot === nextSlotId && Number(g.year) === Number(year))
+  if (targetIndex === -1) {
+    targetIndex = games.findIndex(g => g.id === expectedId)
+  }
+
+  if (targetIndex === -1) {
+    // Shell doesn't exist - this shouldn't happen but handle it gracefully
+    console.warn(`[propagateCFPWinner] Target shell ${nextSlotId} not found! Creating it.`)
+
+    // Determine game type for the new shell
+    let gameType = GAME_TYPES.CFP_SEMIFINAL
+    let legacyFlag = 'isCFPSemifinal'
+    let week = 'Bowl 3'
+    if (nextSlotId === 'cfpnc') {
+      gameType = GAME_TYPES.CFP_CHAMPIONSHIP
+      legacyFlag = 'isCFPChampionship'
+      week = 'Bowl 4'
     }
-    return g
+
+    const newShell = {
+      id: expectedId,
+      cfpSlot: nextSlotId,
+      cfpRound: nextSlotId === 'cfpnc' ? 'championship' : 'semifinal',
+      year: Number(year),
+      week,
+      gameType,
+      [legacyFlag]: true,
+      team1Tid: feedsPosition === 'team1' ? winnerTid : null,
+      team2Tid: feedsPosition === 'team2' ? winnerTid : null,
+      team1Score: null,
+      team2Score: null,
+      homeTeamTid: null,
+    }
+    return [...games, newShell]
+  }
+
+  // Update the existing shell at the correct position
+  const updatedGames = [...games]
+  const existingShell = updatedGames[targetIndex]
+  updatedGames[targetIndex] = {
+    ...existingShell,
+    // Ensure cfpSlot is set (might be missing on legacy data)
+    cfpSlot: nextSlotId,
+    // Set winner at the correct position based on explicit feedsPosition
+    [feedsPosition === 'team1' ? 'team1Tid' : 'team2Tid']: winnerTid,
+  }
+
+  console.log(`[propagateCFPWinner] Updated ${nextSlotId} shell:`, {
+    id: updatedGames[targetIndex].id,
+    cfpSlot: updatedGames[targetIndex].cfpSlot,
+    team1Tid: updatedGames[targetIndex].team1Tid,
+    team2Tid: updatedGames[targetIndex].team2Tid
   })
 
   return updatedGames
@@ -4792,8 +4871,8 @@ export function DynastyProvider({ children }) {
       // For CFP First Round, determine seeds and correct team ordering
       if (isCFPGame && cleanGameData.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year] || []
-        const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
-        const oppSeed = cfpSeeds.find(s => s.team === opponentAbbr)?.seed || (userSeed ? 17 - userSeed : null)
+        const userSeed = cfpSeeds.find(s => s.tid === userTid)?.seed
+        const oppSeed = cfpSeeds.find(s => s.tid === opponentTid)?.seed || (userSeed ? 17 - userSeed : null)
 
         // Higher seed (lower number) should be team1 (home team in first round)
         if (userSeed && oppSeed && userSeed > oppSeed) {
@@ -4958,8 +5037,8 @@ export function DynastyProvider({ children }) {
       } else if (cleanGameData.isCFPFirstRound || existingGame.isCFPFirstRound) {
         // Check if this is a CFP game that needs ID correction
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year || existingGame.year] || []
-        const userTeamAbbr = getCurrentTeamAbbr(dynasty)
-        const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+        const userTidForSeed = getCurrentTeamTid(dynasty)
+        const userSeed = cfpSeeds.find(s => s.tid === userTidForSeed)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
         if (slotId) {
@@ -5034,8 +5113,8 @@ export function DynastyProvider({ children }) {
 
       if (cleanGameData.isCFPFirstRound) {
         const cfpSeeds = dynasty.cfpSeedsByYear?.[cleanGameData.year] || []
-        const userTeamAbbr = getCurrentTeamAbbr(dynasty)
-        const userSeed = cfpSeeds.find(s => s.team === userTeamAbbr)?.seed
+        const userTidForSeed = getCurrentTeamTid(dynasty)
+        const userSeed = cfpSeeds.find(s => s.tid === userTidForSeed)?.seed
         const oppSeed = userSeed ? 17 - userSeed : null
         const slotId = getFirstRoundSlotId(userSeed, oppSeed)
         if (slotId) {
@@ -5295,14 +5374,120 @@ export function DynastyProvider({ children }) {
              (g.seed1 === gameData.seed2 && g.seed2 === gameData.seed1))
           )
         }
-      } else if (roundType === GAME_TYPES.CFP_QUARTERFINAL || roundType === GAME_TYPES.CFP_SEMIFINAL) {
-        // QF/SF: Find shell by BOWLNAME (the reliable key with custom bowl configs)
-        existingIndex = updatedGames.findIndex(g =>
-          g.bowlName === gameData.bowlName &&
-          Number(g.year) === Number(year) &&
-          (roundType === GAME_TYPES.CFP_QUARTERFINAL ? g.isCFPQuarterfinal : g.isCFPSemifinal)
-        )
-        console.log(`[saveCFPGames] Looking for ${gameData.bowlName} shell:`, existingIndex >= 0 ? 'FOUND' : 'NOT FOUND')
+      } else if (roundType === GAME_TYPES.CFP_QUARTERFINAL) {
+        // BULLETPROOF QF: Determine slot from bye seed, NOT from bowl name
+        // In QF games, team1 should be the bye seed (1-4). Map bye seed -> slot ID
+        const byeSeedToSlot = { 1: 'cfpqf1', 2: 'cfpqf4', 3: 'cfpqf3', 4: 'cfpqf2' }
+
+        // Try to find bye seed from gameData
+        const byeSeed = gameData.seed1 // In QF, seed1 should be the bye seed (1-4)
+        let expectedSlotId = null
+
+        if (byeSeed && byeSeed >= 1 && byeSeed <= 4) {
+          expectedSlotId = byeSeedToSlot[byeSeed]
+          console.log(`[saveCFPGames] QF: Determined slot ${expectedSlotId} from bye seed ${byeSeed}`)
+        }
+
+        // PRIMARY: Find by slot ID
+        if (expectedSlotId) {
+          const expectedGameId = getCFPGameId(expectedSlotId, year)
+          existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] QF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
+          }
+        }
+
+        // SECONDARY: Find by cfpSlot field
+        if (existingIndex === -1 && expectedSlotId) {
+          existingIndex = updatedGames.findIndex(g =>
+            g.cfpSlot === expectedSlotId &&
+            Number(g.year) === Number(year) &&
+            g.isCFPQuarterfinal
+          )
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] QF: Found shell by cfpSlot field ${expectedSlotId}`)
+          }
+        }
+
+        // TERTIARY: Find by bye seed team tid (in case shell doesn't have correct ID)
+        if (existingIndex === -1 && team1Tid) {
+          existingIndex = updatedGames.findIndex(g =>
+            g.isCFPQuarterfinal &&
+            Number(g.year) === Number(year) &&
+            g.team1Tid === team1Tid // Bye seed team should be in team1 position
+          )
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] QF: Found shell by bye seed team tid ${team1Tid}`)
+          }
+        }
+
+        // Log if not found
+        if (existingIndex === -1) {
+          const availableShells = updatedGames.filter(g =>
+            Number(g.year) === Number(year) && g.isCFPQuarterfinal
+          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName, team1Tid: g.team1Tid }))
+          console.log(`[saveCFPGames] QF: Shell NOT FOUND for bye seed ${byeSeed}. Available:`, availableShells)
+        }
+      } else if (roundType === GAME_TYPES.CFP_SEMIFINAL) {
+        // BULLETPROOF SF: Determine slot from teams' QF origins
+        // SF1 (cfpsf1) gets winners of cfpqf1 (seed 1) and cfpqf2 (seed 4)
+        // SF2 (cfpsf2) gets winners of cfpqf3 (seed 3) and cfpqf4 (seed 2)
+
+        // Try to determine which SF slot from gameData.slotId if provided
+        let expectedSlotId = gameData.slotId || gameData.cfpSlot
+
+        // If no slot ID, check which seeds are in this game to determine SF
+        if (!expectedSlotId && (gameData.seed1 || gameData.seed2)) {
+          const seeds = [gameData.seed1, gameData.seed2].filter(s => s)
+          // Seeds 1 and 4 go to SF1, seeds 2 and 3 go to SF2
+          const isSF1 = seeds.some(s => s === 1 || s === 4)
+          const isSF2 = seeds.some(s => s === 2 || s === 3)
+          if (isSF1 && !isSF2) expectedSlotId = 'cfpsf1'
+          else if (isSF2 && !isSF1) expectedSlotId = 'cfpsf2'
+          console.log(`[saveCFPGames] SF: Determined slot ${expectedSlotId} from seeds ${seeds}`)
+        }
+
+        // PRIMARY: Find by slot ID
+        if (expectedSlotId) {
+          const expectedGameId = getCFPGameId(expectedSlotId, year)
+          existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] SF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
+          }
+        }
+
+        // SECONDARY: Find by cfpSlot field
+        if (existingIndex === -1 && expectedSlotId) {
+          existingIndex = updatedGames.findIndex(g =>
+            g.cfpSlot === expectedSlotId &&
+            Number(g.year) === Number(year) &&
+            g.isCFPSemifinal
+          )
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] SF: Found shell by cfpSlot field ${expectedSlotId}`)
+          }
+        }
+
+        // TERTIARY: Find by team tids
+        if (existingIndex === -1 && (team1Tid || team2Tid)) {
+          existingIndex = updatedGames.findIndex(g =>
+            g.isCFPSemifinal &&
+            Number(g.year) === Number(year) &&
+            ((team1Tid && (g.team1Tid === team1Tid || g.team2Tid === team1Tid)) ||
+             (team2Tid && (g.team1Tid === team2Tid || g.team2Tid === team2Tid)))
+          )
+          if (existingIndex >= 0) {
+            console.log(`[saveCFPGames] SF: Found shell by team tids`)
+          }
+        }
+
+        // Log if not found
+        if (existingIndex === -1) {
+          const availableShells = updatedGames.filter(g =>
+            Number(g.year) === Number(year) && g.isCFPSemifinal
+          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName }))
+          console.log(`[saveCFPGames] SF: Shell NOT FOUND. Available:`, availableShells)
+        }
       } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
         // Championship: only one per year
         existingIndex = updatedGames.findIndex(g =>
@@ -5312,16 +5497,30 @@ export function DynastyProvider({ children }) {
 
       existingShell = existingIndex >= 0 ? updatedGames[existingIndex] : null
 
-      // Use existing shell's slot ID if found, otherwise try to determine it
+      // Use existing shell's slot ID if found, otherwise determine from seeds (NOT bowl name!)
       let slotId = existingShell?.cfpSlot
       if (!slotId) {
         if (roundType === GAME_TYPES.CFP_FIRST_ROUND) {
           slotId = getFirstRoundSlotId(gameData.seed1, gameData.seed2)
-        } else {
-          // For QF/SF without existing shell, we need to create a new slot ID
-          // This shouldn't happen if shells are properly created when seeds are entered
-          slotId = getSlotIdFromBowlName(gameData.bowlName)
+        } else if (roundType === GAME_TYPES.CFP_QUARTERFINAL) {
+          // BULLETPROOF: Determine slot from bye seed, NOT bowl name
+          const byeSeedToSlot = { 1: 'cfpqf1', 2: 'cfpqf4', 3: 'cfpqf3', 4: 'cfpqf2' }
+          const byeSeed = gameData.seed1 // Bye seed should be in seed1 position
+          if (byeSeed && byeSeed >= 1 && byeSeed <= 4) {
+            slotId = byeSeedToSlot[byeSeed]
+          }
+        } else if (roundType === GAME_TYPES.CFP_SEMIFINAL) {
+          // BULLETPROOF: Determine slot from which seeds are playing
+          const seeds = [gameData.seed1, gameData.seed2].filter(s => s)
+          const isSF1 = seeds.some(s => s === 1 || s === 4)
+          const isSF2 = seeds.some(s => s === 2 || s === 3)
+          if (isSF1 && !isSF2) slotId = 'cfpsf1'
+          else if (isSF2 && !isSF1) slotId = 'cfpsf2'
+          else slotId = gameData.slotId || gameData.cfpSlot // Fallback to provided slot
+        } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
+          slotId = 'cfpnc'
         }
+        console.log(`[saveCFPGames] Determined slotId from seeds: ${slotId}`)
       }
 
       const gameId = existingShell?.id || (slotId ? getCFPGameId(slotId, year) : `cfp-${roundType}-${year}-${Date.now()}`)
@@ -6670,12 +6869,13 @@ export function DynastyProvider({ children }) {
     if (dynasty.currentPhase === 'regular_season') {
       // Remove regular season game for current week
       updatedGames = updatedGames.filter(g =>
-        !(isSameWeek(g.week, dynasty.currentWeek) && isSameYear(g.year, year) && !g.isConferenceChampionship)
+        !(isSameWeek(g.week, dynasty.currentWeek) && isSameYear(g.year, year) &&
+          !g.isConferenceChampionship && g.gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP)
       )
     } else if (dynasty.currentPhase === 'conference_championship') {
       // Remove CC game from games array
       updatedGames = updatedGames.filter(g =>
-        !(g.isConferenceChampionship && isSameYear(g.year, year))
+        !((g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) && isSameYear(g.year, year))
       )
 
       // Restore fired coordinators if any were fired during this CC phase
@@ -6720,10 +6920,14 @@ export function DynastyProvider({ children }) {
         // Also remove Week 1 bowl games
         updatedGames = updatedGames.filter(g => {
           if (!isSameYear(g.year, year)) return true
-          // Remove all CFP games
-          if (g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship) return false
+          // Remove all CFP games (check both boolean flags and gameType)
+          const gameType = g.gameType
+          if (g.isCFPFirstRound || gameType === GAME_TYPES.CFP_FIRST_ROUND) return false
+          if (g.isCFPQuarterfinal || gameType === GAME_TYPES.CFP_QUARTERFINAL) return false
+          if (g.isCFPSemifinal || gameType === GAME_TYPES.CFP_SEMIFINAL) return false
+          if (g.isCFPChampionship || gameType === GAME_TYPES.CFP_CHAMPIONSHIP) return false
           // Remove week 1 bowl games
-          if (g.isBowlGame && g.bowlWeek === 'week1') return false
+          if ((g.isBowlGame || gameType === GAME_TYPES.BOWL) && g.bowlWeek === 'week1') return false
           return true
         })
 
@@ -6775,13 +6979,15 @@ export function DynastyProvider({ children }) {
 
         // Remove Week 2 bowl games from games array
         updatedGames = updatedGames.filter(g =>
-          !(g.isBowlGame && isSameYear(g.year, year) && g.bowlWeek === 'week2')
+          !((g.isBowlGame || g.gameType === GAME_TYPES.BOWL) && isSameYear(g.year, year) && g.bowlWeek === 'week2')
         )
 
         // Clear scores from QF shells (keep shells but reset scores)
         // Also clear opponent (team2Tid) since it comes from FR winner propagation
         updatedGames = updatedGames.map(g => {
-          if (g.isCFPQuarterfinal && isSameYear(g.year, year)) {
+          const isCFPQF = g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL
+          const isCFPFR = g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND
+          if (isCFPQF && isSameYear(g.year, year)) {
             return {
               ...g,
               team1Score: null,
@@ -6791,7 +6997,7 @@ export function DynastyProvider({ children }) {
             }
           }
           // Also clear FR scores so they can be re-entered
-          if (g.isCFPFirstRound && isSameYear(g.year, year)) {
+          if (isCFPFR && isSameYear(g.year, year)) {
             return {
               ...g,
               team1Score: null,
@@ -6825,21 +7031,32 @@ export function DynastyProvider({ children }) {
         // Clear Week 3 data (Bowl Week 3 + CFP Semifinals)
         // ALSO clear Week 2 CFP data so user can re-enter QF results
 
-        // Remove SF games and Week 3 bowl games from games array
+        // Remove Week 3 bowl games from games array (keep SF shells)
         updatedGames = updatedGames.filter(g =>
-          !(g.isCFPSemifinal && isSameYear(g.year, year)) &&
           !(g.isBowlGame && isSameYear(g.year, year) && g.bowlWeek === 'week3')
         )
 
-        // Clear scores from QF shells (keep shells but reset scores so user can re-enter)
-        // Also clear winner propagation (team2Tid) from SF shells
+        // Clear scores from QF shells AND SF shells (keep shells but reset scores/team tids)
         updatedGames = updatedGames.map(g => {
-          if (g.isCFPQuarterfinal && isSameYear(g.year, year)) {
+          const isCFPQF = g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL
+          const isCFPSF = g.isCFPSemifinal || g.gameType === GAME_TYPES.CFP_SEMIFINAL
+          if (isCFPQF && isSameYear(g.year, year)) {
             // Clear QF scores but keep shell structure
             return {
               ...g,
               team1Score: null,
               team2Score: null,
+              winnerTid: null
+            }
+          }
+          if (isCFPSF && isSameYear(g.year, year)) {
+            // Clear SF scores AND propagated team tids (keep shell)
+            return {
+              ...g,
+              team1Score: null,
+              team2Score: null,
+              team1Tid: null,
+              team2Tid: null,
               winnerTid: null
             }
           }
@@ -6871,7 +7088,9 @@ export function DynastyProvider({ children }) {
 
         // Clear scores from NC shell (keep shell but reset scores)
         updatedGames = updatedGames.map(g => {
-          if (g.isCFPChampionship && isSameYear(g.year, year)) {
+          const isCFPChamp = g.isCFPChampionship || g.gameType === GAME_TYPES.CFP_CHAMPIONSHIP
+          const isCFPSF = g.isCFPSemifinal || g.gameType === GAME_TYPES.CFP_SEMIFINAL
+          if (isCFPChamp && isSameYear(g.year, year)) {
             return {
               ...g,
               team1Score: null,
@@ -6882,7 +7101,7 @@ export function DynastyProvider({ children }) {
             }
           }
           // Also clear SF scores so they can be re-entered
-          if (g.isCFPSemifinal && isSameYear(g.year, year)) {
+          if (isCFPSF && isSameYear(g.year, year)) {
             return {
               ...g,
               team1Score: null,
@@ -6913,7 +7132,21 @@ export function DynastyProvider({ children }) {
         // Reverting FROM Week 5 TO Week 4
         // Week 5 (End of Season Recap) - clears championship data, All-Americans, All-Conference, rankings, awards
 
-        // Clear CFP Championship results (if entered during recap week)
+        // Clear NC shell scores from games[] so it can be re-entered
+        updatedGames = updatedGames.map(g => {
+          const isCFPChamp = g.isCFPChampionship || g.gameType === GAME_TYPES.CFP_CHAMPIONSHIP
+          if (isCFPChamp && isSameYear(g.year, year)) {
+            return {
+              ...g,
+              team1Score: null,
+              team2Score: null,
+              winnerTid: null
+            }
+          }
+          return g
+        })
+
+        // Clear CFP Championship results (legacy storage)
         additionalUpdates.cfpResultsByYear = {
           ...existingCFPResults,
           [year]: { ...yearCFPResults, championship: null }

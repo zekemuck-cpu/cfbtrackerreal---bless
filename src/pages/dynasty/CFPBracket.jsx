@@ -168,7 +168,21 @@ export default function CFPBracket() {
   const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[displayYear] || DEFAULT_BOWL_CONFIG
   const textColor = getContrastTextColor(teamColors.primary)
 
-  const getTeamBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.team || null
+  // Get tid for a seed, then look up team info
+  const getTidBySeed = (seed) => cfpSeeds.find(s => s.seed === seed)?.tid || null
+  const getTeamBySeed = (seed) => {
+    const seedEntry = cfpSeeds.find(s => s.seed === seed)
+    if (!seedEntry) return null
+
+    // New tid-based format
+    if (seedEntry.tid) {
+      const teamInfo = getGameTeamInfo(teams, seedEntry.tid)
+      return teamInfo?.abbr || seedEntry.team || null
+    }
+
+    // Legacy format - just has team abbreviation
+    return seedEntry.team || null
+  }
 
   // Get bowl name for a bye seed from config (for QF games)
   const getQFBowlName = (byeSeed) => getBowlForSeed(byeSeed, bowlConfig)
@@ -258,12 +272,10 @@ export default function CFPBracket() {
       const gameYear = game.year || displayYear
       const yearCfpSeeds = currentDynasty.cfpSeedsByYear?.[gameYear] || []
 
-      // For user games, find their seed
-      const userTeamForSeeds = perspective
-        ? getGameTeamInfo(teams, perspective.userTid)?.abbr
-        : (game.userTeam || team1)
-      if (userTeamForSeeds || game.isCFPFirstRound) {
-        const userSeedEntry = yearCfpSeeds.find(s => s.team === userTeamForSeeds)
+      // For user games, find their seed by tid
+      const userTidForSeeds = perspective?.userTid || game.team1Tid
+      if (userTidForSeeds || game.isCFPFirstRound) {
+        const userSeedEntry = yearCfpSeeds.find(s => s.tid === userTidForSeeds)
         if (userSeedEntry) {
           const userSeed = userSeedEntry.seed
           const oppSeed = 17 - userSeed // CFP First Round matchups: 5v12, 6v11, 7v10, 8v9
@@ -272,22 +284,31 @@ export default function CFPBracket() {
         }
       }
 
-      // For CPU games, look up both teams
-      if ((!seed1 || !seed2) && team1 && team2) {
-        const team1Entry = yearCfpSeeds.find(s => s.team === team1)
-        const team2Entry = yearCfpSeeds.find(s => s.team === team2)
+      // For CPU games, look up both teams by tid
+      if ((!seed1 || !seed2) && (game.team1Tid || game.team2Tid)) {
+        const team1Entry = yearCfpSeeds.find(s => s.tid === game.team1Tid)
+        const team2Entry = yearCfpSeeds.find(s => s.tid === game.team2Tid)
         if (team1Entry) seed1 = team1Entry.seed
         if (team2Entry) seed2 = team2Entry.seed
       }
+    }
+
+    // Compute winnerTid from scores (most reliable) or use stored value
+    let winnerTid = game.winnerTid
+    if (!winnerTid && team1Score !== null && team2Score !== null && team1Score !== team2Score) {
+      winnerTid = team1Score > team2Score ? game.team1Tid : game.team2Tid
     }
 
     return {
       ...game,
       team1,
       team2,
+      team1Tid: game.team1Tid,
+      team2Tid: game.team2Tid,
       team1Score,
       team2Score,
       winner,
+      winnerTid,
       seed1,
       seed2
     }
@@ -308,49 +329,84 @@ export default function CFPBracket() {
 
   const getFirstRoundWinner = (seed1, seed2) => {
     const game = getFirstRoundGame(seed1, seed2)
-    return game?.winner || null
+    if (!game) return null
+
+    // Get winner abbreviation - prefer computing from winnerTid for teambuilder support
+    if (game.winnerTid) {
+      const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
+      return winnerInfo?.abbr || game.winner || null
+    }
+    return game.winner || null
+  }
+
+  const getFirstRoundWinnerTid = (seed1, seed2) => {
+    const game = getFirstRoundGame(seed1, seed2)
+    return game?.winnerTid || null
   }
 
   const getWinnerSeed = (seed1, seed2) => {
     const game = getFirstRoundGame(seed1, seed2)
-    if (!game?.winner) return null
-    if (game.team1 === game.winner) return game.seed1
-    if (game.team2 === game.winner) return game.seed2
+    if (!game) return null
+
+    // Prefer tid-based comparison (works with teambuilder)
+    if (game.winnerTid) {
+      if (game.team1Tid === game.winnerTid) return game.seed1
+      if (game.team2Tid === game.winnerTid) return game.seed2
+    }
+
+    // Fallback to abbr comparison for legacy data
+    if (game.winner) {
+      if (game.team1 === game.winner) return game.seed1
+      if (game.team2 === game.winner) return game.seed2
+    }
+
     return null
   }
 
   // Get QF game by slot ID
-  // Priority: 1) bye seed team match (MOST RELIABLE), 2) cfpSlot match, 3) bowlName fallback
+  // BULLETPROOF: Only use cfpSlot for lookup - bowl names are for DISPLAY only
   const getQFGameBySlot = (slotId) => {
-    // Map slot to bye seed - this is the definitive mapping from bracket structure
+    // PRIMARY: Find by cfpSlot - this is the ONLY reliable identifier
+    const bySlot = quarterfinalsResults.find(g => g && g.cfpSlot === slotId)
+    if (bySlot) {
+      console.log(`[getQFGameBySlot] ${slotId}: Found by cfpSlot`, { id: bySlot.id, winner: bySlot.winner })
+      return bySlot
+    }
+
+    // SECONDARY: Find by game ID pattern (e.g., cfpqf1-2029)
+    const expectedGameId = getCFPGameId(slotId, displayYear)
+    const byId = quarterfinalsResults.find(g => g && g.id === expectedGameId)
+    if (byId) {
+      console.log(`[getQFGameBySlot] ${slotId}: Found by game ID ${expectedGameId}`, { winner: byId.winner })
+      return byId
+    }
+
+    // TERTIARY: Find by bye seed team (fallback for legacy data without cfpSlot)
     const slotToBySeed = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
     const byeSeed = slotToBySeed[slotId]
-
-    // FIRST: Find by bye seed team (most reliable - bye seed never changes)
     if (byeSeed) {
       const byeSeedEntry = cfpSeeds.find(s => s.seed === byeSeed)
-      const byeSeedTeam = byeSeedEntry?.team
       const byeSeedTid = byeSeedEntry?.tid
+      const byeSeedTeam = byeSeedEntry?.team
 
-      if (byeSeedTeam || byeSeedTid) {
+      if (byeSeedTid || byeSeedTeam) {
         const byByeSeed = quarterfinalsResults.find(g => {
           if (!g) return false
-          // Check if bye seed team is in this game
-          if (byeSeedTid && (g.team1Tid === byeSeedTid || g.team2Tid === byeSeedTid)) return true
-          if (byeSeedTeam && (g.team1 === byeSeedTeam || g.team2 === byeSeedTeam)) return true
+          // Only match if bye seed team is in position (team1Tid = bye seed in QF)
+          if (byeSeedTid && g.team1Tid === byeSeedTid) return true
+          if (byeSeedTeam && g.team1 === byeSeedTeam) return true
           return false
         })
-        if (byByeSeed) return byByeSeed
+        if (byByeSeed) {
+          console.log(`[getQFGameBySlot] ${slotId}: Found by bye seed ${byeSeed}`, { id: byByeSeed.id, winner: byByeSeed.winner })
+          return byByeSeed
+        }
       }
     }
 
-    // SECOND: Try to find by slot ID
-    const bySlot = quarterfinalsResults.find(g => g && g.cfpSlot === slotId)
-    if (bySlot) return bySlot
-
-    // THIRD: Fallback to bowl name from config
-    const fallbackBowlName = getBowlForSlot(slotId, bowlConfig)
-    return quarterfinalsResults.find(g => g && g.bowlName === fallbackBowlName) || null
+    // NO bowl name fallback - bowl names are configurable and cause confusion
+    console.log(`[getQFGameBySlot] ${slotId}: No game found!`)
+    return null
   }
 
   const getQFWinnerBySlot = (slotId) => {
@@ -358,12 +414,54 @@ export default function CFPBracket() {
     return game?.winner || null
   }
 
+  // Get winner tid for seed lookup
+  const getQFWinnerTidBySlot = (slotId) => {
+    const game = getQFGameBySlot(slotId)
+    return game?.winnerTid || null
+  }
+
   // Get SF game by slot ID
+  // BULLETPROOF: Only use cfpSlot for lookup - bowl names are for DISPLAY only
   const getSFGameBySlot = (slotId) => {
+    // PRIMARY: Find by cfpSlot - this is the ONLY reliable identifier
     const bySlot = semifinalsResults.find(g => g && g.cfpSlot === slotId)
-    if (bySlot) return bySlot
-    const fallbackBowlName = getBowlForSlot(slotId, bowlConfig)
-    return semifinalsResults.find(g => g && g.bowlName === fallbackBowlName) || null
+    if (bySlot) {
+      console.log(`[getSFGameBySlot] ${slotId}: Found by cfpSlot`, { id: bySlot.id, winner: bySlot.winner })
+      return bySlot
+    }
+
+    // SECONDARY: Find by game ID pattern (e.g., cfpsf1-2029)
+    const expectedGameId = getCFPGameId(slotId, displayYear)
+    const byId = semifinalsResults.find(g => g && g.id === expectedGameId)
+    if (byId) {
+      console.log(`[getSFGameBySlot] ${slotId}: Found by game ID ${expectedGameId}`, { winner: byId.winner })
+      return byId
+    }
+
+    // TERTIARY: For legacy data, try to match by QF winner teams
+    // SF1 gets winners from cfpqf1 (seed 1) and cfpqf2 (seed 4)
+    // SF2 gets winners from cfpqf3 (seed 3) and cfpqf4 (seed 2)
+    const qfSlots = slotId === 'cfpsf1' ? ['cfpqf1', 'cfpqf2'] : ['cfpqf3', 'cfpqf4']
+    const qfWinner1Tid = getQFWinnerTidBySlot(qfSlots[0])
+    const qfWinner2Tid = getQFWinnerTidBySlot(qfSlots[1])
+
+    if (qfWinner1Tid || qfWinner2Tid) {
+      const byTeams = semifinalsResults.find(g => {
+        if (!g) return false
+        // Check if SF has the expected QF winners
+        const hasWinner1 = qfWinner1Tid && (g.team1Tid === qfWinner1Tid || g.team2Tid === qfWinner1Tid)
+        const hasWinner2 = qfWinner2Tid && (g.team1Tid === qfWinner2Tid || g.team2Tid === qfWinner2Tid)
+        return hasWinner1 || hasWinner2
+      })
+      if (byTeams) {
+        console.log(`[getSFGameBySlot] ${slotId}: Found by QF winner teams`, { id: byTeams.id, winner: byTeams.winner })
+        return byTeams
+      }
+    }
+
+    // NO bowl name fallback - bowl names are configurable and cause confusion
+    console.log(`[getSFGameBySlot] ${slotId}: No game found!`)
+    return null
   }
 
   const getSFWinnerBySlot = (slotId) => {
@@ -371,14 +469,39 @@ export default function CFPBracket() {
     return game?.winner || null
   }
 
+  // Get winner tid for seed lookup
+  const getSFWinnerTidBySlot = (slotId) => {
+    const game = getSFGameBySlot(slotId)
+    return game?.winnerTid || null
+  }
+
   const getChampGame = () => {
     return championshipResults.find(g => g) || null
   }
 
-  const getSeedByTeam = (team) => {
-    if (!team) return null
-    const seedEntry = cfpSeeds.find(s => s && s.team === team)
+  const getSeedByTid = (tid) => {
+    if (!tid) return null
+    const seedEntry = cfpSeeds.find(s => s && s.tid === tid)
     return seedEntry?.seed || null
+  }
+
+  // Get seed by team abbreviation (for legacy data without tid)
+  const getSeedByTeam = (teamAbbr) => {
+    if (!teamAbbr) return null
+    const seedEntry = cfpSeeds.find(s => s && s.team === teamAbbr)
+    return seedEntry?.seed || null
+  }
+
+  // Get seed from either tid or abbr
+  const getSeedForWinner = (winnerTid, winnerAbbr) => {
+    if (winnerTid) {
+      const seed = getSeedByTid(winnerTid)
+      if (seed) return seed
+    }
+    if (winnerAbbr) {
+      return getSeedByTeam(winnerAbbr)
+    }
+    return null
   }
 
   // Sizing constants (scaled up for larger bracket)
@@ -944,8 +1067,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getQFWinnerBySlot('cfpqf2')}
               team2={getQFWinnerBySlot('cfpqf1')}
-              seed1={getSeedByTeam(getQFWinnerBySlot('cfpqf2'))}
-              seed2={getSeedByTeam(getQFWinnerBySlot('cfpqf1'))}
+              seed1={getSeedForWinner(getQFWinnerTidBySlot('cfpqf2'), getQFWinnerBySlot('cfpqf2'))}
+              seed2={getSeedForWinner(getQFWinnerTidBySlot('cfpqf1'), getQFWinnerBySlot('cfpqf1'))}
               style={{ top: SF_M1, left: COL3 }}
               round="Semifinal"
               bowl={getSFBowlName(1)}
@@ -956,8 +1079,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getQFWinnerBySlot('cfpqf3')}
               team2={getQFWinnerBySlot('cfpqf4')}
-              seed1={getSeedByTeam(getQFWinnerBySlot('cfpqf3'))}
-              seed2={getSeedByTeam(getQFWinnerBySlot('cfpqf4'))}
+              seed1={getSeedForWinner(getQFWinnerTidBySlot('cfpqf3'), getQFWinnerBySlot('cfpqf3'))}
+              seed2={getSeedForWinner(getQFWinnerTidBySlot('cfpqf4'), getQFWinnerBySlot('cfpqf4'))}
               style={{ top: SF_M2, left: COL3 }}
               round="Semifinal"
               bowl={getSFBowlName(2)}
@@ -989,8 +1112,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getSFWinnerBySlot('cfpsf1')}
               team2={getSFWinnerBySlot('cfpsf2')}
-              seed1={getSeedByTeam(getSFWinnerBySlot('cfpsf1'))}
-              seed2={getSeedByTeam(getSFWinnerBySlot('cfpsf2'))}
+              seed1={getSeedForWinner(getSFWinnerTidBySlot('cfpsf1'), getSFWinnerBySlot('cfpsf1'))}
+              seed2={getSeedForWinner(getSFWinnerTidBySlot('cfpsf2'), getSFWinnerBySlot('cfpsf2'))}
               style={{ top: CHAMP, left: COL4 }}
               round="Championship"
               bowl="National Championship"

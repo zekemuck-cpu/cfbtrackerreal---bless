@@ -394,12 +394,13 @@ export default function GameEdit() {
                     existingGame?.isCFPSemifinal || existingGame?.isCFPChampionship ||
                     gameType?.startsWith('cfp_')
 
-  // Get CFP seeds for each team
+  // Get CFP seeds for each team by tid
   const getCFPSeedForTid = (tid) => {
     if (!tid || !currentDynasty?.cfpSeedsByYear) return null
     const cfpSeeds = currentDynasty.cfpSeedsByYear[gameYear] || currentDynasty.cfpSeedsByYear[String(gameYear)]
     if (!cfpSeeds) return null
     const seedEntry = cfpSeeds.find(s => s.tid === tid)
+    console.log('[GameEdit] getCFPSeedForTid:', { tid, gameYear, cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })), foundEntry: seedEntry })
     return seedEntry?.seed || null
   }
 
@@ -407,16 +408,24 @@ export default function GameEdit() {
   const team1Seed = existingGame?.seed1 || existingGame?.cfpSeed1 || getCFPSeedForTid(team1Tid)
   const team2Seed = existingGame?.seed2 || existingGame?.cfpSeed2 || getCFPSeedForTid(team2Tid)
 
-  // For CFP games: swap so lower seed is on left (team with better seed number)
+  console.log('[GameEdit] CFP seed resolution:', {
+    isCFPGame,
+    team1Tid, team2Tid,
+    team1Abbr, team2Abbr,
+    team1Seed, team2Seed,
+    existingGameSeeds: { seed1: existingGame?.seed1, seed2: existingGame?.seed2, cfpSeed1: existingGame?.cfpSeed1, cfpSeed2: existingGame?.cfpSeed2 }
+  })
+
+  // For CFP games: better seed (lower number like #1) goes on right/bottom
   // Lower seed number = better team (e.g., #1 is better than #12)
-  const shouldSwapForCFP = isCFPGame && team1Seed && team2Seed && team1Seed > team2Seed
+  const shouldSwapForCFP = isCFPGame && team1Seed && team2Seed && team1Seed < team2Seed
 
   // Display variables - swap order based on home/away OR CFP seeding
   let displayLeftTeam, displayRightTeam
   if (isCFPGame && team1Seed && team2Seed) {
-    // CFP games: lower seed on left, higher seed on right
-    displayLeftTeam = team1Seed < team2Seed ? 'team1' : 'team2'
-    displayRightTeam = team1Seed < team2Seed ? 'team2' : 'team1'
+    // CFP games: higher seed number (worse team) on left, lower seed number (better team) on right
+    displayLeftTeam = team1Seed > team2Seed ? 'team1' : 'team2'
+    displayRightTeam = team1Seed > team2Seed ? 'team2' : 'team1'
   } else {
     // Regular games: away on left, home on right
     displayLeftTeam = isTeam1Home ? 'team2' : 'team1'
@@ -425,14 +434,19 @@ export default function GameEdit() {
 
   const leftTeamTid = displayLeftTeam === 'team1' ? team1Tid : team2Tid
   const rightTeamTid = displayRightTeam === 'team1' ? team1Tid : team2Tid
-  const leftTeamName = isTeam1Home ? team2Name : team1Name
-  const rightTeamName = isTeam1Home ? team1Name : team2Name
-  const leftTeamAbbr = isTeam1Home ? team2Abbr : team1Abbr
-  const rightTeamAbbr = isTeam1Home ? team1Abbr : team2Abbr
-  const leftTeamLogo = isTeam1Home ? team2Logo : team1Logo
-  const rightTeamLogo = isTeam1Home ? team1Logo : team2Logo
-  const leftTeamColors = isTeam1Home ? team2Colors : team1Colors
-  const rightTeamColors = isTeam1Home ? team1Colors : team2Colors
+  const leftTeamName = displayLeftTeam === 'team1' ? team1Name : team2Name
+  const rightTeamName = displayRightTeam === 'team1' ? team1Name : team2Name
+  const leftTeamAbbr = displayLeftTeam === 'team1' ? team1Abbr : team2Abbr
+  const rightTeamAbbr = displayRightTeam === 'team1' ? team1Abbr : team2Abbr
+  const leftTeamLogo = displayLeftTeam === 'team1' ? team1Logo : team2Logo
+  const rightTeamLogo = displayRightTeam === 'team1' ? team1Logo : team2Logo
+  const leftTeamColors = displayLeftTeam === 'team1' ? team1Colors : team2Colors
+  const rightTeamColors = displayRightTeam === 'team1' ? team1Colors : team2Colors
+
+  // For Team Details section: determine which team to show first (left/top) and second (right/bottom)
+  const isLeftTeam1 = displayLeftTeam === 'team1'
+  const isLeftUserTeam = leftTeamTid === userTidForGame
+  const isRightUserTeam = rightTeamTid === userTidForGame
 
   // Calculate team records - uses centralized function, excludes current game being edited
   const calculateTeamRecord = (tid, year) => {
@@ -626,11 +640,22 @@ export default function GameEdit() {
       // For CFP games, auto-fill ranks with seeds if not already set
       const isCFP = existingGame.isCFPFirstRound || existingGame.isCFPQuarterfinal ||
                     existingGame.isCFPSemifinal || existingGame.isCFPChampionship
-      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || []
+      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || currentDynasty?.cfpSeedsByYear?.[String(gameYear)] || []
 
-      const getCFPSeedForTid = (tid) => {
+      console.log('[GameEdit] Form init - CFP check:', {
+        isCFP,
+        gameYear,
+        cfpSeedsCount: cfpSeeds.length,
+        cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })),
+        team1Tid: existingGame.team1Tid,
+        team2Tid: existingGame.team2Tid
+      })
+
+      // Look up CFP seed by tid only
+      const getCFPSeedForTidInit = (tid) => {
         if (!tid || !cfpSeeds.length) return null
         const entry = cfpSeeds.find(s => s.tid === tid)
+        console.log('[GameEdit] Form init getCFPSeedForTid:', { tid, foundEntry: entry })
         return entry?.seed || null
       }
 
@@ -639,12 +664,14 @@ export default function GameEdit() {
       let rank2 = existingGame.team2Rank?.toString() || existingGame.opponentRank?.toString() || ''
 
       if (isCFP && !rank1) {
-        const seed = getCFPSeedForTid(existingGame.team1Tid)
+        const seed = getCFPSeedForTidInit(existingGame.team1Tid)
         if (seed) rank1 = seed.toString()
+        console.log('[GameEdit] Form init - rank1 from seed:', { seed, rank1 })
       }
       if (isCFP && !rank2) {
-        const seed = getCFPSeedForTid(existingGame.team2Tid)
+        const seed = getCFPSeedForTidInit(existingGame.team2Tid)
         if (seed) rank2 = seed.toString()
+        console.log('[GameEdit] Form init - rank2 from seed:', { seed, rank2 })
       }
 
       setFormData({
@@ -686,15 +713,26 @@ export default function GameEdit() {
 
       // For CFP games, auto-fill ranks with seeds
       const isCFPGameType = gameType?.startsWith('cfp_')
-      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || []
+      const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || currentDynasty?.cfpSeedsByYear?.[String(gameYear)] || []
       let rank1 = ''
       let rank2 = ''
 
+      console.log('[GameEdit] New game - CFP check:', {
+        isCFPGameType,
+        gameYear,
+        cfpSeedsCount: cfpSeeds.length,
+        cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })),
+        team1Tid,
+        team2Tid
+      })
+
       if (isCFPGameType && cfpSeeds.length) {
-        const seed1 = cfpSeeds.find(s => s.tid === team1Tid)?.seed
-        const seed2 = cfpSeeds.find(s => s.tid === team2Tid)?.seed
-        if (seed1) rank1 = seed1.toString()
-        if (seed2) rank2 = seed2.toString()
+        // Look up by tid only
+        const seed1Entry = cfpSeeds.find(s => s.tid === team1Tid)
+        const seed2Entry = cfpSeeds.find(s => s.tid === team2Tid)
+        console.log('[GameEdit] New game - seed lookup:', { seed1Entry, seed2Entry })
+        if (seed1Entry?.seed) rank1 = seed1Entry.seed.toString()
+        if (seed2Entry?.seed) rank2 = seed2Entry.seed.toString()
       }
 
       setFormData(prev => ({
@@ -1331,13 +1369,13 @@ export default function GameEdit() {
         </div>
       </div>
 
-      {/* Team Details - Side by Side */}
+      {/* Team Details - Side by Side (display-ordered: left team first, right team second) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Team 1 Details */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${team1Colors.primary}` }}>
+        {/* Left Team Details (higher seed number/worse team for CFP, away for regular) */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${leftTeamColors.primary}` }}>
           <div className="flex items-center gap-3 mb-4">
-            {team1Logo && <img src={team1Logo} alt="" className="w-10 h-10 object-contain" />}
-            <h3 className="text-lg font-bold" style={{ color: team1Colors.primary }}>{team1Name}</h3>
+            {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-10 h-10 object-contain" />}
+            <h3 className="text-lg font-bold" style={{ color: leftTeamColors.primary }}>{leftTeamName}</h3>
           </div>
 
           {/* Rankings */}
@@ -1346,16 +1384,16 @@ export default function GameEdit() {
             <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={formData.team1Rank}
-                onChange={(e) => setFormData({ ...formData, team1Rank: e.target.value })}
+                value={formData[`${displayLeftTeam}Rank`]}
+                onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Rank`]: e.target.value })}
                 className="w-16 px-2 py-2 border-2 rounded-lg text-center"
-                style={{ borderColor: `${team1Colors.primary}40` }}
+                style={{ borderColor: `${leftTeamColors.primary}40` }}
                 min="1" max="133" placeholder="#"
               />
-              {formData.team1Rank && (
-                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData.team1Rank)}</span>
+              {formData[`${displayLeftTeam}Rank`] && (
+                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData[`${displayLeftTeam}Rank`])}</span>
               )}
-              {!formData.team1Rank && (
+              {!formData[`${displayLeftTeam}Rank`] && (
                 <span className="text-sm text-gray-400">Unranked</span>
               )}
             </div>
@@ -1365,7 +1403,7 @@ export default function GameEdit() {
           <div className="mb-4">
             <label className="text-sm font-semibold text-gray-700 block mb-2">
               Team Ratings
-              {isTeam1UserTeam && formData.team1Overall && (
+              {isLeftUserTeam && formData[`${displayLeftTeam}Overall`] && (
                 <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
               )}
             </label>
@@ -1374,8 +1412,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Overall</label>
                 <input
                   type="number"
-                  value={formData.team1Overall}
-                  onChange={(e) => setFormData({ ...formData, team1Overall: e.target.value })}
+                  value={formData[`${displayLeftTeam}Overall`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Overall`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1384,8 +1422,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Offense</label>
                 <input
                   type="number"
-                  value={formData.team1Offense}
-                  onChange={(e) => setFormData({ ...formData, team1Offense: e.target.value })}
+                  value={formData[`${displayLeftTeam}Offense`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Offense`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1394,8 +1432,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Defense</label>
                 <input
                   type="number"
-                  value={formData.team1Defense}
-                  onChange={(e) => setFormData({ ...formData, team1Defense: e.target.value })}
+                  value={formData[`${displayLeftTeam}Defense`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Defense`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1404,7 +1442,7 @@ export default function GameEdit() {
           </div>
 
           {/* Record - hidden for user team */}
-          {!isTeam1UserTeam && (
+          {!isLeftUserTeam && (
             <div>
               <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
@@ -1412,8 +1450,8 @@ export default function GameEdit() {
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="text"
-                    value={formData.team1Record}
-                    onChange={(e) => setFormData({ ...formData, team1Record: e.target.value })}
+                    value={formData[`${displayLeftTeam}Record`]}
+                    onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Record`]: e.target.value })}
                     className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
@@ -1422,8 +1460,8 @@ export default function GameEdit() {
                   <label className="block text-xs text-gray-500 mb-1">Conference</label>
                   <input
                     type="text"
-                    value={formData.team1ConfRecord}
-                    onChange={(e) => setFormData({ ...formData, team1ConfRecord: e.target.value })}
+                    value={formData[`${displayLeftTeam}ConfRecord`]}
+                    onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}ConfRecord`]: e.target.value })}
                     className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
@@ -1433,11 +1471,11 @@ export default function GameEdit() {
           )}
         </div>
 
-        {/* Team 2 Details */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${team2Colors.primary}` }}>
+        {/* Right Team Details (lower seed number/better team for CFP, home for regular) */}
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${rightTeamColors.primary}` }}>
           <div className="flex items-center gap-3 mb-4">
-            {team2Logo && <img src={team2Logo} alt="" className="w-10 h-10 object-contain" />}
-            <h3 className="text-lg font-bold" style={{ color: team2Colors.primary }}>{team2Name}</h3>
+            {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-10 h-10 object-contain" />}
+            <h3 className="text-lg font-bold" style={{ color: rightTeamColors.primary }}>{rightTeamName}</h3>
           </div>
 
           {/* Rankings */}
@@ -1446,16 +1484,16 @@ export default function GameEdit() {
             <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={formData.team2Rank}
-                onChange={(e) => setFormData({ ...formData, team2Rank: e.target.value })}
+                value={formData[`${displayRightTeam}Rank`]}
+                onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Rank`]: e.target.value })}
                 className="w-16 px-2 py-2 border-2 rounded-lg text-center"
-                style={{ borderColor: `${team2Colors.primary}40` }}
+                style={{ borderColor: `${rightTeamColors.primary}40` }}
                 min="1" max="133" placeholder="#"
               />
-              {formData.team2Rank && (
-                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData.team2Rank)}</span>
+              {formData[`${displayRightTeam}Rank`] && (
+                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData[`${displayRightTeam}Rank`])}</span>
               )}
-              {!formData.team2Rank && (
+              {!formData[`${displayRightTeam}Rank`] && (
                 <span className="text-sm text-gray-400">Unranked</span>
               )}
             </div>
@@ -1465,7 +1503,7 @@ export default function GameEdit() {
           <div className="mb-4">
             <label className="text-sm font-semibold text-gray-700 block mb-2">
               Team Ratings
-              {isTeam2UserTeam && formData.team2Overall && (
+              {isRightUserTeam && formData[`${displayRightTeam}Overall`] && (
                 <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
               )}
             </label>
@@ -1474,8 +1512,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Overall</label>
                 <input
                   type="number"
-                  value={formData.team2Overall}
-                  onChange={(e) => setFormData({ ...formData, team2Overall: e.target.value })}
+                  value={formData[`${displayRightTeam}Overall`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Overall`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1484,8 +1522,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Offense</label>
                 <input
                   type="number"
-                  value={formData.team2Offense}
-                  onChange={(e) => setFormData({ ...formData, team2Offense: e.target.value })}
+                  value={formData[`${displayRightTeam}Offense`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Offense`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1494,8 +1532,8 @@ export default function GameEdit() {
                 <label className="block text-xs text-gray-500 mb-1">Defense</label>
                 <input
                   type="number"
-                  value={formData.team2Defense}
-                  onChange={(e) => setFormData({ ...formData, team2Defense: e.target.value })}
+                  value={formData[`${displayRightTeam}Defense`]}
+                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Defense`]: e.target.value })}
                   className="w-full px-2 py-1 border rounded text-center"
                   min="0" max="99"
                 />
@@ -1504,7 +1542,7 @@ export default function GameEdit() {
           </div>
 
           {/* Record - hidden for user team */}
-          {!isTeam2UserTeam && (
+          {!isRightUserTeam && (
             <div>
               <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
@@ -1512,8 +1550,8 @@ export default function GameEdit() {
                   <label className="block text-xs text-gray-500 mb-1">Overall</label>
                   <input
                     type="text"
-                    value={formData.team2Record}
-                    onChange={(e) => setFormData({ ...formData, team2Record: e.target.value })}
+                    value={formData[`${displayRightTeam}Record`]}
+                    onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Record`]: e.target.value })}
                     className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
@@ -1522,8 +1560,8 @@ export default function GameEdit() {
                   <label className="block text-xs text-gray-500 mb-1">Conference</label>
                   <input
                     type="text"
-                    value={formData.team2ConfRecord}
-                    onChange={(e) => setFormData({ ...formData, team2ConfRecord: e.target.value })}
+                    value={formData[`${displayRightTeam}ConfRecord`]}
+                    onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}ConfRecord`]: e.target.value })}
                     className="w-full px-2 py-1 border rounded text-center"
                     placeholder="0-0"
                   />
