@@ -2504,9 +2504,12 @@ export default function Player() {
 
         // Get accolades from new format
         const accolades = player.accolades || []
+        const allAmericans = player.allAmericans || []
+        const allConference = player.allConference || []
 
         // Check if we have any awards to show
-        const hasAwards = powHonors.confPOW > 0 || powHonors.nationalPOW > 0 || accolades.length > 0
+        const hasAwards = powHonors.confPOW > 0 || powHonors.nationalPOW > 0 ||
+          accolades.length > 0 || allAmericans.length > 0 || allConference.length > 0
 
         if (!hasAwards) return null
 
@@ -2514,6 +2517,22 @@ export default function Player() {
         const accoladesByType = accolades.reduce((acc, a) => {
           if (!acc[a.award]) acc[a.award] = []
           acc[a.award].push(a.year)
+          return acc
+        }, {})
+
+        // Group All-Americans by designation for display
+        const allAmericansByDesignation = allAmericans.reduce((acc, a) => {
+          const key = a.designation || 'first'
+          if (!acc[key]) acc[key] = []
+          acc[key].push(a.year)
+          return acc
+        }, {})
+
+        // Group All-Conference by designation for display
+        const allConferenceByDesignation = allConference.reduce((acc, a) => {
+          const key = a.designation || 'first'
+          if (!acc[key]) acc[key] = []
+          acc[key].push(a.year)
           return acc
         }, {})
 
@@ -2558,6 +2577,34 @@ export default function Player() {
                     </div>
                   )
                 })}
+              {/* All-Americans */}
+              {Object.entries(allAmericansByDesignation).map(([designation, years]) => {
+                const label = designation === 'first' ? 'All-American (1st Team)' :
+                              designation === 'second' ? 'All-American (2nd Team)' :
+                              designation === 'freshman' ? 'Freshman All-American' :
+                              `All-American (${designation})`
+                const sortedYears = [...years].sort((a, b) => b - a)
+                return (
+                  <div key={`aa-${designation}`} style={{ color: 'var(--text-secondary)' }}>
+                    <span className="font-semibold" style={{ color: teamColors.primary }}>{label}</span>
+                    <span style={{ color: 'var(--text-tertiary)' }}> ({sortedYears.join(', ')})</span>
+                  </div>
+                )
+              })}
+              {/* All-Conference */}
+              {Object.entries(allConferenceByDesignation).map(([designation, years]) => {
+                const label = designation === 'first' ? 'All-Conference (1st Team)' :
+                              designation === 'second' ? 'All-Conference (2nd Team)' :
+                              designation === 'freshman' ? 'Freshman All-Conference' :
+                              `All-Conference (${designation})`
+                const sortedYears = [...years].sort((a, b) => b - a)
+                return (
+                  <div key={`ac-${designation}`} style={{ color: 'var(--text-secondary)' }}>
+                    <span className="font-semibold" style={{ color: teamColors.primary }}>{label}</span>
+                    <span style={{ color: 'var(--text-tertiary)' }}> ({sortedYears.join(', ')})</span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )
