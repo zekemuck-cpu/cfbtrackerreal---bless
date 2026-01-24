@@ -57,6 +57,9 @@ export default function DangerZone() {
   // Honors sync state
   const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
 
+  // Duplicate player merge state
+  const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
+
   if (!currentDynasty) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1189,6 +1192,149 @@ export default function DangerZone() {
     }
   }
 
+  // Merge duplicate players - finds players with same name and merges their data
+  const handleMergeDuplicatePlayers = async () => {
+    setDuplicateMergeStatus('running')
+    try {
+      const players = currentDynasty.players || []
+
+      // Group players by normalized name
+      const playersByName = new Map()
+      players.forEach(p => {
+        if (!p.name) return
+        const normalizedName = p.name.toLowerCase().trim()
+        if (!playersByName.has(normalizedName)) {
+          playersByName.set(normalizedName, [])
+        }
+        playersByName.get(normalizedName).push(p)
+      })
+
+      // Find duplicates (names with more than one player)
+      const duplicateGroups = []
+      playersByName.forEach((group, name) => {
+        if (group.length > 1) {
+          duplicateGroups.push({ name, players: group })
+        }
+      })
+
+      if (duplicateGroups.length === 0) {
+        setDuplicateMergeStatus({ success: true, message: 'No duplicate players found.' })
+        return
+      }
+
+      console.log(`[Duplicate Merge] Found ${duplicateGroups.length} duplicate player groups`)
+
+      // Merge each group
+      let mergedCount = 0
+      const pidsToRemove = new Set()
+      const mergedPlayers = []
+
+      for (const group of duplicateGroups) {
+        console.log(`[Duplicate Merge] Processing: ${group.name} (${group.players.length} entries)`)
+
+        // Sort by pid (lowest = oldest = primary) - the original player
+        const sorted = [...group.players].sort((a, b) => (a.pid || 999999) - (b.pid || 999999))
+        const primary = sorted[0]
+        const duplicates = sorted.slice(1)
+
+        // Merge all duplicates into primary
+        let merged = { ...primary }
+
+        for (const dup of duplicates) {
+          // Merge teamsByYear - combine all years from both
+          if (dup.teamsByYear) {
+            merged.teamsByYear = { ...merged.teamsByYear, ...dup.teamsByYear }
+          }
+
+          // Merge statsByYear - combine all years from both
+          if (dup.statsByYear) {
+            merged.statsByYear = { ...merged.statsByYear, ...dup.statsByYear }
+          }
+
+          // Merge classByYear - combine all years from both
+          if (dup.classByYear) {
+            merged.classByYear = { ...merged.classByYear, ...dup.classByYear }
+          }
+
+          // Merge movements - combine all movements
+          if (dup.movements && dup.movements.length > 0) {
+            const existingMovements = merged.movements || []
+            // Add movements that aren't already in the merged list (by year+type)
+            const existingKeys = new Set(existingMovements.map(m => `${m.year}-${m.type}`))
+            const newMovements = dup.movements.filter(m => !existingKeys.has(`${m.year}-${m.type}`))
+            merged.movements = [...existingMovements, ...newMovements]
+          }
+
+          // Keep most recent overall rating
+          if (dup.overall && (!merged.overall || dup.overall > merged.overall)) {
+            merged.overall = dup.overall
+          }
+
+          // Merge honors/awards
+          if (dup.honors) {
+            const existingHonors = merged.honors || []
+            const existingHonorKeys = new Set(existingHonors.map(h => `${h.year}-${h.honorType}`))
+            const newHonors = dup.honors.filter(h => !existingHonorKeys.has(`${h.year}-${h.honorType}`))
+            merged.honors = [...existingHonors, ...newHonors]
+          }
+
+          // Keep any recruiting info that might be missing
+          if (!merged.stars && dup.stars) merged.stars = dup.stars
+          if (!merged.nationalRank && dup.nationalRank) merged.nationalRank = dup.nationalRank
+          if (!merged.stateRank && dup.stateRank) merged.stateRank = dup.stateRank
+          if (!merged.positionRank && dup.positionRank) merged.positionRank = dup.positionRank
+          if (!merged.previousTeam && dup.previousTeam) merged.previousTeam = dup.previousTeam
+          if (!merged.devTrait && dup.devTrait) merged.devTrait = dup.devTrait
+          if (!merged.archetype && dup.archetype) merged.archetype = dup.archetype
+          if (!merged.height && dup.height) merged.height = dup.height
+          if (!merged.weight && dup.weight) merged.weight = dup.weight
+
+          // Mark duplicate for removal
+          pidsToRemove.add(dup.pid)
+          console.log(`[Duplicate Merge] Will merge pid ${dup.pid} into pid ${primary.pid}`)
+        }
+
+        // Sort movements by year
+        if (merged.movements) {
+          merged.movements.sort((a, b) => (a.year || 0) - (b.year || 0))
+        }
+
+        mergedPlayers.push(merged)
+        mergedCount++
+      }
+
+      // Build final players array - merged players + non-duplicates
+      const nonDuplicatePlayers = players.filter(p => {
+        const normalizedName = p.name?.toLowerCase().trim()
+        // Not a duplicate group, or is the primary (lowest pid) in a duplicate group
+        if (!playersByName.has(normalizedName)) return true
+        const group = playersByName.get(normalizedName)
+        if (group.length === 1) return true
+        // Check if this is a pid we're removing
+        return !pidsToRemove.has(p.pid)
+      })
+
+      // Replace primary players with their merged versions
+      const finalPlayers = nonDuplicatePlayers.map(p => {
+        const merged = mergedPlayers.find(m => m.pid === p.pid)
+        return merged || p
+      })
+
+      console.log(`[Duplicate Merge] Final: ${finalPlayers.length} players (removed ${pidsToRemove.size} duplicates)`)
+
+      // Save
+      await updateDynasty(currentDynasty.id, { players: finalPlayers })
+
+      setDuplicateMergeStatus({
+        success: true,
+        message: `Merged ${mergedCount} duplicate player groups (removed ${pidsToRemove.size} duplicate entries).`
+      })
+    } catch (error) {
+      console.error('[Duplicate Merge] Error:', error)
+      setDuplicateMergeStatus({ success: false, message: 'Merge failed: ' + error.message })
+    }
+  }
+
   // Compact Action Card
   const ActionCard = ({ icon, title, description, buttonText, onClick, status, variant = 'normal' }) => {
     const isRunning = status === 'running'
@@ -1278,9 +1424,9 @@ export default function DangerZone() {
             <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
             <div><strong>Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
             <div><strong>Repair CCG:</strong> Conference championship games not showing in history</div>
+            <div><strong>Merge Players:</strong> Transfer created duplicate player instead of updating</div>
             <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
-            <div><strong>Database Migration:</strong> "Exceeds maximum size" errors</div>
           </div>
         </div>
       )}
@@ -1339,6 +1485,13 @@ export default function DangerZone() {
             buttonText="Repair CCG"
             onClick={handleRepairCCGames}
             status={ccgRepairStatus}
+          />
+          <ActionCard
+            title="Merge Duplicate Players"
+            description="Finds players with same name and merges their stats/history"
+            buttonText="Merge Players"
+            onClick={handleMergeDuplicatePlayers}
+            status={duplicateMergeStatus}
           />
         </div>
       </div>

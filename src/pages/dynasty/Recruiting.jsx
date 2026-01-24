@@ -7,7 +7,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamColors } from '../../data/teamColors'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
-import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeamByAbbr, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName } from '../../data/teams'
 
 // Star display helper
@@ -284,14 +284,17 @@ export default function Recruiting() {
       'RS Sr': 'RS Sr'
     }
 
-    // Build a map of existing players by normalized name for this team
+    // Build a map of existing players by normalized name - check ALL players for cross-team transfers
     const existingPlayersByName = {}
+    const sameTeamPlayersByName = {}
     existingPlayers.forEach(p => {
-      // Handle both tid and abbr for backwards compatibility
-      if (p.team === selectedTid || p.team === teamAbbr) {
-        const normalizedName = p.name?.toLowerCase().trim()
-        if (normalizedName) {
-          existingPlayersByName[normalizedName] = p
+      const normalizedName = p.name?.toLowerCase().trim()
+      if (normalizedName) {
+        // Track ALL players by name (for cross-team transfer detection)
+        existingPlayersByName[normalizedName] = p
+        // Also track same-team players separately
+        if (p.team === selectedTid || p.team === teamAbbr) {
+          sameTeamPlayersByName[normalizedName] = p
         }
       }
     })
@@ -304,11 +307,12 @@ export default function Recruiting() {
       if (!recruit.name) return
 
       const normalizedName = recruit.name.toLowerCase().trim()
-      const existingPlayer = existingPlayersByName[normalizedName]
+      const sameTeamPlayer = sameTeamPlayersByName[normalizedName]
+      const anyTeamPlayer = existingPlayersByName[normalizedName]
 
-      if (existingPlayer) {
-        // Update existing player's info from the sheet
-        const playerIndex = updatedPlayers.findIndex(p => p.pid === existingPlayer.pid)
+      if (sameTeamPlayer) {
+        // Update existing player on same team - normal update
+        const playerIndex = updatedPlayers.findIndex(p => p.pid === sameTeamPlayer.pid)
         if (playerIndex !== -1) {
           updatedPlayers[playerIndex] = {
             ...updatedPlayers[playerIndex],
@@ -329,6 +333,50 @@ export default function Recruiting() {
             previousTeam: recruit.previousTeam || updatedPlayers[playerIndex].previousTeam,
             isPortal: recruit.isPortal ?? updatedPlayers[playerIndex].isPortal ?? false
           }
+        }
+      } else if (anyTeamPlayer) {
+        // CROSS-TEAM TRANSFER: Player exists but was on a different team
+        // Update the existing player record, preserving all their history
+        const playerIndex = updatedPlayers.findIndex(p => p.pid === anyTeamPlayer.pid)
+        if (playerIndex !== -1) {
+          const existingPlayer = updatedPlayers[playerIndex]
+          const previousTeamTid = existingPlayer.team
+
+          // Create movement for the transfer
+          const movement = {
+            year: selectedYear,
+            type: 'portal_in',
+            from: previousTeamTid,
+            to: selectedTid,
+            reason: 'Transfer'
+          }
+
+          updatedPlayers[playerIndex] = {
+            ...existingPlayer,
+            // Update team to new team
+            team: selectedTid,
+            // Add to new team's roster for next year
+            teamsByYear: {
+              ...existingPlayer.teamsByYear,
+              [selectedYear + 1]: teamsByYearValue
+            },
+            // Add the transfer movement
+            movements: [...(existingPlayer.movements || []), movement],
+            // Mark as portal transfer
+            isPortal: true,
+            isRecruit: true,
+            recruitYear: selectedYear,
+            // Set previousTeam for filtering (use the team they came from)
+            previousTeam: recruit.previousTeam || getOriginalTeamAbbr(previousTeamTid) || existingPlayer.previousTeam,
+            // Update from sheet data where provided
+            devTrait: recruit.devTrait || existingPlayer.devTrait,
+            stars: recruit.stars ?? existingPlayer.stars,
+            nationalRank: recruit.nationalRank ?? existingPlayer.nationalRank,
+            stateRank: recruit.stateRank ?? existingPlayer.stateRank,
+            positionRank: recruit.positionRank ?? existingPlayer.positionRank,
+            gemBust: recruit.gemBust || existingPlayer.gemBust
+          }
+          console.log(`[Recruiting] Cross-team transfer detected: ${recruit.name} from tid ${previousTeamTid} to tid ${selectedTid}`)
         }
       } else {
         // No existing player found - create new one
