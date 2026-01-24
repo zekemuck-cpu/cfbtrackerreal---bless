@@ -217,6 +217,13 @@ export default function DangerZone() {
         return score
       }
 
+      // Helper to check if game has real scores
+      const hasScores = (game) => {
+        return (game.team1Score > 0 || game.team2Score > 0) ||
+               (game.team1Score === 0 && game.team2Score === 0 &&
+                game.team1Score !== null && game.team1Score !== undefined)
+      }
+
       // Helper to get teams in consistent order (lower tid first) for key generation
       const getTeamPair = (game) => {
         const t1 = game.team1Tid || game.userTid || 0
@@ -224,6 +231,7 @@ export default function DangerZone() {
         return t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
       }
 
+      // PASS 1: Find exact duplicates (same week/type/teams)
       games.forEach(game => {
         const gameType = normalizeGameType(game)
         const teamPair = getTeamPair(game)
@@ -231,18 +239,14 @@ export default function DangerZone() {
         // Build key based on game type
         let key
         if (gameType === 'bowl') {
-          // Bowl games: use bowlName + teams (week can vary)
           key = `${game.year ?? 0}-bowl-${(game.bowlName || '').toLowerCase()}-${teamPair}`
         } else if (gameType === 'ccg') {
-          // CCG: use type + teams (week can vary - sometimes 'CCG', sometimes a number)
           key = `${game.year ?? 0}-ccg-${teamPair}`
         } else if (gameType.startsWith('cfp_')) {
-          // CFP games: use slot if available, otherwise type + teams
           key = game.cfpSlot
             ? `${game.year ?? 0}-${game.cfpSlot}`
             : `${game.year ?? 0}-${gameType}-${teamPair}`
         } else {
-          // Regular games: use week + teams
           key = `${game.year ?? 0}-week${game.week ?? 0}-${teamPair}`
         }
 
@@ -252,7 +256,6 @@ export default function DangerZone() {
           const existingQuality = existingGame ? getGameQuality(existingGame) : 0
           const currentQuality = getGameQuality(game)
 
-          // Keep the game with higher quality, mark the other as duplicate
           if (currentQuality > existingQuality) {
             duplicateIds.push(existingId)
             seenGames.set(key, game.id)
@@ -261,6 +264,37 @@ export default function DangerZone() {
           }
         } else {
           seenGames.set(key, game.id)
+        }
+      })
+
+      // PASS 2: Find orphan games - empty games where a scored game exists vs same opponent
+      // This catches cases like: Week 13 vs Penn State (no scores) when CCG vs Penn State (34-27) exists
+      const gamesByYearAndOpponent = new Map()
+      games.forEach(game => {
+        if (duplicateIds.includes(game.id)) return // Skip already marked duplicates
+        const teamPair = getTeamPair(game)
+        const key = `${game.year ?? 0}-${teamPair}`
+        if (!gamesByYearAndOpponent.has(key)) {
+          gamesByYearAndOpponent.set(key, [])
+        }
+        gamesByYearAndOpponent.get(key).push(game)
+      })
+
+      // For each year+opponent group, if there are multiple games and some have scores while others don't,
+      // remove the ones without scores (they're orphan shells)
+      gamesByYearAndOpponent.forEach((gamesInGroup) => {
+        if (gamesInGroup.length <= 1) return
+
+        const scoredGames = gamesInGroup.filter(g => hasScores(g))
+        const unscoredGames = gamesInGroup.filter(g => !hasScores(g))
+
+        // If we have at least one scored game, remove all unscored ones as orphans
+        if (scoredGames.length > 0 && unscoredGames.length > 0) {
+          unscoredGames.forEach(g => {
+            if (!duplicateIds.includes(g.id)) {
+              duplicateIds.push(g.id)
+            }
+          })
         }
       })
 
