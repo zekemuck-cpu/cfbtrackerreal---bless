@@ -226,8 +226,12 @@ export default function Player() {
   // Determine if player has transferred out (to another team)
   const hasTransferredOut = departureMovement?.type === 'transfer' && departureMovement?.to
 
-  // Determine the player's team - use their team field (which gets updated on transfer)
-  const playerTeamAbbr = player?.team
+  // Determine the player's team - use teamsByYear[currentYear] as source of truth (reflects transfers)
+  // Fall back to player.team if no teamsByYear entry for current year
+  const currentYear = dynasty?.currentYear
+  const playerTeamAbbr = (currentYear && player?.teamsByYear?.[currentYear])
+    || (currentYear && player?.teamsByYear?.[String(currentYear)])
+    || player?.team
     || player?.teams?.[0]
     || getCurrentTeamAbbr(dynasty)
     || ''

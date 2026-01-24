@@ -44,6 +44,10 @@ export function isLightColor(hexColor) {
  * Get the appropriate text color (black or white) based on background color
  */
 export function getContrastTextColor(backgroundColor) {
+  // Handle undefined/null/invalid colors - default to black text
+  if (!backgroundColor || typeof backgroundColor !== 'string' || !backgroundColor.match(/^#[0-9A-Fa-f]{6}$/)) {
+    return '#000000'
+  }
   return isLightColor(backgroundColor) ? '#000000' : '#ffffff'
 }
 
