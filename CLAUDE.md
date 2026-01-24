@@ -821,3 +821,41 @@ Go to DangerZone → "Repair CFP Games" - this will:
 1. Add missing `tid` to seeds
 2. Fix slot assignments
 3. Re-propagate all completed game winners to their next rounds
+
+---
+
+## RESOLVED: Game Deletion Persistence Issue (January 2026)
+
+**Status**: ✅ FIXED
+
+### Problem (Now Fixed)
+
+When a user deleted a game (via "Remove Duplicates" or "Delete Specific Game" in DangerZone), the game was removed from the UI. However, if the user swiped out of the app and returned, the deleted games would reappear.
+
+### Root Cause
+
+The `saveGamesToSubcollection` function has a `deleteOrphans` option that defaults to `false`. When games were saved:
+1. The filtered `games` array was passed to `saveGamesToSubcollection`
+2. But with `deleteOrphans: false`, the function only ADDED/UPDATED games, not deleted removed ones
+3. The deleted game's document remained in the Firestore subcollection
+4. On app reload, `getGamesSubcollection` fetched ALL documents, including the "deleted" one
+
+### The Fix
+
+In `src/context/DynastyContext.jsx` line ~4630, changed:
+```javascript
+saveGamesToSubcollection(dynastyId, mainDocUpdates.games)
+```
+To:
+```javascript
+saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
+```
+
+This ensures that when games are saved, any games that exist in Firestore but are NOT in the new games array get deleted.
+
+### Note for Future
+
+If games are still not persisting after this fix, check:
+1. Is the dynasty using cloud storage (`storageType: 'cloud'`)? The fix only applies to cloud/Firestore storage.
+2. For local storage (IndexedDB), the persistence should already work correctly.
+3. Check browser console for any errors during save operations.
