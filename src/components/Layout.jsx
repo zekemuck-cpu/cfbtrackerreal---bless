@@ -472,7 +472,14 @@ export default function Layout({ children }) {
                          currentDynasty.currentPhase === 'regular_season' ? `Wk ${currentDynasty.currentWeek}` :
                          currentDynasty.currentPhase === 'postseason' ? (currentDynasty.currentWeek === 5 ? 'Recap' : (currentDynasty.currentWeek === 4 ? 'Champ' : `Bowl ${currentDynasty.currentWeek}`)) :
                          currentDynasty.currentPhase === 'preseason' ? `Pre ${currentDynasty.currentWeek}` :
-                         currentDynasty.currentPhase === 'offseason' ? (currentDynasty.currentWeek === 1 ? 'Leaving' : `Off ${currentDynasty.currentWeek}`) : ''}
+                         currentDynasty.currentPhase === 'offseason' ? (
+                           currentDynasty.currentWeek === 1 ? 'Leaving' :
+                           currentDynasty.currentWeek === 6 ? 'Signing' :
+                           currentDynasty.currentWeek === 7 ? 'Training' :
+                           currentDynasty.currentWeek === 8 ? 'Transfers' :
+                           currentDynasty.currentWeek >= 2 && currentDynasty.currentWeek <= 5 ? `Recruit ${currentDynasty.currentWeek - 1}` :
+                           `Off ${currentDynasty.currentWeek}`
+                         ) : ''}
                       </span>
                       <span className="hidden sm:inline">
                         {getPhaseDisplay(currentDynasty.currentPhase, currentDynasty.currentWeek)}
