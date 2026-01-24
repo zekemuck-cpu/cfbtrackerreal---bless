@@ -4624,10 +4624,12 @@ export function DynastyProvider({ children }) {
         }
 
         // Route games to subcollection
+        // CRITICAL: Pass deleteOrphans: true to ensure deleted games are removed from Firestore
+        // Without this, deleted games remain in the subcollection and reappear on reload
         if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games)) {
-          console.log(`Saving ${mainDocUpdates.games.length} games to subcollection`)
+          console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
           subcollectionPromises.push(
-            saveGamesToSubcollection(dynastyId, mainDocUpdates.games)
+            saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
           )
           // Don't save games to main doc - they're in subcollection now
           delete mainDocUpdates.games
