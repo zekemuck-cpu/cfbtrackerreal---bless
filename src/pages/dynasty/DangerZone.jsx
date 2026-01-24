@@ -44,6 +44,11 @@ export default function DangerZone() {
   // CFP repair state
   const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
 
+  // Game deletion state
+  const [showGameDeletion, setShowGameDeletion] = useState(false)
+  const [selectedGameToDelete, setSelectedGameToDelete] = useState(null)
+  const [gameDeletionStatus, setGameDeletionStatus] = useState(null)
+
   if (!currentDynasty) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -192,6 +197,26 @@ export default function DangerZone() {
       const seenGames = new Map()
       const duplicateIds = []
 
+      // Log all games for debugging
+      console.log('[DuplicateCleanup] Total games:', games.length)
+      console.log('[DuplicateCleanup] All games:', games.map(g => ({
+        id: g.id,
+        year: g.year,
+        week: g.week,
+        gameType: g.gameType || 'regular',
+        team1Tid: g.team1Tid,
+        team2Tid: g.team2Tid,
+        userTid: g.userTid,
+        opponentTid: g.opponentTid,
+        userTeam: g.userTeam,
+        opponent: g.opponent,
+        team1: g.team1,
+        team2: g.team2,
+        team1Score: g.team1Score,
+        team2Score: g.team2Score,
+        isConferenceChampionship: g.isConferenceChampionship
+      })))
+
       // Helper to normalize game type for key generation
       const normalizeGameType = (game) => {
         if (game.isConferenceChampionship || game.gameType === 'conference_championship') return 'ccg'
@@ -225,9 +250,26 @@ export default function DangerZone() {
       }
 
       // Helper to get teams in consistent order (lower tid first) for key generation
+      // Handles both tid fields and legacy abbreviation fields
       const getTeamPair = (game) => {
-        const t1 = game.team1Tid || game.userTid || 0
-        const t2 = game.team2Tid || game.opponentTid || 0
+        // Get team 1 tid - check tid fields first, then convert from abbreviation
+        let t1 = game.team1Tid || game.userTid || 0
+        if (!t1 && game.userTeam) {
+          t1 = getTidFromAbbr(game.userTeam) || 0
+        }
+        if (!t1 && game.team1) {
+          t1 = getTidFromAbbr(game.team1) || 0
+        }
+
+        // Get team 2 tid - check tid fields first, then convert from abbreviation
+        let t2 = game.team2Tid || game.opponentTid || 0
+        if (!t2 && game.opponent) {
+          t2 = getTidFromAbbr(game.opponent) || 0
+        }
+        if (!t2 && game.team2) {
+          t2 = getTidFromAbbr(game.team2) || 0
+        }
+
         return t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
       }
 
@@ -270,6 +312,7 @@ export default function DangerZone() {
       // PASS 2: Find orphan games - empty games where a scored game exists vs same opponent
       // This catches cases like: Week 13 vs Penn State (no scores) when CCG vs Penn State (34-27) exists
       const gamesByYearAndOpponent = new Map()
+      console.log('[DuplicateCleanup] Pass 2 - Checking for orphan games...')
       games.forEach(game => {
         if (duplicateIds.includes(game.id)) return // Skip already marked duplicates
         const teamPair = getTeamPair(game)
@@ -278,6 +321,22 @@ export default function DangerZone() {
           gamesByYearAndOpponent.set(key, [])
         }
         gamesByYearAndOpponent.get(key).push(game)
+      })
+
+      // Log groups with multiple games for debugging
+      gamesByYearAndOpponent.forEach((gamesInGroup, key) => {
+        if (gamesInGroup.length > 1) {
+          console.log(`[DuplicateCleanup] Found ${gamesInGroup.length} games for key "${key}":`,
+            gamesInGroup.map(g => ({
+              id: g.id,
+              week: g.week,
+              gameType: g.gameType,
+              team1Score: g.team1Score,
+              team2Score: g.team2Score,
+              hasScores: hasScores(g)
+            }))
+          )
+        }
       })
 
       // For each year+opponent group, if there are multiple games and some have scores while others don't,
@@ -290,6 +349,7 @@ export default function DangerZone() {
 
         // If we have at least one scored game, remove all unscored ones as orphans
         if (scoredGames.length > 0 && unscoredGames.length > 0) {
+          console.log(`[DuplicateCleanup] Marking ${unscoredGames.length} orphan game(s) for removal`)
           unscoredGames.forEach(g => {
             if (!duplicateIds.includes(g.id)) {
               duplicateIds.push(g.id)
@@ -309,6 +369,68 @@ export default function DangerZone() {
     } catch (error) {
       setDuplicateGameCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
     }
+  }
+
+  // Delete a specific game by ID
+  const handleDeleteGame = async (gameId) => {
+    if (!gameId) return
+    if (!window.confirm('Are you sure you want to delete this game? This cannot be undone.')) return
+
+    setGameDeletionStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      const cleanedGames = games.filter(g => g.id !== gameId)
+      await updateDynasty(currentDynasty.id, { games: cleanedGames })
+      setGameDeletionStatus({ success: true, message: 'Game deleted successfully' })
+      setSelectedGameToDelete(null)
+    } catch (error) {
+      setGameDeletionStatus({ success: false, message: 'Delete failed: ' + error.message })
+    }
+  }
+
+  // Get game display info for the deletion list
+  const getGameDisplayInfo = (game) => {
+    const year = game.year || '?'
+    const week = game.week || '?'
+
+    // Get team names
+    let team1Name = 'Unknown'
+    let team2Name = 'Unknown'
+
+    if (game.team1Tid && currentDynasty.teams?.[game.team1Tid]) {
+      team1Name = currentDynasty.teams[game.team1Tid].name || currentDynasty.teams[game.team1Tid].abbr || `Team ${game.team1Tid}`
+    } else if (game.team1Tid && TEAMS[game.team1Tid]) {
+      team1Name = TEAMS[game.team1Tid].name || TEAMS[game.team1Tid].abbr || `Team ${game.team1Tid}`
+    } else if (game.userTeam) {
+      team1Name = game.userTeam
+    } else if (game.team1) {
+      team1Name = game.team1
+    }
+
+    if (game.team2Tid && currentDynasty.teams?.[game.team2Tid]) {
+      team2Name = currentDynasty.teams[game.team2Tid].name || currentDynasty.teams[game.team2Tid].abbr || `Team ${game.team2Tid}`
+    } else if (game.team2Tid && TEAMS[game.team2Tid]) {
+      team2Name = TEAMS[game.team2Tid].name || TEAMS[game.team2Tid].abbr || `Team ${game.team2Tid}`
+    } else if (game.opponent) {
+      team2Name = game.opponent
+    } else if (game.team2) {
+      team2Name = game.team2
+    }
+
+    // Determine game type display
+    let typeDisplay = 'Regular'
+    if (game.isConferenceChampionship || game.gameType === 'conference_championship') typeDisplay = 'CCG'
+    else if (game.isBowlGame || game.gameType === 'bowl') typeDisplay = game.bowlName || 'Bowl'
+    else if (game.isCFPFirstRound || game.gameType === 'cfp_first_round') typeDisplay = 'CFP R1'
+    else if (game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal') typeDisplay = 'CFP QF'
+    else if (game.isCFPSemifinal || game.gameType === 'cfp_semifinal') typeDisplay = 'CFP SF'
+    else if (game.isCFPChampionship || game.gameType === 'cfp_championship') typeDisplay = 'CFP NC'
+
+    const score = (game.team1Score !== null && game.team1Score !== undefined)
+      ? `${game.team1Score}-${game.team2Score}`
+      : 'No Score'
+
+    return { year, week, team1Name, team2Name, typeDisplay, score }
   }
 
   // Repair CFP game slot assignments AND add tid fields to legacy data
@@ -800,6 +922,77 @@ export default function DangerZone() {
             onClick={handleRepairCFPGames}
             status={cfpRepairStatus}
           />
+        </div>
+      </div>
+
+      {/* Delete Specific Game Section */}
+      <div>
+        <SectionHeader
+          title="Delete Specific Game"
+          subtitle="Manually remove a game that shouldn't exist"
+        />
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}>
+          {!showGameDeletion ? (
+            <button
+              onClick={() => setShowGameDeletion(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+            >
+              Show Games for Deletion
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-300">Select a game to delete:</p>
+                <button
+                  onClick={() => { setShowGameDeletion(false); setSelectedGameToDelete(null); }}
+                  className="text-xs text-gray-400 hover:text-white"
+                >
+                  Hide
+                </button>
+              </div>
+
+              {/* Filter by year */}
+              <select
+                className="w-full px-3 py-2 rounded-lg text-sm bg-gray-700 text-white border border-gray-600"
+                value={selectedGameToDelete || ''}
+                onChange={(e) => setSelectedGameToDelete(e.target.value)}
+              >
+                <option value="">-- Select a game --</option>
+                {(currentDynasty.games || [])
+                  .sort((a, b) => {
+                    // Sort by year desc, then by week
+                    if (b.year !== a.year) return (b.year || 0) - (a.year || 0)
+                    const weekA = typeof a.week === 'number' ? a.week : 99
+                    const weekB = typeof b.week === 'number' ? b.week : 99
+                    return weekA - weekB
+                  })
+                  .map(game => {
+                    const info = getGameDisplayInfo(game)
+                    return (
+                      <option key={game.id} value={game.id}>
+                        {info.year} Wk{info.week} - {info.team1Name} vs {info.team2Name} ({info.score}) [{info.typeDisplay}]
+                      </option>
+                    )
+                  })}
+              </select>
+
+              {selectedGameToDelete && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleDeleteGame(selectedGameToDelete)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                  >
+                    Delete Selected Game
+                  </button>
+                  {gameDeletionStatus && (
+                    <span className={`text-sm ${gameDeletionStatus.success ? 'text-green-400' : 'text-red-400'}`}>
+                      {gameDeletionStatus.message}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
