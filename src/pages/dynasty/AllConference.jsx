@@ -5,9 +5,10 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamConference, conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
+import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 // Map abbreviation to mascot name for logo lookup
@@ -172,17 +173,6 @@ const getMascotName = (abbr, teamsData = null) => {
     'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
   }
   return mascotMap[abbr] || null
-}
-
-// Helper function to normalize player names for comparison
-const normalizePlayerName = (name) => {
-  if (!name) return ''
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')        // Collapse multiple spaces to single space
-    .replace(/['']/g, "'")       // Normalize curly apostrophes to straight
-    .replace(/[""]/g, '"')       // Normalize curly quotes to straight
 }
 
 // Helper function to clean player names by removing prefix symbols (stars, bullets, etc.)

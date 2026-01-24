@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getBowlLogo } from '../data/bowlGames'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getModalColors } from '../utils/colorUtils'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -89,6 +90,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
   const [games, setGames] = useState([])
   const [saving, setSaving] = useState(false)
   const [userGameIndex, setUserGameIndex] = useState(-1) // Index of user's game (if any)
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   // Get seed by tid
   const getSeedByTid = (tid) => {
@@ -533,41 +535,42 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl shadow-2xl w-full max-w-3xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto"
-        style={{ backgroundColor: '#1a1a2e' }}
+        className="rounded-xl shadow-2xl w-full max-w-3xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className="sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-5 rounded-t-xl"
           style={{
-            background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)'
+            backgroundColor: modalColors.headerBg
           }}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <svg className="w-5 h-5 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: modalColors.accent }}>
+                <svg className="w-5 h-5 sm:w-8 sm:h-8" style={{ color: modalColors.text }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                 </svg>
               </div>
               <div>
-                <h2 className="text-lg sm:text-2xl font-bold text-white">
+                <h2 className="text-lg sm:text-2xl font-bold" style={{ color: modalColors.text }}>
                   CFP Semifinals
                 </h2>
-                <p className="text-white/80 text-xs sm:text-sm mt-0.5">
+                <p className="text-xs sm:text-sm mt-0.5" style={{ color: modalColors.textMuted }}>
                   {currentYear} College Football Playoff
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              className="hover:bg-white/20 rounded-full p-2 transition-colors"
+              style={{ color: modalColors.textMuted }}
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -843,22 +846,22 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 px-3 py-3 sm:px-6 sm:py-4 bg-[#1a1a2e] border-t border-white/10">
+        <div className="sticky bottom-0 px-3 py-3 sm:px-6 sm:py-4 border-t" style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}>
           <div className="flex gap-2 sm:gap-3">
             <button
               onClick={handleSave}
               disabled={saving || games.some(g => !g.team1 || !g.team2)}
-              className="flex-1 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-white text-sm sm:text-base transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+              className="flex-1 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
               style={{
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%)',
-                boxShadow: '0 4px 15px rgba(30,58,95,0.4)'
+                backgroundColor: modalColors.accent,
+                color: '#ffffff'
               }}
             >
               {saving ? 'Saving...' : 'Save Results'}
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-white/80 hover:text-white text-sm sm:text-base transition-colors border border-white/20 hover:border-white/40"
+              className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-colors bg-gray-700 hover:bg-gray-600 text-white"
             >
               Cancel
             </button>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import RosterSpreadsheet from './RosterSpreadsheet'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
@@ -12,8 +12,10 @@ import {
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
+import { getModalColors } from '../utils/colorUtils'
 
 export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
@@ -215,23 +217,23 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Roster Entry
           </h2>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.textMuted }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -243,11 +245,11 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
         <div
           className="mb-4 p-3 rounded-lg text-sm"
           style={{
-            backgroundColor: `${teamColors.primary}15`,
-            border: `2px solid ${teamColors.primary}40`
+            backgroundColor: `${modalColors.accent}20`,
+            border: `2px solid ${modalColors.accent}40`
           }}
         >
-          <p style={{ color: teamColors.primary }}>
+          <p style={{ color: modalColors.text }}>
             <strong>Note:</strong> This is the only time you'll need to enter your roster. In future seasons, your roster will carry over automatically based on players graduating/leaving and your recruiting class additions. All fields are optional - fill in whatever columns you want.
           </p>
         </div>
@@ -258,28 +260,28 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating Roster Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Setting up roster sheet
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
                 Roster saved to your dynasty.
               </p>
             </div>
@@ -295,8 +297,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: '#ffffff'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -307,8 +309,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                     className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -326,7 +328,7 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
                   {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: teamColors.primary }}>
+                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
 
                     </span>
                   )}
@@ -344,8 +346,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                 }}
                 className="text-xs px-3 py-1 rounded-full border transition-colors"
                 style={{
-                  borderColor: teamColors.primary,
-                  color: teamColors.primary,
+                  borderColor: modalColors.border,
+                  color: modalColors.textMuted,
                   backgroundColor: 'transparent'
                 }}
               >
@@ -358,22 +360,22 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: teamColors.primary }}
+                  style={{ backgroundColor: modalColors.accent }}
                 >
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                  <svg className="w-10 h-10" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>
+                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>
                   Edit in Google Sheets
                 </h3>
 
                 <div className="text-left mb-6 max-w-sm">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>
                     Instructions:
                   </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
                     <li className="flex gap-2">
                       <span className="font-bold">1.</span>
                       <span>Click the button below to open Google Sheets in a new tab</span>
@@ -420,8 +422,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: '#ffffff'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -432,8 +434,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -453,14 +455,14 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: teamColors.primary }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
 
                   </span>
                 )}
 
-                <div className="text-xs p-3 rounded-lg max-w-sm" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
+                <div className="text-xs p-3 rounded-lg max-w-sm" style={{ backgroundColor: `${modalColors.accent}20`, color: modalColors.text }}>
                   <p className="font-semibold mb-1">Columns to fill:</p>
-                  <p className="opacity-80">Name | Position | Class | Dev Trait | Jersey # | Archetype | OVR | Height | Weight | Hometown | State</p>
+                  <p style={{ color: modalColors.textMuted }}>Name | Position | Class | Dev Trait | Jersey # | Archetype | OVR | Height | Weight | Hometown | State</p>
                 </div>
               </div>
             ) : (
@@ -476,8 +478,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
-                  <p><strong>Columns:</strong> Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State</p>
+                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
+                  <p><strong style={{ color: modalColors.text }}>Columns:</strong> Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State</p>
                   <p>Enter your full roster. All fields are optional. Use dropdown menus for validated fields.</p>
                 </div>
               </>
@@ -486,7 +488,7 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -506,8 +508,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    backgroundColor: modalColors.accent,
+                    color: '#ffffff',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

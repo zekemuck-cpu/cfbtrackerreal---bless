@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -500,11 +500,15 @@ export default function TeamYear() {
       const thisTeamScore = isTeam1 ? team1Score : team2Score
       const otherTeamScore = isTeam1 ? team2Score : team1Score
 
-      // Determine winner (unified or legacy format)
-      const teamWon = hasUnifiedFormat
+      // Check if game has been played (has actual scores, not just 0-0)
+      const isGamePlayed = g.isPlayed === true ||
+        (team1Score != null && team2Score != null && (team1Score > 0 || team2Score > 0))
+
+      // Determine winner (unified or legacy format) - only if game was played
+      const teamWon = isGamePlayed && (hasUnifiedFormat
         ? (g.winnerTid === tid || thisTeamScore > otherTeamScore)
         : (g.winner === teamAbbr || (g.result === 'win' && g.userTeam === teamAbbr) ||
-           (g.result === 'loss' && opponentAbbr === teamAbbr))
+           (g.result === 'loss' && opponentAbbr === teamAbbr)))
 
       // Get opponent tid/abbr
       const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
@@ -522,6 +526,8 @@ export default function TeamYear() {
 
       if (isCPUGame) {
         // CPU game - convert to display format for this team's perspective
+        // Get opponent rank from unified format (team1Rank/team2Rank)
+        const opponentRank = isTeam1 ? g.team2Rank : g.team1Rank
         result.push({
           ...g,
           // For display compatibility with legacy UI code
@@ -529,7 +535,8 @@ export default function TeamYear() {
           opponent: opponentAbbrResolved,
           teamScore: thisTeamScore,
           opponentScore: otherTeamScore,
-          result: teamWon ? 'win' : 'loss',
+          result: isGamePlayed ? (teamWon ? 'win' : 'loss') : null,
+          opponentRank: opponentRank || g.opponentRank,
           _fromCPUPostseason: true
         })
         return
@@ -544,14 +551,17 @@ export default function TeamYear() {
         // Game played AS this team - use as-is or convert from unified
         if (hasUnifiedFormat) {
           // Convert unified format to display format (always resolve opponent)
+          // Get opponent rank from unified format (team1Rank/team2Rank)
+          const opponentRank = isTeam1 ? g.team2Rank : g.team1Rank
           result.push({
             ...g,
             userTeam: teamAbbr,
             opponent: opponentAbbrResolved || g.opponent,
             teamScore: thisTeamScore,
             opponentScore: otherTeamScore,
-            result: teamWon ? 'win' : 'loss',
-            location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral')
+            result: isGamePlayed ? (teamWon ? 'win' : 'loss') : null,
+            location: g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'),
+            opponentRank: opponentRank || g.opponentRank
           })
         } else if (g.opponent) {
           // Legacy format with opponent already set
@@ -564,7 +574,7 @@ export default function TeamYear() {
       }
 
       // Game played AGAINST this team - flip perspective
-      const flippedResult = teamWon ? 'win' : 'loss'
+      const flippedResult = isGamePlayed ? (teamWon ? 'win' : 'loss') : null
       const flippedLocation = hasUnifiedFormat
         ? (g.homeTeamTid === tid ? 'home' : (g.homeTeamTid === opponentTid ? 'away' : 'neutral'))
         : (g.location === 'home' ? 'away' : (g.location === 'away' ? 'home' : g.location))
@@ -579,6 +589,13 @@ export default function TeamYear() {
         otherTeamAbbr = g.userTeam
       }
 
+      // For flipped perspective, the "opponent" from this team's view is the other team
+      // So opponent rank is the other team's rank (if we're team1, opponent is team2, so use team2Rank)
+      // But wait - in flipped perspective, we ARE viewing from this team's perspective
+      // So if this team is team1, the opponent is team2, so opponent rank is team2Rank
+      // If this team is team2, the opponent is team1, so opponent rank is team1Rank
+      // But for flipped games, "otherTeamTid" is the opponent from THIS team's view
+      const flippedOpponentRank = isTeam1 ? g.team2Rank : g.team1Rank
       result.push({
         ...g,
         _displayOpponent: otherTeamAbbr,
@@ -586,7 +603,8 @@ export default function TeamYear() {
         _displayLocation: flippedLocation,
         _displayTeamScore: thisTeamScore,
         _displayOpponentScore: otherTeamScore,
-        _isFlippedPerspective: true
+        _isFlippedPerspective: true,
+        opponentRank: flippedOpponentRank || g.opponentRank
       })
     })
 
@@ -1015,6 +1033,9 @@ export default function TeamYear() {
 
   const finalPollRanking = getFinalPollRankings()
 
+  // Get unified ranking (includes in-season ranking from games if no final poll)
+  const unifiedRanking = getTeamRanking(currentDynasty, tid, selectedYear)
+
   // Get all games array for unified lookups
   const allGamesArray = currentDynasty.games || []
 
@@ -1074,25 +1095,35 @@ export default function TeamYear() {
 
   // Get CFP results for this team in this year from cfpResultsByYear
   const cfpResults = currentDynasty.cfpResultsByYear?.[selectedYear] || {}
+
+  // Helper to get QF slot from bye seed (seeds 1-4 are bye seeds)
+  // CFP_BRACKET_FLOW defines: cfpqf1=seed1, cfpqf2=seed4, cfpqf3=seed3, cfpqf4=seed2
+  const getQFSlotFromByeSeed = (byeSeed) => {
+    const map = { 1: 'cfpqf1', 2: 'cfpqf4', 3: 'cfpqf3', 4: 'cfpqf2' }
+    return map[byeSeed]
+  }
+
   // Add round information AND slot ID to each game as we combine them
-  // Use actual game data (seeds/bowl names) to determine slot ID, not array index
+  // Priority: cfpSlot > seed-based lookup > bowl name (legacy, unreliable)
   const allCFPGames = [
     ...(cfpResults.firstRound || []).filter(g => g != null).map(g => ({
       ...g,
       round: 1,
-      slotId: getFirstRoundSlotId(g.seed1, g.seed2) || 'cfpfr1'
+      slotId: g.cfpSlot || getFirstRoundSlotId(g.seed1, g.seed2) || 'cfpfr1'
     })),
     ...(cfpResults.quarterfinals || []).filter(g => g != null).map(g => ({
       ...g,
       round: 2,
-      slotId: getSlotIdFromBowlName(g.bowlName) || 'cfpqf1'
+      // For QF: use cfpSlot, or derive from bye seed (seed1 is the bye team), or fall back to bowl name
+      slotId: g.cfpSlot || getQFSlotFromByeSeed(g.seed1) || getSlotIdFromBowlName(g.bowlName) || 'cfpqf1'
     })),
     ...(cfpResults.semifinals || []).filter(g => g != null).map(g => ({
       ...g,
       round: 3,
-      slotId: getSlotIdFromBowlName(g.bowlName) || 'cfpsf1'
+      // For SF: use cfpSlot if available, fall back to bowl name (less reliable)
+      slotId: g.cfpSlot || getSlotIdFromBowlName(g.bowlName) || 'cfpsf1'
     })),
-    ...(cfpResults.championship ? [{ ...cfpResults.championship, round: 4, slotId: 'cfpnc' }] : [])
+    ...(cfpResults.championship ? [{ ...cfpResults.championship, round: 4, slotId: cfpResults.championship.cfpSlot || 'cfpnc' }] : [])
   ]
 
   // Find all CFP games involving this team - check both tid and abbr
@@ -1275,107 +1306,104 @@ export default function TeamYear() {
   // handleEditGame and handleGameSave removed - now using game pages instead
 
   return (
-    <div className="space-y-6">
-      {/* Navigation Row */}
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
-        {/* Left side: History and Stats buttons */}
-        <div className="flex items-center gap-2">
-          {/* History Link */}
+    <div className="space-y-4 sm:space-y-6">
+      {/* Navigation Row - Compact on mobile */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* History Link - Icon only on mobile */}
+        <Link
+          to={`${pathPrefix}/team/${tid}`}
+          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-xs sm:text-sm"
+          style={{
+            backgroundColor: teamInfo.backgroundColor,
+            color: teamBgText,
+            border: `1.5px solid ${teamBgText}30`
+          }}
+        >
+          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="hidden xs:inline sm:inline">History</span>
+        </Link>
+
+        {/* Stats Button */}
+        {(teamWins + teamLosses) > 0 && (
           <Link
-            to={`${pathPrefix}/team/${tid}`}
-            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm sm:text-base"
+            to={`${pathPrefix}/team-stats/${tid}/${selectedYear}`}
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-xs sm:text-sm"
             style={{
               backgroundColor: teamInfo.backgroundColor,
               color: teamBgText,
-              border: `2px solid ${teamBgText}40`
+              border: `1.5px solid ${teamBgText}30`
             }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            History
+            <span className="hidden xs:inline sm:inline">Stats</span>
           </Link>
+        )}
 
-          {/* Stats Button - only show if we have team stats from games for this year */}
-          {seasonStats.gamesWithStats > 0 && (
-            <Link
-              to={`${pathPrefix}/team-stats/${tid}/${selectedYear}`}
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-sm sm:text-base"
-              style={{
-                backgroundColor: teamInfo.backgroundColor,
-                color: teamBgText,
-                border: `2px solid ${teamBgText}40`
-              }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Stats
-            </Link>
-          )}
-        </div>
+        {/* Spacer pushes dropdowns to the right */}
+        <div className="flex-1" />
 
-        {/* Right side: Team and Year dropdowns */}
-        <div className="flex items-center gap-2 sm:ml-auto">
-          {/* Team Dropdown */}
-          <select
-            value={tid}
-            onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
-            className="flex-1 sm:flex-none px-2 sm:px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-sm sm:text-base"
+        {/* Team Dropdown - Compact */}
+        <select
+          value={tid}
+          onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
+          className="max-w-[120px] sm:max-w-[180px] px-2 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-xs sm:text-sm truncate"
+          style={{
+            backgroundColor: teamInfo.backgroundColor,
+            color: teamBgText,
+            border: `1.5px solid ${teamBgText}30`
+          }}
+        >
+          {allTeams.map((t) => (
+            <option key={t.tid} value={t.tid}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+
+        {/* Year Dropdown - Compact */}
+        <select
+          value={selectedYear}
+          onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
+          className="w-16 sm:w-20 px-2 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-xs sm:text-sm"
+          style={{
+            backgroundColor: teamInfo.backgroundColor,
+            color: teamBgText,
+            border: `1.5px solid ${teamBgText}30`
+          }}
+        >
+          {availableYears.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+
+        {/* Edit Team Info Button - Smaller on mobile */}
+        {!isViewOnly && (
+          <button
+            onClick={() => {
+              setEditWins(displayRecord?.wins?.toString() || '')
+              setEditLosses(displayRecord?.losses?.toString() || '')
+              setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
+              setShowTeamEditModal(true)
+            }}
+            className="p-1.5 sm:p-2 rounded-lg transition-colors hover:opacity-80 flex-shrink-0"
             style={{
               backgroundColor: teamInfo.backgroundColor,
               color: teamBgText,
-              border: `2px solid ${teamBgText}40`
+              border: `1.5px solid ${teamBgText}30`
             }}
+            title="Edit Team Info"
           >
-            {allTeams.map((t) => (
-              <option key={t.tid} value={t.tid}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Year Dropdown */}
-          <select
-            value={selectedYear}
-            onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
-            className="px-2 sm:px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-sm sm:text-base"
-            style={{
-              backgroundColor: teamInfo.backgroundColor,
-              color: teamBgText,
-              border: `2px solid ${teamBgText}40`
-            }}
-          >
-            {availableYears.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-
-          {/* Edit Team Info Button */}
-          {!isViewOnly && (
-            <button
-              onClick={() => {
-                setEditWins(displayRecord?.wins?.toString() || '')
-                setEditLosses(displayRecord?.losses?.toString() || '')
-                setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
-                setShowTeamEditModal(true)
-              }}
-              className="p-2 rounded-lg transition-colors hover:scale-105"
-              style={{
-                backgroundColor: teamInfo.backgroundColor,
-                color: teamBgText,
-                border: `2px solid ${teamBgText}40`
-              }}
-              title="Edit Team Info"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-          )}
-        </div>
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Team Header */}
@@ -1516,8 +1544,8 @@ export default function TeamYear() {
               {selectedYear} Season
             </p>
             <div className="flex items-center gap-2 flex-wrap">
-              {/* Final Poll Ranking Badge */}
-              {finalPollRanking && (
+              {/* Ranking Badge - Final poll (yellow) or In-season (blue/gray) */}
+              {finalPollRanking ? (
                 <div
                   className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold"
                   style={{
@@ -1528,7 +1556,18 @@ export default function TeamYear() {
                 >
                   #{finalPollRanking.media || finalPollRanking.coaches}
                 </div>
-              )}
+              ) : unifiedRanking?.rank ? (
+                <div
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold"
+                  style={{
+                    backgroundColor: '#6b7280',
+                    color: '#ffffff'
+                  }}
+                  title={`Current Ranking (Week ${unifiedRanking.week || '?'})`}
+                >
+                  #{unifiedRanking.rank}
+                </div>
+              ) : null}
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate" style={{ color: teamBgText }}>
                 {mascotName || teamInfo.name}
               </h1>
@@ -1972,43 +2011,36 @@ export default function TeamYear() {
             border: `2px solid ${teamInfo.textColor}`
           }}
         >
+          {/* Roster Header */}
           <div
-            className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer"
+            className="cursor-pointer"
             style={{ backgroundColor: teamInfo.textColor }}
             onClick={() => setRosterCollapsed(!rosterCollapsed)}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {/* Collapse/Expand Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setRosterCollapsed(!rosterCollapsed)
-                  }}
-                  className="p-1 rounded hover:opacity-70 transition-opacity"
-                  style={{ color: teamPrimaryText }}
+            {/* Top Row: Title, Count, Edit */}
+            <div className="px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Collapse/Expand Chevron */}
+                <svg
+                  className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-200 ${rosterCollapsed ? '' : 'rotate-90'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  style={{ color: teamPrimaryText, opacity: 0.7 }}
                 >
-                  <svg
-                    className={`w-5 h-5 transition-transform ${rosterCollapsed ? '' : 'rotate-90'}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+                <div className="flex items-baseline gap-2">
+                  <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: teamPrimaryText }}>
+                    {selectedYear} Roster
+                  </h2>
+                  <span
+                    className="text-xs font-medium tabular-nums"
+                    style={{ color: teamPrimaryText, opacity: 0.6 }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-                <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
-                  {selectedYear} Roster
-                </h2>
-                <span
-                  className="text-xs sm:text-sm font-semibold px-2 py-0.5 sm:py-1 rounded"
-                  style={{
-                    backgroundColor: teamInfo.backgroundColor,
-                    color: teamBgText
-                  }}
-                >
-                  {positionFilter !== 'all' ? `${filteredTeamPlayers.length}/${sortedTeamPlayers.length}` : sortedTeamPlayers.length} Players
-                </span>
+                    {positionFilter !== 'all' ? `${filteredTeamPlayers.length} of ${sortedTeamPlayers.length}` : `${sortedTeamPlayers.length} players`}
+                  </span>
+                </div>
               </div>
               {!isViewOnly && (
                 <button
@@ -2016,7 +2048,7 @@ export default function TeamYear() {
                     e.stopPropagation()
                     setShowRosterModal(true)
                   }}
-                  className="p-1.5 sm:p-2 rounded-lg hover:opacity-70 transition-opacity"
+                  className="p-1.5 sm:p-2 rounded-lg hover:bg-black/10 active:bg-black/20 transition-colors"
                   style={{ color: teamPrimaryText }}
                   title="Edit Roster"
                 >
@@ -2026,52 +2058,78 @@ export default function TeamYear() {
                 </button>
               )}
             </div>
-            {/* Position Filter & Sort - Only show when expanded */}
+
+            {/* Filter & Sort Bar - Only show when expanded */}
             {!rosterCollapsed && (
-              <div className="mt-2 flex flex-col sm:flex-row gap-2" onClick={(e) => e.stopPropagation()}>
-                {/* Position Filter */}
+              <div
+                className="px-3 sm:px-4 py-2 border-t flex flex-wrap items-center gap-x-3 gap-y-2"
+                style={{ borderColor: `${teamPrimaryText}15`, backgroundColor: `${teamPrimaryText}08` }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Position Filter Chips */}
                 <div className="flex items-center gap-1 flex-wrap">
-                  <span className="text-xs font-medium mr-1" style={{ color: teamPrimaryText, opacity: 0.7 }}>Filter:</span>
-                  {Object.keys(positionGroups).map((key) => (
-                    <button
-                      key={key}
-                      onClick={() => setPositionFilter(key)}
-                      className="px-2 py-0.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
-                      style={{
-                        backgroundColor: positionFilter === key ? teamInfo.backgroundColor : `${teamInfo.backgroundColor}30`,
-                        color: positionFilter === key ? teamBgText : teamPrimaryText
-                      }}
-                    >
-                      {positionGroups[key].label}
-                    </button>
-                  ))}
+                  {Object.keys(positionGroups).map((key) => {
+                    const isActive = positionFilter === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setPositionFilter(key)}
+                        className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-150"
+                        style={{
+                          backgroundColor: isActive ? teamInfo.backgroundColor : 'transparent',
+                          color: isActive ? teamBgText : teamPrimaryText,
+                          opacity: isActive ? 1 : 0.7,
+                          border: isActive ? 'none' : `1px solid ${teamPrimaryText}25`
+                        }}
+                      >
+                        {positionGroups[key].label}
+                      </button>
+                    )
+                  })}
                 </div>
-                {/* Sort Controls */}
-                <div className="flex items-center gap-1 flex-wrap sm:ml-auto">
-                  <span className="text-xs font-medium mr-1" style={{ color: teamPrimaryText, opacity: 0.7 }}>Sort:</span>
+
+                {/* Divider */}
+                <div className="hidden sm:block w-px h-5" style={{ backgroundColor: `${teamPrimaryText}20` }} />
+
+                {/* Sort Dropdown-style Buttons */}
+                <div className="flex items-center gap-1 ml-auto">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold mr-1" style={{ color: teamPrimaryText, opacity: 0.5 }}>
+                    Sort
+                  </span>
                   {[
                     { key: 'position', label: 'Pos' },
                     { key: 'overall', label: 'OVR' },
-                    { key: 'class', label: 'Class' },
+                    { key: 'class', label: 'Yr' },
                     { key: 'devTrait', label: 'Dev' },
                     { key: 'jerseyNumber', label: '#' },
-                    { key: 'name', label: 'Name' }
-                  ].map(({ key, label }) => (
-                    <button
-                      key={key}
-                      onClick={() => handleRosterSort(key)}
-                      className="px-2 py-0.5 rounded text-xs font-semibold transition-opacity hover:opacity-80"
-                      style={{
-                        backgroundColor: rosterSort === key ? teamInfo.backgroundColor : `${teamInfo.backgroundColor}30`,
-                        color: rosterSort === key ? teamBgText : teamPrimaryText
-                      }}
-                    >
-                      {label}
-                      {rosterSort === key && (
-                        <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </button>
-                  ))}
+                    { key: 'name', label: 'A-Z' }
+                  ].map(({ key, label }) => {
+                    const isActive = rosterSort === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleRosterSort(key)}
+                        className="px-2 py-1 rounded text-xs font-medium transition-all duration-150 flex items-center gap-0.5"
+                        style={{
+                          backgroundColor: isActive ? teamInfo.backgroundColor : 'transparent',
+                          color: isActive ? teamBgText : teamPrimaryText,
+                          opacity: isActive ? 1 : 0.6
+                        }}
+                      >
+                        {label}
+                        {isActive && (
+                          <svg
+                            className={`w-3 h-3 transition-transform ${rosterSortDir === 'desc' ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                          </svg>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -2493,24 +2551,35 @@ export default function TeamYear() {
               const isLoss = displayResult === 'loss' || displayResult === 'L'
               const hasResult = isWin || isLoss
 
-              // Generate proper game ID for CFP games (don't trust stored id which may be "peach"/"fiesta")
+              // Generate proper game ID for CFP games
+              // IMPORTANT: Use cfpSlot first (source of truth), then id pattern, then bowl name (legacy fallback)
+              // Bowl names rotate per year/dynasty so getSlotIdFromBowlName can return wrong slot
               let properGameId = game.id
-              if (game.isCFPSemifinal && game.bowlName) {
-                const slotId = getSlotIdFromBowlName(game.bowlName)
-                if (slotId) properGameId = getCFPGameId(slotId, selectedYear)
-              } else if (game.isCFPQuarterfinal && game.bowlName) {
-                const slotId = getSlotIdFromBowlName(game.bowlName)
-                if (slotId) properGameId = getCFPGameId(slotId, selectedYear)
-              } else if (game.isCFPFirstRound) {
-                // For first round, use seeds to determine slot
-                const cfpSeeds = currentDynasty.cfpSeedsByYear?.[selectedYear] || []
-                const userTid = currentDynasty.currentTid
-                const userSeed = cfpSeeds.find(s => s && s.tid === userTid)?.seed
-                const oppSeed = userSeed ? 17 - userSeed : null
-                const slotId = getFirstRoundSlotId(userSeed, oppSeed)
-                if (slotId) properGameId = getCFPGameId(slotId, selectedYear)
-              } else if (game.isCFPChampionship) {
-                properGameId = getCFPGameId('cfpnc', selectedYear)
+              if (game.isCFPSemifinal || game.isCFPQuarterfinal || game.isCFPFirstRound || game.isCFPChampionship) {
+                // Priority 1: Use cfpSlot if available (most reliable)
+                if (game.cfpSlot) {
+                  properGameId = getCFPGameId(game.cfpSlot, selectedYear)
+                }
+                // Priority 2: Check if game.id already has proper cfp format (e.g., 'cfpqf2-2029')
+                else if (game.id && game.id.startsWith('cfp') && game.id.includes('-')) {
+                  properGameId = game.id
+                }
+                // Priority 3: Fall back to bowl name lookup (legacy data only)
+                else if (game.bowlName) {
+                  const slotId = getSlotIdFromBowlName(game.bowlName)
+                  if (slotId) properGameId = getCFPGameId(slotId, selectedYear)
+                }
+                // Priority 4: Use round-specific slot IDs for championship/first round
+                else if (game.isCFPChampionship) {
+                  properGameId = getCFPGameId('cfpnc', selectedYear)
+                } else if (game.isCFPFirstRound) {
+                  const cfpSeeds = currentDynasty.cfpSeedsByYear?.[selectedYear] || []
+                  const userTid = currentDynasty.currentTid
+                  const userSeed = cfpSeeds.find(s => s && s.tid === userTid)?.seed
+                  const oppSeed = userSeed ? 17 - userSeed : null
+                  const slotId = getFirstRoundSlotId(userSeed, oppSeed)
+                  if (slotId) properGameId = getCFPGameId(slotId, selectedYear)
+                }
               }
 
               // Get the week/game type label
@@ -2557,11 +2626,14 @@ export default function TeamYear() {
                         </div>
                       )}
 
-                      {/* Team Name */}
+                      {/* Team Name with Ranking */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           {game.opponentRank && (
-                            <span className="text-[10px] sm:text-xs font-bold flex-shrink-0" style={{ color: oppColors.textColor, opacity: 0.7 }}>
+                            <span
+                              className="text-[10px] sm:text-sm font-bold flex-shrink-0 tabular-nums"
+                              style={{ color: oppColors.textColor }}
+                            >
                               #{game.opponentRank}
                             </span>
                           )}

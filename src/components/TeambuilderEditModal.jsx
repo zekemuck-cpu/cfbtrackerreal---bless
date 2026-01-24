@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ImageUpload from './ImageUpload'
-import { getContrastTextColor } from '../utils/colorUtils'
+import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr } from '../data/teamRegistry'
 
@@ -120,27 +120,28 @@ export default function TeambuilderEditModal({
     primary: formData.primaryColor || '#1f2937',
     secondary: formData.secondaryColor || '#ffffff'
   }
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors.primary, teamColors.secondary])
   const textColor = getContrastTextColor(teamColors.secondary)
   const primaryTextColor = getContrastTextColor(teamColors.primary)
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onClick={onClose}
     >
       <div
-        className="rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+        className="rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border"
         style={{
-          backgroundColor: teamColors.secondary,
-          border: `3px solid ${teamColors.primary}`
+          backgroundColor: modalColors.background,
+          borderColor: modalColors.border
         }}
         onClick={e => e.stopPropagation()}
       >
         <div className="p-6">
           <h2
             className="text-2xl font-bold mb-4"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             Edit Teambuilder Team
           </h2>
@@ -148,12 +149,12 @@ export default function TeambuilderEditModal({
           {/* Info box showing which team is replaced */}
           <div
             className="mb-4 p-3 rounded-lg border-2 border-dashed"
-            style={{ borderColor: `${teamColors.primary}40` }}
+            style={{ borderColor: modalColors.inputBorder }}
           >
-            <p className="text-sm" style={{ color: textColor }}>
+            <p className="text-sm" style={{ color: modalColors.text }}>
               <span className="font-medium">Replaces:</span> {originalTeamName || 'Unknown'} ({originalTeamAbbr || '?'})
             </p>
-            <p className="text-xs mt-1" style={{ color: textColor, opacity: 0.7 }}>
+            <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
               The team slot cannot be changed after dynasty creation.
             </p>
           </div>
@@ -163,7 +164,7 @@ export default function TeambuilderEditModal({
             <div>
               <label
                 className="block text-sm font-medium mb-2"
-                style={{ color: teamColors.primary }}
+                style={{ color: modalColors.accent }}
               >
                 Team Name *
               </label>
@@ -171,16 +172,16 @@ export default function TeambuilderEditModal({
                 type="text"
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
-                className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:outline-none"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
                 style={{
-                  borderColor: `${teamColors.primary}40`,
-                  color: textColor,
-                  backgroundColor: 'transparent'
+                  borderColor: modalColors.inputBorder,
+                  color: modalColors.text,
+                  backgroundColor: modalColors.inputBg
                 }}
                 placeholder="e.g. Springfield Tigers"
                 required
               />
-              <p className="text-xs mt-1" style={{ color: textColor, opacity: 0.7 }}>
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
                 Full team name including mascot
               </p>
             </div>
@@ -189,7 +190,7 @@ export default function TeambuilderEditModal({
             <div>
               <label
                 className="block text-sm font-medium mb-2"
-                style={{ color: teamColors.primary }}
+                style={{ color: modalColors.accent }}
               >
                 Abbreviation (2-4 characters) *
               </label>
@@ -197,18 +198,18 @@ export default function TeambuilderEditModal({
                 type="text"
                 value={formData.abbreviation}
                 onChange={(e) => handleChange('abbreviation', e.target.value.toUpperCase().slice(0, 4))}
-                className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:outline-none font-mono"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none font-mono"
                 style={{
-                  borderColor: abbrError ? '#ef4444' : `${teamColors.primary}40`,
-                  color: textColor,
-                  backgroundColor: 'transparent'
+                  borderColor: abbrError ? '#ef4444' : modalColors.inputBorder,
+                  color: modalColors.text,
+                  backgroundColor: modalColors.inputBg
                 }}
                 placeholder="e.g. SPFD"
                 maxLength={4}
                 required
               />
               {abbrError && (
-                <p className="text-red-500 text-sm mt-1">{abbrError}</p>
+                <p className="text-red-400 text-sm mt-1">{abbrError}</p>
               )}
             </div>
 
@@ -217,7 +218,7 @@ export default function TeambuilderEditModal({
               <div>
                 <label
                   className="block text-sm font-medium mb-2"
-                  style={{ color: teamColors.primary }}
+                  style={{ color: modalColors.accent }}
                 >
                   Primary Color *
                 </label>
@@ -226,18 +227,18 @@ export default function TeambuilderEditModal({
                     type="color"
                     value={formData.primaryColor}
                     onChange={(e) => handleChange('primaryColor', e.target.value)}
-                    className="w-12 h-10 rounded cursor-pointer border-2"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    className="w-12 h-10 rounded cursor-pointer border"
+                    style={{ borderColor: modalColors.inputBorder }}
                   />
                   <input
                     type="text"
                     value={formData.primaryColor}
                     onChange={(e) => handleChange('primaryColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border-2 rounded-lg font-mono text-sm"
+                    className="flex-1 px-3 py-2 border rounded-lg font-mono text-sm"
                     style={{
-                      borderColor: `${teamColors.primary}40`,
-                      color: textColor,
-                      backgroundColor: 'transparent'
+                      borderColor: modalColors.inputBorder,
+                      color: modalColors.text,
+                      backgroundColor: modalColors.inputBg
                     }}
                     placeholder="#FF5500"
                   />
@@ -246,7 +247,7 @@ export default function TeambuilderEditModal({
               <div>
                 <label
                   className="block text-sm font-medium mb-2"
-                  style={{ color: teamColors.primary }}
+                  style={{ color: modalColors.accent }}
                 >
                   Secondary Color *
                 </label>
@@ -255,18 +256,18 @@ export default function TeambuilderEditModal({
                     type="color"
                     value={formData.secondaryColor}
                     onChange={(e) => handleChange('secondaryColor', e.target.value)}
-                    className="w-12 h-10 rounded cursor-pointer border-2"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    className="w-12 h-10 rounded cursor-pointer border"
+                    style={{ borderColor: modalColors.inputBorder }}
                   />
                   <input
                     type="text"
                     value={formData.secondaryColor}
                     onChange={(e) => handleChange('secondaryColor', e.target.value)}
-                    className="flex-1 px-3 py-2 border-2 rounded-lg font-mono text-sm"
+                    className="flex-1 px-3 py-2 border rounded-lg font-mono text-sm"
                     style={{
-                      borderColor: `${teamColors.primary}40`,
-                      color: textColor,
-                      backgroundColor: 'transparent'
+                      borderColor: modalColors.inputBorder,
+                      color: modalColors.text,
+                      backgroundColor: modalColors.inputBg
                     }}
                     placeholder="#FFFFFF"
                   />
@@ -278,7 +279,7 @@ export default function TeambuilderEditModal({
             <div>
               <label
                 className="block text-sm font-medium mb-2"
-                style={{ color: teamColors.primary }}
+                style={{ color: modalColors.accent }}
               >
                 Team Logo (Optional)
               </label>
@@ -288,7 +289,7 @@ export default function TeambuilderEditModal({
                 teamColors={teamColors}
                 compact
               />
-              <p className="text-xs mt-1" style={{ color: textColor, opacity: 0.7 }}>
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
                 Upload a logo or paste an image URL. Square images work best.
               </p>
             </div>
@@ -341,8 +342,8 @@ export default function TeambuilderEditModal({
                 disabled={saving || !isValid()}
                 className="flex-1 px-4 py-2 rounded-lg font-semibold transition-colors hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: teamColors.primary,
-                  color: primaryTextColor
+                  backgroundColor: modalColors.accent,
+                  color: '#ffffff'
                 }}
               >
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -350,11 +351,7 @@ export default function TeambuilderEditModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border-2 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-                style={{
-                  borderColor: teamColors.primary,
-                  color: teamColors.primary
-                }}
+                className="px-4 py-2 rounded-lg font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
               >
                 Cancel
               </button>

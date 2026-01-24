@@ -3,6 +3,49 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
 
+// Award display names for proper formatting
+const AWARD_DISPLAY = {
+  heisman: 'Heisman Trophy',
+  maxwell: 'Maxwell Award',
+  walterCamp: 'Walter Camp Award',
+  daveyOBrien: "Davey O'Brien Award",
+  doak: 'Doak Walker Award',
+  biletnikoff: 'Biletnikoff Award',
+  mackey: 'John Mackey Award',
+  outland: 'Outland Trophy',
+  lombardi: 'Lombardi Award',
+  rimington: 'Rimington Trophy',
+  dickButkus: 'Dick Butkus Award',
+  bronkoNagurski: 'Bronko Nagurski Award',
+  bednarik: 'Chuck Bednarik Award',
+  jimThorpe: 'Jim Thorpe Award',
+  tedHendricks: 'Ted Hendricks Award',
+  rayGuy: 'Ray Guy Award',
+  louGroza: 'Lou Groza Award',
+  paulHornung: 'Paul Hornung Award',
+  returnerOfTheYear: 'Returner of the Year'
+}
+
+// Format honor type for display
+const formatHonorType = (honorType) => {
+  if (!honorType) return 'New Honor'
+  // Check award display map first
+  if (AWARD_DISPLAY[honorType]) return AWARD_DISPLAY[honorType]
+  // Handle "winner" suffix variants (e.g., "rayGuy winner" -> "Ray Guy Award")
+  const baseType = honorType.replace(/ winner$/i, '')
+  if (AWARD_DISPLAY[baseType]) return `${AWARD_DISPLAY[baseType]} winner`
+  // If already formatted (contains spaces and doesn't look like camelCase), return as-is
+  // This handles pre-formatted strings like "1st Team All-Conference" or "2nd Team All-American"
+  if (honorType.includes(' ') && !/^[a-z]+[A-Z]/.test(honorType)) {
+    return honorType
+  }
+  // Convert camelCase to Title Case as fallback
+  return honorType
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .trim()
+}
+
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
   // Try tid-based lookup first if teams data provided
@@ -96,7 +139,10 @@ export default function PlayerMatchConfirmModal({
   const secondaryText = getContrastTextColor(teamColors.secondary)
 
   // Get team info for display
-  const newTeamAbbr = entry.team || entry.school
+  // For allConference/allAmericans, 'school' is the team abbr; 'team' might be a category label
+  // Check if entry.team looks like a valid team abbreviation (2-4 uppercase letters) vs a category label
+  const isValidTeamAbbr = (str) => str && /^[A-Z0-9-]{2,5}$/.test(str) && teamAbbreviations[str]
+  const newTeamAbbr = isValidTeamAbbr(entry.team) ? entry.team : (entry.school || entry.team || '')
   const newTeamInfo = teamAbbreviations[newTeamAbbr] || {}
   const newMascotName = getMascotName(newTeamAbbr)
   const newTeamLogo = newMascotName ? getTeamLogo(newMascotName) : null
@@ -106,6 +152,16 @@ export default function PlayerMatchConfirmModal({
   const oldMascotName = getMascotName(oldTeamAbbr)
   const oldTeamLogo = oldMascotName ? getTeamLogo(oldMascotName) : null
 
+  // Get player position from various sources
+  const playerPosition = entry.position || player.position || ''
+
+  // Get additional details
+  const newEntryClass = entry.class || ''
+  const existingPlayerPosition = player.position || ''
+
+  // Check if teams are actually different (for determining if this is really a transfer)
+  const teamsAreDifferent = newTeamAbbr && oldTeamAbbr && newTeamAbbr !== oldTeamAbbr
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4"
@@ -113,108 +169,175 @@ export default function PlayerMatchConfirmModal({
       onMouseDown={onCancel}
     >
       <div
-        className="rounded-lg shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto"
+        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
+        <div
+          className="p-4 sm:p-5"
+          style={{ backgroundColor: teamColors.primary }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${primaryText}20` }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+                Possible Transfer Detected
+              </h2>
+              <p className="text-sm mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>
+                Is this the same <strong>{player.name}</strong>?
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 sm:p-5">
+          {/* Player Info Banner */}
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: teamColors.primary }}
+            className="rounded-lg p-3 mb-4 flex items-center gap-3"
+            style={{ backgroundColor: `${teamColors.primary}15`, border: `1px solid ${teamColors.primary}30` }}
           >
-            <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h2 className="text-xl font-bold" style={{ color: teamColors.primary }}>
-            Possible Transfer Detected
-          </h2>
-        </div>
-
-        {/* Question */}
-        <p className="text-lg mb-4" style={{ color: secondaryText }}>
-          Is this the same <strong>{player.name}</strong>?
-        </p>
-
-        {/* Comparison Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {/* Previous Record */}
-          <div className="rounded-lg p-4" style={{ backgroundColor: oldTeamInfo.backgroundColor || '#6B7280' }}>
-            <div className="text-xs font-semibold mb-2 opacity-70" style={{ color: getContrastTextColor(oldTeamInfo.backgroundColor || '#6B7280') }}>
-              PREVIOUS
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
+              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+            >
+              {player.name?.charAt(0) || '?'}
             </div>
-            <div className="flex items-center gap-2 mb-2">
-              {oldTeamLogo && (
-                <div className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0">
-                  <img src={oldTeamLogo} alt="" className="w-full h-full object-contain" />
-                </div>
-              )}
-              <span className="font-bold" style={{ color: getContrastTextColor(oldTeamInfo.backgroundColor || '#6B7280') }}>
-                {oldTeamInfo.name || oldTeamAbbr}
-              </span>
-            </div>
-            {lastHonor && (
-              <div className="text-sm" style={{ color: getContrastTextColor(oldTeamInfo.backgroundColor || '#6B7280'), opacity: 0.85 }}>
-                {lastHonor.year}: {lastHonor.description}
+            <div>
+              <div className="font-bold text-base" style={{ color: secondaryText }}>{player.name}</div>
+              <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+                {existingPlayerPosition && <span className="font-semibold">{existingPlayerPosition}</span>}
+                {existingPlayerPosition && existingYears?.length > 0 && ' • '}
+                {existingYears?.length > 0 && (
+                  <span>Active {existingYears[0]}{existingYears.length > 1 ? `-${existingYears[existingYears.length - 1]}` : ''}</span>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
-          {/* New Record */}
-          <div className="rounded-lg p-4" style={{ backgroundColor: newTeamInfo.backgroundColor || '#6B7280' }}>
-            <div className="text-xs font-semibold mb-2 opacity-70" style={{ color: getContrastTextColor(newTeamInfo.backgroundColor || '#6B7280') }}>
-              NEW ENTRY
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              {newTeamLogo && (
-                <div className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0">
-                  <img src={newTeamLogo} alt="" className="w-full h-full object-contain" />
+          {/* Comparison Cards */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Previous Record */}
+            <div className="rounded-lg overflow-hidden" style={{ border: `2px solid ${oldTeamInfo.backgroundColor || '#6B7280'}` }}>
+              <div
+                className="px-3 py-2 text-xs font-bold uppercase tracking-wide"
+                style={{ backgroundColor: oldTeamInfo.backgroundColor || '#6B7280', color: getContrastTextColor(oldTeamInfo.backgroundColor || '#6B7280') }}
+              >
+                Previous Record
+              </div>
+              <div className="p-3" style={{ backgroundColor: `${oldTeamInfo.backgroundColor || '#6B7280'}15` }}>
+                <div className="flex items-center gap-2 mb-2">
+                  {oldTeamLogo && (
+                    <div className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0 shadow-sm">
+                      <img src={oldTeamLogo} alt="" className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                  <span className="font-bold text-sm" style={{ color: secondaryText }}>
+                    {oldTeamInfo.name || oldMascotName || oldTeamAbbr}
+                  </span>
                 </div>
-              )}
-              <span className="font-bold" style={{ color: getContrastTextColor(newTeamInfo.backgroundColor || '#6B7280') }}>
-                {newTeamInfo.name || newTeamAbbr}
-              </span>
+                {lastHonor && (
+                  <div
+                    className="text-xs rounded px-2 py-1.5 mt-2"
+                    style={{ backgroundColor: `${oldTeamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+                  >
+                    <div className="font-semibold">{lastHonor.year}</div>
+                    <div style={{ opacity: 0.9 }}>{lastHonor.description}</div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-sm" style={{ color: getContrastTextColor(newTeamInfo.backgroundColor || '#6B7280'), opacity: 0.85 }}>
-              {entry.year}: {entry.honorType || 'New Honor'}
+
+            {/* New Record */}
+            <div className="rounded-lg overflow-hidden" style={{ border: `2px solid ${newTeamInfo.backgroundColor || '#6B7280'}` }}>
+              <div
+                className="px-3 py-2 text-xs font-bold uppercase tracking-wide"
+                style={{ backgroundColor: newTeamInfo.backgroundColor || '#6B7280', color: getContrastTextColor(newTeamInfo.backgroundColor || '#6B7280') }}
+              >
+                New Entry
+              </div>
+              <div className="p-3" style={{ backgroundColor: `${newTeamInfo.backgroundColor || '#6B7280'}15` }}>
+                <div className="flex items-center gap-2 mb-2">
+                  {newTeamLogo && (
+                    <div className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0 shadow-sm">
+                      <img src={newTeamLogo} alt="" className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                  <span className="font-bold text-sm" style={{ color: secondaryText }}>
+                    {newTeamInfo.name || newMascotName || newTeamAbbr || 'Unknown Team'}
+                  </span>
+                </div>
+                <div
+                  className="text-xs rounded px-2 py-1.5 mt-2"
+                  style={{ backgroundColor: `${newTeamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+                >
+                  <div className="font-semibold">{entry.year}{newEntryClass ? ` (${newEntryClass})` : ''}</div>
+                  <div style={{ opacity: 0.9 }}>{formatHonorType(entry.honorType)}</div>
+                  {playerPosition && <div style={{ opacity: 0.7 }}>Position: {playerPosition}</div>}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* View Player Link */}
-        {player.pid && (
-          <div className="mb-4">
-            <Link
-              to={`/dynasty/${dynastyId}/player/${player.pid}`}
-              target="_blank"
-              className="text-sm underline flex items-center gap-1"
-              style={{ color: teamColors.primary }}
+          {/* Transfer indicator */}
+          {teamsAreDifferent && (
+            <div
+              className="flex items-center justify-center gap-2 py-2 mb-4 rounded-lg text-sm"
+              style={{ backgroundColor: `${teamColors.primary}10`, color: teamColors.primary }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
               </svg>
-              View existing player page
-            </Link>
-          </div>
-        )}
+              <span className="font-medium">Different teams detected</span>
+            </div>
+          )}
 
-        {/* Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => onConfirm(true)}
-            className="flex-1 px-4 py-3 rounded-lg font-semibold transition-colors"
-            style={{ backgroundColor: teamColors.primary, color: primaryText }}
-          >
-            Yes, Same Player (Transfer)
-          </button>
-          <button
-            onClick={() => onConfirm(false)}
-            className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-colors"
-            style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
-          >
-            No, Different Player
-          </button>
+          {/* View Player Link */}
+          {player.pid && (
+            <div className="mb-4">
+              <Link
+                to={`/dynasty/${dynastyId}/player/${player.pid}`}
+                target="_blank"
+                className="text-sm font-medium flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                style={{ color: teamColors.primary }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View existing player page
+              </Link>
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => onConfirm(true)}
+              className="flex-1 px-4 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+            >
+              Yes, Same Player
+            </button>
+            <button
+              onClick={() => onConfirm(false)}
+              className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-opacity hover:opacity-80"
+              style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
+            >
+              No, Different Player
+            </button>
+          </div>
+
+          {/* Help text */}
+          <p className="text-xs text-center mt-3" style={{ color: secondaryText, opacity: 0.6 }}>
+            Choose "Same Player" if this player transferred between schools
+          </p>
         </div>
       </div>
     </div>

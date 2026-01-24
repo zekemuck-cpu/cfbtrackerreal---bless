@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getModalColors } from '../utils/colorUtils'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -64,6 +65,7 @@ const TROPHY_URL = 'https://i.imgur.com/3goz1NK.png'
 
 export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty } = useDynasty()
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const [game, setGame] = useState({
     id: 'championship',
     bowlName: 'National Championship',
@@ -253,9 +255,10 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       onMouseDown={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto"
+        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto border"
         style={{
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%)'
+          backgroundColor: modalColors.background,
+          borderColor: modalColors.border
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -412,22 +415,21 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-5 border-t border-white/10">
+        <div className="px-6 py-5 border-t" style={{ borderColor: modalColors.border }}>
           <div className="flex gap-3">
             <button
               onClick={handleSave}
               disabled={saving || (!game.team1 && !game.team1Tid) || (!game.team2 && !game.team2Tid)}
-              className="flex-1 px-6 py-4 rounded-xl font-bold text-black transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 text-lg"
+              className="flex-1 px-6 py-4 rounded-xl font-bold transition-all hover:opacity-90 disabled:opacity-50 text-lg text-white"
               style={{
-                background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                boxShadow: '0 4px 20px rgba(255,215,0,0.4)'
+                backgroundColor: modalColors.accent
               }}
             >
               {saving ? 'Saving...' : 'Crown the Champion'}
             </button>
             <button
               onClick={onClose}
-              className="px-6 py-4 rounded-xl font-bold text-white/80 hover:text-white transition-colors border border-white/20 hover:border-white/40"
+              className="px-6 py-4 rounded-xl font-bold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             >
               Cancel
             </button>

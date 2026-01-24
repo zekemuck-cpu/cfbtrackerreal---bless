@@ -514,14 +514,18 @@ export default function BowlHistory() {
                       // Generate game ID for navigation
                       // Prefer actual game ID from gameRef when available (most reliable)
                       // Fall back to generated IDs for legacy data
+                      // IMPORTANT: For CFP, use cfpSlot first (bowl names rotate per year/dynasty)
                       const gameBowlName = game.bowlName || bowlName
                       const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
                       let gameId
                       if (game.gameRef?.id) {
                         // Use actual game ID from database
                         gameId = game.gameRef.id
+                      } else if (game.cfpSlot) {
+                        // Use cfpSlot if available (most reliable for CFP games)
+                        gameId = getCFPGameId(game.cfpSlot, game.year)
                       } else if (game.isCFP) {
-                        // CFP games use slot IDs (cfpqf1, cfpsf1, cfpnc)
+                        // CFP games: fall back to bowl name lookup (legacy, less reliable)
                         const slotId = getSlotIdFromBowlName(gameBowlName)
                         gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
                       } else {

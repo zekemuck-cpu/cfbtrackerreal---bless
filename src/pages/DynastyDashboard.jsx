@@ -57,7 +57,11 @@ export default function DynastyDashboard() {
 
       {/* Main content - on desktop (lg+), add left margin when sidebar is open to push content */}
       {/* On mobile/tablet, sidebar overlays so no margin needed */}
-      <div className={`min-w-0 pb-14 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}>
+      {/* Bottom padding accounts for ticker height (48px) + safe area for phones with home indicators */}
+      <div
+        className={`min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
+        style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      >
         <Outlet />
       </div>
 

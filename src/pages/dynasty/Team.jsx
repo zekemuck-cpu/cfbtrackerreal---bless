@@ -1142,18 +1142,18 @@ export default function Team() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Navigation Row */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Team Dropdown */}
         <select
           value={tid}
           onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}`)}
-          className="px-3 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 ml-auto"
+          className="max-w-[200px] sm:max-w-none px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 ml-auto text-sm sm:text-base truncate"
           style={{
             backgroundColor: teamInfo.backgroundColor,
             color: teamBgText,
-            border: `2px solid ${teamBgText}40`
+            border: `1.5px solid ${teamBgText}30`
           }}
         >
           {allTeams.map((t) => (
@@ -1166,20 +1166,20 @@ export default function Team() {
 
       {/* Team Header */}
       <div
-        className="rounded-lg shadow-lg p-6"
+        className="rounded-lg shadow-lg p-4 sm:p-6"
         style={{
           backgroundColor: teamInfo.backgroundColor,
-          border: `3px solid ${teamInfo.textColor}`
+          border: `2px sm:border-[3px] solid ${teamInfo.textColor}`
         }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {teamLogo && (
             <div
-              className="w-20 h-20 rounded-full flex items-center justify-center flex-shrink-0"
+              className="w-14 h-14 sm:w-20 sm:h-20 rounded-full flex items-center justify-center flex-shrink-0"
               style={{
                 backgroundColor: '#FFFFFF',
-                border: `3px solid ${teamInfo.textColor}`,
-                padding: '4px'
+                border: `2px solid ${teamInfo.textColor}`,
+                padding: '3px'
               }}
             >
               <img
@@ -1189,14 +1189,14 @@ export default function Team() {
               />
             </div>
           )}
-          <div className="flex-1">
-            <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.7 }}>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.7 }}>
               Team History
             </p>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold" style={{ color: teamBgText }}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-2xl font-bold truncate" style={{ color: teamBgText }}>
                 {finalRanking && (
-                  <span className="text-yellow-400 mr-2">#{finalRanking.rank}</span>
+                  <span className="text-yellow-400 mr-1 sm:mr-2">#{finalRanking.rank}</span>
                 )}
                 {mascotName || teamInfo.name}
               </h1>

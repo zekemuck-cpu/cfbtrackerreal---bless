@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { getTeamConference } from '../../data/conferenceTeams'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
@@ -44,6 +45,9 @@ export default function DangerZone() {
 
   // CFP repair state
   const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
+
+  // CCG repair state
+  const [ccgRepairStatus, setCcgRepairStatus] = useState(null)
 
   // Game deletion state
   const [showGameDeletion, setShowGameDeletion] = useState(false)
@@ -770,8 +774,15 @@ export default function DangerZone() {
 
       // PHASE 2: Fix CFP games - add tid fields and fix slots
       const updatedGames = games.map(game => {
-        // Only process CFP games
-        if (!game.isCFPQuarterfinal && !game.isCFPSemifinal && !game.isCFPChampionship && !game.isCFPFirstRound) {
+        // Helper: detect if a game is CFP based on cfpSlot, id pattern, or boolean flags
+        const isCFPGame = () => {
+          if (game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship || game.isCFPFirstRound) return true
+          if (game.cfpSlot && game.cfpSlot.startsWith('cfp')) return true
+          if (game.id && (game.id.startsWith('cfpfr') || game.id.startsWith('cfpqf') || game.id.startsWith('cfpsf') || game.id.startsWith('cfpnc'))) return true
+          return false
+        }
+
+        if (!isCFPGame()) {
           return game
         }
 
@@ -782,6 +793,55 @@ export default function DangerZone() {
         // Add tid fields if missing
         let updatedGame = { ...game }
         let gameModified = false
+
+        // CRITICAL FIX: Determine correct gameType and boolean flags from cfpSlot or ID pattern
+        const slotId = game.cfpSlot || (game.id && game.id.match(/^(cfp[a-z]+\d?)-\d+$/)?.[1])
+        if (slotId) {
+          let correctGameType, correctFlag, correctRound
+          if (slotId.startsWith('cfpfr')) {
+            correctGameType = GAME_TYPES.CFP_FIRST_ROUND
+            correctFlag = 'isCFPFirstRound'
+            correctRound = 'first_round'
+          } else if (slotId.startsWith('cfpqf')) {
+            correctGameType = GAME_TYPES.CFP_QUARTERFINAL
+            correctFlag = 'isCFPQuarterfinal'
+            correctRound = 'quarterfinal'
+          } else if (slotId.startsWith('cfpsf')) {
+            correctGameType = GAME_TYPES.CFP_SEMIFINAL
+            correctFlag = 'isCFPSemifinal'
+            correctRound = 'semifinal'
+          } else if (slotId === 'cfpnc') {
+            correctGameType = GAME_TYPES.CFP_CHAMPIONSHIP
+            correctFlag = 'isCFPChampionship'
+            correctRound = 'championship'
+          }
+
+          if (correctGameType && updatedGame.gameType !== correctGameType) {
+            console.log(`[CFP Repair] Fixing gameType for ${game.id}: ${game.gameType} -> ${correctGameType}`)
+            updatedGame.gameType = correctGameType
+            gameModified = true
+          }
+
+          // Fix boolean flags - set correct one true, others false
+          if (correctFlag) {
+            const allFlags = ['isCFPFirstRound', 'isCFPQuarterfinal', 'isCFPSemifinal', 'isCFPChampionship']
+            for (const flag of allFlags) {
+              const shouldBeTrue = flag === correctFlag
+              if (!!updatedGame[flag] !== shouldBeTrue) {
+                updatedGame[flag] = shouldBeTrue
+                if (shouldBeTrue) {
+                  console.log(`[CFP Repair] Setting ${flag}=true for ${game.id}`)
+                }
+                gameModified = true
+              }
+            }
+          }
+
+          if (correctRound && updatedGame.cfpRound !== correctRound) {
+            updatedGame.cfpRound = correctRound
+            gameModified = true
+          }
+        }
 
         // Add team1Tid if missing but team1 exists
         if (!updatedGame.team1Tid && updatedGame.team1) {
@@ -1023,6 +1083,83 @@ export default function DangerZone() {
     }
   }
 
+  // Repair Conference Championship games - add missing conference field
+  const handleRepairCCGames = async () => {
+    setCcgRepairStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      const customConferences = currentDynasty?.conferencesByYear?.[currentDynasty?.currentYear]
+      let fixedCount = 0
+      let checkedCount = 0
+
+      const updatedGames = games.map(game => {
+        // Only process Conference Championship games
+        if (!game.isConferenceChampionship && game.gameType !== 'conference_championship') {
+          return game
+        }
+
+        checkedCount++
+
+        // If it already has a conference field, skip it
+        if (game.conference) {
+          return game
+        }
+
+        // Detect conference from teams
+        // Get team abbreviations from game
+        let team1Abbr = game.team1
+        let team2Abbr = game.team2
+
+        // Try to get abbr from tid if not directly available
+        if (!team1Abbr && game.team1Tid) {
+          const team = currentDynasty?.teams?.[game.team1Tid] || TEAMS[game.team1Tid]
+          team1Abbr = team?.abbr || getOriginalTeamAbbr(game.team1Tid)
+        }
+        if (!team2Abbr && game.team2Tid) {
+          const team = currentDynasty?.teams?.[game.team2Tid] || TEAMS[game.team2Tid]
+          team2Abbr = team?.abbr || getOriginalTeamAbbr(game.team2Tid)
+        }
+
+        // Also check legacy fields
+        if (!team1Abbr) team1Abbr = game.userTeam
+        if (!team2Abbr) team2Abbr = game.opponent
+
+        if (!team1Abbr && !team2Abbr) {
+          console.log(`[CCG Repair] Could not determine teams for game ${game.id}`)
+          return game
+        }
+
+        // Get conference from either team
+        const team1Conf = team1Abbr ? getTeamConference(team1Abbr, customConferences, currentDynasty?.teams) : null
+        const team2Conf = team2Abbr ? getTeamConference(team2Abbr, customConferences, currentDynasty?.teams) : null
+
+        // Use whichever conference we found (they should be the same for a conference championship)
+        const conference = team1Conf || team2Conf
+
+        if (conference) {
+          console.log(`[CCG Repair] Game ${game.id}: Added conference "${conference}" (teams: ${team1Abbr} vs ${team2Abbr})`)
+          fixedCount++
+          return { ...game, conference }
+        }
+
+        console.log(`[CCG Repair] Could not determine conference for game ${game.id} (teams: ${team1Abbr} vs ${team2Abbr})`)
+        return game
+      })
+
+      if (fixedCount > 0) {
+        await updateDynasty(currentDynasty.id, { games: updatedGames })
+        setCcgRepairStatus({ success: true, message: `Fixed ${fixedCount} of ${checkedCount} CCG games` })
+      } else if (checkedCount === 0) {
+        setCcgRepairStatus({ success: true, message: 'No Conference Championship games found' })
+      } else {
+        setCcgRepairStatus({ success: true, message: `All ${checkedCount} CCG games already have conference field!` })
+      }
+    } catch (error) {
+      console.error('[CCG Repair] Error:', error)
+      setCcgRepairStatus({ success: false, message: 'Repair failed: ' + error.message })
+    }
+  }
+
   const handleAnalyzeSize = () => {
     const result = analyzeDocumentSize(currentDynasty.id)
     if (result.success) setSizeAnalysis(result.analysis)
@@ -1140,6 +1277,7 @@ export default function DangerZone() {
             <div><strong>Sync Recruiting:</strong> Missing data on recruiting pages</div>
             <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
             <div><strong>Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
+            <div><strong>Repair CCG:</strong> Conference championship games not showing in history</div>
             <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
             <div><strong>Database Migration:</strong> "Exceeds maximum size" errors</div>
@@ -1194,6 +1332,13 @@ export default function DangerZone() {
             buttonText="Repair CFP"
             onClick={handleRepairCFPGames}
             status={cfpRepairStatus}
+          />
+          <ActionCard
+            title="Repair CCG Games"
+            description="Adds missing conference field to Conference Championship games"
+            buttonText="Repair CCG"
+            onClick={handleRepairCCGames}
+            status={ccgRepairStatus}
           />
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
@@ -10,6 +10,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getGameTeamInfo, TEAMS } from '../data/teamRegistry'
+import { getModalColors } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -17,6 +18,7 @@ const isMobileDevice = () => {
 }
 
 export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { currentDynasty } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
@@ -278,23 +280,23 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl border shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Conference Championship Week
           </h2>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -308,28 +310,28 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating Conference Championship Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Setting up conferences and team dropdowns
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: modalColors.background }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: modalColors.background, opacity: 0.9 }}>
                 Conference Championship data saved to your dynasty.
               </p>
             </div>
@@ -344,8 +346,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   disabled={syncing || deletingSheet}
                   className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: teamColors.secondary
+                    backgroundColor: modalColors.accent,
+                    color: modalColors.background
                   }}
                 >
                   {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -356,8 +358,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                   style={{
                     backgroundColor: 'transparent',
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary
+                    borderColor: modalColors.accent,
+                    color: modalColors.text
                   }}
                 >
                   {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -368,15 +370,15 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                   style={{
                     backgroundColor: 'transparent',
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
+                    borderColor: modalColors.accent,
+                    color: modalColors.text,
                     opacity: 0.7
                   }}
                 >
                   {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-xs font-medium animate-bounce" style={{ color: teamColors.primary }}>
+                  <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
 
                   </span>
                 )}
@@ -394,8 +396,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   }}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
+                    borderColor: modalColors.accent,
+                    color: modalColors.text,
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -406,15 +408,15 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: teamColors.primary }}>
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: modalColors.accent }}>
+                  <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>Edit in Google Sheets</h3>
+                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>Edit in Google Sheets</h3>
                 <div className="text-left mb-6 max-w-xs">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>Instructions:</p>
+                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
                     <li className="flex gap-2"><span className="font-bold">2.</span><span>Enter conference championship results</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
@@ -433,8 +435,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: modalColors.background
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -445,15 +447,15 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                 </div>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: teamColors.primary }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
 
                   </span>
                 )}
@@ -462,7 +464,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
                   className="text-sm underline opacity-70 hover:opacity-100 transition-opacity"
-                  style={{ color: teamColors.primary }}
+                  style={{ color: modalColors.textMuted }}
                 >
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
@@ -478,7 +480,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                     onSessionError={() => setShowAuthError(true)}
                   />
                 </div>
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
                   <p><strong>Columns:</strong> Conference | Team 1 | Team 2 | Team 1 Score | Team 2 Score</p>
                   <p>Fill in the teams playing in each conference championship game and their scores.</p>
                 </div>
@@ -488,7 +490,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -498,7 +500,6 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                     try {
                       const success = await refreshSession()
                       if (success) {
-                        // Trigger sheet creation retry
                         setRetryCount(c => c + 1)
                       }
                     } catch (e) {
@@ -509,8 +510,8 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    backgroundColor: modalColors.accent,
+                    color: modalColors.background,
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

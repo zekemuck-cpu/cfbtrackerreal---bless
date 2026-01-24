@@ -496,20 +496,35 @@ export function propagateCFPWinner(games, savedGame) {
     // Shell doesn't exist - this shouldn't happen but handle it gracefully
     console.warn(`[propagateCFPWinner] Target shell ${nextSlotId} not found! Creating it.`)
 
-    // Determine game type for the new shell
-    let gameType = GAME_TYPES.CFP_SEMIFINAL
-    let legacyFlag = 'isCFPSemifinal'
-    let week = 'Bowl 3'
-    if (nextSlotId === 'cfpnc') {
+    // Determine game type for the new shell based on slot ID pattern
+    let gameType, legacyFlag, week, cfpRound
+    if (nextSlotId.startsWith('cfpqf')) {
+      gameType = GAME_TYPES.CFP_QUARTERFINAL
+      legacyFlag = 'isCFPQuarterfinal'
+      week = 'Bowl 2'
+      cfpRound = 'quarterfinal'
+    } else if (nextSlotId.startsWith('cfpsf')) {
+      gameType = GAME_TYPES.CFP_SEMIFINAL
+      legacyFlag = 'isCFPSemifinal'
+      week = 'Bowl 3'
+      cfpRound = 'semifinal'
+    } else if (nextSlotId === 'cfpnc') {
       gameType = GAME_TYPES.CFP_CHAMPIONSHIP
       legacyFlag = 'isCFPChampionship'
       week = 'Bowl 4'
+      cfpRound = 'championship'
+    } else {
+      console.error(`[propagateCFPWinner] Unknown slot ID pattern: ${nextSlotId}`)
+      gameType = GAME_TYPES.CFP_SEMIFINAL
+      legacyFlag = 'isCFPSemifinal'
+      week = 'Bowl 3'
+      cfpRound = 'semifinal'
     }
 
     const newShell = {
       id: expectedId,
       cfpSlot: nextSlotId,
-      cfpRound: nextSlotId === 'cfpnc' ? 'championship' : 'semifinal',
+      cfpRound,
       year: Number(year),
       week,
       gameType,
@@ -917,7 +932,9 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 
 /**
  * Get the team record (single source of truth)
- * Always calculates from actual games to ensure accuracy
+ * Priority:
+ * 1. Calculate from actual games (if team has games in games[])
+ * 2. Fall back to stored records (from conference standings, useful when switching teams)
  * @param {Object} dynasty - Dynasty object
  * @param {number|string} tidOrAbbr - Team ID or abbreviation
  * @param {number} year - Year
@@ -928,10 +945,58 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
 
   // Handle abbr input for backward compatibility
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(tidOrAbbr) : tidOrAbbr
 
-  // Always calculate from games - this is the authoritative source of truth
-  // Stored records are only used as a cache for Firestore updates
-  return calculateTeamRecordFromGames(dynasty, tid, year)
+  // Priority 1: Calculate from actual games
+  const calculatedRecord = calculateTeamRecordFromGames(dynasty, tid, year)
+
+  // If we found games, use calculated record
+  if (calculatedRecord.wins > 0 || calculatedRecord.losses > 0) {
+    return calculatedRecord
+  }
+
+  // Priority 2: Fall back to stored records (useful when switching to a new team)
+  // Check tid-based storage first
+  const tidRecord = dynasty.teams?.[tid]?.byYear?.[year]?.record
+  if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
+    return {
+      wins: tidRecord.wins || 0,
+      losses: tidRecord.losses || 0,
+      confWins: tidRecord.confWins || 0,
+      confLosses: tidRecord.confLosses || 0
+    }
+  }
+
+  // Check legacy abbr-based storage
+  const legacyRecord = dynasty.teamRecordsByTeamYear?.[abbr]?.[year]
+  if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
+    return {
+      wins: legacyRecord.wins || 0,
+      losses: legacyRecord.losses || 0,
+      confWins: legacyRecord.confWins || 0,
+      confLosses: legacyRecord.confLosses || 0
+    }
+  }
+
+  // Priority 3: Check conference standings for this team
+  const standings = dynasty.conferenceStandingsByYear?.[year]
+  if (standings) {
+    for (const [conf, teams] of Object.entries(standings)) {
+      if (!Array.isArray(teams)) continue
+      const teamEntry = teams.find(t => t.abbr === abbr || t.team === abbr || t.tid === tid)
+      if (teamEntry && (teamEntry.wins > 0 || teamEntry.losses > 0)) {
+        return {
+          wins: teamEntry.wins || 0,
+          losses: teamEntry.losses || 0,
+          confWins: teamEntry.confWins || 0,
+          confLosses: teamEntry.confLosses || 0
+        }
+      }
+    }
+  }
+
+  // No record found anywhere - return zeros
+  return calculatedRecord
 }
 
 /**
@@ -947,6 +1012,83 @@ export function getCurrentTeamRecord(dynasty) {
   if (!tid || !year) return null
 
   return getTeamRecord(dynasty, tid, year)
+}
+
+/**
+ * Get current ranking for a team in a given year
+ * UNIFIED RANKING SYSTEM - All pages should use this for consistency
+ * Priority:
+ * 1. Final poll ranking (if entered for that year) - end of season definitive ranking
+ * 2. Most recent game ranking (userRank from games in chronological order)
+ *
+ * @param {Object} dynasty - Dynasty object
+ * @param {number|string} tidOrAbbr - Team ID or abbreviation
+ * @param {number} year - Year to check
+ * @returns {{ rank: number, source: 'final_poll'|'game'|null, week?: number|string } | null}
+ */
+export function getTeamRanking(dynasty, tidOrAbbr, year) {
+  if (!dynasty || !tidOrAbbr || !year) return null
+
+  // Resolve tid and abbr
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const abbr = typeof tidOrAbbr === 'number' ? getOriginalTeamAbbr(tidOrAbbr) : tidOrAbbr
+
+  // Priority 1: Check final polls (end of season ranking, most authoritative)
+  const finalPolls = dynasty.finalPollsByYear?.[year]
+  if (finalPolls?.media?.length > 0) {
+    const teamEntry = finalPolls.media.find(p => p && (p.team === abbr || p.tid === tid))
+    if (teamEntry?.rank) {
+      return { rank: teamEntry.rank, source: 'final_poll' }
+    }
+  }
+
+  // Priority 2: Get ranking from most recent game (in chronological order)
+  const games = dynasty.games || []
+  const teamGames = games
+    .filter(g => {
+      if (Number(g.year) !== Number(year)) return false
+      return g.team1Tid === tid || g.team2Tid === tid ||
+             g.team1 === abbr || g.team2 === abbr ||
+             g.userTeam === abbr
+    })
+    .filter(g => g.team1Score !== null || g.team2Score !== null) // Only played games
+    .sort((a, b) => {
+      // Sort by week (handle bowl weeks like 'Bowl 1', 'Bowl 2', etc.)
+      const weekA = typeof a.week === 'string' && a.week.startsWith('Bowl') ? 100 + parseInt(a.week.split(' ')[1] || '1') : Number(a.week)
+      const weekB = typeof b.week === 'string' && b.week.startsWith('Bowl') ? 100 + parseInt(b.week.split(' ')[1] || '1') : Number(b.week)
+      return weekA - weekB
+    })
+
+  if (teamGames.length > 0) {
+    const lastGame = teamGames[teamGames.length - 1]
+    const isTeam1 = lastGame.team1Tid === tid || lastGame.team1 === abbr
+    const rank = isTeam1 ? lastGame.team1Rank : lastGame.team2Rank
+
+    // Also check legacy userRank field
+    const legacyRank = lastGame.userTeam === abbr ? lastGame.userRank : null
+
+    const finalRank = rank || legacyRank
+    if (finalRank) {
+      return { rank: finalRank, source: 'game', week: lastGame.week }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Get current ranking for the user's current team in current year
+ * Convenience wrapper for Dashboard usage
+ */
+export function getCurrentTeamRanking(dynasty) {
+  if (!dynasty) return null
+
+  const tid = getCurrentTeamTid(dynasty)
+  const year = dynasty.currentYear
+
+  if (!tid || !year) return null
+
+  return getTeamRanking(dynasty, tid, year)
 }
 
 /**

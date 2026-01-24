@@ -152,6 +152,7 @@ export default function GameEdit() {
   const queryGameType = searchParams.get('gameType')
   const queryBowlName = searchParams.get('bowlName')
   const queryLocation = searchParams.get('location')
+  const queryConference = searchParams.get('conference')
 
   // Toast state
   const [showToast, setShowToast] = useState(false)
@@ -564,7 +565,7 @@ export default function GameEdit() {
         homeTeamTid: initialHomeTeamTid,
         location: queryLocation || 'home', // Store location for fallback
         ...(queryBowlName && { bowlName: queryBowlName, isBowlGame: true }),
-        ...(queryGameType === 'conference_championship' && { isConferenceChampionship: true }),
+        ...(queryGameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
         ...(queryGameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(queryGameType === 'cfp_quarterfinal' && { isCFPQuarterfinal: true }),
         ...(queryGameType === 'cfp_semifinal' && { isCFPSemifinal: true }),
@@ -888,7 +889,7 @@ export default function GameEdit() {
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
         ...(existingGame?.isConferenceChampionship && { isConferenceChampionship: true, conference: existingGame.conference }),
-        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true }),
+        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
@@ -1009,7 +1010,7 @@ export default function GameEdit() {
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
         ...(!existingGame && gameType === 'bowl' && { isBowlGame: true, bowlName }),
         ...(existingGame?.isConferenceChampionship && { isConferenceChampionship: true, conference: existingGame.conference }),
-        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true }),
+        ...(!existingGame && gameType === 'conference_championship' && { isConferenceChampionship: true, conference: queryConference || currentDynasty?.conference }),
         ...(existingGame?.isCFPFirstRound && { isCFPFirstRound: true }),
         ...(!existingGame && gameType === 'cfp_first_round' && { isCFPFirstRound: true }),
         ...(existingGame?.isCFPQuarterfinal && { isCFPQuarterfinal: true }),
@@ -1287,30 +1288,30 @@ export default function GameEdit() {
       </div>
 
       {/* Quarter-by-Quarter Scoring */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Quarter-by-Quarter Scoring</h3>
-        <p className="text-xs text-gray-500 mb-4">Enter quarter scores to auto-calculate total, or enter total directly above.</p>
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
+        <h3 className="text-lg font-bold text-white mb-4">Quarter-by-Quarter Scoring</h3>
+        <p className="text-xs text-gray-400 mb-4">Enter quarter scores to auto-calculate total, or enter total directly above.</p>
 
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
             {/* Headers - dynamic columns for Q1-Q4 + OT columns + Total */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
-              <div className="text-xs font-semibold text-gray-600">Team</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Q1</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Q2</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Q3</div>
-              <div className="text-xs font-semibold text-gray-600 text-center">Q4</div>
+              <div className="text-xs font-semibold text-gray-400">Team</div>
+              <div className="text-xs font-semibold text-gray-400 text-center">Q1</div>
+              <div className="text-xs font-semibold text-gray-400 text-center">Q2</div>
+              <div className="text-xs font-semibold text-gray-400 text-center">Q3</div>
+              <div className="text-xs font-semibold text-gray-400 text-center">Q4</div>
               {formData.overtimes.map((_, idx) => (
-                <div key={`ot-header-${idx}`} className="text-xs font-semibold text-gray-600 text-center">OT{idx + 1}</div>
+                <div key={`ot-header-${idx}`} className="text-xs font-semibold text-gray-400 text-center">OT{idx + 1}</div>
               ))}
-              <div className="text-xs font-semibold text-gray-600 text-center">Total</div>
+              <div className="text-xs font-semibold text-gray-400 text-center">Total</div>
             </div>
 
             {/* Away Team Row (left/top) */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate">{leftTeamAbbr}</span>
+                <span className="text-sm font-medium truncate text-white">{leftTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
                 <input
@@ -1321,7 +1322,7 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleQuarterChange(displayLeftTeam, q, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
                   style={{ borderColor: leftTeamColors.primary }}
                   min="0"
                   placeholder="0"
@@ -1336,7 +1337,7 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleOvertimeChange(idx, displayLeftTeam, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
                   style={{ borderColor: leftTeamColors.primary }}
                   min="0"
                   placeholder="0"
@@ -1351,7 +1352,7 @@ export default function GameEdit() {
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate">{rightTeamAbbr}</span>
+                <span className="text-sm font-medium truncate text-white">{rightTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
                 <input
@@ -1362,7 +1363,7 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleQuarterChange(displayRightTeam, q, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
                   style={{ borderColor: rightTeamColors.primary }}
                   min="0"
                   placeholder="0"
@@ -1377,7 +1378,7 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleOvertimeChange(idx, displayRightTeam, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm"
+                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
                   style={{ borderColor: rightTeamColors.primary }}
                   min="0"
                   placeholder="0"
@@ -1394,7 +1395,7 @@ export default function GameEdit() {
       {/* Team Details - Side by Side (display-ordered: left team first, right team second) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Left Team Details (higher seed number/worse team for CFP, away for regular) */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${leftTeamColors.primary}` }}>
+        <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700" style={{ borderTop: `4px solid ${leftTeamColors.primary}` }}>
           <div className="flex items-center gap-3 mb-4">
             {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-10 h-10 object-contain" />}
             <h3 className="text-lg font-bold" style={{ color: leftTeamColors.primary }}>{leftTeamName}</h3>
@@ -1402,61 +1403,61 @@ export default function GameEdit() {
 
           {/* Rankings */}
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">National Rank</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-1">National Rank</label>
             <div className="flex items-center gap-1">
               <input
                 type="number"
                 value={formData[`${displayLeftTeam}Rank`]}
                 onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Rank`]: e.target.value })}
-                className="w-16 px-2 py-2 border-2 rounded-lg text-center"
+                className="w-16 px-2 py-2 border-2 rounded-lg text-center bg-gray-700 text-white"
                 style={{ borderColor: `${leftTeamColors.primary}40` }}
                 min="1" max="133" placeholder="#"
               />
               {formData[`${displayLeftTeam}Rank`] && (
-                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData[`${displayLeftTeam}Rank`])}</span>
+                <span className="text-lg font-semibold text-gray-400">{getOrdinalSuffix(formData[`${displayLeftTeam}Rank`])}</span>
               )}
               {!formData[`${displayLeftTeam}Rank`] && (
-                <span className="text-sm text-gray-400">Unranked</span>
+                <span className="text-sm text-gray-500">Unranked</span>
               )}
             </div>
           </div>
 
           {/* Ratings - show for all teams, auto-filled from preseason for user team */}
           <div className="mb-4">
-            <label className="text-sm font-semibold text-gray-700 block mb-2">
+            <label className="text-sm font-semibold text-gray-300 block mb-2">
               Team Ratings
               {isLeftUserTeam && formData[`${displayLeftTeam}Overall`] && (
-                <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
+                <span className="font-normal text-xs text-green-400 ml-2">(auto-filled)</span>
               )}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                <label className="block text-xs text-gray-400 mb-1">Overall</label>
                 <input
                   type="number"
                   value={formData[`${displayLeftTeam}Overall`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Overall`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Offense</label>
+                <label className="block text-xs text-gray-400 mb-1">Offense</label>
                 <input
                   type="number"
                   value={formData[`${displayLeftTeam}Offense`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Offense`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Defense</label>
+                <label className="block text-xs text-gray-400 mb-1">Defense</label>
                 <input
                   type="number"
                   value={formData[`${displayLeftTeam}Defense`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Defense`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
@@ -1466,25 +1467,25 @@ export default function GameEdit() {
           {/* Record - hidden for user team */}
           {!isLeftUserTeam && (
             <div>
-              <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
+              <label className="text-sm font-semibold text-gray-300 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                  <label className="block text-xs text-gray-400 mb-1">Overall</label>
                   <input
                     type="text"
                     value={formData[`${displayLeftTeam}Record`]}
                     onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Record`]: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
+                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                     placeholder="0-0"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Conference</label>
+                  <label className="block text-xs text-gray-400 mb-1">Conference</label>
                   <input
                     type="text"
                     value={formData[`${displayLeftTeam}ConfRecord`]}
                     onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}ConfRecord`]: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
+                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                     placeholder="0-0"
                   />
                 </div>
@@ -1494,7 +1495,7 @@ export default function GameEdit() {
         </div>
 
         {/* Right Team Details (lower seed number/better team for CFP, home for regular) */}
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" style={{ borderTop: `4px solid ${rightTeamColors.primary}` }}>
+        <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700" style={{ borderTop: `4px solid ${rightTeamColors.primary}` }}>
           <div className="flex items-center gap-3 mb-4">
             {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-10 h-10 object-contain" />}
             <h3 className="text-lg font-bold" style={{ color: rightTeamColors.primary }}>{rightTeamName}</h3>
@@ -1502,61 +1503,61 @@ export default function GameEdit() {
 
           {/* Rankings */}
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-1">National Rank</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-1">National Rank</label>
             <div className="flex items-center gap-1">
               <input
                 type="number"
                 value={formData[`${displayRightTeam}Rank`]}
                 onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Rank`]: e.target.value })}
-                className="w-16 px-2 py-2 border-2 rounded-lg text-center"
+                className="w-16 px-2 py-2 border-2 rounded-lg text-center bg-gray-700 text-white"
                 style={{ borderColor: `${rightTeamColors.primary}40` }}
                 min="1" max="133" placeholder="#"
               />
               {formData[`${displayRightTeam}Rank`] && (
-                <span className="text-lg font-semibold text-gray-600">{getOrdinalSuffix(formData[`${displayRightTeam}Rank`])}</span>
+                <span className="text-lg font-semibold text-gray-400">{getOrdinalSuffix(formData[`${displayRightTeam}Rank`])}</span>
               )}
               {!formData[`${displayRightTeam}Rank`] && (
-                <span className="text-sm text-gray-400">Unranked</span>
+                <span className="text-sm text-gray-500">Unranked</span>
               )}
             </div>
           </div>
 
           {/* Ratings - show for all teams, auto-filled from preseason for user team */}
           <div className="mb-4">
-            <label className="text-sm font-semibold text-gray-700 block mb-2">
+            <label className="text-sm font-semibold text-gray-300 block mb-2">
               Team Ratings
               {isRightUserTeam && formData[`${displayRightTeam}Overall`] && (
-                <span className="font-normal text-xs text-green-600 ml-2">(auto-filled)</span>
+                <span className="font-normal text-xs text-green-400 ml-2">(auto-filled)</span>
               )}
             </label>
             <div className="grid grid-cols-3 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                <label className="block text-xs text-gray-400 mb-1">Overall</label>
                 <input
                   type="number"
                   value={formData[`${displayRightTeam}Overall`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Overall`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Offense</label>
+                <label className="block text-xs text-gray-400 mb-1">Offense</label>
                 <input
                   type="number"
                   value={formData[`${displayRightTeam}Offense`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Offense`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Defense</label>
+                <label className="block text-xs text-gray-400 mb-1">Defense</label>
                 <input
                   type="number"
                   value={formData[`${displayRightTeam}Defense`]}
                   onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Defense`]: e.target.value })}
-                  className="w-full px-2 py-1 border rounded text-center"
+                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                   min="0" max="99"
                 />
               </div>
@@ -1566,25 +1567,25 @@ export default function GameEdit() {
           {/* Record - hidden for user team */}
           {!isRightUserTeam && (
             <div>
-              <label className="text-sm font-semibold text-gray-700 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
+              <label className="text-sm font-semibold text-gray-300 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Overall</label>
+                  <label className="block text-xs text-gray-400 mb-1">Overall</label>
                   <input
                     type="text"
                     value={formData[`${displayRightTeam}Record`]}
                     onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Record`]: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
+                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                     placeholder="0-0"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Conference</label>
+                  <label className="block text-xs text-gray-400 mb-1">Conference</label>
                   <input
                     type="text"
                     value={formData[`${displayRightTeam}ConfRecord`]}
                     onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}ConfRecord`]: e.target.value })}
-                    className="w-full px-2 py-1 border rounded text-center"
+                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
                     placeholder="0-0"
                   />
                 </div>
@@ -1595,29 +1596,29 @@ export default function GameEdit() {
       </div>
 
       {/* Box Score / Stats Sections */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Box Score & Stats</h3>
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
+        <h3 className="text-lg font-bold text-white mb-4">Box Score & Stats</h3>
         {isNewGame ? (
-          <p className="text-sm text-gray-500">Save the game first to connect Google Sheets for detailed stats.</p>
+          <p className="text-sm text-gray-400">Save the game first to connect Google Sheets for detailed stats.</p>
         ) : (
           <>
-            <p className="text-sm text-gray-500 mb-4">Connect Google Sheets to track detailed stats for this game.</p>
+            <p className="text-sm text-gray-400 mb-4">Connect Google Sheets to track detailed stats for this game.</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <button
                 onClick={() => openBoxScoreModal('teamStats')}
-                className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all text-center"
+                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-green-500 hover:bg-green-900/20 transition-all text-center"
               >
                 <div className="text-2xl mb-2">📊</div>
-                <div className="text-sm font-medium text-gray-700">Team Stats</div>
+                <div className="text-sm font-medium text-gray-300">Team Stats</div>
                 {existingGame?.teamStatsSheetId && (
-                  <div className="text-xs text-green-600 mt-1">Connected</div>
+                  <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>
 
               <button
                 onClick={() => openBoxScoreModal(displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')}
-                className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
                   {leftTeamLogo ? (
@@ -1626,15 +1627,15 @@ export default function GameEdit() {
                     <span className="text-2xl">👥</span>
                   )}
                 </div>
-                <div className="text-sm font-medium text-gray-700">{leftTeamAbbr} Stats</div>
+                <div className="text-sm font-medium text-gray-300">{leftTeamAbbr} Stats</div>
                 {(displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
-                  <div className="text-xs text-green-600 mt-1">Connected</div>
+                  <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>
 
               <button
                 onClick={() => openBoxScoreModal(displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')}
-                className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
+                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
                   {rightTeamLogo ? (
@@ -1643,20 +1644,20 @@ export default function GameEdit() {
                     <span className="text-2xl">👥</span>
                   )}
                 </div>
-                <div className="text-sm font-medium text-gray-700">{rightTeamAbbr} Stats</div>
+                <div className="text-sm font-medium text-gray-300">{rightTeamAbbr} Stats</div>
                 {(displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
-                  <div className="text-xs text-green-600 mt-1">Connected</div>
+                  <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>
 
               <button
                 onClick={() => openBoxScoreModal('scoring')}
-                className="p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all text-center"
+                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all text-center"
               >
                 <div className="text-2xl mb-2">🏈</div>
-                <div className="text-sm font-medium text-gray-700">Scoring Summary</div>
+                <div className="text-sm font-medium text-gray-300">Scoring Summary</div>
                 {existingGame?.scoringSummarySheetId && (
-                  <div className="text-xs text-green-600 mt-1">Connected</div>
+                  <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>
             </div>
@@ -1665,9 +1666,9 @@ export default function GameEdit() {
       </div>
 
       {/* Game Recap */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-bold text-gray-800">Game Recap</h3>
+          <h3 className="text-lg font-bold text-white">Game Recap</h3>
           <button
             onClick={handleGenerateRecap}
             disabled={isGeneratingRecap || !formData.team1Score || !formData.team2Score}
@@ -1679,31 +1680,31 @@ export default function GameEdit() {
             {isGeneratingRecap ? 'Generating...' : 'Generate with AI'}
           </button>
         </div>
-        <p className="text-xs text-gray-500 mb-3">Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap.</p>
+        <p className="text-xs text-gray-400 mb-3">Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap.</p>
         {recapError && (
-          <p className="text-sm text-red-600 mb-2">{recapError}</p>
+          <p className="text-sm text-red-400 mb-2">{recapError}</p>
         )}
         <textarea
           value={formData.aiRecap}
           onChange={(e) => setFormData({ ...formData, aiRecap: e.target.value })}
-          className="w-full px-3 py-2 border-2 rounded-lg resize-none"
+          className="w-full px-3 py-2 border border-gray-600 rounded-lg resize-none bg-gray-700 text-white placeholder-gray-500"
           rows={8}
           placeholder="Write a game recap or use AI to generate one..."
         />
       </div>
 
       {/* Media Links */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-gray-800">Media Links</h3>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <h3 className="text-lg font-bold text-white">Media Links</h3>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             <span>YouTube videos will embed automatically</span>
           </div>
         </div>
-        <p className="text-xs text-gray-500 mb-3">Add links to highlight videos, images, or related content.</p>
+        <p className="text-xs text-gray-400 mb-3">Add links to highlight videos, images, or related content.</p>
         <div className="space-y-2">
           {formData.links.map((link, index) => (
             <div key={index} className="flex gap-2">
@@ -1719,7 +1720,7 @@ export default function GameEdit() {
                   }
                   setFormData({ ...formData, links: newLinks })
                 }}
-                className="flex-1 px-3 py-2 border-2 rounded-lg font-mono text-sm"
+                className="flex-1 px-3 py-2 border border-gray-600 rounded-lg font-mono text-sm bg-gray-700 text-white placeholder-gray-500"
                 placeholder="https://youtube.com/watch?v=..."
               />
               {/* Show remove button only for filled entries (not the empty input box) */}
@@ -1734,7 +1735,7 @@ export default function GameEdit() {
                     }
                     setFormData({ ...formData, links: newLinks })
                   }}
-                  className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  className="px-3 py-2 text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
                   title="Remove link"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1746,24 +1747,24 @@ export default function GameEdit() {
           ))}
         </div>
         {formData.links.filter(l => l.trim()).length > 0 && (
-          <div className="mt-3 text-xs text-gray-500">
+          <div className="mt-3 text-xs text-gray-400">
             {formData.links.filter(l => l.trim()).length} link(s) added
           </div>
         )}
       </div>
 
       {/* Game Settings */}
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Game Settings</h3>
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
+        <h3 className="text-lg font-bold text-white mb-4">Game Settings</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Location */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Game Location</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Game Location</label>
             <select
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-3 py-2 border-2 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white"
             >
               <option value="home">{team1Name} Home</option>
               <option value="away">{team2Name} Home</option>
@@ -1773,19 +1774,19 @@ export default function GameEdit() {
 
           {/* Conference Game */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Conference Game</label>
+            <label className="block text-sm font-semibold text-gray-300 mb-2">Conference Game</label>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.isConferenceGame}
                   onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="w-4 h-4 text-blue-600 rounded bg-gray-700 border-gray-600"
                 />
-                <span className="text-sm text-gray-700">Yes</span>
+                <span className="text-sm text-gray-300">Yes</span>
               </label>
               {isConferenceGame && (
-                <span className="text-xs text-green-600">(Auto-detected: {team1Conference})</span>
+                <span className="text-xs text-green-400">(Auto-detected: {team1Conference})</span>
               )}
             </div>
           </div>

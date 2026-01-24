@@ -6,8 +6,9 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
-import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
+import { normalizePlayerName as normalizePlayerNameUtil } from '../../utils/playerMatching'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
@@ -173,12 +174,6 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Helper function to normalize player names for URL
-const normalizePlayerName = (name) => {
-  if (!name) return ''
-  return name.trim().toLowerCase()
-}
-
 // Award display names and categories
 const AWARD_DISPLAY = {
   heisman: { name: 'Heisman Trophy', icon: 'trophy', category: 'player' },
@@ -292,12 +287,42 @@ export default function Awards() {
     setShowAwardsModal(false)
   }
 
-  // Helper function to find player by name
-  const findPlayerByName = (playerName) => {
+  // Helper function to find player by name and optionally team
+  const findPlayerByName = (playerName, teamAbbr = null, awardYear = null) => {
     if (!playerName || !currentDynasty.players) return null
-    const normalizedName = normalizePlayerName(playerName)
+    const normalizedName = normalizePlayerNameUtil(playerName)
+    const teamTid = teamAbbr ? getTidFromAbbr(teamAbbr) : null
+
+    // First try exact match with team (most accurate)
+    if (teamAbbr) {
+      const exactMatch = currentDynasty.players.find(p => {
+        if (normalizePlayerNameUtil(p.name) !== normalizedName) return false
+        // Check team match via teamsByYear, team field, or teams array
+        if (teamTid && p.teamsByYear) {
+          const playerTeams = Object.values(p.teamsByYear)
+          if (playerTeams.includes(teamTid) || playerTeams.includes(teamAbbr)) return true
+        }
+        if (p.team === teamTid || p.team === teamAbbr) return true
+        if (p.teams?.includes(teamAbbr)) return true
+        return false
+      })
+      if (exactMatch) return exactMatch
+    }
+
+    // Second try: match by name + accolade for this year (for award winners)
+    if (awardYear) {
+      const accoladeMatch = currentDynasty.players.find(p => {
+        if (normalizePlayerNameUtil(p.name) !== normalizedName) return false
+        // Check if player has an accolade for this year
+        if (p.accolades?.some(a => a.year === awardYear)) return true
+        return false
+      })
+      if (accoladeMatch) return accoladeMatch
+    }
+
+    // Fallback: just match by name (less accurate but backwards compatible)
     return currentDynasty.players.find(p =>
-      normalizePlayerName(p.name) === normalizedName
+      normalizePlayerNameUtil(p.name) === normalizedName
     )
   }
 
@@ -310,7 +335,7 @@ export default function Awards() {
     const bgColor = teamInfo.backgroundColor || '#6B7280'
     const textColor = getContrastTextColor(bgColor)
     const isCoachAward = display.category === 'coach'
-    const matchingPlayer = !isCoachAward ? findPlayerByName(awardData.player) : null
+    const matchingPlayer = !isCoachAward ? findPlayerByName(awardData.player, awardData.team, displayYear) : null
     const hasPlayerPage = !!matchingPlayer
 
     return (

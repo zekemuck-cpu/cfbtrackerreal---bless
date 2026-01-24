@@ -11791,23 +11791,36 @@ const TEAM_STATS_ROWS = [
   'Pass Attempts',
   'Pass TDs',
   'Pass Yards',
+  // Defensive stats
+  'Rush Yards Allowed',
+  'Pass Yards Allowed',
+  // Down conversions
   '3rd Down Conv',
   '3rd Down Att',
   '4th Down Conv',
   '4th Down Att',
   '2PT Conv',
   '2PT Att',
+  // Red zone (offense)
+  'Red Zone Att',
   'Red Zone TD',
   'Red Zone FG',
-  'Red Zone Pct',
+  // Red zone (defense)
+  'Def RZ Att',
+  'Def RZ TD',
+  // Turnovers
   'Turnovers',
   'Fumbles Lost',
   'Interceptions',
+  // Returns
   'Punt Ret Yards',
   'Kick Ret Yards',
   'Total Yards',
   'Punts',
+  // Penalties
   'Penalties',
+  'Penalty Yards',
+  // Time of possession
   'Poss Minutes',
   'Poss Seconds'
 ]

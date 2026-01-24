@@ -147,11 +147,11 @@ export default function DropdownSelect({
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full px-4 py-2 border-2 rounded-lg focus:ring-2 focus:outline-none transition-colors"
+          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none transition-colors placeholder-gray-500"
           style={{
-            borderColor: `${teamColors.primary}40`,
-            color: textColor,
-            backgroundColor: 'transparent'
+            borderColor: '#374151',
+            color: '#f3f4f6',
+            backgroundColor: '#1f2937'
           }}
           autoComplete="off"
           required={required}
@@ -160,7 +160,7 @@ export default function DropdownSelect({
         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
           <svg
             className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-            style={{ color: teamColors.primary }}
+            style={{ color: '#9ca3af' }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -172,8 +172,8 @@ export default function DropdownSelect({
 
       {isOpen && filteredOptions.length > 0 && (
         <div
-          className="absolute z-10 w-full mt-1 bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-auto"
-          style={{ borderColor: `${teamColors.primary}40` }}
+          className="absolute z-10 w-full mt-1 rounded-lg shadow-lg max-h-60 overflow-auto"
+          style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
         >
           {filteredOptions.map((option, index) => {
             const optionValue = typeof option === 'string' ? option : option.value
@@ -187,10 +187,10 @@ export default function DropdownSelect({
                 ref={(el) => (optionRefs.current[index] = el)}
                 onClick={() => handleOptionClick(option)}
                 onMouseEnter={() => setHighlightedIndex(index)}
-                className="px-4 py-2 cursor-pointer transition-colors"
+                className="px-4 py-2.5 cursor-pointer transition-colors"
                 style={{
-                  backgroundColor: isHighlighted ? teamColors.primary : isSelected ? `${teamColors.primary}20` : 'white',
-                  color: isHighlighted ? teamColors.secondary : 'inherit'
+                  backgroundColor: isHighlighted ? teamColors.primary : isSelected ? `${teamColors.primary}30` : 'transparent',
+                  color: isHighlighted ? teamColors.secondary : '#f3f4f6'
                 }}
               >
                 <span className={isSelected ? 'font-medium' : ''}>
@@ -204,8 +204,8 @@ export default function DropdownSelect({
 
       {isOpen && searchTerm && filteredOptions.length === 0 && (
         <div
-          className="absolute z-10 w-full mt-1 bg-white border-2 rounded-lg shadow-lg p-4 text-center text-gray-500"
-          style={{ borderColor: `${teamColors.primary}40` }}
+          className="absolute z-10 w-full mt-1 rounded-lg shadow-lg p-4 text-center"
+          style={{ backgroundColor: '#1f2937', border: '1px solid #374151', color: '#9ca3af' }}
         >
           No options found matching "{searchTerm}"
         </div>

@@ -104,105 +104,165 @@ export default function ReturningPlayerConfirmModal({
       onMouseDown={onCancel}
     >
       <div
-        className="rounded-lg shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto"
+        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: teamColors.primary }}
-          >
-            <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <div
+          className="p-4 sm:p-5"
+          style={{ backgroundColor: teamColors.primary }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${primaryText}20` }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+                Returning Player Detected
+              </h2>
+              <p className="text-sm mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>
+                Is <strong>{recruit.name}</strong> the same player?
+              </p>
+            </div>
           </div>
-          <h2 className="text-xl font-bold" style={{ color: teamColors.primary }}>
-            Returning Player Detected
-          </h2>
         </div>
 
-        {/* Question */}
-        <p className="text-lg mb-4" style={{ color: secondaryText }}>
-          Is <strong>{recruit.name}</strong> the same player who previously left the team?
-        </p>
-
-        {/* Player Card */}
-        <div className="rounded-lg p-4 mb-4" style={{ backgroundColor: teamInfo.backgroundColor || '#6B7280' }}>
-          <div className="flex items-center gap-3 mb-3">
-            {teamLogo && (
-              <div className="w-12 h-12 rounded-full bg-white p-1 flex-shrink-0">
-                <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+        <div className="p-4 sm:p-5">
+          {/* New Recruit Info */}
+          <div
+            className="rounded-lg p-3 mb-4"
+            style={{ backgroundColor: `${teamColors.primary}10`, border: `1px solid ${teamColors.primary}30` }}
+          >
+            <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: teamColors.primary }}>
+              New Recruit
+            </div>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                style={{ backgroundColor: teamColors.primary, color: primaryText }}
+              >
+                {recruit.name?.charAt(0) || '?'}
               </div>
-            )}
-            <div>
-              <div className="font-bold text-lg" style={{ color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}>
-                {existingPlayer.name}
-              </div>
-              <div className="text-sm opacity-80" style={{ color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}>
-                {existingPlayer.position} • {lastClass || existingPlayer.year}
+              <div>
+                <div className="font-bold" style={{ color: secondaryText }}>{recruit.name}</div>
+                <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+                  {recruit.position && <span className="font-semibold">{recruit.position}</span>}
+                  {recruit.position && recruit.class && ' • '}
+                  {recruit.class && <span>{recruit.class}</span>}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm" style={{ color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span>
-              Left in {departureYear}: <strong>{departureReason || 'Transfer'}</strong>
-            </span>
+          {/* Existing Player Card */}
+          <div className="rounded-lg overflow-hidden mb-4" style={{ border: `2px solid ${teamInfo.backgroundColor || '#6B7280'}` }}>
+            <div
+              className="px-3 py-2 text-xs font-bold uppercase tracking-wide"
+              style={{ backgroundColor: teamInfo.backgroundColor || '#6B7280', color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}
+            >
+              Previous Player Record
+            </div>
+            <div className="p-3" style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}15` }}>
+              <div className="flex items-center gap-3 mb-3">
+                {teamLogo && (
+                  <div className="w-12 h-12 rounded-full bg-white p-1 flex-shrink-0 shadow-sm">
+                    <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+                  </div>
+                )}
+                <div>
+                  <div className="font-bold text-base" style={{ color: secondaryText }}>
+                    {existingPlayer.name}
+                  </div>
+                  <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+                    {existingPlayer.position && <span className="font-semibold">{existingPlayer.position}</span>}
+                    {existingPlayer.position && (lastClass || existingPlayer.year) && ' • '}
+                    {(lastClass || existingPlayer.year) && <span>{lastClass || existingPlayer.year}</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Departure Info */}
+              <div
+                className="flex items-center gap-2 text-sm rounded px-2 py-1.5"
+                style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>
+                  Left in <strong>{departureYear}</strong>: {departureReason || 'Transfer'}
+                </span>
+              </div>
+
+              {existingPlayer.overall && (
+                <div className="mt-2 text-sm px-2" style={{ color: secondaryText, opacity: 0.9 }}>
+                  Last Overall: <strong>{existingPlayer.overall}</strong>
+                </div>
+              )}
+            </div>
           </div>
 
-          {existingPlayer.overall && (
-            <div className="mt-2 text-sm" style={{ color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}>
-              Overall: <strong>{existingPlayer.overall}</strong>
+          {/* Info Note */}
+          <div
+            className="rounded-lg p-3 mb-4"
+            style={{ backgroundColor: `${teamColors.primary}08`, border: `1px solid ${teamColors.primary}20` }}
+          >
+            <div className="flex gap-2">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke={teamColors.primary} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm" style={{ color: secondaryText }}>
+                If this is the same player returning, their stats and history will be preserved.
+                Otherwise, a new player record will be created.
+              </p>
+            </div>
+          </div>
+
+          {/* View Player Link */}
+          {existingPlayer.pid && (
+            <div className="mb-4">
+              <Link
+                to={`/dynasty/${dynastyId}/player/${existingPlayer.pid}`}
+                target="_blank"
+                className="text-sm font-medium flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                style={{ color: teamColors.primary }}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View existing player page
+              </Link>
             </div>
           )}
-        </div>
 
-        {/* Info Note */}
-        <div className="rounded-lg p-3 mb-4 bg-blue-50 border border-blue-200">
-          <p className="text-sm text-blue-800">
-            If this is the same player returning from the transfer portal, their stats and history will be preserved.
-            If it's a different player with the same name, a new player record will be created.
-          </p>
-        </div>
-
-        {/* View Player Link */}
-        {existingPlayer.pid && (
-          <div className="mb-4">
-            <Link
-              to={`/dynasty/${dynastyId}/player/${existingPlayer.pid}`}
-              target="_blank"
-              className="text-sm underline flex items-center gap-1"
-              style={{ color: teamColors.primary }}
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => onConfirm(true)}
+              className="flex-1 px-4 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: teamColors.primary, color: primaryText }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              View existing player page
-            </Link>
+              Yes, Same Player
+            </button>
+            <button
+              onClick={() => onConfirm(false)}
+              className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-opacity hover:opacity-80"
+              style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
+            >
+              No, Different Player
+            </button>
           </div>
-        )}
 
-        {/* Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={() => onConfirm(true)}
-            className="flex-1 px-4 py-3 rounded-lg font-semibold transition-colors"
-            style={{ backgroundColor: teamColors.primary, color: primaryText }}
-          >
-            Yes, Same Player (Returning)
-          </button>
-          <button
-            onClick={() => onConfirm(false)}
-            className="flex-1 px-4 py-3 rounded-lg font-semibold border-2 transition-colors"
-            style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
-          >
-            No, Different Player
-          </button>
+          {/* Help text */}
+          <p className="text-xs text-center mt-3" style={{ color: secondaryText, opacity: 0.6 }}>
+            Choose "Same Player" if this player is returning from the portal
+          </p>
         </div>
       </div>
     </div>

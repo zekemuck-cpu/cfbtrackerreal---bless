@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty, GAME_TYPES, detectGameType } from '../context/DynastyContext'
-import { getContrastTextColor } from '../utils/colorUtils'
+import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { bowlLogos, getAllBowlNames } from '../data/bowlLogos'
 import { getTidFromAbbr, getOriginalTeamAbbr } from '../data/teamRegistry'
 
@@ -11,8 +11,8 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const primaryText = getContrastTextColor(teamColors?.primary || '#1f2937')
-  const secondaryText = getContrastTextColor(teamColors?.secondary || '#f3f4f6')
 
   // Get all years from dynasty
   const startYear = currentDynasty?.startYear || currentDynasty?.currentYear
@@ -217,24 +217,24 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
-        style={{ backgroundColor: teamColors?.secondary || '#f3f4f6' }}
+        className="rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 flex items-center justify-between" style={{ backgroundColor: teamColors?.primary || '#1f2937' }}>
-          <h2 className="text-xl font-bold" style={{ color: primaryText }}>
+        <div className="p-4 flex items-center justify-between" style={{ backgroundColor: modalColors.headerBg }}>
+          <h2 className="text-xl font-bold" style={{ color: modalColors.text }}>
             Edit Bowl History
           </h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-            style={{ color: primaryText }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -243,7 +243,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
         </div>
 
         {/* Year Tabs */}
-        <div className="flex overflow-x-auto border-b-2" style={{ borderColor: teamColors?.primary || '#1f2937', backgroundColor: `${teamColors?.primary}15` }}>
+        <div className="flex overflow-x-auto border-b" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
           {allYears.map(year => {
             const yearHasGames = Object.keys(bowlGames[year] || {}).some(name => {
               const game = bowlGames[year][name]
@@ -254,11 +254,11 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                 key={year}
                 onClick={() => setSelectedYear(year)}
                 className={`px-4 py-3 font-semibold whitespace-nowrap transition-colors relative ${
-                  selectedYear === year ? 'text-white' : 'hover:bg-white/50'
+                  selectedYear === year ? '' : 'hover:bg-white/10'
                 }`}
                 style={{
-                  backgroundColor: selectedYear === year ? teamColors?.primary : 'transparent',
-                  color: selectedYear === year ? primaryText : secondaryText
+                  backgroundColor: selectedYear === year ? modalColors.accent : 'transparent',
+                  color: selectedYear === year ? '#ffffff' : modalColors.textMuted
                 }}
               >
                 {year}
@@ -280,12 +280,15 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
             return (
               <div
                 key={bowlName}
-                className={`rounded-lg border-2 p-3 ${hasData ? 'bg-white' : 'bg-gray-50'}`}
-                style={{ borderColor: hasData ? teamColors?.primary : '#d1d5db' }}
+                className="rounded-lg border p-3"
+                style={{
+                  backgroundColor: hasData ? modalColors.inputBg : 'transparent',
+                  borderColor: hasData ? modalColors.accent : modalColors.inputBorder
+                }}
               >
                 <div className="flex items-center gap-3">
                   {/* Bowl Logo */}
-                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border border-gray-300" style={{ padding: '2px' }}>
+                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border border-gray-500" style={{ padding: '2px' }}>
                     {logo ? (
                       <img src={logo} alt="" className="w-full h-full object-contain" />
                     ) : (
@@ -295,7 +298,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
 
                   {/* Bowl Name */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-gray-800 text-sm truncate">{bowlName}</div>
+                    <div className="font-bold text-sm truncate" style={{ color: modalColors.text }}>{bowlName}</div>
                   </div>
 
                   {/* Team 1 */}
@@ -304,8 +307,8 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                     value={game.team1}
                     onChange={(e) => handleGameChange(selectedYear, bowlName, 'team1', e.target.value.toUpperCase())}
                     placeholder="Team 1"
-                    className="w-20 px-2 py-1.5 text-sm font-semibold border-2 rounded text-center uppercase"
-                    style={{ borderColor: '#d1d5db' }}
+                    className="w-20 px-2 py-1.5 text-sm font-semibold border rounded text-center uppercase"
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   />
 
                   {/* Score 1 */}
@@ -314,11 +317,11 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                     value={game.team1Score}
                     onChange={(e) => handleGameChange(selectedYear, bowlName, 'team1Score', e.target.value)}
                     placeholder="0"
-                    className="w-14 px-2 py-1.5 text-sm font-bold border-2 rounded text-center"
-                    style={{ borderColor: '#d1d5db' }}
+                    className="w-14 px-2 py-1.5 text-sm font-bold border rounded text-center"
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   />
 
-                  <span className="text-gray-400 font-bold">-</span>
+                  <span className="font-bold" style={{ color: modalColors.textMuted }}>-</span>
 
                   {/* Score 2 */}
                   <input
@@ -326,8 +329,8 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                     value={game.team2Score}
                     onChange={(e) => handleGameChange(selectedYear, bowlName, 'team2Score', e.target.value)}
                     placeholder="0"
-                    className="w-14 px-2 py-1.5 text-sm font-bold border-2 rounded text-center"
-                    style={{ borderColor: '#d1d5db' }}
+                    className="w-14 px-2 py-1.5 text-sm font-bold border rounded text-center"
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   />
 
                   {/* Team 2 */}
@@ -336,8 +339,8 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
                     value={game.team2}
                     onChange={(e) => handleGameChange(selectedYear, bowlName, 'team2', e.target.value.toUpperCase())}
                     placeholder="Team 2"
-                    className="w-20 px-2 py-1.5 text-sm font-semibold border-2 rounded text-center uppercase"
-                    style={{ borderColor: '#d1d5db' }}
+                    className="w-20 px-2 py-1.5 text-sm font-semibold border rounded text-center uppercase"
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   />
                 </div>
               </div>
@@ -346,15 +349,14 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t-2 flex items-center justify-between gap-4" style={{ borderColor: teamColors?.primary || '#1f2937' }}>
-          <div className="text-sm" style={{ color: secondaryText }}>
+        <div className="p-4 border-t flex items-center justify-between gap-4" style={{ borderColor: modalColors.border }}>
+          <div className="text-sm" style={{ color: modalColors.textMuted }}>
             {bowlsWithData.length} bowl game{bowlsWithData.length !== 1 ? 's' : ''} for {selectedYear}
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-lg font-semibold border-2 hover:bg-gray-100 transition-colors"
-              style={{ borderColor: '#d1d5db', color: '#4b5563' }}
+              className="px-4 py-2 rounded-lg font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             >
               Cancel
             </button>
@@ -363,8 +365,8 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
               disabled={saving || !hasChanges}
               className="px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50"
               style={{
-                backgroundColor: teamColors?.primary || '#1f2937',
-                color: primaryText
+                backgroundColor: modalColors.accent,
+                color: '#ffffff'
               }}
             >
               {saving ? 'Saving...' : 'Save Changes'}

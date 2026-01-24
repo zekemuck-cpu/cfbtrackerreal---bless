@@ -138,23 +138,19 @@ export default function Recruiting() {
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Redirect to team-specific URL if on base /recruiting route
-  // Default to previous year if no recruits for current year (unless it's the first year)
+  // Always default to previous year (recruiting class for year X joins team in year X+1)
   useEffect(() => {
     if (!tidParam && currentTeamTid && currentDynasty?.currentYear) {
       const currentYear = currentDynasty.currentYear
       const startYear = currentDynasty.startYear || currentYear
       const isFirstYear = currentYear === startYear
 
-      // Check if there are any recruits for the current year - use tid-based getter
-      const currentYearCommitments = getRecruitingCommitments(currentDynasty, currentTeamTid, currentYear)
-      const hasCurrentYearRecruits = Object.keys(currentYearCommitments).length > 0
-
-      // If no recruits for current year and not first year, show previous year
-      const targetYear = (!hasCurrentYearRecruits && !isFirstYear) ? currentYear - 1 : currentYear
+      // Always show previous year's recruiting class (unless it's the first year)
+      const targetYear = isFirstYear ? currentYear : currentYear - 1
 
       navigate(`${pathPrefix}/recruiting/${currentTeamTid}/${targetYear}`, { replace: true })
     }
-  }, [tidParam, currentTeamTid, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, currentDynasty?.teams, navigate, pathPrefix])
+  }, [tidParam, currentTeamTid, currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.startYear, navigate, pathPrefix])
 
   // Get all years with recruiting commitments for this team - TID-BASED with fallback
   // Always include current year so user can view/enter current season's recruits
@@ -292,7 +288,7 @@ export default function Recruiting() {
     const existingPlayersByName = {}
     existingPlayers.forEach(p => {
       // Handle both tid and abbr for backwards compatibility
-      if (p.team === teamTid || p.team === teamAbbr) {
+      if (p.team === selectedTid || p.team === teamAbbr) {
         const normalizedName = p.name?.toLowerCase().trim()
         if (normalizedName) {
           existingPlayersByName[normalizedName] = p
@@ -378,15 +374,15 @@ export default function Recruiting() {
     }
 
     // Write to tid-based structure (primary)
-    if (teamTid && currentDynasty.teams) {
+    if (selectedTid && currentDynasty.teams) {
       const existingTeams = currentDynasty.teams
-      const existingTeamData = existingTeams[teamTid] || {}
+      const existingTeamData = existingTeams[selectedTid] || {}
       const existingByYear = existingTeamData.byYear || {}
       const existingYearData = existingByYear[selectedYear] || {}
 
       updates.teams = {
         ...existingTeams,
-        [teamTid]: {
+        [selectedTid]: {
           ...existingTeamData,
           byYear: {
             ...existingByYear,
@@ -617,7 +613,7 @@ export default function Recruiting() {
                   ...commit,
                   ...(currentPlayer && {
                     name: currentPlayer.name, firstName: currentPlayer.firstName, lastName: currentPlayer.lastName,
-                    position: currentPlayer.position, class: currentPlayer.year, devTrait: currentPlayer.devTrait,
+                    position: currentPlayer.position, devTrait: currentPlayer.devTrait,
                     archetype: currentPlayer.archetype, height: currentPlayer.height, weight: currentPlayer.weight,
                     hometown: currentPlayer.hometown, state: currentPlayer.state, pictureUrl: currentPlayer.pictureUrl,
                     stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
@@ -645,7 +641,7 @@ export default function Recruiting() {
                 ...commit,
                 ...(currentPlayer && {
                   name: currentPlayer.name, firstName: currentPlayer.firstName, lastName: currentPlayer.lastName,
-                  position: currentPlayer.position, class: currentPlayer.year, devTrait: currentPlayer.devTrait,
+                  position: currentPlayer.position, devTrait: currentPlayer.devTrait,
                   archetype: currentPlayer.archetype, height: currentPlayer.height, weight: currentPlayer.weight,
                   hometown: currentPlayer.hometown, state: currentPlayer.state, pictureUrl: currentPlayer.pictureUrl,
                   stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
@@ -679,7 +675,7 @@ export default function Recruiting() {
                 firstName: currentPlayer.firstName,
                 lastName: currentPlayer.lastName,
                 position: currentPlayer.position,
-                class: currentPlayer.year, // 'year' in player = 'class' in recruit display
+                // Preserve original commit.class (HS, JUCO, etc.) for recruiting display
                 devTrait: currentPlayer.devTrait,
                 archetype: currentPlayer.archetype,
                 height: currentPlayer.height,

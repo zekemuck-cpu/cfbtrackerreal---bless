@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -279,7 +279,6 @@ export default function Dashboard() {
   const [showAllAmericansModal, setShowAllAmericansModal] = useState(false)
   const [showAllConferenceModal, setShowAllConferenceModal] = useState(false)
   const [showCoachingStaffPopup, setShowCoachingStaffPopup] = useState(false)
-  const [suppressPopupHover, setSuppressPopupHover] = useState(false) // Prevents hover popup after layout shifts
   const coachingStaffButtonRef = useRef(null)
   const [coachingStaffPopupPosition, setCoachingStaffPopupPosition] = useState({ top: 0, right: 0 })
   const [showNewJobEditModal, setShowNewJobEditModal] = useState(false)
@@ -543,7 +542,7 @@ export default function Dashboard() {
     // Convert seeds array to tid-based format: { 1: tid, 2: tid, ... }
     const seedsWithTid = {}
     for (const entry of seeds) {
-      if (entry.seed && entry.team) {
+      if (entry.seed && (entry.tid || entry.team)) {
         const tid = entry.tid || getTidFromAbbr(entry.team)
         if (tid) {
           seedsWithTid[entry.seed] = tid
@@ -1737,7 +1736,7 @@ export default function Dashboard() {
   }
 
   // Handle recruiting commitments save - TEAM-CENTRIC
-  // This function detects potential returning players and shows confirmation modal if needed
+  // This function detects potential returning players AND players from other teams who might be transferring
   const handleRecruitingCommitmentsSave = async (recruits) => {
     // On Signing Day (week 6), year has already flipped, so use previous year for recruiting data
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
@@ -1746,11 +1745,15 @@ export default function Dashboard() {
     if (!commitmentKey) return
 
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
+    const teamTid = getCurrentTeamTid(currentDynasty)
     const existingPlayers = currentDynasty.players || []
 
     // Track players who left (leftTeam: true) OR are pending departure
     const leftPlayersMap = new Map()
     const pendingDepartureMap = new Map()
+    // Track ALL existing players by name (for detecting transfers from other teams)
+    const allPlayersMap = new Map()
+
     // Get players leaving this year (from playersLeavingByYear)
     const playersLeavingThisYear = currentDynasty.playersLeavingByYear?.[year] || []
     const leavingPids = new Set(playersLeavingThisYear.map(p => p.pid).filter(Boolean))
@@ -1758,6 +1761,10 @@ export default function Dashboard() {
     existingPlayers.forEach(p => {
       if (p.name) {
         const nameLower = p.name.toLowerCase().trim()
+
+        // Track ALL players for potential transfer matching
+        allPlayersMap.set(nameLower, p)
+
         // Check if player has a departure movement (left the team)
         const hasDepartureMovement = (p.movements || []).some(m =>
           m.type === 'departure' || m.type === 'transfer'
@@ -1772,20 +1779,53 @@ export default function Dashboard() {
       }
     })
 
-    // Find recruits that are POTENTIAL returning players
+    // Find recruits that are POTENTIAL returning players OR transfers from other teams
     const potentialReturning = recruits.filter(r => {
       if (!r.name) return false
       const nameLower = r.name.toLowerCase().trim()
-      return leftPlayersMap.has(nameLower) || pendingDepartureMap.has(nameLower)
+
+      // Case 1: Player left this team and might be returning
+      if (leftPlayersMap.has(nameLower) || pendingDepartureMap.has(nameLower)) {
+        return true
+      }
+
+      // Case 2: Player exists in dynasty but was on a DIFFERENT team (transfer following coach)
+      const existingPlayer = allPlayersMap.get(nameLower)
+      if (existingPlayer) {
+        // Check if they were ever on a different team (not the current team)
+        const playerTeams = existingPlayer.teamsByYear ? Object.values(existingPlayer.teamsByYear) : []
+        const wasOnDifferentTeam = playerTeams.length > 0 && !playerTeams.includes(teamTid)
+        // Also check the team field and movements for team info
+        const playerTeamTid = existingPlayer.team
+        const isDifferentTeam = playerTeamTid && playerTeamTid !== teamTid
+
+        if (wasOnDifferentTeam || isDifferentTeam) {
+          return true
+        }
+      }
+
+      return false
     }).map(recruit => {
       const nameLower = recruit.name.toLowerCase().trim()
-      const existingPlayer = pendingDepartureMap.get(nameLower) || leftPlayersMap.get(nameLower)
-      // Get departure info from movements
+      const existingPlayer = pendingDepartureMap.get(nameLower) || leftPlayersMap.get(nameLower) || allPlayersMap.get(nameLower)
+
+      // Get departure info from movements (if any)
       const departureMovement = (existingPlayer?.movements || [])
         .filter(m => m.type === 'departure' || m.type === 'transfer')
         .sort((a, b) => (b.year || 0) - (a.year || 0))[0]
-      const departureReason = departureMovement?.reason || 'Transfer'
-      const departureYear = departureMovement?.year || year
+
+      // Determine reason - if transferring from another team, it's a portal transfer
+      let departureReason = departureMovement?.reason || 'Transfer'
+      let departureYear = departureMovement?.year || year
+
+      // If player was on a different team (not a departure from current team), it's a transfer
+      if (!leftPlayersMap.has(nameLower) && !pendingDepartureMap.has(nameLower)) {
+        departureReason = 'Transfer from ' + (getOriginalTeamAbbr(existingPlayer?.team) || 'another team')
+        // Find the most recent year they were on a team
+        const recentYears = Object.keys(existingPlayer?.teamsByYear || {}).map(Number).filter(y => !isNaN(y))
+        departureYear = recentYears.length > 0 ? Math.max(...recentYears) : year
+      }
+
       return { recruit, existingPlayer, departureReason, departureYear, currentTeamAbbr: teamAbbr }
     })
 
@@ -1968,7 +2008,7 @@ export default function Dashboard() {
     })
 
     // Update returning players - players who left OR are pending departure but coming back
-    // This clears their pendingDeparture and adds a RECOMMIT movement
+    // OR players transferring from another team (following the coach)
     // IMPORTANT: Preserve all existing player data (stats, history, etc.)
     let playersWithReturning = existingPlayers
     if (returningPlayerRecruits.length > 0) {
@@ -1980,16 +2020,36 @@ export default function Dashboard() {
             r => r.name.toLowerCase().trim() === p.name.toLowerCase().trim()
           )
 
-          // Create a RECOMMIT movement to track they came back - use tid
-          const recommitMovement = createMovement(
-            year,
-            MOVEMENT_TYPES.RECOMMIT,
-            teamTid, // from (they were on this team)
-            teamTid, // to (they're staying on this team)
-            'Returned from portal'
-          )
+          // Determine if this is a same-team return or a transfer from another team
+          const playerPreviousTeamTid = p.team
+          const playerTeamsByYear = p.teamsByYear || {}
+          const mostRecentTeamTid = Object.entries(playerTeamsByYear)
+            .sort(([a], [b]) => Number(b) - Number(a))[0]?.[1] || playerPreviousTeamTid
+          const isFromDifferentTeam = mostRecentTeamTid && mostRecentTeamTid !== teamTid
 
-          // Preserve existing movements and add the recommit
+          // Create appropriate movement based on whether same-team or different-team transfer
+          let newMovement
+          if (isFromDifferentTeam) {
+            // Player is transferring FROM another team TO current team
+            newMovement = createMovement(
+              year,
+              MOVEMENT_TYPES.PORTAL_IN,
+              mostRecentTeamTid, // from their previous team
+              teamTid, // to current team
+              'Transfer'
+            )
+          } else {
+            // Player is returning to the same team
+            newMovement = createMovement(
+              year,
+              MOVEMENT_TYPES.RECOMMIT,
+              teamTid, // from (they were on this team)
+              teamTid, // to (they're staying on this team)
+              'Returned from portal'
+            )
+          }
+
+          // Preserve existing movements and add the new movement
           const existingMovements = p.movements || []
 
           // CRITICAL: Preserve all existing player data, only update specific fields
@@ -1997,8 +2057,8 @@ export default function Dashboard() {
             ...p, // Preserve everything: pid, name, statsByYear, classByYear, overall, etc.
             // Clear pendingDeparture - they're staying!
             pendingDeparture: null,
-            // Add recommit movement
-            movements: [...existingMovements, recommitMovement],
+            // Add movement
+            movements: [...existingMovements, newMovement],
             // Clear ALL legacy departure flags - they're staying/coming back!
             leftTeam: false,
             leftYear: null,
@@ -2017,6 +2077,8 @@ export default function Dashboard() {
             isRecruit: true,
             recruitYear: year,
             isPortal: true, // Returning players are portal transfers
+            // Set previousTeam for portal filtering - use the team they came from
+            previousTeam: isFromDifferentTeam ? getOriginalTeamAbbr(mostRecentTeamTid) : (p.previousTeam || null),
             // Only update position if explicitly provided and different
             ...(recruitData?.position && recruitData.position !== p.position && { position: recruitData.position })
           }
@@ -2573,9 +2635,9 @@ export default function Dashboard() {
         const headerWins = teamRecord?.wins || 0
         const headerLosses = teamRecord?.losses || 0
 
-        // Get rank from the most recent game (if unranked, userRank will be null/undefined)
-        const lastGame = currentYearGames.length > 0 ? currentYearGames[currentYearGames.length - 1] : null
-        const currentRank = lastGame?.perspective?.userRank
+        // UNIFIED RANKING: Use centralized helper (prioritizes final poll, falls back to most recent game)
+        const rankingData = getCurrentTeamRanking(currentDynasty)
+        const currentRank = rankingData?.rank
 
         return (
           <div
@@ -2622,12 +2684,16 @@ export default function Dashboard() {
                         <span style={{ opacity: 0.4 }}>•</span>
                         <span className="font-medium">{userTeamConference}</span>
                         {getConferenceLogo(userTeamConference) && (
-                          <img
-                            src={getConferenceLogo(userTeamConference)}
-                            alt={userTeamConference}
-                            className="h-5 sm:h-6 w-auto object-contain"
-                            style={{ filter: 'brightness(0) invert(1)', opacity: 0.8 }}
-                          />
+                          <div
+                            className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '3px' }}
+                          >
+                            <img
+                              src={getConferenceLogo(userTeamConference)}
+                              alt={userTeamConference}
+                              className="h-full w-full object-contain"
+                            />
+                          </div>
                         )}
                       </>
                     )}
@@ -2685,16 +2751,6 @@ export default function Dashboard() {
                           }
                           setShowCoachingStaffPopup(!showCoachingStaffPopup)
                         }}
-                        onMouseEnter={() => {
-                          if (!suppressPopupHover && coachingStaffButtonRef.current) {
-                            const rect = coachingStaffButtonRef.current.getBoundingClientRect()
-                            setCoachingStaffPopupPosition({
-                              top: rect.bottom + 8,
-                              right: window.innerWidth - rect.right
-                            })
-                            setShowCoachingStaffPopup(true)
-                          }
-                        }}
                         className="p-2.5 rounded-xl hover:bg-white/20 transition-colors"
                         style={{ color: primaryBgText }}
                         title="Coaching Staff"
@@ -2706,7 +2762,7 @@ export default function Dashboard() {
 
                     {showCoachingStaffPopup && (
                       <>
-                        {/* Backdrop for mobile click-away */}
+                        {/* Backdrop - click to close */}
                         <div
                           className="fixed inset-0 z-40"
                           onClick={() => setShowCoachingStaffPopup(false)}
@@ -2720,8 +2776,6 @@ export default function Dashboard() {
                             top: coachingStaffPopupPosition.top,
                             right: coachingStaffPopupPosition.right
                           }}
-                          onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
-                          onMouseLeave={() => setShowCoachingStaffPopup(false)}
                         >
                           <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                             <div className="flex items-center justify-between">
@@ -3014,8 +3068,7 @@ export default function Dashboard() {
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
                         style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
+                          color: item.done ? '#22c55e' : '#a1a1aa'
                         }}
                       >
                         {item.done
@@ -3413,10 +3466,14 @@ export default function Dashboard() {
                   taskNum++
                   return (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        ccGameComplete ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!ccGameComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={ccGameComplete ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -3432,10 +3489,10 @@ export default function Dashboard() {
                           ) : (taskNum)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: ccGameComplete ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: ccGameComplete ? '#22c55e' : '#fafafa' }}>
                             {userTeamConference} Championship
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccGameComplete ? '#16a34a' : secondaryBgText, opacity: ccGameComplete ? 1 : 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccGameComplete ? '#22c55e' : '#a1a1aa' }}>
                             {ccGame ? `${ccGame.perspective?.userWon ? 'W' : 'L'} ${Math.max(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)}-${Math.min(ccGame.perspective?.userScore || 0, ccGame.perspective?.opponentScore || 0)} vs ${(() => { const oppInfo = getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective?.opponentTid); return getMascotName(oppInfo?.abbr) || oppInfo?.name || 'Unknown' })()}` :
                              ccOpponent ? `vs ${getMascotName(ccOpponent) || ccOpponent}` : 'Select opponent and enter result'}
                           </div>
@@ -3467,7 +3524,8 @@ export default function Dashboard() {
                                   year: currentDynasty.currentYear?.toString() || '',
                                   team1Tid: userTeamTid?.toString() || '',
                                   team2Tid: opponentTid?.toString() || '',
-                                  gameType: 'conference_championship'
+                                  gameType: 'conference_championship',
+                                  conference: userTeamConference || ''
                                 })
                                 navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
                               }
@@ -3488,10 +3546,14 @@ export default function Dashboard() {
                   taskNum++
                   return (
                   <div
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                      coordinatorTaskComplete ? 'border-green-200 bg-green-50' : ''
-                    }`}
-                    style={!coordinatorTaskComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                    style={coordinatorTaskComplete ? {
+                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)'
+                    } : {
+                      backgroundColor: '#1f1f23',
+                      border: '1px solid #27272a'
+                    }}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div
@@ -3507,10 +3569,10 @@ export default function Dashboard() {
                         ) : (taskNum)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm sm:text-base font-semibold" style={{ color: coordinatorTaskComplete ? '#16a34a' : secondaryBgText }}>
+                        <div className="text-sm sm:text-base font-semibold" style={{ color: coordinatorTaskComplete ? '#22c55e' : '#fafafa' }}>
                           Coordinator Changes
                         </div>
-                        <div className="text-xs sm:text-sm mt-0.5" style={{ color: coordinatorTaskComplete ? '#16a34a' : secondaryBgText, opacity: coordinatorTaskComplete ? 1 : 0.7 }}>
+                        <div className="text-xs sm:text-sm mt-0.5" style={{ color: coordinatorTaskComplete ? '#22c55e' : '#a1a1aa' }}>
                           {coordinatorTaskComplete ? (
                             coordinatorToFire === 'none' ? 'Keeping both coordinators' :
                             coordinatorToFire === 'oc' ? `Firing ${teamCoachingStaff?.ocName} (OC)` :
@@ -3554,10 +3616,14 @@ export default function Dashboard() {
 
                   return (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasCommitmentsData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={hasCommitmentsData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -3573,10 +3639,10 @@ export default function Dashboard() {
                           ) : (taskNum)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                             {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasCommitmentsData
                               ? commitmentsCount > 0
                                 ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -3623,13 +3689,9 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
-        <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
-          }}
-        >
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
+          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="p-4 sm:p-6">
           {(() => {
             const week = currentDynasty.currentWeek
             const currentYear = currentDynasty.currentYear
@@ -3952,10 +4014,14 @@ export default function Dashboard() {
                   <div className="space-y-3 sm:space-y-4">
                     {/* Task 1: CC Results */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasCCData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasCCData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={hasCCData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -3971,10 +4037,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCCData ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCCData ? '#22c55e' : '#fafafa' }}>
                             Conference Championship Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCCData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCCData ? '#22c55e' : '#a1a1aa' }}>
                             {ccGamesWithScores === totalCCGames ? `✓ All ${totalCCGames} games entered` : `${ccGamesWithScores}/${totalCCGames} games entered`}
                           </div>
                         </div>
@@ -3990,10 +4056,14 @@ export default function Dashboard() {
 
                     {/* Task 2: CFP Seeds */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasCFPSeedsData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasCFPSeedsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={hasCFPSeedsData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -4009,10 +4079,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCFPSeedsData ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCFPSeedsData ? '#22c55e' : '#fafafa' }}>
                             CFP Seeds (1-12)
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCFPSeedsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCFPSeedsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasCFPSeedsData ? '✓ Seeds entered' : '12 playoff teams'}
                           </div>
                         </div>
@@ -4034,8 +4104,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`p-3 sm:p-4 rounded-lg border-2 ${bowlTaskComplete ? 'border-green-200 bg-green-50' : ''}`}
-                          style={!bowlTaskComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="p-3 sm:p-4 rounded-xl transition-all"
+                          style={bowlTaskComplete ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${!bowlTaskComplete || (!hasCFPSeedsData || bowlEligible === null || (!userCFPSeed && bowlEligible && (!selectedBowl || !bowlOpponent))) ? 'mb-3' : ''}`}>
                             <div className="flex items-center gap-2 sm:gap-3">
@@ -4050,27 +4126,27 @@ export default function Dashboard() {
                                 ) : <span className="font-bold text-sm sm:text-base">3</span>}
                               </div>
                               <div className="min-w-0">
-                                <div className="text-sm sm:text-base font-semibold" style={{ color: bowlTaskComplete ? '#16a34a' : secondaryBgText }}>
+                                <div className="text-sm sm:text-base font-semibold" style={{ color: bowlTaskComplete ? '#22c55e' : '#fafafa' }}>
                                   {userCFPSeed ? 'Your CFP Game' : 'Your Bowl Game'}
                                 </div>
                                 {/* Show status text inline when complete */}
                                 {userHasCFPBye && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                     ✓ #{userCFPSeed} Seed - Bye to Quarterfinals (Week 2)
                                   </div>
                                 )}
                                 {userInCFPFirstRound && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                     ✓ #{userCFPSeed} Seed vs #{17 - userCFPSeed} {getMascotName(userCFPOpponent)}
                                   </div>
                                 )}
                                 {hasCFPSeedsData && !userCFPSeed && bowlEligible === false && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                     ✓ Not bowl eligible this year
                                   </div>
                                 )}
                                 {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                     ✓ {selectedBowl} vs {bowlOpponent}
                                     {userBowlIsWeek2 && <span className="ml-2 opacity-70">(plays in Week 2)</span>}
                                   </div>
@@ -4109,14 +4185,14 @@ export default function Dashboard() {
                           {/* Content area for incomplete states */}
                           {!hasCFPSeedsData && (
                             <div className="ml-13 pl-10">
-                              <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                              <p className="text-sm" style={{ color: '#a1a1aa' }}>
                                 Enter CFP Seeds first
                               </p>
                             </div>
                           )}
                           {hasCFPSeedsData && !userCFPSeed && bowlEligible === null && (
                             <div className="ml-13 pl-10">
-                              <p className="mb-3" style={{ color: secondaryBgText, opacity: 0.8 }}>Did you make a bowl game?</p>
+                              <p className="mb-3" style={{ color: '#a1a1aa' }}>Did you make a bowl game?</p>
                               <div className="flex gap-3">
                                 <button
                                   onClick={async () => {
@@ -4155,7 +4231,7 @@ export default function Dashboard() {
                           )}
                           {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && !selectedBowl && (
                             <div className="ml-13 pl-10">
-                              <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Which bowl game?</p>
+                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Which bowl game?</p>
                               <div className="max-w-xs">
                                 <DropdownSelect
                                   options={allBowlGames}
@@ -4179,8 +4255,8 @@ export default function Dashboard() {
                           )}
                           {hasCFPSeedsData && !userCFPSeed && bowlEligible === true && selectedBowl && !bowlOpponent && (
                             <div className="ml-13 pl-10">
-                              <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Playing in: <strong>{selectedBowl}</strong></p>
-                              <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Who is your opponent?</p>
+                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Playing in: <strong style={{ color: '#fafafa' }}>{selectedBowl}</strong></p>
+                              <p className="mb-2" style={{ color: '#a1a1aa' }}>Who is your opponent?</p>
                               <div className="max-w-xs">
                                 <SearchableSelect
                                   options={teams}
@@ -4209,10 +4285,14 @@ export default function Dashboard() {
                     {/* Task 4: Enter YOUR CFP First Round Game (if seeded 5-12) */}
                     {hasCFPSeedsData && userInCFPFirstRound && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          userCFPFirstRoundGame ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!userCFPFirstRoundGame ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={userCFPFirstRoundGame ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
@@ -4228,10 +4308,10 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPFirstRoundGame ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPFirstRoundGame ? '#22c55e' : '#fafafa' }}>
                               Enter Your CFP First Round Game
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPFirstRoundGame ? '#22c55e' : '#a1a1aa' }}>
                               {userCFPFirstRoundGame ? `✓ ${userCFPFirstRoundGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}-${Math.min(userCFPFirstRoundGame.perspective?.userScore || 0, userCFPFirstRoundGame.perspective?.opponentScore || 0)}` : `#${userCFPSeed} vs #${17 - userCFPSeed} ${getMascotName(userCFPOpponent)}`}
                             </div>
                           </div>
@@ -4266,10 +4346,14 @@ export default function Dashboard() {
                     {/* Task 4b: Enter YOUR Bowl Game (if Week 1 bowl, non-CFP team) */}
                     {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek1 && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          userBowlGame ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!userBowlGame ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={userBowlGame ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
@@ -4285,10 +4369,10 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#22c55e' : '#fafafa' }}>
                               Enter Your {selectedBowl} Game
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userBowlGame ? '#22c55e' : '#a1a1aa' }}>
                               {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
                             </div>
                           </div>
@@ -4321,10 +4405,14 @@ export default function Dashboard() {
 
                     {/* Task: Taking a New Job? */}
                     <div
-                      className={`p-3 sm:p-4 rounded-lg border-2 ${
-                        takingNewJob !== null ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={takingNewJob === null ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="p-3 sm:p-4 rounded-xl transition-all"
+                      style={takingNewJob !== null ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -4341,16 +4429,16 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">5</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
                               Taking a New Job? (Bowl Week 1)
                             </div>
                             {takingNewJob === true && newJobTeam && newJobPosition && (
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                 ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                               </div>
                             )}
                             {takingNewJob === false && (
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                 ✓ Staying with current team
                               </div>
                             )}
@@ -4410,7 +4498,7 @@ export default function Dashboard() {
                       )}
                       {takingNewJob === true && !newJobTeam && (
                         <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Which team?</p>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
                           <div className="max-w-xs">
                             <SearchableSelect
                               options={teams}
@@ -4431,10 +4519,10 @@ export default function Dashboard() {
                       )}
                       {takingNewJob === true && newJobTeam && !newJobPosition && (
                         <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                            New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>
+                            New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
                           </p>
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
                           <div className="flex gap-2 flex-wrap">
                             {['HC', 'OC', 'DC'].map(pos => (
                               <button
@@ -4477,10 +4565,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                            hasCommitmentsData ? 'bg-green-50' : ''
-                          }`}
-                          style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasCommitmentsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div
@@ -4496,10 +4588,10 @@ export default function Dashboard() {
                               ) : taskNum}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                                 {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                                 {hasCommitmentsData
                                   ? commitmentsCount > 0
                                     ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -4553,10 +4645,14 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     {/* Task 1: Enter Week 1 Bowl Results (includes CFP First Round) */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                        hasBowlWeek1Data ? 'bg-green-50' : ''
-                      }`}
-                      style={!hasBowlWeek1Data ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={hasBowlWeek1Data ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
                         <div
@@ -4572,10 +4668,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek1Data ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek1Data ? '#22c55e' : '#fafafa' }}>
                             Week 1 Bowl Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasBowlWeek1Data ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                          <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasBowlWeek1Data ? '#22c55e' : '#a1a1aa' }}>
                             {totalEnteredWeek1 === 30 ? '✓ All 30 games entered' : `${totalEnteredWeek1}/30 games entered (incl. CFP First Round)`}
                           </div>
                         </div>
@@ -4594,10 +4690,14 @@ export default function Dashboard() {
                     {/* Task 2: Enter YOUR Bowl Game (if Week 2 bowl) */}
                     {bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2 && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                          userBowlGame ? 'bg-green-50' : ''
-                        }`}
-                        style={!userBowlGame ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={userBowlGame ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
@@ -4613,10 +4713,10 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">2</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: userBowlGame ? '#22c55e' : '#fafafa' }}>
                               Enter Your {selectedBowl} Game
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: userBowlGame ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: userBowlGame ? '#22c55e' : '#a1a1aa' }}>
                               {userBowlGame ? `✓ ${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}` : `vs ${bowlOpponent}`}
                             </div>
                           </div>
@@ -4656,10 +4756,14 @@ export default function Dashboard() {
                       const qfGamePlayed = userCFPQuarterfinalGame && userCFPQuarterfinalGame.team1Score !== null && userCFPQuarterfinalGame.team2Score !== null
                       return (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                          qfGamePlayed ? 'bg-green-50' : ''
-                        }`}
-                        style={!qfGamePlayed ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={qfGamePlayed ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
@@ -4675,10 +4779,10 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">{(bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) ? 3 : 2}</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: qfGamePlayed ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: qfGamePlayed ? '#22c55e' : '#fafafa' }}>
                               Enter Your {userQFBowlName} Game (CFP QF)
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: qfGamePlayed ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: qfGamePlayed ? '#22c55e' : '#a1a1aa' }}>
                               {qfGamePlayed
                                 ? `✓ ${userCFPQuarterfinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPQuarterfinalGame.perspective?.userScore || 0, userCFPQuarterfinalGame.perspective?.opponentScore || 0)}`
                                 : `#${userCFPSeed} vs ${userQFOpponent ? getMascotName(userQFOpponent) : 'TBD'}`}
@@ -4721,10 +4825,14 @@ export default function Dashboard() {
                       if (userInCFPQuarterfinal && (userWonFirstRound || hasBowlWeek1Data)) newJobTaskNum++
                       return (
                     <div
-                      className={`p-4 rounded-xl transition-all ${
-                        takingNewJob !== null ? 'bg-green-50' : ''
-                      }`}
-                      style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                      className="p-4 rounded-xl transition-all"
+                      style={takingNewJob !== null ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                         <div className="flex items-center gap-3 sm:gap-4">
@@ -4741,16 +4849,16 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">{newJobTaskNum}</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
                               Taking a New Job? (Bowl Week 2)
                             </div>
                             {takingNewJob === true && newJobTeam && newJobPosition && (
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#16a34a', opacity: 0.85 }}>
+                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#22c55e' }}>
                                 ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                               </div>
                             )}
                             {takingNewJob === false && (
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#16a34a', opacity: 0.85 }}>
+                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: '#22c55e' }}>
                                 ✓ Staying with current team
                               </div>
                             )}
@@ -4809,7 +4917,7 @@ export default function Dashboard() {
                       )}
                       {takingNewJob === true && !newJobTeam && (
                         <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Which team?</p>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
                           <div className="max-w-xs">
                             <SearchableSelect
                               options={teams}
@@ -4829,10 +4937,10 @@ export default function Dashboard() {
                       )}
                       {takingNewJob === true && newJobTeam && !newJobPosition && (
                         <div className="ml-13 pl-10">
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                            New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>
+                            New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
                           </p>
-                          <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
+                          <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
                           <div className="flex gap-2 flex-wrap">
                             {['HC', 'OC', 'DC'].map(pos => (
                               <button
@@ -4891,8 +4999,11 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="p-3 sm:p-4 rounded-lg border-2"
-                          style={{ borderColor: `${teamColors.primary}30` }}
+                          className="p-3 sm:p-4 rounded-xl transition-all"
+                          style={{
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                             <div className="flex items-center gap-2 sm:gap-3">
@@ -4903,12 +5014,12 @@ export default function Dashboard() {
                                 <span className="font-bold text-sm sm:text-base">{taskNum}</span>
                               </div>
                               <div className="min-w-0">
-                                <div className="text-sm sm:text-base font-semibold" style={{ color: secondaryBgText }}>
+                                <div className="text-sm sm:text-base font-semibold" style={{ color: '#fafafa' }}>
                                   Fill Coordinator {firedOC && firedDC ? 'Vacancies' : 'Vacancy'}
                                 </div>
                                 {/* Show status if user answered but vacancy not filled */}
                                 {allAnswered && !allFilled && (
-                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                                  <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#a1a1aa' }}>
                                     {firedOC && (ocFilled ? `✓ OC: ${newOCName}` : 'OC: Not filled yet')}
                                     {firedOC && firedDC && ' • '}
                                     {firedDC && (dcFilled ? `✓ DC: ${newDCName}` : 'DC: Not filled yet')}
@@ -4936,7 +5047,7 @@ export default function Dashboard() {
                           {/* OC Vacancy Questions */}
                           {firedOC && filledOCVacancy === null && (
                             <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                                 You fired {firedOC} (OC). Has the position been filled?
                               </p>
                               <div className="flex gap-3">
@@ -4970,7 +5081,7 @@ export default function Dashboard() {
                           {/* OC Name Input */}
                           {firedOC && filledOCVacancy === true && !newOCName && (
                             <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                                 Enter new OC name:
                               </p>
                               <div className="flex gap-2 max-w-sm">
@@ -5021,7 +5132,7 @@ export default function Dashboard() {
                           {/* DC Vacancy Questions (only show after OC is done) */}
                           {firedDC && ocAnswered && filledDCVacancy === null && (
                             <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                                 You fired {firedDC} (DC). Has the position been filled?
                               </p>
                               <div className="flex gap-3">
@@ -5055,7 +5166,7 @@ export default function Dashboard() {
                           {/* DC Name Input */}
                           {firedDC && ocAnswered && filledDCVacancy === true && !newDCName && (
                             <div className="ml-13 pl-10 mt-3">
-                              <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                              <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                                 Enter new DC name:
                               </p>
                               <div className="flex gap-2 max-w-sm">
@@ -5124,10 +5235,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all ${
-                            hasCommitmentsData ? 'bg-green-50' : ''
-                          }`}
-                          style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}08`, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasCommitmentsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div
@@ -5143,10 +5258,10 @@ export default function Dashboard() {
                               ) : taskNum}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                                 {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.65 }}>
+                              <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                                 {hasCommitmentsData
                                   ? commitmentsCount > 0
                                     ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -5208,10 +5323,14 @@ export default function Dashboard() {
                     {/* Task: Enter National Championship Result (only if user was NOT in championship) */}
                     {!userInCFPChampionship && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          hasChampData ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!hasChampData ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={hasChampData ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
@@ -5227,10 +5346,10 @@ export default function Dashboard() {
                             ) : <span className="font-bold text-sm sm:text-base">1</span>}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasChampData ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasChampData ? '#22c55e' : '#fafafa' }}>
                               National Championship Result
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasChampData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasChampData ? '#22c55e' : '#a1a1aa' }}>
                               {hasChampData
                                 ? `✓ ${champData[0]?.winner || 'Result entered'}`
                                 : 'Enter the championship game result'}
@@ -5268,10 +5387,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            isCompleted ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!isCompleted ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={isCompleted ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5287,11 +5410,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#22c55e' : '#fafafa' }}>
                                 GP/Snaps Entry
                               </div>
                               {isCompleted && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   {hasBoxScoreData && !explicitlyCompleted
                                     ? `✓ Stats available from ${yearGames.filter(g => g.boxScore).length} box scores`
                                     : `✓ Stats entered for ${playerCount} players`}
@@ -5327,10 +5450,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            isCompleted ? 'border-green-200 bg-green-50' : ''
-                          } ${isLocked ? 'opacity-50' : ''}`}
-                          style={!isCompleted ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all ${isLocked ? 'opacity-50' : ''}`}
+                          style={isCompleted ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5350,11 +5477,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: isCompleted ? '#22c55e' : '#fafafa' }}>
                                 Detailed Stats Entry
                               </div>
                               {(isCompleted || isLocked) && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isCompleted ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isCompleted ? '#22c55e' : '#a1a1aa' }}>
                                   {isCompleted
                                     ? '✓ Detailed stats entered across all categories'
                                     : 'Complete GP/Snaps Entry first'}
@@ -5382,10 +5509,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasStandingsData ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasStandingsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasStandingsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5401,11 +5532,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasStandingsData ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasStandingsData ? '#22c55e' : '#fafafa' }}>
                                 Conference Standings
                               </div>
                               {hasStandingsData && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ Standings entered for {Object.keys(currentDynasty.conferenceStandingsByYear[currentDynasty.currentYear]).length} conferences
                                 </div>
                               )}
@@ -5431,10 +5562,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasPollsData ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasPollsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasPollsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5450,11 +5585,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasPollsData ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasPollsData ? '#22c55e' : '#fafafa' }}>
                                 Final Top 25 Polls
                               </div>
                               {hasPollsData && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ Final Media and Coaches Poll rankings entered
                                 </div>
                               )}
@@ -5479,10 +5614,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasTeamStats ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasTeamStats ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasTeamStats ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5498,11 +5637,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasTeamStats ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasTeamStats ? '#22c55e' : '#fafafa' }}>
                                 Team Statistics
                               </div>
                               {hasTeamStats && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ Team statistics entered
                                 </div>
                               )}
@@ -5527,10 +5666,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasAwards ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasAwards ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasAwards ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5546,11 +5689,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAwards ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAwards ? '#22c55e' : '#fafafa' }}>
                                 Season Awards
                               </div>
                               {hasAwards && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ {Object.keys(currentDynasty.awardsByYear[currentDynasty.currentYear]).length} awards entered
                                 </div>
                               )}
@@ -5574,10 +5717,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasAllAmericans ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasAllAmericans ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasAllAmericans ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5593,11 +5740,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllAmericans ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllAmericans ? '#22c55e' : '#fafafa' }}>
                                 All-Americans
                               </div>
                               {hasAllAmericans && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ All-Americans selections entered
                                 </div>
                               )}
@@ -5621,10 +5768,14 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasAllConference ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasAllConference ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          style={hasAllConference ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
@@ -5640,11 +5791,11 @@ export default function Dashboard() {
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllConference ? '#16a34a' : secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasAllConference ? '#22c55e' : '#fafafa' }}>
                                 All-Conference
                               </div>
                               {hasAllConference && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                                   ✓ All-Conference selections entered
                                 </div>
                               )}
@@ -5679,10 +5830,14 @@ export default function Dashboard() {
                   {/* Week 2 Bowl Results - only show in Week 3 */}
                   {week === 3 && (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasBowlWeek2Data ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasBowlWeek2Data ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={hasBowlWeek2Data ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -5698,10 +5853,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek2Data ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasBowlWeek2Data ? '#22c55e' : '#fafafa' }}>
                             Week 2 Bowl Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasBowlWeek2Data ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasBowlWeek2Data ? '#22c55e' : '#a1a1aa' }}>
                             {totalEnteredWeek2 === 12 ? '✓ All 12 games entered' : `${totalEnteredWeek2}/12 games entered (incl. CFP Quarterfinals)`}
                           </div>
                         </div>
@@ -5719,10 +5874,14 @@ export default function Dashboard() {
                   {/* Task: Enter YOUR CFP Semifinal Game (Week 3 only, if user is in SF AND Bowl Week 2 data entered) */}
                   {week === 3 && userInCFPSemifinal && hasBowlWeek2Data && (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        userCFPSemifinalGame ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!userCFPSemifinalGame ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={userCFPSemifinalGame ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -5738,10 +5897,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPSemifinalGame ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: userCFPSemifinalGame ? '#22c55e' : '#fafafa' }}>
                             Enter Your CFP Semifinal Game
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPSemifinalGame ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userCFPSemifinalGame ? '#22c55e' : '#a1a1aa' }}>
                             {userCFPSemifinalGame
                               ? `✓ ${userCFPSemifinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}`
                               : `${userSFBowlName || 'CFP Semifinal'} vs ${userSFOpponent ? getMascotName(userSFOpponent) || userSFOpponent : 'TBD'}`}
@@ -5797,10 +5956,14 @@ export default function Dashboard() {
 
                     return (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        allSFComplete ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!allSFComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={allSFComplete ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -5816,10 +5979,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: allSFComplete ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: allSFComplete ? '#22c55e' : '#fafafa' }}>
                             CFP Semifinal Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: allSFComplete ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: allSFComplete ? '#22c55e' : '#a1a1aa' }}>
                             {allSFComplete ? '✓ All 2 games entered' : `${sfGamesWithScores}/2 games entered`}
                           </div>
                         </div>
@@ -5853,10 +6016,14 @@ export default function Dashboard() {
 
                     return (
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        userChampHasScores ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!userChampHasScores ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      style={userChampHasScores ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
@@ -5872,10 +6039,10 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: userChampHasScores ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: userChampHasScores ? '#22c55e' : '#fafafa' }}>
                             Enter Your National Championship Game
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userChampHasScores ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: userChampHasScores ? '#22c55e' : '#a1a1aa' }}>
                             {userChampHasScores
                               ? `✓ ${userCFPChampionshipGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}-${Math.min(userCFPChampionshipGame.perspective?.userScore || 0, userCFPChampionshipGame.perspective?.opponentScore || 0)}`
                               : allSFComplete
@@ -5919,10 +6086,14 @@ export default function Dashboard() {
                   {/* Task: Taking a New Job? (appears in bowl weeks 1-3, not in week 4/championship) */}
                   {week !== 4 && (
                   <div
-                    className={`p-3 sm:p-4 rounded-lg border-2 ${
-                      takingNewJob !== null ? 'border-green-200 bg-green-50' : ''
-                    }`}
-                    style={takingNewJob === null ? { borderColor: `${teamColors.primary}30` } : {}}
+                    className="p-3 sm:p-4 rounded-xl transition-all"
+                    style={takingNewJob !== null ? {
+                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)'
+                    } : {
+                      backgroundColor: '#1f1f23',
+                      border: '1px solid #27272a'
+                    }}
                   >
                     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -5939,16 +6110,16 @@ export default function Dashboard() {
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#16a34a' : secondaryBgText }}>
+                          <div className="text-sm sm:text-base font-semibold" style={{ color: takingNewJob !== null ? '#22c55e' : '#fafafa' }}>
                             Taking a New Job? (Bowl Week {week})
                           </div>
                           {takingNewJob === true && newJobTeam && newJobPosition && (
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                               ✓ {newJobPosition} at {getTeamNameFromAbbr(newJobTeam)}
                             </div>
                           )}
                           {takingNewJob === false && (
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.9 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
                               ✓ Staying with current team
                             </div>
                           )}
@@ -6007,7 +6178,7 @@ export default function Dashboard() {
                     )}
                     {takingNewJob === true && !newJobTeam && (
                       <div className="ml-13 pl-10">
-                        <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>Which team?</p>
+                        <p className="mb-2" style={{ color: '#a1a1aa' }}>Which team?</p>
                         <div className="max-w-xs">
                           <SearchableSelect
                             options={teams}
@@ -6027,10 +6198,10 @@ export default function Dashboard() {
                     )}
                     {takingNewJob === true && newJobTeam && !newJobPosition && (
                       <div className="ml-13 pl-10">
-                        <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                          New team: <strong>{getTeamNameFromAbbr(newJobTeam)}</strong>
+                        <p className="mb-2" style={{ color: '#a1a1aa' }}>
+                          New team: <strong style={{ color: '#fafafa' }}>{getTeamNameFromAbbr(newJobTeam)}</strong>
                         </p>
-                        <p className="mb-2" style={{ color: secondaryBgText, opacity: 0.8 }}>What position?</p>
+                        <p className="mb-2" style={{ color: '#a1a1aa' }}>What position?</p>
                         <div className="flex gap-2 flex-wrap">
                           {['HC', 'OC', 'DC'].map(pos => (
                             <button
@@ -6083,8 +6254,11 @@ export default function Dashboard() {
 
                     return (
                       <div
-                        className="p-3 sm:p-4 rounded-lg border-2"
-                        style={{ borderColor: `${teamColors.primary}30` }}
+                        className="p-3 sm:p-4 rounded-xl transition-all"
+                        style={{
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -6095,12 +6269,12 @@ export default function Dashboard() {
                               <span className="font-bold text-sm sm:text-base">3</span>
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: secondaryBgText }}>
+                              <div className="text-sm sm:text-base font-semibold" style={{ color: '#fafafa' }}>
                                 Fill Coordinator {firedOC && firedDC ? 'Vacancies' : 'Vacancy'}
                               </div>
                               {/* Show status if user answered but vacancy not filled */}
                               {allAnswered && !allFilled && (
-                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                                <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#a1a1aa' }}>
                                   {firedOC && (ocFilled ? `✓ OC: ${newOCName}` : 'OC: Not filled yet')}
                                   {firedOC && firedDC && ' • '}
                                   {firedDC && (dcFilled ? `✓ DC: ${newDCName}` : 'DC: Not filled yet')}
@@ -6128,7 +6302,7 @@ export default function Dashboard() {
                         {/* OC Vacancy Questions */}
                         {firedOC && filledOCVacancy === null && (
                           <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                               You fired {firedOC} (OC). Has the position been filled?
                             </p>
                             <div className="flex gap-3">
@@ -6162,7 +6336,7 @@ export default function Dashboard() {
                         {/* OC Name Input */}
                         {firedOC && filledOCVacancy === true && !newOCName && (
                           <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                               Enter new OC name:
                             </p>
                             <div className="flex gap-2 max-w-sm">
@@ -6213,7 +6387,7 @@ export default function Dashboard() {
                         {/* DC Vacancy Questions */}
                         {firedDC && ocAnswered && filledDCVacancy === null && (
                           <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                               You fired {firedDC} (DC). Has the position been filled?
                             </p>
                             <div className="flex gap-3">
@@ -6247,7 +6421,7 @@ export default function Dashboard() {
                         {/* DC Name Input */}
                         {firedDC && ocAnswered && filledDCVacancy === true && !newDCName && (
                           <div className="ml-13 pl-10 mt-3">
-                            <p className="mb-2 font-medium" style={{ color: secondaryBgText }}>
+                            <p className="mb-2 font-medium" style={{ color: '#a1a1aa' }}>
                               Enter new DC name:
                             </p>
                             <div className="flex gap-2 max-w-sm">
@@ -6320,10 +6494,14 @@ export default function Dashboard() {
 
                     return (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          hasCommitmentsData ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        style={hasCommitmentsData ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
@@ -6339,10 +6517,10 @@ export default function Dashboard() {
                             ) : taskNum}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                               {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                               {hasCommitmentsData
                                 ? commitmentsCount > 0
                                   ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -6384,6 +6562,7 @@ export default function Dashboard() {
               </>
             )
           })()}
+          </div>
         </div>
       ) : currentDynasty.currentPhase === 'offseason' ? (
         <div
@@ -6841,29 +7020,37 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasPositionChanges ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasPositionChanges ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          style={hasPositionChanges ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                hasPositionChanges ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasPositionChanges ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                              style={hasPositionChanges ? {
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                color: '#22c55e'
+                              } : {
+                                backgroundColor: `${teamColors.primary}25`,
+                                color: teamColors.primary
+                              }}
                             >
                               {hasPositionChanges ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">4</span>}
+                              ) : <span className="font-bold text-sm sm:text-lg">4</span>}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasPositionChanges ? '#16a34a' : secondaryBgText }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm sm:text-base" style={{ color: hasPositionChanges ? '#22c55e' : '#fafafa' }}>
                                 Position Changes
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasPositionChanges ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasPositionChanges ? '#22c55e' : '#a1a1aa' }}>
                                 {hasPositionChanges
                                   ? `✓ ${positionChangesThisYear.length} position change${positionChangesThisYear.length !== 1 ? 's' : ''} recorded`
                                   : 'Update player positions'}
@@ -6918,29 +7105,44 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            isComplete ? 'border-green-200 bg-green-50' : isBlocked ? 'opacity-50' : ''
-                          }`}
-                          style={!isComplete && !isBlocked ? { borderColor: `${teamColors.primary}30` } : isBlocked && !isComplete ? { borderColor: '#9ca3af' } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          style={isComplete ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : isBlocked ? {
+                            backgroundColor: '#18181b',
+                            border: '1px solid #27272a',
+                            opacity: 0.5
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                isComplete ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!isComplete ? { backgroundColor: isBlocked ? '#d1d5db' : `${teamColors.primary}20`, color: isBlocked ? '#6b7280' : teamColors.primary } : {}}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                              style={isComplete ? {
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                color: '#22c55e'
+                              } : isBlocked ? {
+                                backgroundColor: '#27272a',
+                                color: '#6b7280'
+                              } : {
+                                backgroundColor: `${teamColors.primary}25`,
+                                color: teamColors.primary
+                              }}
                             >
                               {isComplete ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">5</span>}
+                              ) : <span className="font-bold text-sm sm:text-lg">5</span>}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isComplete ? '#16a34a' : isBlocked ? '#6b7280' : secondaryBgText }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
                                 Portal Transfer Class Assignment
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isComplete ? '#16a34a' : isBlocked ? '#6b7280' : secondaryBgText, opacity: 0.7 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
                                 {isBlocked
                                   ? 'Complete Signing Day first'
                                   : !hasPortalTransfers
@@ -6957,8 +7159,8 @@ export default function Dashboard() {
                               disabled={isBlocked || !hasPortalTransfers}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
                               style={{
-                                backgroundColor: (isBlocked || !hasPortalTransfers) ? '#9ca3af' : teamColors.primary,
-                                color: (isBlocked || !hasPortalTransfers) ? '#ffffff' : primaryBgText
+                                backgroundColor: (isBlocked || !hasPortalTransfers) ? '#3f3f46' : teamColors.primary,
+                                color: (isBlocked || !hasPortalTransfers) ? '#71717a' : primaryBgText
                               }}
                             >
                               {isComplete ? 'Done' : 'Open'}
@@ -7017,29 +7219,44 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            isComplete ? 'border-green-200 bg-green-50' : isBlocked ? 'opacity-50' : ''
-                          }`}
-                          style={!isComplete && !isBlocked ? { borderColor: `${teamColors.primary}30` } : isBlocked && !isComplete ? { borderColor: '#9ca3af' } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          style={isComplete ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : isBlocked ? {
+                            backgroundColor: '#18181b',
+                            border: '1px solid #27272a',
+                            opacity: 0.5
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                isComplete ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!isComplete ? { backgroundColor: isBlocked ? '#d1d5db' : `${teamColors.primary}20`, color: isBlocked ? '#6b7280' : teamColors.primary } : {}}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                              style={isComplete ? {
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                color: '#22c55e'
+                              } : isBlocked ? {
+                                backgroundColor: '#27272a',
+                                color: '#6b7280'
+                              } : {
+                                backgroundColor: `${teamColors.primary}25`,
+                                color: teamColors.primary
+                              }}
                             >
                               {isComplete ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">6</span>}
+                              ) : <span className="font-bold text-sm sm:text-lg">6</span>}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: isComplete ? '#16a34a' : isBlocked ? '#6b7280' : secondaryBgText }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm sm:text-base" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#fafafa' }}>
                                 Fringe Case Class Assignment
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: isComplete ? '#16a34a' : isBlocked ? '#6b7280' : secondaryBgText, opacity: 0.7 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: isComplete ? '#22c55e' : isBlocked ? '#6b7280' : '#a1a1aa' }}>
                                 {isBlocked
                                   ? 'Complete Signing Day first'
                                   : !hasFringeCases
@@ -7056,8 +7273,8 @@ export default function Dashboard() {
                               disabled={isBlocked || !hasFringeCases}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto disabled:cursor-not-allowed"
                               style={{
-                                backgroundColor: (isBlocked || !hasFringeCases) ? '#9ca3af' : teamColors.primary,
-                                color: (isBlocked || !hasFringeCases) ? '#ffffff' : primaryBgText
+                                backgroundColor: (isBlocked || !hasFringeCases) ? '#3f3f46' : teamColors.primary,
+                                color: (isBlocked || !hasFringeCases) ? '#71717a' : primaryBgText
                               }}
                             >
                               {isComplete ? 'Done' : 'Open'}
@@ -9402,12 +9619,17 @@ export default function Dashboard() {
           const userTidForPortal = getUserTeamTid(currentDynasty)
           const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
           const transfers = []
+          const seenNames = new Set() // Deduplicate by name
           Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
             if (Array.isArray(weekCommitments)) {
               weekCommitments.forEach(c => {
                 // Check isPortal flag and class field (commitments use 'class', not 'year')
                 const playerClass = c.class || c.year
-                if (c.isPortal && playerClass) {
+                if (c.isPortal && playerClass && c.name) {
+                  // Skip duplicates
+                  const nameLower = c.name.toLowerCase().trim()
+                  if (seenNames.has(nameLower)) return
+                  seenNames.add(nameLower)
                   // Only include Fr, So, Jr (not Sr) as they need class assignment
                   const baseClass = playerClass.replace('RS ', '')
                   if (['Fr', 'So', 'Jr'].includes(baseClass)) {

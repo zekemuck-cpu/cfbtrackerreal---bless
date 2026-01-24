@@ -199,7 +199,11 @@ function ViewDynastyContent() {
 
       {/* Main content - on desktop (lg+), add left margin when sidebar is open to push content */}
       {/* On mobile/tablet, sidebar overlays so no margin needed */}
-      <main className={`min-w-0 flex-1 px-4 py-6 pb-16 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}>
+      {/* Bottom padding accounts for ticker height (48px) + safe area for phones with home indicators */}
+      <main
+        className={`min-w-0 flex-1 px-4 py-6 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
+        style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      >
         <Outlet />
       </main>
 
