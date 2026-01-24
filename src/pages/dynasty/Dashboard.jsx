@@ -487,14 +487,35 @@ export default function Dashboard() {
     }
   }, [currentDynasty?.id, currentDynasty?.pendingCoordinatorHires])
 
+  // Track when we last ran CFP shell creation to prevent race conditions
+  const cfpShellProcessedRef = useRef({ year: null, gamesLength: null, timestamp: 0 })
+
   // Auto-create CFP game shells if seeds exist but shells are missing
   // This handles dynasties where seeds were saved before the shell system was implemented
   useEffect(() => {
     if (!currentDynasty?.id || isViewOnly) return
 
+    // CRITICAL: Only run during postseason phase when CFP is active
+    // This prevents race conditions during phase changes
+    const phase = currentDynasty.currentPhase
+    if (phase !== 'postseason' && phase !== 'conference_championship') return
+
     const year = currentDynasty.currentYear
     const seeds = currentDynasty.cfpSeedsByYear?.[year] || []
     if (seeds.length < 12) return // Need all 12 seeds
+
+    const gamesLength = currentDynasty.games?.length || 0
+
+    // Debounce: Don't run if we just processed this exact state within 2 seconds
+    const now = Date.now()
+    const lastProcessed = cfpShellProcessedRef.current
+    if (
+      lastProcessed.year === year &&
+      lastProcessed.gamesLength === gamesLength &&
+      now - lastProcessed.timestamp < 2000
+    ) {
+      return
+    }
 
     // Check if shells already exist with VALID tids (numbers, not objects)
     const existingShells = (currentDynasty.games || []).filter(g =>
@@ -515,6 +536,9 @@ export default function Dashboard() {
     const needsWinnerPropagation = hasCompletedFirstRound && qfNeedsOpponents
 
     if (existingShells.length >= 11 && hasValidTids && !needsWinnerPropagation) return // Valid shells already exist
+
+    // Mark that we're processing to prevent race conditions
+    cfpShellProcessedRef.current = { year, gamesLength, timestamp: now }
 
     // Convert seeds array to tid-based format: { 1: tid, 2: tid, ... }
     const seedsWithTid = {}
@@ -540,9 +564,11 @@ export default function Dashboard() {
       }
     }
 
+    console.log('[Dashboard CFP Shell Effect] Saving shells for year', year, '- games count:', updatedGames.length)
+
     // Save the shells
     updateDynasty(currentDynasty.id, { games: updatedGames })
-  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly])
+  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.currentPhase, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly])
 
   if (!currentDynasty) return null
 
@@ -2553,16 +2579,16 @@ export default function Dashboard() {
 
         return (
           <div
-            className="bg-white rounded-xl overflow-hidden"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}
+            className="rounded-2xl overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.primary}dd 50%, ${teamColors.primary}bb 100%)`,
+              boxShadow: `0 4px 20px ${teamColors.primary}40, 0 0 40px ${teamColors.primary}20`
+            }}
           >
-            {/* Team color accent bar */}
-            <div className="h-1.5" style={{ backgroundColor: teamColors.primary }} />
-
-            <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <Link
                 to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-                className="flex items-center gap-4 hover:opacity-80 transition-all min-w-0"
+                className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0 group"
               >
                 {(() => {
                   // Get logo from user's current team (using userId as source of truth)
@@ -2572,7 +2598,10 @@ export default function Dashboard() {
                   }
                   if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
                   return logoUrl ? (
-                    <div className="w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0">
+                    <div
+                      className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl p-2 group-hover:scale-105 transition-transform"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.95)' }}
+                    >
                       <img
                         src={logoUrl}
                         alt={`${userTeamName} logo`}
@@ -2582,21 +2611,22 @@ export default function Dashboard() {
                   ) : null
                 })()}
                 <div className="min-w-0">
-                  <h2 className="text-xl sm:text-2xl font-bold truncate text-gray-900">
-                    {currentRank && <span className="mr-1.5 sm:mr-2 text-gray-500">#{currentRank}</span>}
+                  <h2 className="font-display text-2xl sm:text-3xl font-extrabold truncate tracking-tight" style={{ color: primaryBgText }}>
+                    {currentRank && <span className="mr-2 opacity-70">#{currentRank}</span>}
                     {userTeamName}
                   </h2>
-                  <p className="text-sm sm:text-base text-gray-500 mt-0.5 flex items-center gap-2">
-                    <span className="font-semibold text-gray-700">{headerWins}-{headerLosses}</span>
+                  <p className="text-sm sm:text-base mt-1 flex items-center gap-2" style={{ color: primaryBgText, opacity: 0.85 }}>
+                    <span className="font-display font-bold text-lg">{headerWins}-{headerLosses}</span>
                     {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
                       <>
-                        <span className="text-gray-300">•</span>
-                        <span>{userTeamConference}</span>
+                        <span style={{ opacity: 0.4 }}>•</span>
+                        <span className="font-medium">{userTeamConference}</span>
                         {getConferenceLogo(userTeamConference) && (
                           <img
                             src={getConferenceLogo(userTeamConference)}
                             alt={userTeamConference}
-                            className="h-4 sm:h-5 w-auto object-contain opacity-70"
+                            className="h-5 sm:h-6 w-auto object-contain"
+                            style={{ filter: 'brightness(0) invert(1)', opacity: 0.8 }}
                           />
                         )}
                       </>
@@ -2606,22 +2636,32 @@ export default function Dashboard() {
               </Link>
               {teamRatings && (
                 <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
-                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">OVR</div>
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.overall}</div>
+                  <div
+                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>OVR</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.overall}</div>
                   </div>
-                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">OFF</div>
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.offense}</div>
+                  <div
+                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>OFF</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.offense}</div>
                   </div>
-                  <div className="text-center px-4 py-2 rounded-lg bg-gray-50 border border-gray-200">
-                    <div className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400">DEF</div>
-                    <div className="text-lg sm:text-xl font-bold text-gray-900">{teamRatings.defense}</div>
+                  <div
+                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
+                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  >
+                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>DEF</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.defense}</div>
                   </div>
                   {!isViewOnly && (
                     <button
                       onClick={() => setShowTeamRatingsModal(true)}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                      className="p-2.5 rounded-xl hover:bg-white/20 transition-colors"
+                      style={{ color: primaryBgText }}
                       title="Edit Team Ratings"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2655,7 +2695,8 @@ export default function Dashboard() {
                             setShowCoachingStaffPopup(true)
                           }
                         }}
-                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                        className="p-2.5 rounded-xl hover:bg-white/20 transition-colors"
+                        style={{ color: primaryBgText }}
                         title="Coaching Staff"
                       >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2671,19 +2712,20 @@ export default function Dashboard() {
                           onClick={() => setShowCoachingStaffPopup(false)}
                         />
                         <div
-                          className="fixed z-50 w-64 rounded-xl shadow-xl overflow-hidden"
+                          className="fixed z-50 w-72 rounded-2xl overflow-hidden"
                           style={{
-                            backgroundColor: teamColors.secondary,
-                            border: `2px solid ${teamColors.primary}`,
+                            backgroundColor: '#18181b',
+                            border: `1px solid ${teamColors.primary}40`,
+                            boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 20px ${teamColors.primary}30`,
                             top: coachingStaffPopupPosition.top,
                             right: coachingStaffPopupPosition.right
                           }}
                           onMouseEnter={() => !suppressPopupHover && setShowCoachingStaffPopup(true)}
                           onMouseLeave={() => setShowCoachingStaffPopup(false)}
                         >
-                          <div className="px-4 py-3 border-b" style={{ borderColor: `${secondaryBgText}20`, backgroundColor: teamColors.primary }}>
+                          <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                             <div className="flex items-center justify-between">
-                              <h4 className="font-bold text-sm uppercase tracking-wide" style={{ color: primaryBgText }}>
+                              <h4 className="font-display font-bold text-sm uppercase tracking-wide" style={{ color: primaryBgText }}>
                                 Coaching Staff
                               </h4>
                               <button
@@ -2692,7 +2734,7 @@ export default function Dashboard() {
                                   setShowCoachingStaffPopup(false)
                                   setShowCoachingStaffModal(true)
                                 }}
-                                className="p-1 rounded hover:opacity-70 transition-opacity"
+                                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
                                 style={{ color: primaryBgText }}
                                 title="Edit Coaching Staff"
                               >
@@ -2714,21 +2756,21 @@ export default function Dashboard() {
                               return displayName ? (
                                 <div className="flex items-center gap-3">
                                   <div
-                                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: isFired ? '#ef444420' : `${secondaryBgText}15` }}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${teamColors.primary}25` }}
                                   >
-                                    <span className="text-xs font-bold" style={{ color: isFired ? '#ef4444' : secondaryBgText }}>OC</span>
+                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : teamColors.primary }}>OC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className="text-[10px] uppercase font-medium" style={{ color: secondaryBgText, opacity: 0.6 }}>
+                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
                                       Offensive Coordinator
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className={`font-bold truncate ${isFired ? 'line-through opacity-60' : ''}`} style={{ color: secondaryBgText }}>
+                                      <span className={`font-semibold truncate text-zinc-100 ${isFired ? 'line-through opacity-60' : ''}`}>
                                         {displayName}
                                       </span>
                                       {isFired && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">
+                                        <span className="font-display text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
                                           FIRED
                                         </span>
                                       )}
@@ -2749,21 +2791,21 @@ export default function Dashboard() {
                               return displayName ? (
                                 <div className="flex items-center gap-3">
                                   <div
-                                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: isFired ? '#ef444420' : `${secondaryBgText}15` }}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: isFired ? 'rgba(239,68,68,0.15)' : `${teamColors.primary}25` }}
                                   >
-                                    <span className="text-xs font-bold" style={{ color: isFired ? '#ef4444' : secondaryBgText }}>DC</span>
+                                    <span className="font-display text-xs font-bold" style={{ color: isFired ? '#ef4444' : teamColors.primary }}>DC</span>
                                   </div>
                                   <div className="min-w-0 flex-1">
-                                    <div className="text-[10px] uppercase font-medium" style={{ color: secondaryBgText, opacity: 0.6 }}>
+                                    <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
                                       Defensive Coordinator
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className={`font-bold truncate ${isFired ? 'line-through opacity-60' : ''}`} style={{ color: secondaryBgText }}>
+                                      <span className={`font-semibold truncate text-zinc-100 ${isFired ? 'line-through opacity-60' : ''}`}>
                                         {displayName}
                                       </span>
                                       {isFired && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">
+                                        <span className="font-display text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">
                                           FIRED
                                         </span>
                                       )}
@@ -2778,7 +2820,7 @@ export default function Dashboard() {
                               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
                               return !ccDataForYear.firedOCName && !ccDataForYear.firedDCName
                             })() && (
-                              <div className="text-center py-2 text-sm" style={{ color: secondaryBgText, opacity: 0.6 }}>
+                              <div className="text-center py-2 text-sm text-zinc-500">
                                 No coordinators entered
                               </div>
                             )}
@@ -2801,10 +2843,10 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
-        <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
           <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
           <div className="p-4 sm:p-6">
-          <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-900">
+          <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
             Pre-Season Setup
           </h3>
           <div className="space-y-2 sm:space-y-3">
@@ -2882,23 +2924,27 @@ export default function Dashboard() {
               return (
               <div
                 key={item.num}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-2 sm:gap-0 ${
-                  item.done ? 'border-green-200 bg-green-50' : ''
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all ${
+                  item.done ? '' : 'hover:ring-1'
                 }`}
-                style={!item.done ? {
-                  borderColor: `${teamColors.primary}30`,
-                  backgroundColor: teamColors.secondary
-                } : {}}
+                style={item.done ? {
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                } : {
+                  backgroundColor: '#1f1f23',
+                  border: '1px solid #27272a'
+                }}
               >
                 <div className="flex items-center gap-2 sm:gap-3">
                   <div
-                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      item.done ? 'bg-green-500 text-white' : ''
-                    }`}
-                    style={!item.done ? {
-                      backgroundColor: `${teamColors.primary}20`,
+                    className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display`}
+                    style={item.done ? {
+                      backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                      color: '#22c55e'
+                    } : {
+                      backgroundColor: `${teamColors.primary}25`,
                       color: teamColors.primary
-                    } : {}}
+                    }}
                   >
                     {item.done ? (
                       <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2911,17 +2957,14 @@ export default function Dashboard() {
                   <div className="min-w-0 flex-1">
                     <div
                       className="font-semibold text-sm sm:text-base"
-                      style={{ color: item.done ? '#16a34a' : secondaryBgText }}
+                      style={{ color: item.done ? '#22c55e' : '#fafafa' }}
                     >
                       {item.title}
                     </div>
                     {item.scheduleCount !== undefined && (
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
-                        }}
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.scheduleCount}/12 games
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -2930,10 +2973,7 @@ export default function Dashboard() {
                     {item.playerCount !== undefined && (
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
-                        }}
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.playerCount}/85 players
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -2942,10 +2982,7 @@ export default function Dashboard() {
                     {item.teamRatings && (
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
-                        }}
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.teamRatings.overall ? `${item.teamRatings.overall} OVR • ${item.teamRatings.offense} OFF • ${item.teamRatings.defense} DEF` : 'Not entered'}
                         {item.done && <span className="ml-1 sm:ml-2">✓ Ready</span>}
@@ -2954,10 +2991,7 @@ export default function Dashboard() {
                     {item.coachingStaff !== undefined && (
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium truncate"
-                        style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
-                        }}
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.coachingStaff?.ocName && item.coachingStaff?.dcName
                           ? `OC: ${item.coachingStaff.ocName} • DC: ${item.coachingStaff.dcName}`
@@ -2968,10 +3002,7 @@ export default function Dashboard() {
                     {item.conferences !== undefined && (
                       <div
                         className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{
-                          color: item.done ? '#16a34a' : secondaryBgText,
-                          opacity: item.done ? 1 : 0.7
-                        }}
+                        style={{ color: item.done ? '#22c55e' : '#a1a1aa' }}
                       >
                         {item.conferences
                           ? `${Object.keys(item.conferences).length} conferences configured`
@@ -3023,10 +3054,10 @@ export default function Dashboard() {
                   ) : (
                     <button
                       onClick={item.action}
-                      className="w-full sm:w-auto px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl font-display font-semibold hover:opacity-90 transition-colors text-sm"
                       style={item.optional && !item.done ? {
-                        backgroundColor: `${secondaryBgText}20`,
-                        color: secondaryBgText
+                        backgroundColor: '#27272a',
+                        color: '#a1a1aa'
                       } : {
                         backgroundColor: teamColors.primary,
                         color: primaryBgText
@@ -3042,8 +3073,8 @@ export default function Dashboard() {
           </div>
 
           {canAdvanceFromPreseason() && (
-            <div className="mt-4 p-4 rounded-lg bg-green-50 border border-green-200">
-              <p className="text-sm font-medium text-green-700">
+            <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+              <p className="text-sm font-medium text-emerald-400">
                 ✓ Pre-season setup complete! Click "Advance Week" in the header to start the season.
               </p>
             </div>
@@ -3051,10 +3082,10 @@ export default function Dashboard() {
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
-        <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
           <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
           <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800">
+          <h3 className="font-display text-lg font-bold mb-4 text-zinc-100">
             {currentDynasty.currentYear} Regular Season - Week {currentDynasty.currentWeek}
           </h3>
           <div className="space-y-3">
@@ -3087,36 +3118,38 @@ export default function Dashboard() {
                   {/* Task 1: Game Entry or Bye Week */}
                   {isByeWeek ? (
                     // Bye Week - Half height tile, already marked as complete
-                    <div className="flex items-center gap-2 px-3 py-1 rounded-lg border border-gray-200 bg-gray-50">
-                      <div className="w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}>
+                      <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#27272a' }}>
+                        <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-xs font-medium text-zinc-500">
                         Week {currentDynasty.currentWeek} — BYE
                       </span>
                     </div>
                   ) : (
                     // Regular Game Entry
                     <div
-                      className={`flex items-center justify-between p-4 rounded-lg border-2 ${
-                        playedGame ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!playedGame ? {
-                        borderColor: `${teamColors.primary}30`,
-                        backgroundColor: teamColors.secondary
-                      } : {}}
+                      className="flex items-center justify-between p-4 rounded-xl transition-all"
+                      style={playedGame ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            playedGame ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!playedGame ? {
-                            backgroundColor: `${teamColors.primary}20`,
+                          className="w-10 h-10 rounded-xl flex items-center justify-center font-display"
+                          style={playedGame ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
                             color: teamColors.primary
-                          } : {}}
+                          }}
                         >
                           {playedGame ? (
                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3129,14 +3162,14 @@ export default function Dashboard() {
                         <div>
                           <div
                             className="font-semibold"
-                            style={{ color: playedGame ? '#16a34a' : secondaryBgText }}
+                            style={{ color: playedGame ? '#22c55e' : '#fafafa' }}
                           >
                             Week {currentDynasty.currentWeek} {scheduledGame ? (scheduledGame.location === 'away' ? '@' : 'vs') : ''} {opponentName}
                           </div>
                           {playedGame && (
                             <div
                               className="text-sm mt-1 font-medium"
-                              style={{ color: '#16a34a' }}
+                              style={{ color: '#22c55e' }}
                             >
                               {playedGame.perspective?.userWon ? 'W' : 'L'} {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
                               <span className="ml-2">✓ Complete</span>
@@ -3190,17 +3223,25 @@ export default function Dashboard() {
 
                   {/* Task 2: Recruiting Commitments */}
                   <div
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                      hasCommitmentsData ? 'border-green-200 bg-green-50' : ''
-                    }`}
-                    style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30`, backgroundColor: teamColors.secondary } : {}}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                    style={hasCommitmentsData ? {
+                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid rgba(34, 197, 94, 0.3)'
+                    } : {
+                      backgroundColor: '#1f1f23',
+                      border: '1px solid #27272a'
+                    }}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div
-                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                        }`}
-                        style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                        style={hasCommitmentsData ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                          color: '#22c55e'
+                        } : {
+                          backgroundColor: `${teamColors.primary}25`,
+                          color: teamColors.primary
+                        }}
                       >
                         {hasCommitmentsData ? (
                           <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3209,10 +3250,10 @@ export default function Dashboard() {
                         ) : <span className="font-bold text-sm sm:text-base">2</span>}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                        <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                           {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
                         </div>
-                        <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                        <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                           {hasCommitmentsData
                             ? commitmentsCount > 0
                               ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -3258,13 +3299,12 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
         <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
-          }}
+          className="rounded-2xl overflow-hidden"
+          style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
         >
-          <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="p-4 sm:p-6">
+          <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
             Conference Championship Week
           </h3>
 
@@ -3287,17 +3327,25 @@ export default function Dashboard() {
               <div className="space-y-3 sm:space-y-4">
                 {/* Task 1: Made Conference Championship? */}
                 <div
-                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                    ccQuestionComplete ? 'border-green-200 bg-green-50' : ''
-                  }`}
-                  style={!ccQuestionComplete ? { borderColor: `${teamColors.primary}30` } : {}}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                  style={ccQuestionComplete ? {
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  } : {
+                    backgroundColor: '#1f1f23',
+                    border: '1px solid #27272a'
+                  }}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
                     <div
-                      className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
-                        ccQuestionComplete ? 'bg-green-500 text-white' : ''
-                      }`}
-                      style={!ccQuestionComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                      className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display font-bold"
+                      style={ccQuestionComplete ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                        color: '#22c55e'
+                      } : {
+                        backgroundColor: `${teamColors.primary}25`,
+                        color: teamColors.primary
+                      }}
                     >
                       {ccQuestionComplete ? (
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3306,10 +3354,10 @@ export default function Dashboard() {
                       ) : (taskNum)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm sm:text-base font-semibold" style={{ color: ccQuestionComplete ? '#16a34a' : secondaryBgText }}>
+                      <div className="text-sm sm:text-base font-semibold" style={{ color: ccQuestionComplete ? '#22c55e' : '#fafafa' }}>
                         Made {userTeamConference} Championship?
                       </div>
-                      <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccQuestionComplete ? '#16a34a' : secondaryBgText, opacity: ccQuestionComplete ? 1 : 0.7 }}>
+                      <div className="text-xs sm:text-sm mt-0.5" style={{ color: ccQuestionComplete ? '#22c55e' : '#a1a1aa' }}>
                         {ccMadeChampionship === null ? 'Did you make the championship game?' :
                          ccMadeChampionship === false ? 'Did not make championship' :
                          'Made the championship game'}
@@ -3571,6 +3619,7 @@ export default function Dashboard() {
               </div>
             )
           })()}
+          </div>
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
@@ -6338,12 +6387,14 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'offseason' ? (
         <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
+          className="rounded-2xl overflow-hidden"
           style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
+            backgroundColor: '#18181b',
+            border: '1px solid #27272a'
           }}
         >
+          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="p-4 sm:p-6">
           {(() => {
             const week = currentDynasty.currentWeek
 
@@ -6361,24 +6412,31 @@ export default function Dashboard() {
               if (switchedTeams) {
                 return (
                   <>
-                    <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                    <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                       New Team - No Players Leaving
                     </h3>
-                    <div className="space-y-3 sm:space-y-4">
+                    <div className="space-y-2 sm:space-y-3">
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 border-green-200 bg-green-50"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
+                        style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-green-500 text-white">
+                          <div
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
+                          >
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: '#16a34a' }}>
+                            <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
                               Skipped - New Team
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: '#22c55e' }}>
                               You switched teams, so there are no departing players to track
                             </div>
                           </div>
@@ -6391,35 +6449,43 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                     Players Leaving
                   </h3>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* Task: Enter Players Leaving */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasPlayersLeavingData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasPlayersLeavingData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      style={hasPlayersLeavingData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasPlayersLeavingData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasPlayersLeavingData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                          style={hasPlayersLeavingData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
+                            color: teamColors.primary
+                          }}
                         >
                           {hasPlayersLeavingData ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
+                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasPlayersLeavingData ? '#16a34a' : secondaryBgText }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#fafafa' }}>
                             Players Leaving
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasPlayersLeavingData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasPlayersLeavingData ? '#22c55e' : '#a1a1aa' }}>
                             {hasPlayersLeavingData
                               ? `✓ ${playersLeavingCount} player${playersLeavingCount !== 1 ? 's' : ''} leaving`
                               : 'Graduating seniors, transfers, early declarations'}
@@ -6474,37 +6540,45 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                     {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
                   </h3>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Recruiting Commitments */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasCommitmentsData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasCommitmentsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      style={hasCommitmentsData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasCommitmentsData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                          style={hasCommitmentsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
+                            color: teamColors.primary
+                          }}
                         >
                           {hasCommitmentsData ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
+                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
                             {hasCommitmentsData
                               ? (recruitingWeekNum === 5 ? 'Signing Day' : 'Recruiting Commitments')
                               : (recruitingWeekNum === 5 ? 'Signing Day' : 'Any commitments this week?')}
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCommitmentsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasCommitmentsData
                               ? commitmentsCount > 0
                                 ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -6554,29 +6628,37 @@ export default function Dashboard() {
                     {/* Task 2: Draft Results (only in Recruiting Week 1) */}
                     {recruitingWeekNum === 1 && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          hasDraftResultsData || !hasDraftDeclarees ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!(hasDraftResultsData || !hasDraftDeclarees) ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                        style={(hasDraftResultsData || !hasDraftDeclarees) ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              hasDraftResultsData || !hasDraftDeclarees ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!(hasDraftResultsData || !hasDraftDeclarees) ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                            style={(hasDraftResultsData || !hasDraftDeclarees) ? {
+                              backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                              color: '#22c55e'
+                            } : {
+                              backgroundColor: `${teamColors.primary}25`,
+                              color: teamColors.primary
+                            }}
                           >
                             {hasDraftResultsData || !hasDraftDeclarees ? (
                               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">2</span>}
+                            ) : <span className="font-bold text-sm sm:text-lg">2</span>}
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasDraftResultsData || !hasDraftDeclarees ? '#16a34a' : secondaryBgText }}>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm sm:text-base" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#fafafa' }}>
                               Draft Results
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasDraftResultsData || !hasDraftDeclarees ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: (hasDraftResultsData || !hasDraftDeclarees) ? '#22c55e' : '#a1a1aa' }}>
                               {!hasDraftDeclarees
                                 ? '✓ No players declared for the draft'
                                 : hasDraftResultsData
@@ -6636,29 +6718,37 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasTransferDestinationsData || !hasTransfers ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!(hasTransferDestinationsData || !hasTransfers) ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          style={(hasTransferDestinationsData || !hasTransfers) ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                hasTransferDestinationsData || !hasTransfers ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!(hasTransferDestinationsData || !hasTransfers) ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                              style={(hasTransferDestinationsData || !hasTransfers) ? {
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                color: '#22c55e'
+                              } : {
+                                backgroundColor: `${teamColors.primary}25`,
+                                color: teamColors.primary
+                              }}
                             >
                               {hasTransferDestinationsData || !hasTransfers ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">3</span>}
+                              ) : <span className="font-bold text-sm sm:text-lg">3</span>}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasTransferDestinationsData || !hasTransfers ? '#16a34a' : secondaryBgText }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm sm:text-base" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#fafafa' }}>
                                 Transfer Destinations
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasTransferDestinationsData || !hasTransfers ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: (hasTransferDestinationsData || !hasTransfers) ? '#22c55e' : '#a1a1aa' }}>
                                 {!hasTransfers
                                   ? '✓ No outgoing transfers'
                                   : hasTransferDestinationsData
@@ -6692,29 +6782,37 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                            hasClassRank ? 'border-green-200 bg-green-50' : ''
-                          }`}
-                          style={!hasClassRank ? { borderColor: `${teamColors.primary}30` } : {}}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          style={hasClassRank ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            border: '1px solid rgba(34, 197, 94, 0.3)'
+                          } : {
+                            backgroundColor: '#1f1f23',
+                            border: '1px solid #27272a'
+                          }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                hasClassRank ? 'bg-green-500 text-white' : ''
-                              }`}
-                              style={!hasClassRank ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                              style={hasClassRank ? {
+                                backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                                color: '#22c55e'
+                              } : {
+                                backgroundColor: `${teamColors.primary}25`,
+                                color: teamColors.primary
+                              }}
                             >
                               {hasClassRank ? (
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
-                              ) : <span className="font-bold text-sm sm:text-base">2</span>}
+                              ) : <span className="font-bold text-sm sm:text-lg">2</span>}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-sm sm:text-base font-semibold" style={{ color: hasClassRank ? '#16a34a' : secondaryBgText }}>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-sm sm:text-base" style={{ color: hasClassRank ? '#22c55e' : '#fafafa' }}>
                                 Recruiting Class Rank
                               </div>
-                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasClassRank ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                              <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasClassRank ? '#22c55e' : '#a1a1aa' }}>
                                 {hasClassRank
                                   ? `✓ Ranked #${classRank} nationally`
                                   : 'Enter national recruiting class ranking'}
@@ -6992,24 +7090,31 @@ export default function Dashboard() {
               if (switchedTeams) {
                 return (
                   <>
-                    <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                    <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                       Training Camp
                     </h3>
-                    <div className="space-y-3 sm:space-y-4">
+                    <div className="space-y-2 sm:space-y-3">
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 border-green-200 bg-green-50"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
+                        style={{
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-green-500 text-white">
+                          <div
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
+                          >
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: '#16a34a' }}>
+                            <div className="font-semibold text-sm sm:text-base" style={{ color: '#22c55e' }}>
                               Training Results - Skipped
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#16a34a', opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: '#22c55e' }}>
                               Will enter new roster during preseason
                             </div>
                           </div>
@@ -7078,35 +7183,43 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                     Training Camp
                   </h3>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Training Results */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasTrainingResultsData ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasTrainingResultsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      style={hasTrainingResultsData ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasTrainingResultsData ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasTrainingResultsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                          style={hasTrainingResultsData ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
+                            color: teamColors.primary
+                          }}
                         >
                           {hasTrainingResultsData ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
+                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasTrainingResultsData ? '#16a34a' : secondaryBgText }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasTrainingResultsData ? '#22c55e' : '#fafafa' }}>
                             Training Results
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasTrainingResultsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasTrainingResultsData ? '#22c55e' : '#a1a1aa' }}>
                             {hasTrainingResultsData
                               ? `✓ ${trainingResultsCount} player overall${trainingResultsCount !== 1 ? 's' : ''} updated`
                               : `Enter new overalls for ${trainingPlayers.length} players`}
@@ -7129,29 +7242,37 @@ export default function Dashboard() {
                     {/* Task 2: Recruiting Class Overalls */}
                     {recruitingClassPlayers.length > 0 && (
                       <div
-                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                          hasRecruitOverallsData ? 'border-green-200 bg-green-50' : ''
-                        }`}
-                        style={!hasRecruitOverallsData ? { borderColor: `${teamColors.primary}30` } : {}}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                        style={hasRecruitOverallsData ? {
+                          backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                          border: '1px solid rgba(34, 197, 94, 0.3)'
+                        } : {
+                          backgroundColor: '#1f1f23',
+                          border: '1px solid #27272a'
+                        }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              hasRecruitOverallsData ? 'bg-green-500 text-white' : ''
-                            }`}
-                            style={!hasRecruitOverallsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                            style={hasRecruitOverallsData ? {
+                              backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                              color: '#22c55e'
+                            } : {
+                              backgroundColor: `${teamColors.primary}25`,
+                              color: teamColors.primary
+                            }}
                           >
                             {hasRecruitOverallsData ? (
                               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
-                            ) : <span className="font-bold text-sm sm:text-base">2</span>}
+                            ) : <span className="font-bold text-sm sm:text-lg">2</span>}
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-sm sm:text-base font-semibold" style={{ color: hasRecruitOverallsData ? '#16a34a' : secondaryBgText }}>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm sm:text-base" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#fafafa' }}>
                               Recruiting Class Overalls
                             </div>
-                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasRecruitOverallsData ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                            <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasRecruitOverallsData ? '#22c55e' : '#a1a1aa' }}>
                               {hasRecruitOverallsData
                                 ? `✓ ${recruitOverallsCount} recruit overall${recruitOverallsCount !== 1 ? 's' : ''} entered`
                                 : `Enter overalls for ${recruitingClassPlayers.length} recruit${recruitingClassPlayers.length !== 1 ? 's' : ''}`}
@@ -7192,35 +7313,43 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                     Offseason
                   </h3>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Custom Conferences */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasConferencesSet ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasConferencesSet ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      style={hasConferencesSet ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasConferencesSet ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasConferencesSet ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                          style={hasConferencesSet ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
+                            color: teamColors.primary
+                          }}
                         >
                           {hasConferencesSet ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">1</span>}
+                          ) : <span className="font-bold text-sm sm:text-lg">1</span>}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasConferencesSet ? '#16a34a' : secondaryBgText }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasConferencesSet ? '#22c55e' : '#fafafa' }}>
                             Custom Conferences
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasConferencesSet ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasConferencesSet ? '#22c55e' : '#a1a1aa' }}>
                             {hasConferencesSet
                               ? `✓ Conference alignment set for ${upcomingSeasonYear}`
                               : `Set conference alignment for ${upcomingSeasonYear} season`}
@@ -7242,29 +7371,37 @@ export default function Dashboard() {
 
                     {/* Task 2: Encourage Transfers */}
                     <div
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-lg border-2 gap-3 sm:gap-0 ${
-                        hasEncourageTransfers ? 'border-green-200 bg-green-50' : ''
-                      }`}
-                      style={!hasEncourageTransfers ? { borderColor: `${teamColors.primary}30` } : {}}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      style={hasEncourageTransfers ? {
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: '#1f1f23',
+                        border: '1px solid #27272a'
+                      }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            hasEncourageTransfers ? 'bg-green-500 text-white' : ''
-                          }`}
-                          style={!hasEncourageTransfers ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
+                          style={hasEncourageTransfers ? {
+                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                            color: '#22c55e'
+                          } : {
+                            backgroundColor: `${teamColors.primary}25`,
+                            color: teamColors.primary
+                          }}
                         >
                           {hasEncourageTransfers ? (
                             <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
-                          ) : <span className="font-bold text-sm sm:text-base">2</span>}
+                          ) : <span className="font-bold text-sm sm:text-lg">2</span>}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-sm sm:text-base font-semibold" style={{ color: hasEncourageTransfers ? '#16a34a' : secondaryBgText }}>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-semibold text-sm sm:text-base" style={{ color: hasEncourageTransfers ? '#22c55e' : '#fafafa' }}>
                             Encourage Transfers
                           </div>
-                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasEncourageTransfers ? '#16a34a' : secondaryBgText, opacity: 0.7 }}>
+                          <div className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium" style={{ color: hasEncourageTransfers ? '#22c55e' : '#a1a1aa' }}>
                             {hasEncourageTransfers
                               ? `✓ ${encourageTransfersCount} player${encourageTransfersCount !== 1 ? 's' : ''} encouraged to transfer`
                               : 'Mark players to encourage to transfer'}
@@ -7291,15 +7428,16 @@ export default function Dashboard() {
             // Fallback for any other weeks
             return (
               <>
-                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
                   Off-Season Week {week}
                 </h3>
-                <p className="text-sm" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                <p className="text-sm text-zinc-400">
                   Click "Advance Week" to continue to the next season.
                 </p>
               </>
             )
           })()}
+          </div>
         </div>
       ) : (
         <div
@@ -7320,102 +7458,85 @@ export default function Dashboard() {
 
           {/* Roster Section - Desktop Only (below tasks) */}
           <div className="hidden lg:block">
-            <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
               <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
-              <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+              <div className="px-4 sm:px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
                 <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                  <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
                     {currentDynasty.currentYear} Roster
                   </h2>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-zinc-500">
                     {teamRoster.length} Players
                   </p>
                 </div>
+                {/* Sort controls */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { key: 'position', label: 'POS' },
+                    { key: 'name', label: 'A-Z' },
+                    { key: 'class', label: 'YR' }
+                  ].map(({ key, label }) => (
+                    <button
+                      key={key}
+                      onClick={() => handleRosterSort(key)}
+                      className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                        rosterSort === key
+                          ? 'bg-zinc-700 text-white'
+                          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+                      }`}
+                    >
+                      {label}
+                      {rosterSort === key && (
+                        <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="max-h-[420px] overflow-y-auto">
                 {teamRoster.length > 0 ? (
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-gray-50">
-                      <tr className="border-b border-gray-200">
-                        <th
-                          className="text-left py-2 px-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
-                          onClick={() => handleRosterSort('name')}
-                        >
-                          <div className="flex items-center gap-1">
-                            <span
-                              className="text-xs text-gray-400 cursor-pointer hover:text-gray-600"
-                              onClick={(e) => { e.stopPropagation(); handleRosterSort('jerseyNumber'); }}
-                            >
-                              #
-                              {rosterSort === 'jerseyNumber' && (
-                                <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                              )}
-                            </span>
-                            <span>Player</span>
-                            {rosterSort === 'name' && (
-                              <span className="text-xs">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                            )}
-                          </div>
-                        </th>
-                        <th
-                          className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
-                          onClick={() => handleRosterSort('position')}
-                        >
-                          Pos
-                          {rosterSort === 'position' && (
-                            <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </th>
-                        <th className="text-center py-2 px-2 font-semibold text-gray-600 w-12">OVR</th>
-                        <th
-                          className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
-                          onClick={() => handleRosterSort('class')}
-                        >
-                          Yr
-                          {rosterSort === 'class' && (
-                            <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortRoster(teamRoster).map((player, idx) => (
-                        <tr
-                          key={player.pid}
-                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                          onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
-                        >
-                          <td className="py-2 px-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
-                              {/* Player Image */}
-                              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
-                                {player.pictureUrl ? (
-                                  <img
-                                    src={player.pictureUrl}
-                                    alt={player.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                              <span className="font-medium text-gray-900 truncate">{player.name}</span>
+                  <div className="divide-y divide-zinc-800/50">
+                    {sortRoster(teamRoster).map((player) => (
+                      <div
+                        key={player.pid}
+                        onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
+                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all hover:bg-zinc-800/60 group"
+                      >
+                        {/* Jersey Number */}
+                        <span className="text-xs font-mono text-zinc-600 w-6 text-right">{player.jerseyNumber || '--'}</span>
+
+                        {/* Player Image */}
+                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600 transition-all" style={{ backgroundColor: '#27272a' }}>
+                          {player.pictureUrl ? (
+                            <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <svg className="w-5 h-5 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                              </svg>
                             </div>
-                          </td>
-                          <td className="text-center py-2 px-2 text-gray-600">{player.position}</td>
-                          <td className="text-center py-2 px-2 font-semibold text-gray-900">{player.overall || '-'}</td>
-                          <td className="text-center py-2 px-2 text-gray-600 text-xs">{player.year || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          )}
+                        </div>
+
+                        {/* Name & Position */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-zinc-100 truncate group-hover:text-white transition-colors">
+                            {player.name}
+                          </div>
+                          <div className="text-xs text-zinc-500 mt-0.5">
+                            <span className="font-medium text-zinc-400">{player.position}</span>
+                            <span className="mx-1.5">·</span>
+                            <span>{player.year || '-'}</span>
+                          </div>
+                        </div>
+
+                        {/* Overall Rating */}
+                        <div className="text-lg font-bold text-zinc-100">{player.overall || '--'}</div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <p className="text-sm text-gray-500 text-center py-8">
+                  <p className="text-sm text-zinc-500 text-center py-8">
                     No players on roster yet
                   </p>
                 )}
@@ -7428,25 +7549,25 @@ export default function Dashboard() {
         {/* Right Column: Schedule */}
         <div>
           {/* Schedule Section */}
-      <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
         {/* Team color accent bar */}
         <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
 
         {/* Schedule Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+        <div className="px-4 sm:px-6 py-4" style={{ borderBottom: '1px solid #27272a' }}>
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+              <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
                 {currentDynasty.currentYear} Schedule
               </h2>
-              <p className="text-sm text-gray-500">
-                {wins}-{losses} Record
+              <p className="text-sm text-zinc-500">
+                <span className="font-display font-semibold text-zinc-300">{wins}-{losses}</span> Record
               </p>
             </div>
             {!isViewOnly && (
               <button
                 onClick={() => setShowScheduleModal(true)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-xl hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300"
                 title="Edit Schedule"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -7472,13 +7593,14 @@ export default function Dashboard() {
                   return (
                     <div
                       key={weekNum}
-                      className="rounded-lg overflow-hidden border border-gray-100"
+                      className="rounded-xl overflow-hidden"
+                      style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}
                     >
                       <div className="flex items-center w-full overflow-hidden">
-                        <div className="flex-1 flex items-center justify-center py-1 sm:py-1.5 px-2 sm:px-4 bg-gray-50">
-                          <span className="text-xs sm:text-sm font-semibold text-gray-400">BYE WEEK</span>
+                        <div className="flex-1 flex items-center justify-center py-1.5 sm:py-2 px-2 sm:px-4">
+                          <span className="font-display text-xs sm:text-sm font-semibold text-zinc-600">BYE WEEK</span>
                         </div>
-                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-1 sm:py-1.5 font-bold text-[9px] sm:text-xs bg-gray-100 text-gray-500">
+                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-1.5 sm:py-2 font-display font-bold text-[9px] sm:text-xs" style={{ backgroundColor: '#27272a', color: '#71717a' }}>
                           Wk {weekNum}
                         </div>
                       </div>
@@ -7503,8 +7625,8 @@ export default function Dashboard() {
                   if (isInsideLink) {
                     return (
                       <div
-                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white cursor-pointer"
-                        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
+                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.95)', padding: '4px' }}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
                       >
                         {children}
@@ -7514,8 +7636,8 @@ export default function Dashboard() {
                   return (
                     <Link
                       to={teamPageUrl}
-                      className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform bg-white"
-                      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
+                      className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: 'rgba(255,255,255,0.95)', padding: '4px' }}
                     >
                       {children}
                     </Link>
@@ -7600,14 +7722,20 @@ export default function Dashboard() {
 
                     {/* Week/Result Badge - Now on right */}
                     <div
-                      className={`w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm ${
+                      className={`w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-display font-bold text-[10px] sm:text-sm ${
                         entry.isPlayed
-                          ? (isWin ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
+                          ? (isWin ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white')
                           : isCurrentWeek
                             ? 'text-white'
-                            : 'bg-gray-100 text-gray-500'
+                            : ''
                       }`}
-                      style={isCurrentWeek && !entry.isPlayed ? { backgroundColor: teamColors.primary } : {}}
+                      style={
+                        entry.isPlayed
+                          ? {}
+                          : isCurrentWeek
+                            ? { backgroundColor: teamColors.primary }
+                            : { backgroundColor: '#27272a', color: '#71717a' }
+                      }
                     >
                       {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${weekNum}`}
                     </div>
@@ -7619,7 +7747,8 @@ export default function Dashboard() {
                     <Link
                       key={weekNum}
                       to={`${pathPrefix}/game/${playedGame.id}`}
-                      className="block rounded-lg overflow-hidden hover:bg-gray-100 transition-all duration-200 border border-gray-100"
+                      className="block rounded-xl overflow-hidden transition-all duration-200 hover:ring-2 hover:ring-zinc-600"
+                      style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}
                     >
                       {renderGameContent(true)}
                     </Link>
@@ -7629,8 +7758,12 @@ export default function Dashboard() {
                 return (
                   <div
                     key={weekNum}
-                    className={`rounded-lg overflow-hidden border ${isCurrentWeek ? 'border-2' : 'border-gray-100'}`}
-                    style={isCurrentWeek ? { borderColor: teamColors.primary } : {}}
+                    className={`rounded-xl overflow-hidden ${isCurrentWeek ? 'ring-2' : ''}`}
+                    style={{
+                      backgroundColor: '#1f1f23',
+                      border: '1px solid #27272a',
+                      ...(isCurrentWeek ? { ringColor: teamColors.primary, boxShadow: `0 0 15px ${teamColors.primary}40` } : {})
+                    }}
                   >
                     {renderGameContent(false)}
                   </div>
@@ -8218,15 +8351,15 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <div className="text-gray-300 mb-4">
+            <div className="text-zinc-600 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium mb-2 text-gray-900">
+            <h3 className="font-display text-lg font-medium mb-2 text-zinc-100">
               No Schedule Yet
             </h3>
-            <p className="text-gray-500">
+            <p className="text-zinc-500">
               Add your season schedule to get started.
             </p>
           </div>
@@ -8238,102 +8371,79 @@ export default function Dashboard() {
 
         {/* Roster Section - Mobile Only (below schedule) */}
         <div className="lg:hidden">
-          <div className="bg-white rounded-xl overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
             <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
-            <div className="px-4 sm:px-6 py-4 border-b border-gray-100">
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
               <div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                <h2 className="font-display text-base font-bold text-zinc-100">
                   {currentDynasty.currentYear} Roster
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-zinc-500">
                   {teamRoster.length} Players
                 </p>
               </div>
+              {/* Sort controls */}
+              <div className="flex items-center gap-1">
+                {[
+                  { key: 'position', label: 'POS' },
+                  { key: 'name', label: 'A-Z' }
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleRosterSort(key)}
+                    className={`px-2 py-1 text-[10px] font-medium rounded transition-colors ${
+                      rosterSort === key
+                        ? 'bg-zinc-700 text-white'
+                        : 'text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="max-h-[400px] overflow-y-auto">
+            <div className="max-h-[350px] overflow-y-auto">
               {teamRoster.length > 0 ? (
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-gray-50">
-                    <tr className="border-b border-gray-200">
-                      <th
-                        className="text-left py-2 px-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-100 select-none"
-                        onClick={() => handleRosterSort('name')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span
-                            className="text-xs text-gray-400 cursor-pointer hover:text-gray-600"
-                            onClick={(e) => { e.stopPropagation(); handleRosterSort('jerseyNumber'); }}
-                          >
-                            #
-                            {rosterSort === 'jerseyNumber' && (
-                              <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                            )}
-                          </span>
-                          <span>Player</span>
-                          {rosterSort === 'name' && (
-                            <span className="text-xs">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                          )}
-                        </div>
-                      </th>
-                      <th
-                        className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
-                        onClick={() => handleRosterSort('position')}
-                      >
-                        Pos
-                        {rosterSort === 'position' && (
-                          <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </th>
-                      <th className="text-center py-2 px-2 font-semibold text-gray-600 w-12">OVR</th>
-                      <th
-                        className="text-center py-2 px-2 font-semibold text-gray-600 w-12 cursor-pointer hover:bg-gray-100 select-none"
-                        onClick={() => handleRosterSort('class')}
-                      >
-                        Yr
-                        {rosterSort === 'class' && (
-                          <span className="text-xs ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortRoster(teamRoster).map((player, idx) => (
-                      <tr
-                        key={player.pid}
-                        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
-                      >
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-400 w-5">{player.jerseyNumber || '-'}</span>
-                            {/* Player Image */}
-                            <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 bg-gray-200">
-                              {player.pictureUrl ? (
-                                <img
-                                  src={player.pictureUrl}
-                                  alt={player.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                  </svg>
-                                </div>
-                              )}
-                            </div>
-                            <span className="font-medium text-gray-900 truncate">{player.name}</span>
+                <div className="divide-y divide-zinc-800/50">
+                  {sortRoster(teamRoster).map((player) => (
+                    <div
+                      key={player.pid}
+                      onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
+                      className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all active:bg-zinc-800/60"
+                    >
+                      {/* Jersey Number */}
+                      <span className="text-[10px] font-mono text-zinc-600 w-5 text-right">{player.jerseyNumber || '--'}</span>
+
+                      {/* Player Image */}
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700" style={{ backgroundColor: '#27272a' }}>
+                        {player.pictureUrl ? (
+                          <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
                           </div>
-                        </td>
-                        <td className="text-center py-2 px-2 text-gray-600">{player.position}</td>
-                        <td className="text-center py-2 px-2 font-semibold text-gray-900">{player.overall || '-'}</td>
-                        <td className="text-center py-2 px-2 text-gray-600 text-xs">{player.year || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        )}
+                      </div>
+
+                      {/* Name & Position */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-zinc-100 truncate">{player.name}</div>
+                        <div className="text-[10px] text-zinc-500 mt-0.5">
+                          <span className="font-medium text-zinc-400">{player.position}</span>
+                          <span className="mx-1">·</span>
+                          <span>{player.year || '-'}</span>
+                        </div>
+                      </div>
+
+                      {/* Overall Rating */}
+                      <div className="text-base font-bold text-zinc-100">{player.overall || '--'}</div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <p className="text-sm text-gray-500 text-center py-8">
+                <p className="text-sm text-zinc-500 text-center py-8">
                   No players on roster yet
                 </p>
               )}

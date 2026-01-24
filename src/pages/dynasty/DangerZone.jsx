@@ -9,7 +9,7 @@ import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
-import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
+import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
 
 export default function DangerZone() {
   const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly } = useDynasty()
@@ -496,7 +496,32 @@ export default function DangerZone() {
         console.log(`[CFP Repair] Phase 3: Re-propagated ${propagatedCount} winners`)
       }
 
-      const totalFixed = fixedCount + seedsFixedCount + propagatedCount
+      // PHASE 4: Fix bowl names based on user's configuration
+      // Ensures bowl names match cfpBowlConfigByYear (single source of truth)
+      let bowlNamesFixedCount = 0
+      gamesAfterPropagation = gamesAfterPropagation.map(game => {
+        // Only process CFP games with cfpSlot
+        if (!game.cfpSlot) return game
+        if (!game.isCFPQuarterfinal && !game.isCFPSemifinal) return game // Only QF and SF have bowl names
+
+        const year = game.year
+        const bowlConfig = cfpBowlConfigByYear[year] || DEFAULT_BOWL_CONFIG
+        const correctBowlName = getBowlForSlot(game.cfpSlot, bowlConfig)
+
+        if (correctBowlName && game.bowlName !== correctBowlName) {
+          console.log(`[CFP Repair] Bowl name fix: ${game.cfpSlot} "${game.bowlName}" -> "${correctBowlName}"`)
+          bowlNamesFixedCount++
+          return { ...game, bowlName: correctBowlName }
+        }
+
+        return game
+      })
+
+      if (bowlNamesFixedCount > 0) {
+        console.log(`[CFP Repair] Phase 4: Fixed ${bowlNamesFixedCount} bowl names`)
+      }
+
+      const totalFixed = fixedCount + seedsFixedCount + propagatedCount + bowlNamesFixedCount
       if (totalFixed > 0) {
         const updates = { games: gamesAfterPropagation }
         // Also update seeds if any were fixed
@@ -508,7 +533,8 @@ export default function DangerZone() {
         if (fixedCount > 0) messages.push(`${fixedCount} games`)
         if (seedsFixedCount > 0) messages.push(`${seedsFixedCount} seeds`)
         if (propagatedCount > 0) messages.push(`${propagatedCount} propagations`)
-        setCfpRepairStatus({ success: true, message: `Fixed ${messages.join(' and ')} across ${checkedCount} CFP games` })
+        if (bowlNamesFixedCount > 0) messages.push(`${bowlNamesFixedCount} bowl names`)
+        setCfpRepairStatus({ success: true, message: `Fixed ${messages.join(', ')} across ${checkedCount} CFP games` })
       } else {
         setCfpRepairStatus({ success: true, message: `All ${checkedCount} CFP games are correctly aligned!` })
       }
@@ -634,7 +660,7 @@ export default function DangerZone() {
             <div><strong>Fix Roster:</strong> Departed players still showing on roster</div>
             <div><strong>Sync Recruiting:</strong> Missing data on recruiting pages</div>
             <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
-            <div><strong>Repair CFP:</strong> Clicking CFP games opens wrong game page</div>
+            <div><strong>Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
             <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
             <div><strong>Database Migration:</strong> "Exceeds maximum size" errors</div>
@@ -685,7 +711,7 @@ export default function DangerZone() {
           />
           <ActionCard
             title="Repair CFP Games"
-            description="Fixes misaligned CFP bracket slots and game links"
+            description="Fixes misaligned CFP bracket slots, bowl names, and game links"
             buttonText="Repair CFP"
             onClick={handleRepairCFPGames}
             status={cfpRepairStatus}

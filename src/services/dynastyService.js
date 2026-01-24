@@ -318,44 +318,29 @@ export async function savePlayerToSubcollection(dynastyId, player) {
 
 /**
  * Save multiple players to the players subcollection using batch writes
- * Also deletes any orphaned player documents that are no longer in the array
+ * IMPORTANT: Does NOT delete orphaned players - that must be done explicitly via deletePlayerFromSubcollection
+ * This prevents accidental data loss from race conditions or incomplete player arrays
  * @param {string} dynastyId - The dynasty document ID
  * @param {Array} players - Array of player objects
  */
 export async function savePlayersToSubcollection(dynastyId, players) {
   try {
-    // Handle empty array case - still need to potentially delete orphans
+    // Handle empty array case - do nothing, don't delete existing players
     const playersToSave = players || []
 
-    // Get current IDs in subcollection to find orphans
-    const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-    const snapshot = await getDocs(playersRef)
-    const existingIds = new Set(snapshot.docs.map(doc => doc.id))
-
-    // Get IDs we're about to save
-    const newIds = new Set(playersToSave.filter(p => p.pid).map(p => String(p.pid)))
-
-    // Find orphaned IDs (exist in subcollection but not in our save list)
-    const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
-
-    // Delete orphaned documents
-    if (orphanedIds.length > 0) {
-      console.log(`Deleting ${orphanedIds.length} orphaned player documents`)
-      for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db)
-        const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
-
-        for (const id of batchIds) {
-          const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id)
-          batch.delete(playerRef)
-        }
-
-        await batch.commit()
-      }
+    // SAFETY: Never save an empty array - this indicates a bug, not intentional deletion
+    if (playersToSave.length === 0) {
+      console.warn('[savePlayersToSubcollection] Received empty players array - skipping to prevent data loss')
+      return
     }
 
-    // Save players (skip if empty)
-    if (playersToSave.length === 0) return
+    // SAFETY: Log player count for debugging data loss issues
+    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}`)
+
+    // NOTE: Orphan deletion has been REMOVED to prevent data loss
+    // If players are not in the save list, they remain in Firestore
+    // Use deletePlayerFromSubcollection() explicitly to remove players
+    // This prevents race conditions from accidentally deleting player data
 
     // Process in batches of BATCH_SIZE
     for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {
@@ -376,6 +361,8 @@ export async function savePlayersToSubcollection(dynastyId, players) {
 
       await batch.commit()
     }
+
+    console.log(`[savePlayersToSubcollection] Successfully saved ${playersToSave.length} players`)
   } catch (error) {
     console.error('Error saving players to subcollection:', error)
     throw error
@@ -420,39 +407,46 @@ export async function saveGameToSubcollection(dynastyId, game) {
 
 /**
  * Save multiple games to the games subcollection using batch writes
- * Also deletes any orphaned game documents that are no longer in the array
+ * IMPORTANT: Only deletes orphans if explicitly requested - partial updates are safe by default
  * @param {string} dynastyId - The dynasty document ID
  * @param {Array} games - Array of game objects
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.deleteOrphans - If true, deletes games not in the array (DANGEROUS - only use for full sync)
  */
-export async function saveGamesToSubcollection(dynastyId, games) {
+export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
+  const { deleteOrphans = false } = options
+
   try {
-    // Handle empty array case - still need to potentially delete orphans
+    // Handle empty array case
     const gamesToSave = games || []
 
-    // Get current IDs in subcollection to find orphans
-    const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
-    const snapshot = await getDocs(gamesRef)
-    const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+    // Only check for orphans if explicitly requested (full sync operations only)
+    if (deleteOrphans) {
+      // Get current IDs in subcollection to find orphans
+      const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
+      const snapshot = await getDocs(gamesRef)
+      const existingIds = new Set(snapshot.docs.map(doc => doc.id))
 
-    // Get IDs we're about to save
-    const newIds = new Set(gamesToSave.filter(g => g.id).map(g => String(g.id)))
+      // Get IDs we're about to save
+      const newIds = new Set(gamesToSave.filter(g => g.id).map(g => String(g.id)))
 
-    // Find orphaned IDs (exist in subcollection but not in our save list)
-    const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
+      // Find orphaned IDs (exist in subcollection but not in our save list)
+      const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
 
-    // Delete orphaned documents
-    if (orphanedIds.length > 0) {
-      console.log(`Deleting ${orphanedIds.length} orphaned game documents`)
-      for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db)
-        const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
+      // Delete orphaned documents
+      if (orphanedIds.length > 0) {
+        console.log(`[saveGamesToSubcollection] Deleting ${orphanedIds.length} orphaned game documents (deleteOrphans=true)`)
+        for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+          const batch = writeBatch(db)
+          const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
 
-        for (const id of batchIds) {
-          const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id)
-          batch.delete(gameRef)
+          for (const id of batchIds) {
+            const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id)
+            batch.delete(gameRef)
+          }
+
+          await batch.commit()
         }
-
-        await batch.commit()
       }
     }
 

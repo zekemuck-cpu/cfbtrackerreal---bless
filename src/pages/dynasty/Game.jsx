@@ -13,7 +13,7 @@ import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../.
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
-import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
+import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 
 // Map abbreviations to mascot names for logo lookup
@@ -209,6 +209,10 @@ export default function Game() {
   // Box score sort state: { column: string | null, direction: 'asc' | 'desc' | null }
   const [homeSortConfig, setHomeSortConfig] = useState({ column: null, direction: null })
   const [awaySortConfig, setAwaySortConfig] = useState({ column: null, direction: null })
+  // Collapsible sections
+  const [scoringPlaysExpanded, setScoringPlaysExpanded] = useState(true)
+  // Game details tab state
+  const [activeDetailsTab, setActiveDetailsTab] = useState('ratings')
 
   // AI Recap state
   const { user } = useAuth()
@@ -311,6 +315,49 @@ export default function Game() {
     return baseHeaders
   }
 
+  // Check if a stat value is exceptional and return highlight class
+  const getStatHighlight = (statTab, key, value) => {
+    const numVal = parseFloat(value) || 0
+    // Thresholds for exceptional performances
+    const thresholds = {
+      passing: {
+        yards: 300,
+        tDs: 3,
+        qBRating: 150
+      },
+      rushing: {
+        yards: 100,
+        tDs: 2
+      },
+      receiving: {
+        yards: 100,
+        tDs: 2
+      },
+      defense: {
+        total: 10,
+        sacks: 2,
+        iNTs: 1,
+        fR: 1
+      },
+      kicking: {
+        fGM: 3,
+        points: 10
+      },
+      punting: {
+        avg: 45
+      }
+    }
+
+    const tabThresholds = thresholds[statTab]
+    if (!tabThresholds) return null
+
+    const threshold = tabThresholds[key]
+    if (threshold && numVal >= threshold) {
+      return 'exceptional'
+    }
+    return null
+  }
+
   // Scroll to top when page loads
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -331,19 +378,13 @@ export default function Game() {
     if (cfpParsed) {
       const { slotId, year } = cfpParsed
       const roundInfo = getCFPRoundInfo(slotId)
-      const displayName = getCFPSlotDisplayName(slotId)
 
-      // Define bowl name mappings
-      const qfBowlNames = {
-        cfpqf1: 'Sugar Bowl',
-        cfpqf2: 'Orange Bowl',
-        cfpqf3: 'Rose Bowl',
-        cfpqf4: 'Cotton Bowl'
-      }
-      const sfBowlNames = {
-        cfpsf1: 'Peach Bowl',
-        cfpsf2: 'Fiesta Bowl'
-      }
+      // Get bowl name from dynasty's configuration (user picks these in CFPSeedsModal)
+      // This is the SINGLE SOURCE OF TRUTH for bowl names
+      const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[year] || DEFAULT_BOWL_CONFIG
+      const configuredBowlName = getBowlForSlot(slotId, bowlConfig)
+      const displayName = configuredBowlName || getCFPSlotDisplayName(slotId)
+
       const frSeedMatchups = {
         cfpfr1: [5, 12],
         cfpfr2: [8, 9],
@@ -351,8 +392,20 @@ export default function Game() {
         cfpfr4: [7, 10]
       }
 
-      // FIRST: Check games[] array for user's game with matching CFP properties
-      // User's CFP games are stored with unique IDs but have isCFPQuarterfinal, bowlName, etc.
+      // PRIMARY: Look up by cfpSlot - the definitive identifier for bracket position
+      // cfpSlot is set when shells are created and NEVER changes
+      found = currentDynasty.games.find(g =>
+        g.cfpSlot === slotId && Number(g.year) === year
+      )
+      if (found) {
+        // Update bowlName from config if it differs (ensures single source of truth)
+        if (configuredBowlName && found.bowlName !== configuredBowlName) {
+          return { ...found, bowlName: configuredBowlName }
+        }
+        return found
+      }
+
+      // SECONDARY: Fallback lookups for legacy data without cfpSlot
       if (slotId.startsWith('cfpfr')) {
         const [seed1, seed2] = frSeedMatchups[slotId] || []
         found = currentDynasty.games.find(g =>
@@ -361,17 +414,18 @@ export default function Game() {
         )
         if (found) return found
       } else if (slotId.startsWith('cfpqf')) {
-        const targetBowl = qfBowlNames[slotId]
+        // Find by round type and year, then verify by bye seed if possible
         found = currentDynasty.games.find(g =>
-          g.isCFPQuarterfinal && Number(g.year) === year && g.bowlName === targetBowl
+          g.isCFPQuarterfinal && Number(g.year) === year &&
+          (g.cfpSlot === slotId || g.id === `${slotId}-${year}`)
         )
-        if (found) return found
+        if (found) return { ...found, bowlName: configuredBowlName || found.bowlName }
       } else if (slotId.startsWith('cfpsf')) {
-        const targetBowl = sfBowlNames[slotId]
         found = currentDynasty.games.find(g =>
-          g.isCFPSemifinal && Number(g.year) === year && g.bowlName === targetBowl
+          g.isCFPSemifinal && Number(g.year) === year &&
+          (g.cfpSlot === slotId || g.id === `${slotId}-${year}`)
         )
-        if (found) return found
+        if (found) return { ...found, bowlName: configuredBowlName || found.bowlName }
       } else if (slotId === 'cfpnc') {
         found = currentDynasty.games.find(g =>
           g.isCFPChampionship && Number(g.year) === year
@@ -379,7 +433,7 @@ export default function Game() {
         if (found) return found
       }
 
-      // FALLBACK: Check cfpResultsByYear for CPU vs CPU games
+      // FALLBACK: Check cfpResultsByYear for CPU vs CPU games (legacy data)
       const cfpResults = currentDynasty.cfpResultsByYear?.[year] || {}
       let cfpGame = null
 
@@ -391,13 +445,14 @@ export default function Game() {
           (g.seed1 === seed2 && g.seed2 === seed1)
         ))
       } else if (slotId.startsWith('cfpqf')) {
-        const targetBowl = qfBowlNames[slotId]
+        // For legacy data, try to match by cfpSlot first, then fall back to any QF game
         const qfGames = cfpResults.quarterfinals || []
-        cfpGame = qfGames.find(g => g && g.bowlName === targetBowl)
+        cfpGame = qfGames.find(g => g && g.cfpSlot === slotId) ||
+                  qfGames.find(g => g && g.id === `${slotId}-${year}`)
       } else if (slotId.startsWith('cfpsf')) {
-        const targetBowl = sfBowlNames[slotId]
         const sfGames = cfpResults.semifinals || []
-        cfpGame = sfGames.find(g => g && g.bowlName === targetBowl)
+        cfpGame = sfGames.find(g => g && g.cfpSlot === slotId) ||
+                  sfGames.find(g => g && g.id === `${slotId}-${year}`)
       } else if (slotId === 'cfpnc') {
         const champArray = cfpResults.championship || []
         cfpGame = Array.isArray(champArray) ? champArray[0] : champArray
@@ -411,10 +466,11 @@ export default function Game() {
           id: gameId,
           year,
           isPlayoff: true,
+          cfpSlot: slotId,
           // userTeam field indicates user involvement (no field = CPU game)
           ...(isUserGame && { userTeam: userTeamAbbr }),
           gameTitle: displayName,
-          bowlName: displayName,
+          bowlName: configuredBowlName || displayName,
           ...roundInfo
         }
       }
@@ -925,12 +981,12 @@ export default function Game() {
       : `linear-gradient(90deg, ${leftData.colors.primary} 0%, ${leftData.colors.primary} 15%, ${rightData.colors.primary} 45%, ${rightData.colors.primary} 100%)`
 
   return (
-    <div className="space-y-4">
-      {/* Compact Header Bar */}
-      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-lg">
+    <div className="space-y-4 overflow-x-hidden">
+      {/* Hero Scoreboard */}
+      <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
         {/* Top bar with game info and navigation */}
         <div
-          className="px-3 py-2 sm:px-4 sm:py-2.5 flex items-center justify-between"
+          className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between"
           style={{ background: headerGradient }}
         >
           {/* Invisible placeholder to balance Edit button on right */}
@@ -943,7 +999,7 @@ export default function Game() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             {eventLogo && (
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-white rounded p-0.5 shadow">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-white rounded-lg p-0.5 shadow-lg">
                 <img src={eventLogo} alt="Event" className="w-full h-full object-contain" />
               </div>
             )}
@@ -955,29 +1011,29 @@ export default function Game() {
                 to={`${pathPrefix}/cfp-bracket/${game.year}`}
                 className="text-white text-center hover:underline"
               >
-                <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
+                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
               </Link>
             ) : game.isConferenceChampionship ? (
               <Link
                 to={`${pathPrefix}/conference-championship-history?conference=${encodeURIComponent(game.conference || '')}`}
                 className="text-white text-center hover:underline"
               >
-                <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
+                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
               </Link>
             ) : game.isBowlGame ? (
               <Link
                 to={`${pathPrefix}/bowl-history?bowl=${encodeURIComponent(game.bowlName || gameTitle)}`}
                 className="text-white text-center hover:underline"
               >
-                <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
+                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
               </Link>
             ) : (
               <div className="text-white text-center">
-                <div className="text-sm sm:text-base font-bold">{gameTitle}</div>
-                <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+                <div className="text-sm sm:text-lg font-bold drop-shadow-md">{gameTitle}</div>
+                <div className="text-[10px] sm:text-xs opacity-90">{gameSubtitle}</div>
               </div>
             )}
           </div>
@@ -985,7 +1041,7 @@ export default function Game() {
           {!isViewOnly ? (
             <button
               onClick={() => navigate(`${pathPrefix}/game/${gameId}/edit`, { state: { from: routeLocation.pathname } })}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs sm:text-sm bg-black/20 text-white hover:bg-black/30 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-white/20 text-white hover:bg-white/30 transition-colors backdrop-blur-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -993,7 +1049,6 @@ export default function Game() {
               <span className="hidden sm:inline">Edit</span>
             </button>
           ) : (
-            /* Invisible placeholder to keep title centered in view-only mode */
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 invisible">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -1003,83 +1058,136 @@ export default function Game() {
           )}
         </div>
 
-        {/* Compact Scoreboard */}
-        <div className="px-4 py-4 sm:px-6 sm:py-5">
-          <div className="flex items-center justify-center gap-4 sm:gap-8">
+        {/* Hero Scoreboard Content */}
+        <div className="px-1 py-3 sm:px-8 sm:py-8 md:py-10">
+          <div className="flex items-center justify-between gap-1 sm:gap-6 md:gap-10 max-w-full">
             {/* Left Team */}
-            <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div
-                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center p-1.5 sm:p-2 group-hover:scale-105 transition-transform shadow-lg flex-shrink-0 bg-white"
-                >
-                  {leftData.logo && (
-                    <img src={leftData.logo} alt={leftData.name} className="w-full h-full object-contain" />
+            <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 min-w-0">
+              <div className="flex flex-col items-center sm:flex-row sm:items-center gap-1 sm:gap-4">
+                {/* Logo - larger for hero effect */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                    style={{
+                      boxShadow: leftData.isWinner && gameIsPlayed
+                        ? `0 0 30px ${leftData.colors.primary}60, 0 8px 32px rgba(0,0,0,0.4)`
+                        : '0 8px 32px rgba(0,0,0,0.4)'
+                    }}
+                  >
+                    {leftData.logo && (
+                      <img src={leftData.logo} alt={leftData.name} className="w-full h-full object-contain" />
+                    )}
+                  </div>
+                  {/* CFP Seed Badge */}
+                  {isCFPGame && (leftTeam === 'user' ? userSeed : oppSeed) && (
+                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border sm:border-2 border-gray-900">
+                      <span className="text-[8px] sm:text-xs font-black text-gray-900">{leftTeam === 'user' ? userSeed : oppSeed}</span>
+                    </div>
                   )}
                 </div>
-                <div>
-                  <div className="text-white font-bold text-xs sm:text-sm md:text-base group-hover:underline">
-                    <span className="sm:hidden">{leftData.rank ? `#${leftData.rank} ` : ''}{leftData.abbr}</span>
-                    <span className="hidden sm:inline">{leftData.rank ? `#${leftData.rank} ` : ''}{leftData.name}</span>
+                <div className="text-center sm:text-left min-w-0">
+                  {/* Rank badge */}
+                  {leftData.rank && !isCFPGame && (
+                    <div className="text-yellow-500 text-[9px] sm:text-xs font-bold mb-0.5">#{leftData.rank}</div>
+                  )}
+                  <div className="text-white font-bold text-[8px] sm:text-xs md:text-sm lg:text-xl group-hover:underline leading-tight">
+                    {leftData.name}
                   </div>
                   {leftData.record && (
-                    <div className="text-gray-400 text-[10px] sm:text-xs">{leftData.record}</div>
+                    <div className="text-gray-400 text-[9px] sm:text-xs mt-0.5">{leftData.record}</div>
                   )}
                 </div>
               </div>
             </Link>
 
-            {/* Scores */}
-            {gameIsPlayed ? (
-                <div className="flex items-center gap-3 sm:gap-5">
+            {/* Scores - Center */}
+            <div className="flex-shrink-0 px-1">
+              {gameIsPlayed ? (
+                <div className="flex items-center gap-1.5 sm:gap-6">
                   <div className="text-center">
-                    <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                    <div
+                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                      style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                    >
                       {leftData.score}
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-xs font-medium text-gray-500">FINAL</span>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div
+                      className="px-1.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[8px] sm:text-xs font-bold uppercase tracking-wider"
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.8)'
+                      }}
+                    >
+                      Final
+                    </div>
                     {game.overtimes && game.overtimes.length > 0 && (
-                      <span className="text-gray-400 text-[10px] font-bold">
+                      <span className="text-yellow-500 text-[8px] sm:text-xs font-bold">
                         {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
                       </span>
                     )}
                   </div>
 
                   <div className="text-center">
-                    <div className={`text-3xl sm:text-4xl md:text-5xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                    <div
+                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                      style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                    >
                       {rightData.score}
                     </div>
                   </div>
                 </div>
-            ) : (
-              <div className="flex flex-col items-center py-2">
-                <span className="text-sm font-bold text-yellow-500">UPCOMING</span>
-              </div>
-            )}
+              ) : (
+                <div className="flex flex-col items-center py-2 sm:py-4">
+                  <div className="px-2 py-1 sm:px-4 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+                    <span className="text-xs sm:text-sm font-bold text-yellow-400">UPCOMING</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Right Team */}
-            <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1">
-              <div className="flex items-center justify-end gap-2 sm:gap-3">
-                <div className="text-right">
-                  <div className="text-white font-bold text-xs sm:text-sm md:text-base group-hover:underline">
-                    <span className="sm:hidden">{rightData.rank ? `#${rightData.rank} ` : ''}{rightData.abbr}</span>
-                    <span className="hidden sm:inline">{rightData.rank ? `#${rightData.rank} ` : ''}{rightData.name}</span>
+            <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 min-w-0">
+              <div className="flex flex-col items-center sm:flex-row-reverse sm:items-center gap-1 sm:gap-4">
+                {/* Logo - larger for hero effect */}
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                    style={{
+                      boxShadow: rightData.isWinner && gameIsPlayed
+                        ? `0 0 30px ${rightData.colors.primary}60, 0 8px 32px rgba(0,0,0,0.4)`
+                        : '0 8px 32px rgba(0,0,0,0.4)'
+                    }}
+                  >
+                    {rightData.logo && (
+                      <img src={rightData.logo} alt={rightData.name} className="w-full h-full object-contain" />
+                    )}
                   </div>
-                  {rightData.record && (
-                    <div className="text-gray-400 text-[10px] sm:text-xs">{rightData.record}</div>
+                  {/* CFP Seed Badge */}
+                  {isCFPGame && (rightTeam === 'user' ? userSeed : oppSeed) && (
+                    <div className="absolute -top-0.5 -left-0.5 sm:-top-1 sm:-left-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border sm:border-2 border-gray-900">
+                      <span className="text-[8px] sm:text-xs font-black text-gray-900">{rightTeam === 'user' ? userSeed : oppSeed}</span>
+                    </div>
                   )}
                 </div>
-                <div
-                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center p-1.5 sm:p-2 group-hover:scale-105 transition-transform shadow-lg flex-shrink-0 bg-white"
-                >
-                  {rightData.logo && (
-                    <img src={rightData.logo} alt={rightData.name} className="w-full h-full object-contain" />
+                <div className="text-center sm:text-right min-w-0">
+                  {/* Rank badge */}
+                  {rightData.rank && !isCFPGame && (
+                    <div className="text-yellow-500 text-[9px] sm:text-xs font-bold mb-0.5">#{rightData.rank}</div>
+                  )}
+                  <div className="text-white font-bold text-[8px] sm:text-xs md:text-sm lg:text-xl group-hover:underline leading-tight">
+                    {rightData.name}
+                  </div>
+                  {rightData.record && (
+                    <div className="text-gray-400 text-[9px] sm:text-xs mt-0.5">{rightData.record}</div>
                   )}
                 </div>
               </div>
             </Link>
           </div>
+
         </div>
       </div>
 
@@ -1156,6 +1264,223 @@ export default function Game() {
           </div>
         </div>
       )}
+
+      {/* Scoring Plays - Collapsible, moved above game recap for prominence */}
+      {game.boxScore?.scoringSummary?.length > 0 && (() => {
+        // Check if play is a standalone 2PT attempt (no scorer, 2PT mentioned in scoreType or patResult)
+        const is2PTAttempt = (play) => {
+          if (play.scorer) return false
+          const scoreType = play.scoreType || ''
+          const patResult = play.patResult || ''
+          return scoreType.includes('2PT') || patResult.includes('2PT')
+        }
+
+        // Check if 2PT was converted (check both fields)
+        const is2PTConverted = (play) => {
+          const scoreType = play.scoreType || ''
+          const patResult = play.patResult || ''
+          return scoreType.includes('Converted') || patResult.includes('Converted')
+        }
+
+        // Calculate points for a play
+        const getPlayPoints = (play) => {
+          const scoreType = play.scoreType || ''
+          const patResult = play.patResult || ''
+
+          // TD-based plays (but not standalone 2PT which might have "2PT" in scoreType)
+          if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
+            let points = 6
+            if (patResult.includes('Made XP')) points += 1
+            else if (patResult.includes('Converted 2PT')) points += 2
+            return points
+          }
+          // Field goal
+          if (scoreType === 'Field Goal') return 3
+          // Safety
+          if (scoreType === 'Safety') return 2
+          // Standalone 2PT conversion (no scorer, 2PT in either field)
+          if (is2PTAttempt(play)) {
+            return is2PTConverted(play) ? 2 : 0
+          }
+
+          return 0
+        }
+
+        // Calculate running scores
+        let leftRunning = 0
+        let rightRunning = 0
+        const playsWithScores = game.boxScore.scoringSummary.map((play) => {
+          const points = getPlayPoints(play)
+          const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
+          if (isLeftTeam) {
+            leftRunning += points
+          } else {
+            rightRunning += points
+          }
+          return { ...play, runningLeftScore: leftRunning, runningRightScore: rightRunning }
+        })
+
+        const playCount = playsWithScores.length
+
+        return (
+          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
+            {/* Collapsible Header */}
+            <button
+              onClick={() => setScoringPlaysExpanded(!scoringPlaysExpanded)}
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-white text-sm uppercase tracking-wide">
+                  Scoring Plays
+                </h3>
+                <span className="px-2 py-0.5 bg-gray-700 rounded-full text-xs font-medium text-gray-300">
+                  {playCount}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Mini score preview when collapsed */}
+                {!scoringPlaysExpanded && (
+                  <div className="flex items-center gap-1 mr-2 text-sm font-bold">
+                    <span className={leftData.isWinner ? 'text-white' : 'text-gray-500'}>{leftData.score}</span>
+                    <span className="text-gray-600">-</span>
+                    <span className={rightData.isWinner ? 'text-white' : 'text-gray-500'}>{rightData.score}</span>
+                  </div>
+                )}
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${scoringPlaysExpanded ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Collapsible Content */}
+            {scoringPlaysExpanded && (
+              <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+                {playsWithScores.map((play, idx) => {
+                  const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
+                  const scorerPID = getPlayerPID(play.scorer)
+                  const passerPID = play.passer ? getPlayerPID(play.passer) : null
+                  const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
+                  return (
+                    <div key={idx} className="flex items-stretch">
+                      {/* Team color bar on left */}
+                      <div
+                        className="w-1 flex-shrink-0"
+                        style={{ backgroundColor: playTeamColors.primary }}
+                      />
+                      {/* Main content with team-colored background */}
+                      <div
+                        className="flex-1 flex items-center gap-2 sm:gap-3 px-3 py-2.5 sm:py-3"
+                        style={{
+                          background: `linear-gradient(90deg, ${playTeamColors.primary}20 0%, ${playTeamColors.primary}05 50%, transparent 100%)`
+                        }}
+                      >
+                        {/* Quarter and time */}
+                        <div className="text-center flex-shrink-0 w-10 sm:w-12">
+                          <div
+                            className="text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded"
+                            style={{ backgroundColor: playTeamColors.primary + '40', color: 'white' }}
+                          >
+                            {['1', '2', '3', '4', 1, 2, 3, 4].includes(play.quarter) ? `Q${play.quarter}` : 'OT'}
+                          </div>
+                          <div className="text-gray-500 text-[10px] sm:text-xs mt-0.5 font-mono">{play.timeLeft}</div>
+                        </div>
+                        {/* Running Score */}
+                        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 min-w-[50px] sm:min-w-[60px] justify-center">
+                          <span className={`text-sm sm:text-base font-bold tabular-nums ${isLeftTeam ? 'text-white' : 'text-gray-500'}`}>
+                            {play.runningLeftScore}
+                          </span>
+                          <span className="text-gray-600 text-xs">-</span>
+                          <span className={`text-sm sm:text-base font-bold tabular-nums ${!isLeftTeam ? 'text-white' : 'text-gray-500'}`}>
+                            {play.runningRightScore}
+                          </span>
+                        </div>
+                        {/* Team logo */}
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-800/50 p-1">
+                          <img
+                            src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
+                            alt={play.team}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        {/* Play details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                            <span className="text-gray-300 text-xs sm:text-sm">
+                              {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
+                              {play.yards && <span className="text-gray-500"> ({play.yards} yds)</span>}
+                            </span>
+                            {play.patResult && !is2PTAttempt(play) && (
+                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
+                                play.patResult.includes('Made') || play.patResult.includes('Converted')
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {play.patResult}
+                              </span>
+                            )}
+                            {is2PTAttempt(play) && (
+                              <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
+                                is2PTConverted(play)
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {is2PTConverted(play) ? 'Good' : 'Failed'}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-gray-400 text-[10px] sm:text-xs mt-0.5 truncate">
+                            {is2PTAttempt(play) ? (
+                              <span>{play.patNotes || (is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed')}</span>
+                            ) : (
+                              <>
+                                {scorerPID ? (
+                                  <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium hover:underline hover:text-blue-300">
+                                    {play.scorer}
+                                  </Link>
+                                ) : <span className="font-medium">{play.scorer}</span>}
+                                {play.passer && (
+                                  <>
+                                    {' from '}
+                                    {passerPID ? (
+                                      <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium hover:underline hover:text-blue-300">
+                                        {play.passer}
+                                      </Link>
+                                    ) : <span className="font-medium">{play.passer}</span>}
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {/* Video Link Button */}
+                        {play.videoLink && (
+                          <a
+                            href={play.videoLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-shrink-0 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
+                            title="Watch video clip"
+                          >
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400 hover:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Game Recap Section - only show for played games */}
       {!isViewOnly && gameIsPlayed && (
@@ -1305,23 +1630,32 @@ export default function Game() {
               </h3>
             </div>
 
-            {/* Stat Category Tabs */}
+            {/* Stat Category Tabs with player counts */}
             <div className="flex border-b border-gray-700 overflow-x-auto">
               {STAT_TAB_ORDER.map(key => {
                 const tab = STAT_TABS[key]
-                const hasData = (game.boxScore.home?.[key]?.length > 0) || (game.boxScore.away?.[key]?.length > 0)
-                if (!hasData) return null
+                const homeCount = game.boxScore.home?.[key]?.length || 0
+                const awayCount = game.boxScore.away?.[key]?.length || 0
+                const totalCount = homeCount + awayCount
+                if (totalCount === 0) return null
                 return (
                   <button
                     key={key}
                     onClick={() => setActiveStatTab(key)}
-                    className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                    className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                       activeStatTab === key
                         ? 'text-white border-b-2 border-white bg-gray-800'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }`}
                   >
                     {tab.title}
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
+                      activeStatTab === key
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-700 text-gray-400'
+                    }`}>
+                      {totalCount}
+                    </span>
                   </button>
                 )
               })}
@@ -1358,7 +1692,7 @@ export default function Game() {
                                   <th
                                     key={idx}
                                     onClick={() => handleSort('home', columnKey)}
-                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[150px]' : 'text-center min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
+                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]' : 'text-center min-w-[40px] sm:min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
                                   >
                                     {header}{sortArrow}
                                   </th>
@@ -1385,15 +1719,29 @@ export default function Game() {
                                     value = Number(value).toFixed(1)
                                   }
                                   const playerPID = colIdx === 0 ? getPlayerPID(value) : null
+                                  const highlight = colIdx > 0 ? getStatHighlight(activeStatTab, key, value) : null
                                   return (
                                     <td
                                       key={colIdx}
-                                      className={`py-2 px-3 text-white whitespace-nowrap ${colIdx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[150px]' : 'text-center min-w-[50px]'}`}
+                                      className={`py-2 px-3 whitespace-nowrap ${
+                                        colIdx === 0
+                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px] text-white'
+                                          : 'text-center min-w-[40px] sm:min-w-[50px]'
+                                      } ${
+                                        highlight === 'exceptional'
+                                          ? 'text-yellow-400 font-bold'
+                                          : 'text-white'
+                                      }`}
                                     >
                                       {colIdx === 0 && playerPID ? (
                                         <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
                                           {value}
                                         </Link>
+                                      ) : highlight === 'exceptional' ? (
+                                        <span className="inline-flex items-center gap-1">
+                                          {value}
+                                          <span className="text-[10px]">⭐</span>
+                                        </span>
                                       ) : value}
                                     </td>
                                   )
@@ -1433,7 +1781,7 @@ export default function Game() {
                                   <th
                                     key={idx}
                                     onClick={() => handleSort('away', columnKey)}
-                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[150px]' : 'text-center min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
+                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]' : 'text-center min-w-[40px] sm:min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
                                   >
                                     {header}{sortArrow}
                                   </th>
@@ -1460,15 +1808,29 @@ export default function Game() {
                                     value = Number(value).toFixed(1)
                                   }
                                   const playerPID = colIdx === 0 ? getPlayerPID(value) : null
+                                  const highlight = colIdx > 0 ? getStatHighlight(activeStatTab, key, value) : null
                                   return (
                                     <td
                                       key={colIdx}
-                                      className={`py-2 px-3 text-white whitespace-nowrap ${colIdx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[150px]' : 'text-center min-w-[50px]'}`}
+                                      className={`py-2 px-3 whitespace-nowrap ${
+                                        colIdx === 0
+                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px] text-white'
+                                          : 'text-center min-w-[40px] sm:min-w-[50px]'
+                                      } ${
+                                        highlight === 'exceptional'
+                                          ? 'text-yellow-400 font-bold'
+                                          : 'text-white'
+                                      }`}
                                     >
                                       {colIdx === 0 && playerPID ? (
                                         <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
                                           {value}
                                         </Link>
+                                      ) : highlight === 'exceptional' ? (
+                                        <span className="inline-flex items-center gap-1">
+                                          {value}
+                                          <span className="text-[10px]">⭐</span>
+                                        </span>
                                       ) : value}
                                     </td>
                                   )
@@ -1485,417 +1847,276 @@ export default function Game() {
             </div>
           </div>
 
-          {/* Scoring Summary */}
-          {game.boxScore.scoringSummary?.length > 0 && (() => {
-            // Check if play is a standalone 2PT attempt (no scorer, 2PT mentioned in scoreType or patResult)
-            const is2PTAttempt = (play) => {
-              if (play.scorer) return false
-              const scoreType = play.scoreType || ''
-              const patResult = play.patResult || ''
-              return scoreType.includes('2PT') || patResult.includes('2PT')
-            }
-
-            // Check if 2PT was converted (check both fields)
-            const is2PTConverted = (play) => {
-              const scoreType = play.scoreType || ''
-              const patResult = play.patResult || ''
-              return scoreType.includes('Converted') || patResult.includes('Converted')
-            }
-
-            // Calculate points for a play
-            const getPlayPoints = (play) => {
-              const scoreType = play.scoreType || ''
-              const patResult = play.patResult || ''
-
-              // TD-based plays (but not standalone 2PT which might have "2PT" in scoreType)
-              if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
-                let points = 6
-                if (patResult.includes('Made XP')) points += 1
-                else if (patResult.includes('Converted 2PT')) points += 2
-                return points
-              }
-              // Field goal
-              if (scoreType === 'Field Goal') return 3
-              // Safety
-              if (scoreType === 'Safety') return 2
-              // Standalone 2PT conversion (no scorer, 2PT in either field)
-              if (is2PTAttempt(play)) {
-                return is2PTConverted(play) ? 2 : 0
-              }
-
-              return 0
-            }
-
-            // Calculate running scores
-            let leftScore = 0
-            let rightScore = 0
-            const playsWithScores = game.boxScore.scoringSummary.map((play) => {
-              const points = getPlayPoints(play)
-              const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
-              if (isLeftTeam) {
-                leftScore += points
-              } else {
-                rightScore += points
-              }
-              return { ...play, runningLeftScore: leftScore, runningRightScore: rightScore }
-            })
-
-            return (
-              <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
-                <div className="px-4 py-3 border-b border-gray-700">
-                  <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                    Scoring Plays
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-800/50">
-                  {playsWithScores.map((play, idx) => {
-                    const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
-                    const scorerPID = getPlayerPID(play.scorer)
-                    const passerPID = play.passer ? getPlayerPID(play.passer) : null
-                    const contrastColor = getContrastTextColor(playTeamColors.primary)
-                    const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
-                    return (
-                      <div
-                        key={idx}
-                        className="flex items-stretch"
-                      >
-                        {/* Team color bar on left */}
-                        <div
-                          className="w-1.5 flex-shrink-0"
-                          style={{ backgroundColor: playTeamColors.primary }}
-                        />
-                        {/* Main content with team-colored background */}
-                        <div
-                          className="flex-1 flex items-center gap-3 px-3 py-3"
-                          style={{
-                            background: `linear-gradient(90deg, ${playTeamColors.primary}25 0%, ${playTeamColors.primary}08 50%, transparent 100%)`
-                          }}
-                        >
-                          {/* Quarter and time - moved to left */}
-                          <div className="text-center flex-shrink-0 w-12">
-                            <div
-                              className="text-xs font-bold px-2 py-0.5 rounded"
-                              style={{ backgroundColor: playTeamColors.primary + '40', color: 'white' }}
-                            >
-                              {['1', '2', '3', '4', 1, 2, 3, 4].includes(play.quarter) ? `Q${play.quarter}` : 'OT'}
-                            </div>
-                            <div className="text-gray-400 text-xs mt-1 font-mono">{play.timeLeft}</div>
-                          </div>
-                          {/* Running Score - moved to left */}
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <span className={`text-lg font-black tabular-nums ${isLeftTeam ? 'text-white' : 'text-gray-400'}`}>
-                              {play.runningLeftScore}
-                            </span>
-                            <span className="text-gray-500 text-sm">-</span>
-                            <span className={`text-lg font-black tabular-nums ${!isLeftTeam ? 'text-white' : 'text-gray-400'}`}>
-                              {play.runningRightScore}
-                            </span>
-                          </div>
-                          {/* Team logo */}
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-800/50">
-                            <img
-                              src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
-                              alt={play.team}
-                              className="w-7 h-7 object-contain"
-                            />
-                          </div>
-                          {/* Play details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Link
-                                to={`${pathPrefix}/team/${resolveTid(play.team, currentDynasty?.teams || TEAMS)}/${game.year}`}
-                                className="font-bold text-sm text-white hover:underline"
-                              >
-                                {getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team}
-                              </Link>
-                              <span className="text-gray-400 text-sm">
-                                {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
-                                {play.yards && ` (${play.yards} yds)`}
-                              </span>
-                              {play.patResult && !is2PTAttempt(play) && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  play.patResult.includes('Made') || play.patResult.includes('Converted')
-                                    ? 'bg-green-500/30 text-green-300'
-                                    : 'bg-red-500/30 text-red-300'
-                                }`}>
-                                  {play.patResult}
-                                </span>
-                              )}
-                              {is2PTAttempt(play) && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  is2PTConverted(play)
-                                    ? 'bg-green-500/30 text-green-300'
-                                    : 'bg-red-500/30 text-red-300'
-                                }`}>
-                                  {is2PTConverted(play) ? 'Good' : 'Failed'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-gray-300 text-xs mt-1">
-                              {is2PTAttempt(play) ? (
-                                <span className="font-medium text-gray-400">
-                                  {play.patNotes || (is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed')}
-                                </span>
-                              ) : (
-                                <>
-                                  {scorerPID ? (
-                                    <Link to={`${pathPrefix}/player/${scorerPID}`} className="font-medium hover:underline hover:text-blue-300">
-                                      {play.scorer}
-                                    </Link>
-                                  ) : <span className="font-medium">{play.scorer}</span>}
-                                  {play.passer && (
-                                    <>
-                                      {' from '}
-                                      {passerPID ? (
-                                        <Link to={`${pathPrefix}/player/${passerPID}`} className="font-medium hover:underline hover:text-blue-300">
-                                          {play.passer}
-                                        </Link>
-                                      ) : <span className="font-medium">{play.passer}</span>}
-                                    </>
-                                  )}
-                                  {play.patNotes && (
-                                    <span className="text-gray-400 ml-2">({play.patNotes})</span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {/* Video Link Button */}
-                        {play.videoLink && (
-                          <a
-                            href={play.videoLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-shrink-0 p-2 rounded-lg hover:bg-white/10 transition-colors"
-                            title="Watch video clip"
-                          >
-                            <svg className="w-5 h-5 text-blue-400 hover:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </a>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })()}
         </div>
       )}
 
-      {/* Team Stats Section */}
+      {/* Team Stats Section - Bar Chart Visualization */}
       {game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) && (() => {
         const homeStats = game.boxScore.teamStats.home || {}
         const awayStats = game.boxScore.teamStats.away || {}
-        // Convert team names to abbreviations for links (might be full names like "Sam Houston State Bearkats")
         const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
         const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
 
-        // Helper to format percentage
-        const pct = (made, att) => {
-          if (!att || att === 0) return '-'
-          return `${Math.round((made / att) * 100)}%`
+        // Get team colors for bar charts
+        const leftIsHome = boxScoreHomeIsUser ? (leftTeam === 'user') : (leftTeam !== 'user')
+        const leftTeamAbbr = leftIsHome ? homeTeamAbbrForLink : awayTeamAbbrForLink
+        const rightTeamAbbr = leftIsHome ? awayTeamAbbrForLink : homeTeamAbbrForLink
+        const leftTeamStats = leftIsHome ? homeStats : awayStats
+        const rightTeamStats = leftIsHome ? awayStats : homeStats
+
+        // Get team colors
+        const leftTeamColors = getTeamColorsRobust(leftTeamAbbr) || leftData.colors
+        const rightTeamColors = getTeamColorsRobust(rightTeamAbbr) || rightData.colors
+
+        // Helper to format possession time to minutes
+        const possToMins = (mins, secs) => {
+          if (mins == null && secs == null) return null
+          return (mins || 0) + (secs || 0) / 60
         }
 
-        // Helper to format possession time
-        const formatPoss = (mins, secs) => {
-          if (mins == null && secs == null) return '-'
-          const m = mins || 0
-          const s = secs || 0
-          return `${m}:${s.toString().padStart(2, '0')}`
+        // Stats with bar visualization (numeric only, higher is better unless inverted)
+        // Short labels for mobile, full labels for larger screens
+        const barStats = [
+          { label: 'Total Yards', shortLabel: 'Total', left: leftTeamStats.totalOffense || leftTeamStats.totalYards, right: rightTeamStats.totalOffense || rightTeamStats.totalYards, key: true },
+          { label: 'Rushing Yards', shortLabel: 'Rush', left: leftTeamStats.rushYards, right: rightTeamStats.rushYards },
+          { label: 'Passing Yards', shortLabel: 'Pass', left: leftTeamStats.passYards, right: rightTeamStats.passYards },
+          { label: 'First Downs', shortLabel: '1st Dn', left: leftTeamStats.firstDowns, right: rightTeamStats.firstDowns },
+          { label: 'Turnovers', shortLabel: 'TO', left: leftTeamStats.turnovers, right: rightTeamStats.turnovers, inverted: true, key: true },
+          { label: '3rd Down %', shortLabel: '3rd %', left: leftTeamStats['3rdDownAtt'] ? Math.round((leftTeamStats['3rdDownConv'] / leftTeamStats['3rdDownAtt']) * 100) : null, right: rightTeamStats['3rdDownAtt'] ? Math.round((rightTeamStats['3rdDownConv'] / rightTeamStats['3rdDownAtt']) * 100) : null, suffix: '%' },
+          { label: 'Possession', shortLabel: 'TOP', left: possToMins(leftTeamStats.possMinutes, leftTeamStats.possSeconds), right: possToMins(rightTeamStats.possMinutes, rightTeamStats.possSeconds), formatTime: true },
+        ].filter(stat => stat.left != null || stat.right != null)
+
+        // Render a stat comparison row (clean design without confusing bars)
+        const renderStatRow = (stat, idx) => {
+          const leftVal = stat.left ?? 0
+          const rightVal = stat.right ?? 0
+
+          // Determine winner (for inverted stats like turnovers, lower is better)
+          const leftWins = stat.inverted ? leftVal < rightVal : leftVal > rightVal
+          const rightWins = stat.inverted ? rightVal < leftVal : rightVal > leftVal
+          const tie = leftVal === rightVal
+
+          // Format display value
+          const formatVal = (v) => {
+            if (v == null) return '-'
+            if (stat.formatTime) {
+              const mins = Math.floor(v)
+              const secs = Math.round((v - mins) * 60)
+              return `${mins}:${secs.toString().padStart(2, '0')}`
+            }
+            return stat.suffix ? `${v}${stat.suffix}` : v
+          }
+
+          return (
+            <div key={idx} className={`px-3 sm:px-4 py-2.5 flex items-center ${stat.key ? 'bg-gray-800/40' : ''}`}>
+              {/* Left value with team color indicator */}
+              <div className="flex-1 flex items-center gap-2">
+                <div
+                  className="w-1 h-6 rounded-full"
+                  style={{ backgroundColor: leftWins && !tie ? leftTeamColors.primary : 'transparent' }}
+                />
+                <span className={`text-sm sm:text-base font-bold tabular-nums ${leftWins && !tie ? 'text-white' : 'text-gray-400'}`}>
+                  {formatVal(leftVal)}
+                </span>
+              </div>
+
+              {/* Stat label - short on mobile, full on larger screens */}
+              <span className={`text-[10px] sm:text-xs font-medium uppercase tracking-wide px-1 sm:px-2 text-center ${stat.key ? 'text-white' : 'text-gray-500'}`}>
+                <span className="sm:hidden">{stat.shortLabel || stat.label}</span>
+                <span className="hidden sm:inline">{stat.label}</span>
+              </span>
+
+              {/* Right value with team color indicator */}
+              <div className="flex-1 flex items-center justify-end gap-2">
+                <span className={`text-sm sm:text-base font-bold tabular-nums ${rightWins && !tie ? 'text-white' : 'text-gray-400'}`}>
+                  {formatVal(rightVal)}
+                </span>
+                <div
+                  className="w-1 h-6 rounded-full"
+                  style={{ backgroundColor: rightWins && !tie ? rightTeamColors.primary : 'transparent' }}
+                />
+              </div>
+            </div>
+          )
         }
-
-        // Helper to get value or dash
-        const val = (v) => v != null ? v : '-'
-
-        // Helper to format combined stats like "3-5" (made-attempts)
-        // Returns "-" if both values are missing, otherwise shows the combined format
-        const combo = (made, att) => {
-          if (made == null && att == null) return '-'
-          return `${made ?? 0}-${att ?? 0}`
-        }
-
-        // Stat rows configuration - label, home value, away value
-        const statRows = [
-          { label: 'First Downs', home: val(homeStats.firstDowns), away: val(awayStats.firstDowns) },
-          { label: 'Total Offense', home: val(homeStats.totalOffense), away: val(awayStats.totalOffense), bold: true },
-          { label: 'Total Plays', home: val(homeStats.totalPlays), away: val(awayStats.totalPlays) },
-          { label: 'Rushing', home: combo(homeStats.rushAttempts, homeStats.rushYards), away: combo(awayStats.rushAttempts, awayStats.rushYards), sub: 'ATT-YDS' },
-          { label: 'Rush TDs', home: val(homeStats.rushTds), away: val(awayStats.rushTds) },
-          { label: 'Passing', home: combo(homeStats.completions, homeStats.passAttempts), away: combo(awayStats.completions, awayStats.passAttempts), sub: 'CMP-ATT' },
-          { label: 'Comp %', home: pct(homeStats.completions, homeStats.passAttempts), away: pct(awayStats.completions, awayStats.passAttempts), calculated: true },
-          { label: 'Pass Yards', home: val(homeStats.passYards), away: val(awayStats.passYards) },
-          { label: 'Pass TDs', home: val(homeStats.passTds), away: val(awayStats.passTds) },
-          { label: '3rd Down', home: combo(homeStats['3rdDownConv'], homeStats['3rdDownAtt']), away: combo(awayStats['3rdDownConv'], awayStats['3rdDownAtt']) },
-          { label: '3rd Down %', home: pct(homeStats['3rdDownConv'], homeStats['3rdDownAtt']), away: pct(awayStats['3rdDownConv'], awayStats['3rdDownAtt']), calculated: true },
-          { label: '4th Down', home: combo(homeStats['4thDownConv'], homeStats['4thDownAtt']), away: combo(awayStats['4thDownConv'], awayStats['4thDownAtt']) },
-          { label: '4th Down %', home: pct(homeStats['4thDownConv'], homeStats['4thDownAtt']), away: pct(awayStats['4thDownConv'], awayStats['4thDownAtt']), calculated: true },
-          { label: '2PT Conv', home: combo(homeStats['2ptConv'], homeStats['2ptAtt']), away: combo(awayStats['2ptConv'], awayStats['2ptAtt']) },
-          { label: 'Red Zone', home: `${(homeStats.redZoneTd || 0) + (homeStats.redZoneFg || 0)}`, away: `${(awayStats.redZoneTd || 0) + (awayStats.redZoneFg || 0)}`, sub: 'TD+FG' },
-          { label: 'Red Zone TD', home: val(homeStats.redZoneTd), away: val(awayStats.redZoneTd) },
-          { label: 'Red Zone FG', home: val(homeStats.redZoneFg), away: val(awayStats.redZoneFg) },
-          { label: 'Red Zone %', home: homeStats.redZonePct != null ? `${homeStats.redZonePct}%` : '-', away: awayStats.redZonePct != null ? `${awayStats.redZonePct}%` : '-' },
-          { label: 'Turnovers', home: val(homeStats.turnovers), away: val(awayStats.turnovers), bold: true },
-          { label: 'Fumbles Lost', home: val(homeStats.fumblesLost), away: val(awayStats.fumblesLost) },
-          { label: 'Interceptions', home: val(homeStats.interceptions), away: val(awayStats.interceptions) },
-          { label: 'Punt Ret Yds', home: val(homeStats.puntRetYards), away: val(awayStats.puntRetYards) },
-          { label: 'Kick Ret Yds', home: val(homeStats.kickRetYards), away: val(awayStats.kickRetYards) },
-          { label: 'Total Yards', home: val(homeStats.totalYards), away: val(awayStats.totalYards), bold: true },
-          { label: 'Punts', home: val(homeStats.punts), away: val(awayStats.punts) },
-          { label: 'Penalties', home: val(homeStats.penalties), away: val(awayStats.penalties) },
-          { label: 'Possession', home: formatPoss(homeStats.possMinutes, homeStats.possSeconds), away: formatPoss(awayStats.possMinutes, awayStats.possSeconds), bold: true }
-        ]
-
-        // Helper to check if a value is empty (dash, 0, or combinations like "-" or "0-0")
-        const isEmpty = (v) => {
-          if (v == null || v === '' || v === '-') return true
-          const str = String(v).replace(/[-0\s]/g, '')
-          return str === ''
-        }
-
-        // Filter out rows where both teams have no data
-        const filteredStatRows = statRows.filter(row => !isEmpty(row.home) || !isEmpty(row.away))
 
         return (
-          <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
-            <div className="px-4 py-3 border-b border-gray-700">
+          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
+            {/* Header with team logos */}
+            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-white p-1 group-hover:scale-105 transition-transform">
+                  <img src={getTeamLogoRobust(leftTeamAbbr)} alt="" className="w-full h-full object-contain" />
+                </div>
+                <span className="text-sm font-bold text-white group-hover:underline hidden sm:inline">
+                  {getMascotName(leftTeamAbbr, currentDynasty?.teams) || leftTeamAbbr}
+                </span>
+              </Link>
               <h3 className="font-bold text-white text-sm uppercase tracking-wide">
                 Team Stats
               </h3>
-            </div>
-            {/* Team headers - Left = away team, Right = home team */}
-            <div className="flex items-center border-b border-gray-800 bg-gray-800/50">
-              <Link to={`${pathPrefix}/team/${resolveTid(awayTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
-                {getTeamLogoRobust(awayTeamAbbrForLink) && (
-                  <img src={getTeamLogoRobust(awayTeamAbbrForLink)} alt="" className="w-6 h-6 object-contain group-hover:scale-105 transition-transform" />
-                )}
-                <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(awayTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || awayTeamAbbrForLink}</span>
-                  <span className="sm:hidden">{awayTeamAbbrForLink}</span>
+              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
+                <span className="text-sm font-bold text-white group-hover:underline hidden sm:inline">
+                  {getMascotName(rightTeamAbbr, currentDynasty?.teams) || rightTeamAbbr}
                 </span>
-              </Link>
-              <div className="w-28 text-center text-xs font-bold text-gray-400 uppercase">Stat</div>
-              <Link to={`${pathPrefix}/team/${resolveTid(homeTeamAbbrForLink, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 flex items-center justify-center gap-2 py-3 px-2 hover:bg-gray-700/50 transition-colors">
-                <span className="font-bold text-sm text-white group-hover:underline">
-                  <span className="hidden sm:inline">{getMascotName(homeTeamAbbrForLink, currentDynasty?.teams || currentDynasty?.customTeams) || homeTeamAbbrForLink}</span>
-                  <span className="sm:hidden">{homeTeamAbbrForLink}</span>
-                </span>
-                {getTeamLogoRobust(homeTeamAbbrForLink) && (
-                  <img src={getTeamLogoRobust(homeTeamAbbrForLink)} alt="" className="w-6 h-6 object-contain group-hover:scale-105 transition-transform" />
-                )}
+                <div className="w-8 h-8 rounded-full bg-white p-1 group-hover:scale-105 transition-transform">
+                  <img src={getTeamLogoRobust(rightTeamAbbr)} alt="" className="w-full h-full object-contain" />
+                </div>
               </Link>
             </div>
-            {/* Stats rows */}
-            <div className="divide-y divide-gray-800/50">
-              {filteredStatRows.map((row, idx) => {
-                return (
-                  <div key={idx} className={`flex items-center ${idx % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/30'}`}>
-                    <div className="flex-1 text-center py-2 px-2 font-bold text-white">
-                      {row.away}
-                    </div>
-                    <div className="w-28 text-center py-2 px-1">
-                      <span className="text-xs font-bold text-gray-300">{row.label}</span>
-                      {row.sub && <span className="block text-[10px] text-gray-500 font-bold">{row.sub}</span>}
-                    </div>
-                    <div className="flex-1 text-center py-2 px-2 font-bold text-white">
-                      {row.home}
-                    </div>
+
+            {/* Stat comparison rows */}
+            <div className="divide-y divide-gray-800/30">
+              {barStats.map((stat, idx) => renderStatRow(stat, idx))}
+            </div>
+
+            {/* Additional detailed stats - always visible */}
+            <div className="border-t border-gray-800 divide-y divide-gray-800/30 text-xs sm:text-sm">
+              {/* Rushing */}
+              {(leftTeamStats.rushAttempts != null || rightTeamStats.rushAttempts != null) && (
+                <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                  <span className="text-gray-300 tabular-nums">{leftTeamStats.rushAttempts ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{leftTeamStats.rushYards ?? 0}</span>
+                  <span className="text-gray-500 text-[10px] sm:text-xs uppercase">Rush</span>
+                  <span className="text-gray-300 tabular-nums">{rightTeamStats.rushAttempts ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{rightTeamStats.rushYards ?? 0}</span>
+                </div>
+              )}
+              {/* Passing */}
+              {(leftTeamStats.completions != null || rightTeamStats.completions != null) && (
+                <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                  <span className="text-gray-300 tabular-nums">{leftTeamStats.completions ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{leftTeamStats.passAttempts ?? 0}</span>
+                  <span className="text-gray-500 text-[10px] sm:text-xs uppercase">C/A</span>
+                  <span className="text-gray-300 tabular-nums">{rightTeamStats.completions ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{rightTeamStats.passAttempts ?? 0}</span>
+                </div>
+              )}
+                {/* Red Zone */}
+                {(leftTeamStats.redZoneTd != null || rightTeamStats.redZoneTd != null) && (
+                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                    <span className="text-gray-300 tabular-nums">{(leftTeamStats.redZoneTd || 0) + (leftTeamStats.redZoneFg || 0)} <span className="text-gray-500">({leftTeamStats.redZonePct ?? 0}%)</span></span>
+                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">RZ</span>
+                    <span className="text-gray-300 tabular-nums">{(rightTeamStats.redZoneTd || 0) + (rightTeamStats.redZoneFg || 0)} <span className="text-gray-500">({rightTeamStats.redZonePct ?? 0}%)</span></span>
                   </div>
-                )
-              })}
+                )}
+                {/* Penalties */}
+                {(leftTeamStats.penalties != null || rightTeamStats.penalties != null) && (
+                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                    <span className="text-gray-300 tabular-nums">{leftTeamStats.penalties ?? 0}</span>
+                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">PEN</span>
+                    <span className="text-gray-300 tabular-nums">{rightTeamStats.penalties ?? 0}</span>
+                  </div>
+                )}
+                {/* Fumbles */}
+                {(leftTeamStats.fumblesLost != null || rightTeamStats.fumblesLost != null) && (
+                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                    <span className="text-gray-300 tabular-nums">{leftTeamStats.fumblesLost ?? 0}</span>
+                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">FUM</span>
+                    <span className="text-gray-300 tabular-nums">{rightTeamStats.fumblesLost ?? 0}</span>
+                  </div>
+                )}
+                {/* Interceptions */}
+                {(leftTeamStats.interceptions != null || rightTeamStats.interceptions != null) && (
+                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
+                    <span className="text-gray-300 tabular-nums">{leftTeamStats.interceptions ?? 0}</span>
+                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">INT</span>
+                    <span className="text-gray-300 tabular-nums">{rightTeamStats.interceptions ?? 0}</span>
+                  </div>
+                )}
             </div>
           </div>
         )
       })()}
 
-      {/* Game Details Section - show if user game (ratings might come from preseason setup) or has notes/POW */}
-      {(!isCPUGame || game.gameNote) ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      {/* Game Details Section - Unified Tabbed Interface */}
+      {(() => {
+        // Calculate what tabs we have
+        const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
+        const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, game.year)
+        const userRatings = {
+          ovr: game.team1Overall ?? storedUserRatings?.overall,
+          off: game.team1Offense ?? storedUserRatings?.offense,
+          def: game.team1Defense ?? storedUserRatings?.defense
+        }
+        const oppRatings = {
+          ovr: game.team2Overall ?? game.opponentOverall,
+          off: game.team2Offense ?? game.opponentOffense,
+          def: game.team2Defense ?? game.opponentDefense
+        }
+        const hasRatings = !isCPUGame && (userRatings.ovr || userRatings.off || userRatings.def || oppRatings.ovr || oppRatings.off || oppRatings.def)
+        const hasPOW = !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)
+        const hasNotes = !!game.gameNote
 
-          {/* Team Matchup Card */}
-          {!isCPUGame && (() => {
-            // Get user team ratings from preseason setup (uses tid-based lookup)
-            const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
-            const gameYear = game.year
-            const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, gameYear)
+        // Build available tabs
+        const tabs = []
+        if (hasRatings) tabs.push({ key: 'ratings', label: 'Ratings' })
+        if (hasPOW) tabs.push({ key: 'awards', label: 'Awards' })
+        if (hasNotes) tabs.push({ key: 'notes', label: 'Notes' })
 
-            // User team ratings: prefer game.team1* (unified), then stored preseason ratings
-            const userRatings = {
-              ovr: game.team1Overall ?? storedUserRatings?.overall,
-              off: game.team1Offense ?? storedUserRatings?.offense,
-              def: game.team1Defense ?? storedUserRatings?.defense
-            }
-            // Opponent ratings: prefer game.team2* (unified), fallback to game.opponent*
-            const oppRatings = {
-              ovr: game.team2Overall ?? game.opponentOverall,
-              off: game.team2Offense ?? game.opponentOffense,
-              def: game.team2Defense ?? game.opponentDefense
-            }
+        // Don't render if no tabs
+        if (tabs.length === 0) return null
 
-            // Only show if we have ratings for at least one team
-            const hasUserRatings = userRatings.ovr || userRatings.off || userRatings.def
-            const hasOppRatings = oppRatings.ovr || oppRatings.off || oppRatings.def
-            if (!hasUserRatings && !hasOppRatings) return null
+        // Ensure active tab is valid
+        const currentTab = tabs.find(t => t.key === activeDetailsTab) ? activeDetailsTab : tabs[0].key
 
-            // Get ratings for both teams to compare based on left/right positioning
-            const leftIsOpponent = leftTeam !== 'user'
-            const rightIsOpponent = rightTeam !== 'user'
-            const leftRatings = leftIsOpponent ? oppRatings : userRatings
-            const rightRatings = rightIsOpponent ? oppRatings : userRatings
+        // Rating calculations
+        const leftIsOpponent = leftTeam !== 'user'
+        const leftRatings = leftIsOpponent ? oppRatings : userRatings
+        const rightRatings = !leftIsOpponent ? oppRatings : userRatings
 
-            // Determine which team has better ratings
-            const leftOvrBetter = (leftRatings.ovr || 0) > (rightRatings.ovr || 0)
-            const rightOvrBetter = (rightRatings.ovr || 0) > (leftRatings.ovr || 0)
-            const leftOffBetter = (leftRatings.off || 0) > (rightRatings.off || 0)
-            const rightOffBetter = (rightRatings.off || 0) > (leftRatings.off || 0)
-            const leftDefBetter = (leftRatings.def || 0) > (rightRatings.def || 0)
-            const rightDefBetter = (rightRatings.def || 0) > (leftRatings.def || 0)
+        return (
+          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
+            {/* Tab Navigation */}
+            <div className="flex border-b border-gray-800">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveDetailsTab(tab.key)}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    currentTab === tab.key
+                      ? 'text-white border-b-2 border-white bg-gray-800/50'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            return (
-              <div className="lg:col-span-5 rounded-xl overflow-hidden shadow-lg bg-gray-800">
-                <div className="px-4 py-3 border-b border-gray-700">
-                  <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                    Team Ratings
-                  </h3>
-                </div>
-                <div className="p-4 space-y-4">
+            {/* Tab Content */}
+            <div className="p-4">
+              {/* Ratings Tab */}
+              {currentTab === 'ratings' && hasRatings && (
+                <div className="space-y-4">
                   {[leftData, rightData].map((team, idx) => {
                     const ratings = idx === 0 ? leftRatings : rightRatings
-                    const ovrBetter = idx === 0 ? leftOvrBetter : rightOvrBetter
-                    const offBetter = idx === 0 ? leftOffBetter : rightOffBetter
-                    const defBetter = idx === 0 ? leftDefBetter : rightDefBetter
-
                     if (!ratings.ovr && !ratings.off && !ratings.def) return null
 
+                    const ovrBetter = (ratings.ovr || 0) > ((idx === 0 ? rightRatings : leftRatings).ovr || 0)
+                    const offBetter = (ratings.off || 0) > ((idx === 0 ? rightRatings : leftRatings).off || 0)
+                    const defBetter = (ratings.def || 0) > ((idx === 0 ? rightRatings : leftRatings).def || 0)
+
                     return (
-                      <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
-                        >
+                      <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 transition-colors">
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform">
                           {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-white text-sm truncate group-hover:underline">{team.name}</div>
-                          <div className="flex gap-3 mt-1">
+                          <div className="flex gap-4 mt-1.5">
                             {ratings.ovr && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-gray-400 font-medium">OVR</span>
-                                <span className={`text-white ${ovrBetter ? 'font-black' : 'font-normal'}`}>{ratings.ovr}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-500 font-medium uppercase">OVR</span>
+                                <span className={`text-lg ${ovrBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.ovr}</span>
                               </div>
                             )}
                             {ratings.off && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-gray-400 font-medium">OFF</span>
-                                <span className={`text-white ${offBetter ? 'font-black' : 'font-normal'}`}>{ratings.off}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-500 font-medium uppercase">OFF</span>
+                                <span className={`text-lg ${offBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.off}</span>
                               </div>
                             )}
                             {ratings.def && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[10px] text-gray-400 font-medium">DEF</span>
-                                <span className={`text-white ${defBetter ? 'font-black' : 'font-normal'}`}>{ratings.def}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-gray-500 font-medium uppercase">DEF</span>
+                                <span className={`text-lg ${defBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.def}</span>
                               </div>
                             )}
                           </div>
@@ -1904,129 +2125,125 @@ export default function Game() {
                     )
                   })}
                 </div>
-              </div>
-            )
-          })()}
+              )}
 
-          {/* Player of the Week */}
-          {!isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (
-            <div className="lg:col-span-4 rounded-xl overflow-hidden shadow-lg bg-gradient-to-br from-gray-900 to-gray-800">
-              <div className="px-4 py-3 border-b border-gray-700">
-                <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                  Player of the Week
-                </h3>
-              </div>
-              <div className="p-4 space-y-3">
-                {/* Conference POW Section */}
-                {(game.conferencePOW || game.confDefensePOW) && (
-                  <div
-                    className="p-3 rounded-lg"
-                    style={{ background: `linear-gradient(135deg, ${teamColors.primary}40 0%, ${teamColors.primary}20 100%)` }}
-                  >
-                    <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">Conference</div>
-                    <div className="space-y-2">
-                      {game.conferencePOW && (
-                        <div>
-                          <div className="text-[9px] text-gray-500 uppercase">Offensive</div>
-                          {getPlayerPID(game.conferencePOW) ? (
-                            <Link
-                              to={`${pathPrefix}/player/${getPlayerPID(game.conferencePOW)}`}
-                              className="font-bold text-white text-sm hover:underline truncate block"
-                            >
-                              {game.conferencePOW}
-                            </Link>
-                          ) : (
-                            <div className="font-bold text-white text-sm truncate">{game.conferencePOW}</div>
-                          )}
-                        </div>
-                      )}
-                      {game.confDefensePOW && (
-                        <div>
-                          <div className="text-[9px] text-gray-500 uppercase">Defensive</div>
-                          {getPlayerPID(game.confDefensePOW) ? (
-                            <Link
-                              to={`${pathPrefix}/player/${getPlayerPID(game.confDefensePOW)}`}
-                              className="font-bold text-white text-sm hover:underline truncate block"
-                            >
-                              {game.confDefensePOW}
-                            </Link>
-                          ) : (
-                            <div className="font-bold text-white text-sm truncate">{game.confDefensePOW}</div>
-                          )}
-                        </div>
-                      )}
+              {/* Awards Tab */}
+              {currentTab === 'awards' && hasPOW && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Conference POW */}
+                  {(game.conferencePOW || game.confDefensePOW) && (
+                    <div className="p-4 rounded-xl bg-gray-800/50">
+                      <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-3">Conference POW</div>
+                      <div className="space-y-3">
+                        {game.conferencePOW && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-gray-500 uppercase">Offensive</div>
+                              {getPlayerPID(game.conferencePOW) ? (
+                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.conferencePOW)}`} className="font-bold text-white text-sm hover:underline">
+                                  {game.conferencePOW}
+                                </Link>
+                              ) : (
+                                <div className="font-bold text-white text-sm">{game.conferencePOW}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {game.confDefensePOW && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-gray-500 uppercase">Defensive</div>
+                              {getPlayerPID(game.confDefensePOW) ? (
+                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.confDefensePOW)}`} className="font-bold text-white text-sm hover:underline">
+                                  {game.confDefensePOW}
+                                </Link>
+                              ) : (
+                                <div className="font-bold text-white text-sm">{game.confDefensePOW}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-                {/* National POW Section */}
-                {(game.nationalPOW || game.natlDefensePOW) && (
-                  <div className="p-3 rounded-lg bg-gradient-to-r from-yellow-500/30 to-yellow-400/20 border border-yellow-500/30">
-                    <div className="text-[10px] text-yellow-300 uppercase font-bold tracking-wider mb-2">National</div>
-                    <div className="space-y-2">
-                      {game.nationalPOW && (
-                        <div>
-                          <div className="text-[9px] text-yellow-400/70 uppercase">Offensive</div>
-                          {getPlayerPID(game.nationalPOW) ? (
-                            <Link
-                              to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`}
-                              className="font-bold text-yellow-300 text-sm hover:underline truncate block"
-                            >
-                              {game.nationalPOW}
-                            </Link>
-                          ) : (
-                            <div className="font-bold text-yellow-300 text-sm truncate">{game.nationalPOW}</div>
-                          )}
-                        </div>
-                      )}
-                      {game.natlDefensePOW && (
-                        <div>
-                          <div className="text-[9px] text-yellow-400/70 uppercase">Defensive</div>
-                          {getPlayerPID(game.natlDefensePOW) ? (
-                            <Link
-                              to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`}
-                              className="font-bold text-yellow-300 text-sm hover:underline truncate block"
-                            >
-                              {game.natlDefensePOW}
-                            </Link>
-                          ) : (
-                            <div className="font-bold text-yellow-300 text-sm truncate">{game.natlDefensePOW}</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                  )}
 
-          {/* Game Notes */}
-          {game.gameNote && (
-            <div
-              className={`rounded-xl overflow-hidden shadow-lg ${
-                (!isCPUGame && (game.opponentOverall || game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW))
-                  ? 'lg:col-span-3'
-                  : 'lg:col-span-12'
-              }`}
-              style={{ backgroundColor: displayTeamColors.primary }}
-            >
-              <div className="px-4 py-3 border-b" style={{ borderColor: `${getContrastTextColor(displayTeamColors.primary)}20` }}>
-                <h3 className="font-bold text-sm uppercase tracking-wide" style={{ color: getContrastTextColor(displayTeamColors.primary) }}>
-                  Game Notes
-                </h3>
-              </div>
-              <div className="p-4">
-                <p
-                  className="text-sm whitespace-pre-wrap leading-relaxed"
-                  style={{ color: getContrastTextColor(displayTeamColors.primary), opacity: 0.9 }}
+                  {/* National POW */}
+                  {(game.nationalPOW || game.natlDefensePOW) && (
+                    <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/20">
+                      <div className="text-[10px] text-yellow-400 uppercase font-bold tracking-wider mb-3">National POW</div>
+                      <div className="space-y-3">
+                        {game.nationalPOW && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-yellow-500/70 uppercase">Offensive</div>
+                              {getPlayerPID(game.nationalPOW) ? (
+                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`} className="font-bold text-yellow-300 text-sm hover:underline">
+                                  {game.nationalPOW}
+                                </Link>
+                              ) : (
+                                <div className="font-bold text-yellow-300 text-sm">{game.nationalPOW}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {game.natlDefensePOW && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <div className="text-[9px] text-yellow-500/70 uppercase">Defensive</div>
+                              {getPlayerPID(game.natlDefensePOW) ? (
+                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`} className="font-bold text-yellow-300 text-sm hover:underline">
+                                  {game.natlDefensePOW}
+                                </Link>
+                              ) : (
+                                <div className="font-bold text-yellow-300 text-sm">{game.natlDefensePOW}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Notes Tab */}
+              {currentTab === 'notes' && hasNotes && (
+                <div
+                  className="p-4 rounded-xl"
+                  style={{
+                    backgroundColor: `${displayTeamColors.primary}20`,
+                    borderLeft: `4px solid ${displayTeamColors.primary}`
+                  }}
                 >
-                  {game.gameNote}
-                </p>
-              </div>
+                  <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {game.gameNote}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ) : null}
+          </div>
+        )
+      })()}
 
       {/* Media Section */}
       {links.length > 0 && (

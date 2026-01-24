@@ -5,7 +5,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
@@ -898,6 +898,10 @@ export default function GameEdit() {
         ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
         ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
         ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
+        // Preserve cfpSlot for CFP games (critical for winner propagation)
+        ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
+        ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
+        ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -915,6 +919,13 @@ export default function GameEdit() {
         updatedGames[existingIndex] = { ...games[existingIndex], ...gameData }
       } else {
         updatedGames = [...games, gameData]
+      }
+
+      // If this is a CFP game with scores, propagate winner to next round
+      const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
+      if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
+        console.log('[GameEdit] CFP game saved, propagating winner...', { cfpSlot: savedGame.cfpSlot, team1Score: savedGame.team1Score, team2Score: savedGame.team2Score })
+        updatedGames = propagateCFPWinner(updatedGames, savedGame)
       }
 
       // Build record updates for both teams involved
@@ -1008,6 +1019,10 @@ export default function GameEdit() {
         ...(existingGame?.isCFPChampionship && { isCFPChampionship: true }),
         ...(!existingGame && gameType === 'cfp_championship' && { isCFPChampionship: true }),
         ...(existingGame?.boxScore && { boxScore: existingGame.boxScore }),
+        // Preserve cfpSlot for CFP games (critical for winner propagation)
+        ...(existingGame?.cfpSlot && { cfpSlot: existingGame.cfpSlot }),
+        ...(existingGame?.cfpRound && { cfpRound: existingGame.cfpRound }),
+        ...(existingGame?.bowlName && { bowlName: existingGame.bowlName }),
         // Save links as array (filter out empty entries)
         ...(() => {
           const validLinks = formData.links.filter(l => l.trim())
@@ -1025,6 +1040,13 @@ export default function GameEdit() {
         updatedGames[existingIndex] = { ...games[existingIndex], ...gameData }
       } else {
         updatedGames = [...games, gameData]
+      }
+
+      // If this is a CFP game with scores, propagate winner to next round
+      const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
+      if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
+        console.log('[GameEdit] CFP game auto-saved, propagating winner...', { cfpSlot: savedGame.cfpSlot })
+        updatedGames = propagateCFPWinner(updatedGames, savedGame)
       }
 
       // Build record updates for both teams involved

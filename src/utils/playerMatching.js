@@ -68,7 +68,10 @@ const getPlayerYears = (player) => {
     Object.keys(player.teamsByYear).forEach(y => years.add(Number(y)))
   }
 
-  // From awards
+  // From accolades (new format) and awards (legacy)
+  if (player.accolades) {
+    player.accolades.forEach(a => years.add(a.year))
+  }
   if (player.awards) {
     player.awards.forEach(a => years.add(a.year))
   }
@@ -108,6 +111,11 @@ const getPlayerTeams = (player) => {
   }
 
   // Teams from honors (usually abbreviations like "UK")
+  if (player.accolades) {
+    player.accolades.forEach(a => {
+      if (a.team) teams.add(normalizeTeamForComparison(a.team))
+    })
+  }
   if (player.awards) {
     player.awards.forEach(a => {
       if (a.team) teams.add(normalizeTeamForComparison(a.team))
@@ -245,6 +253,16 @@ export const processHonorEntries = (entries, players) => {
 export const getPlayerLastHonorDescription = (player) => {
   const allHonors = []
 
+  // Check accolades (new format) and awards (legacy)
+  if (player.accolades) {
+    player.accolades.forEach(a => {
+      allHonors.push({
+        year: a.year,
+        description: `${a.award} winner`,
+        team: a.team
+      })
+    })
+  }
   if (player.awards) {
     player.awards.forEach(a => {
       allHonors.push({

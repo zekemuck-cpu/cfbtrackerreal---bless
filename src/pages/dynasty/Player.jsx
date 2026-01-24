@@ -194,14 +194,15 @@ export default function Player() {
     return (
       <th
         key={column}
-        className={`px-2 py-2 text-xs font-semibold text-gray-600 uppercase cursor-pointer hover:bg-gray-100 select-none ${extraClasses} text-${align}`}
+        className={`px-2 py-2.5 text-xs font-semibold uppercase cursor-pointer hover:bg-surface-4 select-none transition-colors ${extraClasses} text-${align}`}
+        style={{ color: 'var(--text-tertiary)' }}
         onClick={() => handleStatSort(category, column)}
         title={`Sort by ${label}`}
       >
         <span className="inline-flex items-center gap-1">
           {label}
           {isActive && (
-            <span className="text-blue-500">
+            <span style={{ color: teamColors.primary }}>
               {direction === 'desc' ? '▼' : '▲'}
             </span>
           )}
@@ -250,11 +251,11 @@ export default function Player() {
 
   // Early returns AFTER all hooks
   if (!dynasty) {
-    return <div className="text-center py-12"><p className="text-gray-600">Dynasty not found</p></div>
+    return <div className="text-center py-12"><p style={{ color: 'var(--text-secondary)' }}>Dynasty not found</p></div>
   }
 
   if (!player) {
-    return <div className="text-center py-12"><p className="text-gray-600">Player not found</p></div>
+    return <div className="text-center py-12"><p style={{ color: 'var(--text-secondary)' }}>Player not found</p></div>
   }
   const primaryText = getContrastTextColor(teamColors.primary)
   const secondaryText = getContrastTextColor(teamColors.secondary)
@@ -741,24 +742,24 @@ export default function Player() {
     return (
       <tr>
         <td colSpan={colSpan} className="p-0">
-          <div className="bg-gray-100 border-t border-b border-gray-300 p-2">
-            <div className="text-xs font-semibold text-gray-700 mb-2 uppercase">Game Log - {year}</div>
+          <div className="p-3" style={{ backgroundColor: 'var(--surface-3)', borderTop: '1px solid var(--surface-4)', borderBottom: '1px solid var(--surface-4)' }}>
+            <div className="text-xs font-semibold mb-2 uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Game Log - {year}</div>
             {gameLog.length === 0 ? (
-              <div className="text-xs text-gray-500 italic">No game data available</div>
+              <div className="text-xs italic" style={{ color: 'var(--text-muted)' }}>No game data available</div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="bg-gray-200">
-                      <th className="px-2 py-1 text-left font-semibold text-gray-600 w-12">Wk</th>
-                      <th className="px-2 py-1 text-center font-semibold text-gray-600 w-8"></th>
-                      <th className="px-2 py-1 text-left font-semibold text-gray-600">Opponent</th>
+                    <tr style={{ backgroundColor: 'var(--surface-3)' }}>
+                      <th className="px-2 py-2 text-left font-semibold w-12" style={{ color: 'var(--text-tertiary)' }}>Wk</th>
+                      <th className="px-2 py-2 text-center font-semibold w-8" style={{ color: 'var(--text-tertiary)' }}></th>
+                      <th className="px-2 py-2 text-left font-semibold" style={{ color: 'var(--text-tertiary)' }}>Opponent</th>
                       {columns.map(col => (
-                        <th key={col.key} className="px-2 py-1 text-right font-semibold text-gray-600">{col.label}</th>
+                        <th key={col.key} className="px-2 py-2 text-right font-semibold" style={{ color: 'var(--text-tertiary)' }}>{col.label}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody>
                     {gameLog.map((game, idx) => {
                       const oppMascot = getMascotName(game.opponent, dynasty?.teams || dynasty?.customTeams)
                       const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
@@ -766,24 +767,36 @@ export default function Player() {
                       return (
                         <tr
                           key={idx}
-                          className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 cursor-pointer`}
+                          className="cursor-pointer transition-colors"
+                          style={{
+                            backgroundColor: idx % 2 === 0 ? 'var(--surface-2)' : 'var(--surface-3)',
+                            borderBottom: '1px solid var(--surface-4)'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--surface-4)'}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'var(--surface-2)' : 'var(--surface-3)'}
                           onClick={() => navigate(`${pathPrefix}/game/${game.gameId}`)}
                         >
-                          <td className="px-2 py-1.5 text-gray-600">{game.week || '-'}</td>
-                          <td className="px-2 py-1.5 text-center">
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${isWin ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+                          <td className="px-2 py-2" style={{ color: 'var(--text-secondary)' }}>{game.week || '-'}</td>
+                          <td className="px-2 py-2 text-center">
+                            <span
+                              className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold"
+                              style={{
+                                backgroundColor: isWin ? 'var(--accent-success)' : 'var(--accent-error)',
+                                color: '#fff'
+                              }}
+                            >
                               {isWin ? 'W' : 'L'}
                             </span>
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-2 py-2">
                             <div className="flex items-center gap-1.5">
                               {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain" />}
-                              <span className="font-medium text-gray-700 truncate max-w-[120px]">{oppMascot || game.opponent}</span>
-                              <span className="text-gray-400 text-[10px]">{game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}</span>
+                              <span className="font-medium truncate max-w-[120px]" style={{ color: 'var(--text-primary)' }}>{oppMascot || game.opponent}</span>
+                              <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}</span>
                             </div>
                           </td>
                           {columns.map(col => (
-                            <td key={col.key} className={`px-2 py-1.5 text-right ${col.bold ? 'font-medium' : 'text-gray-500'}`}>
+                            <td key={col.key} className="px-2 py-2 text-right" style={{ color: col.bold ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: col.bold ? 500 : 400 }}>
                               {col.getter(game)}
                             </td>
                           ))}
@@ -911,7 +924,7 @@ export default function Player() {
               style={{ color: primaryText, opacity: 0.9 }}
             >
               {getTeamLogo(playerTeamName) && (
-                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                   <img src={getTeamLogo(playerTeamName)} alt="" className="w-full h-full object-contain" />
                 </div>
               )}
@@ -942,7 +955,7 @@ export default function Player() {
             {player.isRecruit && (
               <span
                 className="px-2 py-0.5 rounded-full text-xs font-bold"
-                style={{ backgroundColor: teamColors.secondary, color: secondaryText }}
+                style={{ backgroundColor: 'var(--surface-4)', color: 'var(--text-secondary)' }}
               >
                 Commitment
               </span>
@@ -991,7 +1004,7 @@ export default function Player() {
                 >
                   <span>←</span>
                   {getTeamLogo(prevTeamName, teamsData) && (
-                    <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                    <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                       <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
@@ -1113,7 +1126,7 @@ export default function Player() {
                   style={{ color: primaryText, opacity: 0.9 }}
                 >
                   {getTeamLogo(playerTeamName) && (
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '3px' }}>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
                       <img src={getTeamLogo(playerTeamName)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
@@ -1122,7 +1135,7 @@ export default function Player() {
                 {player.isRecruit && (
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-bold"
-                    style={{ backgroundColor: teamColors.secondary, color: secondaryText }}
+                    style={{ backgroundColor: 'var(--surface-4)', color: 'var(--text-secondary)' }}
                   >
                     Commitment
                   </span>
@@ -1171,7 +1184,7 @@ export default function Player() {
                     >
                       <span>←</span>
                       {getTeamLogo(prevTeamName, teamsData) && (
-                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                        <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                           <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                         </div>
                       )}
@@ -1373,10 +1386,10 @@ export default function Player() {
 
         return (
           <div
-            className="rounded-lg shadow-lg p-4"
-            style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+            className="rounded-xl p-4"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
           >
-            <h3 className="text-sm font-bold mb-3 uppercase tracking-wide" style={{ color: secondaryText, opacity: 0.7 }}>
+            <h3 className="text-sm font-bold mb-3 uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
               Career Timeline
             </h3>
             <div className="flex flex-wrap gap-2 mb-4">
@@ -1404,15 +1417,15 @@ export default function Player() {
                   <div
                     key={idx}
                     className="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
-                    style={{ backgroundColor: `${teamColors.primary}15`, border: `1px solid ${teamColors.primary}30` }}
+                    style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
                   >
                     {logo && <img src={logo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                    <span style={{ color: secondaryText }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>
                       {getMovementLabel(entry)}{teamDisplay}
                       {entry.draftRound && ` (Rd ${entry.draftRound})`}
                     </span>
-                    <span style={{ color: secondaryText, opacity: 0.5 }}>·</span>
-                    <span style={{ color: secondaryText, opacity: 0.6 }}>{entry.year}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>·</span>
+                    <span style={{ color: 'var(--text-tertiary)' }}>{entry.year}</span>
                   </div>
                 )
               })}
@@ -1424,15 +1437,15 @@ export default function Player() {
       {/* Recruitment Information - Show for any player with recruitment data */}
       {recruitmentInfo && (
         <div
-          className="rounded-xl shadow-md overflow-hidden"
-          style={{ backgroundColor: teamColors.primary, border: `2px solid ${teamColors.secondary}` }}
+          className="rounded-xl overflow-hidden"
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
         >
-          <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: teamColors.secondary }}>
-            <span className="text-sm font-bold" style={{ color: secondaryText }}>
+          <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: teamColors.primary }}>
+            <span className="text-sm font-bold" style={{ color: primaryText }}>
               {recruitmentInfo.isPortal || player.isPortal ? 'Transfer Portal' : 'Recruitment'}
             </span>
             {(player.recruitYear || player.yearStarted) && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(0,0,0,0.2)', color: primaryText }}>
                 Class of {player.recruitYear || player.yearStarted}
               </span>
             )}
@@ -1444,33 +1457,33 @@ export default function Player() {
                 <div className="flex items-center gap-1">
                   <div className="flex gap-0.5">
                     {[...Array(5)].map((_, i) => (
-                      <svg key={i} className="w-4 h-4" fill={i < Number(recruitmentInfo.stars) ? '#FFD700' : '#4B5563'} viewBox="0 0 20 20">
+                      <svg key={i} className="w-4 h-4" fill={i < Number(recruitmentInfo.stars) ? '#FFD700' : 'rgba(255,215,0,0.2)'} viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
                     ))}
                   </div>
-                  <span className="text-xs font-medium" style={{ color: primaryText, opacity: 0.7 }}>
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                     {recruitmentInfo.stars}-Star
                   </span>
                 </div>
               )}
               {/* Rankings - Use Number() > 0 directly to avoid React rendering 0 */}
               {Number(recruitmentInfo.nationalRank) > 0 && (
-                <div className="text-sm" style={{ color: primaryText }}>
-                  <span className="font-bold">#{recruitmentInfo.nationalRank}</span>
-                  <span style={{ opacity: 0.6 }}> National</span>
+                <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>#{recruitmentInfo.nationalRank}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}> National</span>
                 </div>
               )}
               {Number(recruitmentInfo.positionRank) > 0 && (
-                <div className="text-sm" style={{ color: primaryText }}>
-                  <span className="font-bold">#{recruitmentInfo.positionRank}</span>
-                  <span style={{ opacity: 0.6 }}> {player.position}</span>
+                <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>#{recruitmentInfo.positionRank}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}> {player.position}</span>
                 </div>
               )}
               {Number(recruitmentInfo.stateRank) > 0 && (
-                <div className="text-sm" style={{ color: primaryText }}>
-                  <span className="font-bold">#{recruitmentInfo.stateRank}</span>
-                  <span style={{ opacity: 0.6 }}> {recruitmentInfo.state || player.state}</span>
+                <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>#{recruitmentInfo.stateRank}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}> {recruitmentInfo.state || player.state}</span>
                 </div>
               )}
               {/* Previous Team for transfers */}
@@ -1482,16 +1495,16 @@ export default function Player() {
                 const prevTeamLogo = getTeamLogo(getMascotName(recruitmentInfo.previousTeam, dynasty?.teams || dynasty?.customTeams) || recruitmentInfo.previousTeam)
 
                 return (
-                  <div className="text-sm flex items-center gap-1.5" style={{ color: primaryText }}>
-                    <span style={{ opacity: 0.6 }}>from</span>
+                  <div className="text-sm flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>from</span>
                     <Link
                       to={`${pathPrefix}/team/${resolveTid(prevTeamAbbr, currentDynasty?.teams || TEAMS)}/${transferYear}`}
                       className="font-semibold hover:underline flex items-center gap-1.5"
-                      style={{ color: primaryText }}
+                      style={{ color: teamColors.primary }}
                     >
                       {recruitmentInfo.previousTeam}
                       {prevTeamLogo && (
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                           <img src={prevTeamLogo} alt="" className="w-full h-full object-contain" />
                         </div>
                       )}
@@ -1517,8 +1530,8 @@ export default function Player() {
           {player.recruitYear && (
             <Link
               to={`${pathPrefix}/recruiting/${resolveTid(player.teamsByYear?.[player.recruitYear] || playerTeamAbbr, currentDynasty?.teams || TEAMS)}/${player.recruitYear}`}
-              className="block px-4 py-2 text-sm font-medium hover:opacity-80 transition-opacity text-center"
-              style={{ backgroundColor: `${teamColors.secondary}50`, color: primaryText }}
+              className="block px-4 py-2 text-sm font-medium hover:bg-surface-4 transition-colors text-center"
+              style={{ backgroundColor: 'var(--surface-3)', color: teamColors.primary }}
             >
               View Recruiting Class →
             </Link>
@@ -1526,15 +1539,15 @@ export default function Player() {
         </div>
       )}
 
-      {/* Career Statistics - Football Reference Style */}
+      {/* Career Statistics - Premium Dark Theme */}
       {hasMeaningfulStats && (() => {
         const primaryStat = getPrimaryStatCategory(player.position)
         return (
         <div className="space-y-6">
           {/* Passing Table */}
           {hasStats.passing && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Passing</h3>
               </div>
               {(() => {
@@ -1557,10 +1570,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('passing', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('passing', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'passing' && renderSortableHeader('passing', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('passing', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('passing', 'cmp', 'Cmp', 'right')}
@@ -1577,7 +1590,7 @@ export default function Player() {
                           {renderSortableHeader('passing', 'sck', 'Sck', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {passingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -1585,35 +1598,38 @@ export default function Player() {
                           const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'passing' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right">{y.passing.cmp}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.att}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcPct(y.passing.cmp, y.passing.att)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.passing.att}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcPct(y.passing.cmp, y.passing.att)}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.passing.yds.toLocaleString()}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcAvg(y.passing.yds, y.passing.att)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcAvg(y.passing.yds, y.passing.att)}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.passing.td}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcPct(y.passing.td, y.passing.att)}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.int}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcPct(y.passing.int, y.passing.att)}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.int > 0 ? `${(y.passing.td / y.passing.int).toFixed(2)}:1` : (y.passing.td > 0 ? '∞' : '-')}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.lng}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.passing.sacks}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcPct(y.passing.td, y.passing.att)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.passing.int}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcPct(y.passing.int, y.passing.att)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.passing.int > 0 ? `${(y.passing.td / y.passing.int).toFixed(2)}:1` : (y.passing.td > 0 ? '∞' : '-')}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.passing.lng}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.passing.sacks}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'passing')}
                             </React.Fragment>
@@ -1621,8 +1637,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'passing' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -1650,8 +1666,8 @@ export default function Player() {
 
           {/* Rushing Table */}
           {hasStats.rushing && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Rushing</h3>
               </div>
               {(() => {
@@ -1671,10 +1687,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('rushing', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('rushing', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'rushing' && renderSortableHeader('rushing', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('rushing', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('rushing', 'car', 'Car', 'right')}
@@ -1687,7 +1703,7 @@ export default function Player() {
                           {renderSortableHeader('rushing', 'bt', 'BTkl', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {rushingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -1695,31 +1711,34 @@ export default function Player() {
                           const colSpan = 11 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'rushing' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right">{y.rushing.car}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.rushing.yds.toLocaleString()}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcAvg(y.rushing.yds, y.rushing.car)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcAvg(y.rushing.yds, y.rushing.car)}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.rushing.td}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.gamesPlayed > 0 ? calcAvg(y.rushing.yds, y.gamesPlayed) : '0.0'}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.rushing.lng}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.rushing.fum}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.rushing.bt}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.gamesPlayed > 0 ? calcAvg(y.rushing.yds, y.gamesPlayed) : '0.0'}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.rushing.lng}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.rushing.fum}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.rushing.bt}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'rushing')}
                             </React.Fragment>
@@ -1727,8 +1746,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'rushing' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -1752,8 +1771,8 @@ export default function Player() {
 
           {/* Receiving Table */}
           {hasStats.receiving && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Receiving</h3>
               </div>
               {(() => {
@@ -1774,10 +1793,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('receiving', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('receiving', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'receiving' && renderSortableHeader('receiving', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('receiving', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('receiving', 'rec', 'Rec', 'right')}
@@ -1789,7 +1808,7 @@ export default function Player() {
                           {renderSortableHeader('receiving', 'drops', 'Drops', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {receivingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -1797,30 +1816,33 @@ export default function Player() {
                           const colSpan = 10 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'receiving' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right">{y.receiving.rec}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.receiving.yds.toLocaleString()}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{calcAvg(y.receiving.yds, y.receiving.rec)}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcAvg(y.receiving.yds, y.receiving.rec)}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.receiving.td}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.gamesPlayed > 0 ? calcAvg(y.receiving.yds, y.gamesPlayed) : '0.0'}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.receiving.lng}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.receiving.drops}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.gamesPlayed > 0 ? calcAvg(y.receiving.yds, y.gamesPlayed) : '0.0'}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.receiving.lng}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.receiving.drops}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'receiving')}
                             </React.Fragment>
@@ -1828,8 +1850,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'receiving' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -1852,8 +1874,8 @@ export default function Player() {
 
           {/* Blocking Table - Only show for TE and OL positions */}
           {hasStats.blocking && ['TE', 'LT', 'LG', 'C', 'RG', 'RT'].includes(player.position?.toUpperCase()) && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Blocking</h3>
               </div>
               {(() => {
@@ -1871,16 +1893,16 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('blocking', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('blocking', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'blocking' && renderSortableHeader('blocking', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('blocking', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('blocking', 'sacksAllowed', 'Sacks Allowed', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {blockingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -1888,23 +1910,26 @@ export default function Player() {
                           const colSpan = 4 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'blocking' && <td className="px-2 py-2 text-right">{y.gamesPlayed || 0}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{(y.snapsPlayed || 0).toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{(y.snapsPlayed || 0).toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right font-medium">{y.blocking.sacksAllowed}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'blocking')}
@@ -1913,8 +1938,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'blocking' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -1931,8 +1956,8 @@ export default function Player() {
 
           {/* Defense Table */}
           {hasStats.defensive && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Defense</h3>
               </div>
               {(() => {
@@ -1952,10 +1977,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('defense', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('defense', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'defense' && renderSortableHeader('defense', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('defense', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('defense', 'solo', 'Solo', 'right')}
@@ -1971,7 +1996,7 @@ export default function Player() {
                           {renderSortableHeader('defense', 'fr', 'FR', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {defenseYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -1979,34 +2004,37 @@ export default function Player() {
                           const colSpan = 14 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'defense' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.solo}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.ast}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.solo}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.ast}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.defensive.solo + y.defensive.ast}</td>
                                 <td className="px-2 py-2 text-right">{y.defensive.tfl}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.defensive.sacks}</td>
                                 <td className="px-2 py-2 text-right">{y.defensive.int}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.intYds}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.intYds}</td>
                                 <td className="px-2 py-2 text-right">{y.defensive.intTd}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.pdef}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.ff}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.defensive.fr}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.pdef}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.ff}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.defensive.fr}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'defense')}
                             </React.Fragment>
@@ -2014,8 +2042,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'defense' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -2042,8 +2070,8 @@ export default function Player() {
 
           {/* Kicking Table */}
           {hasStats.kicking && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Kicking</h3>
               </div>
               {(() => {
@@ -2064,10 +2092,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('kicking', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('kicking', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'kicking' && renderSortableHeader('kicking', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('kicking', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('kicking', 'fgm', 'FGM', 'right')}
@@ -2079,7 +2107,7 @@ export default function Player() {
                           {renderSortableHeader('kicking', 'xpPct', 'XP%', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {kickingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -2087,29 +2115,32 @@ export default function Player() {
                           const colSpan = 10 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'kicking' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right font-medium">{y.kicking.fgm}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.kicking.fga}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.kicking.fga}</td>
                                 <td className="px-2 py-2 text-right">{calcPct(y.kicking.fgm, y.kicking.fga)}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.kicking.lng}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.kicking.lng}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.kicking.xpm}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.kicking.xpa}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.kicking.xpa}</td>
                                 <td className="px-2 py-2 text-right">{calcPct(y.kicking.xpm, y.kicking.xpa)}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'kicking')}
@@ -2118,8 +2149,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'kicking' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -2142,8 +2173,8 @@ export default function Player() {
 
           {/* Punting Table */}
           {hasStats.punting && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Punting</h3>
               </div>
               {(() => {
@@ -2163,10 +2194,10 @@ export default function Player() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                           {renderSortableHeader('punting', 'year', 'Year', 'left', 'w-14')}
                           {renderSortableHeader('punting', 'class', 'Class', 'left', 'w-16')}
-                          <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                          <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                           {primaryStat === 'punting' && renderSortableHeader('punting', 'gamesPlayed', 'G', 'right')}
                           {showSnapsCol && renderSortableHeader('punting', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('punting', 'punts', 'Punts', 'right')}
@@ -2177,7 +2208,7 @@ export default function Player() {
                           {renderSortableHeader('punting', 'tb', 'TB', 'right')}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                         {puntingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -2185,29 +2216,32 @@ export default function Player() {
                           const colSpan = 9 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                              <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                                 <td
-                                  className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                                  className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                                   onClick={() => toggleGameLog(y.year)}
                                   title="Click to view game log"
                                 >
                                   {y.year}
                                   {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                                 </td>
-                                <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                                <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
                                 {primaryStat === 'punting' && <td className="px-2 py-2 text-right">{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right text-gray-500">{y.snapsPlayed.toLocaleString()}</td>}
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right">{y.punting.punts}</td>
                                 <td className="px-2 py-2 text-right font-medium">{y.punting.yds.toLocaleString()}</td>
                                 <td className="px-2 py-2 text-right font-medium">{calcAvg(y.punting.yds, y.punting.punts)}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.punting.lng}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.punting.lng}</td>
                                 <td className="px-2 py-2 text-right">{y.punting.in20}</td>
-                                <td className="px-2 py-2 text-right text-gray-500">{y.punting.tb}</td>
+                                <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.punting.tb}</td>
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'punting')}
                             </React.Fragment>
@@ -2215,8 +2249,8 @@ export default function Player() {
                         })}
                       </tbody>
                       <tfoot>
-                        <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                          <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                        <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                          <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'punting' && <td className="px-2 py-2 text-right">{careerGames}</td>}
@@ -2238,8 +2272,8 @@ export default function Player() {
 
           {/* Kick Returns Table */}
           {hasStats.kickReturn && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Kick Returns</h3>
               </div>
               {(() => {
@@ -2257,10 +2291,10 @@ export default function Player() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
+                    <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                       {renderSortableHeader('kickReturn', 'year', 'Year', 'left', 'w-14')}
                       {renderSortableHeader('kickReturn', 'class', 'Class', 'left', 'w-16')}
-                      <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                      <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                       {renderSortableHeader('kickReturn', 'ret', 'Ret', 'right')}
                       {renderSortableHeader('kickReturn', 'yds', 'Yds', 'right')}
                       {renderSortableHeader('kickReturn', 'avg', 'Avg', 'right')}
@@ -2268,7 +2302,7 @@ export default function Player() {
                       {renderSortableHeader('kickReturn', 'lng', 'Lng', 'right')}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                     {kickReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -2276,16 +2310,19 @@ export default function Player() {
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>
-                          <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                          <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                             <td
-                              className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                              className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                               onClick={() => toggleGameLog(y.year)}
                               title="Click to view game log"
                             >
                               {y.year}
                               {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                             </td>
-                            <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                            <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
@@ -2293,9 +2330,9 @@ export default function Player() {
                                 </td>
                             <td className="px-2 py-2 text-right">{y.kickReturn.ret}</td>
                             <td className="px-2 py-2 text-right font-medium">{y.kickReturn.yds}</td>
-                            <td className="px-2 py-2 text-right text-gray-500">{calcAvg(y.kickReturn.yds, y.kickReturn.ret)}</td>
+                            <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcAvg(y.kickReturn.yds, y.kickReturn.ret)}</td>
                             <td className="px-2 py-2 text-right font-medium">{y.kickReturn.td}</td>
-                            <td className="px-2 py-2 text-right text-gray-500">{y.kickReturn.lng}</td>
+                            <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.kickReturn.lng}</td>
                           </tr>
                           {renderGameLogRow(y.year, colSpan, 'kickReturn')}
                         </React.Fragment>
@@ -2303,8 +2340,8 @@ export default function Player() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                      <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                    <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                      <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
                       <td className="px-2 py-2 text-right">{careerKickReturn.ret}</td>
@@ -2323,8 +2360,8 @@ export default function Player() {
 
           {/* Punt Returns Table */}
           {hasStats.puntReturn && (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-              <div className="px-4 py-3 border-b-2" style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}>
+            <div className="rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+              <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
                 <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Punt Returns</h3>
               </div>
               {(() => {
@@ -2342,10 +2379,10 @@ export default function Player() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
+                    <tr style={{ backgroundColor: 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}>
                       {renderSortableHeader('puntReturn', 'year', 'Year', 'left', 'w-14')}
                       {renderSortableHeader('puntReturn', 'class', 'Class', 'left', 'w-16')}
-                      <th className="px-2 py-2 text-xs font-semibold text-gray-600 uppercase text-center w-12">Team</th>
+                      <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: 'var(--text-tertiary)' }}>Team</th>
                       {renderSortableHeader('puntReturn', 'ret', 'Ret', 'right')}
                       {renderSortableHeader('puntReturn', 'yds', 'Yds', 'right')}
                       {renderSortableHeader('puntReturn', 'avg', 'Avg', 'right')}
@@ -2353,7 +2390,7 @@ export default function Player() {
                       {renderSortableHeader('puntReturn', 'lng', 'Lng', 'right')}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody style={{ borderTop: '1px solid var(--surface-4)' }}>
                     {puntReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
@@ -2361,16 +2398,19 @@ export default function Player() {
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>
-                          <tr className={`${idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'} ${expandedGameLogYear === y.year ? 'bg-blue-50' : ''}`}>
+                          <tr className="transition-colors hover:bg-surface-4" style={{ backgroundColor: expandedGameLogYear === y.year ? 'var(--surface-4)' : idx % 2 === 1 ? 'var(--surface-3)' : 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}>
                             <td
-                              className="px-2 py-2 font-medium text-gray-900 w-14 cursor-pointer hover:text-blue-600 hover:underline"
+                              className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
+                                  style={{ color: 'var(--text-primary)' }}
+                                  onMouseEnter={e => e.currentTarget.style.color = teamColors.primary}
+                                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-primary)'}
                               onClick={() => toggleGameLog(y.year)}
                               title="Click to view game log"
                             >
                               {y.year}
                               {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
                             </td>
-                            <td className="px-2 py-2 text-gray-600 w-16">{y.class}</td>
+                            <td className="px-2 py-2.5 w-16" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
                                   <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
@@ -2378,9 +2418,9 @@ export default function Player() {
                                 </td>
                             <td className="px-2 py-2 text-right">{y.puntReturn.ret}</td>
                             <td className="px-2 py-2 text-right font-medium">{y.puntReturn.yds}</td>
-                            <td className="px-2 py-2 text-right text-gray-500">{calcAvg(y.puntReturn.yds, y.puntReturn.ret)}</td>
+                            <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{calcAvg(y.puntReturn.yds, y.puntReturn.ret)}</td>
                             <td className="px-2 py-2 text-right font-medium">{y.puntReturn.td}</td>
-                            <td className="px-2 py-2 text-right text-gray-500">{y.puntReturn.lng}</td>
+                            <td className="px-2 py-2 text-right" style={{ color: 'var(--text-secondary)' }}>{y.puntReturn.lng}</td>
                           </tr>
                           {renderGameLogRow(y.year, colSpan, 'puntReturn')}
                         </React.Fragment>
@@ -2388,8 +2428,8 @@ export default function Player() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gray-100 font-semibold border-t-2" style={{ borderColor: teamColors.primary }}>
-                      <td className="px-2 py-2 text-gray-900 w-14">Career</td>
+                    <tr style={{ backgroundColor: 'var(--surface-3)', borderTop: `2px solid ${teamColors.primary}` }}>
+                      <td className="px-2 py-2.5 font-semibold w-14" style={{ color: 'var(--text-primary)' }}>Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
                       <td className="px-2 py-2 text-right">{careerPuntReturn.ret}</td>
@@ -2448,30 +2488,30 @@ export default function Player() {
 
         return (
           <div
-            className="rounded-lg shadow-lg p-4 sm:p-6"
-            style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
+            className="rounded-xl p-4 sm:p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
           >
-            <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Awards</h2>
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Awards</h2>
             <div className="space-y-1">
               {/* POW honors from game data */}
               {powHonors.confPOW > 0 && (
                 <button
                   onClick={() => handleAccoladeClick('confPOW')}
                   className="block text-left hover:opacity-70 transition-opacity"
-                  style={{ color: secondaryText }}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
-                  <span className="font-semibold">Conference Player of the Week</span>
-                  <span className="opacity-70"> ({powHonors.confPOW}x)</span>
+                  <span className="font-semibold" style={{ color: teamColors.primary }}>Conference Player of the Week</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}> ({powHonors.confPOW}x)</span>
                 </button>
               )}
               {powHonors.nationalPOW > 0 && (
                 <button
                   onClick={() => handleAccoladeClick('nationalPOW')}
                   className="block text-left hover:opacity-70 transition-opacity"
-                  style={{ color: secondaryText }}
+                  style={{ color: 'var(--text-secondary)' }}
                 >
-                  <span className="font-semibold">National Player of the Week</span>
-                  <span className="opacity-70"> ({powHonors.nationalPOW}x)</span>
+                  <span className="font-semibold" style={{ color: teamColors.primary }}>National Player of the Week</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}> ({powHonors.nationalPOW}x)</span>
                 </button>
               )}
               {/* Accolades from player.accolades array (excluding POW which comes from game data) */}
@@ -2481,9 +2521,9 @@ export default function Player() {
                   const label = awardLabels[award] || award
                   const sortedYears = [...years].sort((a, b) => b - a)
                   return (
-                    <div key={award} style={{ color: secondaryText }}>
-                      <span className="font-semibold">{label}</span>
-                      <span className="opacity-70"> ({sortedYears.join(', ')})</span>
+                    <div key={award} style={{ color: 'var(--text-secondary)' }}>
+                      <span className="font-semibold" style={{ color: teamColors.primary }}>{label}</span>
+                      <span style={{ color: 'var(--text-tertiary)' }}> ({sortedYears.join(', ')})</span>
                     </div>
                   )
                 })}
@@ -2495,13 +2535,13 @@ export default function Player() {
       {/* Notes & Media */}
       {(player.notes || (player.links && player.links.length > 0)) && (
         <div
-          className="rounded-lg shadow-lg p-4 sm:p-6"
-          style={{ backgroundColor: teamColors.secondary, border: `3px solid ${teamColors.primary}` }}
+          className="rounded-xl p-4 sm:p-6"
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
         >
-          <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Notes & Media</h2>
+          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Notes & Media</h2>
           {player.notes && (
             <div className="mb-4">
-              <div className="p-4 rounded-lg whitespace-pre-wrap" style={{ backgroundColor: `${teamColors.primary}20`, color: secondaryText }}>
+              <div className="p-4 rounded-lg whitespace-pre-wrap" style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}>
                 {player.notes}
               </div>
             </div>
@@ -2741,13 +2781,13 @@ export default function Player() {
           onClick={() => setShowAccoladeModal(false)}
         >
           <div
-            className="rounded-lg shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
-            style={{ backgroundColor: teamColors.secondary }}
+            className="rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className="p-4 border-b sticky top-0"
-              style={{ backgroundColor: teamColors.primary, borderColor: teamColors.secondary }}
+              style={{ backgroundColor: teamColors.primary, borderColor: 'var(--surface-4)' }}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -2790,7 +2830,7 @@ export default function Player() {
                           {game.location === 'away' ? '@' : 'vs'}
                         </span>
                         {opponentLogo && (
-                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', border: `2px solid ${opponentTextColor}`, padding: '2px' }}>
+                          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${opponentTextColor}`, padding: '2px' }}>
                             <img src={opponentLogo} alt="" className="w-full h-full object-contain" />
                           </div>
                         )}
@@ -2834,13 +2874,13 @@ export default function Player() {
           onClick={() => setShowGameLogModal(false)}
         >
           <div
-            className="rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
-            style={{ backgroundColor: teamColors.secondary }}
+            className="rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className="p-4 border-b flex-shrink-0"
-              style={{ backgroundColor: teamColors.primary, borderColor: teamColors.secondary }}
+              style={{ backgroundColor: teamColors.primary, borderColor: 'var(--surface-4)' }}
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -2920,7 +2960,7 @@ export default function Player() {
                           {game.location === 'away' ? '@' : 'vs'}
                         </span>
                         {opponentLogo && (
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FFFFFF', border: `2px solid ${opponentTextColor}`, padding: '2px' }}>
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${opponentTextColor}`, padding: '2px' }}>
                             <img src={opponentLogo} alt="" className="w-full h-full object-contain" />
                           </div>
                         )}
@@ -2955,31 +2995,31 @@ export default function Player() {
           onClick={() => setShowDeleteConfirm(false)}
         >
           <div
-            className="rounded-lg shadow-xl max-w-md w-full p-6"
-            style={{ backgroundColor: teamColors.secondary }}
+            className="rounded-xl shadow-xl max-w-md w-full p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FEE2E2' }}>
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)' }}>
+                <svg className="w-6 h-6" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold" style={{ color: teamColors.primary }}>Delete Player?</h3>
-                <p className="text-sm" style={{ color: teamColors.primary, opacity: 0.7 }}>This action cannot be undone</p>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Delete Player?</h3>
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="mb-6" style={{ color: teamColors.primary }}>
-              Are you sure you want to delete <strong>{player.name}</strong>? All stats and data for this player will be permanently removed.
+            <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
+              Are you sure you want to delete <strong style={{ color: 'var(--text-primary)' }}>{player.name}</strong>? All stats and data for this player will be permanently removed.
             </p>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 rounded-lg font-semibold border-2"
-                style={{ borderColor: teamColors.primary, color: teamColors.primary, backgroundColor: 'transparent' }}
+                className="px-4 py-2 rounded-lg font-semibold transition-colors hover:bg-surface-4"
+                style={{ border: '1px solid var(--surface-5)', color: 'var(--text-secondary)', backgroundColor: 'transparent' }}
               >
                 Cancel
               </button>
@@ -2998,7 +3038,7 @@ export default function Player() {
                   }
                 }}
                 disabled={isDeleting}
-                className="px-4 py-2 rounded-lg font-semibold"
+                className="px-4 py-2 rounded-lg font-semibold transition-opacity"
                 style={{ backgroundColor: '#EF4444', color: '#FFFFFF', opacity: isDeleting ? 0.7 : 1 }}
               >
                 {isDeleting ? 'Deleting...' : 'Delete Player'}

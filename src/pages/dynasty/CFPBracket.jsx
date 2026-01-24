@@ -127,10 +127,12 @@ export default function CFPBracket() {
   useEffect(() => {
     const updateScale = () => {
       const width = window.innerWidth
-      if (width < 640) {
-        setBracketScale(0.45) // Mobile - zoom out more
+      if (width < 400) {
+        setBracketScale(0.35) // Very small mobile
+      } else if (width < 640) {
+        setBracketScale(0.42) // Mobile
       } else if (width < 1024) {
-        setBracketScale(0.7)  // Tablet
+        setBracketScale(0.65)  // Tablet
       } else {
         setBracketScale(0.8)  // Desktop
       }
@@ -512,13 +514,47 @@ export default function CFPBracket() {
   const CONNECTOR_GAP = 60 // Gap between columns for connector lines
 
   // Team slot component
-  const TeamSlot = ({ team, seed, score, isWinner }) => {
+  // TeamSlot now accepts isParentClickable to avoid nested anchors
+  const TeamSlot = ({ team, seed, score, isWinner, isParentClickable }) => {
     const teamData = team ? teamAbbreviations[team] : null
     const bgColor = teamData?.backgroundColor || '#4B5563'
     const txtColor = teamData?.textColor || '#D1D5DB'
     const mascotName = team ? mascotMap[team] : null
     const logo = mascotName ? getTeamLogo(mascotName) : null
     const isLoser = score !== undefined && !isWinner
+
+    // When parent is clickable (a Link), use span to avoid nested anchors
+    // When parent is not clickable, use Link to allow team navigation
+    const TeamName = () => {
+      if (!team) {
+        return (
+          <span className="text-xl font-semibold" style={{ color: txtColor }}>
+            TBD
+          </span>
+        )
+      }
+
+      if (isParentClickable) {
+        // Render as span to avoid nested <a> tags
+        return (
+          <span className="text-xl font-semibold" style={{ color: txtColor }}>
+            {getShortName(team)}
+          </span>
+        )
+      }
+
+      // Render as Link when parent is not clickable
+      return (
+        <Link
+          to={`${pathPrefix}/team/${resolveTid(team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-xl font-semibold hover:underline"
+          style={{ color: txtColor }}
+        >
+          {getShortName(team)}
+        </Link>
+      )
+    }
 
     return (
       <div
@@ -541,20 +577,7 @@ export default function CFPBracket() {
           </div>
         )}
         <div className="flex-1 truncate">
-          {team ? (
-            <Link
-              to={`${pathPrefix}/team/${resolveTid(team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-xl font-semibold hover:underline"
-              style={{ color: txtColor }}
-            >
-              {getShortName(team)}
-            </Link>
-          ) : (
-            <span className="text-xl font-semibold" style={{ color: txtColor }}>
-              TBD
-            </span>
-          )}
+          <TeamName />
         </div>
         {score !== undefined && (
           <span className="text-xl font-bold ml-auto" style={{ color: txtColor }}>
@@ -591,17 +614,25 @@ export default function CFPBracket() {
 
     // Generate game ID using the slot ID system
     // Each CFP game has a fixed slot ID: cfpfr1-4, cfpqf1-4, cfpsf1-2, cfpnc
-    const gameId = hasResult && slotId ? getCFPGameId(slotId, displayYear) : null
+    const gameId = slotId ? getCFPGameId(slotId, displayYear) : null
+
+    // Game is clickable if:
+    // 1. There's a result (game has been played), OR
+    // 2. There's a game shell (created when seeds were entered), OR
+    // 3. Both teams are known (we can at least view the matchup)
+    const hasGameShell = gameData?.id
+    const hasTeams = team1 && team2
+    const isClickable = (hasResult || hasGameShell || hasTeams) && gameId
 
     const matchupContent = (
       <>
-        <TeamSlot team={team1} seed={seed1} score={score1} isWinner={winner === team1} />
-        <TeamSlot team={team2} seed={seed2} score={score2} isWinner={winner === team2} />
+        <TeamSlot team={team1} seed={seed1} score={score1} isWinner={winner === team1} isParentClickable={isClickable} />
+        <TeamSlot team={team2} seed={seed2} score={score2} isWinner={winner === team2} isParentClickable={isClickable} />
       </>
     )
 
-    // If there's a result, render as Link to game page
-    if (hasResult && gameId) {
+    // If clickable, render as Link to game page
+    if (isClickable) {
       return (
         <Link
           to={`${pathPrefix}/game/${gameId}`}
@@ -613,7 +644,7 @@ export default function CFPBracket() {
       )
     }
 
-    // No result yet - just render as div (not clickable to game page)
+    // Not clickable yet (TBD matchups)
     return (
       <div
         className="absolute flex flex-col"
@@ -930,9 +961,35 @@ export default function CFPBracket() {
 
   return (
     <div
-      className="p-4 -mx-4 -mt-6 -mb-6 min-h-[calc(100vh-80px)]"
-      style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}
+      className="min-h-[calc(100vh-80px)] relative cfp-bracket-container"
+      style={{
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        marginTop: '-1.5rem',
+        marginBottom: '-1.5rem',
+        paddingTop: '1.5rem',
+        paddingBottom: '1.5rem',
+        boxSizing: 'border-box'
+      }}
     >
+      {/* CSS for responsive container - full width on all screens */}
+      <style>{`
+        .cfp-bracket-container {
+          margin-left: -1rem;
+          margin-right: -1rem;
+          padding-left: 1rem;
+          padding-right: 1rem;
+          width: calc(100% + 2rem);
+          min-width: 100%;
+        }
+        @media (min-width: 640px) {
+          .cfp-bracket-container {
+            margin-left: calc(-50vw + 50%);
+            margin-right: calc(-50vw + 50%);
+            width: 100vw;
+          }
+        }
+      `}</style>
+      {/* Header */}
       <div className="flex items-center justify-center gap-3 md:gap-6 mb-6 md:mb-10">
         <img src="https://i.imgur.com/ZKD9dQJ.png" alt="CFP Logo" className="h-10 md:h-20" />
         <h1 className="text-xl md:text-4xl font-bold text-white">
@@ -954,13 +1011,33 @@ export default function CFPBracket() {
         </h1>
       </div>
 
-      {/* Bracket Container - scaled down, single scroll context */}
-      <div className="overflow-x-auto">
+      {/* Mobile scroll hint */}
+      <div className="sm:hidden text-center text-gray-400 text-xs mb-2 flex items-center justify-center gap-1">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        Scroll right to view full bracket
+      </div>
+
+      {/* Bracket Container - scrollable on mobile, centered on larger screens */}
+      <div
+        className="overflow-x-auto overflow-y-visible pb-4"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin'
+        }}
+      >
         {/* Wrapper reserves correct visual space for scaled content */}
+        {/* On mobile: no centering, start from left edge with padding */}
+        {/* On sm+: center the bracket */}
         <div
+          className="sm:mx-auto"
           style={{
-            width: `${BRACKET_WIDTH * bracketScale}px`,
-            height: `${(BRACKET_HEIGHT + 250) * bracketScale}px`
+            width: `${BRACKET_WIDTH * bracketScale + 32}px`,
+            minWidth: `${BRACKET_WIDTH * bracketScale + 32}px`,
+            height: `${(BRACKET_HEIGHT + 250) * bracketScale}px`,
+            paddingLeft: '16px',
+            paddingRight: '16px'
           }}
         >
           {/* Scaled bracket content */}

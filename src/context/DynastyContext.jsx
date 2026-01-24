@@ -3891,6 +3891,11 @@ export function DynastyProvider({ children }) {
   // This prevents the listener from overwriting fresh local changes with stale Firestore data
   // Uses a counter to skip multiple updates (optimistic + server confirm)
   const skipListenerUpdatesCountRef = useRef(0)
+  // Flag to prevent listener updates during phase transitions (more robust than counter)
+  // Set to true when starting a phase transition, cleared when complete
+  const phaseTransitionInProgressRef = useRef(false)
+  // Timestamp of when skip was set - auto-clears after timeout to prevent stuck state
+  const skipListenerTimestampRef = useRef(0)
 
   // Helper to apply migrations to dynasties (games + stats + roster)
   const applyMigrations = (dynastyList) => {
@@ -4154,10 +4159,26 @@ export function DynastyProvider({ children }) {
     // Subscribe to real-time updates for cloud dynasties (Firestore)
     const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties) => {
       console.log('[DynastyContext] Firestore subscription callback. Cloud dynasties:', firestoreDynasties?.length || 0, firestoreDynasties?.map(d => ({ id: d.id, name: d.teamName })))
-      // Check if we should skip this update (we just manually updated local state)
-      if (skipListenerUpdatesCountRef.current > 0) {
-        skipListenerUpdatesCountRef.current--
+
+      // Check if phase transition is in progress - ALWAYS skip during transitions
+      if (phaseTransitionInProgressRef.current) {
+        console.log('[DynastyContext] Skipping listener update - phase transition in progress')
         return
+      }
+
+      // Check if we should skip this update (we just manually updated local state)
+      // Also check timestamp - auto-clear skip after 30 seconds to prevent stuck state
+      const now = Date.now()
+      if (skipListenerUpdatesCountRef.current > 0) {
+        // Check if skip has been active for too long (30 seconds max)
+        if (now - skipListenerTimestampRef.current > 30000) {
+          console.warn('[DynastyContext] Skip counter expired (30s timeout) - allowing update')
+          skipListenerUpdatesCountRef.current = 0
+        } else {
+          console.log('[DynastyContext] Skipping listener update. Remaining skips:', skipListenerUpdatesCountRef.current)
+          skipListenerUpdatesCountRef.current--
+          return
+        }
       }
 
       // Load subcollections for each cloud dynasty in parallel
@@ -4599,6 +4620,7 @@ export function DynastyProvider({ children }) {
       // Set counter to skip the next 2 listener updates BEFORE calling Firestore
       // (the listener fires during updateDoc, not after)
       skipListenerUpdatesCountRef.current = 2
+      skipListenerTimestampRef.current = Date.now()
 
       // Check if dynasty is migrated to subcollections
       // (dynasty was already looked up at top of function for storage routing)
@@ -5743,7 +5765,15 @@ export function DynastyProvider({ children }) {
     console.log('[advanceWeek] dynastyId:', dynastyId)
     console.log('[advanceWeek] classConfirmations:', classConfirmations)
 
-    const dynasty = dynasties.find(d => d.id === dynastyId)
+    // CRITICAL: Set phase transition flag to prevent listener from overwriting data
+    phaseTransitionInProgressRef.current = true
+    console.log('[advanceWeek] Phase transition flag SET')
+
+    // IMPORTANT: Prefer currentDynasty over dynasties.find() to get the latest in-memory data
+    // This ensures we don't lose player edits that haven't been persisted yet
+    const dynasty = (String(currentDynasty?.id) === String(dynastyId))
+      ? currentDynasty
+      : dynasties.find(d => d.id === dynastyId)
     if (!dynasty) {
       console.error('[advanceWeek] Dynasty not found! dynastyId:', dynastyId)
       console.error('[advanceWeek] Available dynasty ids:', dynasties.map(d => d.id))
@@ -5971,6 +6001,9 @@ export function DynastyProvider({ children }) {
           if (g.userTeam) return g
           // CPU games don't need userTeam - they're identified by having team1/team2 but no userTeam
           if (g.team1 && g.team2) return g
+          // CFP game shells don't need userTeam - they're identified by cfpSlot or team1Tid/team2Tid
+          if (g.cfpSlot) return g
+          if (g.team1Tid && g.team2Tid) return g
           // Tag legacy user game with the current team
           return { ...g, userTeam: currentTeamAbbr }
         })
@@ -6464,6 +6497,15 @@ export function DynastyProvider({ children }) {
     console.log('[advanceWeek] Final values:', { nextWeek, nextPhase, nextYear })
     console.log('[advanceWeek] additionalUpdates keys:', Object.keys(additionalUpdates))
 
+    // Debug: Log if games are being updated and count CFP games
+    if (additionalUpdates.games) {
+      const cfpGames = additionalUpdates.games.filter(g => g.cfpSlot || g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship)
+      console.log('[advanceWeek] Games in update:', additionalUpdates.games.length, 'CFP games:', cfpGames.length)
+    } else {
+      const currentCfpGames = (dynasty.games || []).filter(g => g.cfpSlot || g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship)
+      console.log('[advanceWeek] NOT updating games array. Current CFP games:', currentCfpGames.length)
+    }
+
     try {
       await updateDynasty(dynastyId, {
         currentWeek: nextWeek,
@@ -6476,6 +6518,13 @@ export function DynastyProvider({ children }) {
       console.error('[advanceWeek] ========== ERROR ==========')
       console.error('[advanceWeek] Error during updateDynasty:', err)
       throw err
+    } finally {
+      // CRITICAL: Clear phase transition flag after completion (success or error)
+      // Small delay to ensure Firestore updates have propagated
+      setTimeout(() => {
+        phaseTransitionInProgressRef.current = false
+        console.log('[advanceWeek] Phase transition flag CLEARED')
+      }, 1000)
     }
   }
 
@@ -6490,8 +6539,19 @@ export function DynastyProvider({ children }) {
    * @param {string} dynastyId - The dynasty ID
    */
   const advanceToNewSeason = async (dynastyId) => {
-    const dynasty = dynasties.find(d => d.id === dynastyId)
-    if (!dynasty) return
+    // CRITICAL: Set phase transition flag to prevent listener from overwriting data
+    phaseTransitionInProgressRef.current = true
+    console.log('[advanceToNewSeason] Phase transition flag SET')
+
+    // IMPORTANT: Prefer currentDynasty over dynasties.find() to get the latest in-memory data
+    // This ensures we don't lose player edits that haven't been persisted yet
+    const dynasty = (String(currentDynasty?.id) === String(dynastyId))
+      ? currentDynasty
+      : dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) {
+      phaseTransitionInProgressRef.current = false
+      return
+    }
 
     // IMPORTANT: Year flip happened when entering Signing Day (week 6).
     // At this point, dynasty.currentYear is already the NEW season year (e.g., 2027).
@@ -6778,7 +6838,16 @@ export function DynastyProvider({ children }) {
       updates.customConferences = dynasty.customConferencesByYear[currentSeasonYear]
     }
 
-    await updateDynasty(dynastyId, updates)
+    try {
+      await updateDynasty(dynastyId, updates)
+    } finally {
+      // CRITICAL: Clear phase transition flag after completion
+      // Small delay to ensure Firestore updates have propagated
+      setTimeout(() => {
+        phaseTransitionInProgressRef.current = false
+        console.log('[advanceToNewSeason] Phase transition flag CLEARED')
+      }, 1000)
+    }
   }
 
   const revertWeek = async (dynastyId) => {
@@ -8910,7 +8979,7 @@ export function DynastyProvider({ children }) {
       const updatedPlayer = { ...p }
 
       // Initialize arrays if needed
-      if (!updatedPlayer.awards) updatedPlayer.awards = []
+      if (!updatedPlayer.accolades) updatedPlayer.accolades = []
       if (!updatedPlayer.allAmericans) updatedPlayer.allAmericans = []
       if (!updatedPlayer.allConference) updatedPlayer.allConference = []
       if (!updatedPlayer.teams) updatedPlayer.teams = []
@@ -8925,11 +8994,11 @@ export function DynastyProvider({ children }) {
         // Add honor entry based on type
         if (update.honorType === 'awards') {
           // Check for duplicate
-          const isDupe = updatedPlayer.awards.some(a =>
+          const isDupe = updatedPlayer.accolades.some(a =>
             a.year === update.entry.year && a.award === update.entry.award
           )
           if (!isDupe) {
-            updatedPlayer.awards.push({
+            updatedPlayer.accolades.push({
               year: update.entry.year,
               award: update.entry.award || update.entry.awardKey,
               team: update.entry.team,
@@ -8992,16 +9061,16 @@ export function DynastyProvider({ children }) {
 
       if (existingInBatch) {
         // Player already exists - add the honor to them instead of creating duplicate
-        if (!existingInBatch.awards) existingInBatch.awards = []
+        if (!existingInBatch.accolades) existingInBatch.accolades = []
         if (!existingInBatch.allAmericans) existingInBatch.allAmericans = []
         if (!existingInBatch.allConference) existingInBatch.allConference = []
 
         if (newPlayer.honorType === 'awards') {
-          const isDupe = existingInBatch.awards.some(a =>
+          const isDupe = existingInBatch.accolades.some(a =>
             a.year === newPlayer.entry.year && a.award === (newPlayer.entry.award || newPlayer.entry.awardKey)
           )
           if (!isDupe) {
-            existingInBatch.awards.push({
+            existingInBatch.accolades.push({
               year: newPlayer.entry.year,
               award: newPlayer.entry.award || newPlayer.entry.awardKey,
               team: newPlayer.entry.team,
@@ -9053,14 +9122,14 @@ export function DynastyProvider({ children }) {
         // Players added via awards are regular roster players, not honor-only
         // They should appear on the team's roster for the award year
         teamsByYear: { [entryYear]: teamTid },
-        awards: [],
+        accolades: [],
         allAmericans: [],
         allConference: []
       }
 
       // Add the honor entry
       if (newPlayer.honorType === 'awards') {
-        player.awards.push({
+        player.accolades.push({
           year: newPlayer.entry.year,
           award: newPlayer.entry.award || newPlayer.entry.awardKey,
           team: newPlayer.entry.team,

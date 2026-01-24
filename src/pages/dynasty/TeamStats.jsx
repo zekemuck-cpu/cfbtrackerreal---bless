@@ -1354,7 +1354,7 @@ export default function TeamStats() {
             {teamLogo && (
               <div
                 className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow"
-                style={{ backgroundColor: '#FFFFFF', padding: '4px' }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '4px' }}
               >
                 <img src={teamLogo} alt={teamFullName} className="w-full h-full object-contain" />
               </div>
@@ -1418,7 +1418,7 @@ export default function TeamStats() {
             {teamLogo && (
               <div
                 className="w-20 h-20 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg"
-                style={{ backgroundColor: '#FFFFFF', padding: '6px' }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '6px' }}
               >
                 <img src={teamLogo} alt={teamFullName} className="w-full h-full object-contain" />
               </div>

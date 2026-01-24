@@ -2168,26 +2168,22 @@ export default function TeamYear() {
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold truncate" style={{ color: teamInfo.textColor }}>
-                          {player.jerseyNumber && <span className="mr-1">#{player.jerseyNumber}</span>}
                           {player.name}
                         </div>
-                        <div className="text-xs flex items-center gap-2 flex-wrap" style={{ color: teamBgText, opacity: 0.8 }}>
-                          <span>{player.position}</span>
-                          <span>•</span>
+                        <div className="text-xs flex items-center gap-1.5" style={{ color: teamBgText, opacity: 0.7 }}>
+                          <span className="font-medium">{player.position}</span>
+                          <span>·</span>
                           <span>{player.classByYear?.[year] || player.year}</span>
                           {player.devTrait && player.devTrait !== 'Normal' && (
                             <>
-                              <span>•</span>
-                              <span>{player.devTrait}</span>
+                              <span>·</span>
+                              <span className="font-medium">{player.devTrait}</span>
                             </>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div
-                      className="text-xl font-bold flex-shrink-0 ml-2"
-                      style={{ color: teamBgText }}
-                    >
+                    <div className="text-xl font-bold flex-shrink-0 ml-2" style={{ color: teamBgText }}>
                       {player.overall}
                     </div>
                   </div>
@@ -2345,39 +2341,17 @@ export default function TeamYear() {
                           </Link>
                         </div>
                       </td>
-                      <td className="py-2 px-2 text-center">
-                        <span
-                          className="px-2 py-0.5 rounded text-xs font-bold"
-                          style={{
-                            backgroundColor: `${teamInfo.textColor}20`,
-                            color: teamBgText
-                          }}
-                        >
-                          {player.position}
-                        </span>
+                      <td className="py-2 px-2 text-center font-medium" style={{ color: teamBgText }}>
+                        {player.position}
                       </td>
-                      <td className="py-2 px-2 text-center" style={{ color: teamBgText, opacity: 0.9 }}>
+                      <td className="py-2 px-2 text-center" style={{ color: teamBgText, opacity: 0.8 }}>
                         {player.classByYear?.[year] || player.year}
                       </td>
                       <td className="py-2 px-2 text-center font-bold" style={{ color: teamBgText }}>
                         {player.overall}
                       </td>
-                      <td className="py-2 px-2 text-center hidden md:table-cell">
-                        {player.devTrait ? (
-                          <span
-                            className="px-2 py-0.5 rounded text-xs font-semibold"
-                            style={{
-                              backgroundColor: player.devTrait === 'Elite' ? '#fbbf24' :
-                                             player.devTrait === 'Star' ? '#8b5cf6' :
-                                             player.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                              color: player.devTrait === 'Elite' ? '#78350f' : '#ffffff'
-                            }}
-                          >
-                            {player.devTrait}
-                          </span>
-                        ) : (
-                          <span style={{ color: teamBgText, opacity: 0.3 }}>-</span>
-                        )}
+                      <td className="py-2 px-2 text-center hidden md:table-cell" style={{ color: teamBgText, opacity: 0.8 }}>
+                        {player.devTrait || '-'}
                       </td>
                       <td className="py-2 px-2 hidden lg:table-cell" style={{ color: teamBgText, opacity: 0.8 }}>
                         {player.archetype || '-'}
@@ -2985,7 +2959,7 @@ export default function TeamYear() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}

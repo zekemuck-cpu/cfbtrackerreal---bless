@@ -444,7 +444,8 @@ export default function Team() {
           teamScore: perspective.userScore,
           opponentScore: perspective.opponentScore,
           won: perspective.userWon,
-          hasScore: perspective.userScore !== null && perspective.opponentScore !== null
+          hasScore: perspective.userScore !== null && perspective.opponentScore !== null,
+          gameId: game.id
         })
       } else {
         // CPU game or team participated but not as user - use team1/team2 format
@@ -460,7 +461,8 @@ export default function Team() {
           teamScore: isTeam1 ? game.team1Score : game.team2Score,
           opponentScore: isTeam1 ? game.team2Score : game.team1Score,
           won: teamWon,
-          hasScore
+          hasScore,
+          gameId: game.id
         })
       }
     })
@@ -1599,7 +1601,7 @@ export default function Team() {
                 {teamLogo && (
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}
                   >
                     <img
                       src={teamLogo}
@@ -1693,7 +1695,7 @@ export default function Team() {
                           {userTeamLogo && (
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${userTeamInfoFromPerspective?.secondaryColor || userTeamInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                              style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${userTeamInfoFromPerspective?.secondaryColor || userTeamInfo.textColor || 'transparent'}`, padding: '2px' }}
                             >
                               <img src={userTeamLogo} alt={userTeamForGame} className="w-full h-full object-contain" />
                             </div>
@@ -1744,7 +1746,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -1827,7 +1829,7 @@ export default function Team() {
                                     {oppLogo && (
                                       <div
                                         className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                                        style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                                        style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                                       >
                                         <img src={oppLogo} alt={oppAbbr} className="w-full h-full object-contain" />
                                       </div>
@@ -1880,7 +1882,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -1938,7 +1940,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -1984,7 +1986,7 @@ export default function Team() {
                       {oppLogo && (
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                          style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                         >
                           <img src={oppLogo} alt={title.opponent} className="w-full h-full object-contain" />
                         </div>
@@ -2029,7 +2031,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -2058,10 +2060,15 @@ export default function Team() {
                   const oppMascotName = getMascotName(oppAbbr, teamsSource) || getMascotName(game.opponent, teamsSource) || (game.opponent?.includes(' ') ? game.opponent : null)
                   const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
+                  // Link to actual game if gameId exists, otherwise team year page
+                  const gameLink = game.gameId
+                    ? `${pathPrefix}/game/${game.gameId}`
+                    : `${pathPrefix}/team/${tid}/${game.year}`
+
                   return (
                   <Link
                     key={idx}
-                    to={`${pathPrefix}/team/${tid}/${game.year}`}
+                    to={gameLink}
                     className="flex items-center p-3 rounded-lg hover:scale-[1.01] transition-transform gap-3"
                     style={{
                       backgroundColor: oppBgColor,
@@ -2081,7 +2088,7 @@ export default function Team() {
                       {oppLogo && (
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                          style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                         >
                           <img src={oppLogo} alt={game.opponent} className="w-full h-full object-contain" />
                         </div>
@@ -2126,7 +2133,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -2173,11 +2180,18 @@ export default function Team() {
                           const oppMascotName = getMascotName(game.opponent, teamsSource)
                           const oppLogo = oppMascotName ? getTeamLogo(oppMascotName) : null
 
+                          // Link to actual game if gameId exists, otherwise team year page
+                          const gameLink = game.gameId
+                            ? `${pathPrefix}/game/${game.gameId}`
+                            : `${pathPrefix}/team/${tid}/${app.year}`
+
                           return (
-                          <div
+                          <Link
                             key={gIdx}
-                            className="flex items-center gap-2 p-2 rounded"
+                            to={gameLink}
+                            className="flex items-center gap-2 p-2 rounded hover:scale-[1.01] transition-transform"
                             style={{ backgroundColor: oppBgColor, border: `2px solid ${game.won ? '#16a34a' : '#dc2626'}` }}
+                            onClick={() => setShowCfpAppsModal(false)}
                           >
                             {/* W/L Badge */}
                             <div
@@ -2190,7 +2204,7 @@ export default function Team() {
                             {oppLogo && (
                               <div
                                 className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                                style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                               >
                                 <img src={oppLogo} alt={game.opponent} className="w-full h-full object-contain" />
                               </div>
@@ -2202,7 +2216,7 @@ export default function Team() {
                             <div className="font-semibold text-sm" style={{ color: oppTextColor }}>
                               {game.teamScore != null && game.opponentScore != null ? `${Math.max(game.teamScore, game.opponentScore)}-${Math.min(game.teamScore, game.opponentScore)}` : '-'}
                             </div>
-                          </div>
+                          </Link>
                           )
                         })}
                       </div>
@@ -2236,7 +2250,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -2276,7 +2290,7 @@ export default function Team() {
                       {oppLogo && (
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                          style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                         >
                           <img src={oppLogo} alt={title.opponent} className="w-full h-full object-contain" />
                         </div>
@@ -2318,7 +2332,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -2387,7 +2401,7 @@ export default function Team() {
             >
               <div className="flex items-center gap-3">
                 {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', padding: '2px' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                     <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
                   </div>
                 )}
@@ -2464,7 +2478,7 @@ export default function Team() {
                           {oppLogo && (
                             <div
                               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#FFFFFF', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || '#FFFFFF'}`, padding: '2px' }}
+                              style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', border: `2px solid ${oppTeamInfo?.secondaryColor || oppInfo.textColor || 'transparent'}`, padding: '2px' }}
                             >
                               <img src={oppLogo} alt={oppAbbr} className="w-full h-full object-contain" />
                             </div>

@@ -249,7 +249,7 @@ export default function Rankings() {
         {teamLogo && (
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: '#FFFFFF', padding: '2px' }}
+            style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}
           >
             <img
               src={teamLogo}

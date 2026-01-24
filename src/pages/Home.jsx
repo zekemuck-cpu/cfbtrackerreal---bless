@@ -668,16 +668,17 @@ export default function Home() {
           onClick={handleCancelFinalConfirm}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            className="rounded-xl max-w-md w-full p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold text-red-600 mb-4">
+            <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--accent-error)' }}>
               Final Confirmation Required
             </h2>
-            <p className="text-gray-700 mb-4">
-              This is a <strong>favorited dynasty</strong>. To confirm deletion, please type the dynasty name exactly:
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
+              This is a <strong style={{ color: 'var(--text-primary)' }}>favorited dynasty</strong>. To confirm deletion, please type the dynasty name exactly:
             </p>
-            <p className="text-lg font-bold text-gray-900 mb-4 bg-gray-100 p-2 rounded">
+            <p className="text-lg font-bold mb-4 p-2 rounded-lg" style={{ color: 'var(--text-primary)', backgroundColor: 'var(--surface-3)' }}>
               {dynastyToDelete.teamName}
             </p>
             <input
@@ -685,15 +686,16 @@ export default function Home() {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="Type dynasty name here..."
-              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg mb-4 focus:border-red-500 focus:outline-none"
+              className="w-full px-4 py-2.5 rounded-lg mb-4 focus:outline-none transition-colors"
+              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)', border: '1px solid var(--surface-5)' }}
               autoFocus
             />
             <div className="flex gap-3">
               <button
                 onClick={handleFinalConfirmDelete}
                 disabled={confirmText !== dynastyToDelete.teamName || deletingDynastyId}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                style={{ backgroundColor: confirmText === dynastyToDelete.teamName && !deletingDynastyId ? '#ef4444' : '#9ca3af' }}
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ backgroundColor: confirmText === dynastyToDelete.teamName && !deletingDynastyId ? 'var(--accent-error)' : 'var(--surface-5)' }}
               >
                 {deletingDynastyId ? (
                   <>
@@ -710,7 +712,8 @@ export default function Home() {
               <button
                 onClick={handleCancelFinalConfirm}
                 disabled={deletingDynastyId}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors disabled:opacity-50 hover:bg-surface-4"
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--surface-5)' }}
               >
                 Cancel
               </button>
@@ -726,46 +729,49 @@ export default function Home() {
           onClick={handleCancelDeleteAll}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            className="rounded-xl max-w-md w-full p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
+                <svg className="w-6 h-6" style={{ color: 'var(--accent-error)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
                 Delete All Non-Starred Dynasties?
               </h2>
             </div>
-            <p className="text-gray-700 mb-4">
-              You are about to delete <strong className="text-red-600">{nonStarredDynasties.length} {nonStarredDynasties.length === 1 ? 'dynasty' : 'dynasties'}</strong> that are not starred.
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
+              You are about to delete <strong style={{ color: 'var(--accent-error)' }}>{nonStarredDynasties.length} {nonStarredDynasties.length === 1 ? 'dynasty' : 'dynasties'}</strong> that are not starred.
             </p>
-            <div className="bg-gray-100 rounded-lg p-3 mb-4 max-h-32 overflow-y-auto">
-              <p className="text-sm font-medium text-gray-600 mb-2">Dynasties to be deleted:</p>
-              <ul className="text-sm text-gray-800 space-y-1">
+            <div className="rounded-lg p-3 mb-4 max-h-32 overflow-y-auto" style={{ backgroundColor: 'var(--surface-3)' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-tertiary)' }}>Dynasties to be deleted:</p>
+              <ul className="text-sm space-y-1" style={{ color: 'var(--text-primary)' }}>
                 {nonStarredDynasties.map(d => (
                   <li key={d.id} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--accent-error)' }}></span>
                     {d.teamName}
                   </li>
                 ))}
               </ul>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
               Starred dynasties will not be affected.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={handleDeleteAllConfirm1}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors hover:brightness-110"
+                style={{ backgroundColor: 'var(--accent-error)' }}
               >
                 Continue
               </button>
               <button
                 onClick={handleCancelDeleteAll}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors hover:bg-surface-4"
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--surface-5)' }}
               >
                 Cancel
               </button>
@@ -781,46 +787,49 @@ export default function Home() {
           onClick={handleCancelDeleteAll}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            className="rounded-xl max-w-md w-full p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--accent-error)' }}>
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-red-600">
+              <h2 className="text-xl font-bold" style={{ color: 'var(--accent-error)' }}>
                 Final Confirmation
               </h2>
             </div>
-            <p className="text-gray-700 mb-4">
-              This action <strong>cannot be undone</strong>. All {nonStarredDynasties.length} non-starred {nonStarredDynasties.length === 1 ? 'dynasty' : 'dynasties'} will be permanently deleted.
+            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
+              This action <strong style={{ color: 'var(--text-primary)' }}>cannot be undone</strong>. All {nonStarredDynasties.length} non-starred {nonStarredDynasties.length === 1 ? 'dynasty' : 'dynasties'} will be permanently deleted.
             </p>
-            <p className="text-gray-700 mb-2">
-              To confirm, type <strong className="font-mono bg-gray-100 px-2 py-0.5 rounded">DELETE ALL</strong> below:
+            <p className="mb-2" style={{ color: 'var(--text-secondary)' }}>
+              To confirm, type <strong className="font-mono px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)' }}>DELETE ALL</strong> below:
             </p>
             <input
               type="text"
               value={deleteAllConfirmText}
               onChange={(e) => setDeleteAllConfirmText(e.target.value)}
               placeholder="Type DELETE ALL here..."
-              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg mb-4 focus:border-red-500 focus:outline-none font-mono"
+              className="w-full px-4 py-2.5 rounded-lg mb-4 focus:outline-none font-mono transition-colors"
+              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)', border: '1px solid var(--surface-5)' }}
               autoFocus
             />
             <div className="flex gap-3">
               <button
                 onClick={handleDeleteAllConfirm2}
                 disabled={deleteAllConfirmText !== 'DELETE ALL' || deletingAll}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: deleteAllConfirmText === 'DELETE ALL' ? '#ef4444' : '#9ca3af' }}
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: deleteAllConfirmText === 'DELETE ALL' ? 'var(--accent-error)' : 'var(--surface-5)' }}
               >
                 {deletingAll ? 'Deleting...' : `Delete ${nonStarredDynasties.length} ${nonStarredDynasties.length === 1 ? 'Dynasty' : 'Dynasties'}`}
               </button>
               <button
                 onClick={handleCancelDeleteAll}
                 disabled={deletingAll}
-                className="flex-1 px-4 py-2 rounded-lg font-semibold border-2 border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors disabled:opacity-50 hover:bg-surface-4"
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--surface-5)' }}
               >
                 Cancel
               </button>

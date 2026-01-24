@@ -121,16 +121,20 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       )}
 
       {/* Sidebar - Fixed on left edge, below header */}
-      {/* On desktop (lg+), it pushes content instead of overlaying */}
+      {/* Premium dark theme sidebar with team color accents */}
       <aside
         className={`fixed left-0 z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } w-56 shadow-lg overflow-y-auto top-[64px] h-[calc(100vh-64px)]`}
-        style={{ backgroundColor: teamColors.secondary }}
+        } w-56 overflow-y-auto top-[64px] h-[calc(100vh-64px)]`}
+        style={{
+          backgroundColor: 'var(--surface-2)',
+          borderRight: '1px solid var(--surface-4)',
+          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.4)'
+        }}
       >
         {/* Navigation - extra bottom padding for ticker (48px) */}
-        <nav className="px-4 pt-4 pb-24 lg:pb-16">
-          <div className="space-y-1">
+        <nav className="px-3 pt-4 pb-24 lg:pb-16">
+          <div className="space-y-0.5">
             {navItems.filter(item => !item.isAdmin).map((item) => {
               const active = isActive(item.path)
               return (
@@ -138,17 +142,20 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   key={item.name}
                   to={item.path}
                   onClick={handleNavClick}
-                  className={`block px-4 py-2.5 rounded-lg font-medium transition-all ${
-                    active ? 'shadow-md' : 'hover:opacity-70'
+                  className={`block px-3 py-2.5 rounded-lg font-medium transition-all text-sm ${
+                    active
+                      ? 'shadow-lg'
+                      : 'hover:bg-white/10'
                   }`}
                   style={
                     active
                       ? {
                           backgroundColor: teamColors.primary,
-                          color: primaryBgText
+                          color: primaryBgText,
+                          boxShadow: `0 4px 12px ${teamColors.primary}40`
                         }
                       : {
-                          color: secondaryBgText
+                          color: '#e4e4e7' // zinc-200 - much more visible
                         }
                   }
                 >
@@ -158,9 +165,12 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
             })}
           </div>
 
-          {/* Danger Zone Section - separated at bottom */}
+          {/* Admin Section - separated at bottom */}
           {!isViewOnly && (
-            <div className="mt-4 pt-4 border-t" style={{ borderColor: secondaryBgText === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }}>
+            <div className="mt-6 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+              <div className="px-3 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#71717a' }}>Settings</span>
+              </div>
               {navItems.filter(item => item.isAdmin).map((item) => {
                 const active = isActive(item.path)
                 return (
@@ -168,9 +178,9 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                     key={item.name}
                     to={item.path}
                     onClick={handleNavClick}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
-                      active ? 'shadow-md' : 'hover:opacity-70'
-                    } ${item.name !== 'AI Settings' ? 'mt-1' : ''}`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all text-sm ${
+                      active ? 'shadow-lg' : 'hover:bg-white/10'
+                    } ${item.name !== 'AI Settings' ? 'mt-0.5' : ''}`}
                     style={
                       active
                         ? {
@@ -178,8 +188,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                             color: primaryBgText
                           }
                         : {
-                            color: secondaryBgText,
-                            opacity: 0.7
+                            color: '#a1a1aa' // zinc-400 - more visible than tertiary
                           }
                     }
                   >
@@ -201,18 +210,19 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
           )}
 
           {/* Bottom section - different for view mode vs edit mode */}
-          <div className="mt-4 pt-4 border-t space-y-2" style={{ borderColor: secondaryBgText === '#FFFFFF' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)' }}>
+          <div className="mt-6 pt-4 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {isViewOnly ? (
               /* View mode - show Copy Dynasty button and Create Your Own Dynasty CTA */
               <>
                 <button
                   onClick={handleCopyDynasty}
                   disabled={copying}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all hover:brightness-110 active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{
                     backgroundColor: teamColors.primary,
                     color: primaryBgText,
-                    opacity: copying ? 0.7 : 1
+                    opacity: copying ? 0.7 : 1,
+                    boxShadow: `0 4px 12px ${teamColors.primary}40`
                   }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,10 +233,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
                 <Link
                   to="/"
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all hover:brightness-110 active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:bg-white/10"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: primaryBgText
+                    color: '#e4e4e7',
+                    border: '1px solid rgba(255,255,255,0.15)'
                   }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -236,34 +246,35 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                 </Link>
               </>
             ) : (
-              /* Edit mode - show Download and Share buttons */
+              /* Edit mode - show Share and Download buttons */
               <>
                 <button
-                  onClick={handleExport}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all hover:brightness-110 active:scale-[0.98]"
-                  style={{
-                    backgroundColor: teamColors.primary,
-                    color: primaryBgText
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Download Backup</span>
-                </button>
-
-                <button
                   onClick={() => setShowShareModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all hover:brightness-110 active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: primaryBgText
+                    color: primaryBgText,
+                    boxShadow: `0 4px 12px ${teamColors.primary}40`
                   }}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
                   <span>Share Dynasty</span>
+                </button>
+
+                <button
+                  onClick={handleExport}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:bg-white/10"
+                  style={{
+                    color: '#e4e4e7',
+                    border: '1px solid rgba(255,255,255,0.15)'
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Download Backup</span>
                 </button>
               </>
             )}

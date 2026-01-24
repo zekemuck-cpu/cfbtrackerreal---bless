@@ -24,7 +24,7 @@ const StarRating = ({ stars, size = 'md' }) => {
         <svg
           key={i}
           className={sizes[size]}
-          fill={i < starCount ? '#FFD700' : '#D1D5DB'}
+          fill={i < starCount ? '#FFD700' : 'rgba(255, 215, 0, 0.2)'}
           viewBox="0 0 20 20"
         >
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -48,17 +48,17 @@ const stateFullNames = {
   'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming', 'DC': 'Washington D.C.'
 }
 
-// Dev trait badge colors
+// Dev trait badge colors - optimized for dark backgrounds
 const getDevTraitStyle = (devTrait) => {
   switch (devTrait?.toLowerCase()) {
     case 'elite':
-      return { backgroundColor: '#FCD34D', color: '#78350F' }
+      return { backgroundColor: 'rgba(251, 191, 36, 0.9)', color: '#1a1a1a' }
     case 'star':
-      return { backgroundColor: '#A78BFA', color: '#4C1D95' }
+      return { backgroundColor: 'rgba(167, 139, 250, 0.9)', color: '#1a1a1a' }
     case 'impact':
-      return { backgroundColor: '#60A5FA', color: '#1E3A8A' }
+      return { backgroundColor: 'rgba(96, 165, 250, 0.9)', color: '#1a1a1a' }
     default:
-      return { backgroundColor: '#9CA3AF', color: '#1F2937' }
+      return { backgroundColor: 'var(--surface-5)', color: 'var(--text-secondary)' }
   }
 }
 
@@ -135,7 +135,6 @@ export default function Recruiting() {
 
   // Combined teams source for lookups (TEAMS + dynasty customizations)
   const teamsSource = currentDynasty?.teams || TEAMS
-  const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
   // Redirect to team-specific URL if on base /recruiting route
@@ -814,10 +813,11 @@ export default function Recruiting() {
     <div className="space-y-6">
       {/* Header with Team Logo and Year Selector */}
       <div
-        className="rounded-lg shadow-lg p-6"
+        className="rounded-xl p-6"
         style={{
-          backgroundColor: teamColors.secondary,
-          border: `3px solid ${teamColors.primary}`
+          backgroundColor: 'var(--surface-2)',
+          border: '1px solid var(--surface-4)',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)'
         }}
       >
         {/* Header - Team Info and Controls */}
@@ -829,9 +829,9 @@ export default function Recruiting() {
                 <div
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{
-                    backgroundColor: '#FFFFFF',
-                    border: `3px solid ${teamColors.secondary}`,
-                    padding: '3px'
+                    backgroundColor: 'var(--surface-4)',
+                    border: `3px solid ${teamColors.primary}`,
+                    padding: '4px'
                   }}
                 >
                   <img
@@ -844,12 +844,12 @@ export default function Recruiting() {
               <div className="text-center sm:text-left">
                 <Link
                   to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
-                  className="text-xl sm:text-2xl font-bold hover:underline"
-                  style={{ color: secondaryBgText }}
+                  className="text-xl sm:text-2xl font-bold hover:underline transition-colors"
+                  style={{ color: teamColors.primary }}
                 >
                   {teamFullName}
                 </Link>
-                <p className="text-sm font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>
                   {isAllSeasons ? 'All-Time Recruiting' : `${selectedYear} Recruiting Class`}
                 </p>
               </div>
@@ -878,17 +878,18 @@ export default function Recruiting() {
             {/* Team Selector - only show if multiple teams have recruiting classes */}
             {teamsWithRecruitingClasses.length > 1 && (
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium whitespace-nowrap" style={{ color: secondaryBgText }}>
+                <label className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                   Team:
                 </label>
                 <select
                   value={selectedTid}
                   onChange={(e) => handleTeamChange(Number(e.target.value))}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-2 font-semibold text-sm sm:text-base"
+                  className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold text-sm sm:text-base cursor-pointer focus:outline-none focus:ring-2"
                   style={{
-                    borderColor: teamColors.primary,
-                    backgroundColor: teamColors.secondary,
-                    color: secondaryBgText
+                    backgroundColor: 'var(--surface-3)',
+                    border: '1px solid var(--surface-5)',
+                    color: 'var(--text-primary)',
+                    '--tw-ring-color': teamColors.primary
                   }}
                 >
                   {teamsWithRecruitingClasses.map(team => (
@@ -898,17 +899,18 @@ export default function Recruiting() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium whitespace-nowrap" style={{ color: secondaryBgText }}>
+              <label className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                 Season:
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => handleYearChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg border-2 font-semibold text-sm sm:text-base"
+                className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold text-sm sm:text-base cursor-pointer focus:outline-none focus:ring-2"
                 style={{
-                  borderColor: teamColors.primary,
-                  backgroundColor: teamColors.secondary,
-                  color: secondaryBgText
+                  backgroundColor: 'var(--surface-3)',
+                  border: '1px solid var(--surface-5)',
+                  color: 'var(--text-primary)',
+                  '--tw-ring-color': teamColors.primary
                 }}
               >
                 {availableYears.length > 0 && (
@@ -945,35 +947,38 @@ export default function Recruiting() {
         {/* Both / HS / Portal Toggle */}
         <div className="flex justify-center mb-6">
           <div
-            className="inline-flex rounded-lg border-2 overflow-hidden"
-            style={{ borderColor: teamColors.primary }}
+            className="inline-flex rounded-lg overflow-hidden"
+            style={{ backgroundColor: 'var(--surface-3)', padding: '4px' }}
           >
             <button
               onClick={() => handleViewModeChange('both')}
-              className="px-4 py-2 font-semibold transition-colors"
+              className="px-4 py-2 rounded-md font-semibold transition-all text-sm"
               style={{
                 backgroundColor: viewMode === 'both' ? teamColors.primary : 'transparent',
-                color: viewMode === 'both' ? primaryBgText : secondaryBgText
+                color: viewMode === 'both' ? primaryBgText : 'var(--text-secondary)',
+                boxShadow: viewMode === 'both' ? `0 2px 8px ${teamColors.primary}40` : 'none'
               }}
             >
               Both ({allCommitmentsUnfiltered.length})
             </button>
             <button
               onClick={() => handleViewModeChange('hs')}
-              className="px-4 py-2 font-semibold transition-colors"
+              className="px-4 py-2 rounded-md font-semibold transition-all text-sm"
               style={{
                 backgroundColor: viewMode === 'hs' ? teamColors.primary : 'transparent',
-                color: viewMode === 'hs' ? primaryBgText : secondaryBgText
+                color: viewMode === 'hs' ? primaryBgText : 'var(--text-secondary)',
+                boxShadow: viewMode === 'hs' ? `0 2px 8px ${teamColors.primary}40` : 'none'
               }}
             >
               High School ({allCommitmentsUnfiltered.filter(c => !c.previousTeam).length})
             </button>
             <button
               onClick={() => handleViewModeChange('portal')}
-              className="px-4 py-2 font-semibold transition-colors"
+              className="px-4 py-2 rounded-md font-semibold transition-all text-sm"
               style={{
                 backgroundColor: viewMode === 'portal' ? teamColors.primary : 'transparent',
-                color: viewMode === 'portal' ? primaryBgText : secondaryBgText
+                color: viewMode === 'portal' ? primaryBgText : 'var(--text-secondary)',
+                boxShadow: viewMode === 'portal' ? `0 2px 8px ${teamColors.primary}40` : 'none'
               }}
             >
               Portal ({allCommitmentsUnfiltered.filter(c => c.previousTeam).length})
@@ -1000,90 +1005,101 @@ export default function Recruiting() {
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 mb-6 max-w-lg sm:max-w-none mx-auto">
               {/* National Rank - hide when viewing all seasons */}
               {!isAllSeasons && (
-                <div className="px-2 sm:px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15` }}>
+                <div
+                  className="px-2 sm:px-4 py-3 rounded-lg text-center"
+                  style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                >
                   <div className="text-lg sm:text-xl font-bold" style={{ color: teamColors.primary }}>
                     {nationalRank ? `#${nationalRank}` : '—'}
                   </div>
-                  <div className="text-xs font-medium mt-0.5" style={{ color: secondaryBgText, opacity: 0.7 }}>Rank</div>
+                  <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Rank</div>
                 </div>
               )}
               {/* Total recruits when viewing all seasons */}
               {isAllSeasons && (
-                <div className="px-2 sm:px-4 py-2 rounded-lg text-center" style={{ backgroundColor: `${teamColors.primary}15` }}>
+                <div
+                  className="px-2 sm:px-4 py-3 rounded-lg text-center"
+                  style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                >
                   <div className="text-lg sm:text-xl font-bold" style={{ color: teamColors.primary }}>
                     {classStats.total}
                   </div>
-                  <div className="text-xs font-medium mt-0.5" style={{ color: secondaryBgText, opacity: 0.7 }}>Total</div>
+                  <div className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Total</div>
                 </div>
               )}
 
               {/* 5-Star */}
               <button
                 onClick={() => toggleStarFilter(5)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
-                  selectedStars.includes(5) ? 'ring-2 ring-offset-1 ring-yellow-500 scale-105' : 'hover:scale-105'
+                className={`px-2 sm:px-3 py-3 rounded-lg text-center transition-all cursor-pointer ${
+                  selectedStars.includes(5) ? 'scale-105' : 'hover:scale-105 hover:bg-surface-4'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(5) ? '#FEF3C7' : '#FEF3C720'
+                  backgroundColor: selectedStars.includes(5) ? 'rgba(251, 191, 36, 0.2)' : 'var(--surface-3)',
+                  border: selectedStars.includes(5) ? '2px solid #FBBF24' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#B45309' }}>{classStats.fiveStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#FBBF24' }}>{classStats.fiveStars}</div>
                 <MiniStars count={5} />
               </button>
 
               {/* 4-Star */}
               <button
                 onClick={() => toggleStarFilter(4)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
-                  selectedStars.includes(4) ? 'ring-2 ring-offset-1 ring-indigo-500 scale-105' : 'hover:scale-105'
+                className={`px-2 sm:px-3 py-3 rounded-lg text-center transition-all cursor-pointer ${
+                  selectedStars.includes(4) ? 'scale-105' : 'hover:scale-105 hover:bg-surface-4'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(4) ? '#E0E7FF' : '#E0E7FF20'
+                  backgroundColor: selectedStars.includes(4) ? 'rgba(139, 92, 246, 0.2)' : 'var(--surface-3)',
+                  border: selectedStars.includes(4) ? '2px solid #8B5CF6' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#4338CA' }}>{classStats.fourStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#A78BFA' }}>{classStats.fourStars}</div>
                 <MiniStars count={4} />
               </button>
 
               {/* 3-Star */}
               <button
                 onClick={() => toggleStarFilter(3)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
-                  selectedStars.includes(3) ? 'ring-2 ring-offset-1 ring-blue-500 scale-105' : 'hover:scale-105'
+                className={`px-2 sm:px-3 py-3 rounded-lg text-center transition-all cursor-pointer ${
+                  selectedStars.includes(3) ? 'scale-105' : 'hover:scale-105 hover:bg-surface-4'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(3) ? '#DBEAFE' : '#DBEAFE20'
+                  backgroundColor: selectedStars.includes(3) ? 'rgba(59, 130, 246, 0.2)' : 'var(--surface-3)',
+                  border: selectedStars.includes(3) ? '2px solid #3B82F6' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#1D4ED8' }}>{classStats.threeStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#60A5FA' }}>{classStats.threeStars}</div>
                 <MiniStars count={3} />
               </button>
 
               {/* 2-Star */}
               <button
                 onClick={() => toggleStarFilter(2)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
-                  selectedStars.includes(2) ? 'ring-2 ring-offset-1 ring-gray-400 scale-105' : 'hover:scale-105'
+                className={`px-2 sm:px-3 py-3 rounded-lg text-center transition-all cursor-pointer ${
+                  selectedStars.includes(2) ? 'scale-105' : 'hover:scale-105 hover:bg-surface-4'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(2) ? '#E5E7EB' : '#F3F4F620'
+                  backgroundColor: selectedStars.includes(2) ? 'rgba(156, 163, 175, 0.2)' : 'var(--surface-3)',
+                  border: selectedStars.includes(2) ? '2px solid #9CA3AF' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#6B7280' }}>{classStats.twoStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#9CA3AF' }}>{classStats.twoStars}</div>
                 <MiniStars count={2} />
               </button>
 
               {/* 1-Star */}
               <button
                 onClick={() => toggleStarFilter(1)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-center transition-all cursor-pointer ${
-                  selectedStars.includes(1) ? 'ring-2 ring-offset-1 ring-gray-300 scale-105' : 'hover:scale-105'
+                className={`px-2 sm:px-3 py-3 rounded-lg text-center transition-all cursor-pointer ${
+                  selectedStars.includes(1) ? 'scale-105' : 'hover:scale-105 hover:bg-surface-4'
                 }`}
                 style={{
-                  backgroundColor: selectedStars.includes(1) ? '#F3F4F6' : '#F3F4F610'
+                  backgroundColor: selectedStars.includes(1) ? 'rgba(107, 114, 128, 0.2)' : 'var(--surface-3)',
+                  border: selectedStars.includes(1) ? '2px solid #6B7280' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#9CA3AF' }}>{classStats.oneStars}</div>
+                <div className="text-lg sm:text-xl font-bold" style={{ color: '#6B7280' }}>{classStats.oneStars}</div>
                 <MiniStars count={1} />
               </button>
             </div>
@@ -1102,10 +1118,11 @@ export default function Recruiting() {
 
               const cardContent = (
                 <div
-                  className="p-4 rounded-lg border-2 hover:shadow-lg transition-shadow"
+                  className="p-4 rounded-xl transition-all hover:scale-[1.02]"
                   style={{
-                    borderColor: `${teamColors.primary}40`,
-                    backgroundColor: teamColors.secondary
+                    backgroundColor: 'var(--surface-3)',
+                    border: '1px solid var(--surface-4)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
                   }}
                 >
                   {/* Header: Picture, Name, Position, Stars */}
@@ -1115,8 +1132,8 @@ export default function Recruiting() {
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg border-2 flex-shrink-0"
-                        style={{ borderColor: teamColors.primary }}
+                        className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg flex-shrink-0"
+                        style={{ border: `2px solid ${teamColors.primary}` }}
                       />
                     )}
 
@@ -1124,7 +1141,7 @@ export default function Recruiting() {
                       {/* Name - always visible, wraps on small screens */}
                       <h3
                         className="font-bold text-sm sm:text-lg leading-tight"
-                        style={{ color: player ? teamColors.primary : secondaryBgText }}
+                        style={{ color: player ? teamColors.primary : 'var(--text-primary)' }}
                       >
                         {recruit.name || 'Unknown'}
                       </h3>
@@ -1139,12 +1156,12 @@ export default function Recruiting() {
                         {isAllSeasons && recruit.recruitYear && (
                           <span
                             className="px-1.5 sm:px-2 py-0.5 rounded text-xs font-bold"
-                            style={{ backgroundColor: secondaryBgText, color: teamColors.secondary, opacity: 0.8 }}
+                            style={{ backgroundColor: 'var(--surface-5)', color: 'var(--text-primary)' }}
                           >
                             {recruit.recruitYear}
                           </span>
                         )}
-                        <span className="text-xs font-medium" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
                           {recruit.class || 'HS'}
                         </span>
                         <div className="ml-auto">
@@ -1153,7 +1170,7 @@ export default function Recruiting() {
                       </div>
                       {/* Rankings row - below name/position */}
                       {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
-                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-xs" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                           {recruit.nationalRank && <span>#{recruit.nationalRank} Nat'l</span>}
                           {recruit.stateRank && <span>#{recruit.stateRank} in State</span>}
                           {recruit.positionRank && <span>#{recruit.positionRank} {recruit.position}</span>}
@@ -1166,22 +1183,22 @@ export default function Recruiting() {
                   <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                     {recruit.archetype && (
                       <div>
-                        <span style={{ color: secondaryBgText, opacity: 0.6 }}>Archetype: </span>
-                        <span className="font-medium" style={{ color: secondaryBgText }}>{recruit.archetype}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Archetype: </span>
+                        <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{recruit.archetype}</span>
                       </div>
                     )}
                     {(recruit.height || recruit.weight) && (
                       <div>
-                        <span style={{ color: secondaryBgText, opacity: 0.6 }}>Size: </span>
-                        <span className="font-medium" style={{ color: secondaryBgText }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Size: </span>
+                        <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
                           {recruit.height}{recruit.weight ? `, ${recruit.weight} lbs` : ''}
                         </span>
                       </div>
                     )}
                     {(recruit.hometown || recruit.state) && (
                       <div className="col-span-2">
-                        <span style={{ color: secondaryBgText, opacity: 0.6 }}>From: </span>
-                        <span className="font-medium" style={{ color: secondaryBgText }}>
+                        <span style={{ color: 'var(--text-muted)' }}>From: </span>
+                        <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
                           {recruit.hometown
                             ? `${recruit.hometown}${recruit.state ? `, ${recruit.state}` : ''}`
                             : stateFullNames[recruit.state] || recruit.state}
@@ -1236,16 +1253,19 @@ export default function Recruiting() {
             })}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <div style={{ color: secondaryBgText, opacity: 0.5 }} className="mb-4">
+          <div
+            className="text-center py-12 rounded-xl"
+            style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+          >
+            <div style={{ color: 'var(--text-muted)' }} className="mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium mb-2" style={{ color: secondaryBgText }}>
+            <h3 className="text-lg font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
               {viewMode === 'portal' ? 'No Transfer Portal Commits' : viewMode === 'hs' ? 'No HS Commitments Yet' : 'No Commitments Yet'}
             </h3>
-            <p style={{ color: secondaryBgText, opacity: 0.8 }} className="max-w-md mx-auto">
+            <p style={{ color: 'var(--text-tertiary)' }} className="max-w-md mx-auto">
               {isAllSeasons
                 ? 'No recruiting data has been recorded for this team yet.'
                 : selectedYear === currentDynasty.currentYear

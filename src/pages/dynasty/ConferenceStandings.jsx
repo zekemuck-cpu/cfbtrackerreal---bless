@@ -272,12 +272,18 @@ export default function ConferenceStandings() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search conferences..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-300 font-semibold text-lg bg-white"
+            className="w-full pl-10 pr-4 py-3 rounded-lg font-semibold text-lg transition-colors"
+            style={{
+              backgroundColor: 'var(--surface-3)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--surface-5)'
+            }}
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:opacity-70 text-gray-500"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:opacity-70"
+              style={{ color: 'var(--text-tertiary)' }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -305,7 +311,7 @@ export default function ConferenceStandings() {
                 {/* Conference Header */}
                 <div className="flex items-center gap-3 p-3 border-b border-gray-600">
                   {/* Conference Logo */}
-                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border border-gray-500 p-1">
+                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center p-1" style={{ backgroundColor: 'var(--surface-4)', border: '1px solid var(--surface-5)' }}>
                     {getConferenceLogo(conferenceName) ? (
                       <img
                         src={getConferenceLogo(conferenceName)}
@@ -313,7 +319,7 @@ export default function ConferenceStandings() {
                         className="w-full h-full object-contain"
                       />
                     ) : (
-                      <span className="text-lg font-bold text-gray-600">
+                      <span className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>
                         {conferenceName.charAt(0)}
                       </span>
                     )}
@@ -358,10 +364,11 @@ export default function ConferenceStandings() {
                             return (
                               <tr
                                 key={teamAbbr || idx}
-                                className="bg-white border-b border-gray-200 last:border-b-0 hover:bg-gray-50"
+                                className="transition-colors hover:bg-surface-4"
+                                style={{ backgroundColor: idx % 2 === 0 ? 'var(--surface-2)' : 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}
                               >
                                 <td className="py-1.5 px-1">
-                                  <span className="font-bold text-gray-700 text-xs">
+                                  <span className="font-bold text-xs" style={{ color: 'var(--text-secondary)' }}>
                                     {team.rank || idx + 1}
                                   </span>
                                 </td>
@@ -381,22 +388,22 @@ export default function ConferenceStandings() {
                                     </span>
                                   </Link>
                                 </td>
-                                <td className="py-1.5 px-1 text-center font-bold text-gray-700 text-xs">
+                                <td className="py-1.5 px-1 text-center font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
                                   {team.wins || 0}
                                 </td>
-                                <td className="py-1.5 px-1 text-center font-bold text-gray-700 text-xs">
+                                <td className="py-1.5 px-1 text-center font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
                                   {team.losses || 0}
                                 </td>
-                                <td className="py-1.5 px-1 text-center font-medium text-gray-600 text-xs">
+                                <td className="py-1.5 px-1 text-center font-medium text-xs" style={{ color: 'var(--text-secondary)' }}>
                                   {team.pointsFor || 0}
                                 </td>
-                                <td className="py-1.5 px-1 text-center font-medium text-gray-600 text-xs">
+                                <td className="py-1.5 px-1 text-center font-medium text-xs" style={{ color: 'var(--text-secondary)' }}>
                                   {team.pointsAgainst || 0}
                                 </td>
                                 <td
                                   className="py-1.5 px-1 text-center font-bold text-xs"
                                   style={{
-                                    color: pointDiff > 0 ? '#16a34a' : pointDiff < 0 ? '#dc2626' : '#6b7280'
+                                    color: pointDiff > 0 ? 'var(--accent-success)' : pointDiff < 0 ? 'var(--accent-error)' : 'var(--text-muted)'
                                   }}
                                 >
                                   {pointDiff > 0 ? '+' : ''}{pointDiff}
@@ -421,7 +428,8 @@ export default function ConferenceStandings() {
       ) : (
         <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
           <svg
-            className="w-16 h-16 mx-auto mb-4 opacity-50 text-gray-500"
+            className="w-16 h-16 mx-auto mb-4 opacity-50"
+            style={{ color: 'var(--text-muted)' }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

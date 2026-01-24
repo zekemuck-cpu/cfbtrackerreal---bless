@@ -365,12 +365,10 @@ export default function Layout({ children }) {
   }
 
 
-  // Page background - use neutral backgrounds for cleaner, more professional look
+  // Page background - dark theme for all pages
   const getPageBg = () => {
-    if (isHomePage || isAccountPage) return '#111827' // Dark background for home and account pages (gray-900)
-    // All dynasty pages use a clean light gray background
-    if (isDynastyPage) return '#f1f5f9' // slate-100 - professional neutral background
-    return '#f3f4f6' // gray-100 fallback
+    // All pages use the dark surface background
+    return '#111113' // surface-1 - main dark background
   }
   const pageBg = getPageBg()
 
