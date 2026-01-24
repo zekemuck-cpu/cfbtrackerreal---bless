@@ -10,6 +10,7 @@ import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegis
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
+import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
 
 export default function DangerZone() {
   const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly } = useDynasty()
@@ -48,6 +49,9 @@ export default function DangerZone() {
   const [showGameDeletion, setShowGameDeletion] = useState(false)
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null)
   const [gameDeletionStatus, setGameDeletionStatus] = useState(null)
+
+  // Honors sync state
+  const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
 
   if (!currentDynasty) {
     return (
@@ -385,6 +389,267 @@ export default function DangerZone() {
       setSelectedGameToDelete(null)
     } catch (error) {
       setGameDeletionStatus({ success: false, message: 'Delete failed: ' + error.message })
+    }
+  }
+
+  // Sync all honors (awards, All-Americans, All-Conference) to player records
+  const handleSyncHonorsToPlayers = async () => {
+    setHonorsSyncStatus('running')
+    try {
+      const awardsByYear = currentDynasty.awardsByYear || {}
+      const allAmericansByYear = currentDynasty.allAmericansByYear || {}
+      let existingPlayers = [...(currentDynasty.players || [])]
+      let nextPID = currentDynasty.nextPID || (existingPlayers.length + 1)
+
+      let linkedCount = 0
+      let createdCount = 0
+      let skippedCount = 0
+
+      console.log('[HonorsSync] Starting honors sync...')
+      console.log(`[HonorsSync] Existing players: ${existingPlayers.length}`)
+
+      // Helper: Check if a player already has a specific honor
+      const playerHasHonor = (player, honorType, honor, year) => {
+        if (honorType === 'awards') {
+          return player.accolades?.some(a =>
+            a.year === year && a.award === honor.award
+          )
+        } else if (honorType === 'allAmericans') {
+          return player.allAmericans?.some(a =>
+            a.year === year && a.designation === honor.designation && a.position === honor.position
+          )
+        } else if (honorType === 'allConference') {
+          return player.allConference?.some(a =>
+            a.year === year && a.designation === honor.designation && a.position === honor.position
+          )
+        }
+        return false
+      }
+
+      // Helper: Add honor to a player record
+      const addHonorToPlayer = (player, honorType, honor, year, playerTeam) => {
+        const updatedPlayer = { ...player }
+
+        // Initialize arrays if needed
+        if (!updatedPlayer.accolades) updatedPlayer.accolades = []
+        if (!updatedPlayer.allAmericans) updatedPlayer.allAmericans = []
+        if (!updatedPlayer.allConference) updatedPlayer.allConference = []
+        if (!updatedPlayer.teams) updatedPlayer.teams = []
+        if (!updatedPlayer.teamsByYear) updatedPlayer.teamsByYear = {}
+
+        // Add team if not already tracked
+        if (playerTeam && !updatedPlayer.teams.includes(playerTeam)) {
+          updatedPlayer.teams.push(playerTeam)
+        }
+
+        // Get tid for the team
+        const tid = playerTeam ? getTidFromAbbr(playerTeam) : null
+
+        // Add to teamsByYear if we have a tid and this year isn't already tracked
+        if (tid && !updatedPlayer.teamsByYear[year]) {
+          updatedPlayer.teamsByYear[year] = tid
+        }
+
+        // Add the honor
+        if (honorType === 'awards') {
+          updatedPlayer.accolades.push({
+            year,
+            award: honor.award,
+            team: playerTeam,
+            position: honor.position,
+            class: honor.class
+          })
+        } else if (honorType === 'allAmericans') {
+          updatedPlayer.allAmericans.push({
+            year,
+            designation: honor.designation,
+            position: honor.position,
+            school: playerTeam,
+            class: honor.class
+          })
+        } else if (honorType === 'allConference') {
+          updatedPlayer.allConference.push({
+            year,
+            designation: honor.designation,
+            position: honor.position,
+            school: playerTeam,
+            class: honor.class
+          })
+        }
+
+        return updatedPlayer
+      }
+
+      // Helper: Create a new player for an honor
+      const createPlayerForHonor = (name, position, team, honorType, honor, year) => {
+        const tid = team ? getTidFromAbbr(team) : null
+        const newPlayer = {
+          pid: nextPID++,
+          name: name,
+          position: position || '',
+          team: team || '',
+          teams: team ? [team] : [],
+          teamsByYear: tid ? { [year]: tid } : {},
+          accolades: [],
+          allAmericans: [],
+          allConference: [],
+          statsByYear: {},
+          movements: []
+        }
+
+        // Add the honor to the new player
+        if (honorType === 'awards') {
+          newPlayer.accolades.push({
+            year,
+            award: honor.award,
+            team: team,
+            position: position,
+            class: honor.class
+          })
+        } else if (honorType === 'allAmericans') {
+          newPlayer.allAmericans.push({
+            year,
+            designation: honor.designation,
+            position: position,
+            school: team,
+            class: honor.class
+          })
+        } else if (honorType === 'allConference') {
+          newPlayer.allConference.push({
+            year,
+            designation: honor.designation,
+            position: position,
+            school: team,
+            class: honor.class
+          })
+        }
+
+        return newPlayer
+      }
+
+      // Helper: Process a single honor entry
+      const processHonorEntry = (honorType, entry, year) => {
+        // Get player info from entry
+        const playerName = entry.player || entry.name
+        const playerTeam = (entry.school || entry.team || '').toUpperCase()
+        const playerPosition = entry.position || ''
+
+        // Skip entries without a name or coach awards
+        if (!playerName) return { action: 'skip' }
+        if (entry.award && entry.award.toLowerCase().includes('coach')) return { action: 'skip' }
+
+        // Find matching player
+        const match = findMatchingPlayer(playerName, playerTeam, year, existingPlayers)
+
+        if (match.matchType === 'exact' || match.matchType === 'transfer') {
+          // Found a matching player (auto-confirm transfers)
+          const player = match.player
+          const playerIdx = existingPlayers.findIndex(p => p.pid === player.pid)
+
+          if (playerIdx === -1) return { action: 'skip' }
+
+          // Check if honor already exists
+          if (playerHasHonor(player, honorType, entry, year)) {
+            return { action: 'skip', reason: 'already_has' }
+          }
+
+          // Add honor to player
+          existingPlayers[playerIdx] = addHonorToPlayer(player, honorType, entry, year, playerTeam)
+          return { action: 'linked', playerName: player.name }
+        } else {
+          // No match - create new player
+          const newPlayer = createPlayerForHonor(playerName, playerPosition, playerTeam, honorType, entry, year)
+          existingPlayers.push(newPlayer)
+          return { action: 'created', playerName: playerName }
+        }
+      }
+
+      // Process all awards
+      for (const [yearStr, yearAwards] of Object.entries(awardsByYear)) {
+        const year = parseInt(yearStr, 10)
+        if (isNaN(year)) continue
+
+        // Awards are stored as { heismanTrophy: { player, position, team, class }, ... }
+        for (const [awardKey, awardData] of Object.entries(yearAwards)) {
+          if (!awardData || !awardData.player) continue
+          // Skip coach awards (bearBryantCoachOfTheYear, etc.)
+          if (awardKey.toLowerCase().includes('coach')) continue
+
+          const entry = {
+            ...awardData,
+            award: awardKey.replace(/([A-Z])/g, ' $1').trim(), // Convert camelCase to readable
+          }
+
+          const result = processHonorEntry('awards', entry, year)
+          if (result.action === 'linked') linkedCount++
+          else if (result.action === 'created') createdCount++
+          else skippedCount++
+        }
+      }
+
+      // Process All-Americans and All-Conference
+      for (const [yearStr, yearData] of Object.entries(allAmericansByYear)) {
+        const year = parseInt(yearStr, 10)
+        if (isNaN(year)) continue
+
+        // All-Americans
+        const allAmericans = yearData.allAmericans || []
+        for (const entry of allAmericans) {
+          if (!entry.player) continue
+          const result = processHonorEntry('allAmericans', entry, year)
+          if (result.action === 'linked') linkedCount++
+          else if (result.action === 'created') createdCount++
+          else skippedCount++
+        }
+
+        // All-Conference
+        const allConference = yearData.allConference || []
+        for (const entry of allConference) {
+          if (!entry.player) continue
+          const result = processHonorEntry('allConference', entry, year)
+          if (result.action === 'linked') linkedCount++
+          else if (result.action === 'created') createdCount++
+          else skippedCount++
+        }
+
+        // All-Conference by conference (newer structure)
+        const allConferenceByConference = yearData.allConferenceByConference || {}
+        for (const [confName, confData] of Object.entries(allConferenceByConference)) {
+          const confEntries = confData.allConference || []
+          for (const entry of confEntries) {
+            if (!entry.player) continue
+            const result = processHonorEntry('allConference', entry, year)
+            if (result.action === 'linked') linkedCount++
+            else if (result.action === 'created') createdCount++
+            else skippedCount++
+          }
+        }
+      }
+
+      console.log(`[HonorsSync] Complete: linked=${linkedCount}, created=${createdCount}, skipped=${skippedCount}`)
+
+      // Save updated players
+      if (linkedCount > 0 || createdCount > 0) {
+        await updateDynasty(currentDynasty.id, {
+          players: existingPlayers,
+          nextPID: nextPID
+        })
+        setHonorsSyncStatus({
+          success: true,
+          message: `Linked ${linkedCount} honors, created ${createdCount} players`
+        })
+      } else {
+        setHonorsSyncStatus({
+          success: true,
+          message: 'All honors already synced!'
+        })
+      }
+    } catch (error) {
+      console.error('[HonorsSync] Error:', error)
+      setHonorsSyncStatus({
+        success: false,
+        message: 'Sync failed: ' + error.message
+      })
     }
   }
 
@@ -1002,7 +1267,14 @@ export default function DangerZone() {
           title="Player Data Repair"
           subtitle="Advanced fixes for player records"
         />
-        <div className="grid sm:grid-cols-3 gap-3">
+        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <ActionCard
+            title="Sync Honors to Players"
+            description="Links awards, All-Americans & All-Conference to player records"
+            buttonText="Sync Honors"
+            onClick={handleSyncHonorsToPlayers}
+            status={honorsSyncStatus}
+          />
           <ActionCard
             title="Migrate Career Data"
             description="Fills gaps in player career timelines"
