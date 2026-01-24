@@ -5,13 +5,31 @@ import { useTeamColors } from '../hooks/useTeamColors'
 import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
 
+// Check if we're on a desktop-sized screen
+const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
+
+// Get initial sidebar state from localStorage or default based on screen size
+const getInitialSidebarState = () => {
+  const saved = localStorage.getItem('sidebarOpen')
+  if (saved !== null) {
+    return saved === 'true'
+  }
+  // Default: open on desktop, closed on mobile
+  return isDesktop()
+}
+
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { dynasties, currentDynasty, selectDynasty } = useDynasty()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+
+  // Save sidebar preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', String(sidebarOpen))
+  }, [sidebarOpen])
 
   useEffect(() => {
     if (id && (!currentDynasty || currentDynasty.id !== id)) {
