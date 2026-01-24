@@ -2374,27 +2374,9 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
     return gameCount
   }
 
-  // Helper to check if player's team matches current team (handles tid and abbr)
-  const isOnCurrentTeam = (p) => {
-    // First check teamsByYear for this year (most reliable)
-    const teamThisYear = p.teamsByYear?.[year] ?? p.teamsByYear?.[String(year)]
-    if (teamThisYear !== undefined) {
-      if (typeof teamThisYear === 'number') return teamThisYear === teamTid
-      // Legacy abbr string
-      const tidFromAbbr = getTidFromAbbr(teamThisYear)
-      return tidFromAbbr === teamTid
-    }
-    // Fall back to p.team field
-    if (p.team !== undefined) {
-      if (typeof p.team === 'number') return p.team === teamTid
-      // Legacy abbr string
-      const tidFromAbbr = getTidFromAbbr(p.team)
-      return tidFromAbbr === teamTid
-    }
-    return false
-  }
-
   // Get active players for current team (not left, not recruits, not honor-only)
+  // CRITICAL: Use isPlayerOnRoster which ONLY checks teamsByYear - no fallback to p.team
+  // This ensures consistency with the roster display (same players appear in both)
   const activePlayers = players.filter(p => {
     if (p.isHonorOnly) return false
     if (p.isRecruit) return false
@@ -2405,8 +2387,8 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
       (m.type === 'departure' || m.type === 'entered_portal') && Number(m.year) === Number(year)
     )
     if (hasDepartedThisYear) return false
-    // Check team membership using tid comparison
-    if (!isOnCurrentTeam(p)) return false
+    // Check team membership using isPlayerOnRoster (only checks teamsByYear, no p.team fallback)
+    if (!isPlayerOnRoster(p, teamTid, year)) return false
     // Already RS players don't need confirmation (they'll progress normally)
     // Check both player.year and classByYear for the current year (classByYear is source of truth)
     const playerClassThisYear = p.classByYear?.[year] || p.classByYear?.[String(year)] || p.year
