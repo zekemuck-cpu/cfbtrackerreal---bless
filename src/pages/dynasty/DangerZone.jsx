@@ -575,9 +575,17 @@ export default function DangerZone() {
           // Skip coach awards (bearBryantCoachOfTheYear, etc.)
           if (awardKey.toLowerCase().includes('coach')) continue
 
+          // Convert camelCase to readable, capitalize first letter of each word
+          const awardName = awardKey
+            .replace(/([A-Z])/g, ' $1')
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+
           const entry = {
             ...awardData,
-            award: awardKey.replace(/([A-Z])/g, ' $1').trim(), // Convert camelCase to readable
+            award: awardName,
           }
 
           const result = processHonorEntry('awards', entry, year)

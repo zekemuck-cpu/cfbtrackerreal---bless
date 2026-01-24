@@ -2454,6 +2454,7 @@ export default function Player() {
         // Award display name mapping
         const awardLabels = {
           heisman: 'Heisman Trophy',
+          heismanTrophy: 'Heisman Trophy',
           heismanFinalist: 'Heisman Finalist',
           allAm1st: 'All-American 1st Team',
           allAm2nd: 'All-American 2nd Team',
@@ -2469,6 +2470,36 @@ export default function Player() {
           confFreshmanOY: 'Conference Freshman of the Year',
           bowlMVP: 'Bowl Game MVP',
           cfpChampMVP: 'CFP Championship MVP',
+          // Major awards from sheets
+          doakWalkerAward: 'Doak Walker Award',
+          daveyObrienAward: "Davey O'Brien Award",
+          maxwellAward: 'Maxwell Award',
+          walterCampAward: 'Walter Camp Award',
+          chuckBednarikAward: 'Chuck Bednarik Award',
+          bronkoNagurskiTrophy: 'Bronko Nagurski Trophy',
+          butkusAward: 'Butkus Award',
+          lombardiAward: 'Lombardi Award',
+          outlandTrophy: 'Outland Trophy',
+          jimThorpeAward: 'Jim Thorpe Award',
+          tedHendricksAward: 'Ted Hendricks Award',
+          biletnikoffAward: 'Biletnikoff Award',
+          johnMackeyAward: 'John Mackey Award',
+          rimingtonTrophy: 'Rimington Trophy',
+          rayGuyAward: 'Ray Guy Award',
+          louGrozaAward: 'Lou Groza Award',
+          paulHornungAward: 'Paul Hornung Award',
+        }
+
+        // Fallback: format unknown awards properly (capitalize each word)
+        const formatAwardName = (award) => {
+          if (awardLabels[award]) return awardLabels[award]
+          // Convert camelCase to Title Case if needed
+          return award
+            .replace(/([A-Z])/g, ' $1')
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ')
         }
 
         // Get accolades from new format
@@ -2518,7 +2549,7 @@ export default function Player() {
               {Object.entries(accoladesByType)
                 .filter(([award]) => award !== 'confPOW' && award !== 'nationalPOW')
                 .map(([award, years]) => {
-                  const label = awardLabels[award] || award
+                  const label = formatAwardName(award)
                   const sortedYears = [...years].sort((a, b) => b - a)
                   return (
                     <div key={award} style={{ color: 'var(--text-secondary)' }}>
