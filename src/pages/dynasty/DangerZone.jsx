@@ -192,19 +192,69 @@ export default function DangerZone() {
       const seenGames = new Map()
       const duplicateIds = []
 
+      // Helper to normalize game type for key generation
+      const normalizeGameType = (game) => {
+        if (game.isConferenceChampionship || game.gameType === 'conference_championship') return 'ccg'
+        if (game.isCFPFirstRound || game.gameType === 'cfp_first_round') return 'cfp_r1'
+        if (game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal') return 'cfp_qf'
+        if (game.isCFPSemifinal || game.gameType === 'cfp_semifinal') return 'cfp_sf'
+        if (game.isCFPChampionship || game.gameType === 'cfp_championship') return 'cfp_nc'
+        if (game.isBowlGame || game.gameType === 'bowl') return 'bowl'
+        return 'regular'
+      }
+
+      // Helper to get a game's "quality score" - higher is better, we keep the better one
+      const getGameQuality = (game) => {
+        let score = 0
+        // Has actual scores (not 0-0 or null)
+        if (game.team1Score > 0 || game.team2Score > 0) score += 100
+        // Has any score set at all (even if 0)
+        if (game.team1Score !== null && game.team1Score !== undefined) score += 10
+        // Has box score data
+        if (game.boxScore && Object.keys(game.boxScore).length > 0) score += 50
+        // Has team tids (better than legacy abbr-only)
+        if (game.team1Tid && game.team2Tid) score += 5
+        return score
+      }
+
+      // Helper to get teams in consistent order (lower tid first) for key generation
+      const getTeamPair = (game) => {
+        const t1 = game.team1Tid || game.userTid || 0
+        const t2 = game.team2Tid || game.opponentTid || 0
+        return t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
+      }
+
       games.forEach(game => {
-        // For bowl games, use bowlName as key (week can vary)
-        // For regular games, use week + team as key
-        const isBowlGame = game.isBowlGame || game.gameType === 'bowl'
-        const key = isBowlGame
-          ? `${game.year ?? 0}-bowl-${(game.bowlName || '').toLowerCase()}-${game.team1Tid || game.userTid || 0}`
-          : `${game.year ?? 0}-${game.week ?? 0}-${game.gameType || 'regular'}-${game.team1Tid || game.userTid || 0}`
+        const gameType = normalizeGameType(game)
+        const teamPair = getTeamPair(game)
+
+        // Build key based on game type
+        let key
+        if (gameType === 'bowl') {
+          // Bowl games: use bowlName + teams (week can vary)
+          key = `${game.year ?? 0}-bowl-${(game.bowlName || '').toLowerCase()}-${teamPair}`
+        } else if (gameType === 'ccg') {
+          // CCG: use type + teams (week can vary - sometimes 'CCG', sometimes a number)
+          key = `${game.year ?? 0}-ccg-${teamPair}`
+        } else if (gameType.startsWith('cfp_')) {
+          // CFP games: use slot if available, otherwise type + teams
+          key = game.cfpSlot
+            ? `${game.year ?? 0}-${game.cfpSlot}`
+            : `${game.year ?? 0}-${gameType}-${teamPair}`
+        } else {
+          // Regular games: use week + teams
+          key = `${game.year ?? 0}-week${game.week ?? 0}-${teamPair}`
+        }
+
         if (seenGames.has(key)) {
-          const existingGame = games.find(g => g.id === seenGames.get(key))
-          const existingHasScores = existingGame && (existingGame.team1Score > 0 || existingGame.team2Score > 0)
-          const currentHasScores = game.team1Score > 0 || game.team2Score > 0
-          if (currentHasScores && !existingHasScores) {
-            duplicateIds.push(seenGames.get(key))
+          const existingId = seenGames.get(key)
+          const existingGame = games.find(g => g.id === existingId)
+          const existingQuality = existingGame ? getGameQuality(existingGame) : 0
+          const currentQuality = getGameQuality(game)
+
+          // Keep the game with higher quality, mark the other as duplicate
+          if (currentQuality > existingQuality) {
+            duplicateIds.push(existingId)
             seenGames.set(key, game.id)
           } else {
             duplicateIds.push(game.id)
