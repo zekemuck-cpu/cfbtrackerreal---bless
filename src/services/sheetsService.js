@@ -2304,10 +2304,10 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
   try {
     const accessToken = await getAccessToken()
 
-    // Conference list for CFB (alphabetical order)
+    // Conference list for CFB
     let conferences = [
-      'ACC',
       'American',
+      'ACC',
       'Big 12',
       'Big Ten',
       'Conference USA',
