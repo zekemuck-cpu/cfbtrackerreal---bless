@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getModalColors } from '../utils/colorUtils'
+import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 
 export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors }) {
   const { refreshSession } = useAuth()
@@ -79,7 +79,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
             className="w-full py-3 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-2"
             style={{
               backgroundColor: modalColors.accent,
-              color: '#ffffff'
+              color: getContrastTextColor(modalColors.accent)
             }}
           >
             {refreshing ? (

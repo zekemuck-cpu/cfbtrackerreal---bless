@@ -4756,10 +4756,12 @@ export function DynastyProvider({ children }) {
 
       if (isMigrated) {
         // Route players to subcollection
+        // CRITICAL: Pass deleteOrphans: true to ensure deleted/merged players are removed from Firestore
+        // Without this, removed players remain in the subcollection and reappear on reload
         if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
-          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection`)
+          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup)`)
           subcollectionPromises.push(
-            savePlayersToSubcollection(dynastyId, mainDocUpdates.players)
+            savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true })
           )
           // Don't save players to main doc - they're in subcollection now
           delete mainDocUpdates.players

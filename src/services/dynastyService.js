@@ -318,12 +318,15 @@ export async function savePlayerToSubcollection(dynastyId, player) {
 
 /**
  * Save multiple players to the players subcollection using batch writes
- * IMPORTANT: Does NOT delete orphaned players - that must be done explicitly via deletePlayerFromSubcollection
- * This prevents accidental data loss from race conditions or incomplete player arrays
+ * IMPORTANT: Only deletes orphans if explicitly requested - partial updates are safe by default
  * @param {string} dynastyId - The dynasty document ID
  * @param {Array} players - Array of player objects
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.deleteOrphans - If true, deletes players not in the array (use for full sync like merging duplicates)
  */
-export async function savePlayersToSubcollection(dynastyId, players) {
+export async function savePlayersToSubcollection(dynastyId, players, options = {}) {
+  const { deleteOrphans = false } = options
+
   try {
     // Handle empty array case - do nothing, don't delete existing players
     const playersToSave = players || []
@@ -335,12 +338,37 @@ export async function savePlayersToSubcollection(dynastyId, players) {
     }
 
     // SAFETY: Log player count for debugging data loss issues
-    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}`)
+    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}${deleteOrphans ? ' (with orphan cleanup)' : ''}`)
 
-    // NOTE: Orphan deletion has been REMOVED to prevent data loss
-    // If players are not in the save list, they remain in Firestore
-    // Use deletePlayerFromSubcollection() explicitly to remove players
-    // This prevents race conditions from accidentally deleting player data
+    // Only check for orphans if explicitly requested (full sync operations only)
+    if (deleteOrphans) {
+      // Get current IDs in subcollection to find orphans
+      const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+      const snapshot = await getDocs(playersRef)
+      const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+
+      // Get IDs we're about to save
+      const newIds = new Set(playersToSave.filter(p => p.pid).map(p => String(p.pid)))
+
+      // Find orphaned IDs (exist in subcollection but not in our save list)
+      const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
+
+      // Delete orphaned documents
+      if (orphanedIds.length > 0) {
+        console.log(`[savePlayersToSubcollection] Deleting ${orphanedIds.length} orphaned player documents (deleteOrphans=true)`)
+        for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+          const batch = writeBatch(db)
+          const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
+
+          for (const id of batchIds) {
+            const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id)
+            batch.delete(playerRef)
+          }
+
+          await batch.commit()
+        }
+      }
+    }
 
     // Process in batches of BATCH_SIZE
     for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {

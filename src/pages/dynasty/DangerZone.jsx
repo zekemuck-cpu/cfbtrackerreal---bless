@@ -59,6 +59,8 @@ export default function DangerZone() {
 
   // Duplicate player merge state
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
+  const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
+  const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
 
   if (!currentDynasty) {
     return (
@@ -1192,8 +1194,8 @@ export default function DangerZone() {
     }
   }
 
-  // Merge duplicate players - finds players with same name and merges their data
-  const handleMergeDuplicatePlayers = async () => {
+  // Step 1: Detect duplicate players and show confirmation UI
+  const handleDetectDuplicates = () => {
     setDuplicateMergeStatus('running')
     try {
       const players = currentDynasty.players || []
@@ -1210,74 +1212,102 @@ export default function DangerZone() {
       })
 
       // Find duplicates (names with more than one player)
-      const duplicateGroups = []
+      const groups = []
       playersByName.forEach((group, name) => {
         if (group.length > 1) {
-          duplicateGroups.push({ name, players: group })
+          // Sort by pid (lowest = oldest = primary)
+          const sorted = [...group].sort((a, b) => (a.pid || 999999) - (b.pid || 999999))
+          groups.push({ name, players: sorted })
         }
       })
 
-      if (duplicateGroups.length === 0) {
+      if (groups.length === 0) {
         setDuplicateMergeStatus({ success: true, message: 'No duplicate players found.' })
+        setDuplicateGroups(null)
         return
       }
 
-      console.log(`[Duplicate Merge] Found ${duplicateGroups.length} duplicate player groups`)
+      // Show confirmation UI with all groups selected by default
+      setDuplicateGroups(groups)
+      setSelectedMergeGroups(new Set(groups.map((_, idx) => idx)))
+      setDuplicateMergeStatus(null)
+    } catch (error) {
+      console.error('[Duplicate Detect] Error:', error)
+      setDuplicateMergeStatus({ success: false, message: 'Detection failed: ' + error.message })
+    }
+  }
 
-      // Merge each group
+  // Step 2: Merge the selected duplicate groups
+  const handleConfirmMerge = async () => {
+    if (!duplicateGroups || selectedMergeGroups.size === 0) {
+      setDuplicateGroups(null)
+      return
+    }
+
+    setDuplicateMergeStatus('running')
+    try {
+      const players = currentDynasty.players || []
+      const playersByName = new Map()
+      players.forEach(p => {
+        if (!p.name) return
+        const normalizedName = p.name.toLowerCase().trim()
+        if (!playersByName.has(normalizedName)) {
+          playersByName.set(normalizedName, [])
+        }
+        playersByName.get(normalizedName).push(p)
+      })
+
       let mergedCount = 0
       const pidsToRemove = new Set()
       const mergedPlayers = []
 
-      for (const group of duplicateGroups) {
+      // Only process selected groups
+      duplicateGroups.forEach((group, idx) => {
+        if (!selectedMergeGroups.has(idx)) return
+
         console.log(`[Duplicate Merge] Processing: ${group.name} (${group.players.length} entries)`)
 
-        // Sort by pid (lowest = oldest = primary) - the original player
-        const sorted = [...group.players].sort((a, b) => (a.pid || 999999) - (b.pid || 999999))
-        const primary = sorted[0]
-        const duplicates = sorted.slice(1)
+        const primary = group.players[0] // Already sorted by pid
+        const duplicates = group.players.slice(1)
 
         // Merge all duplicates into primary
         let merged = { ...primary }
 
         for (const dup of duplicates) {
-          // Merge teamsByYear - combine all years from both
+          // Merge teamsByYear
           if (dup.teamsByYear) {
             merged.teamsByYear = { ...merged.teamsByYear, ...dup.teamsByYear }
           }
-
-          // Merge statsByYear - combine all years from both
+          // Merge statsByYear
           if (dup.statsByYear) {
             merged.statsByYear = { ...merged.statsByYear, ...dup.statsByYear }
           }
-
-          // Merge classByYear - combine all years from both
+          // Merge classByYear
           if (dup.classByYear) {
             merged.classByYear = { ...merged.classByYear, ...dup.classByYear }
           }
-
-          // Merge movements - combine all movements
+          // Merge overallByYear
+          if (dup.overallByYear) {
+            merged.overallByYear = { ...merged.overallByYear, ...dup.overallByYear }
+          }
+          // Merge movements
           if (dup.movements && dup.movements.length > 0) {
             const existingMovements = merged.movements || []
-            // Add movements that aren't already in the merged list (by year+type)
             const existingKeys = new Set(existingMovements.map(m => `${m.year}-${m.type}`))
             const newMovements = dup.movements.filter(m => !existingKeys.has(`${m.year}-${m.type}`))
             merged.movements = [...existingMovements, ...newMovements]
           }
-
-          // Keep most recent overall rating
+          // Keep highest overall rating
           if (dup.overall && (!merged.overall || dup.overall > merged.overall)) {
             merged.overall = dup.overall
           }
-
-          // Merge honors/awards
+          // Merge honors
           if (dup.honors) {
             const existingHonors = merged.honors || []
             const existingHonorKeys = new Set(existingHonors.map(h => `${h.year}-${h.honorType}`))
             const newHonors = dup.honors.filter(h => !existingHonorKeys.has(`${h.year}-${h.honorType}`))
             merged.honors = [...existingHonors, ...newHonors]
           }
-
           // Keep any recruiting info that might be missing
           if (!merged.stars && dup.stars) merged.stars = dup.stars
           if (!merged.nationalRank && dup.nationalRank) merged.nationalRank = dup.nationalRank
@@ -1289,9 +1319,7 @@ export default function DangerZone() {
           if (!merged.height && dup.height) merged.height = dup.height
           if (!merged.weight && dup.weight) merged.weight = dup.weight
 
-          // Mark duplicate for removal
           pidsToRemove.add(dup.pid)
-          console.log(`[Duplicate Merge] Will merge pid ${dup.pid} into pid ${primary.pid}`)
         }
 
         // Sort movements by year
@@ -1301,20 +1329,10 @@ export default function DangerZone() {
 
         mergedPlayers.push(merged)
         mergedCount++
-      }
-
-      // Build final players array - merged players + non-duplicates
-      const nonDuplicatePlayers = players.filter(p => {
-        const normalizedName = p.name?.toLowerCase().trim()
-        // Not a duplicate group, or is the primary (lowest pid) in a duplicate group
-        if (!playersByName.has(normalizedName)) return true
-        const group = playersByName.get(normalizedName)
-        if (group.length === 1) return true
-        // Check if this is a pid we're removing
-        return !pidsToRemove.has(p.pid)
       })
 
-      // Replace primary players with their merged versions
+      // Build final players array
+      const nonDuplicatePlayers = players.filter(p => !pidsToRemove.has(p.pid))
       const finalPlayers = nonDuplicatePlayers.map(p => {
         const merged = mergedPlayers.find(m => m.pid === p.pid)
         return merged || p
@@ -1322,17 +1340,45 @@ export default function DangerZone() {
 
       console.log(`[Duplicate Merge] Final: ${finalPlayers.length} players (removed ${pidsToRemove.size} duplicates)`)
 
-      // Save
       await updateDynasty(currentDynasty.id, { players: finalPlayers })
 
       setDuplicateMergeStatus({
         success: true,
         message: `Merged ${mergedCount} duplicate player groups (removed ${pidsToRemove.size} duplicate entries).`
       })
+      setDuplicateGroups(null)
+      setSelectedMergeGroups(new Set())
     } catch (error) {
       console.error('[Duplicate Merge] Error:', error)
       setDuplicateMergeStatus({ success: false, message: 'Merge failed: ' + error.message })
     }
+  }
+
+  // Cancel merge and close confirmation UI
+  const handleCancelMerge = () => {
+    setDuplicateGroups(null)
+    setSelectedMergeGroups(new Set())
+    setDuplicateMergeStatus(null)
+  }
+
+  // Toggle a group's selection
+  const toggleGroupSelection = (idx) => {
+    setSelectedMergeGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) {
+        next.delete(idx)
+      } else {
+        next.add(idx)
+      }
+      return next
+    })
+  }
+
+  // Helper to get team abbreviation from tid
+  const getTeamAbbrFromTid = (tid) => {
+    if (typeof tid === 'string') return tid
+    const team = TEAMS[tid] || currentDynasty?.teams?.[tid]
+    return team?.abbr || `Team ${tid}`
   }
 
   // Compact Action Card
@@ -1490,11 +1536,105 @@ export default function DangerZone() {
             title="Merge Duplicate Players"
             description="Finds players with same name and merges their stats/history"
             buttonText="Merge Players"
-            onClick={handleMergeDuplicatePlayers}
+            onClick={handleDetectDuplicates}
             status={duplicateMergeStatus}
           />
         </div>
       </div>
+
+      {/* Duplicate Players Confirmation UI */}
+      {duplicateGroups && duplicateGroups.length > 0 && (
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#fef9c3', border: '2px solid #facc15' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-amber-800">
+              Found {duplicateGroups.length} possible duplicate{duplicateGroups.length > 1 ? ' groups' : ''}
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancelMerge}
+                className="px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmMerge}
+                disabled={selectedMergeGroups.size === 0}
+                className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                Merge {selectedMergeGroups.size} Selected
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-amber-700 mb-3">
+            Review each group below. Uncheck any groups that are actually different players with the same name.
+          </p>
+
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {duplicateGroups.map((group, idx) => (
+              <div
+                key={group.name}
+                className="rounded-lg p-3 bg-white border border-amber-200"
+              >
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedMergeGroups.has(idx)}
+                    onChange={() => toggleGroupSelection(idx)}
+                    className="w-4 h-4 mt-0.5 rounded border-amber-400"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 capitalize">
+                      {group.name} <span className="text-xs font-normal text-gray-500">({group.players.length} entries)</span>
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {group.players.map((player, pIdx) => {
+                        const years = player.teamsByYear ? Object.keys(player.teamsByYear).sort() : []
+                        const teams = years.map(y => getTeamAbbrFromTid(player.teamsByYear[y]))
+                        const uniqueTeams = [...new Set(teams)]
+
+                        return (
+                          <div key={player.pid} className="text-xs text-gray-600 flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded ${pIdx === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {pIdx === 0 ? 'Keep' : 'Merge'}
+                            </span>
+                            <span>
+                              {player.position || '??'} •
+                              PID {player.pid} •
+                              {uniqueTeams.length > 0 ? ` ${uniqueTeams.join(' → ')}` : ' No team'} •
+                              {years.length > 0 ? ` Years: ${years[0]}${years.length > 1 ? `-${years[years.length - 1]}` : ''}` : ' No years'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-amber-200 flex items-center justify-between">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedMergeGroups(new Set(duplicateGroups.map((_, i) => i)))}
+                className="text-xs text-amber-700 hover:text-amber-900 underline"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => setSelectedMergeGroups(new Set())}
+                className="text-xs text-amber-700 hover:text-amber-900 underline"
+              >
+                Deselect All
+              </button>
+            </div>
+            <span className="text-xs text-amber-600">
+              {selectedMergeGroups.size} of {duplicateGroups.length} selected
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Delete Specific Game Section */}
       <div>

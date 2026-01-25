@@ -6,7 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
@@ -998,6 +998,10 @@ export default function Player() {
               const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
               const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
               const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
+              // Get abbreviation from tid if needed
+              const prevTeamAbbr = typeof transferredFromTeam === 'number'
+                ? (teamsData?.[transferredFromTeam]?.abbr || getOriginalTeamAbbr(transferredFromTeam) || transferredFromTeam)
+                : transferredFromTeam
               return (
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
@@ -1010,7 +1014,7 @@ export default function Player() {
                       <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
-                  <span>{transferredFromTeam}</span>
+                  <span>{prevTeamAbbr}</span>
                 </Link>
               )
             })()}
@@ -1178,6 +1182,10 @@ export default function Player() {
                   const prevTeamName = getMascotName(transferredFromTeam, teamsData) || transferredFromTeam
                   const prevTeamColors = getTeamColors(prevTeamName, teamsData) || { primary: '#4b5563', secondary: '#6b7280' }
                   const prevTeamTextColor = getContrastTextColor(prevTeamColors.primary)
+                  // Get abbreviation from tid if needed
+                  const prevTeamAbbr = typeof transferredFromTeam === 'number'
+                    ? (teamsData?.[transferredFromTeam]?.abbr || getOriginalTeamAbbr(transferredFromTeam) || transferredFromTeam)
+                    : transferredFromTeam
                   return (
                     <Link
                       to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
@@ -1190,7 +1198,7 @@ export default function Player() {
                           <img src={getTeamLogo(prevTeamName, teamsData)} alt="" className="w-full h-full object-contain" />
                         </div>
                       )}
-                      <span>{transferredFromTeam}</span>
+                      <span>{prevTeamAbbr}</span>
                     </Link>
                   )
                 })()}
