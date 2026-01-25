@@ -11779,7 +11779,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId) {
   }
 }
 
-// Team stats row labels for game team stats sheet
+// Team stats row labels for game team stats sheet (entry order)
 const TEAM_STATS_ROWS = [
   'First Downs',
   'Total Offense',
@@ -11790,37 +11790,25 @@ const TEAM_STATS_ROWS = [
   'Completions',
   'Pass Attempts',
   'Pass TDs',
-  'Pass Yards',
-  // Defensive stats
-  'Rush Yards Allowed',
-  'Pass Yards Allowed',
-  // Down conversions
+  'Passing Yards',
   '3rd Down Conv',
   '3rd Down Att',
   '4th Down Conv',
   '4th Down Att',
   '2PT Conv',
   '2PT Att',
-  // Red zone (offense)
-  'Red Zone Att',
   'Red Zone TD',
   'Red Zone FG',
-  // Red zone (defense)
-  'Def RZ Att',
-  'Def RZ TD',
-  // Turnovers
+  'Red Zone Att',
   'Turnovers',
   'Fumbles Lost',
   'Interceptions',
-  // Returns
   'Punt Ret Yards',
   'Kick Ret Yards',
   'Total Yards',
   'Punts',
-  // Penalties
   'Penalties',
   'Penalty Yards',
-  // Time of possession
   'Poss Minutes',
   'Poss Seconds'
 ]

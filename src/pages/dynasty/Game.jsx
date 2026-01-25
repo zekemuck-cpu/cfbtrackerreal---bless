@@ -1850,14 +1850,14 @@ export default function Game() {
         </div>
       )}
 
-      {/* Team Stats Section - Bar Chart Visualization */}
+      {/* Team Stats Section - Comprehensive Display */}
       {game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) && (() => {
         const homeStats = game.boxScore.teamStats.home || {}
         const awayStats = game.boxScore.teamStats.away || {}
         const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
         const awayTeamAbbrForLink = getAbbrFromTeamName(awayStats.teamAbbr) || awayStats.teamAbbr
 
-        // Get team colors for bar charts
+        // Get team colors for display
         const leftIsHome = boxScoreHomeIsUser ? (leftTeam === 'user') : (leftTeam !== 'user')
         const leftTeamAbbr = leftIsHome ? homeTeamAbbrForLink : awayTeamAbbrForLink
         const rightTeamAbbr = leftIsHome ? awayTeamAbbrForLink : homeTeamAbbrForLink
@@ -1868,71 +1868,93 @@ export default function Game() {
         const leftTeamColors = getTeamColorsRobust(leftTeamAbbr) || leftData.colors
         const rightTeamColors = getTeamColorsRobust(rightTeamAbbr) || rightData.colors
 
-        // Helper to format possession time to minutes
-        const possToMins = (mins, secs) => {
+        // Helper to format possession time
+        const formatPossession = (mins, secs) => {
           if (mins == null && secs == null) return null
-          return (mins || 0) + (secs || 0) / 60
+          const totalMins = (mins || 0)
+          const totalSecs = (secs || 0)
+          return `${totalMins}:${totalSecs.toString().padStart(2, '0')}`
         }
 
-        // Stats with bar visualization (numeric only, higher is better unless inverted)
-        // Short labels for mobile, full labels for larger screens
-        const barStats = [
-          { label: 'Total Yards', shortLabel: 'Total', left: leftTeamStats.totalOffense || leftTeamStats.totalYards, right: rightTeamStats.totalOffense || rightTeamStats.totalYards, key: true },
-          { label: 'Rushing Yards', shortLabel: 'Rush', left: leftTeamStats.rushYards, right: rightTeamStats.rushYards },
-          { label: 'Passing Yards', shortLabel: 'Pass', left: leftTeamStats.passYards, right: rightTeamStats.passYards },
-          { label: 'First Downs', shortLabel: '1st Dn', left: leftTeamStats.firstDowns, right: rightTeamStats.firstDowns },
-          { label: 'Turnovers', shortLabel: 'TO', left: leftTeamStats.turnovers, right: rightTeamStats.turnovers, inverted: true, key: true },
-          { label: '3rd Down %', shortLabel: '3rd %', left: leftTeamStats['3rdDownAtt'] ? Math.round((leftTeamStats['3rdDownConv'] / leftTeamStats['3rdDownAtt']) * 100) : null, right: rightTeamStats['3rdDownAtt'] ? Math.round((rightTeamStats['3rdDownConv'] / rightTeamStats['3rdDownAtt']) * 100) : null, suffix: '%' },
-          { label: 'Possession', shortLabel: 'TOP', left: possToMins(leftTeamStats.possMinutes, leftTeamStats.possSeconds), right: possToMins(rightTeamStats.possMinutes, rightTeamStats.possSeconds), formatTime: true },
+        // Helper to safely calculate averages
+        const calcAvg = (total, attempts) => {
+          if (total == null || attempts == null || attempts === 0) return null
+          return (total / attempts).toFixed(1)
+        }
+
+        // Build all stats in display order with calculated fields
+        const allStats = [
+          { label: 'First Downs', left: leftTeamStats.firstDowns, right: rightTeamStats.firstDowns },
+          { label: 'Total Offense', left: leftTeamStats.totalOffense, right: rightTeamStats.totalOffense, key: true },
+          { label: 'Total Plays', left: leftTeamStats.totalPlays, right: rightTeamStats.totalPlays },
+          { label: 'Yards Per Play', left: calcAvg(leftTeamStats.totalOffense, leftTeamStats.totalPlays), right: calcAvg(rightTeamStats.totalOffense, rightTeamStats.totalPlays), calculated: true },
+          { label: 'Rush Attempts', left: leftTeamStats.rushAttempts, right: rightTeamStats.rushAttempts },
+          { label: 'Rush Yards', left: leftTeamStats.rushYards, right: rightTeamStats.rushYards },
+          { label: 'Rush TDs', left: leftTeamStats.rushTds, right: rightTeamStats.rushTds },
+          { label: 'Yards Per Rush', left: calcAvg(leftTeamStats.rushYards, leftTeamStats.rushAttempts), right: calcAvg(rightTeamStats.rushYards, rightTeamStats.rushAttempts), calculated: true },
+          { label: 'Completions', left: leftTeamStats.completions, right: rightTeamStats.completions },
+          { label: 'Pass Attempts', left: leftTeamStats.passAttempts, right: rightTeamStats.passAttempts },
+          { label: 'Pass TDs', left: leftTeamStats.passTds, right: rightTeamStats.passTds },
+          { label: 'Yards Per Pass', left: calcAvg(leftTeamStats.passingYards || leftTeamStats.passYards, leftTeamStats.passAttempts), right: calcAvg(rightTeamStats.passingYards || rightTeamStats.passYards, rightTeamStats.passAttempts), calculated: true },
+          { label: 'Passing Yards', left: leftTeamStats.passingYards || leftTeamStats.passYards, right: rightTeamStats.passingYards || rightTeamStats.passYards },
+          { label: '3rd Down Conv', left: leftTeamStats['3rdDownConv'], right: rightTeamStats['3rdDownConv'] },
+          { label: '3rd Down Att', left: leftTeamStats['3rdDownAtt'], right: rightTeamStats['3rdDownAtt'] },
+          { label: '4th Down Conv', left: leftTeamStats['4thDownConv'], right: rightTeamStats['4thDownConv'] },
+          { label: '4th Down Att', left: leftTeamStats['4thDownAtt'], right: rightTeamStats['4thDownAtt'] },
+          { label: '2-Point Conv', left: leftTeamStats['2ptConv'], right: rightTeamStats['2ptConv'] },
+          { label: '2-Point Att', left: leftTeamStats['2ptAtt'], right: rightTeamStats['2ptAtt'] },
+          { label: 'Red Zone TDs', left: leftTeamStats.redZoneTd, right: rightTeamStats.redZoneTd },
+          { label: 'Red Zone FGs', left: leftTeamStats.redZoneFg, right: rightTeamStats.redZoneFg },
+          { label: 'Red Zone Att', left: leftTeamStats.redZoneAtt, right: rightTeamStats.redZoneAtt },
+          { label: 'Turnovers', left: leftTeamStats.turnovers, right: rightTeamStats.turnovers, inverted: true, key: true },
+          { label: 'Fumbles Lost', left: leftTeamStats.fumblesLost, right: rightTeamStats.fumblesLost, inverted: true },
+          { label: 'Interceptions', left: leftTeamStats.interceptions, right: rightTeamStats.interceptions, inverted: true },
+          { label: 'Punt Ret Yards', left: leftTeamStats.puntRetYards, right: rightTeamStats.puntRetYards },
+          { label: 'Kick Ret Yards', left: leftTeamStats.kickRetYards, right: rightTeamStats.kickRetYards },
+          { label: 'Total Yards', left: leftTeamStats.totalYards, right: rightTeamStats.totalYards },
+          { label: 'Punts', left: leftTeamStats.punts, right: rightTeamStats.punts },
+          { label: 'Penalties', left: leftTeamStats.penalties, right: rightTeamStats.penalties, inverted: true },
+          { label: 'Penalty Yards', left: leftTeamStats.penaltyYards, right: rightTeamStats.penaltyYards, inverted: true },
+          { label: 'Time of Possession', left: formatPossession(leftTeamStats.possMinutes, leftTeamStats.possSeconds), right: formatPossession(rightTeamStats.possMinutes, rightTeamStats.possSeconds) },
         ].filter(stat => stat.left != null || stat.right != null)
 
-        // Render a stat comparison row (clean design without confusing bars)
+        // Render a stat comparison row
         const renderStatRow = (stat, idx) => {
-          const leftVal = stat.left ?? 0
-          const rightVal = stat.right ?? 0
+          const leftVal = stat.left ?? (stat.calculated ? '-' : 0)
+          const rightVal = stat.right ?? (stat.calculated ? '-' : 0)
 
           // Determine winner (for inverted stats like turnovers, lower is better)
-          const leftWins = stat.inverted ? leftVal < rightVal : leftVal > rightVal
-          const rightWins = stat.inverted ? rightVal < leftVal : rightVal > leftVal
-          const tie = leftVal === rightVal
-
-          // Format display value
-          const formatVal = (v) => {
-            if (v == null) return '-'
-            if (stat.formatTime) {
-              const mins = Math.floor(v)
-              const secs = Math.round((v - mins) * 60)
-              return `${mins}:${secs.toString().padStart(2, '0')}`
-            }
-            return stat.suffix ? `${v}${stat.suffix}` : v
-          }
+          const leftNum = parseFloat(leftVal) || 0
+          const rightNum = parseFloat(rightVal) || 0
+          const leftWins = stat.inverted ? leftNum < rightNum : leftNum > rightNum
+          const rightWins = stat.inverted ? rightNum < leftNum : rightNum > leftNum
+          const tie = leftNum === rightNum
 
           return (
-            <div key={idx} className={`px-3 sm:px-4 py-2.5 flex items-center ${stat.key ? 'bg-gray-800/40' : ''}`}>
+            <div key={idx} className={`px-3 sm:px-4 py-2 flex items-center ${stat.key ? 'bg-gray-800/40' : ''}`}>
               {/* Left value with team color indicator */}
               <div className="flex-1 flex items-center gap-2">
                 <div
-                  className="w-1 h-6 rounded-full"
+                  className="w-1 h-5 rounded-full"
                   style={{ backgroundColor: leftWins && !tie ? leftTeamColors.primary : 'transparent' }}
                 />
-                <span className={`text-sm sm:text-base font-bold tabular-nums ${leftWins && !tie ? 'text-white' : 'text-gray-400'}`}>
-                  {formatVal(leftVal)}
+                <span className={`text-xs sm:text-sm font-bold tabular-nums ${leftWins && !tie ? 'text-white' : 'text-gray-400'} ${stat.calculated ? 'italic' : ''}`}>
+                  {leftVal}
                 </span>
               </div>
 
-              {/* Stat label - short on mobile, full on larger screens */}
-              <span className={`text-[10px] sm:text-xs font-medium uppercase tracking-wide px-1 sm:px-2 text-center ${stat.key ? 'text-white' : 'text-gray-500'}`}>
-                <span className="sm:hidden">{stat.shortLabel || stat.label}</span>
-                <span className="hidden sm:inline">{stat.label}</span>
+              {/* Stat label */}
+              <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide px-1 sm:px-2 text-center flex-shrink-0 ${stat.key ? 'text-white' : 'text-gray-500'}`}>
+                {stat.label}
               </span>
 
               {/* Right value with team color indicator */}
               <div className="flex-1 flex items-center justify-end gap-2">
-                <span className={`text-sm sm:text-base font-bold tabular-nums ${rightWins && !tie ? 'text-white' : 'text-gray-400'}`}>
-                  {formatVal(rightVal)}
+                <span className={`text-xs sm:text-sm font-bold tabular-nums ${rightWins && !tie ? 'text-white' : 'text-gray-400'} ${stat.calculated ? 'italic' : ''}`}>
+                  {rightVal}
                 </span>
                 <div
-                  className="w-1 h-6 rounded-full"
+                  className="w-1 h-5 rounded-full"
                   style={{ backgroundColor: rightWins && !tie ? rightTeamColors.primary : 'transparent' }}
                 />
               </div>
@@ -1965,61 +1987,9 @@ export default function Game() {
               </Link>
             </div>
 
-            {/* Stat comparison rows */}
+            {/* All stats in display order */}
             <div className="divide-y divide-gray-800/30">
-              {barStats.map((stat, idx) => renderStatRow(stat, idx))}
-            </div>
-
-            {/* Additional detailed stats - always visible */}
-            <div className="border-t border-gray-800 divide-y divide-gray-800/30 text-xs sm:text-sm">
-              {/* Rushing */}
-              {(leftTeamStats.rushAttempts != null || rightTeamStats.rushAttempts != null) && (
-                <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                  <span className="text-gray-300 tabular-nums">{leftTeamStats.rushAttempts ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{leftTeamStats.rushYards ?? 0}</span>
-                  <span className="text-gray-500 text-[10px] sm:text-xs uppercase">Rush</span>
-                  <span className="text-gray-300 tabular-nums">{rightTeamStats.rushAttempts ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{rightTeamStats.rushYards ?? 0}</span>
-                </div>
-              )}
-              {/* Passing */}
-              {(leftTeamStats.completions != null || rightTeamStats.completions != null) && (
-                <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                  <span className="text-gray-300 tabular-nums">{leftTeamStats.completions ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{leftTeamStats.passAttempts ?? 0}</span>
-                  <span className="text-gray-500 text-[10px] sm:text-xs uppercase">C/A</span>
-                  <span className="text-gray-300 tabular-nums">{rightTeamStats.completions ?? 0}<span className="text-gray-500 text-[10px] sm:text-xs mx-0.5">/</span>{rightTeamStats.passAttempts ?? 0}</span>
-                </div>
-              )}
-                {/* Red Zone */}
-                {(leftTeamStats.redZoneTd != null || rightTeamStats.redZoneTd != null) && (
-                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                    <span className="text-gray-300 tabular-nums">{(leftTeamStats.redZoneTd || 0) + (leftTeamStats.redZoneFg || 0)} <span className="text-gray-500">({leftTeamStats.redZonePct ?? 0}%)</span></span>
-                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">RZ</span>
-                    <span className="text-gray-300 tabular-nums">{(rightTeamStats.redZoneTd || 0) + (rightTeamStats.redZoneFg || 0)} <span className="text-gray-500">({rightTeamStats.redZonePct ?? 0}%)</span></span>
-                  </div>
-                )}
-                {/* Penalties */}
-                {(leftTeamStats.penalties != null || rightTeamStats.penalties != null) && (
-                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                    <span className="text-gray-300 tabular-nums">{leftTeamStats.penalties ?? 0}</span>
-                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">PEN</span>
-                    <span className="text-gray-300 tabular-nums">{rightTeamStats.penalties ?? 0}</span>
-                  </div>
-                )}
-                {/* Fumbles */}
-                {(leftTeamStats.fumblesLost != null || rightTeamStats.fumblesLost != null) && (
-                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                    <span className="text-gray-300 tabular-nums">{leftTeamStats.fumblesLost ?? 0}</span>
-                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">FUM</span>
-                    <span className="text-gray-300 tabular-nums">{rightTeamStats.fumblesLost ?? 0}</span>
-                  </div>
-                )}
-                {/* Interceptions */}
-                {(leftTeamStats.interceptions != null || rightTeamStats.interceptions != null) && (
-                  <div className="px-3 sm:px-4 py-2 flex justify-between items-center">
-                    <span className="text-gray-300 tabular-nums">{leftTeamStats.interceptions ?? 0}</span>
-                    <span className="text-gray-500 text-[10px] sm:text-xs uppercase">INT</span>
-                    <span className="text-gray-300 tabular-nums">{rightTeamStats.interceptions ?? 0}</span>
-                  </div>
-                )}
+              {allStats.map((stat, idx) => renderStatRow(stat, idx))}
             </div>
           </div>
         )
