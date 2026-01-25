@@ -1895,7 +1895,7 @@ export default function TeamYear() {
         </div>
       </div>
 
-      {/* Award Winners Section */}
+      {/* Award Winners Section - Compact */}
       {(() => {
         const yearAwards = currentDynasty.awardsByYear?.[selectedYear] || {}
         const teamAwardWinners = Object.entries(yearAwards)
@@ -1915,45 +1915,31 @@ export default function TeamYear() {
 
         return (
           <div
-            className="rounded-lg shadow-lg overflow-hidden"
+            className="rounded-lg overflow-hidden"
             style={{
-              backgroundColor: teamInfo.backgroundColor,
-              border: `3px solid ${teamInfo.textColor}`
+              backgroundColor: `${teamInfo.textColor}08`,
+              border: `2px solid ${teamInfo.textColor}25`
             }}
           >
-            <div
-              className="px-3 sm:px-4 py-2 sm:py-3"
-              style={{ backgroundColor: teamInfo.textColor }}
-            >
-              <h2 className="text-sm sm:text-lg font-bold" style={{ color: teamPrimaryText }}>
-                {selectedYear} Award Winners
-              </h2>
-            </div>
-            <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+              <span className="text-xs font-bold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.6 }}>
+                {selectedYear} Awards
+              </span>
               {teamAwardWinners.map((award) => {
-                // Find matching player - check pid first (if stored), then match by name AND team
+                // Find matching player
                 let matchingPlayer = null
                 if (award.pid) {
-                  // Direct pid lookup (most reliable)
                   matchingPlayer = currentDynasty.players?.find(p => p.pid === award.pid)
                 }
                 if (!matchingPlayer) {
-                  // Match by name and team (including honor-only players)
                   matchingPlayer = currentDynasty.players?.find(p => {
                     const nameMatch = p.name?.toLowerCase().trim() === award.player?.toLowerCase().trim()
                     if (!nameMatch) return false
-                    // Check if player's team matches (could be in teamsPlayed array or current team)
-                    // Handles both tid (number) and abbr (string) for p.team
                     const playerTeams = p.teamsPlayed || []
-                    const teamMatch = playerTeams.includes(teamAbbr) ||
-                                     p.team === teamAbbr ||
-                                     p.team === tid ||
-                                     p.team === award.team
-                    return teamMatch
+                    return playerTeams.includes(teamAbbr) || p.team === teamAbbr || p.team === tid || p.team === award.team
                   })
                 }
                 if (!matchingPlayer) {
-                  // Fallback: just match by name (for legacy data)
                   matchingPlayer = currentDynasty.players?.find(p =>
                     p.name?.toLowerCase().trim() === award.player?.toLowerCase().trim()
                   )
@@ -1961,31 +1947,25 @@ export default function TeamYear() {
                 const isCoachAward = award.awardKey === 'bearBryantCoachOfTheYear' || award.awardKey === 'broyles'
 
                 return (
-                  <div
-                    key={award.awardKey}
-                    className="p-3 rounded-lg"
-                    style={{ backgroundColor: `${teamInfo.textColor}15` }}
-                  >
-                    <div className="text-xs font-bold mb-1" style={{ color: teamBgText, opacity: 0.7 }}>
-                      {award.awardName}
-                    </div>
+                  <div key={award.awardKey} className="flex items-center gap-1 text-sm">
+                    <span style={{ color: teamBgText, opacity: 0.7 }}>{award.awardName}:</span>
                     {matchingPlayer && !isCoachAward ? (
                       <Link
                         to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                        className="font-bold text-base hover:underline"
+                        className="font-semibold hover:underline"
                         style={{ color: teamInfo.textColor }}
                       >
                         {award.player}
                       </Link>
                     ) : (
-                      <div className="font-bold text-base" style={{ color: teamInfo.textColor }}>
+                      <span className="font-semibold" style={{ color: teamInfo.textColor }}>
                         {award.player}
-                      </div>
+                      </span>
                     )}
                     {!isCoachAward && award.position && (
-                      <div className="text-xs" style={{ color: teamBgText, opacity: 0.8 }}>
-                        {award.position} • {award.class}
-                      </div>
+                      <span className="text-xs" style={{ color: teamBgText, opacity: 0.5 }}>
+                        ({award.position})
+                      </span>
                     )}
                   </div>
                 )

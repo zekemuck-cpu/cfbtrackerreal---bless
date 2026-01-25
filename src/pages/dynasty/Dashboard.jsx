@@ -1067,13 +1067,25 @@ export default function Dashboard() {
         }
         const playerTeam = playerTeamTid || teamTid
 
-        // Check if player was already marked as leaving (don't duplicate movement)
-        const alreadyHasMovement = (player.movements || []).some(m =>
+        // Check if player already has a movement for this year - if so, UPDATE it with new reason
+        const existingMovementIndex = (player.movements || []).findIndex(m =>
           m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure')
         )
 
-        if (alreadyHasMovement) {
-          return player // Already processed
+        if (existingMovementIndex !== -1) {
+          // UPDATE the existing movement with the new reason/type
+          const updatedMovements = [...(player.movements || [])]
+          const newType = isTransfer ? 'entered_portal' : 'departure'
+          updatedMovements[existingMovementIndex] = {
+            ...updatedMovements[existingMovementIndex],
+            type: newType,
+            reason: reason,
+            timestamp: Date.now()
+          }
+          return {
+            ...player,
+            movements: updatedMovements
+          }
         }
 
         // Create movement based on reason (for display/history only)

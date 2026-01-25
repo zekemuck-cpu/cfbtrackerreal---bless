@@ -57,6 +57,9 @@ export default function DangerZone() {
   // Honors sync state
   const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
 
+  // Departure fix state
+  const [departureFixStatus, setDepartureFixStatus] = useState(null)
+
   // Duplicate player merge state
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
@@ -666,6 +669,69 @@ export default function DangerZone() {
       setHonorsSyncStatus({
         success: false,
         message: 'Sync failed: ' + error.message
+      })
+    }
+  }
+
+  // Fix players who have wrong departure reason (graduated vs pro draft)
+  const handleFixDepartureReasons = async () => {
+    setDepartureFixStatus('running')
+    try {
+      const players = [...(currentDynasty.players || [])]
+      const draftResultsByYear = currentDynasty.draftResultsByYear || {}
+      let fixedCount = 0
+
+      // Build a set of all drafted player pids by year
+      const draftedByYear = {}
+      for (const [year, results] of Object.entries(draftResultsByYear)) {
+        draftedByYear[year] = new Set()
+        if (Array.isArray(results)) {
+          results.forEach(r => {
+            if (r.pid) draftedByYear[year].add(r.pid)
+          })
+        }
+      }
+
+      const updatedPlayers = players.map(player => {
+        const movements = player.movements || []
+        let hasChange = false
+        const updatedMovements = movements.map(m => {
+          // Check if this is a "Graduating" departure movement
+          if (m.type === 'departure' && m.reason === 'Graduating') {
+            const year = String(m.year)
+            // Check if this player was drafted that year
+            if (draftedByYear[year]?.has(player.pid) || player.draftYear === Number(m.year) || player.draftRound) {
+              hasChange = true
+              fixedCount++
+              return { ...m, reason: 'Pro Draft' }
+            }
+          }
+          return m
+        })
+
+        if (hasChange) {
+          return { ...player, movements: updatedMovements }
+        }
+        return player
+      })
+
+      if (fixedCount > 0) {
+        await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+        setDepartureFixStatus({
+          success: true,
+          message: `Fixed ${fixedCount} player departure reasons`
+        })
+      } else {
+        setDepartureFixStatus({
+          success: true,
+          message: 'No incorrect departure reasons found'
+        })
+      }
+    } catch (error) {
+      console.error('[DepartureFix] Error:', error)
+      setDepartureFixStatus({
+        success: false,
+        message: 'Fix failed: ' + error.message
       })
     }
   }
@@ -1741,6 +1807,13 @@ export default function DangerZone() {
             buttonText="Fix"
             onClick={handleOrphanCleanup}
             status={orphanCleanupStatus}
+          />
+          <ActionCard
+            title="Fix Departure Reasons"
+            description="Fixes graduated→drafted players"
+            buttonText="Fix"
+            onClick={handleFixDepartureReasons}
+            status={departureFixStatus}
           />
         </div>
       </div>
