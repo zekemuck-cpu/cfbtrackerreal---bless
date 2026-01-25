@@ -673,13 +673,14 @@ export default function DangerZone() {
     }
   }
 
-  // Fix players who have wrong departure reason (graduated vs pro draft)
+  // Fix players who have wrong departure reason or wrong departure team
   const handleFixDepartureReasons = async () => {
     setDepartureFixStatus('running')
     try {
       const players = [...(currentDynasty.players || [])]
       const draftResultsByYear = currentDynasty.draftResultsByYear || {}
-      let fixedCount = 0
+      let fixedReasonCount = 0
+      let fixedTeamCount = 0
 
       // Build a set of all drafted player pids by year
       const draftedByYear = {}
@@ -694,19 +695,43 @@ export default function DangerZone() {
 
       const updatedPlayers = players.map(player => {
         const movements = player.movements || []
+        const teamsByYear = player.teamsByYear || {}
         let hasChange = false
+
         const updatedMovements = movements.map(m => {
-          // Check if this is a "Graduating" departure movement
+          let updatedM = { ...m }
+
+          // Fix 1: Check if this is a "Graduating" departure movement for a drafted player
           if (m.type === 'departure' && m.reason === 'Graduating') {
             const year = String(m.year)
-            // Check if this player was drafted that year
             if (draftedByYear[year]?.has(player.pid) || player.draftYear === Number(m.year) || player.draftRound) {
               hasChange = true
-              fixedCount++
-              return { ...m, reason: 'Pro Draft' }
+              fixedReasonCount++
+              updatedM.reason = 'Pro Draft'
             }
           }
-          return m
+
+          // Fix 2: Check if departure 'from' team is wrong (doesn't match player's last team)
+          if (m.type === 'departure' && m.from) {
+            // Get player's team for the departure year or the year before
+            const depYear = Number(m.year)
+            const playerTeamAtDep = teamsByYear[depYear] || teamsByYear[String(depYear)] ||
+                                     teamsByYear[depYear - 1] || teamsByYear[String(depYear - 1)]
+
+            if (playerTeamAtDep) {
+              // Convert both to tid for comparison
+              const movementFromTid = typeof m.from === 'number' ? m.from : getTidFromAbbr(m.from)
+              const playerTeamTid = typeof playerTeamAtDep === 'number' ? playerTeamAtDep : getTidFromAbbr(playerTeamAtDep)
+
+              if (movementFromTid && playerTeamTid && movementFromTid !== playerTeamTid) {
+                hasChange = true
+                fixedTeamCount++
+                updatedM.from = playerTeamTid
+              }
+            }
+          }
+
+          return hasChange ? updatedM : m
         })
 
         if (hasChange) {
@@ -715,16 +740,20 @@ export default function DangerZone() {
         return player
       })
 
-      if (fixedCount > 0) {
+      const totalFixed = fixedReasonCount + fixedTeamCount
+      if (totalFixed > 0) {
         await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+        const messages = []
+        if (fixedReasonCount > 0) messages.push(`${fixedReasonCount} reasons`)
+        if (fixedTeamCount > 0) messages.push(`${fixedTeamCount} teams`)
         setDepartureFixStatus({
           success: true,
-          message: `Fixed ${fixedCount} player departure reasons`
+          message: `Fixed ${messages.join(', ')}`
         })
       } else {
         setDepartureFixStatus({
           success: true,
-          message: 'No incorrect departure reasons found'
+          message: 'No incorrect departures found'
         })
       }
     } catch (error) {
