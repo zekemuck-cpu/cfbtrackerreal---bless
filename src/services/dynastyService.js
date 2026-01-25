@@ -2,7 +2,9 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -12,7 +14,8 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
-  deleteField
+  deleteField,
+  waitForPendingWrites
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { indexedDBStorage } from './storage'
@@ -265,11 +268,40 @@ export async function migrateLocalStorageData(userId) {
 export async function getPlayersSubcollection(dynastyId) {
   try {
     const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-    const snapshot = await getDocs(playersRef)
-    return snapshot.docs.map(doc => ({
+    // CRITICAL: Use getDocsFromServer to bypass local cache and always get fresh server data
+    // This fixes issues where Firestore's local persistence serves stale data after migration
+    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Fetching from SERVER (bypassing cache)...`)
+    const snapshot = await getDocsFromServer(playersRef)
+    const players = snapshot.docs.map(doc => ({
       ...doc.data(),
       _firestoreId: doc.id // Keep track of Firestore doc ID for updates
     }))
+
+    // DEBUG: Check if players have teamHistory from Firestore
+    const playersWithTeamHistory = players.filter(p => p.teamHistory && p.teamHistory.length > 0)
+    const playersWithMigrationMarker = players.filter(p => p._teamHistoryMigratedAt)
+    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Loaded ${players.length} players FROM SERVER, ${playersWithTeamHistory.length} have teamHistory, ${playersWithMigrationMarker.length} have migration marker`)
+
+    // Show migration marker timestamps to verify which version of data we're seeing
+    if (playersWithMigrationMarker.length > 0) {
+      const markers = playersWithMigrationMarker.slice(0, 3).map(p => ({
+        name: p.name,
+        _teamHistoryMigratedAt: p._teamHistoryMigratedAt,
+        migratedDate: new Date(p._teamHistoryMigratedAt).toISOString()
+      }))
+      console.log(`[getPlayersSubcollection] Dynasty ${dynastyId} Migration markers:`, markers)
+    }
+
+    if (playersWithTeamHistory.length > 0 && players.length > 500) {
+      const sample = playersWithTeamHistory.slice(0, 3)
+      console.log(`[getPlayersSubcollection] Dynasty ${dynastyId} Sample:`, sample.map(p => ({
+        name: p.name,
+        pid: p.pid,
+        teamHistory: p.teamHistory
+      })))
+    }
+
+    return players
   } catch (error) {
     console.error('Error fetching players subcollection:', error)
     throw error
@@ -340,6 +372,23 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
     // SAFETY: Log player count for debugging data loss issues
     console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}${deleteOrphans ? ' (with orphan cleanup)' : ''}`)
 
+    // CRITICAL PROTECTION: Check if stint migration was applied
+    // If so, ONLY allow saves with forceOverwrite flag (explicit user action)
+    // This prevents auto-migration code from overwriting stint-migrated data
+    if (!options.forceOverwrite) {
+      const dynastyRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+      // Use getDocFromServer to bypass cache and get true server state
+      const dynastyDoc = await getDocFromServer(dynastyRef)
+      if (dynastyDoc.exists()) {
+        const dynastyData = dynastyDoc.data()
+        if (dynastyData._stintMigrationApplied) {
+          console.warn(`[savePlayersToSubcollection] ABORT: Dynasty ${dynastyId} has _stintMigrationApplied flag (from SERVER).`)
+          console.warn(`[savePlayersToSubcollection] Refusing to save without forceOverwrite to protect migrated data.`)
+          return
+        }
+      }
+    }
+
     // Only check for orphans if explicitly requested (full sync operations only)
     if (deleteOrphans) {
       // Get current IDs in subcollection to find orphans
@@ -367,11 +416,82 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
 
           await batch.commit()
         }
+        // Wait for orphan deletions to sync to server
+        await waitForPendingWrites(db)
+        console.log(`[savePlayersToSubcollection] Orphan deletions synced to server`)
+      }
+    }
+
+    // DEBUG: Check how many players have teamHistory before save
+    const playersWithTeamHistory = playersToSave.filter(p => p.teamHistory && p.teamHistory.length > 0)
+    const playersWithValidTeamHistory = playersWithTeamHistory.filter(p =>
+      p.teamHistory.every(s => s.teamTid && !isNaN(Number(s.teamTid)) && Number(s.teamTid) > 0)
+    )
+    console.log(`[savePlayersToSubcollection] Players with teamHistory: ${playersWithTeamHistory.length}/${playersToSave.length}, with VALID tids: ${playersWithValidTeamHistory.length}`)
+
+    // Log players with invalid teamHistory for debugging
+    const playersWithInvalidTid = playersWithTeamHistory.filter(p =>
+      p.teamHistory.some(s => !s.teamTid || isNaN(Number(s.teamTid)) || Number(s.teamTid) <= 0)
+    )
+    if (playersWithInvalidTid.length > 0) {
+      console.warn(`[savePlayersToSubcollection] ${playersWithInvalidTid.length} players have INVALID teamTid:`,
+        playersWithInvalidTid.slice(0, 3).map(p => ({
+          name: p.name,
+          pid: p.pid,
+          teamHistory: p.teamHistory
+        }))
+      )
+    }
+
+    if (playersWithTeamHistory.length > 0) {
+      const sample = playersWithTeamHistory.slice(0, 2)
+      console.log('[savePlayersToSubcollection] Sample players with teamHistory:', sample.map(p => ({
+        name: p.name,
+        pid: p.pid,
+        teamHistory: p.teamHistory
+      })))
+    }
+
+    // CRITICAL SAFETY: Prevent overwriting migrated data with stale non-migrated data
+    // This protects against race conditions where auto-migration runs before
+    // the in-memory state is updated with freshly loaded subcollection data
+    if (!options.forceOverwrite) {
+      const currentRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+      // CRITICAL: Use getDocsFromServer to bypass Firestore's local cache
+      // The cache can have stale data which causes the safety check to compare against wrong numbers
+      console.log(`[savePlayersToSubcollection] Safety check - fetching current SERVER data for dynasty ${dynastyId}...`)
+      const currentSnapshot = await getDocsFromServer(currentRef)
+      const currentPlayers = currentSnapshot.docs.map(doc => doc.data())
+      console.log(`[savePlayersToSubcollection] Current SERVER data: ${currentPlayers.length} total players`)
+      const currentWithTeamHistory = currentPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0)
+
+      // If Firestore has more players with teamHistory than we're about to save,
+      // something is wrong - likely a race condition with stale data
+      if (currentWithTeamHistory.length > 0 && playersWithTeamHistory.length === 0) {
+        console.error(`[savePlayersToSubcollection] ABORT: Would overwrite ${currentWithTeamHistory.length} migrated players with 0 migrated players!`)
+        console.error(`[savePlayersToSubcollection] This indicates stale data - aborting to prevent data loss`)
+        return
+      }
+
+      // AGGRESSIVE SAFETY: Abort if we'd significantly reduce the teamHistory count
+      // This catches cases like 819 → 405 which indicates stale data overwriting fresh migration
+      const wouldReduceBy = currentWithTeamHistory.length - playersWithTeamHistory.length
+      if (wouldReduceBy > 50) {
+        console.error(`[savePlayersToSubcollection] ABORT: Would reduce teamHistory count from ${currentWithTeamHistory.length} to ${playersWithTeamHistory.length} (loss of ${wouldReduceBy})`)
+        console.error(`[savePlayersToSubcollection] This indicates stale data - aborting to prevent data loss`)
+        return
+      }
+
+      // Warn if any reduction
+      if (wouldReduceBy > 0) {
+        console.warn(`[savePlayersToSubcollection] WARNING: Reducing teamHistory count from ${currentWithTeamHistory.length} to ${playersWithTeamHistory.length}`)
       }
     }
 
     // Process in batches of BATCH_SIZE
+    const totalBatches = Math.ceil(playersToSave.length / BATCH_SIZE)
     for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1
       const batch = writeBatch(db)
       const batchPlayers = playersToSave.slice(i, i + BATCH_SIZE)
 
@@ -384,13 +504,60 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         // Remove _firestoreId before saving and sanitize to remove empty keys
         const { _firestoreId, ...rawPlayerData } = player
         const playerData = sanitizeForFirestore(rawPlayerData)
+
+        // DEBUG: Check if teamHistory survived sanitization
+        if (player.teamHistory && player.teamHistory.length > 0 && (!playerData.teamHistory || playerData.teamHistory.length === 0)) {
+          console.error(`[savePlayersToSubcollection] teamHistory LOST during sanitization for ${player.name}!`, {
+            before: player.teamHistory,
+            after: playerData.teamHistory
+          })
+        }
+
         batch.set(playerRef, playerData)
       }
 
       await batch.commit()
+      console.log(`[savePlayersToSubcollection] Batch ${batchNum}/${totalBatches} committed locally (${batchPlayers.length} players)`)
+
+      // Add delay between batches to prevent "Write stream exhausted" error
+      // Scale delay based on number of batches for large datasets
+      if (i + BATCH_SIZE < playersToSave.length) {
+        const delayMs = totalBatches > 3 ? 300 : 200
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
     }
 
-    console.log(`[savePlayersToSubcollection] Successfully saved ${playersToSave.length} players`)
+    console.log(`[savePlayersToSubcollection] All batches committed locally - waiting for server sync...`)
+
+    // CRITICAL: Wait for pending writes to actually reach the server
+    // batch.commit() only commits to local cache with offline persistence enabled
+    // waitForPendingWrites ensures data is actually sent to Firestore server
+    try {
+      await waitForPendingWrites(db)
+      console.log(`[savePlayersToSubcollection] ✓ Server sync confirmed - all writes acknowledged`)
+    } catch (syncError) {
+      console.error(`[savePlayersToSubcollection] ERROR: Server sync failed!`, syncError)
+      throw new Error(`Failed to sync writes to server: ${syncError.message}`)
+    }
+
+    console.log(`[savePlayersToSubcollection] Successfully saved ${playersToSave.length} players to SERVER`)
+
+    // Wait a bit for Firestore to fully propagate the writes
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // DEBUG: Verify the data was actually written by reading back FROM SERVER (not cache)
+    const verifyRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+    console.log(`[savePlayersToSubcollection] Verifying with SERVER read (not cache)...`)
+    const verifySnapshot = await getDocsFromServer(verifyRef)
+    const verifyPlayers = verifySnapshot.docs.map(doc => doc.data())
+    const verifyWithTeamHistory = verifyPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0)
+    console.log(`[savePlayersToSubcollection] VERIFY (SERVER): Read back ${verifyPlayers.length} players, ${verifyWithTeamHistory.length} have teamHistory`)
+    if (verifyWithTeamHistory.length !== playersWithTeamHistory.length) {
+      console.error(`[savePlayersToSubcollection] MISMATCH! Wrote ${playersWithTeamHistory.length}, read back ${verifyWithTeamHistory.length}`)
+      console.error(`[savePlayersToSubcollection] DATA LOSS DETECTED - writes may not have persisted!`)
+    } else {
+      console.log(`[savePlayersToSubcollection] ✓ Server verification PASSED - data persisted correctly`)
+    }
   } catch (error) {
     console.error('Error saving players to subcollection:', error)
     throw error

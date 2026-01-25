@@ -546,7 +546,9 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
           Object.entries(player.movementsByYear || {}).map(([k, v]) => [String(k), v])
         ),
         // Career Timeline - movement history (legacy)
-        movements: player.movements || []
+        movements: player.movements || [],
+        // Team History - stint-based roster system (new)
+        teamHistory: player.teamHistory || []
       })
 
       // Start with all sections collapsed
@@ -772,6 +774,8 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
       movementsByYear: formData.movementsByYear,
       // Career Timeline - movement history (legacy)
       movements: formData.movements,
+      // Team History - stint-based roster system (new)
+      teamHistory: formData.teamHistory || [],
       // Status flags
       isRecruit: formData.isRecruit,
       isPortal: formData.isPortal,
@@ -1693,6 +1697,316 @@ export default function PlayerEditModal({ isOpen, onClose, player, teamColors, o
                         >
                           + Add Season ({maxYear + 1})
                         </button>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Team History (Stints) - New stint-based roster system */}
+            <div className="rounded-xl overflow-hidden" style={{ border: `2px solid ${teamColors.primary}` }}>
+              {renderSectionHeader('teamHistory', 'Team History (Stints)')}
+              {isExpanded('teamHistory') && (
+                <div className="p-4" style={{ backgroundColor: teamColors.secondary }}>
+                  {(() => {
+                    const teamHistory = formData.teamHistory || []
+                    const currentYear = dynasty?.currentYear || new Date().getFullYear()
+                    const teams = dynasty?.teams || {}
+
+                    // Helper to get team display info
+                    const getTeamDisplay = (tid) => {
+                      if (!tid) return { name: 'Unknown', abbr: '???', logo: null }
+                      const tidNum = Number(tid)
+                      const team = teams[tidNum] || TEAMS.find(t => t.tid === tidNum)
+                      if (team) {
+                        return {
+                          name: team.name || team.school || 'Unknown',
+                          abbr: team.abbr || team.abbreviation || '???',
+                          logo: team.logo || team.logoUrl
+                        }
+                      }
+                      return { name: `Team ${tid}`, abbr: String(tid), logo: null }
+                    }
+
+                    // Reason options for closing stints
+                    const closeReasons = [
+                      'graduation', 'transfer', 'encouraged_transfer', 'draft',
+                      'departure', 'cut', 'entered_portal', 'other'
+                    ]
+
+                    return (
+                      <div className="space-y-3">
+                        {/* Info text */}
+                        <p className="text-xs opacity-70" style={{ color: secondaryText }}>
+                          Stints track which teams this player has been on. Open stints (no end year) mean the player is currently on that team's roster.
+                        </p>
+
+                        {/* Existing stints */}
+                        {teamHistory.length === 0 ? (
+                          <p className="text-sm opacity-60 text-center py-4" style={{ color: teamColors.text }}>
+                            No team history stints. Add one below or run the stint migration from DangerZone.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {teamHistory.map((stint, idx) => {
+                              const teamInfo = getTeamDisplay(stint.teamTid)
+                              const isOpen = stint.toYear === null || stint.toYear === undefined
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-2 p-3 rounded-lg"
+                                  style={{
+                                    backgroundColor: isOpen ? '#dcfce7' : `${teamColors.primary}15`,
+                                    border: isOpen ? '2px solid #86efac' : `1px solid ${teamColors.primary}30`
+                                  }}
+                                >
+                                  {/* Team logo and name */}
+                                  <div className="flex items-center gap-2 min-w-[140px]">
+                                    {teamInfo.logo && (
+                                      <img src={teamInfo.logo} alt="" className="w-6 h-6 object-contain" />
+                                    )}
+                                    <span className="text-sm font-medium" style={{ color: teamColors.text }}>
+                                      {teamInfo.abbr}
+                                    </span>
+                                  </div>
+
+                                  {/* From year */}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs opacity-60" style={{ color: secondaryText }}>From:</span>
+                                    <input
+                                      type="number"
+                                      value={stint.fromYear || ''}
+                                      onChange={(e) => {
+                                        const newHistory = [...teamHistory]
+                                        newHistory[idx] = { ...newHistory[idx], fromYear: parseInt(e.target.value) || null }
+                                        setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                      }}
+                                      className="w-16 px-2 py-1 rounded border text-sm text-center bg-white"
+                                      style={{ borderColor: `${teamColors.primary}40` }}
+                                      placeholder="Year"
+                                    />
+                                  </div>
+
+                                  {/* To year / status */}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-xs opacity-60" style={{ color: secondaryText }}>To:</span>
+                                    {isOpen ? (
+                                      <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-700">
+                                        Present
+                                      </span>
+                                    ) : (
+                                      <input
+                                        type="number"
+                                        value={stint.toYear || ''}
+                                        onChange={(e) => {
+                                          const newHistory = [...teamHistory]
+                                          newHistory[idx] = { ...newHistory[idx], toYear: parseInt(e.target.value) || null }
+                                          setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                        }}
+                                        className="w-16 px-2 py-1 rounded border text-sm text-center bg-white"
+                                        style={{ borderColor: `${teamColors.primary}40` }}
+                                        placeholder="Year"
+                                      />
+                                    )}
+                                  </div>
+
+                                  {/* Reason (for closed stints) */}
+                                  {!isOpen && (
+                                    <select
+                                      value={stint.reason || ''}
+                                      onChange={(e) => {
+                                        const newHistory = [...teamHistory]
+                                        newHistory[idx] = { ...newHistory[idx], reason: e.target.value || null }
+                                        setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                      }}
+                                      className="px-2 py-1 rounded border text-xs bg-white"
+                                      style={{ borderColor: `${teamColors.primary}40` }}
+                                    >
+                                      <option value="">Reason...</option>
+                                      {closeReasons.map(r => (
+                                        <option key={r} value={r}>{r.replace('_', ' ')}</option>
+                                      ))}
+                                    </select>
+                                  )}
+
+                                  {/* Close stint button (for open stints) */}
+                                  {isOpen && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newHistory = [...teamHistory]
+                                        newHistory[idx] = {
+                                          ...newHistory[idx],
+                                          toYear: currentYear,
+                                          reason: 'departure'
+                                        }
+                                        setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                      }}
+                                      className="px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-700 hover:bg-amber-200"
+                                    >
+                                      Close Stint
+                                    </button>
+                                  )}
+
+                                  {/* Reopen stint button (for closed stints) */}
+                                  {!isOpen && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newHistory = [...teamHistory]
+                                        newHistory[idx] = {
+                                          ...newHistory[idx],
+                                          toYear: null,
+                                          reason: null
+                                        }
+                                        setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                      }}
+                                      className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200"
+                                    >
+                                      Reopen
+                                    </button>
+                                  )}
+
+                                  {/* Delete button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newHistory = teamHistory.filter((_, i) => i !== idx)
+                                      setFormData(prev => ({ ...prev, teamHistory: newHistory }))
+                                    }}
+                                    className="ml-auto w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+
+                        {/* Add new stint */}
+                        <div className="pt-2 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
+                          <p className="text-xs font-medium mb-2" style={{ color: secondaryText }}>Add New Stint</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <SearchableTeamInput
+                              value={formData._newStintTeam || ''}
+                              onChange={(team) => setFormData(prev => ({ ...prev, _newStintTeam: team }))}
+                              placeholder="Select team..."
+                              className="w-40 px-3 py-2 rounded-lg border text-sm bg-white"
+                              style={{ borderColor: `${teamColors.primary}40` }}
+                            />
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs opacity-60" style={{ color: secondaryText }}>From:</span>
+                              <input
+                                type="number"
+                                value={formData._newStintFromYear || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, _newStintFromYear: e.target.value }))}
+                                className="w-16 px-2 py-2 rounded-lg border text-sm text-center bg-white"
+                                style={{ borderColor: `${teamColors.primary}40` }}
+                                placeholder={String(currentYear)}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const team = formData._newStintTeam
+                                const fromYear = parseInt(formData._newStintFromYear) || currentYear
+                                if (!team) {
+                                  alert('Please select a team')
+                                  return
+                                }
+                                // Convert team abbr/name to tid
+                                const tid = getTidFromAbbr(team) || team
+                                const newStint = {
+                                  teamTid: Number(tid),
+                                  fromYear: fromYear,
+                                  toYear: null,
+                                  reason: null
+                                }
+                                setFormData(prev => ({
+                                  ...prev,
+                                  teamHistory: [...(prev.teamHistory || []), newStint],
+                                  _newStintTeam: '',
+                                  _newStintFromYear: ''
+                                }))
+                              }}
+                              className="px-3 py-2 rounded-lg text-sm font-medium"
+                              style={{
+                                backgroundColor: teamColors.primary,
+                                color: getContrastTextColor(teamColors.primary)
+                              }}
+                            >
+                              + Add Stint
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Quick migrate from teamsByYear */}
+                        {teamHistory.length === 0 && Object.keys(formData.teamsByYear || {}).length > 0 && (
+                          <div className="pt-2 border-t" style={{ borderColor: `${teamColors.primary}20` }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Convert teamsByYear to teamHistory stints
+                                const teamsByYear = formData.teamsByYear || {}
+                                const years = Object.keys(teamsByYear)
+                                  .map(y => parseInt(y))
+                                  .filter(y => !isNaN(y))
+                                  .sort((a, b) => a - b)
+
+                                if (years.length === 0) return
+
+                                // Group consecutive years at same team into stints
+                                const stints = []
+                                let currentStint = null
+
+                                for (const year of years) {
+                                  const teamValue = teamsByYear[String(year)] || teamsByYear[year]
+                                  const tid = getTidFromAbbr(teamValue) || teamValue
+                                  const tidNum = Number(tid)
+
+                                  if (!currentStint || currentStint.teamTid !== tidNum) {
+                                    // Close previous stint
+                                    if (currentStint) {
+                                      currentStint.toYear = year - 1
+                                      currentStint.reason = 'transfer'
+                                    }
+                                    // Start new stint
+                                    currentStint = {
+                                      teamTid: tidNum,
+                                      fromYear: year,
+                                      toYear: null,
+                                      reason: null
+                                    }
+                                    stints.push(currentStint)
+                                  }
+                                }
+
+                                // Check if player should have closed stint based on current year
+                                // and whether they appear to have graduated
+                                const lastYear = years[years.length - 1]
+                                const yearsOnRoster = years.length
+                                if (lastYear < currentYear && yearsOnRoster >= 4) {
+                                  // Likely graduated
+                                  if (currentStint) {
+                                    currentStint.toYear = lastYear
+                                    currentStint.reason = 'graduation'
+                                  }
+                                }
+
+                                setFormData(prev => ({ ...prev, teamHistory: stints }))
+                              }}
+                              className="w-full py-2 rounded-lg border-2 border-dashed text-sm font-medium hover:border-solid"
+                              style={{ borderColor: `${teamColors.primary}40`, color: teamColors.primary }}
+                            >
+                              ↓ Convert from teamsByYear ({Object.keys(formData.teamsByYear || {}).length} years)
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )
                   })()}

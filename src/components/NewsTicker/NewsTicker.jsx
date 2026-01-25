@@ -140,19 +140,30 @@ export default function NewsTicker({ dynasty }) {
       <style>{`
         .ticker-container::-webkit-scrollbar { display: none; }
         .ticker-container { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Support for safe area on phones with home indicators */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+          .ticker-wrapper {
+            padding-bottom: env(safe-area-inset-bottom);
+          }
+        }
       `}</style>
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 overflow-hidden"
-        style={{ backgroundColor: '#111827', borderTop: '2px solid #374151', height: '48px' }}
+        className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50 overflow-hidden"
+        style={{
+          backgroundColor: '#111827',
+          borderTop: '2px solid #374151',
+          /* Minimum height for content, padding-bottom handles safe area */
+          minHeight: '48px'
+        }}
       >
-        <div className="h-full flex items-center">
+        <div className="flex items-center" style={{ height: '48px' }}>
           {/* Main content with fade transition */}
           <div className={`flex-1 flex items-center h-full overflow-hidden transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
 
-            {/* Header */}
+            {/* Header - increased padding for better mobile tap targets */}
             <div
-              className={`h-full flex items-center gap-2 px-3 sm:px-4 font-bold text-xs sm:text-sm uppercase tracking-wider whitespace-nowrap ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80' : ''}`}
-              style={{ backgroundColor: '#1f2937', color: '#f3f4f6' }}
+              className={`h-full flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 font-bold text-[10px] sm:text-sm uppercase tracking-wider whitespace-nowrap ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
+              style={{ backgroundColor: '#1f2937', color: '#f3f4f6', minWidth: 'fit-content' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
               {currentSection.teamLogo && (
@@ -160,11 +171,11 @@ export default function NewsTicker({ dynasty }) {
                   <img
                     src={getLogoUrl(currentSection.teamLogo)}
                     alt=""
-                    className="w-6 h-6 rounded-full bg-white p-0.5"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
                   {currentSection.teamRecord && (
-                    <span className="text-[8px] text-gray-400 leading-none mt-0.5">
+                    <span className="text-[7px] sm:text-[8px] text-gray-400 leading-none mt-0.5">
                       {currentSection.teamRecord}
                     </span>
                   )}
@@ -172,11 +183,11 @@ export default function NewsTicker({ dynasty }) {
               )}
               {currentSection.opponentLogo ? (
                 <>
-                  <span className="text-gray-400 text-[10px] sm:text-xs">vs</span>
+                  <span className="text-gray-400 text-[9px] sm:text-xs">vs</span>
                   <img
                     src={getLogoUrl(currentSection.opponentLogo)}
                     alt=""
-                    className="w-6 h-6 rounded-full bg-white p-0.5"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
                 </>
@@ -189,23 +200,24 @@ export default function NewsTicker({ dynasty }) {
             <div ref={containerRef} className="ticker-container flex-1 overflow-hidden">
               <div
                 ref={contentRef}
-                className="flex items-center gap-2 sm:gap-4 px-3 sm:px-4 whitespace-nowrap"
+                className="flex items-center gap-1 sm:gap-3 px-2 sm:px-4 whitespace-nowrap h-full"
                 style={{ willChange: 'transform' }}
               >
                 {currentSection.items.map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center gap-1.5 sm:gap-2">
+                  <div key={item.id || idx} className="flex items-center gap-1 sm:gap-2">
                     {/* Separator between items */}
                     {idx > 0 && (
-                      <span className="text-gray-500 text-sm mx-1">|</span>
+                      <span className="text-gray-500 text-[10px] sm:text-sm mx-0.5 sm:mx-1">|</span>
                     )}
                     <div
-                      className={`flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${item.link ? 'cursor-pointer hover:opacity-70' : ''}`}
+                      className={`flex items-center gap-1 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
                       onClick={() => handleItemClick(item)}
+                      style={{ minHeight: '32px' }}
                     >
                       {/* Label (e.g., year, W/L) */}
                       {item.label && (
                         <span
-                          className="font-semibold text-xs sm:text-sm"
+                          className="font-semibold text-[10px] sm:text-sm"
                           style={{ color: item.labelColor || '#f3f4f6' }}
                         >
                           {item.label}
@@ -216,7 +228,7 @@ export default function NewsTicker({ dynasty }) {
                         <img
                           src={getLogoUrl(item.team)}
                           alt=""
-                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                          className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       )}
@@ -226,18 +238,18 @@ export default function NewsTicker({ dynasty }) {
                           <img
                             src={getLogoUrl(item.team)}
                             alt=""
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                           <span
-                            className="text-xs sm:text-sm"
+                            className="text-[10px] sm:text-sm"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team ? 'bold' : 'normal' }}
                           >
                             {item.score1}
                           </span>
-                          <span className="text-xs sm:text-sm text-gray-400">-</span>
+                          <span className="text-[10px] sm:text-sm text-gray-400">-</span>
                           <span
-                            className="text-xs sm:text-sm"
+                            className="text-[10px] sm:text-sm"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team2 ? 'bold' : 'normal' }}
                           >
                             {item.score2}
@@ -245,7 +257,7 @@ export default function NewsTicker({ dynasty }) {
                           <img
                             src={getLogoUrl(item.team2)}
                             alt=""
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                         </>
@@ -253,7 +265,7 @@ export default function NewsTicker({ dynasty }) {
                       {/* Standard text (only if not two-team format) */}
                       {item.text && !item.team2 && (
                         <span
-                          className="text-xs sm:text-sm"
+                          className="text-[10px] sm:text-sm"
                           style={{ color: '#f3f4f6', opacity: item.label ? 0.9 : 1 }}
                         >
                           {item.text}

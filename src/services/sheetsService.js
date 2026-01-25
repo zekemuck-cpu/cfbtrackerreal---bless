@@ -3,6 +3,7 @@
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
+import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
@@ -9240,26 +9241,14 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
   try {
     const accessToken = await getAccessToken()
 
-    // Filter to only current roster players using teamsByYear (the ONLY source of truth)
-    // Convert teamAbbr to tid for proper comparison (teamsByYear stores tids as numbers)
+    // Filter to only current roster players using isPlayerOnRoster (handles both stint-based and legacy)
     const teamTid = getTidFromAbbr(teamAbbr)
     const currentRosterPlayers = players.filter(p => {
       if (p.isHonorOnly) return false
-      // Use teamsByYear for proper team-centric filtering
-      if (p.teamsByYear) {
-        const playerTid = p.teamsByYear[year] || p.teamsByYear[String(year)]
-        // Handle both tid (number) and legacy abbr (string) in teamsByYear
-        if (typeof playerTid === 'number') {
-          return playerTid === teamTid
-        }
-        // Legacy: teamsByYear might have abbreviation string
-        if (typeof playerTid === 'string') {
-          return playerTid === teamAbbr || playerTid.toUpperCase() === teamAbbr?.toUpperCase()
-        }
-        return false
-      }
-      // Fallback for legacy data without teamsByYear
-      return !p.leftTeam && !p.isRecruit
+      if (p.isRecruit) return false
+
+      // Use centralized isPlayerOnRoster - handles both stint-based and legacy systems
+      return isPlayerOnRoster(p, teamTid || teamAbbr, year)
     })
 
     // Get player names for dropdown (only current roster)
@@ -9268,10 +9257,10 @@ export async function createPlayersLeavingSheet(dynastyName, year, players, team
     // Find seniors who are graduating:
     // - RS Sr: Always graduating (exhausted eligibility, no games requirement)
     // - Sr: Only if 5+ games played (the 5+ games rule applies)
-    // Use classByYear as the source of truth for player class, with fallback to player.year
+    // Use getPlayerClassForYear for stint-based, classByYear for legacy
     const seniorsGraduating = currentRosterPlayers.filter(player => {
-      // Get player's class for this year - classByYear is the source of truth
-      const playerClass = player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year
+      // Get player's class for this year - handles both stint-based and legacy systems
+      const playerClass = getPlayerClassForYear(player, year) || player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year
 
       // RS Sr always graduates - they've exhausted eligibility
       if (playerClass === 'RS Sr') return true
@@ -12729,13 +12718,30 @@ export async function prefillRosterHistorySheet(spreadsheetId, players, years = 
     const accessToken = await getAccessToken()
 
     // Build data rows: Player Name, PID, team for each year
+    // Helper to get team for a year - handles both stint-based and legacy
+    const getTeamForYear = (player, year) => {
+      // Stint-based: check teamHistory for active stint
+      if (player.teamHistory && player.teamHistory.length > 0) {
+        const stint = player.teamHistory.find(s =>
+          Number(year) >= Number(s.fromYear) &&
+          (s.toYear === null || Number(year) <= Number(s.toYear))
+        )
+        if (stint) {
+          // Return tid or abbr based on what's stored
+          return stint.teamTid ?? stint.teamAbbr ?? ''
+        }
+      }
+      // Legacy: use teamsByYear
+      return player.teamsByYear?.[year] || player.team || ''
+    }
+
     const rows = players
       .filter(p => !p.isHonorOnly) // Exclude honor-only players
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
       .map(p => {
         const row = [p.name || '', p.pid || '']
         years.forEach(year => {
-          row.push(p.teamsByYear?.[year] || p.team || '')
+          row.push(getTeamForYear(p, year))
         })
         return row
       })

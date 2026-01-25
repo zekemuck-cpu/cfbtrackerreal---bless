@@ -532,13 +532,75 @@ When `isViewOnly` is true, hide all edit/add functionality.
 
 ---
 
-## Admin Tools
+## Admin Tools (DangerZone)
 
 Located at `/dynasty/:id/admin`:
 - Fix Roster Data - Repairs `teamsByYear` entries
 - Clear Local Cache
 - Document Size Analysis
 - Migrate to Subcollections
+- **Roster System Migration** - Migrates to stint-based roster tracking (see below)
+
+### Stint-Based Roster Migration Tool
+
+The "Roster System Migration" section in DangerZone allows migrating dynasties to the new stint-based roster system.
+
+**Workflow:**
+1. **Preview Migration** - Dry run that shows what will change without saving
+2. **Apply Migration** - Converts all players to stint-based format and saves
+3. **Revert** - Restores legacy `teamsByYear`/`classByYear` from backup
+
+**What gets migrated:**
+- `teamsByYear` → `teamHistory[]` array of stint objects
+- Derives `entryYear`, `entryClass`, `redshirtYear` from existing data
+- Legacy fields preserved as `_legacy_teamsByYear` and `_legacy_classByYear`
+
+**Key functions** (`DynastyContext.jsx`):
+- `dryRunStintMigration(dynasty)` - Preview changes
+- `checkStintMigrationStatus(dynasty)` - Check if already migrated
+- `applyStintMigration(dynastyId, force)` - Apply and save
+- `revertStintMigration(dynastyId)` - Rollback to legacy
+
+### Year Flip Behavior with Stint System
+
+The year flip (Offseason Week 5→6, Signing Day) now handles both legacy and migrated players:
+
+**For migrated players (with `teamHistory`):**
+- `isPlayerOnRoster()` automatically checks stint periods - no `teamsByYear` entry needed
+- `wasOnTeamLastSeason()` uses `isPlayerOnRosterStintBased()` for accurate lookup
+- Year flip does NOT add `teamsByYear[nextYear]` entries - stints continue automatically
+- Only `classByYear[nextYear]` is set for backward compatibility with displays
+- Players leaving have their stint closed (`toYear` set to departure year)
+
+**For legacy players (without `teamHistory`):**
+- Behavior unchanged - still requires `teamsByYear[previousYear]` to be set
+- Year flip adds `teamsByYear[nextYear]` = teamTid
+
+**Class Progression:**
+- For migrated players: uses `getPlayerClassForYear()` which calculates from `entryYear`/`entryClass`
+- Redshirt detection still works - sets `redshirtYear` on player if they play ≤4 games
+
+### Testing the Migration
+
+**To test the stint-based migration:**
+1. Go to DangerZone (`/dynasty/:id/admin`)
+2. Download a backup first (always recommended)
+3. Click "Preview Migration" to see what will change
+4. Review the results - check for any warnings or errors
+5. If satisfied, click "Apply Migration"
+6. Test advancing weeks to verify roster carryover works
+
+**If something goes wrong:**
+- Use "Revert" button in DangerZone to restore legacy system
+- The original `teamsByYear` and `classByYear` data is preserved as backup fields
+
+**Implementation Status:**
+- ✅ Core stint-based functions (`isPlayerOnRosterStintBased`, `getPlayerClassForYear`)
+- ✅ Migration tool in DangerZone (preview, apply, revert)
+- ✅ Year flip logic supports both systems
+- ✅ `isPlayerOnRoster` auto-detects and uses stint system when available
+- ✅ Google Sheets integrations updated
+- ✅ Dashboard roster filters updated
 
 ---
 
@@ -859,3 +921,402 @@ If games are still not persisting after this fix, check:
 1. Is the dynasty using cloud storage (`storageType: 'cloud'`)? The fix only applies to cloud/Firestore storage.
 2. For local storage (IndexedDB), the persistence should already work correctly.
 3. Check browser console for any errors during save operations.
+
+---
+
+## Unified Team Ranking System (January 2026)
+
+**Status**: Implemented
+
+All pages should use the unified ranking helpers to display consistent team rankings.
+
+### Helper Functions (`DynastyContext.jsx`)
+
+```javascript
+// Get ranking for any team in any year
+getTeamRanking(dynasty, tidOrAbbr, year)
+// Returns: { rank: number, source: 'final_poll'|'game', week?: number } | null
+
+// Get ranking for current user team in current year
+getCurrentTeamRanking(dynasty)
+// Returns: { rank: number, source: 'final_poll'|'game', week?: number } | null
+```
+
+### Priority Order
+
+1. **Final Poll Ranking** - If `finalPollsByYear[year].media` contains the team, use that ranking (end of season, authoritative)
+2. **Game Ranking** - Otherwise, get `team1Rank` or `team2Rank` from the most recent played game in chronological order
+
+### Display Convention
+
+| Source | Badge Color | Example |
+|--------|-------------|---------|
+| Final Poll | Yellow (`#fbbf24`) | `#4` (end of season) |
+| In-Season Game | Gray (`#6b7280`) | `#2` (current ranking) |
+
+### Pages Updated
+
+- **Dashboard.jsx** - Uses `getCurrentTeamRanking()` for header display
+- **TeamYear.jsx** - Uses `getTeamRanking()` with visual distinction for final vs in-season
+- **Team.jsx** - Still uses `getFinalRanking()` for team history (shows most recent final ranking across all years)
+
+### CFP Seed vs AP Ranking
+
+Note that CFP seed (e.g., "#4 Seed") is **separate** from AP ranking. A team could be:
+- AP #2 (their media poll ranking)
+- CFP #4 Seed (their playoff seeding)
+
+The unified ranking system handles AP/Coaches poll rankings. CFP seeds are displayed separately in CFP-related UI components.
+
+---
+
+## 🚨 MAJOR REFACTOR: Stint-Based Roster System (January 2026)
+
+**Status**: 🔄 IN PROGRESS
+
+### Problem Statement
+
+The current roster system using `teamsByYear` and `classByYear` is fragile:
+- Year flip requires manually adding `teamsByYear[newYear]` for every returning player
+- If any code path misses this, players "vanish" from the roster
+- Bug discovered: 74 players lost when advancing from 2031→2032
+
+### Solution: Stint-Based Roster + Calculated Class
+
+1. **Stint-based roster**: Player has array of "stints" (periods on a team)
+2. **Calculated class**: Derive class from `entryYear` + `entryClass` + `redshirtYear`
+
+**Key benefit**: Year flip does NOTHING for roster. Players automatically continue until explicitly removed.
+
+---
+
+### NEW Player Data Model
+
+```javascript
+player = {
+  pid: 'uuid',
+  name: 'John Smith',
+  position: 'QB',
+
+  // === ROSTER MEMBERSHIP (stint-based) ===
+  teamHistory: [
+    { teamTid: 42, fromYear: 2029, toYear: null, reason: 'recruited' }
+  ],
+
+  // === CLASS/ELIGIBILITY (calculated) ===
+  entryYear: 2029,           // Year joined THIS program
+  entryClass: 'Fr',          // Class when joined (Fr, So, Jr, RS Jr, etc.)
+  redshirtYear: null,        // Year redshirted AT THIS SCHOOL (null = none)
+
+  // === FLAGS ===
+  isRecruit: false,
+  isHonorOnly: false,
+  isPortal: false,
+
+  // === STATS (unchanged) ===
+  statsByYear: { ... },
+
+  // === LEGACY (kept during migration) ===
+  _legacy_teamsByYear: { ... },
+  _legacy_classByYear: { ... },
+}
+```
+
+---
+
+### Core Helper Functions
+
+```javascript
+// Check if player is on roster for given team/year
+function isPlayerOnRoster(player, teamTid, year) {
+  if (player.isHonorOnly) return false
+  if (getPlayerClass(player, year) === null) return false  // Graduated
+
+  const stint = (player.teamHistory || []).find(s =>
+    s.teamTid === teamTid &&
+    year >= s.fromYear &&
+    (s.toYear === null || year <= s.toYear)
+  )
+  return stint !== null
+}
+
+// Calculate class for any year
+const CLASS_ORDER = ['Fr', 'So', 'Jr', 'Sr']
+const RS_CLASS_ORDER = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
+
+function getPlayerClass(player, year) {
+  if (year < player.entryYear) return null
+
+  const yearsSinceEntry = year - player.entryYear
+  const entryIsRS = player.entryClass?.startsWith('RS ')
+  const baseEntryClass = player.entryClass?.replace('RS ', '') || 'Fr'
+
+  const useRSTrack = entryIsRS || (player.redshirtYear !== null && year > player.redshirtYear)
+  const track = useRSTrack ? RS_CLASS_ORDER : CLASS_ORDER
+  const entryIndex = CLASS_ORDER.indexOf(baseEntryClass)
+
+  let currentIndex = entryIndex + yearsSinceEntry
+  if (player.redshirtYear !== null && year > player.redshirtYear && !entryIsRS) {
+    currentIndex = entryIndex + yearsSinceEntry - 1
+  }
+
+  return track[currentIndex] ?? null
+}
+```
+
+---
+
+### Game Rules (CFB 25)
+
+- Max 5 seasons total eligibility
+- 1 redshirt year max (can be taken any year)
+- JUCO: Players come in with class (JUCO Jr → enters as Jr)
+- Portal transfers: Class assigned via Portal Transfer Class Modal
+- No medical redshirts
+
+---
+
+### Migration Requirements
+
+#### Files to Update (262+ teamsByYear, 75+ classByYear usages)
+
+**TIER 1 - CRITICAL**
+| File | What to Update |
+|------|----------------|
+| `DynastyContext.jsx` | `isPlayerOnRoster()`, `getCurrentRoster()`, class progression, all writes |
+| `sheetsService.js` | 8 sheet functions (roster dropdowns, players leaving, etc.) |
+| `BoxScoreSheetModal.jsx` | `getRosterForTeamByTid()` |
+| `GameEdit.jsx` | 5 roster filtering locations |
+
+**TIER 2 - HIGH**
+| File | What to Update |
+|------|----------------|
+| `Dashboard.jsx` | Enrollment, transfers, display (15+ locations) |
+| `Player.jsx` | Career timeline (10+ locations) |
+| `PlayerEditModal.jsx` | Year-by-year editing |
+| `GameEntryModal.jsx` | Player dropdowns |
+
+**TIER 3 - MEDIUM**
+| File | What to Update |
+|------|----------------|
+| `TeamYear.jsx` | Roster display |
+| `Roster.jsx` | Roster display |
+| `Team.jsx` | Team membership |
+| `DangerZone.jsx` | Migration tool |
+| `RosterEditModal.jsx` | Roster filtering |
+| `StatsEntryModal.jsx` | Player dropdowns |
+
+**TIER 4 - LOW (Display Only)**
+| File | What to Update |
+|------|----------------|
+| `Awards.jsx`, `AllAmericans.jsx`, `AllConference.jsx` | Team matching |
+| `Recruiting.jsx` | Enrollment tracking |
+| `NewsTicker/useTickerSections.js` | Player display |
+
+---
+
+### Migration Function
+
+```javascript
+function migratePlayerToNewSystem(player) {
+  const teamHistory = deriveTeamHistory(player.teamsByYear)
+  const entryYear = player.recruitYear ||
+    Math.min(...Object.keys(player.teamsByYear || {}).map(Number))
+  const entryClass = player.classByYear?.[entryYear] || player.year || 'Fr'
+  const redshirtYear = detectRedshirtYear(player.classByYear)
+
+  return {
+    ...player,
+    teamHistory, entryYear, entryClass, redshirtYear,
+    _legacy_teamsByYear: player.teamsByYear,
+    _legacy_classByYear: player.classByYear,
+  }
+}
+
+function deriveTeamHistory(teamsByYear) {
+  if (!teamsByYear) return []
+  const years = Object.keys(teamsByYear).map(Number).sort((a, b) => a - b)
+  const stints = []
+  let currentStint = null
+
+  for (const year of years) {
+    const teamTid = teamsByYear[year]
+    if (!currentStint || currentStint.teamTid !== teamTid) {
+      if (currentStint) currentStint.toYear = year - 1
+      currentStint = { teamTid, fromYear: year, toYear: null,
+        reason: stints.length === 0 ? 'recruited' : 'transfer' }
+      stints.push(currentStint)
+    }
+  }
+  return stints
+}
+
+function detectRedshirtYear(classByYear) {
+  if (!classByYear) return null
+  const years = Object.keys(classByYear).map(Number).sort((a, b) => a - b)
+  for (let i = 0; i < years.length - 1; i++) {
+    const thisClass = classByYear[years[i]]
+    const nextClass = classByYear[years[i + 1]]
+    if (thisClass && nextClass && !thisClass.startsWith('RS ') &&
+        nextClass === `RS ${thisClass}`) {
+      return years[i]
+    }
+  }
+  return null
+}
+```
+
+---
+
+### Migration Phases
+
+1. **Backup**: Export dynasty to JSON
+2. **Dry Run**: Validate migration without saving
+3. **Migrate**: Apply new fields, keep legacy fields
+4. **Validate**: Run app, compare old vs new results
+5. **Cleanup**: Remove legacy fields after confirmed stable
+
+---
+
+### DangerZone Tool
+
+Add migration tool with:
+- Export Backup button
+- Dry Run (validate without saving)
+- Apply Migration
+- Revert Migration (restore from legacy fields)
+
+---
+
+### Year Flip Changes (The Big Win)
+
+**BEFORE**: Must manually add `teamsByYear[newYear]` for every player (buggy)
+**AFTER**: Do nothing! Ongoing stints (`toYear: null`) automatically include future years
+
+---
+
+## CRITICAL: Firestore Memory-Only Cache (January 2026)
+
+**Status**: ✅ IMPLEMENTED
+
+### Problem
+
+Firestore's default IndexedDB-based offline persistence was causing data inconsistencies:
+- Writes would complete "successfully" but only be cached locally
+- When switching dynasties and returning, the local cache would serve stale data
+- Stint migration data showed 819 players immediately after save, but only 405 after app reload
+- `waitForPendingWrites()` was returning success even when data hadn't reached the server
+
+### Solution
+
+Disabled Firestore's IndexedDB persistence entirely by using memory-only cache:
+
+```javascript
+// src/config/firebase.js
+import { initializeFirestore, memoryLocalCache } from "firebase/firestore";
+
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+});
+```
+
+### Effects
+
+**Pros:**
+- All reads/writes go directly to Firestore server
+- No more cache-related data inconsistencies
+- Data is guaranteed to be the server's true state
+
+**Cons:**
+- App requires network connection to function
+- Slightly slower reads (no local cache)
+- Higher Firestore read costs (no cache hits)
+
+### Related Server Sync Mechanisms
+
+In `src/services/dynastyService.js`:
+
+```javascript
+// After batch commits, ensure server acknowledgment:
+await waitForPendingWrites(db)
+
+// When reading protection flags, bypass any caching:
+const dynastyDoc = await getDocFromServer(dynastyRef)
+```
+
+### Migration Markers
+
+To track which data version is persisted on the server:
+
+```javascript
+// On player during migration:
+player._teamHistoryMigratedAt = Date.now()
+
+// On dynasty document:
+dynasty._stintMigrationApplied = true
+```
+
+---
+
+## Team History Editing (PlayerEditModal)
+
+**Status**: ✅ IMPLEMENTED
+
+The `PlayerEditModal.jsx` component now includes a "Team History" tab for editing player stints directly.
+
+### UI Features
+
+- **View all stints**: Shows `teamTid`, `fromYear`, `toYear`, `reason` for each stint
+- **Edit stints**: Modify any field (team dropdown, year inputs)
+- **Add new stint**: Button to add a new stint entry
+- **Delete stints**: Remove individual stints
+- **Reason options**: recruited, portal_in, juco_in, transfer, added
+
+### Data Validation
+
+- `fromYear` is required
+- `toYear` can be null (ongoing stint) or a year >= fromYear
+- `teamTid` validated against `dynasty.teams`
+- Changes saved to `player.teamHistory[]` array
+
+### Key Functions
+
+```javascript
+// In PlayerEditModal.jsx:
+handleTeamHistorySave(updatedTeamHistory) // Validates and saves stints
+validateTeamHistory(stints) // Checks for overlaps, invalid data
+```
+
+---
+
+## Stint Migration Protection Mechanisms
+
+### Double-Write Prevention
+
+The `savePlayersToSubcollection` function checks for `_stintMigrationApplied` flag before saving:
+
+```javascript
+// In dynastyService.js savePlayersToSubcollection:
+const dynastyDoc = await getDocFromServer(dynastyRef)
+if (dynastyDoc.exists() && dynastyDoc.data()._stintMigrationApplied) {
+  console.warn(`ABORT: Dynasty ${dynastyId} has _stintMigrationApplied flag`)
+  return // Skip save to prevent overwriting with old data
+}
+```
+
+### Verification After Migration
+
+```javascript
+// In DynastyContext.jsx applyStintMigration:
+const updated = await getPlayersSubcollection(dynastyId)
+const withHistory = updated.filter(p => p.teamHistory?.length > 0)
+console.log(`Verified: ${withHistory.length} players with teamHistory`)
+```
+
+### Debug Logging
+
+Search console for these log prefixes:
+- `[savePlayersToSubcollection]` - Batch save operations
+- `[getPlayersSubcollection]` - Player load with teamHistory counts
+- `[DynastyContext]` - Dynasty load/save with migration status
+- `[processMigrationPersistence]` - Migration marker verification

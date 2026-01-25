@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, dryRunStintMigration, checkStintMigrationStatus } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -14,7 +14,7 @@ import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from 
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, applyStintMigration, revertStintMigration } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -64,6 +64,11 @@ export default function DangerZone() {
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
+
+  // Stint-based roster migration state
+  const [stintMigrationStatus, setStintMigrationStatus] = useState(null)
+  const [stintDryRunResult, setStintDryRunResult] = useState(null)
+  const [showStintDetails, setShowStintDetails] = useState(false)
 
   if (!currentDynasty) {
     return (
@@ -1476,6 +1481,66 @@ export default function DangerZone() {
     return team?.abbr || `Team ${tid}`
   }
 
+  // ==========================================================
+  // STINT-BASED ROSTER MIGRATION HANDLERS
+  // ==========================================================
+
+  // Check current migration status
+  const stintMigrationInfo = currentDynasty ? checkStintMigrationStatus(currentDynasty) : null
+
+  // Run dry run to preview migration
+  const handleStintDryRun = () => {
+    setStintMigrationStatus('running')
+    setStintDryRunResult(null)
+
+    // Use setTimeout to let UI update
+    setTimeout(() => {
+      try {
+        const result = dryRunStintMigration(currentDynasty)
+        setStintDryRunResult(result)
+        setStintMigrationStatus(result)
+      } catch (error) {
+        setStintMigrationStatus({ success: false, message: 'Dry run failed: ' + error.message })
+      }
+    }, 50)
+  }
+
+  // Apply migration
+  const handleStintApply = async (force = false) => {
+    setStintMigrationStatus('running')
+
+    try {
+      const result = await applyStintMigration(currentDynasty.id, force)
+      setStintMigrationStatus(result)
+      if (result.success) {
+        setStintDryRunResult(null) // Clear dry run after successful apply
+      }
+    } catch (error) {
+      setStintMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
+    }
+  }
+
+  // Revert migration
+  const handleStintRevert = async () => {
+    if (!confirm('Are you sure you want to revert to the legacy roster system? This will restore original teamsByYear/classByYear data.')) {
+      return
+    }
+
+    setStintMigrationStatus('running')
+
+    try {
+      const result = await revertStintMigration(currentDynasty.id)
+      setStintMigrationStatus(result)
+      setStintDryRunResult(null)
+    } catch (error) {
+      setStintMigrationStatus({ success: false, message: 'Revert failed: ' + error.message })
+    }
+  }
+
+  // ==========================================================
+  // END STINT-BASED ROSTER MIGRATION HANDLERS
+  // ==========================================================
+
   // Compact Action Card
   const ActionCard = ({ icon, title, description, buttonText, onClick, status, variant = 'normal' }) => {
     const isRunning = status === 'running'
@@ -1997,6 +2062,163 @@ export default function DangerZone() {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Stint-Based Roster Migration */}
+      <div>
+        <SectionHeader
+          title="Roster System Migration"
+          subtitle="Migrate to bulletproof stint-based roster tracking"
+        />
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#f0f9ff', border: '2px solid #60a5fa' }}>
+          {/* Current Status */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                stintMigrationInfo?.migrated ? 'bg-green-500' :
+                stintMigrationInfo?.partial ? 'bg-yellow-500' :
+                'bg-gray-400'
+              }`} />
+              <span className="text-sm font-medium text-gray-800">
+                Status: <strong>
+                  {stintMigrationInfo?.migrated ? 'Migrated' :
+                   stintMigrationInfo?.partial ? `Partial (${stintMigrationInfo.percentage}%)` :
+                   'Not Migrated'}
+                </strong>
+                {stintMigrationInfo && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({stintMigrationInfo.migratedCount}/{stintMigrationInfo.totalCount} players)
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Explanation */}
+          <div className="mb-4 p-3 rounded bg-blue-50 text-xs text-blue-800">
+            <p className="font-semibold mb-1">What does this do?</p>
+            <ul className="list-disc ml-4 space-y-0.5">
+              <li>Converts legacy <code>teamsByYear</code> to stint-based <code>teamHistory</code></li>
+              <li>Derives <code>entryYear</code>, <code>entryClass</code>, and <code>redshirtYear</code> from existing data</li>
+              <li>Fixes year-flip bug where players disappear during season advancement</li>
+              <li>Legacy data is preserved for rollback if needed</li>
+            </ul>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={handleStintDryRun}
+              disabled={stintMigrationStatus === 'running' || stintMigrationInfo?.migrated}
+              className="flex-1 px-3 py-2 rounded text-xs font-medium transition-all bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+            >
+              {stintMigrationStatus === 'running' ? 'Running...' : '1. Preview Migration'}
+            </button>
+            <button
+              onClick={() => handleStintApply(false)}
+              disabled={stintMigrationStatus === 'running' || !stintDryRunResult || stintMigrationInfo?.migrated}
+              className="flex-1 px-3 py-2 rounded text-xs font-medium transition-all bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              2. Apply Migration
+            </button>
+            <button
+              onClick={handleStintRevert}
+              disabled={stintMigrationStatus === 'running' || !stintMigrationInfo?.migrated}
+              className="px-3 py-2 rounded text-xs font-medium transition-all bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+            >
+              Revert
+            </button>
+          </div>
+
+          {/* Status Message */}
+          {stintMigrationStatus && stintMigrationStatus !== 'running' && (
+            <div className={`mb-4 p-2 rounded text-xs ${
+              stintMigrationStatus.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {stintMigrationStatus.success ? '✓' : '✗'} {stintMigrationStatus.message}
+            </div>
+          )}
+
+          {/* Dry Run Results */}
+          {stintDryRunResult && (
+            <div className="border-t border-blue-200 pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-sm text-gray-800">Preview Results</h4>
+                <button
+                  onClick={() => setShowStintDetails(!showStintDetails)}
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                  {showStintDetails ? 'Hide Details' : 'Show Details'}
+                </button>
+              </div>
+
+              {/* Summary Stats */}
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="text-center p-2 rounded bg-gray-100">
+                  <div className="text-lg font-bold text-gray-800">{stintDryRunResult.stats.total}</div>
+                  <div className="text-xs text-gray-500">Total</div>
+                </div>
+                <div className="text-center p-2 rounded bg-green-100">
+                  <div className="text-lg font-bold text-green-700">{stintDryRunResult.stats.migrated}</div>
+                  <div className="text-xs text-green-600">Will Migrate</div>
+                </div>
+                <div className="text-center p-2 rounded bg-yellow-100">
+                  <div className="text-lg font-bold text-yellow-700">{stintDryRunResult.stats.warnings}</div>
+                  <div className="text-xs text-yellow-600">Warnings</div>
+                </div>
+                <div className="text-center p-2 rounded bg-red-100">
+                  <div className="text-lg font-bold text-red-700">{stintDryRunResult.stats.errors}</div>
+                  <div className="text-xs text-red-600">Errors</div>
+                </div>
+              </div>
+
+              {/* Force Apply Button if warnings */}
+              {stintDryRunResult.stats.warnings > 0 && !stintMigrationInfo?.migrated && (
+                <button
+                  onClick={() => handleStintApply(true)}
+                  disabled={stintMigrationStatus === 'running'}
+                  className="w-full mb-3 px-3 py-2 rounded text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  Apply Anyway (ignore warnings)
+                </button>
+              )}
+
+              {/* Detailed Results */}
+              {showStintDetails && (
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {stintDryRunResult.details
+                    .filter(d => d.status !== 'skipped' || d.reason !== 'Already migrated')
+                    .map((detail, idx) => (
+                    <div
+                      key={idx}
+                      className={`text-xs p-2 rounded flex items-start gap-2 ${
+                        detail.status === 'success' ? 'bg-green-50 text-green-800' :
+                        detail.status === 'warning' ? 'bg-yellow-50 text-yellow-800' :
+                        detail.status === 'error' ? 'bg-red-50 text-red-800' :
+                        'bg-gray-50 text-gray-600'
+                      }`}
+                    >
+                      <span className="font-medium min-w-[100px]">{detail.name}</span>
+                      <span className="flex-1">
+                        {detail.status === 'success' ? 'Ready to migrate' :
+                         detail.status === 'skipped' ? detail.reason :
+                         detail.status === 'warning' ? detail.reason :
+                         detail.reason}
+                        {detail.validationErrors && detail.validationErrors.length > 0 && (
+                          <ul className="mt-1 list-disc ml-4">
+                            {detail.validationErrors.map((err, i) => (
+                              <li key={i}>{err}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

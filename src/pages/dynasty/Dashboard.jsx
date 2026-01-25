@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -7377,12 +7377,13 @@ export default function Dashboard() {
               const matchesTeam = (value) => value === teamTid || value === teamAbbr
 
               // Get RETURNING players (was on team last year, still on team this year)
+              // Uses isPlayerOnRoster which handles both stint-based and legacy players
               const returningPlayers = allPlayers.filter(p => {
                 if (leavingPids.has(p.pid)) return false
                 if (p.isRecruit) return false
                 if (p.isHonorOnly) return false
-                const wasOnTeamLastYear = matchesTeam(p.teamsByYear?.[offseasonDataYear])
-                const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear])
+                const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear)
+                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
                 return wasOnTeamLastYear && isOnTeamThisYear
               })
 
@@ -7393,8 +7394,8 @@ export default function Dashboard() {
                 // Portal transfer = has previousTeam or isPortal flag, recruited this cycle
                 const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
                 if (!isPortalTransfer) return false
-                // Must be on the team this year
-                const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear])
+                // Must be on the team this year (uses isPlayerOnRoster for stint-based support)
+                const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
                 return isOnTeamThisYear
               })
 
@@ -9619,12 +9620,13 @@ export default function Dashboard() {
           const allPlayers = currentDynasty?.players || []
 
           // Get RETURNING players (was on team last year, still on team this year)
+          // Uses isPlayerOnRoster which handles both stint-based and legacy players
           const returningPlayers = allPlayers.filter(p => {
             if (leavingPids.has(p.pid)) return false
             if (p.isRecruit) return false
             if (p.isHonorOnly) return false
-            const wasOnTeamLastYear = matchesTeam(p.teamsByYear?.[offseasonDataYear] ?? p.teamsByYear?.[String(offseasonDataYear)])
-            const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)])
+            const wasOnTeamLastYear = isPlayerOnRoster(p, teamTid || teamAbbr, offseasonDataYear)
+            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
             return wasOnTeamLastYear && isOnTeamThisYear
           })
 
@@ -9634,7 +9636,7 @@ export default function Dashboard() {
             if (p.isHonorOnly) return false
             const isPortalTransfer = (p.isPortal || p.previousTeam) && p.recruitYear === offseasonDataYear
             if (!isPortalTransfer) return false
-            const isOnTeamThisYear = matchesTeam(p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)])
+            const isOnTeamThisYear = isPlayerOnRoster(p, teamTid || teamAbbr, currentYear)
             return isOnTeamThisYear
           })
 
