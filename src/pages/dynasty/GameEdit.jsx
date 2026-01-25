@@ -5,7 +5,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
@@ -191,7 +191,12 @@ export default function GameEdit() {
     location: queryLocation || 'home', // home, away, neutral
     aiRecap: '',
     isConferenceGame: false,
-    links: [''] // Array of media links (YouTube, images, etc.) - always has at least one empty entry for input
+    links: [''], // Array of media links (YouTube, images, etc.) - always has at least one empty entry for input
+    // Player of the Week fields (store player names)
+    conferencePOW: '',      // Conference Offensive Player of the Week
+    confDefensePOW: '',     // Conference Defensive Player of the Week
+    nationalPOW: '',        // National Offensive Player of the Week
+    natlDefensePOW: ''      // National Defensive Player of the Week
   })
 
   // Find existing game or set up new game data
@@ -200,12 +205,10 @@ export default function GameEdit() {
 
     // Direct ID lookup - try currentGameId first (for newly created games), then gameId from URL
     const lookupId = currentGameId || gameId
-    console.log('[GameEdit] Looking up game:', { lookupId, gameId, currentGameId })
     if (!lookupId || lookupId === 'new') return null
 
     let found = currentDynasty.games.find(g => g.id === lookupId)
     if (found) {
-      console.log('[GameEdit] Found game by ID:', { id: found.id, cfpSlot: found.cfpSlot, bowlName: found.bowlName, team1Tid: found.team1Tid, team2Tid: found.team2Tid })
       return found
     }
 
@@ -213,7 +216,6 @@ export default function GameEdit() {
     const cfpParsed = parseCFPGameId(gameId)
     if (cfpParsed) {
       const { slotId, year } = cfpParsed
-      console.log('[GameEdit] CFP slot lookup:', { slotId, year })
 
       // Get user's bowl config for this year
       const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[year] || {}
@@ -233,8 +235,6 @@ export default function GameEdit() {
         // Find QF game by bye seed (most reliable method)
         const byeSeed = slotToByeSeed[slotId]
         const byeSeedEntry = cfpSeeds.find(s => s.seed === byeSeed)
-        console.log('[GameEdit] QF lookup by bye seed:', { slotId, byeSeed, byeSeedEntry })
-
         if (byeSeedEntry) {
           found = currentDynasty.games.find(g => {
             if (!g.isCFPQuarterfinal || Number(g.year) !== year) return false
@@ -250,7 +250,6 @@ export default function GameEdit() {
           found = currentDynasty.games.find(g =>
             g.isCFPQuarterfinal && Number(g.year) === year && g.cfpSlot === slotId
           )
-          console.log('[GameEdit] QF fallback to cfpSlot:', { found: !!found })
         }
       } else if (slotId.startsWith('cfpsf')) {
         // Find SF game by cfpSlot first, then bowlName from config
@@ -267,14 +266,6 @@ export default function GameEdit() {
         found = currentDynasty.games.find(g => g.isCFPChampionship && Number(g.year) === year)
       }
 
-      if (found) {
-        console.log('[GameEdit] Found CFP game:', { id: found.id, cfpSlot: found.cfpSlot, bowlName: found.bowlName, team1Tid: found.team1Tid, team2Tid: found.team2Tid })
-      } else {
-        console.log('[GameEdit] CFP game NOT found for slot:', slotId)
-        // Log all QF games for debugging
-        const qfGames = currentDynasty.games.filter(g => g.isCFPQuarterfinal && Number(g.year) === year)
-        console.log('[GameEdit] Available QF games:', qfGames.map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName, team1Tid: g.team1Tid, team2Tid: g.team2Tid })))
-      }
     }
     return found || null
   }, [currentDynasty?.games, gameId, currentGameId, currentDynasty?.cfpBowlConfigByYear, currentDynasty?.cfpSeedsByYear])
@@ -384,6 +375,29 @@ export default function GameEdit() {
   const isConferenceGame = team1Conference && team2Conference &&
     team1Conference === team2Conference && team1Conference !== 'Independent'
 
+  // Get players from both teams' rosters for POW dropdown
+  const availablePlayers = useMemo(() => {
+    const allPlayers = currentDynasty?.players || []
+    const yearToCheck = gameYear || currentDynasty?.currentYear
+    if (!yearToCheck) return []
+
+    // Get players from both teams' rosters
+    const playersFromBothTeams = allPlayers.filter(player => {
+      if (team1Tid && isPlayerOnRoster(player, team1Tid, yearToCheck)) return true
+      if (team2Tid && isPlayerOnRoster(player, team2Tid, yearToCheck)) return true
+      return false
+    })
+
+    // Sort by team (team1 first, then team2), then alphabetically by name
+    return playersFromBothTeams.sort((a, b) => {
+      const aTeam1 = team1Tid && isPlayerOnRoster(a, team1Tid, yearToCheck)
+      const bTeam1 = team1Tid && isPlayerOnRoster(b, team1Tid, yearToCheck)
+      if (aTeam1 && !bTeam1) return -1
+      if (!aTeam1 && bTeam1) return 1
+      return (a.name || '').localeCompare(b.name || '')
+    })
+  }, [currentDynasty?.players, team1Tid, team2Tid, gameYear, currentDynasty?.currentYear])
+
   // Display order: Away team on left/top, Home team on right/bottom
   // For CFP games: Lower seed (better, e.g. #1) on left/top, Higher seed (worse, e.g. #12) on right/bottom
   // location 'home' = team1 is home, 'away' = team2 is home, 'neutral' = keep order
@@ -401,21 +415,12 @@ export default function GameEdit() {
     const cfpSeeds = currentDynasty.cfpSeedsByYear[gameYear] || currentDynasty.cfpSeedsByYear[String(gameYear)]
     if (!cfpSeeds) return null
     const seedEntry = cfpSeeds.find(s => s.tid === tid)
-    console.log('[GameEdit] getCFPSeedForTid:', { tid, gameYear, cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })), foundEntry: seedEntry })
     return seedEntry?.seed || null
   }
 
   // Get seeds from game data or calculate from cfpSeedsByYear
   const team1Seed = existingGame?.seed1 || existingGame?.cfpSeed1 || getCFPSeedForTid(team1Tid)
   const team2Seed = existingGame?.seed2 || existingGame?.cfpSeed2 || getCFPSeedForTid(team2Tid)
-
-  console.log('[GameEdit] CFP seed resolution:', {
-    isCFPGame,
-    team1Tid, team2Tid,
-    team1Abbr, team2Abbr,
-    team1Seed, team2Seed,
-    existingGameSeeds: { seed1: existingGame?.seed1, seed2: existingGame?.seed2, cfpSeed1: existingGame?.cfpSeed1, cfpSeed2: existingGame?.cfpSeed2 }
-  })
 
   // For CFP games: better seed (lower number like #1) goes on right/bottom
   // Lower seed number = better team (e.g., #1 is better than #12)
@@ -643,20 +648,10 @@ export default function GameEdit() {
                     existingGame.isCFPSemifinal || existingGame.isCFPChampionship
       const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[gameYear] || currentDynasty?.cfpSeedsByYear?.[String(gameYear)] || []
 
-      console.log('[GameEdit] Form init - CFP check:', {
-        isCFP,
-        gameYear,
-        cfpSeedsCount: cfpSeeds.length,
-        cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })),
-        team1Tid: existingGame.team1Tid,
-        team2Tid: existingGame.team2Tid
-      })
-
       // Look up CFP seed by tid only
       const getCFPSeedForTidInit = (tid) => {
         if (!tid || !cfpSeeds.length) return null
         const entry = cfpSeeds.find(s => s.tid === tid)
-        console.log('[GameEdit] Form init getCFPSeedForTid:', { tid, foundEntry: entry })
         return entry?.seed || null
       }
 
@@ -667,12 +662,10 @@ export default function GameEdit() {
       if (isCFP && !rank1) {
         const seed = getCFPSeedForTidInit(existingGame.team1Tid)
         if (seed) rank1 = seed.toString()
-        console.log('[GameEdit] Form init - rank1 from seed:', { seed, rank1 })
       }
       if (isCFP && !rank2) {
         const seed = getCFPSeedForTidInit(existingGame.team2Tid)
         if (seed) rank2 = seed.toString()
-        console.log('[GameEdit] Form init - rank2 from seed:', { seed, rank2 })
       }
 
       setFormData({
@@ -698,6 +691,11 @@ export default function GameEdit() {
         location: locationValue,
         aiRecap: existingGame.aiRecap || existingGame.gameNote || '',
         isConferenceGame: existingGame.isConferenceGame || isConferenceGame,
+        // Player of the Week fields
+        conferencePOW: existingGame.conferencePOW || '',
+        confDefensePOW: existingGame.confDefensePOW || '',
+        nationalPOW: existingGame.nationalPOW || '',
+        natlDefensePOW: existingGame.natlDefensePOW || '',
         // Handle both old format (comma-separated string) and new format (array)
         links: Array.isArray(existingGame.links)
           ? [...existingGame.links.filter(l => l.trim()), ''] // Existing array + empty input
@@ -718,20 +716,10 @@ export default function GameEdit() {
       let rank1 = ''
       let rank2 = ''
 
-      console.log('[GameEdit] New game - CFP check:', {
-        isCFPGameType,
-        gameYear,
-        cfpSeedsCount: cfpSeeds.length,
-        cfpSeeds: cfpSeeds.map(s => ({ seed: s.seed, tid: s.tid })),
-        team1Tid,
-        team2Tid
-      })
-
       if (isCFPGameType && cfpSeeds.length) {
         // Look up by tid only
         const seed1Entry = cfpSeeds.find(s => s.tid === team1Tid)
         const seed2Entry = cfpSeeds.find(s => s.tid === team2Tid)
-        console.log('[GameEdit] New game - seed lookup:', { seed1Entry, seed2Entry })
         if (seed1Entry?.seed) rank1 = seed1Entry.seed.toString()
         if (seed2Entry?.seed) rank2 = seed2Entry.seed.toString()
       }
@@ -884,6 +872,11 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
+        // Player of the Week fields
+        ...(formData.conferencePOW && { conferencePOW: formData.conferencePOW }),
+        ...(formData.confDefensePOW && { confDefensePOW: formData.confDefensePOW }),
+        ...(formData.nationalPOW && { nationalPOW: formData.nationalPOW }),
+        ...(formData.natlDefensePOW && { natlDefensePOW: formData.natlDefensePOW }),
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Set game type flags from existingGame or gameType query param for new games
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
@@ -925,7 +918,6 @@ export default function GameEdit() {
       // If this is a CFP game with scores, propagate winner to next round
       const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
       if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
-        console.log('[GameEdit] CFP game saved, propagating winner...', { cfpSlot: savedGame.cfpSlot, team1Score: savedGame.team1Score, team2Score: savedGame.team2Score })
         updatedGames = propagateCFPWinner(updatedGames, savedGame)
       }
 
@@ -1005,6 +997,11 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
+        // Player of the Week fields
+        ...(formData.conferencePOW && { conferencePOW: formData.conferencePOW }),
+        ...(formData.confDefensePOW && { confDefensePOW: formData.confDefensePOW }),
+        ...(formData.nationalPOW && { nationalPOW: formData.nationalPOW }),
+        ...(formData.natlDefensePOW && { natlDefensePOW: formData.natlDefensePOW }),
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Preserve game type flags
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
@@ -1046,7 +1043,6 @@ export default function GameEdit() {
       // If this is a CFP game with scores, propagate winner to next round
       const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
       if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
-        console.log('[GameEdit] CFP game auto-saved, propagating winner...', { cfpSlot: savedGame.cfpSlot })
         updatedGames = propagateCFPWinner(updatedGames, savedGame)
       }
 
@@ -1791,6 +1787,100 @@ export default function GameEdit() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Player of the Week */}
+      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
+        <h3 className="text-lg font-bold text-white mb-4">Player of the Week</h3>
+        <p className="text-xs text-gray-400 mb-4">Select players who earned conference or national Player of the Week honors for this game.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Conference POW */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-300">Conference</h4>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Offensive POW</label>
+              <select
+                value={formData.conferencePOW}
+                onChange={(e) => setFormData({ ...formData, conferencePOW: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
+              >
+                <option value="">None</option>
+                {availablePlayers.map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.name} ({player.position || 'N/A'}) - {
+                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
+                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
+                    }
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Defensive POW</label>
+              <select
+                value={formData.confDefensePOW}
+                onChange={(e) => setFormData({ ...formData, confDefensePOW: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
+              >
+                <option value="">None</option>
+                {availablePlayers.map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.name} ({player.position || 'N/A'}) - {
+                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
+                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
+                    }
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* National POW */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-gray-300">National</h4>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Offensive POW</label>
+              <select
+                value={formData.nationalPOW}
+                onChange={(e) => setFormData({ ...formData, nationalPOW: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
+              >
+                <option value="">None</option>
+                {availablePlayers.map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.name} ({player.position || 'N/A'}) - {
+                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
+                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
+                    }
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Defensive POW</label>
+              <select
+                value={formData.natlDefensePOW}
+                onChange={(e) => setFormData({ ...formData, natlDefensePOW: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
+              >
+                <option value="">None</option>
+                {availablePlayers.map(player => (
+                  <option key={player.id} value={player.name}>
+                    {player.name} ({player.position || 'N/A'}) - {
+                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
+                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
+                    }
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {availablePlayers.length === 0 && (
+          <p className="text-xs text-yellow-400 mt-3">No players found on either team's roster for this year. Add players to see them here.</p>
+        )}
       </div>
 
       {/* Bottom Save/Cancel Buttons */}
