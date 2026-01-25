@@ -1213,6 +1213,13 @@ export default function Dashboard() {
           m.year === year && m.type === 'departure' && m.reason === 'Pro Draft'
         )
 
+        // Determine the player's actual last team (not necessarily user's team)
+        const playerTeamsByYear = player.teamsByYear || {}
+        const playerYears = Object.keys(playerTeamsByYear).map(Number).sort((a, b) => b - a)
+        const playerLastTeam = playerYears.length > 0 ? playerTeamsByYear[playerYears[0]] : (player.team || tid)
+        // Convert to tid if it's an abbreviation
+        const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam) || tid)
+
         if (!hasDraftMovement) {
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1226,21 +1233,21 @@ export default function Dashboard() {
                 year,
                 type: 'departure',
                 reason: 'Pro Draft',
-                from: tid,
+                from: playerLastTeamTid,
                 draftRound: entry.draftRound,
                 timestamp: Date.now()
               }
             ]
           }
         } else {
-          // Update existing draft movement with round info
+          // Update existing draft movement with round info and correct team
           updatedPlayers[playerIndex] = {
             ...player,
             draftYear: year,
             draftRound: entry.draftRound,
             movements: existingMovements.map(m =>
               (m.year === year && m.type === 'departure' && m.reason === 'Pro Draft')
-                ? { ...m, draftRound: entry.draftRound }
+                ? { ...m, draftRound: entry.draftRound, from: playerLastTeamTid }
                 : m
             )
           }
