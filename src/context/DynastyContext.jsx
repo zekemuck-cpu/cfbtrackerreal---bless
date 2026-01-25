@@ -4020,6 +4020,11 @@ export function DynastyProvider({ children }) {
   const phaseTransitionInProgressRef = useRef(false)
   // Timestamp of when skip was set - auto-clears after timeout to prevent stuck state
   const skipListenerTimestampRef = useRef(0)
+  // CRITICAL: Track when we last updated players locally to prevent listener from overwriting
+  // This is separate from skip counter because player updates need longer protection
+  const lastPlayersUpdateTimestampRef = useRef(0)
+  // Also track the dynasty ID that was updated to be more precise
+  const lastPlayersUpdateDynastyIdRef = useRef(null)
 
   // Helper to apply migrations to dynasties (games + stats + roster)
   const applyMigrations = (dynastyList) => {
@@ -4294,9 +4299,9 @@ export function DynastyProvider({ children }) {
       // Also check timestamp - auto-clear skip after 30 seconds to prevent stuck state
       const now = Date.now()
       if (skipListenerUpdatesCountRef.current > 0) {
-        // Check if skip has been active for too long (30 seconds max)
-        if (now - skipListenerTimestampRef.current > 30000) {
-          console.warn('[DynastyContext] Skip counter expired (30s timeout) - allowing update')
+        // Check if skip has been active for too long (60 seconds max)
+        if (now - skipListenerTimestampRef.current > 60000) {
+          console.warn('[DynastyContext] Skip counter expired (60s timeout) - allowing update')
           skipListenerUpdatesCountRef.current = 0
         } else {
           console.log('[DynastyContext] Skipping listener update. Remaining skips:', skipListenerUpdatesCountRef.current)
@@ -4369,10 +4374,29 @@ export function DynastyProvider({ children }) {
       setLoading(false)
 
       // Update current dynasty if it's in the list
+      // CRITICAL: Check if we recently updated players locally - if so, preserve local players
+      // to prevent race condition where Firestore returns stale data
       if (currentDynasty) {
         const updated = migratedDynasties.find(d => d.id === currentDynasty.id)
         if (updated) {
-          setCurrentDynasty(updated)
+          // Check if this dynasty had a recent local player update (within 10 seconds)
+          const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === currentDynasty.id &&
+            (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
+
+          if (recentPlayerUpdate && currentDynasty.players) {
+            // Preserve local players - they're more recent than Firestore data
+            console.log('[DynastyContext] Preserving local players (recent update detected)')
+            setCurrentDynasty({
+              ...updated,
+              players: currentDynasty.players
+            })
+            // Also update the dynasty in the array to preserve players
+            setDynasties(prev => prev.map(d =>
+              d.id === currentDynasty.id ? { ...d, players: currentDynasty.players } : d
+            ))
+          } else {
+            setCurrentDynasty(updated)
+          }
         } else {
           setCurrentDynasty(null)
         }
@@ -4741,9 +4765,10 @@ export function DynastyProvider({ children }) {
 
     // Cloud storage: update Firestore
     try {
-      // Set counter to skip the next 2 listener updates BEFORE calling Firestore
+      // Set counter to skip the next 3 listener updates BEFORE calling Firestore
       // (the listener fires during updateDoc, not after)
-      skipListenerUpdatesCountRef.current = 2
+      // Increased from 2 to 3 for extra safety with batch writes
+      skipListenerUpdatesCountRef.current = 3
       skipListenerTimestampRef.current = Date.now()
 
       // Check if dynasty is migrated to subcollections
@@ -4760,6 +4785,9 @@ export function DynastyProvider({ children }) {
         // Without this, removed players remain in the subcollection and reappear on reload
         if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
           console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup)`)
+          // CRITICAL: Track this player update to prevent listener from overwriting with stale data
+          lastPlayersUpdateTimestampRef.current = Date.now()
+          lastPlayersUpdateDynastyIdRef.current = dynastyId
           subcollectionPromises.push(
             savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true })
           )
