@@ -5360,17 +5360,33 @@ export function DynastyProvider({ children }) {
 
   // Add or update CPU bowl games as proper game entries in the games[] array
   // This ensures ALL games (user and CPU) are stored uniformly
+  // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCPUBowlGames = async (dynastyId, bowlGames, year, week = 'week1') => {
     const useLocalStorage = !storageService.isPremium()
     let dynasty
+    let existingGames
 
     if (useLocalStorage || !user) {
+      // LOCAL STORAGE: Read from IndexedDB to get latest data
       const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
+      existingGames = dynasty?.games || []
     } else {
+      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
       dynasty = String(currentDynasty?.id) === String(dynastyId)
         ? currentDynasty
         : dynasties.find(d => String(d.id) === String(dynastyId))
+
+      // Always read games from subcollection for migrated dynasties to ensure we have latest data
+      if (dynasty?._subcollectionsMigrated) {
+        try {
+          existingGames = await getGamesSubcollection(dynastyId)
+        } catch (err) {
+          existingGames = dynasty?.games || []
+        }
+      } else {
+        existingGames = dynasty?.games || []
+      }
     }
 
     if (!dynasty) {
@@ -5379,7 +5395,6 @@ export function DynastyProvider({ children }) {
     }
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty)
-    const existingGames = dynasty.games || []
 
     // Filter out existing bowl games for this year and week to avoid duplicates
     // (Both CPU and user bowl games entered via the modal will be replaced)
@@ -5456,26 +5471,41 @@ export function DynastyProvider({ children }) {
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
   // UPDATED: Now properly updates existing game shells created at seed entry time
+  // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
     const useLocalStorage = !storageService.isPremium()
     let dynasty
+    let latestGames
 
     if (useLocalStorage || !user) {
+      // LOCAL STORAGE: Read from IndexedDB to get latest data
       const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
+      latestGames = dynasty?.games || []
     } else {
+      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
       dynasty = String(currentDynasty?.id) === String(dynastyId)
         ? currentDynasty
         : dynasties.find(d => String(d.id) === String(dynastyId))
+
+      // Always read games from subcollection for migrated dynasties to ensure we have latest data
+      if (dynasty?._subcollectionsMigrated) {
+        try {
+          latestGames = await getGamesSubcollection(dynastyId)
+        } catch (err) {
+          latestGames = dynasty?.games || []
+        }
+      } else {
+        latestGames = dynasty?.games || []
+      }
     }
 
     if (!dynasty) {
-      console.error('[saveCFPGames] Dynasty not found:', dynastyId)
       return
     }
 
-    // Start with all existing games - we'll update shells in place
-    let updatedGames = [...(dynasty.games || [])]
+    // Start with latest games from storage - we'll update shells in place
+    let updatedGames = [...latestGames]
 
     // Determine which legacy flag to use based on round type
     const legacyFlagMap = {
@@ -5535,16 +5565,12 @@ export function DynastyProvider({ children }) {
 
         if (byeSeed && byeSeed >= 1 && byeSeed <= 4) {
           expectedSlotId = byeSeedToSlot[byeSeed]
-          console.log(`[saveCFPGames] QF: Determined slot ${expectedSlotId} from bye seed ${byeSeed}`)
         }
 
         // PRIMARY: Find by slot ID
         if (expectedSlotId) {
           const expectedGameId = getCFPGameId(expectedSlotId, year)
           existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
-          }
         }
 
         // SECONDARY: Find by cfpSlot field
@@ -5554,9 +5580,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.isCFPQuarterfinal
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by cfpSlot field ${expectedSlotId}`)
-          }
         }
 
         // TERTIARY: Find by bye seed team tid (in case shell doesn't have correct ID)
@@ -5566,17 +5589,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.team1Tid === team1Tid // Bye seed team should be in team1 position
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by bye seed team tid ${team1Tid}`)
-          }
-        }
-
-        // Log if not found
-        if (existingIndex === -1) {
-          const availableShells = updatedGames.filter(g =>
-            Number(g.year) === Number(year) && g.isCFPQuarterfinal
-          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName, team1Tid: g.team1Tid }))
-          console.log(`[saveCFPGames] QF: Shell NOT FOUND for bye seed ${byeSeed}. Available:`, availableShells)
         }
       } else if (roundType === GAME_TYPES.CFP_SEMIFINAL) {
         // BULLETPROOF SF: Determine slot from teams' QF origins
@@ -5594,16 +5606,12 @@ export function DynastyProvider({ children }) {
           const isSF2 = seeds.some(s => s === 2 || s === 3)
           if (isSF1 && !isSF2) expectedSlotId = 'cfpsf1'
           else if (isSF2 && !isSF1) expectedSlotId = 'cfpsf2'
-          console.log(`[saveCFPGames] SF: Determined slot ${expectedSlotId} from seeds ${seeds}`)
         }
 
         // PRIMARY: Find by slot ID
         if (expectedSlotId) {
           const expectedGameId = getCFPGameId(expectedSlotId, year)
           existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
-          }
         }
 
         // SECONDARY: Find by cfpSlot field
@@ -5613,9 +5621,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.isCFPSemifinal
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by cfpSlot field ${expectedSlotId}`)
-          }
         }
 
         // TERTIARY: Find by team tids
@@ -5626,17 +5631,6 @@ export function DynastyProvider({ children }) {
             ((team1Tid && (g.team1Tid === team1Tid || g.team2Tid === team1Tid)) ||
              (team2Tid && (g.team1Tid === team2Tid || g.team2Tid === team2Tid)))
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by team tids`)
-          }
-        }
-
-        // Log if not found
-        if (existingIndex === -1) {
-          const availableShells = updatedGames.filter(g =>
-            Number(g.year) === Number(year) && g.isCFPSemifinal
-          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName }))
-          console.log(`[saveCFPGames] SF: Shell NOT FOUND. Available:`, availableShells)
         }
       } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
         // Championship: only one per year
@@ -5670,7 +5664,6 @@ export function DynastyProvider({ children }) {
         } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
           slotId = 'cfpnc'
         }
-        console.log(`[saveCFPGames] Determined slotId from seeds: ${slotId}`)
       }
 
       const gameId = existingShell?.id || (slotId ? getCFPGameId(slotId, year) : `cfp-${roundType}-${year}-${Date.now()}`)
@@ -5703,12 +5696,10 @@ export function DynastyProvider({ children }) {
           ...updatedGames[existingIndex],
           ...unifiedGame
         }
-        console.log(`[saveCFPGames] Updated existing shell at index ${existingIndex}:`, gameId)
       } else {
         // No shell exists - add new game (fallback for legacy data)
         unifiedGame.createdAt = new Date().toISOString()
         updatedGames.push(unifiedGame)
-        console.log(`[saveCFPGames] Created new game (no shell found):`, gameId)
       }
 
       // Propagate winner to next round if this game feeds into another

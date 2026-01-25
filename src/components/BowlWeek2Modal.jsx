@@ -197,6 +197,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           // Calculate which games to exclude (user's CFP QF game + user's Week 2 bowl game)
           const excludeGames = []
 
+          // Get CFP bowl config for this year
+          const cfpBowlConfigForExclude = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+
           // Check if user is in CFP (seeds 1-12)
           const userTeamTid = getCurrentTeamTid(currentDynasty)
           const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) // Still need abbr for winner comparison
@@ -205,7 +208,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           if (userCFPSeed) {
             // Seeds 1-4 have bye, play in QF
             if (userCFPSeed >= 1 && userCFPSeed <= 4) {
-              const qfGameName = getCFPQuarterfinalGameName(userCFPSeed)
+              const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
               if (qfGameName) {
                 excludeGames.push(qfGameName)
               }
@@ -215,7 +218,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               // Check if user won their First Round game
               const userFirstRoundGame = firstRoundResults.find(g => g && g.winner === userTeamAbbr)
               if (userFirstRoundGame) {
-                const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults)
+                const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
                 if (qfGameName) {
                   excludeGames.push(qfGameName)
                 }
@@ -303,6 +306,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               }
             })
 
+          // Get CFP bowl config for this year (determines which NY6 bowls host QF games)
+          const cfpBowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+
           const sheetInfo = await createBowlWeek2Sheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
@@ -311,7 +317,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             excludeGames,
             existingBowlWeek2,
             existingCFPQuarterfinals,
-            currentDynasty?.teams || currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams,
+            cfpBowlConfig
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {

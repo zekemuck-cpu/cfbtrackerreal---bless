@@ -4639,7 +4639,7 @@ export default function Dashboard() {
             if (week === 2) {
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-5" style={{ color: secondaryBgText }}>
+                  <h3 className="text-lg sm:text-xl font-bold mb-4 sm:mb-5 text-zinc-100">
                     Bowl Week 2
                   </h3>
                   <div className="space-y-3">
@@ -8751,6 +8751,17 @@ export default function Dashboard() {
             const year = currentDynasty.currentYear
             const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
 
+            console.log('[BowlWeek1 onSave] Received', bowlGames.length, 'bowl games from sheet')
+            console.log('[BowlWeek1 onSave] Sample games:', bowlGames.slice(0, 5).map(g => ({
+              bowl: g.bowlName,
+              team1: g.team1,
+              team2: g.team2,
+              score1: g.team1Score,
+              score2: g.team2Score,
+              score1Type: typeof g.team1Score,
+              score2Type: typeof g.team2Score
+            })))
+
             // Helper to sanitize game data for Firestore (replace null/undefined with valid defaults)
             const sanitizeGame = (game) => ({
               bowlName: game.bowlName || '',
@@ -8766,6 +8777,15 @@ export default function Dashboard() {
               g.team1Score !== null && g.team1Score !== undefined &&
               g.team2Score !== null && g.team2Score !== undefined
             )
+
+            console.log('[BowlWeek1 onSave] Games with scores:', gamesWithScores.length)
+            if (gamesWithScores.length < bowlGames.length) {
+              const gamesWithoutScores = bowlGames.filter(g =>
+                g.team1Score === null || g.team1Score === undefined ||
+                g.team2Score === null || g.team2Score === undefined
+              )
+              console.log('[BowlWeek1 onSave] Games WITHOUT scores (excluded):', gamesWithoutScores.length, gamesWithoutScores.slice(0, 3).map(g => ({ bowl: g.bowlName, score1: g.team1Score, score2: g.team2Score })))
+            }
 
             // Separate CFP First Round games from regular bowl games
             const cfpFirstRoundGames = gamesWithScores.filter(g => g.bowlName?.startsWith('CFP First Round'))
@@ -8792,6 +8812,9 @@ export default function Dashboard() {
             // Sanitize regular bowl games
             const sanitizedBowlGames = regularBowlGames.map(sanitizeGame)
 
+            console.log('[BowlWeek1 onSave] Regular bowl games to save:', sanitizedBowlGames.length)
+            console.log('[BowlWeek1 onSave] CFP First Round games to save:', cfpFirstRound.length)
+
             // UNIFIED STORAGE: Save bowl games to games[] array only
             // saveCPUBowlGames handles user game preservation internally
             await saveCPUBowlGames(currentDynasty.id, sanitizedBowlGames, year, 'week1')
@@ -8801,6 +8824,8 @@ export default function Dashboard() {
             if (cfpFirstRound.length > 0) {
               await saveCFPGames(currentDynasty.id, cfpFirstRound, year, GAME_TYPES.CFP_FIRST_ROUND)
             }
+
+            console.log('[BowlWeek1 onSave] Save complete')
           } catch (error) {
             console.error('Bowl Week 1 - Save failed:', error)
             throw error
@@ -8845,18 +8870,31 @@ export default function Dashboard() {
             )
 
             // Map CFP Quarterfinal games to structured format with bowl info
+            // Get CFP seeds to determine bye seed from team2 (higher seed is in team2 position)
+            const cfpSeeds = currentDynasty.cfpSeedsByYear?.[year] || []
+
             const cfpQuarterfinals = cfpQuarterfinalGames.map(game => {
               const sanitized = sanitizeGame(game)
               // Extract bowl name (e.g., "Cotton Bowl" from "Cotton Bowl (CFP QF)")
               const bowlMatch = game.bowlName?.match(/^(.+?)\s*\(CFP/)
               const bowlName = bowlMatch ? bowlMatch[1].trim() : sanitized.bowlName
+
+              // Determine bye seed (1-4) from team2 (which is the higher seed in QF games)
+              // Look up team2's seed in CFP seeds
+              const team2Tid = getTidFromAbbr(sanitized.team2)
+              const team2SeedEntry = cfpSeeds.find(s =>
+                s.tid === team2Tid || s.team === sanitized.team2
+              )
+              const byeSeed = team2SeedEntry?.seed
+
               return {
                 bowlName,
                 team1: sanitized.team1,
                 team2: sanitized.team2,
                 team1Score: sanitized.team1Score,
                 team2Score: sanitized.team2Score,
-                winner: sanitized.winner
+                winner: sanitized.winner,
+                seed1: byeSeed  // The bye seed (1-4) for slot identification
               }
             })
 

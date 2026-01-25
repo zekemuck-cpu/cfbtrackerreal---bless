@@ -233,56 +233,69 @@ export default function Layout({ children }) {
       }
     }
 
-    // In postseason weeks 2+, check bowl game entries (including CFP games)
-    if (currentDynasty.currentPhase === 'postseason' && currentDynasty.currentWeek >= 2) {
+    // In postseason, check that CFP games expected for the current week have been entered
+    // Only warn about CFP games - regular bowl games are optional
+    if (currentDynasty.currentPhase === 'postseason') {
       const year = currentDynasty.currentYear
+      const week = currentDynasty.currentWeek
       const allGames = currentDynasty.games || []
       const cfpResults = currentDynasty.cfpResultsByYear?.[year] || {}
 
-      // Count Week 1 bowl games (19 regular bowls + 4 CFP first round = 23)
-      // Check games[] first, then legacy bowlGamesByYear
-      const bowlWeek1FromGames = allGames.filter(g => g && g.isBowlGame && g.bowlWeek === 'week1' && Number(g.year) === Number(year))
-      const bowlWeek1Legacy = currentDynasty.bowlGamesByYear?.[year]?.week1 || []
-      const cfpFirstRoundFromGames = allGames.filter(g => g && g.isCFPFirstRound && Number(g.year) === Number(year))
-      const cfpFirstRoundLegacy = cfpResults.firstRound || []
+      // Build list of missing CFP games based on current week
+      const missingCFPGames = []
 
-      const bowlWeek1Games = bowlWeek1FromGames.length > 0 ? bowlWeek1FromGames : bowlWeek1Legacy
-      const cfpFirstRoundGames = cfpFirstRoundFromGames.length > 0 ? cfpFirstRoundFromGames : cfpFirstRoundLegacy
+      // Week 1+: CFP First Round should be entered (4 games)
+      if (week >= 1) {
+        const cfpFirstRoundFromGames = allGames.filter(g => g && (g.isCFPFirstRound || g.gameType === 'cfp_first_round') && Number(g.year) === Number(year))
+        const cfpFirstRoundLegacy = cfpResults.firstRound || []
+        const cfpFirstRoundGames = cfpFirstRoundFromGames.length > 0 ? cfpFirstRoundFromGames : cfpFirstRoundLegacy
+        const enteredCFPFirstRound = cfpFirstRoundGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+        if (enteredCFPFirstRound < 4) {
+          missingCFPGames.push(`CFP First Round: ${enteredCFPFirstRound}/4`)
+        }
+      }
 
-      const enteredBowlWeek1 = bowlWeek1Games.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
-      const enteredCFPFirstRound = cfpFirstRoundGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+      // Week 2+: CFP Quarterfinals should be entered (4 games)
+      if (week >= 2) {
+        const cfpQuartersFromGames = allGames.filter(g => g && (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') && Number(g.year) === Number(year))
+        const cfpQuartersLegacy = cfpResults.quarterfinals || []
+        const cfpQuarterGames = cfpQuartersFromGames.length > 0 ? cfpQuartersFromGames : cfpQuartersLegacy
+        const enteredCFPQuarters = cfpQuarterGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+        if (enteredCFPQuarters < 4) {
+          missingCFPGames.push(`CFP Quarterfinals: ${enteredCFPQuarters}/4`)
+        }
+      }
 
-      // Count Week 2 bowl games (11 regular bowls)
-      const bowlWeek2FromGames = allGames.filter(g => g && g.isBowlGame && g.bowlWeek === 'week2' && Number(g.year) === Number(year))
-      const bowlWeek2Legacy = currentDynasty.bowlGamesByYear?.[year]?.week2 || []
-      const bowlWeek2Games = bowlWeek2FromGames.length > 0 ? bowlWeek2FromGames : bowlWeek2Legacy
-      const enteredBowlWeek2 = bowlWeek2Games.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+      // Week 4+: CFP Semifinals should be entered (2 games)
+      // Note: User enters their SF in Week 3, but the other SF is entered in Week 4
+      // So we only check for both semifinals when leaving Week 4
+      if (week >= 4) {
+        const cfpSemisFromGames = allGames.filter(g => g && (g.isCFPSemifinal || g.gameType === 'cfp_semifinal') && Number(g.year) === Number(year))
+        const cfpSemisLegacy = cfpResults.semifinals || []
+        const cfpSemiGames = cfpSemisFromGames.length > 0 ? cfpSemisFromGames : cfpSemisLegacy
+        const enteredCFPSemis = cfpSemiGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+        if (enteredCFPSemis < 2) {
+          missingCFPGames.push(`CFP Semifinals: ${enteredCFPSemis}/2`)
+        }
+      }
 
-      // Count CFP Quarterfinals (4 games)
-      const cfpQuartersFromGames = allGames.filter(g => g && g.isCFPQuarterfinal && Number(g.year) === Number(year))
-      const cfpQuartersLegacy = cfpResults.quarterfinals || []
-      const cfpQuarterGames = cfpQuartersFromGames.length > 0 ? cfpQuartersFromGames : cfpQuartersLegacy
-      const enteredCFPQuarters = cfpQuarterGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+      // Week 5+: CFP Championship should be entered (1 game)
+      // Note: User enters their championship in Week 4 if they're in it,
+      // but users NOT in the championship enter it in Week 5 (End of Season Recap)
+      if (week >= 5) {
+        const cfpChampFromGames = allGames.filter(g => g && (g.isCFPChampionship || g.gameType === 'cfp_championship') && Number(g.year) === Number(year))
+        const cfpChampLegacy = cfpResults.championship || []
+        const cfpChampGames = cfpChampFromGames.length > 0 ? cfpChampFromGames : cfpChampLegacy
+        const enteredCFPChamp = cfpChampGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
+        if (enteredCFPChamp < 1) {
+          missingCFPGames.push(`CFP Championship: ${enteredCFPChamp}/1`)
+        }
+      }
 
-      // Count CFP Semifinals (2 games)
-      const cfpSemisFromGames = allGames.filter(g => g && g.isCFPSemifinal && Number(g.year) === Number(year))
-      const cfpSemisLegacy = cfpResults.semifinals || []
-      const cfpSemiGames = cfpSemisFromGames.length > 0 ? cfpSemisFromGames : cfpSemisLegacy
-      const enteredCFPSemis = cfpSemiGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
-
-      // Count CFP Championship (1 game)
-      const cfpChampFromGames = allGames.filter(g => g && g.isCFPChampionship && Number(g.year) === Number(year))
-      const cfpChampLegacy = cfpResults.championship || []
-      const cfpChampGames = cfpChampFromGames.length > 0 ? cfpChampFromGames : cfpChampLegacy
-      const enteredCFPChamp = cfpChampGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null).length
-
-      const totalEnteredGames = enteredBowlWeek1 + enteredCFPFirstRound + enteredBowlWeek2 + enteredCFPQuarters + enteredCFPSemis + enteredCFPChamp
-      // 19 Week1 bowls + 4 CFP R1 + 11 Week2 bowls + 4 CFP QF + 2 CFP SF + 1 CFP Champ = 41 total
-      const expectedBowlGames = 41
-
-      if (totalEnteredGames < expectedBowlGames) {
+      // Only warn if CFP games are missing
+      if (missingCFPGames.length > 0) {
         const confirmAdvance = window.confirm(
-          `You have only entered ${totalEnteredGames}/${expectedBowlGames} bowl games. Are you sure you want to advance?`
+          `The following CFP games have not been fully entered:\n\n${missingCFPGames.join('\n')}\n\nAre you sure you want to advance?`
         )
         if (!confirmAdvance) {
           return
