@@ -13,6 +13,7 @@ import {
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
+import { getModalColors } from '../utils/colorUtils'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -177,6 +178,9 @@ export default function BoxScoreSheetModal({
   }
 
   const config = getSheetConfig()
+
+  // Get dark theme modal colors
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   // Highlight save button when user returns to window
   useEffect(() => {
@@ -460,22 +464,22 @@ export default function BoxScoreSheetModal({
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+            <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
               {config.title}
             </h2>
             {sheetType !== 'scoring' && sheetType !== 'teamStats' && (
-              <p className="text-xs mt-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
                 Reminder: This is not mandatory to be entered every game. You will have the option to enter all player season stats at the end of the season.
               </p>
             )}
@@ -483,7 +487,7 @@ export default function BoxScoreSheetModal({
           <button
             onClick={handleClose}
             className="hover:opacity-70 ml-4"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.textMuted }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -497,28 +501,28 @@ export default function BoxScoreSheetModal({
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating {config.title} Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 {sheetType === 'scoring' ? 'Setting up scoring summary' : 'Setting up 9 stat category tabs'}
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
                 Stats saved to your game.
               </p>
             </div>
@@ -534,9 +538,9 @@ export default function BoxScoreSheetModal({
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary,
-                      ringColor: teamColors.primary
+                      backgroundColor: modalColors.accent,
+                      color: '#ffffff',
+                      ringColor: modalColors.accent
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -547,8 +551,8 @@ export default function BoxScoreSheetModal({
                     className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.border,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -579,8 +583,8 @@ export default function BoxScoreSheetModal({
                 }}
                 className="text-xs px-3 py-1 rounded-full border transition-colors"
                 style={{
-                  borderColor: teamColors.primary,
-                  color: teamColors.primary,
+                  borderColor: modalColors.border,
+                  color: modalColors.textMuted,
                   backgroundColor: 'transparent'
                 }}
               >

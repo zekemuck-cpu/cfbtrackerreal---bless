@@ -496,20 +496,35 @@ export function propagateCFPWinner(games, savedGame) {
     // Shell doesn't exist - this shouldn't happen but handle it gracefully
     console.warn(`[propagateCFPWinner] Target shell ${nextSlotId} not found! Creating it.`)
 
-    // Determine game type for the new shell
-    let gameType = GAME_TYPES.CFP_SEMIFINAL
-    let legacyFlag = 'isCFPSemifinal'
-    let week = 'Bowl 3'
-    if (nextSlotId === 'cfpnc') {
+    // Determine game type for the new shell based on slot ID pattern
+    let gameType, legacyFlag, week, cfpRound
+    if (nextSlotId.startsWith('cfpqf')) {
+      gameType = GAME_TYPES.CFP_QUARTERFINAL
+      legacyFlag = 'isCFPQuarterfinal'
+      week = 'Bowl 2'
+      cfpRound = 'quarterfinal'
+    } else if (nextSlotId.startsWith('cfpsf')) {
+      gameType = GAME_TYPES.CFP_SEMIFINAL
+      legacyFlag = 'isCFPSemifinal'
+      week = 'Bowl 3'
+      cfpRound = 'semifinal'
+    } else if (nextSlotId === 'cfpnc') {
       gameType = GAME_TYPES.CFP_CHAMPIONSHIP
       legacyFlag = 'isCFPChampionship'
       week = 'Bowl 4'
+      cfpRound = 'championship'
+    } else {
+      console.error(`[propagateCFPWinner] Unknown slot ID pattern: ${nextSlotId}`)
+      gameType = GAME_TYPES.CFP_SEMIFINAL
+      legacyFlag = 'isCFPSemifinal'
+      week = 'Bowl 3'
+      cfpRound = 'semifinal'
     }
 
     const newShell = {
       id: expectedId,
       cfpSlot: nextSlotId,
-      cfpRound: nextSlotId === 'cfpnc' ? 'championship' : 'semifinal',
+      cfpRound,
       year: Number(year),
       week,
       gameType,
@@ -917,7 +932,9 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 
 /**
  * Get the team record (single source of truth)
- * Always calculates from actual games to ensure accuracy
+ * Priority:
+ * 1. Calculate from actual games (if team has games in games[])
+ * 2. Fall back to stored records (from conference standings, useful when switching teams)
  * @param {Object} dynasty - Dynasty object
  * @param {number|string} tidOrAbbr - Team ID or abbreviation
  * @param {number} year - Year
@@ -928,10 +945,58 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
 
   // Handle abbr input for backward compatibility
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(tidOrAbbr) : tidOrAbbr
 
-  // Always calculate from games - this is the authoritative source of truth
-  // Stored records are only used as a cache for Firestore updates
-  return calculateTeamRecordFromGames(dynasty, tid, year)
+  // Priority 1: Calculate from actual games
+  const calculatedRecord = calculateTeamRecordFromGames(dynasty, tid, year)
+
+  // If we found games, use calculated record
+  if (calculatedRecord.wins > 0 || calculatedRecord.losses > 0) {
+    return calculatedRecord
+  }
+
+  // Priority 2: Fall back to stored records (useful when switching to a new team)
+  // Check tid-based storage first
+  const tidRecord = dynasty.teams?.[tid]?.byYear?.[year]?.record
+  if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
+    return {
+      wins: tidRecord.wins || 0,
+      losses: tidRecord.losses || 0,
+      confWins: tidRecord.confWins || 0,
+      confLosses: tidRecord.confLosses || 0
+    }
+  }
+
+  // Check legacy abbr-based storage
+  const legacyRecord = dynasty.teamRecordsByTeamYear?.[abbr]?.[year]
+  if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
+    return {
+      wins: legacyRecord.wins || 0,
+      losses: legacyRecord.losses || 0,
+      confWins: legacyRecord.confWins || 0,
+      confLosses: legacyRecord.confLosses || 0
+    }
+  }
+
+  // Priority 3: Check conference standings for this team
+  const standings = dynasty.conferenceStandingsByYear?.[year]
+  if (standings) {
+    for (const [conf, teams] of Object.entries(standings)) {
+      if (!Array.isArray(teams)) continue
+      const teamEntry = teams.find(t => t.abbr === abbr || t.team === abbr || t.tid === tid)
+      if (teamEntry && (teamEntry.wins > 0 || teamEntry.losses > 0)) {
+        return {
+          wins: teamEntry.wins || 0,
+          losses: teamEntry.losses || 0,
+          confWins: teamEntry.confWins || 0,
+          confLosses: teamEntry.confLosses || 0
+        }
+      }
+    }
+  }
+
+  // No record found anywhere - return zeros
+  return calculatedRecord
 }
 
 /**
@@ -947,6 +1012,83 @@ export function getCurrentTeamRecord(dynasty) {
   if (!tid || !year) return null
 
   return getTeamRecord(dynasty, tid, year)
+}
+
+/**
+ * Get current ranking for a team in a given year
+ * UNIFIED RANKING SYSTEM - All pages should use this for consistency
+ * Priority:
+ * 1. Final poll ranking (if entered for that year) - end of season definitive ranking
+ * 2. Most recent game ranking (userRank from games in chronological order)
+ *
+ * @param {Object} dynasty - Dynasty object
+ * @param {number|string} tidOrAbbr - Team ID or abbreviation
+ * @param {number} year - Year to check
+ * @returns {{ rank: number, source: 'final_poll'|'game'|null, week?: number|string } | null}
+ */
+export function getTeamRanking(dynasty, tidOrAbbr, year) {
+  if (!dynasty || !tidOrAbbr || !year) return null
+
+  // Resolve tid and abbr
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const abbr = typeof tidOrAbbr === 'number' ? getOriginalTeamAbbr(tidOrAbbr) : tidOrAbbr
+
+  // Priority 1: Check final polls (end of season ranking, most authoritative)
+  const finalPolls = dynasty.finalPollsByYear?.[year]
+  if (finalPolls?.media?.length > 0) {
+    const teamEntry = finalPolls.media.find(p => p && (p.team === abbr || p.tid === tid))
+    if (teamEntry?.rank) {
+      return { rank: teamEntry.rank, source: 'final_poll' }
+    }
+  }
+
+  // Priority 2: Get ranking from most recent game (in chronological order)
+  const games = dynasty.games || []
+  const teamGames = games
+    .filter(g => {
+      if (Number(g.year) !== Number(year)) return false
+      return g.team1Tid === tid || g.team2Tid === tid ||
+             g.team1 === abbr || g.team2 === abbr ||
+             g.userTeam === abbr
+    })
+    .filter(g => g.team1Score !== null || g.team2Score !== null) // Only played games
+    .sort((a, b) => {
+      // Sort by week (handle bowl weeks like 'Bowl 1', 'Bowl 2', etc.)
+      const weekA = typeof a.week === 'string' && a.week.startsWith('Bowl') ? 100 + parseInt(a.week.split(' ')[1] || '1') : Number(a.week)
+      const weekB = typeof b.week === 'string' && b.week.startsWith('Bowl') ? 100 + parseInt(b.week.split(' ')[1] || '1') : Number(b.week)
+      return weekA - weekB
+    })
+
+  if (teamGames.length > 0) {
+    const lastGame = teamGames[teamGames.length - 1]
+    const isTeam1 = lastGame.team1Tid === tid || lastGame.team1 === abbr
+    const rank = isTeam1 ? lastGame.team1Rank : lastGame.team2Rank
+
+    // Also check legacy userRank field
+    const legacyRank = lastGame.userTeam === abbr ? lastGame.userRank : null
+
+    const finalRank = rank || legacyRank
+    if (finalRank) {
+      return { rank: finalRank, source: 'game', week: lastGame.week }
+    }
+  }
+
+  return null
+}
+
+/**
+ * Get current ranking for the user's current team in current year
+ * Convenience wrapper for Dashboard usage
+ */
+export function getCurrentTeamRanking(dynasty) {
+  if (!dynasty) return null
+
+  const tid = getCurrentTeamTid(dynasty)
+  const year = dynasty.currentYear
+
+  if (!tid || !year) return null
+
+  return getTeamRanking(dynasty, tid, year)
 }
 
 /**
@@ -3878,6 +4020,11 @@ export function DynastyProvider({ children }) {
   const phaseTransitionInProgressRef = useRef(false)
   // Timestamp of when skip was set - auto-clears after timeout to prevent stuck state
   const skipListenerTimestampRef = useRef(0)
+  // CRITICAL: Track when we last updated players locally to prevent listener from overwriting
+  // This is separate from skip counter because player updates need longer protection
+  const lastPlayersUpdateTimestampRef = useRef(0)
+  // Also track the dynasty ID that was updated to be more precise
+  const lastPlayersUpdateDynastyIdRef = useRef(null)
 
   // Helper to apply migrations to dynasties (games + stats + roster)
   const applyMigrations = (dynastyList) => {
@@ -4152,9 +4299,9 @@ export function DynastyProvider({ children }) {
       // Also check timestamp - auto-clear skip after 30 seconds to prevent stuck state
       const now = Date.now()
       if (skipListenerUpdatesCountRef.current > 0) {
-        // Check if skip has been active for too long (30 seconds max)
-        if (now - skipListenerTimestampRef.current > 30000) {
-          console.warn('[DynastyContext] Skip counter expired (30s timeout) - allowing update')
+        // Check if skip has been active for too long (60 seconds max)
+        if (now - skipListenerTimestampRef.current > 60000) {
+          console.warn('[DynastyContext] Skip counter expired (60s timeout) - allowing update')
           skipListenerUpdatesCountRef.current = 0
         } else {
           console.log('[DynastyContext] Skipping listener update. Remaining skips:', skipListenerUpdatesCountRef.current)
@@ -4227,10 +4374,29 @@ export function DynastyProvider({ children }) {
       setLoading(false)
 
       // Update current dynasty if it's in the list
+      // CRITICAL: Check if we recently updated players locally - if so, preserve local players
+      // to prevent race condition where Firestore returns stale data
       if (currentDynasty) {
         const updated = migratedDynasties.find(d => d.id === currentDynasty.id)
         if (updated) {
-          setCurrentDynasty(updated)
+          // Check if this dynasty had a recent local player update (within 10 seconds)
+          const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === currentDynasty.id &&
+            (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
+
+          if (recentPlayerUpdate && currentDynasty.players) {
+            // Preserve local players - they're more recent than Firestore data
+            console.log('[DynastyContext] Preserving local players (recent update detected)')
+            setCurrentDynasty({
+              ...updated,
+              players: currentDynasty.players
+            })
+            // Also update the dynasty in the array to preserve players
+            setDynasties(prev => prev.map(d =>
+              d.id === currentDynasty.id ? { ...d, players: currentDynasty.players } : d
+            ))
+          } else {
+            setCurrentDynasty(updated)
+          }
         } else {
           setCurrentDynasty(null)
         }
@@ -4599,9 +4765,10 @@ export function DynastyProvider({ children }) {
 
     // Cloud storage: update Firestore
     try {
-      // Set counter to skip the next 2 listener updates BEFORE calling Firestore
+      // Set counter to skip the next 3 listener updates BEFORE calling Firestore
       // (the listener fires during updateDoc, not after)
-      skipListenerUpdatesCountRef.current = 2
+      // Increased from 2 to 3 for extra safety with batch writes
+      skipListenerUpdatesCountRef.current = 3
       skipListenerTimestampRef.current = Date.now()
 
       // Check if dynasty is migrated to subcollections
@@ -4614,10 +4781,15 @@ export function DynastyProvider({ children }) {
 
       if (isMigrated) {
         // Route players to subcollection
+        // CRITICAL: Pass deleteOrphans: true to ensure deleted/merged players are removed from Firestore
+        // Without this, removed players remain in the subcollection and reappear on reload
         if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
-          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection`)
+          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup)`)
+          // CRITICAL: Track this player update to prevent listener from overwriting with stale data
+          lastPlayersUpdateTimestampRef.current = Date.now()
+          lastPlayersUpdateDynastyIdRef.current = dynastyId
           subcollectionPromises.push(
-            savePlayersToSubcollection(dynastyId, mainDocUpdates.players)
+            savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true })
           )
           // Don't save players to main doc - they're in subcollection now
           delete mainDocUpdates.players
@@ -5216,17 +5388,33 @@ export function DynastyProvider({ children }) {
 
   // Add or update CPU bowl games as proper game entries in the games[] array
   // This ensures ALL games (user and CPU) are stored uniformly
+  // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCPUBowlGames = async (dynastyId, bowlGames, year, week = 'week1') => {
     const useLocalStorage = !storageService.isPremium()
     let dynasty
+    let existingGames
 
     if (useLocalStorage || !user) {
+      // LOCAL STORAGE: Read from IndexedDB to get latest data
       const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
+      existingGames = dynasty?.games || []
     } else {
+      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
       dynasty = String(currentDynasty?.id) === String(dynastyId)
         ? currentDynasty
         : dynasties.find(d => String(d.id) === String(dynastyId))
+
+      // Always read games from subcollection for migrated dynasties to ensure we have latest data
+      if (dynasty?._subcollectionsMigrated) {
+        try {
+          existingGames = await getGamesSubcollection(dynastyId)
+        } catch (err) {
+          existingGames = dynasty?.games || []
+        }
+      } else {
+        existingGames = dynasty?.games || []
+      }
     }
 
     if (!dynasty) {
@@ -5235,7 +5423,6 @@ export function DynastyProvider({ children }) {
     }
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty)
-    const existingGames = dynasty.games || []
 
     // Filter out existing bowl games for this year and week to avoid duplicates
     // (Both CPU and user bowl games entered via the modal will be replaced)
@@ -5312,26 +5499,41 @@ export function DynastyProvider({ children }) {
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
   // UPDATED: Now properly updates existing game shells created at seed entry time
+  // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
     const useLocalStorage = !storageService.isPremium()
     let dynasty
+    let latestGames
 
     if (useLocalStorage || !user) {
+      // LOCAL STORAGE: Read from IndexedDB to get latest data
       const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
       dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
+      latestGames = dynasty?.games || []
     } else {
+      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
       dynasty = String(currentDynasty?.id) === String(dynastyId)
         ? currentDynasty
         : dynasties.find(d => String(d.id) === String(dynastyId))
+
+      // Always read games from subcollection for migrated dynasties to ensure we have latest data
+      if (dynasty?._subcollectionsMigrated) {
+        try {
+          latestGames = await getGamesSubcollection(dynastyId)
+        } catch (err) {
+          latestGames = dynasty?.games || []
+        }
+      } else {
+        latestGames = dynasty?.games || []
+      }
     }
 
     if (!dynasty) {
-      console.error('[saveCFPGames] Dynasty not found:', dynastyId)
       return
     }
 
-    // Start with all existing games - we'll update shells in place
-    let updatedGames = [...(dynasty.games || [])]
+    // Start with latest games from storage - we'll update shells in place
+    let updatedGames = [...latestGames]
 
     // Determine which legacy flag to use based on round type
     const legacyFlagMap = {
@@ -5391,16 +5593,12 @@ export function DynastyProvider({ children }) {
 
         if (byeSeed && byeSeed >= 1 && byeSeed <= 4) {
           expectedSlotId = byeSeedToSlot[byeSeed]
-          console.log(`[saveCFPGames] QF: Determined slot ${expectedSlotId} from bye seed ${byeSeed}`)
         }
 
         // PRIMARY: Find by slot ID
         if (expectedSlotId) {
           const expectedGameId = getCFPGameId(expectedSlotId, year)
           existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
-          }
         }
 
         // SECONDARY: Find by cfpSlot field
@@ -5410,9 +5608,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.isCFPQuarterfinal
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by cfpSlot field ${expectedSlotId}`)
-          }
         }
 
         // TERTIARY: Find by bye seed team tid (in case shell doesn't have correct ID)
@@ -5422,17 +5617,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.team1Tid === team1Tid // Bye seed team should be in team1 position
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] QF: Found shell by bye seed team tid ${team1Tid}`)
-          }
-        }
-
-        // Log if not found
-        if (existingIndex === -1) {
-          const availableShells = updatedGames.filter(g =>
-            Number(g.year) === Number(year) && g.isCFPQuarterfinal
-          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName, team1Tid: g.team1Tid }))
-          console.log(`[saveCFPGames] QF: Shell NOT FOUND for bye seed ${byeSeed}. Available:`, availableShells)
         }
       } else if (roundType === GAME_TYPES.CFP_SEMIFINAL) {
         // BULLETPROOF SF: Determine slot from teams' QF origins
@@ -5450,16 +5634,12 @@ export function DynastyProvider({ children }) {
           const isSF2 = seeds.some(s => s === 2 || s === 3)
           if (isSF1 && !isSF2) expectedSlotId = 'cfpsf1'
           else if (isSF2 && !isSF1) expectedSlotId = 'cfpsf2'
-          console.log(`[saveCFPGames] SF: Determined slot ${expectedSlotId} from seeds ${seeds}`)
         }
 
         // PRIMARY: Find by slot ID
         if (expectedSlotId) {
           const expectedGameId = getCFPGameId(expectedSlotId, year)
           existingIndex = updatedGames.findIndex(g => g.id === expectedGameId)
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by slot ID ${expectedSlotId}:`, updatedGames[existingIndex].id)
-          }
         }
 
         // SECONDARY: Find by cfpSlot field
@@ -5469,9 +5649,6 @@ export function DynastyProvider({ children }) {
             Number(g.year) === Number(year) &&
             g.isCFPSemifinal
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by cfpSlot field ${expectedSlotId}`)
-          }
         }
 
         // TERTIARY: Find by team tids
@@ -5482,17 +5659,6 @@ export function DynastyProvider({ children }) {
             ((team1Tid && (g.team1Tid === team1Tid || g.team2Tid === team1Tid)) ||
              (team2Tid && (g.team1Tid === team2Tid || g.team2Tid === team2Tid)))
           )
-          if (existingIndex >= 0) {
-            console.log(`[saveCFPGames] SF: Found shell by team tids`)
-          }
-        }
-
-        // Log if not found
-        if (existingIndex === -1) {
-          const availableShells = updatedGames.filter(g =>
-            Number(g.year) === Number(year) && g.isCFPSemifinal
-          ).map(g => ({ id: g.id, cfpSlot: g.cfpSlot, bowlName: g.bowlName }))
-          console.log(`[saveCFPGames] SF: Shell NOT FOUND. Available:`, availableShells)
         }
       } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
         // Championship: only one per year
@@ -5526,7 +5692,6 @@ export function DynastyProvider({ children }) {
         } else if (roundType === GAME_TYPES.CFP_CHAMPIONSHIP) {
           slotId = 'cfpnc'
         }
-        console.log(`[saveCFPGames] Determined slotId from seeds: ${slotId}`)
       }
 
       const gameId = existingShell?.id || (slotId ? getCFPGameId(slotId, year) : `cfp-${roundType}-${year}-${Date.now()}`)
@@ -5559,12 +5724,10 @@ export function DynastyProvider({ children }) {
           ...updatedGames[existingIndex],
           ...unifiedGame
         }
-        console.log(`[saveCFPGames] Updated existing shell at index ${existingIndex}:`, gameId)
       } else {
         // No shell exists - add new game (fallback for legacy data)
         unifiedGame.createdAt = new Date().toISOString()
         updatedGames.push(unifiedGame)
-        console.log(`[saveCFPGames] Created new game (no shell found):`, gameId)
       }
 
       // Propagate winner to next round if this game feeds into another

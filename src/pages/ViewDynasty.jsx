@@ -8,11 +8,29 @@ import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
 import logo from '../assets/logo.png'
 
+// Check if we're on a desktop-sized screen
+const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
+
+// Get initial sidebar state from localStorage or default based on screen size
+const getInitialSidebarState = () => {
+  const saved = localStorage.getItem('sidebarOpen')
+  if (saved !== null) {
+    return saved === 'true'
+  }
+  // Default: open on desktop, closed on mobile
+  return isDesktop()
+}
+
 function ViewDynastyContent() {
   const { shareCode } = useParams()
   const { currentDynasty, loading, error } = useViewDynasty()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+
+  // Save sidebar preference to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', String(sidebarOpen))
+  }, [sidebarOpen])
 
   // Expose sidebar toggle (similar to DynastyDashboard)
   useEffect(() => {
@@ -199,7 +217,11 @@ function ViewDynastyContent() {
 
       {/* Main content - on desktop (lg+), add left margin when sidebar is open to push content */}
       {/* On mobile/tablet, sidebar overlays so no margin needed */}
-      <main className={`min-w-0 flex-1 px-4 py-6 pb-16 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}>
+      {/* Bottom padding accounts for ticker height (48px) + safe area for phones with home indicators */}
+      <main
+        className={`min-w-0 flex-1 px-4 py-6 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
+        style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+      >
         <Outlet />
       </main>
 

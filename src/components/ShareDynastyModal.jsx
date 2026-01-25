@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { generateShareCode } from '../services/dynastyService'
-import { getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors } from '../utils/colorUtils'
 
 export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty: dynastyProp }) {
   const { currentDynasty: contextDynasty, updateDynasty } = useDynasty()
@@ -12,8 +12,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const primaryBgText = getContrastTextColor(teamColors.primary)
-  const secondaryBgText = getContrastTextColor(teamColors.secondary)
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   useEffect(() => {
     if (dynasty) {
@@ -62,27 +61,27 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onClick={onClose}
     >
       <div
-        className="rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-2xl w-full max-w-md overflow-hidden border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div
           className="px-6 py-4 flex items-center justify-between"
-          style={{ backgroundColor: teamColors.primary }}
+          style={{ backgroundColor: modalColors.headerBg }}
         >
-          <h2 className="text-xl font-bold" style={{ color: primaryBgText }}>
+          <h2 className="text-xl font-bold" style={{ color: modalColors.text }}>
             Share Dynasty
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-black/10"
-            style={{ color: primaryBgText }}
+            className="p-1 rounded-lg hover:bg-white/10"
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -92,17 +91,17 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
 
         {/* Content */}
         <div className="p-6">
-          <p className="mb-6" style={{ color: secondaryBgText }}>
+          <p className="mb-6" style={{ color: modalColors.textMuted }}>
             Share your dynasty with viewers! They'll be able to see your schedule, roster, stats, and more in read-only mode.
           </p>
 
           {/* Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-black/10 mb-6">
+          <div className="flex items-center justify-between p-4 rounded-lg mb-6" style={{ backgroundColor: modalColors.inputBg }}>
             <div>
-              <div className="font-semibold" style={{ color: secondaryBgText }}>
+              <div className="font-semibold" style={{ color: modalColors.text }}>
                 Public Sharing
               </div>
-              <div className="text-sm opacity-70" style={{ color: secondaryBgText }}>
+              <div className="text-sm" style={{ color: modalColors.textMuted }}>
                 {isPublic ? 'Anyone with the link can view' : 'Only you can access this dynasty'}
               </div>
             </div>
@@ -113,7 +112,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
                 loading ? 'opacity-50' : ''
               }`}
               style={{
-                backgroundColor: isPublic ? teamColors.primary : '#374151'
+                backgroundColor: isPublic ? modalColors.accent : '#374151'
               }}
             >
               <div
@@ -127,7 +126,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
           {/* Share Link */}
           {isPublic && shareCode && (
             <div className="space-y-3">
-              <label className="block text-sm font-medium" style={{ color: secondaryBgText }}>
+              <label className="block text-sm font-medium" style={{ color: modalColors.text }}>
                 Share Link
               </label>
               <div className="flex gap-2">
@@ -135,35 +134,34 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
                   type="text"
                   value={shareUrl}
                   readOnly
-                  className="flex-1 px-4 py-3 rounded-lg bg-black/10 text-sm font-mono"
-                  style={{ color: secondaryBgText }}
+                  className="flex-1 px-4 py-3 rounded-lg text-sm font-mono"
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text }}
                 />
                 <button
                   onClick={handleCopyLink}
-                  className="px-4 py-3 rounded-lg font-semibold transition-all"
+                  className="px-4 py-3 rounded-lg font-semibold transition-all text-white"
                   style={{
-                    backgroundColor: copied ? '#22c55e' : teamColors.primary,
-                    color: primaryBgText
+                    backgroundColor: copied ? '#22c55e' : modalColors.accent
                   }}
                 >
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>
-              <p className="text-sm opacity-60" style={{ color: secondaryBgText }}>
+              <p className="text-sm" style={{ color: modalColors.textMuted }}>
                 Viewers will see your dynasty data but cannot make any changes.
               </p>
             </div>
           )}
 
           {/* Info for YouTubers */}
-          <div className="mt-6 p-4 rounded-lg border-2 border-dashed" style={{ borderColor: teamColors.primary }}>
+          <div className="mt-6 p-4 rounded-lg border-2 border-dashed" style={{ borderColor: modalColors.accent }}>
             <div className="flex items-start gap-3">
               <span className="text-2xl">🎥</span>
               <div>
-                <div className="font-semibold mb-1" style={{ color: secondaryBgText }}>
+                <div className="font-semibold mb-1" style={{ color: modalColors.text }}>
                   Perfect for Content Creators
                 </div>
-                <div className="text-sm opacity-70" style={{ color: secondaryBgText }}>
+                <div className="text-sm" style={{ color: modalColors.textMuted }}>
                   Put this link in your video descriptions so viewers can follow along with your dynasty series!
                 </div>
               </div>

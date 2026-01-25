@@ -1323,7 +1323,12 @@ export function buildGameRecapContext(dynasty, game) {
   }
 
   // Derive location for unified format games from homeTeamTid
-  let gameLocation = game.location
+  // IMPORTANT: Bowl games, CFP games, and conference championships are ALWAYS neutral site
+  const isBowlOrCFP = game.isBowlGame || game.isCFPFirstRound || game.isCFPQuarterfinal ||
+                       game.isCFPSemifinal || game.isCFPChampionship || game.isConferenceChampionship ||
+                       game.gameType === 'bowl' || (game.gameType || '').startsWith('cfp_')
+
+  let gameLocation = isBowlOrCFP ? 'neutral' : game.location
   if (!gameLocation && hasUnifiedFormat) {
     // For unified format, derive location from homeTeamTid
     if (game.homeTeamTid === null) {

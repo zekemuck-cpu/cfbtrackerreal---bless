@@ -7,6 +7,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
+import { getTeamConference } from '../../data/conferenceTeams'
 // GameDetailModal removed - now using game pages instead
 
 // Map abbreviation to mascot name for logo lookup
@@ -161,13 +162,23 @@ export default function ConferenceChampionshipHistory() {
     }
 
     // Filter games by gameType and conference
+    // If game doesn't have conference field, detect it from the teams
     const ccGames = games.filter(g => {
       const gameType = detectGameType(g)
       const team1 = getTeamAbbr(g, true)
       const team2 = getTeamAbbr(g, false)
-      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP &&
-             g.conference === conferenceName &&
-             team1 && team2
+      if (gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP || !team1 || !team2) return false
+
+      // Check explicit conference field first
+      if (g.conference) {
+        return g.conference === conferenceName
+      }
+
+      // Fallback: detect conference from either team
+      const customConferences = currentDynasty?.conferencesByYear?.[currentDynasty?.currentYear]
+      const team1Conf = getTeamConference(team1, customConferences, currentDynasty?.teams)
+      const team2Conf = getTeamConference(team2, customConferences, currentDynasty?.teams)
+      return team1Conf === conferenceName || team2Conf === conferenceName
     })
 
     // Map to result format

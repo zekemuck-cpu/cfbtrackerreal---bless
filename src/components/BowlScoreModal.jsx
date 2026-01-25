@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
+import { getModalColors } from '../utils/colorUtils'
 
 // CFP game structure by week (updated for 5-week postseason)
 const CFP_GAMES_BY_WEEK = {
@@ -24,6 +25,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
   const [games, setGames] = useState([])
   const [saving, setSaving] = useState(false)
 
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const teamAbbrs = getTeamAbbreviationsList()
 
   // Get the week title
@@ -114,23 +116,23 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto flex flex-col p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             {getWeekTitle()}
           </h2>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -143,16 +145,16 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
             <div
               key={game.id}
               className="p-4 rounded-lg"
-              style={{ backgroundColor: `${teamColors.primary}15` }}
+              style={{ backgroundColor: `${modalColors.accent}20` }}
             >
-              <h3 className="font-bold mb-3" style={{ color: teamColors.primary }}>
+              <h3 className="font-bold mb-3" style={{ color: modalColors.accent }}>
                 {game.name}
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Team 1 */}
                 <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: modalColors.textMuted }}>
                     Team 1
                   </label>
                   <select
@@ -160,8 +162,10 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
                     onChange={(e) => handleGameChange(index, 'team1', e.target.value)}
                     className="w-full px-3 py-2 rounded font-semibold text-sm"
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.inputBg,
+                      color: modalColors.text,
+                      borderColor: modalColors.inputBorder,
+                      borderWidth: '1px'
                     }}
                   >
                     <option value="">Select team...</option>
@@ -173,7 +177,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
 
                 {/* Team 2 */}
                 <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: modalColors.textMuted }}>
                     Team 2
                   </label>
                   <select
@@ -181,8 +185,10 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
                     onChange={(e) => handleGameChange(index, 'team2', e.target.value)}
                     className="w-full px-3 py-2 rounded font-semibold text-sm"
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.inputBg,
+                      color: modalColors.text,
+                      borderColor: modalColors.inputBorder,
+                      borderWidth: '1px'
                     }}
                   >
                     <option value="">Select team...</option>
@@ -194,7 +200,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
 
                 {/* Team 1 Score */}
                 <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: modalColors.textMuted }}>
                     Score
                   </label>
                   <input
@@ -204,8 +210,10 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
                     onChange={(e) => handleGameChange(index, 'team1Score', e.target.value)}
                     className="w-full px-3 py-2 rounded font-semibold text-sm text-center"
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.inputBg,
+                      color: modalColors.text,
+                      borderColor: modalColors.inputBorder,
+                      borderWidth: '1px'
                     }}
                     placeholder="0"
                   />
@@ -213,7 +221,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
 
                 {/* Team 2 Score */}
                 <div>
-                  <label className="block text-sm font-semibold mb-1" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <label className="block text-sm font-semibold mb-1" style={{ color: modalColors.textMuted }}>
                     Score
                   </label>
                   <input
@@ -223,8 +231,10 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
                     onChange={(e) => handleGameChange(index, 'team2Score', e.target.value)}
                     className="w-full px-3 py-2 rounded font-semibold text-sm text-center"
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.inputBg,
+                      color: modalColors.text,
+                      borderColor: modalColors.inputBorder,
+                      borderWidth: '1px'
                     }}
                     placeholder="0"
                   />
@@ -238,22 +248,16 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors"
+            className="flex-1 px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-white"
             style={{
-              backgroundColor: teamColors.primary,
-              color: teamColors.secondary
+              backgroundColor: modalColors.accent
             }}
           >
             {saving ? 'Saving...' : 'Save Results'}
           </button>
           <button
             onClick={handleClose}
-            className="px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors border-2"
-            style={{
-              backgroundColor: 'transparent',
-              borderColor: teamColors.primary,
-              color: teamColors.primary
-            }}
+            className="px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors bg-gray-700 hover:bg-gray-600 text-white"
           >
             Cancel
           </button>

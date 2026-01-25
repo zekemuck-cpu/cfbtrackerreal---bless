@@ -5,9 +5,10 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamConference, conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
+import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
 
 // Map abbreviation to mascot name for logo lookup
@@ -174,17 +175,6 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Helper function to normalize player names for comparison
-const normalizePlayerName = (name) => {
-  if (!name) return ''
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')        // Collapse multiple spaces to single space
-    .replace(/['']/g, "'")       // Normalize curly apostrophes to straight
-    .replace(/[""]/g, '"')       // Normalize curly quotes to straight
-}
-
 // Helper function to clean player names by removing prefix symbols (stars, bullets, etc.)
 const cleanPlayerName = (name) => {
   if (!name) return ''
@@ -215,14 +205,24 @@ export default function AllConference() {
   const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
   const yearData = allAmericansByYear[displayYear] || {}
 
-  // Get the user's team abbreviation
-  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+  // Get the user's team abbreviation FOR THE DISPLAY YEAR (not current year)
+  // This handles job changes - if user was coaching a different team in that year, use that team
+  const userTeamAbbrForYear = useMemo(() => {
+    // Check coachTeamByYear for the display year
+    const coachRecord = currentDynasty.coachTeamByYear?.[displayYear] ||
+                        currentDynasty.coachTeamByYear?.[String(displayYear)]
+    if (coachRecord?.team) {
+      return coachRecord.team
+    }
+    // Fallback to current team abbr
+    return getCurrentTeamAbbr(currentDynasty)
+  }, [currentDynasty, displayYear])
 
   // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
   const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)
 
   // Get the user's conference for the display year (handles realignment)
-  const userConference = getTeamConferenceForDynasty(currentDynasty, userTeamAbbr, displayYear) || 'SEC'
+  const userConference = getTeamConferenceForDynasty(currentDynasty, userTeamAbbrForYear, displayYear) || 'SEC'
 
   // Get list of available conferences for display year - use custom conferences if available, otherwise defaults
   const availableConferences = useMemo(() => {

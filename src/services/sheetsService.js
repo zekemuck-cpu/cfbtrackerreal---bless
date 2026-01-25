@@ -2304,10 +2304,10 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
   try {
     const accessToken = await getAccessToken()
 
-    // Conference list for CFB (alphabetical order)
+    // Conference list for CFB
     let conferences = [
-      'ACC',
       'American',
+      'ACC',
       'Big 12',
       'Big Ten',
       'Conference USA',
@@ -2734,10 +2734,10 @@ const BOWL_GAMES_WEEK_1 = [
   'Armed Forces Bowl',
   'Birmingham Bowl',
   'Boca Raton Bowl',
-  'CFP First Round (#5 vs #12)',
-  'CFP First Round (#6 vs #11)',
-  'CFP First Round (#7 vs #10)',
   'CFP First Round (#8 vs #9)',
+  'CFP First Round (#7 vs #10)',
+  'CFP First Round (#6 vs #11)',
+  'CFP First Round (#5 vs #12)',
   'Cure Bowl',
   'Famous Idaho Potato Bowl',
   'Fenway Bowl',
@@ -2760,35 +2760,62 @@ const BOWL_GAMES_WEEK_1 = [
   'Salute to Veterans Bowl'
 ]
 
-// CFP First Round matchups (seed pairs)
+// CFP First Round matchups (seed pairs) - ordered: 8v9, 7v10, 6v11, 5v12
 const CFP_FIRST_ROUND_MATCHUPS = [
-  { game: 'CFP First Round (#5 vs #12)', seed1: 5, seed2: 12 },
-  { game: 'CFP First Round (#6 vs #11)', seed1: 6, seed2: 11 },
+  { game: 'CFP First Round (#8 vs #9)', seed1: 8, seed2: 9 },
   { game: 'CFP First Round (#7 vs #10)', seed1: 7, seed2: 10 },
-  { game: 'CFP First Round (#8 vs #9)', seed1: 8, seed2: 9 }
+  { game: 'CFP First Round (#6 vs #11)', seed1: 6, seed2: 11 },
+  { game: 'CFP First Round (#5 vs #12)', seed1: 5, seed2: 12 }
 ]
 
-// Bowl games list for Bowl Week 2 (12 games - 4 are CFP Quarterfinals)
-const BOWL_GAMES_WEEK_2 = [
+// Regular bowl games for Bowl Week 2 (8 games - excludes CFP Quarterfinals)
+const BOWL_GAMES_WEEK_2_REGULAR = [
+  'Bahamas Bowl',
   'Citrus Bowl',
-  'Cotton Bowl (CFP QF)',
   "Duke's Mayo Bowl",
   'First Responder Bowl',
   'Gator Bowl',
-  'Orange Bowl (CFP QF)',
   'Reliaquest Bowl',
-  'Rose Bowl (CFP QF)',
-  'Sugar Bowl (CFP QF)',
   'Sun Bowl',
-  'Texas Bowl',
-  'Xbox Bowl'
+  'Texas Bowl'
 ]
 
-// CFP Quarterfinal matchup definitions
-// Sugar Bowl: 12/5 winner vs #4
-// Orange Bowl: 9/8 winner vs #1
-// Rose Bowl: 11/6 winner vs #3
-// Cotton Bowl: 10/7 winner vs #2
+// CFP Quarterfinal matchup definitions by bye seed
+// The actual bowl names come from the user's cfpBowlConfig for that year
+const CFP_QF_MATCHUPS_BY_SEED = {
+  1: { firstRoundSeeds: [8, 9] },   // #1 seed plays winner of 8v9
+  2: { firstRoundSeeds: [7, 10] },  // #2 seed plays winner of 7v10
+  3: { firstRoundSeeds: [6, 11] },  // #3 seed plays winner of 6v11
+  4: { firstRoundSeeds: [5, 12] }   // #4 seed plays winner of 5v12
+}
+
+// Build Bowl Week 2 games list with dynamic CFP QF bowls based on config
+// cfpBowlConfig: { seed1: 'Sugar Bowl', seed2: 'Cotton Bowl', seed3: 'Rose Bowl', seed4: 'Orange Bowl', sf1: 'Peach Bowl', sf2: 'Fiesta Bowl' }
+const getBowlGamesWeek2 = (cfpBowlConfig = null) => {
+  // Default bowl config if not provided
+  const config = cfpBowlConfig || {
+    seed1: 'Sugar Bowl',
+    seed2: 'Cotton Bowl',
+    seed3: 'Rose Bowl',
+    seed4: 'Orange Bowl'
+  }
+
+  // Get the 4 CFP QF bowl names from config (seed1-4 are QF games)
+  const cfpQFBowls = [
+    `${config.seed1} (CFP QF)`,
+    `${config.seed2} (CFP QF)`,
+    `${config.seed3} (CFP QF)`,
+    `${config.seed4} (CFP QF)`
+  ]
+
+  // Combine regular bowls + CFP QF bowls, sorted alphabetically
+  return [...BOWL_GAMES_WEEK_2_REGULAR, ...cfpQFBowls].sort()
+}
+
+// Legacy constant for backward compatibility (uses default config)
+const BOWL_GAMES_WEEK_2 = getBowlGamesWeek2()
+
+// CFP Quarterfinal matchup definitions (legacy - for backward compatibility)
 const CFP_QF_MATCHUPS = {
   'Sugar Bowl (CFP QF)': { firstRoundSeeds: [5, 12], topSeed: 4 },
   'Orange Bowl (CFP QF)': { firstRoundSeeds: [8, 9], topSeed: 1 },
@@ -3173,6 +3200,7 @@ export async function readBowlGamesFromSheet(spreadsheetId) {
     const accessToken = await getAccessToken()
 
     const rowCount = BOWL_GAMES_WEEK_1.length
+    console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
     const response = await fetch(
       `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:E${rowCount + 1}`,
       {
@@ -3189,13 +3217,24 @@ export async function readBowlGamesFromSheet(spreadsheetId) {
 
     const data = await response.json()
     const rows = data.values || []
+    console.log('[readBowlGamesFromSheet] Got', rows.length, 'rows from API')
 
     // Parse into structured data with tid fields for teambuilder support
-    const bowlGames = rows.map(row => {
+    const bowlGames = rows.map((row, idx) => {
+      const bowlName = row[0] || ''
       const team1Abbr = (row[1] || '').toUpperCase()
       const team2Abbr = (row[2] || '').toUpperCase()
-      const team1Score = row[3] ? parseInt(row[3]) : null
-      const team2Score = row[4] ? parseInt(row[4]) : null
+      // Parse scores - handle empty strings, "0", and NaN correctly
+      const score1Raw = row[3]
+      const score2Raw = row[4]
+      const parsedScore1 = score1Raw !== undefined && score1Raw !== '' ? parseInt(score1Raw, 10) : null
+      const parsedScore2 = score2Raw !== undefined && score2Raw !== '' ? parseInt(score2Raw, 10) : null
+      // Handle NaN from parseInt
+      const team1Score = parsedScore1 !== null && !isNaN(parsedScore1) ? parsedScore1 : null
+      const team2Score = parsedScore2 !== null && !isNaN(parsedScore2) ? parsedScore2 : null
+
+      // Debug log for each row with scores
+      console.log(`[readBowlGamesFromSheet] Row ${idx}: "${bowlName}" - ${team1Abbr} (raw: "${score1Raw}", parsed: ${team1Score}) vs ${team2Abbr} (raw: "${score2Raw}", parsed: ${team2Score})`)
       const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
       const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
 
@@ -3270,27 +3309,42 @@ export function getCFPFirstRoundGameName(seed) {
 }
 
 // Get CFP Quarterfinal bowl name based on seed (for seeds 1-4 or First Round winners)
-export function getCFPQuarterfinalGameName(seed, firstRoundResults = []) {
-  // Seeds 1-4 have byes and play in specific bowls
-  // #1 plays in Orange Bowl, #2 in Cotton Bowl, #3 in Rose Bowl, #4 in Sugar Bowl
+// cfpBowlConfig: { seed1: 'Sugar Bowl', seed2: 'Cotton Bowl', seed3: 'Rose Bowl', seed4: 'Orange Bowl' }
+export function getCFPQuarterfinalGameName(seed, firstRoundResults = [], cfpBowlConfig = null) {
+  // Default config if not provided
+  const config = cfpBowlConfig || {
+    seed1: 'Sugar Bowl',
+    seed2: 'Cotton Bowl',
+    seed3: 'Rose Bowl',
+    seed4: 'Orange Bowl'
+  }
+
+  // Seeds 1-4 have byes and play in specific bowls (determined by config)
   if (seed >= 1 && seed <= 4) {
     const bowlBySeed = {
-      1: 'Orange Bowl (CFP QF)',
-      2: 'Cotton Bowl (CFP QF)',
-      3: 'Rose Bowl (CFP QF)',
-      4: 'Sugar Bowl (CFP QF)'
+      1: `${config.seed1} (CFP QF)`,
+      2: `${config.seed2} (CFP QF)`,
+      3: `${config.seed3} (CFP QF)`,
+      4: `${config.seed4} (CFP QF)`
     }
     return bowlBySeed[seed]
   }
 
-  // For seeds 5-12, check if they won their First Round game
-  if (seed >= 5 && seed <= 12 && firstRoundResults.length > 0) {
-    // Find which QF bowl the winner of this seed's First Round game goes to
-    for (const [bowlName, matchup] of Object.entries(CFP_QF_MATCHUPS)) {
-      if (matchup.firstRoundSeeds.includes(seed)) {
-        return bowlName
-      }
+  // For seeds 5-12, find which QF game they would be in based on first round matchup
+  // Seed 5/12 -> plays #4's bowl (seed4)
+  // Seed 6/11 -> plays #3's bowl (seed3)
+  // Seed 7/10 -> plays #2's bowl (seed2)
+  // Seed 8/9 -> plays #1's bowl (seed1)
+  if (seed >= 5 && seed <= 12) {
+    const seedToByeSeed = {
+      5: 4, 12: 4,  // Winner of 5v12 plays #4
+      6: 3, 11: 3,  // Winner of 6v11 plays #3
+      7: 2, 10: 2,  // Winner of 7v10 plays #2
+      8: 1, 9: 1    // Winner of 8v9 plays #1
     }
+    const byeSeed = seedToByeSeed[seed]
+    const configKey = `seed${byeSeed}`
+    return `${config[configKey]} (CFP QF)`
   }
 
   return null
@@ -3298,12 +3352,15 @@ export function getCFPQuarterfinalGameName(seed, firstRoundResults = []) {
 
 // Create Bowl Week 2 sheet with CFP Quarterfinals teams pre-filled
 // excludeGames: array of game names to exclude (user's QF game, user's Week 2 bowl game)
-export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], firstRoundResults = [], excludeGames = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null) {
+// cfpBowlConfig: { seed1: 'Sugar Bowl', seed2: 'Cotton Bowl', ... } - determines which bowls host CFP QF
+export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], firstRoundResults = [], excludeGames = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null, cfpBowlConfig = null) {
   try {
     const accessToken = await getAccessToken()
 
+    // Get bowl games list with dynamic CFP QF bowls based on config
+    const allBowlGames = getBowlGamesWeek2(cfpBowlConfig)
     // Filter out games that the user is playing in (they enter those separately)
-    const bowlGames = BOWL_GAMES_WEEK_2.filter(game => !excludeGames.includes(game))
+    const bowlGames = allBowlGames.filter(game => !excludeGames.includes(game))
     const rowCount = bowlGames.length
 
     // Create the spreadsheet
@@ -3342,7 +3399,7 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
     const bowlSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data with CFP teams pre-filled and existing data
-    await initializeBowlWeek2Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, firstRoundResults, existingBowlWeek2, existingCFPQuarterfinals, customTeams)
+    await initializeBowlWeek2Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, firstRoundResults, existingBowlWeek2, existingCFPQuarterfinals, customTeams, cfpBowlConfig)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -3358,9 +3415,24 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
 }
 
 // Initialize the Bowl Week 2 sheet with headers and bowl game rows
-async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], firstRoundResults = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null) {
+async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], firstRoundResults = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null, cfpBowlConfig = null) {
   const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
   const rowCount = bowlGames.length
+
+  // Build dynamic CFP QF matchups based on config
+  // Maps bowl name (with CFP QF suffix) to seed info
+  const config = cfpBowlConfig || {
+    seed1: 'Sugar Bowl',
+    seed2: 'Cotton Bowl',
+    seed3: 'Rose Bowl',
+    seed4: 'Orange Bowl'
+  }
+  const dynamicCFPQFMatchups = {
+    [`${config.seed1} (CFP QF)`]: { firstRoundSeeds: [8, 9], topSeed: 1 },
+    [`${config.seed2} (CFP QF)`]: { firstRoundSeeds: [7, 10], topSeed: 2 },
+    [`${config.seed3} (CFP QF)`]: { firstRoundSeeds: [6, 11], topSeed: 3 },
+    [`${config.seed4} (CFP QF)`]: { firstRoundSeeds: [5, 12], topSeed: 4 }
+  }
 
   // Helper to get team by seed (tid-based lookup)
   const getTeamBySeed = (seed) => {
@@ -3389,7 +3461,7 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
     if (bowlData) return bowlData
 
     // Check in CFP Quarterfinals results (guard against null entries)
-    const cfpMatch = CFP_QF_MATCHUPS[bowlName]
+    const cfpMatch = dynamicCFPQFMatchups[bowlName]
     if (cfpMatch) {
       const cfpData = existingCFPQuarterfinals.find(g => g && g.bowl === bowlName)
       if (cfpData) {
@@ -3406,10 +3478,10 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
   }
 
   // Build row data with teams pre-filled for CFP QF games + existing data
-  // Team 1 = higher seed (1-4), Team 2 = lower seed (First Round winner)
+  // Team 1 = First Round winner (lower seed), Team 2 = higher seed (1-4 bye team)
   const rowData = bowlGames.map(bowl => {
     const existingData = getExistingBowlData(bowl)
-    const matchup = CFP_QF_MATCHUPS[bowl]
+    const matchup = dynamicCFPQFMatchups[bowl]
 
     // Priority: existing data > CFP computed data > empty
     let team1 = existingData?.team1 || ''
@@ -3422,8 +3494,8 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
       const [seed1, seed2] = matchup.firstRoundSeeds
       const firstRoundWinner = getFirstRoundWinner(seed1, seed2)
       const topSeedTeam = getTeamBySeed(matchup.topSeed)
-      team1 = topSeedTeam       // Higher seed (1-4)
-      team2 = firstRoundWinner  // Lower seed (First Round winner)
+      team1 = firstRoundWinner  // First Round winner (lower seed)
+      team2 = topSeedTeam       // Higher seed (1-4 bye team)
     }
 
     return { bowl, team1, team2, team1Score, team2Score }
@@ -11779,7 +11851,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId) {
   }
 }
 
-// Team stats row labels for game team stats sheet
+// Team stats row labels for game team stats sheet (entry order)
 const TEAM_STATS_ROWS = [
   'First Downs',
   'Total Offense',
@@ -11790,7 +11862,7 @@ const TEAM_STATS_ROWS = [
   'Completions',
   'Pass Attempts',
   'Pass TDs',
-  'Pass Yards',
+  'Passing Yards',
   '3rd Down Conv',
   '3rd Down Att',
   '4th Down Conv',
@@ -11799,7 +11871,7 @@ const TEAM_STATS_ROWS = [
   '2PT Att',
   'Red Zone TD',
   'Red Zone FG',
-  'Red Zone Pct',
+  'Red Zone Att',
   'Turnovers',
   'Fumbles Lost',
   'Interceptions',
@@ -11808,6 +11880,7 @@ const TEAM_STATS_ROWS = [
   'Total Yards',
   'Punts',
   'Penalties',
+  'Penalty Yards',
   'Poss Minutes',
   'Poss Seconds'
 ]

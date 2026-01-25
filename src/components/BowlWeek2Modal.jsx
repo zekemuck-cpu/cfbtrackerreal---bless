@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
@@ -12,6 +12,7 @@ import {
   isBowlInWeek2
 } from '../services/sheetsService'
 import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getModalColors } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -20,6 +21,7 @@ const isMobileDevice = () => {
 
 export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty } = useDynasty()
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { user, signOut, refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -195,6 +197,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           // Calculate which games to exclude (user's CFP QF game + user's Week 2 bowl game)
           const excludeGames = []
 
+          // Get CFP bowl config for this year
+          const cfpBowlConfigForExclude = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+
           // Check if user is in CFP (seeds 1-12)
           const userTeamTid = getCurrentTeamTid(currentDynasty)
           const userTeamAbbr = getCurrentTeamAbbr(currentDynasty) // Still need abbr for winner comparison
@@ -203,7 +208,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           if (userCFPSeed) {
             // Seeds 1-4 have bye, play in QF
             if (userCFPSeed >= 1 && userCFPSeed <= 4) {
-              const qfGameName = getCFPQuarterfinalGameName(userCFPSeed)
+              const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, [], cfpBowlConfigForExclude)
               if (qfGameName) {
                 excludeGames.push(qfGameName)
               }
@@ -213,7 +218,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               // Check if user won their First Round game
               const userFirstRoundGame = firstRoundResults.find(g => g && g.winner === userTeamAbbr)
               if (userFirstRoundGame) {
-                const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults)
+                const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
                 if (qfGameName) {
                   excludeGames.push(qfGameName)
                 }
@@ -301,6 +306,9 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               }
             })
 
+          // Get CFP bowl config for this year (determines which NY6 bowls host QF games)
+          const cfpBowlConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || null
+
           const sheetInfo = await createBowlWeek2Sheet(
             currentDynasty?.teamName || 'Dynasty',
             currentYear,
@@ -309,7 +317,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
             excludeGames,
             existingBowlWeek2,
             existingCFPQuarterfinals,
-            currentDynasty?.teams || currentDynasty?.customTeams
+            currentDynasty?.teams || currentDynasty?.customTeams,
+            cfpBowlConfig
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
@@ -415,23 +424,23 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl border shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Bowl Week 2 Results
           </h2>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -445,28 +454,28 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating Bowl Week 2 Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Setting up 12 bowl games
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: modalColors.background }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: modalColors.background, opacity: 0.9 }}>
                 Bowl Week 2 data saved to your dynasty.
               </p>
             </div>
@@ -482,8 +491,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: modalColors.background
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -494,8 +503,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -513,7 +522,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
                   {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: teamColors.primary }}>
+                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
 
                     </span>
                   )}
@@ -532,8 +541,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                   }}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
+                    borderColor: modalColors.accent,
+                    color: modalColors.text,
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -544,15 +553,15 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: teamColors.primary }}>
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: modalColors.accent }}>
+                  <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>Edit in Google Sheets</h3>
+                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>Edit in Google Sheets</h3>
                 <div className="text-left mb-6 max-w-xs">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>Instructions:</p>
+                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
                     <li className="flex gap-2"><span className="font-bold">2.</span><span>Enter Bowl Week 2 results</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
@@ -571,8 +580,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: modalColors.background
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -583,8 +592,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.text
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -604,7 +613,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: teamColors.primary }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
 
                   </span>
                 )}
@@ -620,7 +629,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     onSessionError={() => setShowAuthError(true)}
                   />
                 </div>
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
                   <p><strong>Columns:</strong> Bowl Game | Team 1 | Team 2 | Team 1 Score | Team 2 Score</p>
                   <p>Enter the teams and scores for each bowl game.</p>
                 </div>
@@ -630,7 +639,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -640,7 +649,6 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     try {
                       const success = await refreshSession()
                       if (success) {
-                        // Trigger sheet creation retry
                         setRetryCount(c => c + 1)
                       }
                     } catch (e) {
@@ -651,8 +659,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    backgroundColor: modalColors.accent,
+                    color: modalColors.background,
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

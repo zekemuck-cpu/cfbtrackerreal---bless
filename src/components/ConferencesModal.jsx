@@ -9,6 +9,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getModalColors } from '../utils/colorUtils'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -107,6 +108,9 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
 
   const getConferencesForSheet = () => conferenceData
   const hasExistingConferences = !!conferenceData
+
+  // Dark theme modal colors
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   // Create Conferences sheet when modal opens
   useEffect(() => {
@@ -254,28 +258,28 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+            <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
               Custom Conferences
             </h2>
-            <p className="text-sm mt-1" style={{ color: teamColors.primary, opacity: 0.7 }}>
+            <p className="text-sm mt-1" style={{ color: modalColors.textMuted }}>
               Each year has its own tab in the sheet
             </p>
           </div>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.textMuted }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -289,14 +293,14 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating Conferences Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 {hasExistingConferences
                   ? 'Loading your saved conference alignment'
                   : 'Setting up default EA CFB 26 conference alignment'}
@@ -305,14 +309,14 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
                 Conference alignment saved to your dynasty.
               </p>
             </div>
@@ -328,8 +332,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: '#ffffff'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -340,8 +344,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.accent
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -359,7 +363,7 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
                   {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: teamColors.primary }}>
+                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
 
                     </span>
                   )}
@@ -378,8 +382,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                   }}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
+                    borderColor: modalColors.border,
+                    color: modalColors.textMuted,
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -393,23 +397,23 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: teamColors.primary }}
+                  style={{ backgroundColor: modalColors.accent }}
                 >
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                  <svg className="w-10 h-10" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>
+                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>
                   Edit in Google Sheets
                 </h3>
 
                 {/* Step-by-step instructions */}
                 <div className="text-left mb-6 max-w-xs">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>
                     Instructions:
                   </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
                     <li className="flex gap-2">
                       <span className="font-bold">1.</span>
                       <span>Tap the button below to open Google Sheets</span>
@@ -453,8 +457,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: '#ffffff'
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -465,8 +469,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.accent
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -486,14 +490,14 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
                 {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: teamColors.primary }}>
+                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
 
                   </span>
                 )}
 
-                <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
+                <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: modalColors.inputBg, color: modalColors.text }}>
                   <p className="font-semibold mb-1">Info:</p>
-                  <p className="opacity-80">Pre-filled with EA CFB 26 default alignment. Use team abbreviations (e.g., BAMA, OSU, UGA).</p>
+                  <p style={{ color: modalColors.textMuted }}>Pre-filled with EA CFB 26 default alignment. Use team abbreviations (e.g., BAMA, OSU, UGA).</p>
                 </div>
               </div>
             ) : (
@@ -509,8 +513,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
-                  <p><strong>Columns:</strong> Each conference (alphabetically) with teams listed below</p>
+                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
+                  <p><strong style={{ color: modalColors.text }}>Columns:</strong> Each conference (alphabetically) with teams listed below</p>
                   <p>Pre-filled with EA CFB 26 default alignment. Edit team placements as needed for your dynasty.</p>
                   <p>Use team abbreviations from the dropdown (e.g., BAMA, OSU, UGA).</p>
                 </div>
@@ -520,7 +524,7 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -541,8 +545,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    backgroundColor: modalColors.accent,
+                    color: '#ffffff',
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
+import { getTeamConference } from '../../data/conferenceTeams'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
@@ -45,6 +46,9 @@ export default function DangerZone() {
   // CFP repair state
   const [cfpRepairStatus, setCfpRepairStatus] = useState(null)
 
+  // CCG repair state
+  const [ccgRepairStatus, setCcgRepairStatus] = useState(null)
+
   // Game deletion state
   const [showGameDeletion, setShowGameDeletion] = useState(false)
   const [selectedGameToDelete, setSelectedGameToDelete] = useState(null)
@@ -55,6 +59,11 @@ export default function DangerZone() {
 
   // Departure fix state
   const [departureFixStatus, setDepartureFixStatus] = useState(null)
+
+  // Duplicate player merge state
+  const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
+  const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
+  const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
 
   if (!currentDynasty) {
     return (
@@ -836,8 +845,15 @@ export default function DangerZone() {
 
       // PHASE 2: Fix CFP games - add tid fields and fix slots
       const updatedGames = games.map(game => {
-        // Only process CFP games
-        if (!game.isCFPQuarterfinal && !game.isCFPSemifinal && !game.isCFPChampionship && !game.isCFPFirstRound) {
+        // Helper: detect if a game is CFP based on cfpSlot, id pattern, or boolean flags
+        const isCFPGame = () => {
+          if (game.isCFPQuarterfinal || game.isCFPSemifinal || game.isCFPChampionship || game.isCFPFirstRound) return true
+          if (game.cfpSlot && game.cfpSlot.startsWith('cfp')) return true
+          if (game.id && (game.id.startsWith('cfpfr') || game.id.startsWith('cfpqf') || game.id.startsWith('cfpsf') || game.id.startsWith('cfpnc'))) return true
+          return false
+        }
+
+        if (!isCFPGame()) {
           return game
         }
 
@@ -848,6 +864,55 @@ export default function DangerZone() {
         // Add tid fields if missing
         let updatedGame = { ...game }
         let gameModified = false
+
+        // CRITICAL FIX: Determine correct gameType and boolean flags from cfpSlot or ID pattern
+        const slotId = game.cfpSlot || (game.id && game.id.match(/^(cfp[a-z]+\d?)-\d+$/)?.[1])
+        if (slotId) {
+          let correctGameType, correctFlag, correctRound
+          if (slotId.startsWith('cfpfr')) {
+            correctGameType = GAME_TYPES.CFP_FIRST_ROUND
+            correctFlag = 'isCFPFirstRound'
+            correctRound = 'first_round'
+          } else if (slotId.startsWith('cfpqf')) {
+            correctGameType = GAME_TYPES.CFP_QUARTERFINAL
+            correctFlag = 'isCFPQuarterfinal'
+            correctRound = 'quarterfinal'
+          } else if (slotId.startsWith('cfpsf')) {
+            correctGameType = GAME_TYPES.CFP_SEMIFINAL
+            correctFlag = 'isCFPSemifinal'
+            correctRound = 'semifinal'
+          } else if (slotId === 'cfpnc') {
+            correctGameType = GAME_TYPES.CFP_CHAMPIONSHIP
+            correctFlag = 'isCFPChampionship'
+            correctRound = 'championship'
+          }
+
+          if (correctGameType && updatedGame.gameType !== correctGameType) {
+            console.log(`[CFP Repair] Fixing gameType for ${game.id}: ${game.gameType} -> ${correctGameType}`)
+            updatedGame.gameType = correctGameType
+            gameModified = true
+          }
+
+          // Fix boolean flags - set correct one true, others false
+          if (correctFlag) {
+            const allFlags = ['isCFPFirstRound', 'isCFPQuarterfinal', 'isCFPSemifinal', 'isCFPChampionship']
+            for (const flag of allFlags) {
+              const shouldBeTrue = flag === correctFlag
+              if (!!updatedGame[flag] !== shouldBeTrue) {
+                updatedGame[flag] = shouldBeTrue
+                if (shouldBeTrue) {
+                  console.log(`[CFP Repair] Setting ${flag}=true for ${game.id}`)
+                }
+                gameModified = true
+              }
+            }
+          }
+
+          if (correctRound && updatedGame.cfpRound !== correctRound) {
+            updatedGame.cfpRound = correctRound
+            gameModified = true
+          }
+        }
 
         // Add team1Tid if missing but team1 exists
         if (!updatedGame.team1Tid && updatedGame.team1) {
@@ -1089,6 +1154,83 @@ export default function DangerZone() {
     }
   }
 
+  // Repair Conference Championship games - add missing conference field
+  const handleRepairCCGames = async () => {
+    setCcgRepairStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      const customConferences = currentDynasty?.conferencesByYear?.[currentDynasty?.currentYear]
+      let fixedCount = 0
+      let checkedCount = 0
+
+      const updatedGames = games.map(game => {
+        // Only process Conference Championship games
+        if (!game.isConferenceChampionship && game.gameType !== 'conference_championship') {
+          return game
+        }
+
+        checkedCount++
+
+        // If it already has a conference field, skip it
+        if (game.conference) {
+          return game
+        }
+
+        // Detect conference from teams
+        // Get team abbreviations from game
+        let team1Abbr = game.team1
+        let team2Abbr = game.team2
+
+        // Try to get abbr from tid if not directly available
+        if (!team1Abbr && game.team1Tid) {
+          const team = currentDynasty?.teams?.[game.team1Tid] || TEAMS[game.team1Tid]
+          team1Abbr = team?.abbr || getOriginalTeamAbbr(game.team1Tid)
+        }
+        if (!team2Abbr && game.team2Tid) {
+          const team = currentDynasty?.teams?.[game.team2Tid] || TEAMS[game.team2Tid]
+          team2Abbr = team?.abbr || getOriginalTeamAbbr(game.team2Tid)
+        }
+
+        // Also check legacy fields
+        if (!team1Abbr) team1Abbr = game.userTeam
+        if (!team2Abbr) team2Abbr = game.opponent
+
+        if (!team1Abbr && !team2Abbr) {
+          console.log(`[CCG Repair] Could not determine teams for game ${game.id}`)
+          return game
+        }
+
+        // Get conference from either team
+        const team1Conf = team1Abbr ? getTeamConference(team1Abbr, customConferences, currentDynasty?.teams) : null
+        const team2Conf = team2Abbr ? getTeamConference(team2Abbr, customConferences, currentDynasty?.teams) : null
+
+        // Use whichever conference we found (they should be the same for a conference championship)
+        const conference = team1Conf || team2Conf
+
+        if (conference) {
+          console.log(`[CCG Repair] Game ${game.id}: Added conference "${conference}" (teams: ${team1Abbr} vs ${team2Abbr})`)
+          fixedCount++
+          return { ...game, conference }
+        }
+
+        console.log(`[CCG Repair] Could not determine conference for game ${game.id} (teams: ${team1Abbr} vs ${team2Abbr})`)
+        return game
+      })
+
+      if (fixedCount > 0) {
+        await updateDynasty(currentDynasty.id, { games: updatedGames })
+        setCcgRepairStatus({ success: true, message: `Fixed ${fixedCount} of ${checkedCount} CCG games` })
+      } else if (checkedCount === 0) {
+        setCcgRepairStatus({ success: true, message: 'No Conference Championship games found' })
+      } else {
+        setCcgRepairStatus({ success: true, message: `All ${checkedCount} CCG games already have conference field!` })
+      }
+    } catch (error) {
+      console.error('[CCG Repair] Error:', error)
+      setCcgRepairStatus({ success: false, message: 'Repair failed: ' + error.message })
+    }
+  }
+
   const handleAnalyzeSize = () => {
     const result = analyzeDocumentSize(currentDynasty.id)
     if (result.success) setSizeAnalysis(result.analysis)
@@ -1116,6 +1258,193 @@ export default function DangerZone() {
     } catch (error) {
       setSubcollectionMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
     }
+  }
+
+  // Step 1: Detect duplicate players and show confirmation UI
+  const handleDetectDuplicates = () => {
+    setDuplicateMergeStatus('running')
+    try {
+      const players = currentDynasty.players || []
+
+      // Group players by normalized name
+      const playersByName = new Map()
+      players.forEach(p => {
+        if (!p.name) return
+        const normalizedName = p.name.toLowerCase().trim()
+        if (!playersByName.has(normalizedName)) {
+          playersByName.set(normalizedName, [])
+        }
+        playersByName.get(normalizedName).push(p)
+      })
+
+      // Find duplicates (names with more than one player)
+      const groups = []
+      playersByName.forEach((group, name) => {
+        if (group.length > 1) {
+          // Sort by pid (lowest = oldest = primary)
+          const sorted = [...group].sort((a, b) => (a.pid || 999999) - (b.pid || 999999))
+          groups.push({ name, players: sorted })
+        }
+      })
+
+      if (groups.length === 0) {
+        setDuplicateMergeStatus({ success: true, message: 'No duplicate players found.' })
+        setDuplicateGroups(null)
+        return
+      }
+
+      // Show confirmation UI with all groups selected by default
+      setDuplicateGroups(groups)
+      setSelectedMergeGroups(new Set(groups.map((_, idx) => idx)))
+      setDuplicateMergeStatus(null)
+    } catch (error) {
+      console.error('[Duplicate Detect] Error:', error)
+      setDuplicateMergeStatus({ success: false, message: 'Detection failed: ' + error.message })
+    }
+  }
+
+  // Step 2: Merge the selected duplicate groups
+  const handleConfirmMerge = async () => {
+    if (!duplicateGroups || selectedMergeGroups.size === 0) {
+      setDuplicateGroups(null)
+      return
+    }
+
+    setDuplicateMergeStatus('running')
+    try {
+      const players = currentDynasty.players || []
+      const playersByName = new Map()
+      players.forEach(p => {
+        if (!p.name) return
+        const normalizedName = p.name.toLowerCase().trim()
+        if (!playersByName.has(normalizedName)) {
+          playersByName.set(normalizedName, [])
+        }
+        playersByName.get(normalizedName).push(p)
+      })
+
+      let mergedCount = 0
+      const pidsToRemove = new Set()
+      const mergedPlayers = []
+
+      // Only process selected groups
+      duplicateGroups.forEach((group, idx) => {
+        if (!selectedMergeGroups.has(idx)) return
+
+        console.log(`[Duplicate Merge] Processing: ${group.name} (${group.players.length} entries)`)
+
+        const primary = group.players[0] // Already sorted by pid
+        const duplicates = group.players.slice(1)
+
+        // Merge all duplicates into primary
+        let merged = { ...primary }
+
+        for (const dup of duplicates) {
+          // Merge teamsByYear
+          if (dup.teamsByYear) {
+            merged.teamsByYear = { ...merged.teamsByYear, ...dup.teamsByYear }
+          }
+          // Merge statsByYear
+          if (dup.statsByYear) {
+            merged.statsByYear = { ...merged.statsByYear, ...dup.statsByYear }
+          }
+          // Merge classByYear
+          if (dup.classByYear) {
+            merged.classByYear = { ...merged.classByYear, ...dup.classByYear }
+          }
+          // Merge overallByYear
+          if (dup.overallByYear) {
+            merged.overallByYear = { ...merged.overallByYear, ...dup.overallByYear }
+          }
+          // Merge movements
+          if (dup.movements && dup.movements.length > 0) {
+            const existingMovements = merged.movements || []
+            const existingKeys = new Set(existingMovements.map(m => `${m.year}-${m.type}`))
+            const newMovements = dup.movements.filter(m => !existingKeys.has(`${m.year}-${m.type}`))
+            merged.movements = [...existingMovements, ...newMovements]
+          }
+          // Keep highest overall rating
+          if (dup.overall && (!merged.overall || dup.overall > merged.overall)) {
+            merged.overall = dup.overall
+          }
+          // Merge honors
+          if (dup.honors) {
+            const existingHonors = merged.honors || []
+            const existingHonorKeys = new Set(existingHonors.map(h => `${h.year}-${h.honorType}`))
+            const newHonors = dup.honors.filter(h => !existingHonorKeys.has(`${h.year}-${h.honorType}`))
+            merged.honors = [...existingHonors, ...newHonors]
+          }
+          // Keep any recruiting info that might be missing
+          if (!merged.stars && dup.stars) merged.stars = dup.stars
+          if (!merged.nationalRank && dup.nationalRank) merged.nationalRank = dup.nationalRank
+          if (!merged.stateRank && dup.stateRank) merged.stateRank = dup.stateRank
+          if (!merged.positionRank && dup.positionRank) merged.positionRank = dup.positionRank
+          if (!merged.previousTeam && dup.previousTeam) merged.previousTeam = dup.previousTeam
+          if (!merged.devTrait && dup.devTrait) merged.devTrait = dup.devTrait
+          if (!merged.archetype && dup.archetype) merged.archetype = dup.archetype
+          if (!merged.height && dup.height) merged.height = dup.height
+          if (!merged.weight && dup.weight) merged.weight = dup.weight
+
+          pidsToRemove.add(dup.pid)
+        }
+
+        // Sort movements by year
+        if (merged.movements) {
+          merged.movements.sort((a, b) => (a.year || 0) - (b.year || 0))
+        }
+
+        mergedPlayers.push(merged)
+        mergedCount++
+      })
+
+      // Build final players array
+      const nonDuplicatePlayers = players.filter(p => !pidsToRemove.has(p.pid))
+      const finalPlayers = nonDuplicatePlayers.map(p => {
+        const merged = mergedPlayers.find(m => m.pid === p.pid)
+        return merged || p
+      })
+
+      console.log(`[Duplicate Merge] Final: ${finalPlayers.length} players (removed ${pidsToRemove.size} duplicates)`)
+
+      await updateDynasty(currentDynasty.id, { players: finalPlayers })
+
+      setDuplicateMergeStatus({
+        success: true,
+        message: `Merged ${mergedCount} duplicate player groups (removed ${pidsToRemove.size} duplicate entries).`
+      })
+      setDuplicateGroups(null)
+      setSelectedMergeGroups(new Set())
+    } catch (error) {
+      console.error('[Duplicate Merge] Error:', error)
+      setDuplicateMergeStatus({ success: false, message: 'Merge failed: ' + error.message })
+    }
+  }
+
+  // Cancel merge and close confirmation UI
+  const handleCancelMerge = () => {
+    setDuplicateGroups(null)
+    setSelectedMergeGroups(new Set())
+    setDuplicateMergeStatus(null)
+  }
+
+  // Toggle a group's selection
+  const toggleGroupSelection = (idx) => {
+    setSelectedMergeGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(idx)) {
+        next.delete(idx)
+      } else {
+        next.add(idx)
+      }
+      return next
+    })
+  }
+
+  // Helper to get team abbreviation from tid
+  const getTeamAbbrFromTid = (tid) => {
+    if (typeof tid === 'string') return tid
+    const team = TEAMS[tid] || currentDynasty?.teams?.[tid]
+    return team?.abbr || `Team ${tid}`
   }
 
   // Compact Action Card
@@ -1206,9 +1535,10 @@ export default function DangerZone() {
             <div><strong>Sync Recruiting:</strong> Missing data on recruiting pages</div>
             <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
             <div><strong>Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
+            <div><strong>Repair CCG:</strong> Conference championship games not showing in history</div>
+            <div><strong>Merge Players:</strong> Transfer created duplicate player instead of updating</div>
             <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
             <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
-            <div><strong>Database Migration:</strong> "Exceeds maximum size" errors</div>
           </div>
         </div>
       )}
@@ -1261,8 +1591,116 @@ export default function DangerZone() {
             onClick={handleRepairCFPGames}
             status={cfpRepairStatus}
           />
+          <ActionCard
+            title="Repair CCG Games"
+            description="Adds missing conference field to Conference Championship games"
+            buttonText="Repair CCG"
+            onClick={handleRepairCCGames}
+            status={ccgRepairStatus}
+          />
+          <ActionCard
+            title="Merge Duplicate Players"
+            description="Finds players with same name and merges their stats/history"
+            buttonText="Merge Players"
+            onClick={handleDetectDuplicates}
+            status={duplicateMergeStatus}
+          />
         </div>
       </div>
+
+      {/* Duplicate Players Confirmation UI */}
+      {duplicateGroups && duplicateGroups.length > 0 && (
+        <div className="rounded-lg p-4" style={{ backgroundColor: '#fef9c3', border: '2px solid #facc15' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-amber-800">
+              Found {duplicateGroups.length} possible duplicate{duplicateGroups.length > 1 ? ' groups' : ''}
+            </h3>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancelMerge}
+                className="px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmMerge}
+                disabled={selectedMergeGroups.size === 0}
+                className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                Merge {selectedMergeGroups.size} Selected
+              </button>
+            </div>
+          </div>
+
+          <p className="text-xs text-amber-700 mb-3">
+            Review each group below. Uncheck any groups that are actually different players with the same name.
+          </p>
+
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {duplicateGroups.map((group, idx) => (
+              <div
+                key={group.name}
+                className="rounded-lg p-3 bg-white border border-amber-200"
+              >
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedMergeGroups.has(idx)}
+                    onChange={() => toggleGroupSelection(idx)}
+                    className="w-4 h-4 mt-0.5 rounded border-amber-400"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-gray-900 capitalize">
+                      {group.name} <span className="text-xs font-normal text-gray-500">({group.players.length} entries)</span>
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {group.players.map((player, pIdx) => {
+                        const years = player.teamsByYear ? Object.keys(player.teamsByYear).sort() : []
+                        const teams = years.map(y => getTeamAbbrFromTid(player.teamsByYear[y]))
+                        const uniqueTeams = [...new Set(teams)]
+
+                        return (
+                          <div key={player.pid} className="text-xs text-gray-600 flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded ${pIdx === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                              {pIdx === 0 ? 'Keep' : 'Merge'}
+                            </span>
+                            <span>
+                              {player.position || '??'} •
+                              PID {player.pid} •
+                              {uniqueTeams.length > 0 ? ` ${uniqueTeams.join(' → ')}` : ' No team'} •
+                              {years.length > 0 ? ` Years: ${years[0]}${years.length > 1 ? `-${years[years.length - 1]}` : ''}` : ' No years'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </label>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-amber-200 flex items-center justify-between">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setSelectedMergeGroups(new Set(duplicateGroups.map((_, i) => i)))}
+                className="text-xs text-amber-700 hover:text-amber-900 underline"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => setSelectedMergeGroups(new Set())}
+                className="text-xs text-amber-700 hover:text-amber-900 underline"
+              >
+                Deselect All
+              </button>
+            </div>
+            <span className="text-xs text-amber-600">
+              {selectedMergeGroups.size} of {duplicateGroups.length} selected
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Delete Specific Game Section */}
       <div>

@@ -1,15 +1,14 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { getContrastTextColor } from '../utils/colorUtils'
+import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 
 export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors }) {
   const { refreshSession } = useAuth()
   const [refreshing, setRefreshing] = useState(false)
 
-  if (!isOpen) return null
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
-  const primaryBgText = getContrastTextColor(teamColors?.primary || '#1f2937')
-  const secondaryBgText = getContrastTextColor(teamColors?.secondary || '#ffffff')
+  if (!isOpen) return null
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -37,10 +36,10 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
 
       {/* Modal */}
       <div
-        className="relative rounded-xl shadow-2xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6"
+        className="relative rounded-xl shadow-2xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border"
         style={{
-          backgroundColor: teamColors?.secondary || '#ffffff',
-          border: `3px solid ${teamColors?.primary || '#1f2937'}`
+          backgroundColor: modalColors.background,
+          borderColor: modalColors.border
         }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -48,9 +47,9 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
         <div className="flex justify-center mb-4">
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: '#fef3c7' }}
+            style={{ backgroundColor: `${modalColors.accent}20` }}
           >
-            <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-8 h-8" style={{ color: '#fbbf24' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
@@ -59,7 +58,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
         {/* Title */}
         <h3
           className="text-xl font-bold text-center mb-2"
-          style={{ color: secondaryBgText }}
+          style={{ color: modalColors.text }}
         >
           Session Expired
         </h3>
@@ -67,7 +66,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
         {/* Message */}
         <p
           className="text-center mb-6"
-          style={{ color: secondaryBgText, opacity: 0.8 }}
+          style={{ color: modalColors.textMuted }}
         >
           Your Google authentication has expired. Click below to refresh your session.
         </p>
@@ -79,8 +78,8 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
             disabled={refreshing}
             className="w-full py-3 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center justify-center gap-2"
             style={{
-              backgroundColor: teamColors?.primary || '#1f2937',
-              color: primaryBgText
+              backgroundColor: modalColors.accent,
+              color: getContrastTextColor(modalColors.accent)
             }}
           >
             {refreshing ? (
@@ -105,7 +104,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
             onClick={onClose}
             disabled={refreshing}
             className="w-full py-2 text-sm font-medium hover:opacity-70 transition-opacity"
-            style={{ color: secondaryBgText, opacity: 0.6 }}
+            style={{ color: modalColors.textMuted }}
           >
             Cancel
           </button>

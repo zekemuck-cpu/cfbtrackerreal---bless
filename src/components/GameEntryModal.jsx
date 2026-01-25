@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences, getCurrentSchedule } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { getTeamLogo, getMascotName } from '../data/teams'
-import { getContrastTextColor } from '../utils/colorUtils'
+import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
@@ -38,6 +38,7 @@ export default function GameEntryModal({
   const { user } = useAuth()
   // Get team-centric team ratings
   const teamRatings = getCurrentTeamRatings(currentDynasty)
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   // Determine effective team context - use viewing team if provided, otherwise user's current team
   // This allows editing games from any team's page without defaulting to user's current team
@@ -1566,17 +1567,17 @@ export default function GameEntryModal({
       onMouseDown={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-4rem)] sm:max-h-[95vh] flex flex-col overflow-hidden"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-4rem)] sm:max-h-[95vh] flex flex-col overflow-hidden border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex-shrink-0 px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between z-10 gap-2"
           style={{
-            backgroundColor: teamColors.primary
+            backgroundColor: modalColors.headerBg
           }}
         >
           <div className="min-w-0 flex-1">
-            <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: getContrastTextColor(teamColors.primary) }}>
+            <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: modalColors.text }}>
               {isConferenceChampionship || effectiveGame?.isConferenceChampionship
                 ? `${currentDynasty?.conference || effectiveGame?.conference || getTeamConference(effectiveTeamAbbr) || 'Conference'} Championship`
                 : effectiveGame?.isCFPChampionship
@@ -1598,7 +1599,7 @@ export default function GameEntryModal({
                 const team1Name = getMascotName(effectiveGame?.team1, teamsData) || getOpponentTeamName(effectiveGame?.team1)
                 const team2Name = getMascotName(effectiveGame?.team2, teamsData) || getOpponentTeamName(effectiveGame?.team2)
                 return (
-                  <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: getContrastTextColor(teamColors.primary), opacity: 0.8 }}>
+                  <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: modalColors.textMuted }}>
                     {team1Name} vs {team2Name}
                   </p>
                 )
@@ -1607,7 +1608,7 @@ export default function GameEntryModal({
                 const opponentAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
                 const opponentFullName = opponentAbbr ? (getMascotName(opponentAbbr, teamsData) || getOpponentTeamName(opponentAbbr)) : opponentAbbr
                 return (
-                  <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: getContrastTextColor(teamColors.primary), opacity: 0.8 }}>
+                  <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: modalColors.textMuted }}>
                     {isConferenceChampionship ? 'vs' : (scheduledGame?.location === 'away' ? '@' : 'vs')} {opponentFullName}
                   </p>
                 )
@@ -1635,7 +1636,7 @@ export default function GameEntryModal({
             <button
               onClick={onClose}
               className="hover:opacity-70 p-1.5 rounded-full transition-colors"
-              style={{ color: getContrastTextColor(teamColors.primary), backgroundColor: `${getContrastTextColor(teamColors.primary)}15` }}
+              style={{ color: modalColors.text, backgroundColor: `${modalColors.text}15` }}
             >
               <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1647,13 +1648,13 @@ export default function GameEntryModal({
         <form ref={formRef} onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 sm:space-y-6 pb-4">
           {/* Score Section */}
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-bold" style={{ color: teamColors.primary }}>
+              <h3 className="text-base sm:text-lg font-bold" style={{ color: modalColors.text }}>
                 Final Score
               </h3>
               {isScoreLocked && (
-                <span className="text-xs sm:text-sm px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full flex items-center gap-1 font-medium">
+                <span className="text-xs sm:text-sm px-2.5 py-1 bg-amber-900/30 text-amber-400 rounded-full flex items-center gap-1 font-medium">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
@@ -1663,8 +1664,8 @@ export default function GameEntryModal({
             </div>
 
             {/* Quarter by Quarter Scoring */}
-            <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-              <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3" style={{ color: teamColors.primary }}>
+            <div className="rounded-xl p-3 sm:p-4" style={{ backgroundColor: `${modalColors.background}80` }}>
+              <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3" style={{ color: modalColors.accent }}>
                 Quarter by Quarter Scoring (Optional)
               </h4>
 
@@ -1714,18 +1715,18 @@ export default function GameEntryModal({
                     <>
                       {/* Headers */}
                       <div className="grid gap-1 sm:gap-2 items-center" style={{ gridTemplateColumns: `40px repeat(${4 + gameData.overtimes.length}, minmax(40px, 50px)) minmax(50px, 60px)` }}>
-                        <div className="text-xs font-semibold text-gray-600"></div>
-                        <div className="text-xs font-semibold text-gray-600 text-center">Q1</div>
-                        <div className="text-xs font-semibold text-gray-600 text-center">Q2</div>
-                        <div className="text-xs font-semibold text-gray-600 text-center">Q3</div>
-                        <div className="text-xs font-semibold text-gray-600 text-center">Q4</div>
+                        <div className="text-xs font-semibold" style={{ color: modalColors.textMuted }}></div>
+                        <div className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>Q1</div>
+                        <div className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>Q2</div>
+                        <div className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>Q3</div>
+                        <div className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>Q4</div>
                         {gameData.overtimes.map((_, i) => (
-                          <div key={i} className="text-xs font-semibold text-gray-600 text-center">
+                          <div key={i} className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>
                             OT{i + 1}
                           </div>
                         ))}
-                        <div className="text-xs font-semibold text-gray-600 text-center">
-                          Total <span className="text-red-500">*</span>
+                        <div className="text-xs font-semibold text-center" style={{ color: modalColors.textMuted }}>
+                          Total <span className="text-red-400">*</span>
                         </div>
                       </div>
 
@@ -1750,7 +1751,7 @@ export default function GameEntryModal({
                                 />
                               </div>
                             ) : (
-                              <div className="text-xs font-semibold text-gray-600 truncate">{topTeam.name}</div>
+                              <div className="text-xs font-semibold truncate" style={{ color: modalColors.textMuted }}>{topTeam.name}</div>
                             )}
                           </div>
                           <div className="flex items-center justify-center h-[30px] sm:h-[34px]">
@@ -1770,7 +1771,7 @@ export default function GameEntryModal({
                                 />
                               </div>
                             ) : (
-                              <div className="text-xs font-semibold text-gray-600 truncate">{bottomTeam.name}</div>
+                              <div className="text-xs font-semibold truncate" style={{ color: modalColors.textMuted }}>{bottomTeam.name}</div>
                             )}
                           </div>
                         </div>
@@ -1789,8 +1790,8 @@ export default function GameEntryModal({
                             }}
                             data-team={topTeam.key}
                             data-quarter="Q1"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: topTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1808,8 +1809,8 @@ export default function GameEntryModal({
                             }}
                             data-team={bottomTeam.key}
                             data-quarter="Q1"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: bottomTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1831,8 +1832,8 @@ export default function GameEntryModal({
                             }}
                             data-team={topTeam.key}
                             data-quarter="Q2"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: topTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1850,8 +1851,8 @@ export default function GameEntryModal({
                             }}
                             data-team={bottomTeam.key}
                             data-quarter="Q2"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: bottomTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1873,8 +1874,8 @@ export default function GameEntryModal({
                             }}
                             data-team={topTeam.key}
                             data-quarter="Q3"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: topTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1892,8 +1893,8 @@ export default function GameEntryModal({
                             }}
                             data-team={bottomTeam.key}
                             data-quarter="Q3"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: bottomTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1915,8 +1916,8 @@ export default function GameEntryModal({
                             }}
                             data-team={topTeam.key}
                             data-quarter="Q4"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: topTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1936,8 +1937,8 @@ export default function GameEntryModal({
                             }}
                             data-team={bottomTeam.key}
                             data-quarter="Q4"
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: bottomTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                             min="0"
                             placeholder="0"
                             disabled={isScoreLocked}
@@ -1960,8 +1961,8 @@ export default function GameEntryModal({
                               }}
                               data-team={topTeam.key}
                               data-ot={otIdx}
-                              className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                              style={{ borderColor: topTeam.colors.primary }}
+                              className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                               min="0"
                               placeholder="0"
                               disabled={isScoreLocked}
@@ -1981,8 +1982,8 @@ export default function GameEntryModal({
                               }}
                               data-team={bottomTeam.key}
                               data-ot={otIdx}
-                              className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                              style={{ borderColor: bottomTeam.colors.primary }}
+                              className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm ${isScoreLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                               min="0"
                               placeholder="0"
                               disabled={isScoreLocked}
@@ -2000,8 +2001,8 @@ export default function GameEntryModal({
                               ...gameData,
                               [topTeam.key === 'team' ? 'teamScore' : 'opponentScore']: e.target.value
                             })}
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm font-bold ${isScoreLocked || hasQuarterScores() ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: topTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm font-bold ${isScoreLocked || hasQuarterScores() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: topTeam.colors.primary }}
                             min="0"
                             readOnly={hasQuarterScores() || isScoreLocked}
                             disabled={hasQuarterScores() || isScoreLocked}
@@ -2014,8 +2015,8 @@ export default function GameEntryModal({
                               ...gameData,
                               [bottomTeam.key === 'team' ? 'teamScore' : 'opponentScore']: e.target.value
                             })}
-                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm font-bold ${isScoreLocked || hasQuarterScores() ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            style={{ borderColor: bottomTeam.colors.primary }}
+                            className={`w-full px-1 sm:px-2 py-1 border-2 rounded text-center text-xs sm:text-sm font-bold ${isScoreLocked || hasQuarterScores() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: bottomTeam.colors.primary }}
                             min="0"
                             readOnly={hasQuarterScores() || isScoreLocked}
                             disabled={hasQuarterScores() || isScoreLocked}
@@ -2033,19 +2034,19 @@ export default function GameEntryModal({
 
           {/* Rankings Section - only show for user games (CPU games have ranks in team cards) */}
           {!isCPUGame && (
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
             <div className="mb-4">
-              <h3 className="text-base sm:text-lg font-bold" style={{ color: teamColors.primary }}>
+              <h3 className="text-base sm:text-lg font-bold" style={{ color: modalColors.text }}>
                 National Rankings
               </h3>
-              <p className="text-xs mt-1 text-gray-500">
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
                 Leave blank if unranked
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                   Your National Rank
                 </label>
                 <input
@@ -2053,14 +2054,14 @@ export default function GameEntryModal({
                   value={gameData.userRank}
                   onChange={(e) => setGameData({ ...gameData, userRank: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   min="1"
                   max="133"
                   placeholder="#"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                   Opponent Rank
                 </label>
                 <input
@@ -2068,7 +2069,7 @@ export default function GameEntryModal({
                   value={gameData.opponentRank}
                   onChange={(e) => setGameData({ ...gameData, opponentRank: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   min="1"
                   max="133"
                   placeholder="#"
@@ -2080,7 +2081,7 @@ export default function GameEntryModal({
 
           {/* Opponent Team Ratings Section - hide for CPU vs CPU games */}
           {!isCPUGame && (
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
             <div className="flex items-center gap-2 sm:gap-3 mb-4">
               {(() => {
                 const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
@@ -2110,7 +2111,7 @@ export default function GameEntryModal({
                         />
                       </div>
                     )}
-                    <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: teamColors.primary }}>
+                    <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: modalColors.text }}>
                       {opponentDisplayName} Team Ratings
                     </h3>
                   </>
@@ -2120,7 +2121,7 @@ export default function GameEntryModal({
 
             <div className="grid grid-cols-3 gap-2 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                   Overall
                 </label>
                 <input
@@ -2128,14 +2129,14 @@ export default function GameEntryModal({
                   value={gameData.opponentOverall}
                   onChange={(e) => setGameData({ ...gameData, opponentOverall: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   min="0"
                   max="99"
                   placeholder="85"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                   Offense
                 </label>
                 <input
@@ -2143,14 +2144,14 @@ export default function GameEntryModal({
                   value={gameData.opponentOffense}
                   onChange={(e) => setGameData({ ...gameData, opponentOffense: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   min="0"
                   max="99"
                   placeholder="87"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                   Defense
                 </label>
                 <input
@@ -2158,7 +2159,7 @@ export default function GameEntryModal({
                   value={gameData.opponentDefense}
                   onChange={(e) => setGameData({ ...gameData, opponentDefense: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   min="0"
                   max="99"
                   placeholder="83"
@@ -2170,14 +2171,14 @@ export default function GameEntryModal({
 
           {/* Opponent Record Section - hide for CPU vs CPU games */}
           {!isCPUGame && (
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
-            <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: teamColors.primary }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
+            <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: modalColors.text }}>
               Opponent Record <span className="text-xs sm:text-sm font-normal opacity-70">(after this game)</span>
             </h3>
 
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                   Overall Record
                 </label>
                 <input
@@ -2185,13 +2186,13 @@ export default function GameEntryModal({
                   value={gameData.overallRecord}
                   onChange={(e) => setGameData({ ...gameData, overallRecord: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-lg font-mono text-center focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   placeholder="10-2"
                   maxLength="5"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                   Conference Record
                 </label>
                 <input
@@ -2199,7 +2200,7 @@ export default function GameEntryModal({
                   value={gameData.conferenceRecord}
                   onChange={(e) => setGameData({ ...gameData, conferenceRecord: e.target.value })}
                   className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-lg font-mono text-center focus:ring-2 focus:outline-none transition-all"
-                  style={{ borderColor: `${teamColors.primary}40` }}
+                  style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                   placeholder="6-2"
                   maxLength="5"
                 />
@@ -2210,20 +2211,20 @@ export default function GameEntryModal({
 
           {/* Player of the Week Section - hide for CPU vs CPU games */}
           {!isCPUGame && (
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
-            <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: teamColors.primary }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
+            <h3 className="text-base sm:text-lg font-bold mb-4" style={{ color: modalColors.text }}>
               Player of the Week Honors
             </h3>
 
             {/* Conference POW Row */}
             <div className="space-y-2 mb-4">
-              <h4 className="text-xs sm:text-sm font-medium" style={{ color: teamColors.primary, opacity: 0.8 }}>
+              <h4 className="text-xs sm:text-sm font-medium" style={{ color: modalColors.accent, opacity: 0.8 }}>
                 Conference
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* Conference Offensive POW */}
                 <div className="relative" ref={confPOWDropdownRef}>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                     Offensive
                   </label>
                   <div className="relative">
@@ -2247,7 +2248,9 @@ export default function GameEntryModal({
                       onKeyDown={handleConfPOWKeyDown}
                       className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 rounded-lg focus:ring-2 focus:outline-none transition-colors text-sm sm:text-base"
                       style={{
-                        borderColor: teamColors.primary,
+                        backgroundColor: modalColors.inputBg,
+                        color: modalColors.text,
+                        borderColor: modalColors.accent,
                         paddingRight: '2.75rem'
                       }}
                       placeholder="Search or select..."
@@ -2256,7 +2259,7 @@ export default function GameEntryModal({
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
                         className={`w-5 h-5 transition-transform ${confPOWOpen ? 'rotate-180' : ''}`}
-                        style={{ color: teamColors.primary }}
+                        style={{ color: modalColors.accent }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2268,10 +2271,10 @@ export default function GameEntryModal({
 
                   {confPOWOpen && (filteredConfPlayers.length > 0 || !confPOWSearch) && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
                         confPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       {!confPOWSearch && (
                         <div
@@ -2279,9 +2282,9 @@ export default function GameEntryModal({
                           onMouseEnter={() => setConfPOWHighlight(-1)}
                           className="px-4 py-2 cursor-pointer transition-colors border-b italic"
                           style={{
-                            backgroundColor: confPOWHighlight === -1 ? `${teamColors.primary}20` : 'white',
-                            color: confPOWHighlight === -1 ? teamColors.primary : '#6b7280',
-                            borderColor: `${teamColors.primary}20`
+                            backgroundColor: confPOWHighlight === -1 ? `${modalColors.accent}30` : 'transparent',
+                            color: confPOWHighlight === -1 ? modalColors.accent : modalColors.textMuted,
+                            borderColor: modalColors.border
                           }}
                         >
                           (None)
@@ -2294,8 +2297,8 @@ export default function GameEntryModal({
                           onMouseEnter={() => setConfPOWHighlight(index)}
                           className="px-4 py-2 cursor-pointer transition-colors"
                           style={{
-                            backgroundColor: index === confPOWHighlight ? `${teamColors.primary}20` : 'white',
-                            color: index === confPOWHighlight ? teamColors.primary : 'inherit',
+                            backgroundColor: index === confPOWHighlight ? `${modalColors.accent}30` : 'transparent',
+                            color: index === confPOWHighlight ? modalColors.accent : modalColors.text,
                             fontWeight: conferencePOW === name ? 'bold' : 'normal'
                           }}
                         >
@@ -2307,10 +2310,10 @@ export default function GameEntryModal({
 
                   {confPOWOpen && confPOWSearch && filteredConfPlayers.length === 0 && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg p-4 text-center text-gray-500 ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg p-4 text-center ${
                         confPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       No players found matching "{confPOWSearch}"
                     </div>
@@ -2319,7 +2322,7 @@ export default function GameEntryModal({
 
                 {/* Conference Defensive POW */}
                 <div className="relative" ref={confDefPOWDropdownRef}>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                     Defensive
                   </label>
                   <div className="relative">
@@ -2343,7 +2346,9 @@ export default function GameEntryModal({
                       onKeyDown={handleConfDefPOWKeyDown}
                       className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 rounded-lg focus:ring-2 focus:outline-none transition-colors text-sm sm:text-base"
                       style={{
-                        borderColor: teamColors.primary,
+                        backgroundColor: modalColors.inputBg,
+                        color: modalColors.text,
+                        borderColor: modalColors.accent,
                         paddingRight: '2.75rem'
                       }}
                       placeholder="Search or select..."
@@ -2352,7 +2357,7 @@ export default function GameEntryModal({
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
                         className={`w-5 h-5 transition-transform ${confDefPOWOpen ? 'rotate-180' : ''}`}
-                        style={{ color: teamColors.primary }}
+                        style={{ color: modalColors.accent }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2364,10 +2369,10 @@ export default function GameEntryModal({
 
                   {confDefPOWOpen && (filteredConfDefPlayers.length > 0 || !confDefPOWSearch) && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
                         confDefPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       {!confDefPOWSearch && (
                         <div
@@ -2375,9 +2380,9 @@ export default function GameEntryModal({
                           onMouseEnter={() => setConfDefPOWHighlight(-1)}
                           className="px-4 py-2 cursor-pointer transition-colors border-b italic"
                           style={{
-                            backgroundColor: confDefPOWHighlight === -1 ? `${teamColors.primary}20` : 'white',
-                            color: confDefPOWHighlight === -1 ? teamColors.primary : '#6b7280',
-                            borderColor: `${teamColors.primary}20`
+                            backgroundColor: confDefPOWHighlight === -1 ? `${modalColors.accent}30` : 'transparent',
+                            color: confDefPOWHighlight === -1 ? modalColors.accent : modalColors.textMuted,
+                            borderColor: modalColors.border
                           }}
                         >
                           (None)
@@ -2390,8 +2395,8 @@ export default function GameEntryModal({
                           onMouseEnter={() => setConfDefPOWHighlight(index)}
                           className="px-4 py-2 cursor-pointer transition-colors"
                           style={{
-                            backgroundColor: index === confDefPOWHighlight ? `${teamColors.primary}20` : 'white',
-                            color: index === confDefPOWHighlight ? teamColors.primary : 'inherit',
+                            backgroundColor: index === confDefPOWHighlight ? `${modalColors.accent}30` : 'transparent',
+                            color: index === confDefPOWHighlight ? modalColors.accent : modalColors.text,
                             fontWeight: confDefensePOW === name ? 'bold' : 'normal'
                           }}
                         >
@@ -2403,10 +2408,10 @@ export default function GameEntryModal({
 
                   {confDefPOWOpen && confDefPOWSearch && filteredConfDefPlayers.length === 0 && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg p-4 text-center text-gray-500 ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg p-4 text-center ${
                         confDefPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       No players found matching "{confDefPOWSearch}"
                     </div>
@@ -2417,13 +2422,13 @@ export default function GameEntryModal({
 
             {/* National POW Row */}
             <div className="space-y-2">
-              <h4 className="text-xs sm:text-sm font-medium" style={{ color: teamColors.primary, opacity: 0.8 }}>
+              <h4 className="text-xs sm:text-sm font-medium" style={{ color: modalColors.accent, opacity: 0.8 }}>
                 National
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {/* National Offensive POW */}
                 <div className="relative" ref={natlPOWDropdownRef}>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                     Offensive
                   </label>
                   <div className="relative">
@@ -2447,7 +2452,9 @@ export default function GameEntryModal({
                       onKeyDown={handleNatlPOWKeyDown}
                       className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 rounded-lg focus:ring-2 focus:outline-none transition-colors text-sm sm:text-base"
                       style={{
-                        borderColor: teamColors.primary,
+                        backgroundColor: modalColors.inputBg,
+                        color: modalColors.text,
+                        borderColor: modalColors.accent,
                         paddingRight: '2.75rem'
                       }}
                       placeholder="Search or select..."
@@ -2456,7 +2463,7 @@ export default function GameEntryModal({
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
                         className={`w-5 h-5 transition-transform ${natlPOWOpen ? 'rotate-180' : ''}`}
-                        style={{ color: teamColors.primary }}
+                        style={{ color: modalColors.accent }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2468,10 +2475,10 @@ export default function GameEntryModal({
 
                   {natlPOWOpen && (filteredNatlPlayers.length > 0 || !natlPOWSearch) && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
                         natlPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       {!natlPOWSearch && (
                         <div
@@ -2479,9 +2486,9 @@ export default function GameEntryModal({
                           onMouseEnter={() => setNatlPOWHighlight(-1)}
                           className="px-4 py-2 cursor-pointer transition-colors border-b italic"
                           style={{
-                            backgroundColor: natlPOWHighlight === -1 ? `${teamColors.primary}20` : 'white',
-                            color: natlPOWHighlight === -1 ? teamColors.primary : '#6b7280',
-                            borderColor: `${teamColors.primary}20`
+                            backgroundColor: natlPOWHighlight === -1 ? `${modalColors.accent}30` : 'transparent',
+                            color: natlPOWHighlight === -1 ? modalColors.accent : modalColors.textMuted,
+                            borderColor: modalColors.border
                           }}
                         >
                           (None)
@@ -2494,8 +2501,8 @@ export default function GameEntryModal({
                           onMouseEnter={() => setNatlPOWHighlight(index)}
                           className="px-4 py-2 cursor-pointer transition-colors"
                           style={{
-                            backgroundColor: index === natlPOWHighlight ? `${teamColors.primary}20` : 'white',
-                            color: index === natlPOWHighlight ? teamColors.primary : 'inherit',
+                            backgroundColor: index === natlPOWHighlight ? `${modalColors.accent}30` : 'transparent',
+                            color: index === natlPOWHighlight ? modalColors.accent : modalColors.text,
                             fontWeight: nationalPOW === name ? 'bold' : 'normal'
                           }}
                         >
@@ -2507,10 +2514,10 @@ export default function GameEntryModal({
 
                   {natlPOWOpen && natlPOWSearch && filteredNatlPlayers.length === 0 && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg p-4 text-center text-gray-500 ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg p-4 text-center ${
                         natlPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       No players found matching "{natlPOWSearch}"
                     </div>
@@ -2519,7 +2526,7 @@ export default function GameEntryModal({
 
                 {/* National Defensive POW */}
                 <div className="relative" ref={natlDefPOWDropdownRef}>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1 sm:mb-2" style={{ color: modalColors.accent }}>
                     Defensive
                   </label>
                   <div className="relative">
@@ -2543,7 +2550,9 @@ export default function GameEntryModal({
                       onKeyDown={handleNatlDefPOWKeyDown}
                       className="w-full px-2 sm:px-4 py-1.5 sm:py-2 border-2 rounded-lg focus:ring-2 focus:outline-none transition-colors text-sm sm:text-base"
                       style={{
-                        borderColor: teamColors.primary,
+                        backgroundColor: modalColors.inputBg,
+                        color: modalColors.text,
+                        borderColor: modalColors.accent,
                         paddingRight: '2.75rem'
                       }}
                       placeholder="Search or select..."
@@ -2552,7 +2561,7 @@ export default function GameEntryModal({
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <svg
                         className={`w-5 h-5 transition-transform ${natlDefPOWOpen ? 'rotate-180' : ''}`}
-                        style={{ color: teamColors.primary }}
+                        style={{ color: modalColors.accent }}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2564,10 +2573,10 @@ export default function GameEntryModal({
 
                   {natlDefPOWOpen && (filteredNatlDefPlayers.length > 0 || !natlDefPOWSearch) && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg max-h-60 overflow-auto ${
                         natlDefPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       {!natlDefPOWSearch && (
                         <div
@@ -2575,9 +2584,9 @@ export default function GameEntryModal({
                           onMouseEnter={() => setNatlDefPOWHighlight(-1)}
                           className="px-4 py-2 cursor-pointer transition-colors border-b italic"
                           style={{
-                            backgroundColor: natlDefPOWHighlight === -1 ? `${teamColors.primary}20` : 'white',
-                            color: natlDefPOWHighlight === -1 ? teamColors.primary : '#6b7280',
-                            borderColor: `${teamColors.primary}20`
+                            backgroundColor: natlDefPOWHighlight === -1 ? `${modalColors.accent}30` : 'transparent',
+                            color: natlDefPOWHighlight === -1 ? modalColors.accent : modalColors.textMuted,
+                            borderColor: modalColors.border
                           }}
                         >
                           (None)
@@ -2590,8 +2599,8 @@ export default function GameEntryModal({
                           onMouseEnter={() => setNatlDefPOWHighlight(index)}
                           className="px-4 py-2 cursor-pointer transition-colors"
                           style={{
-                            backgroundColor: index === natlDefPOWHighlight ? `${teamColors.primary}20` : 'white',
-                            color: index === natlDefPOWHighlight ? teamColors.primary : 'inherit',
+                            backgroundColor: index === natlDefPOWHighlight ? `${modalColors.accent}30` : 'transparent',
+                            color: index === natlDefPOWHighlight ? modalColors.accent : modalColors.text,
                             fontWeight: natlDefensePOW === name ? 'bold' : 'normal'
                           }}
                         >
@@ -2603,10 +2612,10 @@ export default function GameEntryModal({
 
                   {natlDefPOWOpen && natlDefPOWSearch && filteredNatlDefPlayers.length === 0 && (
                     <div
-                      className={`absolute z-10 w-full bg-white border-2 rounded-lg shadow-lg p-4 text-center text-gray-500 ${
+                      className={`absolute z-10 w-full border-2 rounded-lg shadow-lg p-4 text-center ${
                         natlDefPOWDropUp ? 'bottom-full mb-1' : 'top-full mt-1'
                       }`}
-                      style={{ borderColor: `${teamColors.primary}40` }}
+                      style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     >
                       No players found matching "{natlDefPOWSearch}"
                     </div>
@@ -2621,7 +2630,7 @@ export default function GameEntryModal({
           {isCPUGame && (
           <>
             {/* Team 1 Section */}
-            <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+            <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
                   // Derive team abbr from tid for unified format games
@@ -2642,7 +2651,7 @@ export default function GameEntryModal({
                           className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{
                             backgroundColor: '#FFFFFF',
-                            border: `2px solid ${team1Colors?.textColor || teamColors.primary}`,
+                            border: `2px solid ${team1Colors?.textColor || modalColors.accent}`,
                             padding: '2px'
                           }}
                         >
@@ -2653,7 +2662,7 @@ export default function GameEntryModal({
                           />
                         </div>
                       )}
-                      <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: teamColors.primary }}>
+                      <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: modalColors.text }}>
                         {team1DisplayName}
                       </h3>
                     </>
@@ -2664,7 +2673,7 @@ export default function GameEntryModal({
               {/* Team 1 Rank and Record */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Ranking
                   </label>
                   <input
@@ -2672,14 +2681,14 @@ export default function GameEntryModal({
                     value={gameData.team1Rank}
                     onChange={(e) => setGameData({ ...gameData, team1Rank: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="1"
                     max="25"
                     placeholder="Unranked"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Record
                   </label>
                   <input
@@ -2687,7 +2696,7 @@ export default function GameEntryModal({
                     value={gameData.team1Record}
                     onChange={(e) => setGameData({ ...gameData, team1Record: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base font-mono text-center focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     placeholder="10-2"
                     maxLength="10"
                   />
@@ -2697,7 +2706,7 @@ export default function GameEntryModal({
               {/* Team 1 Ratings */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Overall
                   </label>
                   <input
@@ -2705,14 +2714,14 @@ export default function GameEntryModal({
                     value={gameData.team1Overall}
                     onChange={(e) => setGameData({ ...gameData, team1Overall: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="85"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Offense
                   </label>
                   <input
@@ -2720,14 +2729,14 @@ export default function GameEntryModal({
                     value={gameData.team1Offense}
                     onChange={(e) => setGameData({ ...gameData, team1Offense: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="87"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Defense
                   </label>
                   <input
@@ -2735,7 +2744,7 @@ export default function GameEntryModal({
                     value={gameData.team1Defense}
                     onChange={(e) => setGameData({ ...gameData, team1Defense: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="83"
@@ -2745,7 +2754,7 @@ export default function GameEntryModal({
             </div>
 
             {/* Team 2 Section */}
-            <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+            <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
               <div className="flex items-center gap-2 sm:gap-3 mb-4">
                 {(() => {
                   // Derive team abbr from tid for unified format games
@@ -2766,7 +2775,7 @@ export default function GameEntryModal({
                           className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{
                             backgroundColor: '#FFFFFF',
-                            border: `2px solid ${team2Colors?.textColor || teamColors.primary}`,
+                            border: `2px solid ${team2Colors?.textColor || modalColors.accent}`,
                             padding: '2px'
                           }}
                         >
@@ -2777,7 +2786,7 @@ export default function GameEntryModal({
                           />
                         </div>
                       )}
-                      <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: teamColors.primary }}>
+                      <h3 className="text-base sm:text-lg font-bold truncate" style={{ color: modalColors.text }}>
                         {team2DisplayName}
                       </h3>
                     </>
@@ -2788,7 +2797,7 @@ export default function GameEntryModal({
               {/* Team 2 Rank and Record */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Ranking
                   </label>
                   <input
@@ -2796,14 +2805,14 @@ export default function GameEntryModal({
                     value={gameData.team2Rank}
                     onChange={(e) => setGameData({ ...gameData, team2Rank: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="1"
                     max="25"
                     placeholder="Unranked"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Record
                   </label>
                   <input
@@ -2811,7 +2820,7 @@ export default function GameEntryModal({
                     value={gameData.team2Record}
                     onChange={(e) => setGameData({ ...gameData, team2Record: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base font-mono text-center focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     placeholder="8-4"
                     maxLength="10"
                   />
@@ -2821,7 +2830,7 @@ export default function GameEntryModal({
               {/* Team 2 Ratings */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Overall
                   </label>
                   <input
@@ -2829,14 +2838,14 @@ export default function GameEntryModal({
                     value={gameData.team2Overall}
                     onChange={(e) => setGameData({ ...gameData, team2Overall: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="85"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Offense
                   </label>
                   <input
@@ -2844,14 +2853,14 @@ export default function GameEntryModal({
                     value={gameData.team2Offense}
                     onChange={(e) => setGameData({ ...gameData, team2Offense: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="87"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+                  <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                     Defense
                   </label>
                   <input
@@ -2859,7 +2868,7 @@ export default function GameEntryModal({
                     value={gameData.team2Defense}
                     onChange={(e) => setGameData({ ...gameData, team2Defense: e.target.value })}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     min="0"
                     max="99"
                     placeholder="83"
@@ -2871,9 +2880,9 @@ export default function GameEntryModal({
           )}
 
           {/* AI Game Recap Section */}
-          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: 'white', border: `1px solid ${teamColors.primary}20` }}>
+          <div className="rounded-xl p-4 sm:p-5 shadow-sm" style={{ backgroundColor: modalColors.inputBg, border: `1px solid ${modalColors.border}` }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-bold" style={{ color: teamColors.primary }}>
+              <h3 className="text-base sm:text-lg font-bold" style={{ color: modalColors.text }}>
                 Game Recap
               </h3>
               {(existingGame?.id || tempGameId) && (
@@ -2928,9 +2937,9 @@ export default function GameEntryModal({
                   disabled={isGeneratingRecap}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
                   style={{
-                    backgroundColor: `${teamColors.primary}15`,
-                    color: teamColors.primary,
-                    border: `1px solid ${teamColors.primary}30`
+                    backgroundColor: `${modalColors.accent}20`,
+                    color: modalColors.accent,
+                    border: `1px solid ${modalColors.accent}40`
                   }}
                 >
                   {isGeneratingRecap ? (
@@ -2954,12 +2963,12 @@ export default function GameEntryModal({
             </div>
 
             {/* Tip for better AI results */}
-            <p className="text-xs text-gray-500 mb-3 italic">
+            <p className="text-xs mb-3 italic" style={{ color: modalColors.textMuted }}>
               Tip: Fill in all game data (score, box score, quarters, scoring summary) before generating for the best results. The AI uses this data plus historical context to write the recap.
             </p>
 
             {recapError && (
-              <div className="mb-3 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+              <div className="mb-3 p-2 rounded-lg bg-red-900/30 border border-red-700 text-red-400 text-xs">
                 {recapError}
               </div>
             )}
@@ -2969,17 +2978,17 @@ export default function GameEntryModal({
                 value={gameData.aiRecap}
                 onChange={(e) => setGameData({ ...gameData, aiRecap: e.target.value })}
                 className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm focus:ring-2 focus:outline-none transition-all"
-                style={{ borderColor: `${teamColors.primary}40` }}
+                style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                 rows="10"
                 placeholder={existingGame?.id || tempGameId ? "Click 'Generate' to create an AI recap, or write your own..." : "Save the game first to generate an AI recap, or write your own..."}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
                 You can edit the generated recap or write your own.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: teamColors.primary }}>
+              <label className="block text-xs sm:text-sm font-semibold mb-1.5" style={{ color: modalColors.accent }}>
                 Links (YouTube, Imgur, etc.)
               </label>
               <div className="space-y-2">
@@ -2990,7 +2999,7 @@ export default function GameEntryModal({
                     value={link}
                     onChange={(e) => handleLinkChange(index, e.target.value)}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm sm:text-base focus:ring-2 focus:outline-none transition-all"
-                    style={{ borderColor: `${teamColors.primary}40` }}
+                    style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                     placeholder={index === 0 ? "Paste link..." : "Add another link..."}
                   />
                 ))}
@@ -3041,9 +3050,9 @@ export default function GameEntryModal({
                       onClick={() => autoSaveAndOpenModal(setShowHomeStatsModal)}
                       className="flex-1 px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 border-2 hover:opacity-90 transition-colors"
                       style={{
-                        backgroundColor: homeCompleted ? `${teamColors.primary}25` : `${teamColors.primary}10`,
-                        color: teamColors.primary,
-                        borderColor: homeCompleted ? teamColors.primary : `${teamColors.primary}40`
+                        backgroundColor: homeCompleted ? `${modalColors.accent}30` : `${modalColors.accent}15`,
+                        color: modalColors.accent,
+                        borderColor: homeCompleted ? modalColors.accent : `${modalColors.accent}50`
                       }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3056,9 +3065,9 @@ export default function GameEntryModal({
                       onClick={() => autoSaveAndOpenModal(setShowAwayStatsModal)}
                       className="flex-1 px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 border-2 hover:opacity-90 transition-colors"
                       style={{
-                        backgroundColor: awayCompleted ? `${teamColors.primary}25` : `${teamColors.primary}10`,
-                        color: teamColors.primary,
-                        borderColor: awayCompleted ? teamColors.primary : `${teamColors.primary}40`
+                        backgroundColor: awayCompleted ? `${modalColors.accent}30` : `${modalColors.accent}15`,
+                        color: modalColors.accent,
+                        borderColor: awayCompleted ? modalColors.accent : `${modalColors.accent}50`
                       }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3073,9 +3082,9 @@ export default function GameEntryModal({
                       onClick={() => autoSaveAndOpenModal(setShowScoringModal)}
                       className="flex-1 px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 border-2 hover:opacity-90 transition-colors"
                       style={{
-                        backgroundColor: scoringCompleted ? `${teamColors.primary}25` : `${teamColors.primary}10`,
-                        color: teamColors.primary,
-                        borderColor: scoringCompleted ? teamColors.primary : `${teamColors.primary}40`
+                        backgroundColor: scoringCompleted ? `${modalColors.accent}30` : `${modalColors.accent}15`,
+                        color: modalColors.accent,
+                        borderColor: scoringCompleted ? modalColors.accent : `${modalColors.accent}50`
                       }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3088,9 +3097,9 @@ export default function GameEntryModal({
                       onClick={() => autoSaveAndOpenModal(setShowTeamStatsModal)}
                       className="flex-1 px-3 py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 border-2 hover:opacity-90 transition-colors"
                       style={{
-                        backgroundColor: teamStatsCompleted ? `${teamColors.primary}25` : `${teamColors.primary}10`,
-                        color: teamColors.primary,
-                        borderColor: teamStatsCompleted ? teamColors.primary : `${teamColors.primary}40`
+                        backgroundColor: teamStatsCompleted ? `${modalColors.accent}30` : `${modalColors.accent}15`,
+                        color: modalColors.accent,
+                        borderColor: teamStatsCompleted ? modalColors.accent : `${modalColors.accent}50`
                       }}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3099,7 +3108,7 @@ export default function GameEntryModal({
                       {teamStatsCompleted ? 'Edit Team Stats' : 'Team Stats'}
                     </button>
                   </div>
-                  <p className="text-xs text-center opacity-60" style={{ color: teamColors.primary }}>
+                  <p className="text-xs text-center opacity-60" style={{ color: modalColors.textMuted }}>
                     All optional - you will have a chance to enter all player season stats once the season has ended
                   </p>
                 </div>
@@ -3110,16 +3119,11 @@ export default function GameEntryModal({
           </div>
 
           {/* Buttons - Sticky Footer */}
-          <div className="flex-shrink-0 flex gap-3 sm:gap-4 p-4 sm:p-6 border-t" style={{ borderColor: `${teamColors.primary}20`, backgroundColor: teamColors.secondary }}>
+          <div className="flex-shrink-0 flex gap-3 sm:gap-4 p-4 sm:p-6 border-t" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold border-2 hover:bg-gray-50 transition-all text-sm sm:text-base"
-              style={{
-                borderColor: `${teamColors.primary}40`,
-                color: teamColors.primary,
-                backgroundColor: 'white'
-              }}
+              className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-all text-sm sm:text-base"
             >
               Cancel
             </button>
@@ -3127,8 +3131,8 @@ export default function GameEntryModal({
               type="submit"
               className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold hover:opacity-90 transition-all text-sm sm:text-base shadow-md"
               style={{
-                backgroundColor: teamColors.primary,
-                color: getContrastTextColor(teamColors.primary)
+                backgroundColor: modalColors.accent,
+                color: '#ffffff'
               }}
             >
               Save Game

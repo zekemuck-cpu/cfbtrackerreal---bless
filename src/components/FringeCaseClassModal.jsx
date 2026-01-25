@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import AuthErrorModal from './AuthErrorModal'
@@ -8,6 +8,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getModalColors } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -17,6 +18,7 @@ const isMobileDevice = () => {
 export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentYear, teamColors, fringeCasePlayers }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user } = useAuth()
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
@@ -211,23 +213,23 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Fringe Case Class Assignment
           </h2>
           <button
             onClick={handleClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -241,28 +243,28 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: teamColors.primary,
+                  borderColor: modalColors.accent,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
                 Creating Fringe Case Class Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Players with 5-9 games who might have redshirted
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
+              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
+              <p className="text-xl font-bold mb-2" style={{ color: modalColors.background }}>
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm" style={{ color: modalColors.background, opacity: 0.9 }}>
                 Fringe case classes have been assigned.
               </p>
             </div>
@@ -271,8 +273,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Explanation for embedded view */}
             {!isMobile && useEmbedded && (
-              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15` }}>
-                <p className="text-sm" style={{ color: teamColors.primary }}>
+              <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: `${modalColors.accent}15` }}>
+                <p className="text-sm" style={{ color: modalColors.text }}>
                   <strong>Why is this needed?</strong> Players with 5-9 total games might have used a redshirt if they played 4 or fewer <em>regular season</em> games (bowl/CFP games don't count against redshirt eligibility). Review each player and select the redshirt version if applicable.
                 </p>
               </div>
@@ -287,8 +289,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                     disabled={syncing || deletingSheet}
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: modalColors.background
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -299,8 +301,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.accent
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -332,8 +334,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                   }}
                   className="text-xs px-3 py-1 rounded-full border transition-colors"
                   style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
+                    borderColor: modalColors.accent,
+                    color: modalColors.accent,
                     backgroundColor: 'transparent'
                   }}
                 >
@@ -344,20 +346,20 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: teamColors.primary }}>
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: modalColors.accent }}>
+                  <svg className="w-10 h-10" fill="none" stroke={modalColors.background} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>Resolve Fringe Case Classes</h3>
+                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>Resolve Fringe Case Classes</h3>
                 <div className="text-left mb-6 max-w-md">
-                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: `${teamColors.primary}15` }}>
-                    <p className="text-sm" style={{ color: teamColors.primary }}>
+                  <div className="p-3 rounded-lg mb-4" style={{ backgroundColor: `${modalColors.accent}15` }}>
+                    <p className="text-sm" style={{ color: modalColors.text }}>
                       <strong>Why is this needed?</strong> Players with 5-9 total games might have used a redshirt if they played 4 or fewer <em>regular season</em> games (bowl/CFP games don't count against redshirt eligibility). Review each player and select the redshirt version if applicable.
                     </p>
                   </div>
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>Instructions:</p>
+                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
                     <li className="flex gap-2"><span className="font-bold">2.</span><span>Review each player's game count and assumed class</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Select redshirt version if they used a redshirt</span></li>
@@ -385,8 +387,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      backgroundColor: modalColors.accent,
+                      color: modalColors.background
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -397,8 +399,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                     className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
                     style={{
                       backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
+                      borderColor: modalColors.accent,
+                      color: modalColors.accent
                     }}
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
@@ -419,7 +421,7 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
               </div>
             ) : (
               /* Embedded iframe view */
-              <div className="flex-1 rounded-lg overflow-hidden border-2" style={{ borderColor: teamColors.primary }}>
+              <div className="flex-1 rounded-lg overflow-hidden border-2" style={{ borderColor: modalColors.accent }}>
                 <iframe
                   src={embedUrl}
                   className="w-full h-full"
@@ -430,7 +432,7 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p style={{ color: teamColors.primary }}>Failed to create sheet. Please try again.</p>
+            <p style={{ color: modalColors.text }}>Failed to create sheet. Please try again.</p>
           </div>
         )}
       </div>

@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { getModalColors } from '../utils/colorUtils'
 
 export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, currentRatings }) {
   const [overall, setOverall] = useState('')
   const [offense, setOffense] = useState('')
   const [defense, setDefense] = useState('')
+
+  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   // Limit input to 2 digits (40-99)
   const handleRatingChange = (value, setter) => {
@@ -76,23 +79,23 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="rounded-xl shadow-xl w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border"
+        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Team Ratings
           </h2>
           <button
             onClick={onClose}
             className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            style={{ color: modalColors.text }}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -102,7 +105,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: modalColors.textMuted }}>
               Overall Rating (40-99)
             </label>
             <input
@@ -112,17 +115,18 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               value={overall}
               onChange={(e) => handleRatingChange(e.target.value, setOverall)}
               onBlur={() => handleBlur(overall, setOverall)}
-              className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
+              className="w-full px-4 py-2 rounded-lg border text-lg font-semibold text-center"
               style={{
-                borderColor: teamColors.primary,
-                backgroundColor: '#ffffff'
+                borderColor: modalColors.inputBorder,
+                backgroundColor: modalColors.inputBg,
+                color: modalColors.text
               }}
               placeholder="85"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: modalColors.textMuted }}>
               Offense Rating (40-99)
             </label>
             <input
@@ -132,17 +136,18 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               value={offense}
               onChange={(e) => handleRatingChange(e.target.value, setOffense)}
               onBlur={() => handleBlur(offense, setOffense)}
-              className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
+              className="w-full px-4 py-2 rounded-lg border text-lg font-semibold text-center"
               style={{
-                borderColor: teamColors.primary,
-                backgroundColor: '#ffffff'
+                borderColor: modalColors.inputBorder,
+                backgroundColor: modalColors.inputBg,
+                color: modalColors.text
               }}
               placeholder="87"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+            <label className="block text-sm font-semibold mb-2" style={{ color: modalColors.textMuted }}>
               Defense Rating (40-99)
             </label>
             <input
@@ -152,10 +157,11 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
               value={defense}
               onChange={(e) => handleRatingChange(e.target.value, setDefense)}
               onBlur={() => handleBlur(defense, setDefense)}
-              className="w-full px-4 py-2 rounded-lg border-2 text-lg font-semibold text-center"
+              className="w-full px-4 py-2 rounded-lg border text-lg font-semibold text-center"
               style={{
-                borderColor: teamColors.primary,
-                backgroundColor: '#ffffff'
+                borderColor: modalColors.inputBorder,
+                backgroundColor: modalColors.inputBg,
+                color: modalColors.text
               }}
               placeholder="83"
             />
@@ -165,21 +171,15 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg font-semibold border-2 hover:opacity-90 transition-colors"
-            style={{
-              borderColor: teamColors.primary,
-              color: teamColors.primary,
-              backgroundColor: teamColors.secondary
-            }}
+            className="flex-1 px-4 py-2 rounded-lg font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-white"
             style={{
-              backgroundColor: teamColors.primary,
-              color: teamColors.secondary
+              backgroundColor: modalColors.accent
             }}
           >
             Save

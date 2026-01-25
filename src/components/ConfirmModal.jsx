@@ -1,3 +1,6 @@
+import { useMemo } from 'react'
+import { getModalColors } from '../utils/colorUtils'
+
 export default function ConfirmModal({
   isOpen,
   onClose,
@@ -8,8 +11,22 @@ export default function ConfirmModal({
   cancelText = "Cancel",
   confirmButtonColor = "#ef4444",
   confirmButtonTextColor = "#ffffff",
-  loading = false
+  loading = false,
+  teamColors = null
 }) {
+  const modalColors = useMemo(() => {
+    if (teamColors) {
+      return getModalColors(teamColors)
+    }
+    // Default dark theme when no team colors provided
+    return {
+      background: '#1f2937',
+      text: '#ffffff',
+      textMuted: '#9ca3af',
+      border: '#374151'
+    }
+  }, [teamColors])
+
   if (!isOpen) return null
 
   const handleConfirm = () => {
@@ -22,17 +39,30 @@ export default function ConfirmModal({
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-[9999] flex items-center justify-center py-8 px-4 sm:p-4" style={{ margin: 0 }}>
       {/* Backdrop */}
       <div
-        className="absolute inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50"
+        className="absolute inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60"
         onMouseDown={loading ? undefined : onClose}
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6" onMouseDown={(e) => e.stopPropagation()}>
-        <h2 className="text-xl font-bold text-gray-900 mb-3">
+      <div
+        className="relative rounded-xl shadow-xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border"
+        style={{
+          backgroundColor: modalColors.background,
+          borderColor: modalColors.border
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <h2
+          className="text-xl font-bold mb-3"
+          style={{ color: modalColors.text }}
+        >
           {title}
         </h2>
 
-        <p className="text-gray-600 mb-6">
+        <p
+          className="mb-6"
+          style={{ color: modalColors.textMuted }}
+        >
           {message}
         </p>
 
@@ -40,7 +70,7 @@ export default function ConfirmModal({
           <button
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-semibold text-white transition-colors disabled:opacity-50"
           >
             {cancelText}
           </button>
