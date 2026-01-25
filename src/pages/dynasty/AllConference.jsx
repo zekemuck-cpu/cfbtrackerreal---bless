@@ -205,14 +205,24 @@ export default function AllConference() {
   const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
   const yearData = allAmericansByYear[displayYear] || {}
 
-  // Get the user's team abbreviation
-  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
+  // Get the user's team abbreviation FOR THE DISPLAY YEAR (not current year)
+  // This handles job changes - if user was coaching a different team in that year, use that team
+  const userTeamAbbrForYear = useMemo(() => {
+    // Check coachTeamByYear for the display year
+    const coachRecord = currentDynasty.coachTeamByYear?.[displayYear] ||
+                        currentDynasty.coachTeamByYear?.[String(displayYear)]
+    if (coachRecord?.team) {
+      return coachRecord.team
+    }
+    // Fallback to current team abbr
+    return getCurrentTeamAbbr(currentDynasty)
+  }, [currentDynasty, displayYear])
 
   // Get custom conferences for the DISPLAY YEAR (not current year) - this handles conference realignment
   const customConferencesForYear = getCustomConferencesForYear(currentDynasty, displayYear)
 
   // Get the user's conference for the display year (handles realignment)
-  const userConference = getTeamConferenceForDynasty(currentDynasty, userTeamAbbr, displayYear) || 'SEC'
+  const userConference = getTeamConferenceForDynasty(currentDynasty, userTeamAbbrForYear, displayYear) || 'SEC'
 
   // Get list of available conferences for display year - use custom conferences if available, otherwise defaults
   const availableConferences = useMemo(() => {
