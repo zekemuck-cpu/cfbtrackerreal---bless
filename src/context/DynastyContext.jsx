@@ -8894,6 +8894,12 @@ export function DynastyProvider({ children }) {
           // IMPORTANT: Set storageType to 'local' for imported dynasties
           cleanDynastyData.storageType = 'local'
 
+          // CRITICAL: Reset roster migration flag to ensure teamsByYear entries are properly
+          // populated for all players. Without this, players may not appear on the roster
+          // after import because their teamsByYear entries might be missing or incomplete.
+          // This forces the migration to run fresh on the imported data.
+          delete cleanDynastyData._rosterMigratedV3
+
           // Save the dynasty using createDynasty logic
           const useLocalStorage = !storageService.isPremium()
 
@@ -8911,8 +8917,13 @@ export function DynastyProvider({ children }) {
             const currentDynasties = await indexedDBStorage.getDynasties() || []
             const updatedDynasties = [...currentDynasties, importedDynasty]
 
-            await indexedDBStorage.saveDynasties(updatedDynasties)
-            setDynasties(updatedDynasties)
+            // CRITICAL: Apply migrations to all dynasties (including the imported one)
+            // This ensures roster data, movements, and tid structures are properly set up
+            // Without this, players may be missing teamsByYear entries and not appear on roster
+            const migratedDynasties = applyMigrations(updatedDynasties)
+
+            await indexedDBStorage.saveDynasties(migratedDynasties)
+            setDynasties(migratedDynasties)
 
             reportProgress('complete', 'Import complete!', 100)
           } else {
