@@ -1581,7 +1581,8 @@ export default function Team() {
       {/* Games Against Modal */}
       {showGamesModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowGamesModal(false)}
         >
           <div
@@ -1729,7 +1730,8 @@ export default function Team() {
       {/* All-Time Record Modal */}
       {showAllTimeModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowAllTimeModal(false)}
         >
           <div
@@ -1865,7 +1867,8 @@ export default function Team() {
       {/* AP Top 25 Modal */}
       {showApTop25Modal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowApTop25Modal(false)}
         >
           <div
@@ -1923,7 +1926,8 @@ export default function Team() {
       {/* Conference Titles Modal */}
       {showConfTitlesModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowConfTitlesModal(false)}
         >
           <div
@@ -2014,7 +2018,8 @@ export default function Team() {
       {/* Bowl Games Modal */}
       {showBowlGamesModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowBowlGamesModal(false)}
         >
           <div
@@ -2116,7 +2121,8 @@ export default function Team() {
       {/* CFP Appearances Modal */}
       {showCfpAppsModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowCfpAppsModal(false)}
         >
           <div
@@ -2233,7 +2239,8 @@ export default function Team() {
       {/* National Titles Modal */}
       {showNatlTitlesModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowNatlTitlesModal(false)}
         >
           <div
@@ -2315,7 +2322,8 @@ export default function Team() {
       {/* All-Americans Modal */}
       {showAllAmericansModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowAllAmericansModal(false)}
         >
           <div
@@ -2384,7 +2392,8 @@ export default function Team() {
       {/* Games As Team Modal */}
       {showAsTeamModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowAsTeamModal(false)}
         >
           <div

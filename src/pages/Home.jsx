@@ -664,7 +664,8 @@ export default function Home() {
       {/* Extra confirmation modal for favorites - requires typing dynasty name */}
       {showFinalConfirm && dynastyToDelete && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={handleCancelFinalConfirm}
         >
           <div
@@ -725,7 +726,8 @@ export default function Home() {
       {/* Delete All - First Confirmation */}
       {showDeleteAllConfirm1 && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={handleCancelDeleteAll}
         >
           <div
@@ -783,7 +785,8 @@ export default function Home() {
       {/* Delete All - Second/Final Confirmation */}
       {showDeleteAllConfirm2 && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={handleCancelDeleteAll}
         >
           <div
@@ -853,7 +856,7 @@ export default function Home() {
 
       {/* Import Progress Modal - blocks all interaction until complete */}
       {importing && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]" style={{ margin: 0 }}>
           <div className="bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-4">

@@ -2994,7 +2994,8 @@ export default function TeamYear() {
       {/* Team Edit Modal */}
       {showTeamEditModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
           onClick={() => setShowTeamEditModal(false)}
         >
           <div
@@ -3144,7 +3145,7 @@ export default function TeamYear() {
       {/* Quick Image Upload Modal */}
       {quickImagePlayer && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
           style={{ margin: 0 }}
           onClick={() => setQuickImagePlayer(null)}
         >
