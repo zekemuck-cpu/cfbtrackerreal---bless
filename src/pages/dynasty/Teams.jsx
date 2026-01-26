@@ -68,7 +68,7 @@ export default function Teams() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search teams by name or abbreviation..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-500 bg-white font-semibold text-lg"
+            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 border-gray-500 bg-white font-semibold text-lg text-gray-900 placeholder-gray-400"
           />
           {searchQuery && (
             <button

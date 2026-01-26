@@ -2107,16 +2107,7 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
   // STINT-BASED SYSTEM (preferred if player has been migrated)
   // Check if player has teamHistory - if so, use stint-based lookup
   if (player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined) {
-    const result = isPlayerOnRosterStintBased(player, tidOrAbbr, year)
-    // Debug log for stint-based lookup
-    if (player.name && (player.name.includes('Underwood') || player.name.includes('Smith'))) {
-      console.log(`[isPlayerOnRoster] ${player.name} stint-based for year ${year}, tid ${tidOrAbbr}:`, result, {
-        teamHistory: player.teamHistory,
-        entryYear: player.entryYear,
-        entryClass: player.entryClass
-      })
-    }
-    return result
+    return isPlayerOnRosterStintBased(player, tidOrAbbr, year)
   }
 
   // LEGACY SYSTEM: teamsByYear is the source of truth
@@ -2267,9 +2258,6 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     tidNum = getTidFromAbbr(teamTid)
   }
 
-  // Debug specific players
-  const debugPlayer = player.name && (player.name.includes('Underwood') || player.name.includes('Smith'))
-
   // If player has new teamHistory, use that for roster membership
   if (player.teamHistory && player.teamHistory.length > 0) {
     // Find stint that covers this year on this team
@@ -2278,15 +2266,6 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
       yearNum >= Number(s.fromYear) &&
       (s.toYear === null || yearNum <= Number(s.toYear))
     )
-
-    if (debugPlayer) {
-      // CRITICAL: Print actual teamTid values directly (not collapsed)
-      const firstStint = player.teamHistory[0]
-      console.log(`[isPlayerOnRosterStintBased] ${player.name}: looking for tid=${tidNum}, year=${yearNum}`)
-      console.log(`[isPlayerOnRosterStintBased] ${player.name}: ACTUAL stint teamTid=${firstStint?.teamTid} (type: ${typeof firstStint?.teamTid}), fromYear=${firstStint?.fromYear}, toYear=${firstStint?.toYear}`)
-      console.log(`[isPlayerOnRosterStintBased] ${player.name}: teamsByYear=`, JSON.stringify(player.teamsByYear))
-      console.log(`[isPlayerOnRosterStintBased] ${player.name}: matchesTid=${Number(firstStint?.teamTid) === tidNum}, foundStint=${!!stint}`)
-    }
 
     if (stint) return true
 
@@ -2298,9 +2277,6 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
 
     if (hasClosedStintForTeam) {
       // Player had a stint at this team that ended - they left, don't include
-      if (debugPlayer) {
-        console.log(`[isPlayerOnRosterStintBased] ${player.name}: Has CLOSED stint for team ${tidNum}, NOT using legacy fallback`)
-      }
       return false
     }
 
@@ -2310,18 +2286,9 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     if (!hasAnyStintForTeam) {
       const legacyTeamsByYear = player._legacy_teamsByYear || player.teamsByYear || {}
       const teamForYear = legacyTeamsByYear[yearNum] ?? legacyTeamsByYear[String(yearNum)]
-      if (debugPlayer) {
-        console.log(`[isPlayerOnRosterStintBased] ${player.name}: LEGACY FALLBACK - hasAnyStintForTeam=${hasAnyStintForTeam}, teamForYear=${teamForYear} (type: ${typeof teamForYear})`)
-      }
       if (teamForYear) {
         const legacyTid = typeof teamForYear === 'number' ? teamForYear : getTidFromAbbr(teamForYear)
-        if (debugPlayer) {
-          console.log(`[isPlayerOnRosterStintBased] ${player.name}: LEGACY FALLBACK - legacyTid=${legacyTid}, matches tidNum=${tidNum}? ${legacyTid === tidNum}`)
-        }
         if (legacyTid === tidNum) {
-          if (debugPlayer) {
-            console.log(`[isPlayerOnRosterStintBased] ${player.name}: No stint for team, using legacy fallback - INCLUDED`)
-          }
           return true
         }
       }
@@ -2787,20 +2754,8 @@ export function getCurrentRoster(dynasty) {
   const currentYear = dynasty.currentYear
   const allPlayers = dynasty.players || []
 
-  // DEBUG: Log roster filtering
-  console.log(`[getCurrentRoster] tid=${tid}, year=${currentYear}, totalPlayers=${allPlayers.length}`)
-
-  // Sample some players to understand what's happening
-  const samplePlayers = allPlayers.filter(p => !p.isHonorOnly && !p.isRecruit).slice(0, 5)
-  samplePlayers.forEach(p => {
-    const onRoster = isPlayerOnRoster(p, tid, currentYear)
-    console.log(`[getCurrentRoster] ${p.name}: onRoster=${onRoster}, teamHistory=`, p.teamHistory, 'entryYear=', p.entryYear)
-  })
-
   // Use unified isPlayerOnRoster for consistent filtering across all components
-  const roster = allPlayers.filter(p => isPlayerOnRoster(p, tid, currentYear))
-  console.log(`[getCurrentRoster] Final roster count: ${roster.length}`)
-  return roster
+  return allPlayers.filter(p => isPlayerOnRoster(p, tid, currentYear))
 }
 
 /**
@@ -4918,7 +4873,6 @@ export function DynastyProvider({ children }) {
   // Load dynasties - ALWAYS loads from both local and cloud (if signed in)
   // Each dynasty has a storageType field ('local' or 'cloud') to track where it lives
   useEffect(() => {
-    console.log('[DynastyContext] Loading dynasties effect triggered. isPremium:', isPremium, 'user:', user?.uid)
     // Initialize storage service with user info
     storageService.initialize({ isPremium, uid: user?.uid })
 
@@ -4933,7 +4887,6 @@ export function DynastyProvider({ children }) {
 
         // Load from IndexedDB
         const saved = await indexedDBStorage.getDynasties()
-        console.log('[DynastyContext] Loaded from IndexedDB:', saved?.length || 0, 'dynasties', saved?.map(d => ({ id: d.id, name: d.teamName })))
         // Tag each with storageType: 'local'
         localDynastiesRef = (saved || []).map(d => ({
           ...d,
@@ -4981,11 +4934,8 @@ export function DynastyProvider({ children }) {
 
     // Subscribe to real-time updates for cloud dynasties (Firestore)
     const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties) => {
-      console.log('[DynastyContext] Firestore subscription callback. Cloud dynasties:', firestoreDynasties?.length || 0, firestoreDynasties?.map(d => ({ id: d.id, name: d.teamName })))
-
       // Check if phase transition is in progress - ALWAYS skip during transitions
       if (phaseTransitionInProgressRef.current) {
-        console.log('[DynastyContext] Skipping listener update - phase transition in progress')
         return
       }
 
@@ -4996,10 +4946,8 @@ export function DynastyProvider({ children }) {
         // Check if skip has been active for too long (5 minutes max for large saves)
         // Increased from 60s to 300s to handle large player/game saves over slow networks
         if (now - skipListenerTimestampRef.current > 300000) {
-          console.warn('[DynastyContext] Skip counter expired (5min timeout) - allowing update')
           skipListenerUpdatesCountRef.current = 0
         } else {
-          console.log('[DynastyContext] Skipping listener update. Remaining skips:', skipListenerUpdatesCountRef.current)
           skipListenerUpdatesCountRef.current--
           return
         }
@@ -5023,20 +4971,6 @@ export function DynastyProvider({ children }) {
             // Use subcollection data if it exists, otherwise fall back to main document
             const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
             const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
-
-            // DEBUG: Log teamHistory stats from server
-            const playersWithTeamHistory = players.filter(p => p.teamHistory && p.teamHistory.length > 0)
-            const playersWithValidTid = playersWithTeamHistory.filter(p =>
-              p.teamHistory.every(s => s.teamTid && !isNaN(Number(s.teamTid)) && Number(s.teamTid) > 0)
-            )
-            console.log(`[DynastyContext] Dynasty ${dynasty.id} loaded:`, {
-              fromSubcollection: subcollectionPlayers.length > 0,
-              totalPlayers: players.length,
-              withTeamHistory: playersWithTeamHistory.length,
-              withValidTid: playersWithValidTid.length,
-              stintMigrationApplied: !!dynasty._stintMigrationApplied,
-              subcollectionsMigrated: !!dynasty._subcollectionsMigrated
-            })
 
             return {
               ...taggedDynasty,
@@ -5065,14 +4999,6 @@ export function DynastyProvider({ children }) {
       const uniqueLocalDynasties = freshLocalDynasties.filter(d => !usedIds.has(d.id))
       const allDynasties = [...uniqueLocalDynasties, ...dynastiesToUse]
 
-      console.log('[DynastyContext] Merging dynasties:', {
-        freshLocal: freshLocalDynasties?.length || 0,
-        dynastiesToUse: dynastiesToUse?.length || 0,
-        uniqueLocal: uniqueLocalDynasties?.length || 0,
-        total: allDynasties?.length || 0,
-        isPremium
-      })
-
       // Apply all migrations
       const migratedDynasties = applyMigrations(allDynasties)
 
@@ -5091,7 +5017,6 @@ export function DynastyProvider({ children }) {
 
           if (recentPlayerUpdate && currentDynasty.players) {
             // Preserve local players - they're more recent than Firestore data
-            console.log('[DynastyContext] Preserving local players (recent update detected)')
             setCurrentDynasty({
               ...updated,
               players: currentDynasty.players
@@ -5115,7 +5040,6 @@ export function DynastyProvider({ children }) {
       const processMigrationPersistence = async () => {
         // Skip if already processing
         if (migrationSaveInProgressRef.current) {
-          console.log('[DynastyContext] Migration save already in progress, skipping')
           return
         }
         migrationSaveInProgressRef.current = true
@@ -5126,20 +5050,12 @@ export function DynastyProvider({ children }) {
             const raw = firestoreDynasties.find(d => d.id === migrated.id)
             if (!raw) continue // Skip if no matching raw dynasty found
 
-            // DEBUG: Log player stats for this dynasty
-            const migratedPlayers = migrated.players || []
-            const migratedWithTeamHistory = migratedPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0)
-            const migratedWithMarker = migratedPlayers.filter(p => p._teamHistoryMigratedAt)
-            console.log(`[processMigrationPersistence] Dynasty ${migrated.id}: ${migratedPlayers.length} players, ${migratedWithTeamHistory.length} with teamHistory, ${migratedWithMarker.length} with migration marker`)
-            console.log(`[processMigrationPersistence] Dynasty ${migrated.id}: raw._stintMigrationApplied=${raw._stintMigrationApplied}, migrated._stintMigrationApplied=${migrated._stintMigrationApplied}`)
-
             // TOP-LEVEL PROTECTION: If stint migration was applied, NEVER auto-save players
             // This is the authoritative check that prevents any race condition from corrupting data
             const hasStintMigration = raw._stintMigrationApplied || migrated._stintMigrationApplied
             if (hasStintMigration) {
               // Add to persisted set to prevent any future attempts in this session
               persistedMigrationDynastiesRef.current.add(migrated.id)
-              console.log(`[DynastyContext] Dynasty ${migrated.id} has stint migration - skipping all auto player saves`)
             }
 
             const flagsToSave = {}
@@ -5179,7 +5095,6 @@ export function DynastyProvider({ children }) {
             }
 
             if (shouldPersistMigratedData) {
-              console.log(`[DynastyContext] Persisting migration data for dynasty ${migrated.id}`)
               // Mark as persisted BEFORE saving to prevent duplicate attempts
               persistedMigrationDynastiesRef.current.add(migrated.id)
 
@@ -5188,18 +5103,12 @@ export function DynastyProvider({ children }) {
                 // The stint migration from DangerZone is the authoritative source
                 // Saving here with potentially stale in-memory data would overwrite good data
                 const stintMigrationApplied = raw._stintMigrationApplied || migrated._stintMigrationApplied
-                if (stintMigrationApplied) {
-                  console.log(`[DynastyContext] Skipping player save - stint migration already applied for dynasty ${migrated.id}`)
-                } else if (migrated.players && migrated.players.length > 0 && migrated._subcollectionsMigrated) {
-                  console.log(`[DynastyContext] Saving ${migrated.players.length} players for dynasty ${migrated.id}`)
+                if (!stintMigrationApplied && migrated.players && migrated.players.length > 0 && migrated._subcollectionsMigrated) {
                   await savePlayersToSubcollection(migrated.id, migrated.players)
-                  console.log(`[DynastyContext] Players saved successfully for dynasty ${migrated.id}`)
                 }
                 // Also persist games with unified format
                 if (migrated.games && migrated.games.length > 0 && migrated._subcollectionsMigrated) {
-                  console.log(`[DynastyContext] Saving ${migrated.games.length} games for dynasty ${migrated.id}`)
                   await saveGamesToSubcollection(migrated.id, migrated.games)
-                  console.log(`[DynastyContext] Games saved successfully for dynasty ${migrated.id}`)
                 }
               } catch (err) {
                 console.error(`Failed to persist migrated data for dynasty ${migrated.id}:`, err)
@@ -5255,7 +5164,6 @@ export function DynastyProvider({ children }) {
     if (!user || !subscription?.pendingDowngrade) return
 
     // Just clear the flag - no auto-migration
-    console.log('[DynastyContext] Premium expired - cloud dynasties are now read-only. Clearing pendingDowngrade flag.')
     updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
       .catch(err => console.error('Failed to clear pendingDowngrade flag:', err))
   }, [user, subscription?.pendingDowngrade])
@@ -5438,33 +5346,6 @@ export function DynastyProvider({ children }) {
     const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
     const isLocalStorage = !looksLikeFirebaseId && (!dynasty || dynasty.storageType !== 'cloud' || !user)
 
-    // CRITICAL DEBUG: Always log routing decision for player saves
-    if (updates.players) {
-      console.log(`%c[updateDynasty] ROUTING DECISION for ${updates.players.length} players:`, 'color: red; font-weight: bold', {
-        dynastyId,
-        dynastyIdLength: dynastyId?.length,
-        looksLikeFirebaseId,
-        isLocalStorage,
-        willRouteToFirestore: !isLocalStorage,
-        dynastyStorageType: dynasty?.storageType,
-        hasUser: !!user
-      })
-    }
-
-    // DEBUG: Trace storage routing decision
-    console.log(`[updateDynasty] Dynasty ${dynastyId}: ROUTING DEBUG`, {
-      dynastyFound: !!dynasty,
-      dynastyStorageType: dynasty?.storageType,
-      looksLikeFirebaseId,
-      isLocalStorage,
-      hasPlayers: !!updates.players,
-      playerCount: updates.players?.length || 0,
-      hasUser: !!user,
-      fromDynastiesArray: !!dynasties.find(d => String(d.id) === String(dynastyId)),
-      fromCurrentDynasty: String(currentDynasty?.id) === String(dynastyId),
-      currentDynastyStorageType: currentDynasty?.storageType
-    })
-
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
     const removeUndefined = (obj) => {
       if (obj === null || obj === undefined) return obj
@@ -5601,7 +5482,6 @@ export function DynastyProvider({ children }) {
       }
 
       await Promise.all(writePromises)
-      console.log(`[updateDynasty] SUCCESS: All writes complete for dynasty ${dynastyId}. Subcollection writes: ${subcollectionPromises.length}, Main doc write: ${Object.keys(mainDocUpdates).length > 0}`)
 
       // WORKAROUND: Also update local state immediately after Firestore update
       // This ensures the UI reflects the changes without waiting for the listener

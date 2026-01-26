@@ -412,7 +412,7 @@ export default function BowlHistory() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search bowl games..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 font-semibold text-lg"
+            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 font-semibold text-lg text-gray-900 placeholder-gray-400"
             style={{
               borderColor: '#4b5563',
               backgroundColor: 'white'

@@ -186,7 +186,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                   if (!e.target.value) setSelectedTeam('')
                 }}
                 onFocus={() => setShowTeamDropdown(true)}
-                className="w-full px-4 py-3 rounded-lg border-2"
+                className="w-full px-4 py-3 rounded-lg border-2 text-gray-900 placeholder-gray-400"
                 style={{
                   borderColor: teamColors.primary,
                   backgroundColor: '#ffffff'

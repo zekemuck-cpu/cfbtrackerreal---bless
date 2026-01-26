@@ -128,7 +128,7 @@ function TeamDropdown({ value, onChange, onClose, teamColors, onTabSelect, onEnt
               setHighlightedIndex(0)
             }}
             onKeyDown={handleKeyDown}
-            className="w-full px-2 py-1 border-2 outline-none text-sm"
+            className="w-full px-2 py-1 border-2 outline-none text-sm bg-white text-gray-900"
             style={{ borderColor: teamColors.primary }}
             placeholder="Search teams..."
           />
@@ -144,7 +144,7 @@ function TeamDropdown({ value, onChange, onClose, teamColors, onTabSelect, onEnt
               setHighlightedIndex(0)
             }}
             onKeyDown={handleKeyDown}
-            className="w-full px-2 py-1 border-2 outline-none text-sm"
+            className="w-full px-2 py-1 border-2 outline-none text-sm bg-white text-gray-900"
             style={{ borderColor: teamColors.primary }}
             placeholder="Search teams..."
           />

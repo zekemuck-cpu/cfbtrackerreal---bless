@@ -1082,9 +1082,29 @@ export default function Dashboard() {
             reason: reason,
             timestamp: Date.now()
           }
+
+          // Ensure teamHistory stint is closed
+          let updatedTeamHistory = player.teamHistory
+          if (player.teamHistory && player.teamHistory.length > 0) {
+            const lastStint = player.teamHistory[player.teamHistory.length - 1]
+            if (lastStint.toYear === null) {
+              updatedTeamHistory = player.teamHistory.map((stint, idx) => {
+                if (idx === player.teamHistory.length - 1) {
+                  return {
+                    ...stint,
+                    toYear: Number(year),
+                    endReason: isTransfer ? 'portal' : reason.toLowerCase().replace(' ', '_')
+                  }
+                }
+                return stint
+              })
+            }
+          }
+
           return {
             ...player,
-            movements: updatedMovements
+            movements: updatedMovements,
+            teamHistory: updatedTeamHistory
           }
         }
 
@@ -1110,11 +1130,28 @@ export default function Dashboard() {
           }
         }
 
+        // CRITICAL: Close the player's teamHistory stint when they leave
+        let updatedTeamHistory = player.teamHistory
+        if (newMovement && player.teamHistory && player.teamHistory.length > 0) {
+          updatedTeamHistory = player.teamHistory.map((stint, idx) => {
+            // Close the last stint if it's still open
+            if (idx === player.teamHistory.length - 1 && stint.toYear === null) {
+              return {
+                ...stint,
+                toYear: Number(year),
+                endReason: isTransfer ? 'portal' : reason.toLowerCase().replace(' ', '_')
+              }
+            }
+            return stint
+          })
+        }
+
         return {
           ...player,
           movements: newMovement
             ? [...(player.movements || []), newMovement]
-            : player.movements
+            : player.movements,
+          teamHistory: updatedTeamHistory
         }
       } else if (previousLeavingPids.has(player.pid)) {
         // Player was previously marked as leaving this year but is no longer in the list
@@ -1122,9 +1159,27 @@ export default function Dashboard() {
         const filteredMovements = (player.movements || []).filter(m =>
           !(m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure'))
         )
+
+        // CRITICAL: Reopen their teamHistory stint since they're staying
+        let updatedTeamHistory = player.teamHistory
+        if (player.teamHistory && player.teamHistory.length > 0) {
+          const lastStint = player.teamHistory[player.teamHistory.length - 1]
+          // If the last stint was closed this year (when we marked them leaving), reopen it
+          if (lastStint.toYear === Number(year)) {
+            updatedTeamHistory = player.teamHistory.map((stint, idx) => {
+              if (idx === player.teamHistory.length - 1) {
+                const { toYear, endReason, ...restOfStint } = stint
+                return { ...restOfStint, toYear: null }
+              }
+              return stint
+            })
+          }
+        }
+
         return {
           ...player,
-          movements: filteredMovements
+          movements: filteredMovements,
+          teamHistory: updatedTeamHistory
         }
       }
       return player
@@ -2139,6 +2194,42 @@ export default function Dashboard() {
             previousTeam: isFromDifferentTeam ? getOriginalTeamAbbr(mostRecentTeamTid) : (p.previousTeam || null),
             // Only update position if explicitly provided and different
             ...(recruitData?.position && recruitData.position !== p.position && { position: recruitData.position })
+          }
+
+          // CRITICAL: Update teamHistory for returning players
+          // 1. Close the previous stint (set toYear to the year they left)
+          // 2. Add a new stint for the return
+          const existingTeamHistory = p.teamHistory ? [...p.teamHistory] : []
+          if (existingTeamHistory.length > 0) {
+            // Find the last stint on current team and close it if still open
+            const lastStintIndex = existingTeamHistory.length - 1
+            const lastStint = existingTeamHistory[lastStintIndex]
+            if (lastStint && lastStint.toYear === null) {
+              // Close it at current year (when they departed/entered portal)
+              existingTeamHistory[lastStintIndex] = {
+                ...lastStint,
+                toYear: year,
+                endReason: 'portal'
+              }
+            }
+            // Add new stint for the return (enrolls next year)
+            // Always use portal_in - "recommit" detection happens at display time
+            // (when we detect 2+ stints on the same team)
+            existingTeamHistory.push({
+              teamTid: teamTid,
+              fromYear: year + 1,
+              toYear: null, // Active
+              reason: 'portal_in'
+            })
+            updatedPlayer.teamHistory = existingTeamHistory
+          } else {
+            // No existing teamHistory, create one with a new stint
+            updatedPlayer.teamHistory = [{
+              teamTid: teamTid,
+              fromYear: year + 1,
+              toYear: null,
+              reason: 'portal_in'
+            }]
           }
 
           // Update ranks from the sheet data (these are new for this recruiting cycle)

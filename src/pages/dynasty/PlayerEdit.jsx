@@ -572,7 +572,9 @@ export default function PlayerEdit() {
     }
 
     try {
-      await updatePlayer(player.pid, updatedPlayer)
+      // Use dynastyId from URL params, or fall back to dynasty.id
+      const targetDynastyId = dynastyId || dynasty?.id
+      await updatePlayer(targetDynastyId, updatedPlayer)
       navigate(`${pathPrefix}/player/${pid}`)
     } catch (error) {
       console.error('Error saving player:', error)
@@ -925,12 +927,19 @@ export default function PlayerEdit() {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                       Overall
                     </label>
-                    <div
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 bg-gray-50 text-gray-900 font-bold text-center cursor-default"
-                      title="Edit in Career tab"
-                    >
-                      {currentOverall || '--'}
-                    </div>
+                    <input
+                      type="number"
+                      min="40"
+                      max="99"
+                      value={currentOverall || ''}
+                      onChange={(e) => {
+                        const value = e.target.value ? parseInt(e.target.value) : null
+                        const year = dynasty?.currentYear || new Date().getFullYear()
+                        updateOverallForYear(year, value)
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 font-bold text-center"
+                      placeholder="--"
+                    />
                   </div>
                 </div>
 

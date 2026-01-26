@@ -6,7 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
@@ -1361,7 +1361,37 @@ export default function Player() {
         // Sort by year
         timelineEntries.sort((a, b) => a.year - b.year)
 
+        // Detect recommit scenarios: portal_in to a team the player was previously on
+        // This happens when a player enters portal, then returns to the same team
+        const teamsData = dynasty?.teams || dynasty?.customTeams
+        const teamsSeenBefore = new Set()
+        timelineEntries.forEach((entry, idx) => {
+          // Track teams from previous entries
+          if (idx > 0) {
+            const prevEntries = timelineEntries.slice(0, idx)
+            prevEntries.forEach(prev => {
+              if (prev.team) teamsSeenBefore.add(prev.team)
+              if (prev.to) teamsSeenBefore.add(prev.to)
+            })
+          }
+          // Check if this portal_in is to a team we've seen before (recommit)
+          if (entry.type === 'portal_in' && entry.to) {
+            const toTid = typeof entry.to === 'number' ? entry.to : getTidFromAbbr(entry.to)
+            const wasOnTeamBefore = Array.from(teamsSeenBefore).some(t => {
+              const tid = typeof t === 'number' ? t : getTidFromAbbr(t)
+              return tid === toTid
+            })
+            if (wasOnTeamBefore) {
+              entry.isRecommit = true
+            }
+          }
+        })
+
         const getMovementLabel = (m) => {
+          // Special case: portal_in that's actually a recommit
+          if (m.type === 'portal_in' && m.isRecommit) {
+            return 'Recommitted'
+          }
           switch (m.type) {
             case 'recruited': return 'Recruited'
             case 'portal_in': return 'Portal Transfer'
@@ -1370,7 +1400,7 @@ export default function Player() {
             case 'transfer': return 'Transferred'
             case 'encouraged_transfer': return 'Encouraged Transfer'
             case 'departure': return m.reason || 'Left Team'
-            case 'recommit': return 'Returned'
+            case 'recommit': return 'Recommitted'
             case 'added': return 'Added'
             case 'removed': return 'Removed'
             case 'started': return 'Started'
@@ -2930,7 +2960,10 @@ export default function Player() {
         teamColors={teamColors}
         currentYear={currentDynasty?.currentYear}
         onSave={!isViewOnly ? async (playerToUpdate, updates) => {
-          await updatePlayer(playerToUpdate, updates)
+          const targetDynastyId = dynastyId || dynasty?.id
+          // Merge the updates into the player object for the full update
+          const updatedPlayer = { ...playerToUpdate, ...updates }
+          await updatePlayer(targetDynastyId, updatedPlayer)
         } : null}
       />
 

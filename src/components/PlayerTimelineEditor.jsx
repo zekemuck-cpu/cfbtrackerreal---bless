@@ -31,7 +31,8 @@ const ENTRY_LABELS = {
   portal_in: 'Portal Transfer',
   juco_in: 'JUCO Transfer',
   added: 'Added to Roster',
-  transfer: 'Transferred In'
+  transfer: 'Transferred In',
+  recommit: 'Recommitted'  // Legacy - now uses portal_in with recommit detection at display time
 }
 
 // Class progression
@@ -123,7 +124,7 @@ function TeamSelector({ value, onChange, teams, placeholder = "Select team..." }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search teams..."
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 bg-white text-gray-900 placeholder-gray-400"
                 autoFocus
               />
             </div>
@@ -302,7 +303,7 @@ function StintCard({
                     />
                     <button
                       type="button"
-                      onClick={() => setEditData(prev => ({ ...prev, toYear: null, reason: null }))}
+                      onClick={() => setEditData(prev => ({ ...prev, toYear: null, endReason: null }))}
                       className="px-2 py-2 text-green-600 hover:bg-green-50 rounded-lg"
                       title="Mark as active (present)"
                     >
@@ -316,21 +317,91 @@ function StintCard({
             </div>
           </div>
 
-          {/* Entry type (for first stint) */}
-          {isFirst && (
+          {/* Entry type / How they joined this team */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              {isFirst ? 'How they joined' : 'How they joined this stint'}
+            </label>
+            <select
+              value={editData.reason || editData.entryType || 'recruited'}
+              onChange={(e) => setEditData(prev => ({
+                ...prev,
+                reason: e.target.value,
+                entryType: isFirst ? e.target.value : prev.entryType,
+                // Clear transferFromTid if not a transfer type
+                transferFromTid: ['portal_in', 'transfer', 'juco_in'].includes(e.target.value) ? prev.transferFromTid : null
+              }))}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+            >
+              {Object.entries(ENTRY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Transferred From (when portal_in, transfer, or juco_in) */}
+          {['portal_in', 'transfer', 'juco_in'].includes(editData.reason || editData.entryType) && (
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">How they joined</label>
-              <select
-                value={editData.entryType || 'recruited'}
-                onChange={(e) => setEditData(prev => ({ ...prev, entryType: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
-              >
-                {Object.entries(ENTRY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Transferred From</label>
+              <TeamSelector
+                value={editData.transferFromTid}
+                onChange={(tid) => setEditData(prev => ({ ...prev, transferFromTid: tid }))}
+                teams={teams}
+                placeholder="Select previous team..."
+              />
             </div>
           )}
+
+          {/* Overall by Year editing */}
+          {(() => {
+            // Calculate years based on editData (not stint) so it updates as user edits
+            const editFromYear = editData.fromYear
+            // Fallback to current real year if currentYear prop is not provided
+            const effectiveCurrentYear = currentYear || new Date().getFullYear()
+            const editToYear = editData.toYear === null || editData.toYear === undefined ? effectiveCurrentYear : editData.toYear
+            const editYears = []
+            if (editFromYear && editToYear >= editFromYear) {
+              for (let y = editFromYear; y <= Math.min(editToYear, editFromYear + 10); y++) {
+                editYears.push(y)
+              }
+            }
+            // If no years calculated but we have fromYear, at least show that year
+            if (editYears.length === 0 && editFromYear) {
+              editYears.push(editFromYear)
+            }
+            if (editYears.length === 0) return null
+            return (
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <label className="block text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Overall by Season</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {editYears.map(year => {
+                    const isCurrentYear = year === effectiveCurrentYear
+                    return (
+                      <div key={year} className={`flex items-center gap-2 p-1.5 rounded ${isCurrentYear ? 'bg-blue-100' : 'bg-white'}`}>
+                        <span className={`text-xs font-medium w-10 ${isCurrentYear ? 'text-blue-700' : 'text-gray-500'}`}>
+                          {year}{isCurrentYear ? '*' : ''}
+                        </span>
+                        <input
+                          type="number"
+                          min="40"
+                          max="99"
+                          value={overallByYear[year] || overallByYear[String(year)] || ''}
+                          onChange={(e) => onOverallChange && onOverallChange(year, e.target.value ? parseInt(e.target.value) : null)}
+                          className={`flex-1 px-2 py-1.5 border rounded text-sm text-center font-bold w-16 ${
+                            isCurrentYear
+                              ? 'border-blue-300 bg-white text-blue-800 focus:border-blue-500'
+                              : 'border-gray-200 bg-white text-gray-900 focus:border-blue-400'
+                          } focus:outline-none`}
+                          placeholder="--"
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-blue-600 mt-2">* Current season (syncs with Profile)</p>
+              </div>
+            )
+          })()}
 
           {/* Exit reason (if stint is closed) */}
           {editData.toYear !== null && editData.toYear !== undefined && (
@@ -338,10 +409,10 @@ function StintCard({
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Reason for leaving</label>
                 <select
-                  value={editData.reason || ''}
+                  value={editData.endReason || ''}
                   onChange={(e) => setEditData(prev => ({
                     ...prev,
-                    reason: e.target.value || null,
+                    endReason: e.target.value || null,
                     // Clear related fields when reason changes
                     draftRound: e.target.value === 'pro_draft' ? prev.draftRound : null,
                     transferToTid: e.target.value === 'transfer_out' ? prev.transferToTid : null
@@ -356,7 +427,7 @@ function StintCard({
               </div>
 
               {/* Draft round (when pro_draft selected) */}
-              {editData.reason === 'pro_draft' && (
+              {editData.endReason === 'pro_draft' && (
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Draft Round</label>
                   <select
@@ -373,7 +444,7 @@ function StintCard({
               )}
 
               {/* Transfer destination (when transfer_out selected) */}
-              {editData.reason === 'transfer_out' && (
+              {editData.endReason === 'transfer_out' && (
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Transferred To</label>
                   <TeamSelector
@@ -458,18 +529,26 @@ function StintCard({
 
               {/* Entry/Exit badges */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
-                {isFirst && stint.entryType && (
+                {/* Entry type badge - show reason or entryType (backwards compat) */}
+                {(stint.reason || stint.entryType) && (
                   <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full font-medium">
-                    {ENTRY_LABELS[stint.entryType] || stint.entryType}
+                    {ENTRY_LABELS[stint.reason] || ENTRY_LABELS[stint.entryType] || stint.reason || stint.entryType}
                   </span>
                 )}
-                {!isOpen && stint.reason && (
+                {/* Transferred from badge - show previous team for portal/transfer entries */}
+                {stint.transferFromTid && (
+                  <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full font-medium">
+                    ← {getTeamInfo(stint.transferFromTid).abbr}
+                  </span>
+                )}
+                {/* Exit reason badge - only show if stint is closed and has endReason */}
+                {!isOpen && stint.endReason && (
                   <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium">
-                    {REASON_LABELS[stint.reason] || stint.reason}
-                    {stint.reason === 'pro_draft' && stint.draftRound && ` (${stint.draftRound})`}
+                    {REASON_LABELS[stint.endReason] || stint.endReason}
+                    {stint.endReason === 'pro_draft' && stint.draftRound && ` (${stint.draftRound})`}
                   </span>
                 )}
-                {!isOpen && stint.reason === 'transfer_out' && stint.transferToTid && (
+                {!isOpen && stint.endReason === 'transfer_out' && stint.transferToTid && (
                   <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
                     → {getTeamInfo(stint.transferToTid).abbr}
                   </span>
@@ -567,8 +646,8 @@ export default function PlayerTimelineEditor({
     teamTid: null,
     fromYear: currentYear,
     toYear: null,
-    entryType: 'recruited',
-    reason: null
+    reason: 'recruited',
+    endReason: null
   })
 
   // Sort stints by fromYear
@@ -613,8 +692,8 @@ export default function PlayerTimelineEditor({
       teamTid: null,
       fromYear: currentYear,
       toYear: null,
-      entryType: teamHistory.length === 0 ? 'recruited' : 'transfer',
-      reason: null
+      reason: teamHistory.length === 0 ? 'recruited' : 'portal_in',
+      endReason: null
     })
     setShowAddForm(false)
   }
@@ -631,8 +710,8 @@ export default function PlayerTimelineEditor({
       teamTid: null,
       fromYear,
       toYear,
-      entryType: 'transfer',
-      reason: null
+      reason: 'portal_in',
+      endReason: null
     })
     setShowAddForm(true)
   }
@@ -700,8 +779,8 @@ export default function PlayerTimelineEditor({
               teamTid: null,
               fromYear: lastStint.toYear ? lastStint.toYear + 1 : currentYear,
               toYear: null,
-              entryType: 'transfer',
-              reason: null
+              reason: 'portal_in',
+              endReason: null
             })
             setShowAddForm(true)
           }}
@@ -790,8 +869,13 @@ export default function PlayerTimelineEditor({
             <div>
               <label className="block text-xs font-medium text-blue-700 mb-1">How they joined</label>
               <select
-                value={newStint.entryType || 'recruited'}
-                onChange={(e) => setNewStint(prev => ({ ...prev, entryType: e.target.value }))}
+                value={newStint.reason || 'recruited'}
+                onChange={(e) => setNewStint(prev => ({
+                  ...prev,
+                  reason: e.target.value,
+                  // Clear transferFromTid if not a transfer type
+                  transferFromTid: ['portal_in', 'transfer', 'juco_in'].includes(e.target.value) ? prev.transferFromTid : null
+                }))}
                 className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white text-gray-900"
               >
                 {Object.entries(ENTRY_LABELS).map(([value, label]) => (
@@ -800,14 +884,27 @@ export default function PlayerTimelineEditor({
               </select>
             </div>
 
+            {/* Transferred From (when portal_in, transfer, or juco_in) */}
+            {['portal_in', 'transfer', 'juco_in'].includes(newStint.reason) && (
+              <div>
+                <label className="block text-xs font-medium text-blue-700 mb-1">Transferred From</label>
+                <TeamSelector
+                  value={newStint.transferFromTid}
+                  onChange={(tid) => setNewStint(prev => ({ ...prev, transferFromTid: tid }))}
+                  teams={teams}
+                  placeholder="Select previous team..."
+                />
+              </div>
+            )}
+
             {newStint.toYear !== null && (
               <div>
                 <label className="block text-xs font-medium text-blue-700 mb-1">Reason for leaving</label>
                 <select
-                  value={newStint.reason || ''}
+                  value={newStint.endReason || ''}
                   onChange={(e) => setNewStint(prev => ({
                     ...prev,
-                    reason: e.target.value || null,
+                    endReason: e.target.value || null,
                     draftRound: e.target.value === 'pro_draft' ? prev.draftRound : null,
                     transferToTid: e.target.value === 'transfer_out' ? prev.transferToTid : null
                   }))}
@@ -822,7 +919,7 @@ export default function PlayerTimelineEditor({
             )}
 
             {/* Draft round (when pro_draft selected) */}
-            {newStint.toYear !== null && newStint.reason === 'pro_draft' && (
+            {newStint.toYear !== null && newStint.endReason === 'pro_draft' && (
               <div>
                 <label className="block text-xs font-medium text-blue-700 mb-1">Draft Round</label>
                 <select
@@ -839,7 +936,7 @@ export default function PlayerTimelineEditor({
             )}
 
             {/* Transfer destination (when transfer_out selected) */}
-            {newStint.toYear !== null && newStint.reason === 'transfer_out' && (
+            {newStint.toYear !== null && newStint.endReason === 'transfer_out' && (
               <div>
                 <label className="block text-xs font-medium text-blue-700 mb-1">Transferred To</label>
                 <TeamSelector
