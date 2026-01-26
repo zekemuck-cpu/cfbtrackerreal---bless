@@ -369,122 +369,28 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       return
     }
 
-    // SAFETY: Log player count for debugging data loss issues
-    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}${deleteOrphans ? ' (with orphan cleanup)' : ''}`)
+    // SIMPLIFIED: Just log and save - no protection checks that can abort
+    const playersWithTeamHistory = playersToSave.filter(p => p.teamHistory && p.teamHistory.length > 0)
+    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players (${playersWithTeamHistory.length} with teamHistory) to dynasty ${dynastyId}`)
 
-    // CRITICAL PROTECTION: Check if stint migration was applied
-    // If so, ONLY allow saves with forceOverwrite flag (explicit user action)
-    // This prevents auto-migration code from overwriting stint-migrated data
-    if (!options.forceOverwrite) {
-      const dynastyRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
-      // Use getDocFromServer to bypass cache and get true server state
-      const dynastyDoc = await getDocFromServer(dynastyRef)
-      if (dynastyDoc.exists()) {
-        const dynastyData = dynastyDoc.data()
-        if (dynastyData._stintMigrationApplied) {
-          console.warn(`[savePlayersToSubcollection] ABORT: Dynasty ${dynastyId} has _stintMigrationApplied flag (from SERVER).`)
-          console.warn(`[savePlayersToSubcollection] Refusing to save without forceOverwrite to protect migrated data.`)
-          return
-        }
-      }
-    }
-
-    // Only check for orphans if explicitly requested (full sync operations only)
+    // Handle orphan cleanup if requested
     if (deleteOrphans) {
-      // Get current IDs in subcollection to find orphans
       const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
       const snapshot = await getDocs(playersRef)
       const existingIds = new Set(snapshot.docs.map(doc => doc.id))
-
-      // Get IDs we're about to save
       const newIds = new Set(playersToSave.filter(p => p.pid).map(p => String(p.pid)))
-
-      // Find orphaned IDs (exist in subcollection but not in our save list)
       const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
 
-      // Delete orphaned documents
       if (orphanedIds.length > 0) {
-        console.log(`[savePlayersToSubcollection] Deleting ${orphanedIds.length} orphaned player documents (deleteOrphans=true)`)
+        console.log(`[savePlayersToSubcollection] Deleting ${orphanedIds.length} orphaned players`)
         for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
           const batch = writeBatch(db)
-          const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
-
-          for (const id of batchIds) {
-            const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id)
-            batch.delete(playerRef)
-          }
-
+          orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
+            batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
+          })
           await batch.commit()
         }
-        // Wait for orphan deletions to sync to server
         await waitForPendingWrites(db)
-        console.log(`[savePlayersToSubcollection] Orphan deletions synced to server`)
-      }
-    }
-
-    // DEBUG: Check how many players have teamHistory before save
-    const playersWithTeamHistory = playersToSave.filter(p => p.teamHistory && p.teamHistory.length > 0)
-    const playersWithValidTeamHistory = playersWithTeamHistory.filter(p =>
-      p.teamHistory.every(s => s.teamTid && !isNaN(Number(s.teamTid)) && Number(s.teamTid) > 0)
-    )
-    console.log(`[savePlayersToSubcollection] Players with teamHistory: ${playersWithTeamHistory.length}/${playersToSave.length}, with VALID tids: ${playersWithValidTeamHistory.length}`)
-
-    // Log players with invalid teamHistory for debugging
-    const playersWithInvalidTid = playersWithTeamHistory.filter(p =>
-      p.teamHistory.some(s => !s.teamTid || isNaN(Number(s.teamTid)) || Number(s.teamTid) <= 0)
-    )
-    if (playersWithInvalidTid.length > 0) {
-      console.warn(`[savePlayersToSubcollection] ${playersWithInvalidTid.length} players have INVALID teamTid:`,
-        playersWithInvalidTid.slice(0, 3).map(p => ({
-          name: p.name,
-          pid: p.pid,
-          teamHistory: p.teamHistory
-        }))
-      )
-    }
-
-    if (playersWithTeamHistory.length > 0) {
-      const sample = playersWithTeamHistory.slice(0, 2)
-      console.log('[savePlayersToSubcollection] Sample players with teamHistory:', sample.map(p => ({
-        name: p.name,
-        pid: p.pid,
-        teamHistory: p.teamHistory
-      })))
-    }
-
-    // CRITICAL SAFETY: Prevent overwriting migrated data with stale non-migrated data
-    // This protects against race conditions where auto-migration runs before
-    // the in-memory state is updated with freshly loaded subcollection data
-    if (!options.forceOverwrite) {
-      const currentRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-      // CRITICAL: Use getDocsFromServer to bypass Firestore's local cache
-      // The cache can have stale data which causes the safety check to compare against wrong numbers
-      console.log(`[savePlayersToSubcollection] Safety check - fetching current SERVER data for dynasty ${dynastyId}...`)
-      const currentSnapshot = await getDocsFromServer(currentRef)
-      const currentPlayers = currentSnapshot.docs.map(doc => doc.data())
-      console.log(`[savePlayersToSubcollection] Current SERVER data: ${currentPlayers.length} total players`)
-      const currentWithTeamHistory = currentPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0)
-
-      // If Firestore has more players with teamHistory than we're about to save,
-      // something is wrong - likely a race condition with stale data
-      if (currentWithTeamHistory.length > 0 && playersWithTeamHistory.length === 0) {
-        console.error(`[savePlayersToSubcollection] ABORT: Would overwrite ${currentWithTeamHistory.length} migrated players with 0 migrated players!`)
-        console.error(`[savePlayersToSubcollection] This indicates stale data - aborting to prevent data loss`)
-        return
-      }
-
-      // AGGRESSIVE SAFETY: Abort if we'd significantly reduce the teamHistory count
-      // This catches cases like 819 → 405 which indicates stale data overwriting fresh migration
-      const wouldReduceBy = currentWithTeamHistory.length - playersWithTeamHistory.length
-      if (wouldReduceBy > 50) {
-        console.error(`[savePlayersToSubcollection] ABORT: Would reduce teamHistory count from ${currentWithTeamHistory.length} to ${playersWithTeamHistory.length} (loss of ${wouldReduceBy})`)
-        console.error(`[savePlayersToSubcollection] This indicates stale data - aborting to prevent data loss`)
-        return
-      }
-
-      // Warn if any reduction
-      if (wouldReduceBy > 0) {
-        console.warn(`[savePlayersToSubcollection] WARNING: Reducing teamHistory count from ${currentWithTeamHistory.length} to ${playersWithTeamHistory.length}`)
       }
     }
 

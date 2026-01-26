@@ -4953,38 +4953,36 @@ export function DynastyProvider({ children }) {
             // Tag as cloud storage
             const taggedDynasty = { ...dynasty, storageType: 'cloud' }
 
-            // Check if this dynasty has been migrated to subcollections
-            if (dynasty._subcollectionsMigrated) {
-              // Fetch from subcollections
-              const [players, games] = await Promise.all([
-                getPlayersSubcollection(dynasty.id),
-                getGamesSubcollection(dynasty.id)
-              ])
+            // ALWAYS try to load from subcollections for cloud dynasties
+            // This fixes issues where _subcollectionsMigrated flag wasn't set but data is in subcollection
+            // (e.g., after stint migration which saves to subcollection via updateDynasty)
+            const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+              getPlayersSubcollection(dynasty.id),
+              getGamesSubcollection(dynasty.id)
+            ])
 
-              // DEBUG: Log teamHistory stats from server
-              const playersWithTeamHistory = players.filter(p => p.teamHistory && p.teamHistory.length > 0)
-              const playersWithValidTid = playersWithTeamHistory.filter(p =>
-                p.teamHistory.every(s => s.teamTid && !isNaN(Number(s.teamTid)) && Number(s.teamTid) > 0)
-              )
-              console.log(`[DynastyContext] Dynasty ${dynasty.id} loaded from server:`, {
-                totalPlayers: players.length,
-                withTeamHistory: playersWithTeamHistory.length,
-                withValidTid: playersWithValidTid.length,
-                stintMigrationApplied: !!dynasty._stintMigrationApplied
-              })
+            // Use subcollection data if it exists, otherwise fall back to main document
+            const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
+            const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
 
-              return {
-                ...taggedDynasty,
-                players: players,
-                games: games
-              }
-            } else {
-              // Not yet migrated - use main document data
-              const hasDataToMigrate = (dynasty.players?.length > 0 || dynasty.games?.length > 0)
-              if (hasDataToMigrate) {
-                console.log(`Dynasty ${dynasty.id} needs migration to subcollections (use Admin Tools)`)
-              }
-              return taggedDynasty
+            // DEBUG: Log teamHistory stats from server
+            const playersWithTeamHistory = players.filter(p => p.teamHistory && p.teamHistory.length > 0)
+            const playersWithValidTid = playersWithTeamHistory.filter(p =>
+              p.teamHistory.every(s => s.teamTid && !isNaN(Number(s.teamTid)) && Number(s.teamTid) > 0)
+            )
+            console.log(`[DynastyContext] Dynasty ${dynasty.id} loaded:`, {
+              fromSubcollection: subcollectionPlayers.length > 0,
+              totalPlayers: players.length,
+              withTeamHistory: playersWithTeamHistory.length,
+              withValidTid: playersWithValidTid.length,
+              stintMigrationApplied: !!dynasty._stintMigrationApplied,
+              subcollectionsMigrated: !!dynasty._subcollectionsMigrated
+            })
+
+            return {
+              ...taggedDynasty,
+              players,
+              games
             }
           } catch (err) {
             console.error(`Error loading subcollections for dynasty ${dynasty.id}:`, err)
@@ -5473,41 +5471,36 @@ export function DynastyProvider({ children }) {
       skipListenerUpdatesCountRef.current = 3
       skipListenerTimestampRef.current = Date.now()
 
-      // Check if dynasty is migrated to subcollections
-      // (dynasty was already looked up at top of function for storage routing)
-      const isMigrated = dynasty?._subcollectionsMigrated === true
-
-      // SUBCOLLECTION ROUTING: If migrated, route players/games to subcollections
+      // ALWAYS route players/games to subcollections for cloud dynasties
+      // This prevents the 1MB document limit issue and ensures consistent data storage
       let mainDocUpdates = { ...updatesWithTimestamp }
       const subcollectionPromises = []
 
-      if (isMigrated) {
-        // Route players to subcollection
-        // CRITICAL: Pass deleteOrphans: true to ensure deleted/merged players are removed from Firestore
-        // Without this, removed players remain in the subcollection and reappear on reload
-        if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
-          console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup${forceOverwrite ? ', forced' : ''})`)
-          // CRITICAL: Track this player update to prevent listener from overwriting with stale data
-          lastPlayersUpdateTimestampRef.current = Date.now()
-          lastPlayersUpdateDynastyIdRef.current = dynastyId
-          subcollectionPromises.push(
-            savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true, forceOverwrite })
-          )
-          // Don't save players to main doc - they're in subcollection now
-          delete mainDocUpdates.players
-        }
+      // Route players to subcollection
+      if (mainDocUpdates.players && Array.isArray(mainDocUpdates.players)) {
+        console.log(`Saving ${mainDocUpdates.players.length} players to subcollection (with orphan cleanup${forceOverwrite ? ', forced' : ''})`)
+        // CRITICAL: Track this player update to prevent listener from overwriting with stale data
+        lastPlayersUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateDynastyIdRef.current = dynastyId
+        subcollectionPromises.push(
+          savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true, forceOverwrite })
+        )
+        // Don't save players to main doc - they're in subcollection now
+        delete mainDocUpdates.players
+        // Ensure subcollection flag is set
+        mainDocUpdates._subcollectionsMigrated = true
+      }
 
-        // Route games to subcollection
-        // CRITICAL: Pass deleteOrphans: true to ensure deleted games are removed from Firestore
-        // Without this, deleted games remain in the subcollection and reappear on reload
-        if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games)) {
-          console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
-          subcollectionPromises.push(
-            saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
-          )
-          // Don't save games to main doc - they're in subcollection now
-          delete mainDocUpdates.games
-        }
+      // Route games to subcollection
+      if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games)) {
+        console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
+        subcollectionPromises.push(
+          saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
+        )
+        // Don't save games to main doc - they're in subcollection now
+        delete mainDocUpdates.games
+        // Ensure subcollection flag is set
+        mainDocUpdates._subcollectionsMigrated = true
       }
 
       // Execute subcollection writes and main doc update in parallel
@@ -10885,11 +10878,13 @@ export function DynastyProvider({ children }) {
     })))
 
     // Save with forceOverwrite to bypass the safety check (this is an explicit user action)
+    // Also set _subcollectionsMigrated to ensure future loads use subcollection data
     console.log(`[applyStintMigration] Saving ${updatedPlayers.length} players to dynasty ${dynastyId}...`)
     await updateDynasty(dynastyId, {
       players: updatedPlayers,
       _stintMigrationApplied: Date.now(),
-      _stintMigrationVersion: 1
+      _stintMigrationVersion: 1,
+      _subcollectionsMigrated: true
     }, { forceOverwrite: true })
 
     // CRITICAL: Add to persisted set to prevent auto-migration from overwriting this data
