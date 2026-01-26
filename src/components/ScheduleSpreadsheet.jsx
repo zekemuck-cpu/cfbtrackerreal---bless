@@ -381,7 +381,7 @@ export default function ScheduleSpreadsheet({ teamColors, currentYear, onSave, o
                     value={row.location}
                     onChange={(e) => updateRow(row.id, 'location', e.target.value)}
                     onKeyDown={(e) => handleLocationKeyDown(e, row.id)}
-                    className="w-full h-full px-2 py-1 border-0 cursor-pointer bg-white text-sm focus:bg-blue-50 focus:outline-none"
+                    className="w-full h-full px-2 py-1 border-0 cursor-pointer bg-white text-gray-900 text-sm focus:bg-blue-50 focus:outline-none"
                   >
                     <option value="home">Home</option>
                     <option value="away">Away</option>

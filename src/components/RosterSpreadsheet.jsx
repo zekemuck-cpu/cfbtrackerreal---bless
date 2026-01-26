@@ -246,7 +246,7 @@ export default function RosterSpreadsheet({ teamColors, onSave, onCancel }) {
                         onChange={(e) => updateRow(row.id, 'position', e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, row.id, 'position')}
                         onBlur={() => setEditingCell(null)}
-                        className="w-full px-2 py-1 border-2 outline-none text-sm bg-white"
+                        className="w-full px-2 py-1 border-2 outline-none text-sm bg-white text-gray-900"
                         style={{ borderColor: teamColors.primary }}
                       >
                         {positions.map(pos => (
@@ -270,7 +270,7 @@ export default function RosterSpreadsheet({ teamColors, onSave, onCancel }) {
                         onChange={(e) => updateRow(row.id, 'year', e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, row.id, 'year')}
                         onBlur={() => setEditingCell(null)}
-                        className="w-full px-2 py-1 border-2 outline-none text-sm bg-white"
+                        className="w-full px-2 py-1 border-2 outline-none text-sm bg-white text-gray-900"
                         style={{ borderColor: teamColors.primary }}
                       >
                         {years.map(yr => (

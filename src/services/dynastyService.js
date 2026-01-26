@@ -355,23 +355,34 @@ export async function savePlayerToSubcollection(dynastyId, player) {
  * @param {Array} players - Array of player objects
  * @param {Object} options - Optional settings
  * @param {boolean} options.deleteOrphans - If true, deletes players not in the array (use for full sync like merging duplicates)
+ * @param {boolean} options.forceOverwrite - If true, skips safety checks (for explicit user actions like migration)
  */
 export async function savePlayersToSubcollection(dynastyId, players, options = {}) {
-  const { deleteOrphans = false } = options
+  const { deleteOrphans = false, forceOverwrite = false } = options
 
   try {
     // Handle empty array case - do nothing, don't delete existing players
     const playersToSave = players || []
 
-    // SAFETY: Never save an empty array - this indicates a bug, not intentional deletion
-    if (playersToSave.length === 0) {
-      console.warn('[savePlayersToSubcollection] Received empty players array - skipping to prevent data loss')
+    // SAFETY: Never save an empty array unless forceOverwrite is true
+    // Empty array usually indicates a bug, not intentional deletion
+    if (playersToSave.length === 0 && !forceOverwrite) {
+      console.warn('[savePlayersToSubcollection] Received empty players array - skipping to prevent data loss. Use forceOverwrite=true to override.')
       return
     }
 
     // SIMPLIFIED: Just log and save - no protection checks that can abort
     const playersWithTeamHistory = playersToSave.filter(p => p.teamHistory && p.teamHistory.length > 0)
     console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players (${playersWithTeamHistory.length} with teamHistory) to dynasty ${dynastyId}`)
+
+    // DEBUG: Show sample of teamHistory data being saved
+    const samplePlayers = playersWithTeamHistory.slice(0, 5)
+    console.log(`[savePlayersToSubcollection] Sample teamHistory data:`, samplePlayers.map(p => ({
+      name: p.name,
+      pid: p.pid,
+      teamHistory: p.teamHistory,
+      teamsByYear: p.teamsByYear
+    })))
 
     // Handle orphan cleanup if requested
     if (deleteOrphans) {

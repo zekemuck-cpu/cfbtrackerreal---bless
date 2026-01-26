@@ -2280,20 +2280,12 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     )
 
     if (debugPlayer) {
-      console.log(`[isPlayerOnRosterStintBased] ${player.name}:`, {
-        yearNum,
-        tidNum,
-        teamHistory: player.teamHistory,
-        foundStint: stint,
-        stintCheck: player.teamHistory.map(s => ({
-          teamTid: s.teamTid,
-          fromYear: s.fromYear,
-          toYear: s.toYear,
-          matchesTid: Number(s.teamTid) === tidNum,
-          afterFrom: yearNum >= Number(s.fromYear),
-          beforeTo: s.toYear === null || yearNum <= Number(s.toYear)
-        }))
-      })
+      // CRITICAL: Print actual teamTid values directly (not collapsed)
+      const firstStint = player.teamHistory[0]
+      console.log(`[isPlayerOnRosterStintBased] ${player.name}: looking for tid=${tidNum}, year=${yearNum}`)
+      console.log(`[isPlayerOnRosterStintBased] ${player.name}: ACTUAL stint teamTid=${firstStint?.teamTid} (type: ${typeof firstStint?.teamTid}), fromYear=${firstStint?.fromYear}, toYear=${firstStint?.toYear}`)
+      console.log(`[isPlayerOnRosterStintBased] ${player.name}: teamsByYear=`, JSON.stringify(player.teamsByYear))
+      console.log(`[isPlayerOnRosterStintBased] ${player.name}: matchesTid=${Number(firstStint?.teamTid) === tidNum}, foundStint=${!!stint}`)
     }
 
     if (stint) return true
@@ -2318,8 +2310,14 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     if (!hasAnyStintForTeam) {
       const legacyTeamsByYear = player._legacy_teamsByYear || player.teamsByYear || {}
       const teamForYear = legacyTeamsByYear[yearNum] ?? legacyTeamsByYear[String(yearNum)]
+      if (debugPlayer) {
+        console.log(`[isPlayerOnRosterStintBased] ${player.name}: LEGACY FALLBACK - hasAnyStintForTeam=${hasAnyStintForTeam}, teamForYear=${teamForYear} (type: ${typeof teamForYear})`)
+      }
       if (teamForYear) {
         const legacyTid = typeof teamForYear === 'number' ? teamForYear : getTidFromAbbr(teamForYear)
+        if (debugPlayer) {
+          console.log(`[isPlayerOnRosterStintBased] ${player.name}: LEGACY FALLBACK - legacyTid=${legacyTid}, matches tidNum=${tidNum}? ${legacyTid === tidNum}`)
+        }
         if (legacyTid === tidNum) {
           if (debugPlayer) {
             console.log(`[isPlayerOnRosterStintBased] ${player.name}: No stint for team, using legacy fallback - INCLUDED`)
@@ -4662,6 +4660,66 @@ export function DynastyProvider({ children }) {
   // Flag to indicate if a migration save is currently in progress (to serialize saves)
   const migrationSaveInProgressRef = useRef(false)
 
+  // Helper to find dynasty by ID - checks state first (both local + cloud), then IndexedDB as fallback
+  // This ensures cloud dynasties work even if user's premium expired (read-only mode)
+  // Also returns the dynasty's storage type for proper routing
+  const findDynastyById = async (dynastyId) => {
+    // First check state (contains both local and cloud dynasties)
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+
+    // Fallback to IndexedDB for local dynasties not yet in state
+    if (!dynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      dynasty = localDynasties.find(d => String(d.id) === String(dynastyId))
+    }
+
+    return dynasty
+  }
+
+  // Helper to get games for a dynasty with proper storage routing
+  const getDynastyGames = async (dynasty) => {
+    if (!dynasty) return []
+
+    const isCloudDynasty = dynasty.storageType === 'cloud'
+
+    if (isCloudDynasty && dynasty._subcollectionsMigrated) {
+      try {
+        return await getGamesSubcollection(dynasty.id)
+      } catch (err) {
+        return dynasty?.games || []
+      }
+    } else if (!isCloudDynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      const localDynasty = localDynasties.find(d => String(d.id) === String(dynasty.id))
+      return localDynasty?.games || dynasty?.games || []
+    }
+
+    return dynasty?.games || []
+  }
+
+  // Helper to get players for a dynasty with proper storage routing
+  const getDynastyPlayers = async (dynasty) => {
+    if (!dynasty) return []
+
+    const isCloudDynasty = dynasty.storageType === 'cloud'
+
+    if (isCloudDynasty && dynasty._subcollectionsMigrated) {
+      try {
+        return await getPlayersSubcollection(dynasty.id)
+      } catch (err) {
+        return dynasty?.players || []
+      }
+    } else if (!isCloudDynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      const localDynasty = localDynasties.find(d => String(d.id) === String(dynasty.id))
+      return localDynasty?.players || dynasty?.players || []
+    }
+
+    return dynasty?.players || []
+  }
+
   // Helper to apply migrations to dynasties (games + stats + roster)
   const applyMigrations = (dynastyList) => {
     return dynastyList.map(dynasty => {
@@ -4935,9 +4993,10 @@ export function DynastyProvider({ children }) {
       // Also check timestamp - auto-clear skip after 30 seconds to prevent stuck state
       const now = Date.now()
       if (skipListenerUpdatesCountRef.current > 0) {
-        // Check if skip has been active for too long (60 seconds max)
-        if (now - skipListenerTimestampRef.current > 60000) {
-          console.warn('[DynastyContext] Skip counter expired (60s timeout) - allowing update')
+        // Check if skip has been active for too long (5 minutes max for large saves)
+        // Increased from 60s to 300s to handle large player/game saves over slow networks
+        if (now - skipListenerTimestampRef.current > 300000) {
+          console.warn('[DynastyContext] Skip counter expired (5min timeout) - allowing update')
           skipListenerUpdatesCountRef.current = 0
         } else {
           console.log('[DynastyContext] Skipping listener update. Remaining skips:', skipListenerUpdatesCountRef.current)
@@ -5374,7 +5433,37 @@ export function DynastyProvider({ children }) {
     }
 
     // Route based on dynasty's storageType, not global premium status
-    const isLocalStorage = !dynasty || dynasty.storageType !== 'cloud' || !user
+    // SAFEGUARD: Firebase IDs are 20+ character alphanumeric strings (not timestamps)
+    // If the ID looks like a Firebase ID, we should route to cloud even if storageType is missing
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isLocalStorage = !looksLikeFirebaseId && (!dynasty || dynasty.storageType !== 'cloud' || !user)
+
+    // CRITICAL DEBUG: Always log routing decision for player saves
+    if (updates.players) {
+      console.log(`%c[updateDynasty] ROUTING DECISION for ${updates.players.length} players:`, 'color: red; font-weight: bold', {
+        dynastyId,
+        dynastyIdLength: dynastyId?.length,
+        looksLikeFirebaseId,
+        isLocalStorage,
+        willRouteToFirestore: !isLocalStorage,
+        dynastyStorageType: dynasty?.storageType,
+        hasUser: !!user
+      })
+    }
+
+    // DEBUG: Trace storage routing decision
+    console.log(`[updateDynasty] Dynasty ${dynastyId}: ROUTING DEBUG`, {
+      dynastyFound: !!dynasty,
+      dynastyStorageType: dynasty?.storageType,
+      looksLikeFirebaseId,
+      isLocalStorage,
+      hasPlayers: !!updates.players,
+      playerCount: updates.players?.length || 0,
+      hasUser: !!user,
+      fromDynastiesArray: !!dynasties.find(d => String(d.id) === String(dynastyId)),
+      fromCurrentDynasty: String(currentDynasty?.id) === String(dynastyId),
+      currentDynastyStorageType: currentDynasty?.storageType
+    })
 
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
     const removeUndefined = (obj) => {
@@ -5512,6 +5601,7 @@ export function DynastyProvider({ children }) {
       }
 
       await Promise.all(writePromises)
+      console.log(`[updateDynasty] SUCCESS: All writes complete for dynasty ${dynastyId}. Subcollection writes: ${subcollectionPromises.length}, Main doc write: ${Object.keys(mainDocUpdates).length > 0}`)
 
       // WORKAROUND: Also update local state immediately after Firestore update
       // This ensures the UI reflects the changes without waiting for the listener
@@ -5659,17 +5749,16 @@ export function DynastyProvider({ children }) {
     // Clean the gameData of any undefined values
     const cleanGameData = removeUndefined(gameData)
 
-    // CRITICAL: Read from IndexedDB to get the latest data
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
+    // Find dynasty - check state first (contains both local and cloud), then IndexedDB as fallback
+    // This ensures cloud dynasties work even if user's premium expired (read-only mode)
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
 
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
+    // Fallback to IndexedDB for local dynasties not yet in state
+    if (!dynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      dynasty = localDynasties.find(d => String(d.id) === String(dynastyId))
     }
 
     if (!dynasty) {
@@ -6085,36 +6174,39 @@ export function DynastyProvider({ children }) {
   // This ensures ALL games (user and CPU) are stored uniformly
   // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCPUBowlGames = async (dynastyId, bowlGames, year, week = 'week1') => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-    let existingGames
+    // Find dynasty from state first, then fallback to IndexedDB
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
 
-    if (useLocalStorage || !user) {
-      // LOCAL STORAGE: Read from IndexedDB to get latest data
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-      existingGames = dynasty?.games || []
-    } else {
-      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-
-      // Always read games from subcollection for migrated dynasties to ensure we have latest data
-      if (dynasty?._subcollectionsMigrated) {
-        try {
-          existingGames = await getGamesSubcollection(dynastyId)
-        } catch (err) {
-          existingGames = dynasty?.games || []
-        }
-      } else {
-        existingGames = dynasty?.games || []
-      }
+    if (!dynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      dynasty = localDynasties.find(d => String(d.id) === String(dynastyId))
     }
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
+    }
+
+    // Use dynasty's storageType to determine where to read games from
+    const isCloudDynasty = dynasty.storageType === 'cloud'
+    let existingGames
+
+    if (isCloudDynasty && dynasty._subcollectionsMigrated) {
+      // CLOUD STORAGE: Read from Firestore subcollection to get latest data
+      try {
+        existingGames = await getGamesSubcollection(dynastyId)
+      } catch (err) {
+        existingGames = dynasty?.games || []
+      }
+    } else if (!isCloudDynasty) {
+      // LOCAL STORAGE: Read from IndexedDB to get latest data
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      const localDynasty = localDynasties.find(d => String(d.id) === String(dynastyId))
+      existingGames = localDynasty?.games || dynasty?.games || []
+    } else {
+      existingGames = dynasty?.games || []
     }
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty)
@@ -6196,36 +6288,15 @@ export function DynastyProvider({ children }) {
   // UPDATED: Now properly updates existing game shells created at seed entry time
   // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-    let latestGames
-
-    if (useLocalStorage || !user) {
-      // LOCAL STORAGE: Read from IndexedDB to get latest data
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-      latestGames = dynasty?.games || []
-    } else {
-      // CLOUD STORAGE: Read from Firestore to get latest data (avoids race condition with React state)
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-
-      // Always read games from subcollection for migrated dynasties to ensure we have latest data
-      if (dynasty?._subcollectionsMigrated) {
-        try {
-          latestGames = await getGamesSubcollection(dynastyId)
-        } catch (err) {
-          latestGames = dynasty?.games || []
-        }
-      } else {
-        latestGames = dynasty?.games || []
-      }
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       return
     }
+
+    // Get games using proper storage routing
+    const latestGames = await getDynastyGames(dynasty)
 
     // Start with latest games from storage - we'll update shells in place
     let updatedGames = [...latestGames]
@@ -6440,17 +6511,8 @@ export function DynastyProvider({ children }) {
   // This ensures ALL games (user and CPU) are stored uniformly
   const saveCPUConferenceChampionships = async (dynastyId, championships, year) => {
     console.log('[saveCPUCC] Called with:', { dynastyId, championships, year })
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('[saveCPUCC] Dynasty not found:', dynastyId)
@@ -6458,7 +6520,8 @@ export function DynastyProvider({ children }) {
     }
 
     console.log('[saveCPUCC] Found dynasty:', dynasty.teamName)
-    const existingGames = dynasty.games || []
+    // Get games using proper storage routing
+    const existingGames = await getDynastyGames(dynasty)
     console.log('[saveCPUCC] Existing games count:', existingGames.length)
     console.log('[saveCPUCC] Existing CC games:', existingGames.filter(g => g.isConferenceChampionship))
 
@@ -8388,23 +8451,16 @@ export function DynastyProvider({ children }) {
   }
 
   const saveSchedule = async (dynastyId, schedule, options = {}) => {
-    // CRITICAL: Read from IndexedDB to get the latest data
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+
+    // Derive storage type from dynasty's storageType field
+    const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // Get team and year - use provided values or fall back to current user's team
     const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
@@ -8448,7 +8504,7 @@ export function DynastyProvider({ children }) {
     // Base updates - always save to team-specific structures
     let scheduleUpdates
 
-    if (useLocalStorage || !user) {
+    if (useLocalStorage) {
       scheduleUpdates = {
         // Store in NEW tid-based byYear structure
         teams: {
@@ -8523,23 +8579,16 @@ export function DynastyProvider({ children }) {
   }
 
   const saveRoster = async (dynastyId, players, options = {}) => {
-    // CRITICAL: Read from IndexedDB to get the latest data (including any recent schedule save)
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+
+    // Derive storage type from dynasty's storageType field
+    const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // DEBUG: Log dynasty flags
     console.log(`[saveRoster] Dynasty flags: _tidFullyMigrated=${dynasty._tidFullyMigrated}, _tidMigrated=${dynasty._tidMigrated}, _subcollectionsMigrated=${dynasty._subcollectionsMigrated}`)
@@ -8746,7 +8795,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const rosterUpdates = useLocalStorage || !user
+    const rosterUpdates = useLocalStorage
       ? {
           players: finalPlayers,
           nextPID: newNextPID,
@@ -8798,22 +8847,16 @@ export function DynastyProvider({ children }) {
   }
 
   const saveTeamRatings = async (dynastyId, ratings) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+
+    // Derive storage type from dynasty's storageType field
+    const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
@@ -8836,7 +8879,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const teamRatingsUpdates = useLocalStorage || !user
+    const teamRatingsUpdates = useLocalStorage
       ? {
           // Store in NEW tid-based byYear structure
           teams: {
@@ -8898,22 +8941,16 @@ export function DynastyProvider({ children }) {
 
   // Save team year info (record, conference) for any team/year combination
   const saveTeamYearInfo = async (dynastyId, teamAbbr, year, info) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+
+    // Derive storage type from dynasty's storageType field
+    const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // Get tid for new byYear structure
     const tid = getTidFromAbbr(teamAbbr)
@@ -8926,7 +8963,7 @@ export function DynastyProvider({ children }) {
       const teamRecords = existingRecords[teamAbbr] || {}
       const recordData = { wins: info.wins, losses: info.losses }
 
-      if (useLocalStorage || !user) {
+      if (useLocalStorage) {
         // NEW tid-based byYear structure
         if (tid) {
           const existingTeams = dynasty.teams || {}
@@ -8970,7 +9007,7 @@ export function DynastyProvider({ children }) {
       const existingConferences = dynasty.conferenceByTeamYear || {}
       const teamConferences = existingConferences[teamAbbr] || {}
 
-      if (useLocalStorage || !user) {
+      if (useLocalStorage) {
         // NEW tid-based byYear structure
         if (tid) {
           const existingTeams = updates.teams || dynasty.teams || {}
@@ -9015,22 +9052,16 @@ export function DynastyProvider({ children }) {
   }
 
   const saveCoachingStaff = async (dynastyId, staff) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+
+    // Derive storage type from dynasty's storageType field
+    const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
@@ -9053,7 +9084,7 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    const coachingStaffUpdates = useLocalStorage || !user
+    const coachingStaffUpdates = useLocalStorage
       ? {
           // Store in NEW tid-based byYear structure
           teams: {
@@ -9114,17 +9145,8 @@ export function DynastyProvider({ children }) {
   }
 
   const updatePlayer = async (dynastyId, updatedPlayer, yearStats = null) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
@@ -9237,17 +9259,8 @@ export function DynastyProvider({ children }) {
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
@@ -9302,17 +9315,8 @@ export function DynastyProvider({ children }) {
   // Sync all players' stats to match box score totals for a given year
   const syncAllPlayersStats = async (dynastyId, year) => {
     console.log('syncAllPlayersStats called with:', { dynastyId, year })
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
@@ -9486,7 +9490,8 @@ export function DynastyProvider({ children }) {
       throw new Error('You must be signed in to sync conferences')
     }
 
-    let dynasty = currentDynasty?.id === dynastyId ? currentDynasty : dynasties.find(d => d.id === dynastyId)
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       throw new Error('Dynasty not found')
@@ -9496,11 +9501,11 @@ export function DynastyProvider({ children }) {
       // Read conferences from Google Sheet
       const conferences = await readConferencesFromSheet(conferencesSheetId)
 
-      // Save to dynasty
-      const useLocalStorage = !storageService.isPremium()
+      // Derive storage type from dynasty's storageType field
+      const useLocalStorage = dynasty.storageType !== 'cloud'
 
-      if (useLocalStorage || !user) {
-        // Dev mode: Use IndexedDB
+      if (useLocalStorage) {
+        // Local storage: Use IndexedDB
         const currentDynasties = await indexedDBStorage.getDynasties() || []
         const dynastyToUpdate = currentDynasties.find(d => d.id === dynastyId)
         if (dynastyToUpdate) {
@@ -9517,7 +9522,7 @@ export function DynastyProvider({ children }) {
           }
         }
       } else {
-        // Production mode: Use Firestore dot notation
+        // Cloud storage: Use Firestore dot notation
         await updateDynastyInFirestore(dynastyId, {
           customConferences: conferences,
           'preseasonSetup.conferencesEntered': true,
@@ -9664,7 +9669,7 @@ export function DynastyProvider({ children }) {
           // Save the dynasty using createDynasty logic
           const useLocalStorage = !storageService.isPremium()
 
-          if (useLocalStorage || !user) {
+          if (useLocalStorage) {
             // Local storage: IndexedDB - needs an ID
             reportProgress('creating', 'Creating dynasty...', 20)
             const newId = Date.now().toString()
@@ -9774,17 +9779,8 @@ export function DynastyProvider({ children }) {
   const processHonorPlayers = async (dynastyId, honorType, entries, year, transferDecisions = []) => {
     console.log(`[processHonorPlayers] Starting - honorType: ${honorType}, entries: ${entries.length}, year: ${year}`)
 
-    const useLocalStorage = !storageService.isPremium()
-    let dynasty
-
-    if (useLocalStorage || !user) {
-      const currentDynasties = await indexedDBStorage.getDynasties() || dynasties
-      dynasty = currentDynasties.find(d => String(d.id) === String(dynastyId))
-    } else {
-      dynasty = String(currentDynasty?.id) === String(dynastyId)
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(dynastyId))
-    }
+    // Use helper functions for consistent storage routing based on dynasty.storageType
+    const dynasty = await findDynastyById(dynastyId)
 
     if (!dynasty) {
       console.log('[processHonorPlayers] Dynasty not found!')
@@ -10758,6 +10754,15 @@ export function DynastyProvider({ children }) {
     const dynasty = dynasties.find(d => d.id === dynastyId)
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
+    // DEBUG: Log dynasty storage info at migration time
+    console.log(`[applyStintMigration] Dynasty found:`, {
+      id: dynasty.id,
+      storageType: dynasty.storageType,
+      currentDynastyId: currentDynasty?.id,
+      currentDynastyStorageType: currentDynasty?.storageType,
+      hasUser: !!user
+    })
+
     // First do a dry run
     const dryRunResult = dryRunStintMigration(dynasty)
 
@@ -10780,10 +10785,19 @@ export function DynastyProvider({ children }) {
     }
 
     // Apply migration to all players
+    // With force=true, we re-derive teamHistory for ALL players, ignoring existing data
     let updatedPlayers = dynasty.players.map(player => {
       if (player.isHonorOnly) return player
-      if (player.teamHistory && player.entryYear !== undefined) return player
-      return migratePlayerToStintSystem(player)
+      // If force is true, always re-migrate (clear existing teamHistory)
+      if (!force && player.teamHistory && player.entryYear !== undefined) return player
+      // Clear existing teamHistory to force re-derivation
+      const playerWithoutHistory = { ...player }
+      if (force) {
+        delete playerWithoutHistory.teamHistory
+        delete playerWithoutHistory.entryYear
+        console.log(`[applyStintMigration] Force re-deriving teamHistory for ${player.name}`)
+      }
+      return migratePlayerToStintSystem(playerWithoutHistory)
     })
 
     // CRITICAL: Close stints for players marked as "leaving" in any year
@@ -10879,7 +10893,8 @@ export function DynastyProvider({ children }) {
 
     // Save with forceOverwrite to bypass the safety check (this is an explicit user action)
     // Also set _subcollectionsMigrated to ensure future loads use subcollection data
-    console.log(`[applyStintMigration] Saving ${updatedPlayers.length} players to dynasty ${dynastyId}...`)
+    const withTeamHistoryCount = updatedPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0).length
+    console.log(`[applyStintMigration] Saving ${updatedPlayers.length} players (${withTeamHistoryCount} with teamHistory) to dynasty ${dynastyId}...`)
     await updateDynasty(dynastyId, {
       players: updatedPlayers,
       _stintMigrationApplied: Date.now(),

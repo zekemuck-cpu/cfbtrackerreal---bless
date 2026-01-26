@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, dryRunStintMigration, checkStintMigrationStatus } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, dryRunStintMigration, checkStintMigrationStatus, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -69,6 +69,13 @@ export default function DangerZone() {
   const [stintMigrationStatus, setStintMigrationStatus] = useState(null)
   const [stintDryRunResult, setStintDryRunResult] = useState(null)
   const [showStintDetails, setShowStintDetails] = useState(false)
+
+  // Class data fix state
+  const [classDataFixStatus, setClassDataFixStatus] = useState(null)
+  const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
+  const [stintRepairStatus, setStintRepairStatus] = useState(null)
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false)
+  const [advanceSelections, setAdvanceSelections] = useState({}) // { pid: boolean }
 
   if (!currentDynasty) {
     return (
@@ -208,6 +215,400 @@ export default function DangerZone() {
       setRecruitingSyncStatus({ success: true, message: `Updated ${updatedCount}, added ${addedCount}` })
     } catch (error) {
       setRecruitingSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
+    }
+  }
+
+  // Fix class data for all players - auto-populate entryYear, entryClass, and classByYear
+  const handleFixClassData = async () => {
+    setClassDataFixStatus('running')
+    try {
+      const players = currentDynasty.players || []
+      const currentYear = currentDynasty.currentYear || new Date().getFullYear()
+      let fixedCount = 0
+      let alreadyGoodCount = 0
+      let errorCount = 0
+
+      const CLASS_PROGRESSION = {
+        'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
+        'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
+      }
+      const CLASS_ORDER = ['Fr', 'So', 'Jr', 'Sr']
+      const RS_CLASS_ORDER = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
+
+      const updatedPlayers = players.map(player => {
+        try {
+          // Skip honor-only players
+          if (player.isHonorOnly) return player
+
+          // Determine if player already has good class data
+          const hasEntryYear = player.entryYear !== null && player.entryYear !== undefined
+          const hasEntryClass = player.entryClass && player.entryClass.trim() !== ''
+          const hasClassByYear = player.classByYear && Object.keys(player.classByYear).length > 0
+
+          if (hasEntryYear && hasEntryClass && hasClassByYear) {
+            alreadyGoodCount++
+            return player
+          }
+
+          // Try to infer entryYear from various sources
+          let inferredEntryYear = player.entryYear
+          if (!inferredEntryYear) {
+            // From recruitYear (entry is recruitYear + 1)
+            if (player.recruitYear) {
+              inferredEntryYear = Number(player.recruitYear) + 1
+            }
+            // From first year in teamsByYear
+            else if (player.teamsByYear && Object.keys(player.teamsByYear).length > 0) {
+              const years = Object.keys(player.teamsByYear).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
+              if (years.length > 0) inferredEntryYear = years[0]
+            }
+            // From first stint in teamHistory
+            else if (player.teamHistory && player.teamHistory.length > 0) {
+              const firstStint = player.teamHistory.sort((a, b) => (a.fromYear || 0) - (b.fromYear || 0))[0]
+              if (firstStint.fromYear) inferredEntryYear = firstStint.fromYear
+            }
+            // From classByYear (earliest year)
+            else if (player.classByYear && Object.keys(player.classByYear).length > 0) {
+              const years = Object.keys(player.classByYear).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
+              if (years.length > 0) inferredEntryYear = years[0]
+            }
+          }
+
+          // Try to infer entryClass
+          let inferredEntryClass = player.entryClass
+          if (!inferredEntryClass && inferredEntryYear) {
+            // From classByYear for entry year
+            if (player.classByYear?.[inferredEntryYear] || player.classByYear?.[String(inferredEntryYear)]) {
+              inferredEntryClass = player.classByYear[inferredEntryYear] || player.classByYear[String(inferredEntryYear)]
+            }
+            // If portal/transfer, infer from current class and years elapsed
+            else if ((player.isPortal || player.previousTeam) && player.year) {
+              // Portal players - use their current class at entry
+              inferredEntryClass = player.year
+            }
+            // For recruits, assume Fr
+            else {
+              inferredEntryClass = 'Fr'
+            }
+          }
+
+          // Build classByYear based on entry info
+          const newClassByYear = { ...(player.classByYear || {}) }
+          if (inferredEntryYear && inferredEntryClass) {
+            const isRS = inferredEntryClass.startsWith('RS ')
+            const baseClass = isRS ? inferredEntryClass.replace('RS ', '') : inferredEntryClass
+            const order = isRS ? RS_CLASS_ORDER : CLASS_ORDER
+
+            let baseIndex = CLASS_ORDER.indexOf(baseClass)
+            if (baseIndex === -1) baseIndex = 0
+
+            // Get all years this player has been active
+            const activeYears = new Set()
+            if (player.teamsByYear) {
+              Object.keys(player.teamsByYear).forEach(y => activeYears.add(Number(y)))
+            }
+            if (player.teamHistory) {
+              player.teamHistory.forEach(stint => {
+                const from = stint.fromYear || inferredEntryYear
+                const to = stint.toYear || currentYear
+                for (let y = from; y <= to; y++) activeYears.add(y)
+              })
+            }
+            // Ensure entry year is included
+            activeYears.add(inferredEntryYear)
+            // Add current year if they're on roster
+            if (!player.isRecruit) activeYears.add(currentYear)
+
+            // Fill in classes for each year
+            Array.from(activeYears).sort((a, b) => a - b).forEach(year => {
+              if (newClassByYear[year] || newClassByYear[String(year)]) return // Don't overwrite existing
+
+              const yearsSinceEntry = year - inferredEntryYear
+              if (yearsSinceEntry < 0) return
+
+              // Check for redshirt year
+              const redshirtYear = player.redshirtYear ? Number(player.redshirtYear) : null
+              let useRS = isRS
+              if (redshirtYear && year > redshirtYear && !isRS) {
+                useRS = true
+              }
+
+              const effectiveOrder = useRS ? RS_CLASS_ORDER : CLASS_ORDER
+              let classIndex = baseIndex + yearsSinceEntry
+              if (redshirtYear && year > redshirtYear && !isRS) {
+                classIndex = baseIndex + yearsSinceEntry - 1
+              }
+
+              if (classIndex >= 0 && classIndex < effectiveOrder.length) {
+                newClassByYear[year] = effectiveOrder[classIndex]
+              }
+            })
+          }
+
+          // Only update if we actually changed something
+          const hasChanges =
+            inferredEntryYear !== player.entryYear ||
+            inferredEntryClass !== player.entryClass ||
+            Object.keys(newClassByYear).length !== Object.keys(player.classByYear || {}).length
+
+          if (hasChanges) {
+            fixedCount++
+            return {
+              ...player,
+              entryYear: inferredEntryYear || player.entryYear,
+              entryClass: inferredEntryClass || player.entryClass,
+              classByYear: newClassByYear
+            }
+          }
+
+          alreadyGoodCount++
+          return player
+        } catch (err) {
+          console.error(`[FixClassData] Error processing player ${player.name}:`, err)
+          errorCount++
+          return player
+        }
+      })
+
+      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      setClassDataFixStatus({
+        success: true,
+        message: `Fixed ${fixedCount} players, ${alreadyGoodCount} already good${errorCount > 0 ? `, ${errorCount} errors` : ''}`
+      })
+    } catch (error) {
+      setClassDataFixStatus({ success: false, message: 'Fix failed: ' + error.message })
+    }
+  }
+
+  // Fix invalid stint teamTid values by looking up from legacy data
+  const handleFixInvalidStints = async () => {
+    setStintRepairStatus('running')
+    try {
+      const players = currentDynasty.players || []
+      const userTid = currentDynasty?.currentTid
+      let fixedCount = 0
+      let alreadyGoodCount = 0
+      let unableToFixCount = 0
+
+      const updatedPlayers = players.map(player => {
+        // Skip if no teamHistory
+        if (!player.teamHistory || player.teamHistory.length === 0) {
+          return player
+        }
+
+        // Check if any stints have invalid teamTid
+        const hasInvalidStint = player.teamHistory.some(stint => {
+          const tid = stint.teamTid
+          return tid === null || tid === undefined || isNaN(Number(tid)) || Number(tid) <= 0
+        })
+
+        if (!hasInvalidStint) {
+          alreadyGoodCount++
+          return player
+        }
+
+        // Try to fix invalid stints
+        const fixedHistory = player.teamHistory.map(stint => {
+          const tid = stint.teamTid
+          const isValid = tid !== null && tid !== undefined && !isNaN(Number(tid)) && Number(tid) > 0
+
+          if (isValid) return stint
+
+          // Try to find valid tid from legacy data or current team
+          let newTid = null
+
+          // Source 1: Look at _legacy_teamsByYear for this stint's years
+          if (player._legacy_teamsByYear && stint.fromYear) {
+            const legacyTid = player._legacy_teamsByYear[stint.fromYear] || player._legacy_teamsByYear[String(stint.fromYear)]
+            if (legacyTid) {
+              if (typeof legacyTid === 'number' && legacyTid > 0) {
+                newTid = legacyTid
+              } else if (typeof legacyTid === 'string') {
+                const converted = getTidFromAbbr(legacyTid)
+                if (converted) newTid = converted
+              }
+            }
+          }
+
+          // Source 2: Look at teamsByYear
+          if (!newTid && player.teamsByYear && stint.fromYear) {
+            const teamValue = player.teamsByYear[stint.fromYear] || player.teamsByYear[String(stint.fromYear)]
+            if (teamValue) {
+              if (typeof teamValue === 'number' && teamValue > 0) {
+                newTid = teamValue
+              } else if (typeof teamValue === 'string') {
+                const converted = getTidFromAbbr(teamValue)
+                if (converted) newTid = converted
+              }
+            }
+          }
+
+          // Source 3: player.team field
+          if (!newTid && player.team) {
+            if (typeof player.team === 'number' && player.team > 0) {
+              newTid = player.team
+            } else if (typeof player.team === 'string') {
+              const converted = getTidFromAbbr(player.team)
+              if (converted) newTid = converted
+            }
+          }
+
+          // Source 4: Use current dynasty team as fallback
+          if (!newTid && userTid) {
+            newTid = userTid
+          }
+
+          if (newTid) {
+            return { ...stint, teamTid: newTid }
+          }
+
+          // Couldn't fix
+          return stint
+        })
+
+        // Check if we fixed anything
+        const stillHasInvalid = fixedHistory.some(stint => {
+          const tid = stint.teamTid
+          return tid === null || tid === undefined || isNaN(Number(tid)) || Number(tid) <= 0
+        })
+
+        if (stillHasInvalid) {
+          unableToFixCount++
+          return { ...player, teamHistory: fixedHistory }
+        }
+
+        fixedCount++
+        return { ...player, teamHistory: fixedHistory }
+      })
+
+      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      setStintRepairStatus({
+        success: true,
+        message: `Fixed ${fixedCount} players, ${alreadyGoodCount} already valid${unableToFixCount > 0 ? `, ${unableToFixCount} could not be fixed` : ''}`
+      })
+    } catch (error) {
+      setStintRepairStatus({ success: false, message: 'Fix failed: ' + error.message })
+    }
+  }
+
+  // Get players on user's team for the advance modal
+  // Uses isPlayerOnRoster() to match the same filtering as the Roster page
+  const getPlayersOnUserTeam = () => {
+    const players = currentDynasty?.players || []
+    const currentYear = currentDynasty?.currentYear || new Date().getFullYear()
+    const previousYear = currentYear - 1
+    const userTid = currentDynasty?.currentTid
+
+    return players.filter(player => {
+      // Use the same roster filter as getCurrentRoster() for consistency
+      return isPlayerOnRoster(player, userTid, currentYear)
+    }).map(player => {
+      const prevYearStats = player.statsByYear?.[previousYear] || player.statsByYear?.[String(previousYear)]
+      const gamesPlayed = prevYearStats?.gamesPlayed
+      return {
+        ...player,
+        gamesPlayedLastYear: gamesPlayed,
+        isRedshirtCandidate: gamesPlayed !== null && gamesPlayed !== undefined && gamesPlayed <= 4 && !player.year?.startsWith('RS ')
+      }
+    }).sort((a, b) => {
+      // Sort by position, then by name
+      const posOrder = ['QB', 'HB', 'FB', 'WR', 'TE', 'LT', 'LG', 'C', 'RG', 'RT', 'LEDG', 'REDG', 'DT', 'SAM', 'MIKE', 'WILL', 'CB', 'FS', 'SS', 'K', 'P']
+      const posA = posOrder.indexOf(a.position) === -1 ? 99 : posOrder.indexOf(a.position)
+      const posB = posOrder.indexOf(b.position) === -1 ? 99 : posOrder.indexOf(b.position)
+      if (posA !== posB) return posA - posB
+      return (a.name || '').localeCompare(b.name || '')
+    })
+  }
+
+  // Open advance modal and pre-select all players
+  const handleOpenAdvanceModal = () => {
+    const teamPlayers = getPlayersOnUserTeam()
+    const initialSelections = {}
+    teamPlayers.forEach(p => {
+      initialSelections[p.pid] = true // Pre-select all
+    })
+    setAdvanceSelections(initialSelections)
+    setShowAdvanceModal(true)
+  }
+
+  // Toggle selection for a player
+  const toggleAdvanceSelection = (pid) => {
+    setAdvanceSelections(prev => ({
+      ...prev,
+      [pid]: !prev[pid]
+    }))
+  }
+
+  // Select/deselect all
+  const selectAllAdvance = (selected) => {
+    const teamPlayers = getPlayersOnUserTeam()
+    const newSelections = {}
+    teamPlayers.forEach(p => {
+      newSelections[p.pid] = selected
+    })
+    setAdvanceSelections(newSelections)
+  }
+
+  // Execute the advance for selected players
+  const handleConfirmAdvance = async () => {
+    setAdvanceClassesStatus('running')
+    setShowAdvanceModal(false)
+    try {
+      const players = currentDynasty.players || []
+      const currentYear = currentDynasty.currentYear || new Date().getFullYear()
+      const previousYear = currentYear - 1
+
+      const CLASS_PROGRESSION = {
+        'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
+        'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
+      }
+
+      let advancedCount = 0
+      let redshirtedCount = 0
+
+      const updatedPlayers = players.map(player => {
+        // Only process selected players
+        if (!advanceSelections[player.pid]) {
+          return player
+        }
+
+        const currentClass = player.year
+        if (!currentClass) return player
+
+        const isAlreadyRS = currentClass.startsWith('RS ')
+        const prevYearStats = player.statsByYear?.[previousYear] || player.statsByYear?.[String(previousYear)]
+        const gamesPlayed = prevYearStats?.gamesPlayed
+
+        let newClass = currentClass
+        if (gamesPlayed !== null && gamesPlayed !== undefined && gamesPlayed <= 4 && !isAlreadyRS) {
+          // Redshirt
+          newClass = 'RS ' + currentClass
+          redshirtedCount++
+        } else {
+          // Normal progression
+          newClass = CLASS_PROGRESSION[currentClass] || currentClass
+        }
+
+        if (newClass === currentClass) return player
+
+        advancedCount++
+        return {
+          ...player,
+          year: newClass,
+          classByYear: {
+            ...(player.classByYear || {}),
+            [currentYear]: newClass
+          }
+        }
+      })
+
+      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+      setAdvanceClassesStatus({
+        success: true,
+        message: `Advanced ${advancedCount} players (${redshirtedCount} redshirted)`
+      })
+    } catch (error) {
+      setAdvanceClassesStatus({ success: false, message: 'Advance failed: ' + error.message })
     }
   }
 
@@ -1699,6 +2100,27 @@ export default function DangerZone() {
             onClick={handleDetectDuplicates}
             status={duplicateMergeStatus}
           />
+          <ActionCard
+            title="Fix Player Classes"
+            description="Auto-fills entryYear, entryClass, and classByYear for all players"
+            buttonText="Fix Classes"
+            onClick={handleFixClassData}
+            status={classDataFixStatus}
+          />
+          <ActionCard
+            title="Fix Invalid Stints"
+            description="Repairs teamHistory stints with missing or invalid team IDs"
+            buttonText="Fix Stints"
+            onClick={handleFixInvalidStints}
+            status={stintRepairStatus}
+          />
+          <ActionCard
+            title="Advance Classes"
+            description="Select players to age up. Shows games played for redshirt detection"
+            buttonText="Select Players"
+            onClick={handleOpenAdvanceModal}
+            status={advanceClassesStatus}
+          />
         </div>
       </div>
 
@@ -1792,6 +2214,155 @@ export default function DangerZone() {
             <span className="text-xs text-amber-600">
               {selectedMergeGroups.size} of {duplicateGroups.length} selected
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* Advance Classes Modal */}
+      {showAdvanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Advance Player Classes</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Select players to advance. Players with ≤4 games will be redshirted.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAdvanceModal(false)}
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Legend */}
+            <div className="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-amber-400"></span>
+                <span className="text-gray-600">≤4 games (will redshirt)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-green-400"></span>
+                <span className="text-gray-600">5+ games (normal advance)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-gray-300"></span>
+                <span className="text-gray-600">No data (normal advance)</span>
+              </div>
+            </div>
+
+            {/* Select All / Deselect All */}
+            <div className="px-6 py-2 border-b border-gray-200 flex items-center justify-between bg-white">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => selectAllAdvance(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => selectAllAdvance(false)}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Deselect All
+                </button>
+              </div>
+              <span className="text-sm text-gray-500">
+                {Object.values(advanceSelections).filter(Boolean).length} of {getPlayersOnUserTeam().length} selected
+              </span>
+            </div>
+
+            {/* Player List */}
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <div className="space-y-1">
+                {getPlayersOnUserTeam().map(player => {
+                  const CLASS_PROGRESSION = {
+                    'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
+                    'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
+                  }
+                  const currentClass = player.year || '?'
+                  const isAlreadyRS = currentClass.startsWith('RS ')
+                  const gamesPlayed = player.gamesPlayedLastYear
+                  const willRedshirt = gamesPlayed !== null && gamesPlayed !== undefined && gamesPlayed <= 4 && !isAlreadyRS
+
+                  let newClass
+                  if (willRedshirt) {
+                    newClass = 'RS ' + currentClass
+                  } else {
+                    newClass = CLASS_PROGRESSION[currentClass] || currentClass
+                  }
+
+                  // Determine row color based on games played
+                  let rowBg = 'bg-white hover:bg-gray-50' // default/no data
+                  let indicator = 'bg-gray-300'
+                  if (gamesPlayed !== null && gamesPlayed !== undefined) {
+                    if (gamesPlayed <= 4) {
+                      rowBg = 'bg-amber-50 hover:bg-amber-100'
+                      indicator = 'bg-amber-400'
+                    } else {
+                      rowBg = 'bg-green-50 hover:bg-green-100'
+                      indicator = 'bg-green-400'
+                    }
+                  }
+
+                  return (
+                    <label
+                      key={player.pid}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${rowBg}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={advanceSelections[player.pid] || false}
+                        onChange={() => toggleAdvanceSelection(player.pid)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+                      />
+                      <span className={`w-2 h-8 rounded-full ${indicator}`}></span>
+                      <div className="flex-1 min-w-0 flex items-center gap-3">
+                        <span className="w-12 text-xs font-medium text-gray-500">{player.position}</span>
+                        <span className="font-medium text-gray-900 truncate">{player.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-gray-500 w-16 text-right">
+                          {gamesPlayed !== null && gamesPlayed !== undefined ? `${gamesPlayed} GP` : 'No GP'}
+                        </span>
+                        <span className="text-gray-400 w-20 text-center">{currentClass}</span>
+                        <span className="text-gray-400">→</span>
+                        <span className={`w-20 text-center font-medium ${willRedshirt ? 'text-amber-600' : 'text-green-600'}`}>
+                          {newClass}
+                        </span>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
+              <div className="text-sm text-gray-500">
+                Advancing {Object.values(advanceSelections).filter(Boolean).length} players
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAdvanceModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAdvance}
+                  disabled={Object.values(advanceSelections).filter(Boolean).length === 0}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Advance Selected
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

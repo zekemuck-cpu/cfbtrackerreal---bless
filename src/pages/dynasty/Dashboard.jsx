@@ -7195,15 +7195,14 @@ export default function Dashboard() {
                     {recruitingWeekNum === 5 && (() => {
                       // Get players with 5-9 games who might be fringe cases for redshirting
                       // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+                      const teamTid = getUserTeamTid(currentDynasty)
                       const year = offseasonDataYear
 
                       // Get all players and filter for fringe cases
                       const allPlayers = currentDynasty?.players || []
                       const fringeCasePlayers = allPlayers.filter(player => {
-                        // Must have been on the team for this year
-                        const playerTeamThisYear = player.teamsByYear?.[year] || player.team
-                        if (playerTeamThisYear !== teamAbbr) return false
+                        // Must have been on the team for this year (use isPlayerOnRoster for stint support)
+                        if (!isPlayerOnRoster(player, teamTid, year)) return false
 
                         // Use classByYear to get the PRE-progression class (what they were during the season)
                         // On Signing Day, player.year is POST-progression, so we need the previous class
@@ -9716,15 +9715,14 @@ export default function Dashboard() {
         fringeCasePlayers={(() => {
           // Get players with 5-9 games who might be fringe cases for redshirting
           // ONLY non-redshirt classes (Fr, So, Jr) who played 5-9 games
-          const teamAbbr = getCurrentTeamAbbr(currentDynasty)
+          const teamTid = getUserTeamTid(currentDynasty)
           const year = offseasonDataYear
 
           // Get all players and filter for fringe cases
           const allPlayers = currentDynasty?.players || []
           return allPlayers.filter(player => {
-            // Must have been on the team for this year
-            const playerTeamThisYear = player.teamsByYear?.[year] || player.team
-            if (playerTeamThisYear !== teamAbbr) return false
+            // Must have been on the team for this year (use isPlayerOnRoster for stint support)
+            if (!isPlayerOnRoster(player, teamTid, year)) return false
 
             // Use classByYear to get the PRE-progression class (what they were during the season)
             // On Signing Day, player.year is POST-progression, so we need the previous class

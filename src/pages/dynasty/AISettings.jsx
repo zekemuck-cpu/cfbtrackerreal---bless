@@ -383,7 +383,7 @@ export default function AISettings() {
             <select
               value={selectedModel}
               onChange={(e) => handleModelChange(e.target.value)}
-              className="w-full sm:w-auto px-4 py-2 rounded-lg border-2 bg-white"
+              className="w-full sm:w-auto px-4 py-2 rounded-lg border-2 bg-white text-gray-900"
               style={{ borderColor: `${teamColors.primary}30` }}
             >
               {models.map(model => (

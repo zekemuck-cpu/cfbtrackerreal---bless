@@ -1040,7 +1040,7 @@ export default function Player() {
           )}
           {!isViewOnly && (
             <button
-              onClick={() => setShowEditModal(true)}
+              onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
               className="p-2 rounded-lg hover:opacity-70 transition-opacity"
               style={{ color: primaryText }}
               title="Edit Player"
@@ -1101,7 +1101,7 @@ export default function Player() {
                 )}
                 {!isViewOnly && (
                   <button
-                    onClick={() => setShowEditModal(true)}
+                    onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
                     className="p-1.5 rounded-lg hover:opacity-70 transition-opacity flex-shrink-0"
                     style={{ color: primaryText }}
                     title="Edit Player"
