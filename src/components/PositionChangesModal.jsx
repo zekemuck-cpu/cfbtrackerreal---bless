@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 
 const POSITIONS = [
@@ -10,23 +11,14 @@ const POSITIONS = [
   'K', 'P'
 ]
 
-// Position groups for better organization
-const POSITION_GROUPS = {
-  'Offense': ['QB', 'HB', 'FB', 'WR', 'TE'],
-  'O-Line': ['LT', 'LG', 'C', 'RG', 'RT'],
-  'D-Line': ['LEDG', 'REDG', 'DT'],
-  'Linebackers': ['SAM', 'MIKE', 'WILL'],
-  'Secondary': ['CB', 'FS', 'SS'],
-  'Special': ['K', 'P']
-}
-
 // Searchable player input component
 function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder = "Search player..." }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [dropdownPos, setDropdownPos] = useState(null)
+  const containerRef = useRef(null)
   const inputRef = useRef(null)
-  const dropdownRef = useRef(null)
 
   const selectedPlayer = players.find(p => String(p.pid) === String(value))
 
@@ -37,19 +29,72 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
       )
     : players
 
+  // Update dropdown position - viewport aware
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const dropdownHeight = 256 // max-h-64
+      const spaceBelow = viewportHeight - rect.bottom - 8
+      const spaceAbove = rect.top - 8
+      const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+
+      setDropdownPos({
+        left: rect.left,
+        width: rect.width,
+        ...(openUpward
+          ? { bottom: viewportHeight - rect.top + 4, maxHeight: Math.min(dropdownHeight, spaceAbove) }
+          : { top: rect.bottom + 4, maxHeight: Math.min(dropdownHeight, spaceBelow) }
+        )
+      })
+    }
+  }
+
   useEffect(() => {
     setHighlightedIndex(0)
   }, [filteredPlayers.length])
 
+  // Scroll highlighted item into view
   useEffect(() => {
+    if (isOpen && highlightedIndex >= 0) {
+      const dropdown = document.getElementById('player-search-dropdown')
+      const highlighted = dropdown?.querySelector(`[data-index="${highlightedIndex}"]`)
+      if (highlighted) {
+        highlighted.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [highlightedIndex, isOpen])
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        // Check if click is on the dropdown portal
+        const dropdown = document.getElementById('player-search-dropdown')
+        if (dropdown && dropdown.contains(e.target)) return
         setIsOpen(false)
       }
     }
+
+    const handleScroll = () => updatePosition()
+
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleScroll)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [isOpen])
 
   const handleInputChange = (e) => {
     setSearchTerm(e.target.value)
@@ -91,6 +136,14 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
           handleSelectPlayer(filteredPlayers[highlightedIndex])
         }
         break
+      case 'Tab':
+        // Auto-select highlighted player and let Tab continue to next field
+        if (filteredPlayers.length > 0) {
+          const playerToSelect = filteredPlayers[highlightedIndex] || filteredPlayers[0]
+          handleSelectPlayer(playerToSelect)
+        }
+        // Don't prevent default - allow Tab to move focus to position selector
+        break
       case 'Escape':
         setIsOpen(false)
         setSearchTerm('')
@@ -98,19 +151,50 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
     }
   }
 
+  // Render dropdown via portal to escape overflow clipping
+  const renderDropdown = () => {
+    if (!isOpen || selectedPlayer || !dropdownPos) return null
+
+    return createPortal(
+      <div
+        id="player-search-dropdown"
+        className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-xl overflow-y-auto"
+        style={dropdownPos}
+      >
+        {filteredPlayers.length > 0 ? (
+          filteredPlayers.map((player, idx) => (
+            <div
+              key={player.pid}
+              data-index={idx}
+              onClick={() => handleSelectPlayer(player)}
+              className={`px-3 py-3 cursor-pointer flex justify-between items-center transition-colors ${
+                idx === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium text-gray-900">{player.name}</span>
+              <span
+                className="text-xs px-2.5 py-1 rounded font-bold text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {player.position}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="px-3 py-4 text-gray-500 text-sm text-center">No players found</div>
+        )}
+      </div>,
+      document.body
+    )
+  }
+
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={containerRef}>
       {selectedPlayer ? (
-        <div className="flex items-center gap-3 px-3 py-2.5 bg-white rounded-lg border border-gray-300 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-lg border border-gray-300 shadow-sm">
           <div className="flex-1 min-w-0">
             <span className="font-semibold text-gray-900">{selectedPlayer.name}</span>
           </div>
-          <span
-            className="px-2.5 py-1 rounded text-xs font-bold text-white"
-            style={{ backgroundColor: primaryColor }}
-          >
-            {selectedPlayer.position}
-          </span>
           <button
             onClick={handleClear}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -139,53 +223,174 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
         </div>
       )}
 
-      {isOpen && !selectedPlayer && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {filteredPlayers.length > 0 ? (
-            filteredPlayers.map((player, idx) => (
-              <div
-                key={player.pid}
-                onClick={() => handleSelectPlayer(player)}
-                className={`px-3 py-3 cursor-pointer flex justify-between items-center transition-colors ${
-                  idx === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
-                }`}
-              >
-                <span className="font-medium text-gray-900">{player.name}</span>
-                <span
-                  className="text-xs px-2.5 py-1 rounded font-bold text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {player.position}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="px-3 py-4 text-gray-500 text-sm text-center">No players found</div>
-          )}
-        </div>
-      )}
+      {renderDropdown()}
     </div>
   )
 }
 
-// Position selector with grouped options
-function PositionSelector({ value, onChange, disabled, excludePosition, primaryColor }) {
+// Position selector - custom dropdown with viewport-aware positioning
+function PositionSelector({ value, onChange, disabled, excludePosition }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(0)
+  const [dropdownPos, setDropdownPos] = useState(null)
+  const containerRef = useRef(null)
+  const dropdownId = useRef(`pos-dropdown-${Math.random().toString(36).substr(2, 9)}`).current
+
+  const availablePositions = POSITIONS.filter(p => p !== excludePosition)
+
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const dropdownHeight = Math.min(256, availablePositions.length * 40)
+      const spaceBelow = viewportHeight - rect.bottom - 8
+      const spaceAbove = rect.top - 8
+      const openUpward = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+
+      setDropdownPos({
+        left: rect.left,
+        width: rect.width,
+        ...(openUpward
+          ? { bottom: viewportHeight - rect.top + 4, maxHeight: Math.min(dropdownHeight, spaceAbove) }
+          : { top: rect.bottom + 4, maxHeight: Math.min(dropdownHeight, spaceBelow) }
+        )
+      })
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+      // Set initial highlight to current value
+      const currentIdx = availablePositions.indexOf(value)
+      setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        const dropdown = document.getElementById(dropdownId)
+        if (dropdown && dropdown.contains(e.target)) return
+        setIsOpen(false)
+      }
+    }
+
+    const handleScroll = () => updatePosition()
+
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleScroll)
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [isOpen])
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (isOpen && highlightedIndex >= 0) {
+      const dropdown = document.getElementById(dropdownId)
+      const highlighted = dropdown?.querySelector(`[data-index="${highlightedIndex}"]`)
+      if (highlighted) {
+        highlighted.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [highlightedIndex, isOpen])
+
+  const handleKeyDown = (e) => {
+    if (disabled) return
+
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        setIsOpen(true)
+      }
+      return
+    }
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setHighlightedIndex(prev => Math.min(prev + 1, availablePositions.length - 1))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setHighlightedIndex(prev => Math.max(prev - 1, 0))
+        break
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        if (availablePositions[highlightedIndex]) {
+          onChange(availablePositions[highlightedIndex])
+          setIsOpen(false)
+        }
+        break
+      case 'Tab':
+        if (availablePositions[highlightedIndex]) {
+          onChange(availablePositions[highlightedIndex])
+        }
+        setIsOpen(false)
+        break
+      case 'Escape':
+        setIsOpen(false)
+        break
+    }
+  }
+
+  const handleSelect = (pos) => {
+    onChange(pos)
+    setIsOpen(false)
+  }
+
+  const renderDropdown = () => {
+    if (!isOpen || !dropdownPos) return null
+
+    return createPortal(
+      <div
+        id={dropdownId}
+        className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-xl overflow-y-auto"
+        style={dropdownPos}
+      >
+        {availablePositions.map((pos, idx) => (
+          <div
+            key={pos}
+            data-index={idx}
+            onClick={() => handleSelect(pos)}
+            className={`px-3 py-2.5 cursor-pointer text-center font-semibold transition-colors ${
+              idx === highlightedIndex ? 'bg-blue-50 text-blue-700' : 'text-gray-900 hover:bg-gray-50'
+            } ${pos === value ? 'bg-blue-100' : ''}`}
+          >
+            {pos}
+          </div>
+        ))}
+      </div>,
+      document.body
+    )
+  }
+
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      className="w-full px-3 py-2.5 bg-white rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none text-gray-900 font-semibold text-center disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed shadow-sm"
-    >
-      <option value="" className="text-gray-400">Select...</option>
-      {Object.entries(POSITION_GROUPS).map(([group, positions]) => (
-        <optgroup key={group} label={group} className="text-gray-700 font-medium">
-          {positions.filter(p => p !== excludePosition).map(pos => (
-            <option key={pos} value={pos} className="text-gray-900">{pos}</option>
-          ))}
-        </optgroup>
-      ))}
-    </select>
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        className={`w-full px-3 py-2.5 bg-white rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none font-semibold text-center shadow-sm flex items-center justify-center gap-1 ${
+          disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-gray-900'
+        }`}
+      >
+        <span>{value || 'Select...'}</span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {renderDropdown()}
+    </div>
   )
 }
 
