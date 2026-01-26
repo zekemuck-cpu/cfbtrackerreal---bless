@@ -173,9 +173,22 @@ function StintCard({
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState(stint)
+  // Store original stint when editing starts, for cancel functionality
+  const [originalStint, setOriginalStint] = useState(null)
 
   const isOpen = stint.toYear === null || stint.toYear === undefined
   const isCurrent = isOpen || stint.toYear >= currentYear
+
+  // Helper to update local state AND propagate to parent immediately
+  // Supports both direct values and functional updates like setEditData
+  const updateStintData = (newDataOrFn) => {
+    updateStintData(prev => {
+      const newData = typeof newDataOrFn === 'function' ? newDataOrFn(prev) : newDataOrFn
+      // Propagate to parent immediately
+      onUpdate(index, newData)
+      return newData
+    })
+  }
 
   // Get team info - robust lookup with multiple fallbacks
   const getTeamInfo = (tid) => {
@@ -224,14 +237,27 @@ function StintCard({
     stintYears.push(y)
   }
 
-  const handleSave = () => {
-    onUpdate(index, editData)
+  // "Done" just closes the editor - changes are already saved
+  const handleDone = () => {
+    setOriginalStint(null)
     setIsEditing(false)
   }
 
+  // Cancel reverts to original stint and closes
   const handleCancel = () => {
-    setEditData(stint)
+    if (originalStint) {
+      setEditData(originalStint)
+      onUpdate(index, originalStint)
+    }
+    setOriginalStint(null)
     setIsEditing(false)
+  }
+
+  // Start editing - store original for cancel
+  const startEditing = () => {
+    setOriginalStint({ ...stint })
+    setEditData(stint)
+    setIsEditing(true)
   }
 
   if (isEditing) {
@@ -251,10 +277,10 @@ function StintCard({
               </button>
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={handleDone}
                 className="px-3 py-1 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               >
-                Save
+                Done
               </button>
             </div>
           </div>
@@ -264,7 +290,7 @@ function StintCard({
             <label className="block text-xs font-medium text-gray-500 mb-1">Team</label>
             <TeamSelector
               value={editData.teamTid}
-              onChange={(tid) => setEditData(prev => ({ ...prev, teamTid: tid }))}
+              onChange={(tid) => updateStintData(prev => ({ ...prev, teamTid: tid }))}
               teams={teams}
             />
           </div>
@@ -276,7 +302,7 @@ function StintCard({
               <input
                 type="number"
                 value={editData.fromYear || ''}
-                onChange={(e) => setEditData(prev => ({ ...prev, fromYear: parseInt(e.target.value) || null }))}
+                onChange={(e) => updateStintData(prev => ({ ...prev, fromYear: parseInt(e.target.value) || null }))}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
                 placeholder="2024"
               />
@@ -287,7 +313,7 @@ function StintCard({
                 {editData.toYear === null || editData.toYear === undefined ? (
                   <button
                     type="button"
-                    onClick={() => setEditData(prev => ({ ...prev, toYear: currentYear }))}
+                    onClick={() => updateStintData(prev => ({ ...prev, toYear: currentYear }))}
                     className="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium"
                   >
                     Present (Active)
@@ -297,13 +323,13 @@ function StintCard({
                     <input
                       type="number"
                       value={editData.toYear || ''}
-                      onChange={(e) => setEditData(prev => ({ ...prev, toYear: parseInt(e.target.value) || null }))}
+                      onChange={(e) => updateStintData(prev => ({ ...prev, toYear: parseInt(e.target.value) || null }))}
                       className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
                       placeholder="2026"
                     />
                     <button
                       type="button"
-                      onClick={() => setEditData(prev => ({ ...prev, toYear: null, endReason: null }))}
+                      onClick={() => updateStintData(prev => ({ ...prev, toYear: null, endReason: null }))}
                       className="px-2 py-2 text-green-600 hover:bg-green-50 rounded-lg"
                       title="Mark as active (present)"
                     >
@@ -324,7 +350,7 @@ function StintCard({
             </label>
             <select
               value={editData.reason || editData.entryType || 'recruited'}
-              onChange={(e) => setEditData(prev => ({
+              onChange={(e) => updateStintData(prev => ({
                 ...prev,
                 reason: e.target.value,
                 entryType: isFirst ? e.target.value : prev.entryType,
@@ -345,7 +371,7 @@ function StintCard({
               <label className="block text-xs font-medium text-gray-500 mb-1">Transferred From</label>
               <TeamSelector
                 value={editData.transferFromTid}
-                onChange={(tid) => setEditData(prev => ({ ...prev, transferFromTid: tid }))}
+                onChange={(tid) => updateStintData(prev => ({ ...prev, transferFromTid: tid }))}
                 teams={teams}
                 placeholder="Select previous team..."
               />
@@ -410,7 +436,7 @@ function StintCard({
                 <label className="block text-xs font-medium text-gray-500 mb-1">Reason for leaving</label>
                 <select
                   value={editData.endReason || ''}
-                  onChange={(e) => setEditData(prev => ({
+                  onChange={(e) => updateStintData(prev => ({
                     ...prev,
                     endReason: e.target.value || null,
                     // Clear related fields when reason changes
@@ -432,7 +458,7 @@ function StintCard({
                   <label className="block text-xs font-medium text-gray-500 mb-1">Draft Round</label>
                   <select
                     value={editData.draftRound || ''}
-                    onChange={(e) => setEditData(prev => ({ ...prev, draftRound: e.target.value || null }))}
+                    onChange={(e) => updateStintData(prev => ({ ...prev, draftRound: e.target.value || null }))}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
                   >
                     <option value="">Select round...</option>
@@ -449,7 +475,7 @@ function StintCard({
                   <label className="block text-xs font-medium text-gray-500 mb-1">Transferred To</label>
                   <TeamSelector
                     value={editData.transferToTid}
-                    onChange={(tid) => setEditData(prev => ({ ...prev, transferToTid: tid }))}
+                    onChange={(tid) => updateStintData(prev => ({ ...prev, transferToTid: tid }))}
                     teams={teams}
                     placeholder="Select destination team..."
                   />
@@ -490,7 +516,7 @@ function StintCard({
             ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
             : 'bg-white border-gray-200 hover:border-gray-300'
         }`}
-        onClick={() => setIsEditing(true)}
+        onClick={startEditing}
       >
         {/* Current indicator */}
         {isCurrent && isOpen && (
