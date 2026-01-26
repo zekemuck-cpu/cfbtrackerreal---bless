@@ -9715,6 +9715,7 @@ export default function Dashboard() {
           // Get portal transfers from recruiting commitments for this year
           const userTidForPortal = getUserTeamTid(currentDynasty)
           const recruitingCommitmentsAll = getRecruitingCommitments(currentDynasty, userTidForPortal, offseasonDataYear)
+          const rosterPlayers = currentDynasty?.players || []
           const transfers = []
           const seenNames = new Set() // Deduplicate by name
           Object.values(recruitingCommitmentsAll).forEach(weekCommitments => {
@@ -9730,9 +9731,14 @@ export default function Dashboard() {
                   // Only include Fr, So, Jr (not Sr) as they need class assignment
                   const baseClass = playerClass.replace('RS ', '')
                   if (['Fr', 'So', 'Jr'].includes(baseClass)) {
+                    // Look up player in roster for current position (in case of position changes)
+                    // The roster is the source of truth for player positions
+                    const rosterPlayer = rosterPlayers.find(p =>
+                      p.name?.toLowerCase().trim() === nameLower
+                    )
                     transfers.push({
                       name: c.name,
-                      position: c.position,
+                      position: rosterPlayer?.position || c.position, // Use roster position if found
                       incomingClass: playerClass
                     })
                   }
