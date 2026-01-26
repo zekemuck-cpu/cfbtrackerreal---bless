@@ -2731,7 +2731,7 @@ export default function Dashboard() {
                   ) : null
                 })()}
                 <div className="min-w-0">
-                  <h2 className="font-display text-2xl sm:text-3xl font-extrabold truncate tracking-tight" style={{ color: primaryBgText }}>
+                  <h2 className="font-display text-base xs:text-lg sm:text-2xl md:text-3xl font-extrabold tracking-tight leading-tight" style={{ color: primaryBgText }}>
                     {currentRank && <span className="mr-2 opacity-70">#{currentRank}</span>}
                     {userTeamName}
                   </h2>
