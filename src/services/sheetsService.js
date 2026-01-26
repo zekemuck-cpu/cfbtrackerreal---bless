@@ -12821,14 +12821,20 @@ export async function createPortalTransferClassSheet(dynastyName, year, portalTr
   try {
     const accessToken = await getAccessToken()
 
-    // Sort transfers by last name
+    // Sort transfers by position order (QB -> P)
+    const positionOrder = [
+      'QB', 'HB', 'FB', 'WR', 'TE',
+      'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
+      'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
+      'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
+      'CB', 'FS', 'SS', 'S', 'K', 'P'
+    ]
     const sortedTransfers = [...portalTransfers].sort((a, b) => {
-      const getLastName = (name) => {
-        if (!name) return ''
-        const parts = name.trim().split(' ')
-        return parts[parts.length - 1].toLowerCase()
-      }
-      return getLastName(a.name).localeCompare(getLastName(b.name))
+      const posA = positionOrder.indexOf(a.position) !== -1 ? positionOrder.indexOf(a.position) : 999
+      const posB = positionOrder.indexOf(b.position) !== -1 ? positionOrder.indexOf(b.position) : 999
+      if (posA !== posB) return posA - posB
+      // Secondary sort by name
+      return (a.name || '').localeCompare(b.name || '')
     })
 
     const totalRows = Math.max(sortedTransfers.length, 10)
@@ -13054,6 +13060,20 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
           }
         },
         fields: 'userEnteredFormat(backgroundColor,horizontalAlignment,textFormat)'
+      }
+    },
+    // Add auto-filter to header row for sorting/filtering
+    {
+      setBasicFilter: {
+        filter: {
+          range: {
+            sheetId,
+            startRowIndex: 0,
+            endRowIndex: totalRows + 1,
+            startColumnIndex: 0,
+            endColumnIndex: 4
+          }
+        }
       }
     }
   ]
