@@ -342,6 +342,38 @@ export function getMascotName(abbrOrTid, teamsOrCustomTeams = null) {
   return teamData?.name || null
 }
 
+// Helper function to get just the school name (without mascot) from abbreviation or tid
+// e.g., "Memphis Tigers" -> "Memphis", "Kentucky Wildcats" -> "Kentucky"
+export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
+  const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
+  if (!fullName) return null
+
+  // Split by space and remove the last word (mascot)
+  // Handle multi-word mascots like "Sun Devils", "Golden Bears", "Black Knights"
+  const parts = fullName.split(' ')
+  if (parts.length <= 1) return fullName
+
+  // Common two-word mascots that we need to handle
+  const twoWordMascots = [
+    'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
+    'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',
+    'Red Raiders', 'Red Wolves', 'Mean Green', 'Green Wave', 'Horned Frogs',
+    'Nittany Lions', 'Scarlet Knights', 'Orange Men', 'Fighting Irish',
+    'Demon Deacons', 'Crimson Tide', 'War Eagles', 'Runnin Utes', 'Fightin Blue Hens'
+  ]
+
+  // Check if the last two words form a known two-word mascot
+  if (parts.length >= 3) {
+    const lastTwo = `${parts[parts.length - 2]} ${parts[parts.length - 1]}`
+    if (twoWordMascots.some(m => m.toLowerCase() === lastTwo.toLowerCase())) {
+      return parts.slice(0, -2).join(' ')
+    }
+  }
+
+  // Default: remove just the last word
+  return parts.slice(0, -1).join(' ')
+}
+
 // Helper function to get team logo URL (checks teambuilder teams first)
 // Helper to detect if teams object is tid-based (keys are numbers)
 function isTidBasedTeams(teams) {

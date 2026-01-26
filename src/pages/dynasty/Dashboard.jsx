@@ -2063,14 +2063,25 @@ export default function Dashboard() {
       const recruitClass = (recruit.class || '').trim()
       const isPortalPlayer = recruit.isPortal || portalClasses.some(pc => pc.toLowerCase() === recruitClass.toLowerCase())
 
-      // For portal players, ensure previousTeam is set (required for filtering)
-      // If not provided, use "Transfer Portal" as a placeholder
-      const previousTeam = recruit.previousTeam || (isPortalPlayer ? 'Transfer Portal' : '')
+      // For portal players, resolve previousTeam to a tid if possible
+      // Try multiple resolution methods: tid lookup by name, abbreviation, or team name
+      let previousTeamTid = null
+      if (recruit.previousTeam && isPortalPlayer) {
+        const prevTeamText = recruit.previousTeam.trim()
+        // Try to resolve as tid from team name or abbreviation
+        previousTeamTid = getTidFromTeamName(prevTeamText, currentDynasty?.teams) ||
+                          getTidFromAbbr(prevTeamText) ||
+                          resolveTid(prevTeamText, currentDynasty?.teams || TEAMS)
+        // If resolution failed but we have text, it might be an FCS/non-FBS team - keep as null
+      }
+
+      // Store previousTeam as tid if resolved, otherwise keep original text for display fallback
+      const previousTeam = previousTeamTid || recruit.previousTeam || (isPortalPlayer ? null : '')
 
       // Create movement for this recruit - use tid for team references
       const movementType = isPortalPlayer ? MOVEMENT_TYPES.PORTAL_IN : MOVEMENT_TYPES.RECRUITED
-      const fromTeam = isPortalPlayer ? (recruit.previousTeam || null) : null
-      const recruitMovement = createMovement(year, movementType, fromTeam, teamTid)
+      const fromTeamTid = isPortalPlayer ? previousTeamTid : null
+      const recruitMovement = createMovement(year, movementType, fromTeamTid, teamTid)
 
       const enrollmentYear = year + 1 // Year they will be on the roster
       const enrollmentClass = classToYear[recruit.class] || 'Fr'
@@ -2114,7 +2125,9 @@ export default function Dashboard() {
           teamTid: teamTid,
           fromYear: enrollmentYear,
           toYear: null, // Still active
-          reason: isPortalPlayer ? 'portal_in' : 'recruited'
+          reason: isPortalPlayer ? 'portal_in' : 'recruited',
+          // For portal transfers, store where they came from
+          ...(isPortalPlayer && previousTeamTid ? { transferFromTid: previousTeamTid } : {})
         }],
         pendingDeparture: null
       }
@@ -2478,7 +2491,9 @@ export default function Dashboard() {
 
   // Get all previous commitments for the current team/year (to pre-populate sheet) - TID-BASED
   const getAllPreviousCommitments = () => {
-    const year = currentDynasty.currentYear
+    // Use offseasonDataYear to handle year flip on Signing Day (week 6)
+    // Commitments from weeks 1-5 are stored under the old year
+    const year = offseasonDataYear
     const userTid = getUserTeamTid(currentDynasty)
 
     // Use TID-BASED getter

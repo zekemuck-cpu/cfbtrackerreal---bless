@@ -182,7 +182,7 @@ function StintCard({
   // Helper to update local state AND propagate to parent immediately
   // Supports both direct values and functional updates like setEditData
   const updateStintData = (newDataOrFn) => {
-    updateStintData(prev => {
+    setEditData(prev => {
       const newData = typeof newDataOrFn === 'function' ? newDataOrFn(prev) : newDataOrFn
       // Propagate to parent immediately
       onUpdate(index, newData)

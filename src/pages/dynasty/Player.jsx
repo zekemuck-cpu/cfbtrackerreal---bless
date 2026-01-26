@@ -4,7 +4,7 @@ import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
@@ -77,6 +77,40 @@ const getMascotName = (abbr, teamsData = null) => {
     'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
   }
   return mascotMap[abbr] || null
+}
+
+// Get just the school name (without mascot) for cleaner display in timeline
+const getSchoolName = (abbrOrTid, teamsData = null) => {
+  // Try tid-based lookup first if teams data provided
+  if (teamsData) {
+    const result = getSchoolNameFromTeams(abbrOrTid, teamsData)
+    if (result) return result
+  }
+  // Fall back to extracting from mascot name
+  const fullName = getMascotName(abbrOrTid, teamsData)
+  if (!fullName) return null
+
+  // Split and remove mascot (last word or known two-word mascots)
+  const parts = fullName.split(' ')
+  if (parts.length <= 1) return fullName
+
+  const twoWordMascots = [
+    'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
+    'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',
+    'Red Raiders', 'Red Wolves', 'Mean Green', 'Green Wave', 'Horned Frogs',
+    'Nittany Lions', 'Scarlet Knights', 'Fighting Irish', 'Demon Deacons',
+    'Crimson Tide', 'Golden Hurricane', 'Thundering Herd', 'Tar Heels',
+    'Ragin\' Cajuns', 'Wolf Pack', 'Fighting Illini'
+  ]
+
+  if (parts.length >= 3) {
+    const lastTwo = `${parts[parts.length - 2]} ${parts[parts.length - 1]}`
+    if (twoWordMascots.some(m => m.toLowerCase() === lastTwo.toLowerCase())) {
+      return parts.slice(0, -2).join(' ')
+    }
+  }
+
+  return parts.slice(0, -1).join(' ')
 }
 
 // Class progression order
@@ -1279,24 +1313,58 @@ export default function Player() {
               m.type === 'recruited' || m.type === 'portal_in' || m.type === 'added'
             )
             if (joinMovement) {
-              timelineEntries.push({ ...joinMovement, team })
+              // Check if joinMovement has a from team, or look in teamHistory
+              let fromTeam = joinMovement.from || null
+              if (!fromTeam && player.teamHistory) {
+                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
+                if (stint?.transferFromTid) {
+                  fromTeam = stint.transferFromTid
+                }
+              }
+              timelineEntries.push({ ...joinMovement, team, from: fromTeam })
             } else {
               // No join movement - determine type from player data
               let joinType = 'started'
               let fromTeam = null
 
-              // Check if player was a portal transfer
-              if (player.isPortal) {
-                joinType = 'portal_in'
-                fromTeam = player.previousTeam || null
+              // First check teamHistory for this year's stint
+              if (player.teamHistory) {
+                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
+                if (stint) {
+                  // Use stint's reason if available
+                  if (stint.reason === 'portal_in' || stint.entryType === 'portal_in') {
+                    joinType = 'portal_in'
+                    fromTeam = stint.transferFromTid || null
+                  } else if (stint.reason === 'juco_in' || stint.entryType === 'juco_in') {
+                    joinType = 'juco_in'
+                    fromTeam = stint.transferFromTid || null
+                  } else if (stint.reason === 'transfer' || stint.entryType === 'transfer') {
+                    joinType = 'transfer'
+                    fromTeam = stint.transferFromTid || null
+                  } else if (stint.reason === 'recruited' || stint.entryType === 'recruited') {
+                    joinType = 'recruited'
+                  } else if (stint.reason === 'added' || stint.entryType === 'added') {
+                    joinType = 'added'
+                  }
+                }
               }
-              // Check if player was a JUCO transfer (class starts with JUCO)
-              else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) {
-                joinType = 'juco_in'
-              }
-              // Check if player has recruit data (was recruited from HS)
-              else if (player.stars || player.nationalRank || player.recruitYear) {
-                joinType = 'recruited'
+
+              // Fall back to player-level flags if no stint info
+              if (joinType === 'started') {
+                // Check if player was a portal transfer
+                if (player.isPortal) {
+                  joinType = 'portal_in'
+                  // previousTeam could be tid (number) or text - handle both
+                  fromTeam = player.previousTeam || null
+                }
+                // Check if player was a JUCO transfer (class starts with JUCO)
+                else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) {
+                  joinType = 'juco_in'
+                }
+                // Check if player has recruit data (was recruited from HS)
+                else if (player.stars || player.nationalRank || player.recruitYear) {
+                  joinType = 'recruited'
+                }
               }
 
               timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
@@ -1305,9 +1373,25 @@ export default function Player() {
             // Team changed - show transfer
             const transferMovement = yearMovements.find(m => m.type === 'transfer' || m.type === 'portal_in')
             if (transferMovement) {
-              timelineEntries.push({ ...transferMovement, team })
+              // Check if movement has from, or look in teamHistory
+              let fromTeam = transferMovement.from || prevTeam
+              if (!transferMovement.from && player.teamHistory) {
+                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
+                if (stint?.transferFromTid) {
+                  fromTeam = stint.transferFromTid
+                }
+              }
+              timelineEntries.push({ ...transferMovement, team, from: fromTeam })
             } else {
-              timelineEntries.push({ year, type: 'transfer', from: prevTeam, to: team, team })
+              // Check teamHistory for transferFromTid
+              let fromTeam = prevTeam
+              if (player.teamHistory) {
+                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
+                if (stint?.transferFromTid) {
+                  fromTeam = stint.transferFromTid
+                }
+              }
+              timelineEntries.push({ year, type: 'transfer', from: fromTeam, to: team, team })
             }
           }
 
@@ -1435,17 +1519,29 @@ export default function Player() {
             <div className="flex flex-wrap gap-2 mb-4">
               {timelineEntries.map((entry, idx) => {
                 const teamsData = dynasty?.teams || dynasty?.customTeams
-                const toTeamName = entry.to ? getMascotName(entry.to, teamsData) : null
-                const fromTeamName = entry.from ? getMascotName(entry.from, teamsData) : null
-                const teamName = entry.team ? getMascotName(entry.team, teamsData) : null
+                // Use school names (without mascot) for cleaner display
+                const toTeamName = entry.to ? getSchoolName(entry.to, teamsData) : null
+                const fromTeamName = entry.from ? getSchoolName(entry.from, teamsData) : null
+                const teamName = entry.team ? getSchoolName(entry.team, teamsData) : null
                 const displayTeamName = toTeamName || fromTeamName || teamName
-                const logo = displayTeamName ? getTeamLogo(displayTeamName) : null
+                // But use full mascot name for logo lookup
+                const fullTeamName = entry.team ? getMascotName(entry.team, teamsData) : null
+                const logo = fullTeamName ? getTeamLogo(fullTeamName) : null
 
                 // Build team display string based on movement type
                 let teamDisplay = ''
-                if (entry.type === 'recruited' || entry.type === 'portal_in' || entry.type === 'juco_in' || entry.type === 'added') {
+                if (entry.type === 'portal_in' || entry.type === 'juco_in' || entry.type === 'transfer') {
+                  // Show "From Team -> to New Team" for transfers
+                  if (fromTeamName && toTeamName) {
+                    teamDisplay = ` from ${fromTeamName} to ${toTeamName}`
+                  } else if (fromTeamName) {
+                    teamDisplay = ` from ${fromTeamName}`
+                  } else if (toTeamName) {
+                    teamDisplay = ` to ${toTeamName}`
+                  }
+                } else if (entry.type === 'recruited' || entry.type === 'added') {
                   teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
-                } else if (entry.type === 'transfer' || entry.type === 'encouraged_transfer') {
+                } else if (entry.type === 'encouraged_transfer') {
                   teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
                 } else if (entry.type === 'entered_portal' || entry.type === 'departure') {
                   teamDisplay = fromTeamName ? ` from ${fromTeamName}` : ''
@@ -1528,21 +1624,24 @@ export default function Player() {
               )}
               {/* Previous Team for transfers */}
               {recruitmentInfo.previousTeam && (() => {
-                // Get the abbreviation for the previous team (might be abbr or mascot name)
-                const prevTeamAbbr = getAbbrFromTeamName(recruitmentInfo.previousTeam) || recruitmentInfo.previousTeam
+                const teamsData = dynasty?.teams || dynasty?.customTeams
+                // previousTeam could be a tid (number) or team name/abbr (string)
+                const prevTeamTid = typeof recruitmentInfo.previousTeam === 'number'
+                  ? recruitmentInfo.previousTeam
+                  : resolveTid(recruitmentInfo.previousTeam, teamsData || TEAMS)
                 // The year they transferred is their recruit/start year
                 const transferYear = player.recruitYear || player.yearStarted || dynasty?.currentYear
-                const prevTeamLogo = getTeamLogo(getMascotName(recruitmentInfo.previousTeam, dynasty?.teams || dynasty?.customTeams) || recruitmentInfo.previousTeam)
+                const prevTeamFullName = getMascotName(recruitmentInfo.previousTeam, teamsData)
+                const prevTeamLogo = prevTeamFullName ? getTeamLogo(prevTeamFullName, teamsData) : null
 
                 return (
                   <div className="text-sm flex items-center gap-1.5" style={{ color: secondaryText }}>
                     <span style={{ color: secondaryText, opacity: 0.7 }}>from</span>
                     <Link
-                      to={`${pathPrefix}/team/${resolveTid(prevTeamAbbr, currentDynasty?.teams || TEAMS)}/${transferYear}`}
+                      to={`${pathPrefix}/team/${prevTeamTid}/${transferYear}`}
                       className="font-semibold hover:underline flex items-center gap-1.5"
                       style={{ color: teamColors.primary }}
                     >
-                      {recruitmentInfo.previousTeam}
                       {prevTeamLogo && (
                         <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
                           <img src={prevTeamLogo} alt="" className="w-full h-full object-contain" />

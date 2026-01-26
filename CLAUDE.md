@@ -46,6 +46,25 @@ Do NOT commit automatically. Only commit when user explicitly requests it.
 
 **NO decorative icons or symbols.** Keep the UI clean and text-based.
 
+### Modal Backdrop Pattern
+
+All modals MUST use this pattern for the backdrop to ensure full-screen coverage:
+
+```jsx
+<div
+  className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+  style={{ margin: 0 }}
+  onClick={onClose}
+>
+```
+
+**Required elements:**
+- `fixed inset-0 top-0 left-0 right-0 bottom-0` - Ensures full viewport coverage
+- `style={{ margin: 0 }}` - Prevents any inherited margins from creating gaps
+- `z-[9999]` - High z-index to appear above other content
+
+Without the explicit `top-0 left-0 right-0 bottom-0` and `margin: 0`, the modal backdrop may not reach the edges of the viewport.
+
 ---
 
 ## tid-Based Team System

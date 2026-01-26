@@ -4,9 +4,12 @@ import { useDynasty, getPlayerBoxScoreTotals } from '../../context/DynastyContex
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { TEAMS } from '../../data/teamRegistry'
+import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import PlayerTimelineEditor from '../../components/PlayerTimelineEditor'
+
+// Helper to check if a stint reason indicates a transfer
+const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
 
 /**
  * PlayerEdit - Full page player editor with polished UI
@@ -342,8 +345,24 @@ export default function PlayerEdit() {
       stateRank: player.stateRank || '',
       positionRank: player.positionRank || '',
       gemBust: player.gemBust || '',
-      isPortal: player.isPortal || false,
-      previousTeam: player.previousTeam || '',
+      // Derive isPortal from current stint's reason if available
+      isPortal: (() => {
+        const currentStint = (player.teamHistory || []).find(s => s.toYear === null || s.toYear === undefined) ||
+                            (player.teamHistory || [])[player.teamHistory?.length - 1]
+        if (currentStint && isTransferReason(currentStint.reason || currentStint.entryType)) {
+          return true
+        }
+        return player.isPortal || false
+      })(),
+      // Derive previousTeam from current stint's transferFromTid if available
+      previousTeam: (() => {
+        const currentStint = (player.teamHistory || []).find(s => s.toYear === null || s.toYear === undefined) ||
+                            (player.teamHistory || [])[player.teamHistory?.length - 1]
+        if (currentStint?.transferFromTid) {
+          return currentStint.transferFromTid
+        }
+        return player.previousTeam || ''
+      })(),
 
       // Tenure
       entryYear: player.entryYear || player.recruitYear || '',
@@ -1210,7 +1229,33 @@ export default function PlayerEdit() {
                     </label>
                     <select
                       value={formData.isPortal ? 'yes' : 'no'}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isPortal: e.target.value === 'yes' }))}
+                      onChange={(e) => {
+                        const isPortal = e.target.value === 'yes'
+                        setFormData(prev => {
+                          // Also update the current stint's reason to match
+                          const teamHistory = [...(prev.teamHistory || [])]
+                          // Find current stint (active one or last one)
+                          const currentStintIndex = teamHistory.findIndex(s => s.toYear === null || s.toYear === undefined)
+                          const stintIndex = currentStintIndex !== -1 ? currentStintIndex : teamHistory.length - 1
+
+                          if (stintIndex >= 0 && teamHistory[stintIndex]) {
+                            teamHistory[stintIndex] = {
+                              ...teamHistory[stintIndex],
+                              reason: isPortal ? 'portal_in' : 'recruited',
+                              // Clear transferFromTid if not a portal transfer
+                              transferFromTid: isPortal ? teamHistory[stintIndex].transferFromTid : null
+                            }
+                          }
+
+                          return {
+                            ...prev,
+                            isPortal,
+                            // Clear previousTeam if not a portal transfer
+                            previousTeam: isPortal ? prev.previousTeam : '',
+                            teamHistory
+                          }
+                        })
+                      }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
                       <option value="no">No</option>
@@ -1221,14 +1266,38 @@ export default function PlayerEdit() {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                       Previous Team
                     </label>
-                    <input
-                      type="text"
+                    <select
                       value={formData.previousTeam || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, previousTeam: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
-                      placeholder="Ohio State"
+                      onChange={(e) => {
+                        const tid = e.target.value ? Number(e.target.value) : null
+                        setFormData(prev => {
+                          // Also update the current stint's transferFromTid
+                          const teamHistory = [...(prev.teamHistory || [])]
+                          const currentStintIndex = teamHistory.findIndex(s => s.toYear === null || s.toYear === undefined)
+                          const stintIndex = currentStintIndex !== -1 ? currentStintIndex : teamHistory.length - 1
+
+                          if (stintIndex >= 0 && teamHistory[stintIndex]) {
+                            teamHistory[stintIndex] = {
+                              ...teamHistory[stintIndex],
+                              transferFromTid: tid
+                            }
+                          }
+
+                          return { ...prev, previousTeam: tid, teamHistory }
+                        })
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                       disabled={!formData.isPortal}
-                    />
+                    >
+                      <option value="">Select team...</option>
+                      {Object.entries(dynasty?.teams || TEAMS).map(([tid, team]) => (
+                        team && team.name && (
+                          <option key={tid} value={tid}>
+                            {team.name}
+                          </option>
+                        )
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -1247,7 +1316,20 @@ export default function PlayerEdit() {
               <div className="p-5">
                 <PlayerTimelineEditor
                   teamHistory={formData.teamHistory || []}
-                  onChange={(newHistory) => setFormData(prev => ({ ...prev, teamHistory: newHistory }))}
+                  onChange={(newHistory) => {
+                    // Sync stint changes back to Recruiting Info
+                    const currentStint = newHistory.find(s => s.toYear === null || s.toYear === undefined) ||
+                                        newHistory[newHistory.length - 1]
+
+                    setFormData(prev => ({
+                      ...prev,
+                      teamHistory: newHistory,
+                      // Sync isPortal from current stint's reason
+                      isPortal: currentStint ? isTransferReason(currentStint.reason || currentStint.entryType) : prev.isPortal,
+                      // Sync previousTeam from current stint's transferFromTid
+                      previousTeam: currentStint?.transferFromTid || ''
+                    }))
+                  }}
                   teams={dynasty?.teams || TEAMS}
                   currentYear={dynasty?.currentYear}
                   classByYear={formData.classByYear || {}}
