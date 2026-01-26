@@ -1520,9 +1520,15 @@ export default function Dashboard() {
         normalizePlayerName(p.name) === normalizePlayerName(result.playerName)
       )
       if (playerIndex !== -1 && result.newOverall) {
+        const existingOverallByYear = updatedPlayers[playerIndex].overallByYear || {}
         updatedPlayers[playerIndex] = {
           ...updatedPlayers[playerIndex],
-          overall: result.newOverall
+          overall: result.newOverall,
+          // Also update overallByYear for the new system
+          overallByYear: {
+            ...existingOverallByYear,
+            [year]: result.newOverall
+          }
         }
         updatedCount++
       }
@@ -1576,6 +1582,9 @@ export default function Dashboard() {
     const updatedPlayers = [...(currentDynasty.players || [])]
     let updatedCount = 0
 
+    // Recruits join in the year AFTER recruitment (freshman year)
+    const freshmanYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
+
     results.forEach(result => {
       // Find player by name (case-insensitive match) among recruits
       const playerIndex = updatedPlayers.findIndex(p =>
@@ -1584,9 +1593,15 @@ export default function Dashboard() {
         normalizePlayerName(p.name) === normalizePlayerName(result.name)
       )
       if (playerIndex !== -1 && result.overall) {
+        const existingOverallByYear = updatedPlayers[playerIndex].overallByYear || {}
         updatedPlayers[playerIndex] = {
           ...updatedPlayers[playerIndex],
           overall: result.overall,
+          // Also update overallByYear for their freshman year
+          overallByYear: {
+            ...existingOverallByYear,
+            [freshmanYear]: result.overall
+          },
           ...(result.jerseyNumber && { jerseyNumber: result.jerseyNumber })
         }
         updatedCount++
@@ -1611,6 +1626,8 @@ export default function Dashboard() {
     // On Signing Day (week 6), the year has already flipped
     const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
+    // Portal transfers join in the year AFTER recruitment
+    const joiningYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
 
     // Update player classes in the players array
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -1624,9 +1641,15 @@ export default function Dashboard() {
         normalizePlayerName(p.name) === normalizePlayerName(selection.playerName)
       )
       if (playerIndex !== -1 && selection.selectedClass) {
+        const existingClassByYear = updatedPlayers[playerIndex].classByYear || {}
         updatedPlayers[playerIndex] = {
           ...updatedPlayers[playerIndex],
-          year: selection.selectedClass
+          year: selection.selectedClass,
+          // Also update classByYear for the new system
+          classByYear: {
+            ...existingClassByYear,
+            [joiningYear]: selection.selectedClass
+          }
         }
         updatedCount++
       }
@@ -1994,12 +2017,15 @@ export default function Dashboard() {
       const fromTeam = isPortalPlayer ? (recruit.previousTeam || null) : null
       const recruitMovement = createMovement(year, movementType, fromTeam, teamTid)
 
+      const enrollmentYear = year + 1 // Year they will be on the roster
+      const enrollmentClass = classToYear[recruit.class] || 'Fr'
+
       return {
         pid,
         id: `player-${pid}`,
         name: recruit.name,
         position: recruit.position || '',
-        year: classToYear[recruit.class] || 'Fr',
+        year: enrollmentClass,
         jerseyNumber: '',
         devTrait: recruit.devTrait || 'Normal',
         archetype: recruit.archetype || '',
@@ -2012,7 +2038,13 @@ export default function Dashboard() {
         isRecruit: true,
         recruitYear: year, // The recruiting class year (they play NEXT year)
         // IMMUTABLE roster history - recruits will be on team starting NEXT year
-        teamsByYear: { [year + 1]: teamsByYearValue },
+        teamsByYear: { [enrollmentYear]: teamsByYearValue },
+        // IMMUTABLE class history - record their class when they enroll
+        classByYear: { [enrollmentYear]: enrollmentClass },
+        // Entry tracking for the new system
+        entryYear: enrollmentYear,
+        entryClass: enrollmentClass,
+        // Recruiting info
         stars: recruit.stars || 0,
         nationalRank: recruit.nationalRank || null,
         stateRank: recruit.stateRank || null,
@@ -2022,6 +2054,13 @@ export default function Dashboard() {
         isPortal: isPortalPlayer,
         // NEW: Add movements array with recruit movement
         movements: [recruitMovement],
+        // Team history (stint-based) - start when they enroll
+        teamHistory: [{
+          teamTid: teamTid,
+          fromYear: enrollmentYear,
+          toYear: null, // Still active
+          reason: isPortalPlayer ? 'portal_in' : 'recruited'
+        }],
         pendingDeparture: null
       }
     })

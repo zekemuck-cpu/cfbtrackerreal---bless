@@ -14,17 +14,16 @@ import { getTidFromAbbr, getAbbrFromTid, TEAMS } from '../data/teamRegistry'
  * - Single source of truth (teamHistory/stints)
  */
 
-// Reason display names
+// Reason display names (for leaving a team)
 const REASON_LABELS = {
   graduation: 'Graduated',
-  transfer: 'Transferred Out',
-  encouraged_transfer: 'Encouraged Transfer',
-  draft: 'Declared for Draft',
-  departure: 'Left Team',
-  cut: 'Cut from Roster',
-  entered_portal: 'Entered Portal',
-  other: 'Other'
+  pro_draft: 'Pro Draft',
+  transfer_out: 'Transferred Out',
+  encouraged_transfer: 'Encouraged to Transfer'
 }
+
+// Draft round options
+const DRAFT_ROUNDS = ['1st Round', '2nd Round', '3rd Round', '4th Round', '5th Round', '6th Round', '7th Round', 'Undrafted FA']
 
 // Entry type labels
 const ENTRY_LABELS = {
@@ -168,7 +167,8 @@ function StintCard({
   primaryColor,
   onAddStintAfter,
   classByYear = {},
-  overallByYear = {}
+  overallByYear = {},
+  onOverallChange
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState(stint)
@@ -334,18 +334,56 @@ function StintCard({
 
           {/* Exit reason (if stint is closed) */}
           {editData.toYear !== null && editData.toYear !== undefined && (
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Reason for leaving</label>
-              <select
-                value={editData.reason || ''}
-                onChange={(e) => setEditData(prev => ({ ...prev, reason: e.target.value || null }))}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
-              >
-                <option value="">Select reason...</option>
-                {Object.entries(REASON_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Reason for leaving</label>
+                <select
+                  value={editData.reason || ''}
+                  onChange={(e) => setEditData(prev => ({
+                    ...prev,
+                    reason: e.target.value || null,
+                    // Clear related fields when reason changes
+                    draftRound: e.target.value === 'pro_draft' ? prev.draftRound : null,
+                    transferToTid: e.target.value === 'transfer_out' ? prev.transferToTid : null
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+                >
+                  <option value="">Select reason...</option>
+                  {Object.entries(REASON_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Draft round (when pro_draft selected) */}
+              {editData.reason === 'pro_draft' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Draft Round</label>
+                  <select
+                    value={editData.draftRound || ''}
+                    onChange={(e) => setEditData(prev => ({ ...prev, draftRound: e.target.value || null }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white text-gray-900"
+                  >
+                    <option value="">Select round...</option>
+                    {DRAFT_ROUNDS.map(round => (
+                      <option key={round} value={round}>{round}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Transfer destination (when transfer_out selected) */}
+              {editData.reason === 'transfer_out' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Transferred To</label>
+                  <TeamSelector
+                    value={editData.transferToTid}
+                    onChange={(tid) => setEditData(prev => ({ ...prev, transferToTid: tid }))}
+                    teams={teams}
+                    placeholder="Select destination team..."
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -428,26 +466,50 @@ function StintCard({
                 {!isOpen && stint.reason && (
                   <span className="text-xs px-2 py-1 bg-amber-100 text-amber-700 rounded-full font-medium">
                     {REASON_LABELS[stint.reason] || stint.reason}
+                    {stint.reason === 'pro_draft' && stint.draftRound && ` (${stint.draftRound})`}
+                  </span>
+                )}
+                {!isOpen && stint.reason === 'transfer_out' && stint.transferToTid && (
+                  <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-medium">
+                    → {getTeamInfo(stint.transferToTid).abbr}
                   </span>
                 )}
               </div>
 
-              {/* Class and overall progression for each year */}
-              {stintYears.length > 0 && (Object.keys(classByYear).length > 0 || Object.keys(overallByYear).length > 0) && (
-                <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-100">
-                  {stintYears.map(year => {
-                    const playerClass = classByYear[year] || classByYear[String(year)]
-                    const playerOvr = overallByYear[year] || overallByYear[String(year)]
-                    if (!playerClass && !playerOvr) return null
-                    return (
-                      <span
-                        key={year}
-                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded font-medium"
-                      >
-                        {year}: {playerClass || '-'}{playerOvr ? ` (${playerOvr})` : ''}
-                      </span>
-                    )
-                  })}
+              {/* Class and overall progression for each year - always show for stints with years */}
+              {stintYears.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="text-xs font-medium text-gray-500 mb-2">Season Stats</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {stintYears.map(year => {
+                      const playerClass = classByYear[year] || classByYear[String(year)]
+                      const playerOvr = overallByYear[year] || overallByYear[String(year)]
+                      return (
+                        <div
+                          key={year}
+                          className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded-lg"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-xs font-semibold text-gray-600 min-w-[32px]">{year}</span>
+                          <span className="text-xs text-gray-500">{playerClass || '-'}</span>
+                          {onOverallChange ? (
+                            <input
+                              type="number"
+                              min="40"
+                              max="99"
+                              value={playerOvr || ''}
+                              onChange={(e) => onOverallChange(year, e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-12 px-1 py-0.5 text-xs text-center font-bold border border-gray-200 rounded bg-white focus:border-blue-500 focus:outline-none"
+                              placeholder="--"
+                            />
+                          ) : (
+                            <span className="text-xs font-bold text-gray-700">{playerOvr || '--'}</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -497,7 +559,8 @@ export default function PlayerTimelineEditor({
   primaryColor = '#3b82f6',
   playerName,
   classByYear = {},
-  overallByYear = {}
+  overallByYear = {},
+  onOverallChange
 }) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newStint, setNewStint] = useState({
@@ -621,6 +684,7 @@ export default function PlayerTimelineEditor({
               onAddStintAfter={handleAddStintAfter}
               classByYear={classByYear}
               overallByYear={overallByYear}
+              onOverallChange={onOverallChange}
             />
           ))}
         </div>
@@ -741,7 +805,12 @@ export default function PlayerTimelineEditor({
                 <label className="block text-xs font-medium text-blue-700 mb-1">Reason for leaving</label>
                 <select
                   value={newStint.reason || ''}
-                  onChange={(e) => setNewStint(prev => ({ ...prev, reason: e.target.value || null }))}
+                  onChange={(e) => setNewStint(prev => ({
+                    ...prev,
+                    reason: e.target.value || null,
+                    draftRound: e.target.value === 'pro_draft' ? prev.draftRound : null,
+                    transferToTid: e.target.value === 'transfer_out' ? prev.transferToTid : null
+                  }))}
                   className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white text-gray-900"
                 >
                   <option value="">Select reason...</option>
@@ -749,6 +818,36 @@ export default function PlayerTimelineEditor({
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
+              </div>
+            )}
+
+            {/* Draft round (when pro_draft selected) */}
+            {newStint.toYear !== null && newStint.reason === 'pro_draft' && (
+              <div>
+                <label className="block text-xs font-medium text-blue-700 mb-1">Draft Round</label>
+                <select
+                  value={newStint.draftRound || ''}
+                  onChange={(e) => setNewStint(prev => ({ ...prev, draftRound: e.target.value || null }))}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm bg-white text-gray-900"
+                >
+                  <option value="">Select round...</option>
+                  {DRAFT_ROUNDS.map(round => (
+                    <option key={round} value={round}>{round}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Transfer destination (when transfer_out selected) */}
+            {newStint.toYear !== null && newStint.reason === 'transfer_out' && (
+              <div>
+                <label className="block text-xs font-medium text-blue-700 mb-1">Transferred To</label>
+                <TeamSelector
+                  value={newStint.transferToTid}
+                  onChange={(tid) => setNewStint(prev => ({ ...prev, transferToTid: tid }))}
+                  teams={teams}
+                  placeholder="Select destination team..."
+                />
               </div>
             )}
           </div>

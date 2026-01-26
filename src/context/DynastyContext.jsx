@@ -8705,6 +8705,15 @@ export function DynastyProvider({ children }) {
           [year]: playerClass
         }
 
+        // Track player overall for this season (if provided in sheet)
+        const playerOverall = player.overall ?? existingPlayer.overall
+        const updatedOverallByYear = playerOverall
+          ? {
+              ...(existingPlayer.overallByYear || {}),
+              [year]: playerOverall
+            }
+          : existingPlayer.overallByYear || {}
+
         return {
           // Start with ALL existing player data (preserves everything by default)
           ...existingPlayer,
@@ -8731,7 +8740,9 @@ export function DynastyProvider({ children }) {
           // IMMUTABLE roster history - records which team player was on each year
           teamsByYear: updatedTeamsByYear,
           // IMMUTABLE class history - records what class player was each year
-          classByYear: updatedClassByYear
+          classByYear: updatedClassByYear,
+          // IMMUTABLE overall history - records what overall player had each year
+          overallByYear: updatedOverallByYear
           // ALL other fields (recruitYear, yearStarted, isRecruit, isPortal, stars, etc.)
           // are automatically preserved from ...existingPlayer and NOT overwritten
         }
@@ -8756,6 +8767,8 @@ export function DynastyProvider({ children }) {
         teamsByYear: { [year]: teamsByYearValue },
         // IMMUTABLE class history - record this player's class for this year
         classByYear: { [year]: player.year },
+        // IMMUTABLE overall history - record this player's overall for this year
+        overallByYear: player.overall ? { [year]: player.overall } : {},
         // Movement history for tracking career path
         movements: [addedMovement]
       }

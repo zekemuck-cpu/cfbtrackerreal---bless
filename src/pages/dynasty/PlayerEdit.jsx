@@ -4,8 +4,8 @@ import { useDynasty, getPlayerBoxScoreTotals } from '../../context/DynastyContex
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getCurrentTeamAbbr, getTidFromAbbr, getAbbrFromTid, TEAMS } from '../../data/teamRegistry'
-import { getTeamLogo, getMascotName } from '../../data/teams'
+import { TEAMS } from '../../data/teamRegistry'
+import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import PlayerTimelineEditor from '../../components/PlayerTimelineEditor'
 
 /**
@@ -58,6 +58,133 @@ const AWARD_OPTIONS = [
   { value: 'weeklyHonor', label: 'Player of the Week', tier: 'weekly' },
 ]
 
+// Convert nested stats structure to flat form fields
+const nestedStatsToFlat = (yearStats) => {
+  if (!yearStats) return {}
+  const passing = yearStats.passing || {}
+  const rushing = yearStats.rushing || {}
+  const receiving = yearStats.receiving || {}
+  const defense = yearStats.defense || {}
+  const kicking = yearStats.kicking || {}
+  const punting = yearStats.punting || {}
+
+  return {
+    // Passing
+    passComp: passing.cmp ?? passing.comp ?? '',
+    passAtt: passing.att ?? '',
+    passYds: passing.yds ?? '',
+    passTD: passing.td ?? '',
+    passInt: passing.int ?? '',
+    passLong: passing.lng ?? passing.long ?? '',
+    sacked: passing.sacks ?? passing.sacked ?? '',
+    // Rushing
+    rushAtt: rushing.att ?? rushing.carries ?? '',
+    rushYds: rushing.yds ?? '',
+    rushTD: rushing.td ?? '',
+    rushLong: rushing.lng ?? rushing.long ?? '',
+    fumbles: rushing.fum ?? rushing.fumbles ?? '',
+    // Receiving
+    receptions: receiving.rec ?? receiving.receptions ?? '',
+    recYds: receiving.yds ?? '',
+    recTD: receiving.td ?? '',
+    recLong: receiving.lng ?? receiving.long ?? '',
+    drops: receiving.drops ?? '',
+    // Defense
+    tackles: defense.tackles ?? defense.tkl ?? '',
+    tfl: defense.tfl ?? '',
+    sacks: defense.sacks ?? '',
+    ints: defense.int ?? defense.ints ?? '',
+    pd: defense.pd ?? defense.passDeflections ?? '',
+    ff: defense.ff ?? defense.forcedFumbles ?? '',
+    fr: defense.fr ?? defense.fumbleRecoveries ?? '',
+    defTD: defense.td ?? defense.defTD ?? '',
+    // Kicking
+    fgm: kicking.fgm ?? '',
+    fga: kicking.fga ?? '',
+    fgLong: kicking.lng ?? kicking.long ?? '',
+    xpm: kicking.xpm ?? '',
+    xpa: kicking.xpa ?? '',
+    // Punting
+    punts: punting.punts ?? '',
+    puntYds: punting.yds ?? '',
+    puntLong: punting.lng ?? punting.long ?? '',
+    puntIn20: punting.in20 ?? '',
+    touchbacks: punting.tb ?? punting.touchbacks ?? '',
+    // General
+    gamesPlayed: yearStats.gamesPlayed ?? yearStats.games ?? '',
+    snapsPlayed: yearStats.snapsPlayed ?? yearStats.snaps ?? '',
+  }
+}
+
+// Convert flat form fields back to nested stats structure
+const flatStatsToNested = (flatStats) => {
+  if (!flatStats) return {}
+
+  const num = (v) => (v !== '' && v !== null && v !== undefined) ? parseInt(v) : undefined
+
+  const result = {}
+
+  // Only include categories that have at least one value
+  const passing = {}
+  if (flatStats.passComp !== '') passing.cmp = num(flatStats.passComp)
+  if (flatStats.passAtt !== '') passing.att = num(flatStats.passAtt)
+  if (flatStats.passYds !== '') passing.yds = num(flatStats.passYds)
+  if (flatStats.passTD !== '') passing.td = num(flatStats.passTD)
+  if (flatStats.passInt !== '') passing.int = num(flatStats.passInt)
+  if (flatStats.passLong !== '') passing.lng = num(flatStats.passLong)
+  if (flatStats.sacked !== '') passing.sacks = num(flatStats.sacked)
+  if (Object.keys(passing).length > 0) result.passing = passing
+
+  const rushing = {}
+  if (flatStats.rushAtt !== '') rushing.att = num(flatStats.rushAtt)
+  if (flatStats.rushYds !== '') rushing.yds = num(flatStats.rushYds)
+  if (flatStats.rushTD !== '') rushing.td = num(flatStats.rushTD)
+  if (flatStats.rushLong !== '') rushing.lng = num(flatStats.rushLong)
+  if (flatStats.fumbles !== '') rushing.fum = num(flatStats.fumbles)
+  if (Object.keys(rushing).length > 0) result.rushing = rushing
+
+  const receiving = {}
+  if (flatStats.receptions !== '') receiving.rec = num(flatStats.receptions)
+  if (flatStats.recYds !== '') receiving.yds = num(flatStats.recYds)
+  if (flatStats.recTD !== '') receiving.td = num(flatStats.recTD)
+  if (flatStats.recLong !== '') receiving.lng = num(flatStats.recLong)
+  if (flatStats.drops !== '') receiving.drops = num(flatStats.drops)
+  if (Object.keys(receiving).length > 0) result.receiving = receiving
+
+  const defense = {}
+  if (flatStats.tackles !== '') defense.tackles = num(flatStats.tackles)
+  if (flatStats.tfl !== '') defense.tfl = num(flatStats.tfl)
+  if (flatStats.sacks !== '') defense.sacks = num(flatStats.sacks)
+  if (flatStats.ints !== '') defense.int = num(flatStats.ints)
+  if (flatStats.pd !== '') defense.pd = num(flatStats.pd)
+  if (flatStats.ff !== '') defense.ff = num(flatStats.ff)
+  if (flatStats.fr !== '') defense.fr = num(flatStats.fr)
+  if (flatStats.defTD !== '') defense.td = num(flatStats.defTD)
+  if (Object.keys(defense).length > 0) result.defense = defense
+
+  const kicking = {}
+  if (flatStats.fgm !== '') kicking.fgm = num(flatStats.fgm)
+  if (flatStats.fga !== '') kicking.fga = num(flatStats.fga)
+  if (flatStats.fgLong !== '') kicking.lng = num(flatStats.fgLong)
+  if (flatStats.xpm !== '') kicking.xpm = num(flatStats.xpm)
+  if (flatStats.xpa !== '') kicking.xpa = num(flatStats.xpa)
+  if (Object.keys(kicking).length > 0) result.kicking = kicking
+
+  const punting = {}
+  if (flatStats.punts !== '') punting.punts = num(flatStats.punts)
+  if (flatStats.puntYds !== '') punting.yds = num(flatStats.puntYds)
+  if (flatStats.puntLong !== '') punting.lng = num(flatStats.puntLong)
+  if (flatStats.puntIn20 !== '') punting.in20 = num(flatStats.puntIn20)
+  if (flatStats.touchbacks !== '') punting.tb = num(flatStats.touchbacks)
+  if (Object.keys(punting).length > 0) result.punting = punting
+
+  // General stats at top level
+  if (flatStats.gamesPlayed !== '') result.gamesPlayed = num(flatStats.gamesPlayed)
+  if (flatStats.snapsPlayed !== '') result.snapsPlayed = num(flatStats.snapsPlayed)
+
+  return result
+}
+
 export default function PlayerEdit() {
   const { id: dynastyId, pid } = useParams()
   const navigate = useNavigate()
@@ -71,17 +198,6 @@ export default function PlayerEdit() {
     }
     return currentDynasty
   }, [dynastyId, currentDynasty, dynasties])
-
-  // Get team info for colors - use player's team, not dynasty's current team
-  const playerTeamName = useMemo(() => {
-    if (!playerTeamTid) return null
-    // playerTeamTid could be a tid (number) or abbr (string)
-    return getMascotName(playerTeamTid, dynasty?.teams) || dynasty?.teamName || ''
-  }, [playerTeamTid, dynasty?.teams, dynasty?.teamName])
-
-  const teamColors = useTeamColors(playerTeamName, dynasty?.teams)
-  const primaryText = getContrastTextColor(teamColors.primary)
-  const secondaryText = getContrastTextColor(teamColors.secondary)
 
   // Find player - try both string and number pid matching
   const player = useMemo(() => {
@@ -103,6 +219,17 @@ export default function PlayerEdit() {
            dynasty?.currentTid
   }, [player, currentYear, dynasty?.currentTid])
 
+  // Get team info for colors - use player's team, not dynasty's current team
+  const playerTeamName = useMemo(() => {
+    if (!playerTeamTid) return null
+    // playerTeamTid could be a tid (number) or abbr (string)
+    return getMascotName(playerTeamTid, dynasty?.teams) || dynasty?.teamName || ''
+  }, [playerTeamTid, dynasty?.teams, dynasty?.teamName])
+
+  const teamColors = useTeamColors(playerTeamName, dynasty?.teams)
+  const primaryText = getContrastTextColor(teamColors.primary)
+  const secondaryText = getContrastTextColor(teamColors.secondary)
+
   // State
   const [activeTab, setActiveTab] = useState('profile')
   const [formData, setFormData] = useState({})
@@ -113,14 +240,31 @@ export default function PlayerEdit() {
   const initializedRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Get available years for stats
+  // Get available years for stats - only years relevant to this player
   const availableYears = useMemo(() => {
     const yearsSet = new Set()
-    if (dynasty?.startYear) yearsSet.add(dynasty.startYear)
-    if (dynasty?.currentYear) yearsSet.add(dynasty.currentYear)
+
+    // Add years where player has stats
     if (player?.statsByYear) {
       Object.keys(player.statsByYear).forEach(year => yearsSet.add(parseInt(year)))
     }
+
+    // Add current year (for adding new stats)
+    if (dynasty?.currentYear) yearsSet.add(dynasty.currentYear)
+
+    // Add years from player's team history (when they were on a roster)
+    if (player?.teamHistory) {
+      player.teamHistory.forEach(stint => {
+        if (stint.fromYear) yearsSet.add(stint.fromYear)
+        if (stint.toYear) yearsSet.add(stint.toYear)
+      })
+    }
+
+    // Add years from teamsByYear
+    if (player?.teamsByYear) {
+      Object.keys(player.teamsByYear).forEach(year => yearsSet.add(parseInt(year)))
+    }
+
     return Array.from(yearsSet).sort((a, b) => b - a)
   }, [dynasty, player])
 
@@ -131,13 +275,48 @@ export default function PlayerEdit() {
     return getPlayerBoxScoreTotals(player.name, dynasty.games || [], year)
   }, [player, dynasty, selectedStatsYear])
 
+  // Derive current overall from overallByYear (source of truth)
+  const currentOverall = useMemo(() => {
+    const byYear = formData.overallByYear || {}
+    const currentYear = dynasty?.currentYear || new Date().getFullYear()
+    // Try current year first
+    if (byYear[currentYear]) return byYear[currentYear]
+    // Fall back to most recent year with an overall
+    const years = Object.keys(byYear).map(Number).filter(y => byYear[y]).sort((a, b) => b - a)
+    return years.length > 0 ? byYear[years[0]] : formData.overall
+  }, [formData.overallByYear, formData.overall, dynasty?.currentYear])
+
   // Initialize form data when player changes
   useEffect(() => {
     if (!player || initializedRef.current === player.pid) return
     initializedRef.current = player.pid
 
+    // Find the best year to show stats for:
+    // 1. Current year if it has stats
+    // 2. Most recent year with stats
+    // 3. Fall back to current year
     const currentYear = dynasty?.currentYear || new Date().getFullYear()
-    const yearStats = player.statsByYear?.[currentYear] || player.stats || {}
+    let statsYear = currentYear
+
+    if (player.statsByYear) {
+      const yearsWithStats = Object.keys(player.statsByYear)
+        .map(y => parseInt(y))
+        .filter(y => {
+          // Check both number and string keys
+          const s = player.statsByYear[y] || player.statsByYear[String(y)]
+          // Check if this year actually has any stats data
+          return s && Object.keys(s).some(k => s[k] !== null && s[k] !== undefined && s[k] !== '')
+        })
+        .sort((a, b) => b - a) // Most recent first
+
+      if (yearsWithStats.length > 0) {
+        // Use current year if it has stats, otherwise most recent year with stats
+        statsYear = yearsWithStats.includes(currentYear) ? currentYear : yearsWithStats[0]
+      }
+    }
+
+    // Check both number and string keys for stats
+    const yearStats = player.statsByYear?.[statsYear] || player.statsByYear?.[String(statsYear)] || player.stats || {}
 
     setFormData({
       // Basic Info
@@ -153,29 +332,53 @@ export default function PlayerEdit() {
 
       // Background
       hometown: player.hometown || '',
-      homeState: player.homeState || '',
+      state: player.state || player.homeState || '',
       height: player.height || '',
       weight: player.weight || '',
+
+      // Recruiting Info
+      stars: player.stars || '',
+      nationalRank: player.nationalRank || '',
+      stateRank: player.stateRank || '',
+      positionRank: player.positionRank || '',
+      gemBust: player.gemBust || '',
+      isPortal: player.isPortal || false,
+      previousTeam: player.previousTeam || '',
 
       // Tenure
       entryYear: player.entryYear || player.recruitYear || '',
       entryClass: player.entryClass || '',
       redshirtYear: player.redshirtYear || '',
       teamHistory: player.teamHistory || [],
-      classByYear: player.classByYear || {},
-      overallByYear: player.overallByYear || {},
+      // Normalize classByYear keys to numbers
+      classByYear: Object.entries(player.classByYear || {}).reduce((acc, [k, v]) => {
+        acc[parseInt(k)] = v
+        return acc
+      }, {}),
+      // Normalize overallByYear keys to numbers, fall back to player.overall for current year
+      overallByYear: (() => {
+        const normalized = Object.entries(player.overallByYear || {}).reduce((acc, [k, v]) => {
+          acc[parseInt(k)] = v
+          return acc
+        }, {})
+        // If current year has no overall but player.overall exists, use it
+        if (player.overall && currentYear && !normalized[currentYear]) {
+          normalized[currentYear] = player.overall
+        }
+        return normalized
+      })(),
 
       // Awards
       accolades: player.accolades || [],
 
-      // Stats for current year
-      stats: { ...yearStats },
+      // Stats for current year (converted from nested to flat)
+      stats: nestedStatsToFlat(yearStats),
 
       // Notes
       notes: player.notes || '',
     })
 
-    setSelectedStatsYear(currentYear)
+    setSelectedStatsYear(statsYear)
   }, [player, dynasty?.currentYear])
 
   // Helper to get archetypes for current position
@@ -188,23 +391,69 @@ export default function PlayerEdit() {
     return ARCHETYPES[pos] || []
   }
 
-  // Handle image upload
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // Upload image to ImgBB
+  const uploadToImgBB = async (file) => {
+    const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
+    const formDataUpload = new FormData()
+    formDataUpload.append('image', file)
+    formDataUpload.append('key', apiKey)
 
-    setUploading(true)
     try {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, pictureUrl: reader.result }))
+      setUploading(true)
+      const response = await fetch('https://api.imgbb.com/1/upload', {
+        method: 'POST',
+        body: formDataUpload
+      })
+      const data = await response.json()
+      if (data.success) {
+        setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
         setShowImageUpload(false)
-        setUploading(false)
+      } else {
+        alert('Upload failed: ' + (data.error?.message || 'Unknown error'))
       }
-      reader.readAsDataURL(file)
     } catch (error) {
-      console.error('Error uploading image:', error)
+      alert('Upload failed: ' + error.message)
+    } finally {
       setUploading(false)
+    }
+  }
+
+  // Handle file input change
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) await uploadToImgBB(file)
+  }
+
+  // Handle paste for image upload (in URL input or from clipboard button)
+  const handlePaste = async (e) => {
+    const items = e?.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) await uploadToImgBB(file)
+        return
+      }
+    }
+  }
+
+  // Handle paste from clipboard button
+  const handlePasteFromClipboard = async () => {
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        for (const type of item.types) {
+          if (type.startsWith('image/')) {
+            const blob = await item.getType(type)
+            await uploadToImgBB(blob)
+            return
+          }
+        }
+      }
+      alert('No image found in clipboard')
+    } catch (error) {
+      alert('Could not access clipboard. Try pasting directly into the URL field.')
     }
   }
 
@@ -250,6 +499,18 @@ export default function PlayerEdit() {
 
     const num = (v) => v ? parseInt(v) : null
 
+    // Derive overall from overallByYear (source of truth)
+    // Use current year's overall, or most recent year with an overall
+    const currentYear = dynasty?.currentYear || new Date().getFullYear()
+    const overallFromByYear = (() => {
+      const byYear = formData.overallByYear || {}
+      // Try current year first
+      if (byYear[currentYear]) return num(byYear[currentYear])
+      // Fall back to most recent year with an overall
+      const years = Object.keys(byYear).map(Number).filter(y => byYear[y]).sort((a, b) => b - a)
+      return years.length > 0 ? num(byYear[years[0]]) : num(formData.overall)
+    })()
+
     const updatedPlayer = {
       ...player,
       firstName: formData.firstName,
@@ -257,32 +518,56 @@ export default function PlayerEdit() {
       name: `${formData.firstName} ${formData.lastName}`.trim(),
       position: formData.position,
       year: formData.year,
-      overall: num(formData.overall),
+      overall: overallFromByYear, // Derived from overallByYear (source of truth)
       archetype: formData.archetype,
       jerseyNumber: formData.jerseyNumber,
       devTrait: formData.devTrait,
       pictureUrl: formData.pictureUrl,
       hometown: formData.hometown,
-      homeState: formData.homeState,
+      state: formData.state,
       height: formData.height,
       weight: num(formData.weight),
+      // Recruiting info
+      stars: num(formData.stars),
+      nationalRank: num(formData.nationalRank),
+      stateRank: num(formData.stateRank),
+      positionRank: num(formData.positionRank),
+      gemBust: formData.gemBust || null,
+      isPortal: formData.isPortal || false,
+      previousTeam: formData.previousTeam || null,
+      // Tenure
       entryYear: num(formData.entryYear),
       entryClass: formData.entryClass,
       redshirtYear: formData.redshirtYear ? num(formData.redshirtYear) : null,
       teamHistory: formData.teamHistory || [],
       classByYear: formData.classByYear || {},
       overallByYear: formData.overallByYear || {},
+      // Generate teamsByYear from teamHistory for legacy compatibility
+      teamsByYear: (() => {
+        const teamsByYear = { ...(player.teamsByYear || {}) }
+        const teamHistory = formData.teamHistory || []
+        teamHistory.forEach(stint => {
+          if (stint.teamTid && stint.fromYear) {
+            // Add entry for each year the player was on this team
+            const toYear = stint.toYear || dynasty?.currentYear || new Date().getFullYear()
+            for (let year = stint.fromYear; year <= toYear; year++) {
+              teamsByYear[year] = stint.teamTid
+            }
+          }
+        })
+        return teamsByYear
+      })(),
       accolades: (formData.accolades || []).filter(a => a.year && a.award),
       notes: formData.notes,
       isHonorOnly: false,
     }
 
-    // Update stats for selected year
+    // Update stats for selected year (convert flat form fields back to nested structure)
     const statsYear = selectedStatsYear || dynasty?.currentYear
     if (statsYear) {
       updatedPlayer.statsByYear = {
         ...player.statsByYear,
-        [statsYear]: formData.stats
+        [statsYear]: flatStatsToNested(formData.stats)
       }
     }
 
@@ -340,11 +625,8 @@ export default function PlayerEdit() {
     )
   }
 
-  // Get team logo
-  const teamName = dynasty?.teams?.[dynasty?.currentTid]?.name ||
-                   dynasty?.teamName ||
-                   teamAbbr
-  const teamLogo = getTeamLogo(teamName, dynasty?.teams)
+  // Get team logo using tid
+  const teamLogo = getTeamLogoByTid(playerTeamTid, dynasty?.teams)
 
   // Tab configuration
   const tabs = [
@@ -355,35 +637,131 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-screen pb-24" style={{ backgroundColor: '#f8fafc' }}>
+    <div className="min-h-screen pb-40" style={{ backgroundColor: '#f8fafc' }}>
       {/* Header */}
       <div
-        className="sticky top-0 z-40 shadow-lg"
+        className="sticky top-0 z-30 shadow-lg"
         style={{ backgroundColor: teamColors.primary, borderBottom: `4px solid ${teamColors.secondary}` }}
       >
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            {/* Player Image or Placeholder */}
-            <div
-              className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-              style={{
-                backgroundColor: `${teamColors.secondary}40`,
-                border: `2px solid ${teamColors.secondary}`
-              }}
-            >
-              {formData.pictureUrl ? (
-                <img
-                  src={formData.pictureUrl}
-                  alt={player.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span
-                  className="text-2xl font-bold"
-                  style={{ color: primaryText, opacity: 0.5 }}
-                >
-                  {(formData.firstName?.[0] || '') + (formData.lastName?.[0] || '')}
-                </span>
+            {/* Player Image or Placeholder - Clickable to edit */}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowImageUpload(!showImageUpload)}
+                className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden group"
+                style={{
+                  backgroundColor: `${teamColors.secondary}40`,
+                  border: `2px solid ${teamColors.secondary}`
+                }}
+              >
+                {formData.pictureUrl ? (
+                  <img
+                    src={formData.pictureUrl}
+                    alt={player.name}
+                    className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
+                  />
+                ) : (
+                  <span
+                    className="text-2xl font-bold"
+                    style={{ color: primaryText, opacity: 0.5 }}
+                  >
+                    {(formData.firstName?.[0] || '') + (formData.lastName?.[0] || '')}
+                  </span>
+                )}
+                {/* Edit overlay */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </button>
+
+              {/* Image Upload Dropdown */}
+              {showImageUpload && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowImageUpload(false)} />
+                  <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-gray-900">Player Photo</h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowImageUpload(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* URL Input */}
+                    <input
+                      type="text"
+                      value={formData.pictureUrl || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, pictureUrl: e.target.value }))}
+                      onPaste={handlePaste}
+                      placeholder="Paste image URL or Ctrl+V to paste image..."
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 mb-3"
+                    />
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="flex-1 px-3 py-2 text-xs font-medium bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Upload
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePasteFromClipboard}
+                        disabled={uploading}
+                        className="flex-1 px-3 py-2 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Paste
+                      </button>
+                    </div>
+
+                    {/* Remove button */}
+                    {formData.pictureUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, pictureUrl: '' }))
+                          setShowImageUpload(false)
+                        }}
+                        className="w-full px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove Photo
+                      </button>
+                    )}
+
+                    {uploading && (
+                      <div className="mt-2 text-xs text-center text-blue-600">Uploading...</div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 
@@ -410,7 +788,7 @@ export default function PlayerEdit() {
                 >
                   #{formData.jerseyNumber || '?'} {formData.position || 'N/A'} | {formData.year || 'N/A'}
                 </span>
-                {formData.overall && (
+                {currentOverall && (
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-bold"
                     style={{
@@ -418,7 +796,7 @@ export default function PlayerEdit() {
                       color: secondaryText
                     }}
                   >
-                    {formData.overall} OVR
+                    {currentOverall} OVR
                   </span>
                 )}
               </div>
@@ -463,15 +841,9 @@ export default function PlayerEdit() {
         {activeTab === 'profile' && (
           <div className="space-y-6">
             {/* Basic Info Card */}
-            <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
-            >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Basic Information
                 </h2>
               </div>
@@ -487,7 +859,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.firstName || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="John"
                     />
                   </div>
@@ -499,7 +871,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.lastName || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="Smith"
                     />
                   </div>
@@ -514,7 +886,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.position || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value, archetype: '' }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
                       <option value="">--</option>
                       {POSITIONS.map(pos => (
@@ -529,7 +901,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.year || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, year: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
                       <option value="">--</option>
                       {CLASSES.map(cls => (
@@ -545,7 +917,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.jerseyNumber || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, jerseyNumber: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="12"
                     />
                   </div>
@@ -553,15 +925,12 @@ export default function PlayerEdit() {
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                       Overall
                     </label>
-                    <input
-                      type="number"
-                      min="40"
-                      max="99"
-                      value={formData.overall || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, overall: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
-                      placeholder="85"
-                    />
+                    <div
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 bg-gray-50 text-gray-900 font-bold text-center cursor-default"
+                      title="Edit in Career tab"
+                    >
+                      {currentOverall || '--'}
+                    </div>
                   </div>
                 </div>
 
@@ -574,7 +943,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.archetype || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, archetype: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                       disabled={!formData.position}
                     >
                       <option value="">Select archetype</option>
@@ -590,7 +959,7 @@ export default function PlayerEdit() {
                     <select
                       value={formData.devTrait || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, devTrait: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
                       <option value="">Select trait</option>
                       {DEV_TRAITS.map(trait => (
@@ -602,89 +971,10 @@ export default function PlayerEdit() {
               </div>
             </div>
 
-            {/* Player Photo Card */}
-            <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
-            >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
-                  Player Photo
-                </h2>
-              </div>
-
-              <div className="p-5">
-                <div className="flex items-center gap-5">
-                  {/* Current Photo */}
-                  <div
-                    className="w-24 h-24 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
-                    style={{
-                      backgroundColor: formData.pictureUrl ? 'transparent' : '#f1f5f9',
-                      border: '2px dashed #cbd5e1'
-                    }}
-                  >
-                    {formData.pictureUrl ? (
-                      <img
-                        src={formData.pictureUrl}
-                        alt="Player"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-gray-400 text-xs text-center px-2">No photo</span>
-                    )}
-                  </div>
-
-                  {/* Upload Controls */}
-                  <div className="flex-1 space-y-3">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                      style={{
-                        backgroundColor: teamColors.primary,
-                        color: primaryText
-                      }}
-                    >
-                      {uploading ? 'Uploading...' : 'Upload Photo'}
-                    </button>
-
-                    {formData.pictureUrl && (
-                      <button
-                        onClick={() => setFormData(prev => ({ ...prev, pictureUrl: '' }))}
-                        className="ml-3 px-4 py-2 rounded-lg text-sm font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      >
-                        Remove
-                      </button>
-                    )}
-
-                    <p className="text-xs text-gray-500">
-                      Supports JPG, PNG. Max 2MB recommended.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Background Card */}
-            <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
-            >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Background
                 </h2>
               </div>
@@ -700,7 +990,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.hometown || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, hometown: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="Dallas"
                     />
                   </div>
@@ -709,13 +999,13 @@ export default function PlayerEdit() {
                       State
                     </label>
                     <select
-                      value={formData.homeState || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, homeState: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      value={formData.state || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
                       <option value="">Select state</option>
-                      {STATES.map(state => (
-                        <option key={state} value={state}>{state}</option>
+                      {STATES.map(st => (
+                        <option key={st} value={st}>{st}</option>
                       ))}
                     </select>
                   </div>
@@ -731,7 +1021,7 @@ export default function PlayerEdit() {
                       type="text"
                       value={formData.height || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, height: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="6'2&quot;"
                     />
                   </div>
@@ -743,7 +1033,7 @@ export default function PlayerEdit() {
                       type="number"
                       value={formData.weight || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="220"
                     />
                   </div>
@@ -753,14 +1043,10 @@ export default function PlayerEdit() {
 
             {/* Notes Card */}
             <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
+              className="bg-white rounded-xl shadow-sm border border-gray-200"
             >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Notes
                 </h2>
               </div>
@@ -770,7 +1056,7 @@ export default function PlayerEdit() {
                   value={formData.notes || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 resize-none"
+                  className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 resize-none"
                   placeholder="Add notes about this player..."
                 />
               </div>
@@ -781,22 +1067,77 @@ export default function PlayerEdit() {
         {/* Career Tab */}
         {activeTab === 'career' && (
           <div className="space-y-6">
-            {/* Entry Info Card */}
-            <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
-            >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
-                  Entry Information
+            {/* Recruiting & Entry Information Card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  Recruiting Information
                 </h2>
               </div>
 
               <div className="p-5 space-y-5">
-                <div className="grid grid-cols-3 gap-4">
+                {/* Stars and Rankings Row */}
+                <div className="grid grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Stars
+                    </label>
+                    <select
+                      value={formData.stars || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, stars: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                    >
+                      <option value="">--</option>
+                      <option value="5">5-Star</option>
+                      <option value="4">4-Star</option>
+                      <option value="3">3-Star</option>
+                      <option value="2">2-Star</option>
+                      <option value="1">1-Star</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      National Rank
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.nationalRank || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, nationalRank: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      placeholder="#1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Position Rank
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.positionRank || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, positionRank: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      placeholder="#1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      State Rank
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.stateRank || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, stateRank: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      placeholder="#1"
+                    />
+                  </div>
+                </div>
+
+                {/* Entry Info Row */}
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                       Entry Year
@@ -805,7 +1146,7 @@ export default function PlayerEdit() {
                       type="number"
                       value={formData.entryYear || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, entryYear: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="2024"
                     />
                   </div>
@@ -816,9 +1157,9 @@ export default function PlayerEdit() {
                     <select
                       value={formData.entryClass || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, entryClass: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
-                      <option value="">Select class</option>
+                      <option value="">--</option>
                       {CLASSES.map(cls => (
                         <option key={cls} value={cls}>{cls}</option>
                       ))}
@@ -832,79 +1173,78 @@ export default function PlayerEdit() {
                       type="number"
                       value={formData.redshirtYear || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, redshirtYear: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
                       placeholder="None"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Gem/Bust
+                    </label>
+                    <select
+                      value={formData.gemBust || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, gemBust: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                    >
+                      <option value="">Normal</option>
+                      <option value="gem">Gem</option>
+                      <option value="bust">Bust</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Portal Transfer Row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Portal Transfer
+                    </label>
+                    <select
+                      value={formData.isPortal ? 'yes' : 'no'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, isPortal: e.target.value === 'yes' }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                    >
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      Previous Team
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.previousTeam || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, previousTeam: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
+                      placeholder="Ohio State"
+                      disabled={!formData.isPortal}
                     />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Overall by Season Card */}
+            {/* Career Timeline Card */}
             <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
+              className="bg-white rounded-xl shadow-sm border border-gray-200"
             >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
-                  Overall by Season
-                </h2>
-              </div>
-
-              <div className="p-5">
-                {availableYears.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {availableYears.map(year => (
-                      <div
-                        key={year}
-                        className="rounded-lg p-3"
-                        style={{ backgroundColor: `${teamColors.primary}08`, border: `1px solid ${teamColors.primary}20` }}
-                      >
-                        <div className="text-xs font-semibold text-gray-500 mb-1">{year}</div>
-                        <input
-                          type="number"
-                          min="40"
-                          max="99"
-                          value={formData.overallByYear?.[year] || ''}
-                          onChange={(e) => updateOverallForYear(year, e.target.value)}
-                          className="w-full px-2 py-1.5 rounded border border-gray-200 focus:border-blue-500 focus:outline-none text-center text-lg font-bold text-gray-900"
-                          placeholder="--"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm text-center py-4">No seasons available</p>
-                )}
-              </div>
-            </div>
-
-            {/* Team History Card */}
-            <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
-            >
-              <div
-                className="px-5 py-3"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
-                  Team History
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  Career Timeline
                 </h2>
               </div>
 
               <div className="p-5">
                 <PlayerTimelineEditor
-                  player={player}
+                  teamHistory={formData.teamHistory || []}
+                  onChange={(newHistory) => setFormData(prev => ({ ...prev, teamHistory: newHistory }))}
                   teams={dynasty?.teams || TEAMS}
                   currentYear={dynasty?.currentYear}
                   classByYear={formData.classByYear || {}}
                   overallByYear={formData.overallByYear || {}}
-                  onTeamHistoryChange={(newHistory) => setFormData(prev => ({ ...prev, teamHistory: newHistory }))}
-                  editable={true}
+                  onOverallChange={updateOverallForYear}
+                  playerName={player?.name}
                 />
               </div>
             </div>
@@ -916,14 +1256,10 @@ export default function PlayerEdit() {
           <div className="space-y-6">
             {/* Year Selector */}
             <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
+              className="bg-white rounded-xl shadow-sm border border-gray-200"
             >
-              <div
-                className="px-5 py-3 flex items-center justify-between"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
+              <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Season Stats
                 </h2>
                 <select
@@ -934,11 +1270,7 @@ export default function PlayerEdit() {
                     const yearStats = player.statsByYear?.[year] || {}
                     setFormData(prev => ({ ...prev, stats: { ...yearStats } }))
                   }}
-                  className="px-3 py-1.5 rounded-lg text-sm font-semibold border-0 focus:outline-none focus:ring-2 focus:ring-white/30"
-                  style={{
-                    backgroundColor: teamColors.secondary,
-                    color: secondaryText
-                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 >
                   {availableYears.map(year => (
                     <option key={year} value={year}>{year}</option>
@@ -948,10 +1280,7 @@ export default function PlayerEdit() {
 
               <div className="p-5">
                 {boxScoreTotals && (
-                  <div
-                    className="mb-5 p-4 rounded-lg"
-                    style={{ backgroundColor: `${teamColors.primary}10`, border: `1px solid ${teamColors.primary}30` }}
-                  >
+                  <div className="mb-5 p-4 rounded-lg bg-blue-50 border border-blue-200">
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                       Box Score Totals (Auto-calculated)
                     </div>
@@ -987,7 +1316,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                           />
                         </div>
                       ))}
@@ -1016,7 +1345,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                           />
                         </div>
                       ))}
@@ -1045,7 +1374,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                           />
                         </div>
                       ))}
@@ -1077,7 +1406,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                           />
                         </div>
                       ))}
@@ -1114,7 +1443,7 @@ export default function PlayerEdit() {
                               ...prev,
                               stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
                             }))}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                           />
                         </div>
                       ))}
@@ -1135,7 +1464,7 @@ export default function PlayerEdit() {
                           ...prev,
                           stats: { ...prev.stats, gamesPlayed: e.target.value ? parseInt(e.target.value) : '' }
                         }))}
-                        className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                        className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                       />
                     </div>
                     <div>
@@ -1147,7 +1476,7 @@ export default function PlayerEdit() {
                           ...prev,
                           stats: { ...prev.stats, snapsPlayed: e.target.value ? parseInt(e.target.value) : '' }
                         }))}
-                        className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                        className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                       />
                     </div>
                   </div>
@@ -1161,23 +1490,15 @@ export default function PlayerEdit() {
         {activeTab === 'awards' && (
           <div className="space-y-6">
             <div
-              className="rounded-xl overflow-hidden shadow-sm"
-              style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}
+              className="bg-white rounded-xl shadow-sm border border-gray-200"
             >
-              <div
-                className="px-5 py-3 flex items-center justify-between"
-                style={{ backgroundColor: teamColors.primary }}
-              >
-                <h2 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>
+              <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100 bg-gray-50">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Awards & Accolades
                 </h2>
                 <button
                   onClick={addAccolade}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                  style={{
-                    backgroundColor: teamColors.secondary,
-                    color: secondaryText
-                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600"
                 >
                   + Add Award
                 </button>
@@ -1186,15 +1507,10 @@ export default function PlayerEdit() {
               <div className="p-5">
                 {(formData.accolades || []).length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="text-gray-400 text-4xl mb-3">🏆</div>
                     <p className="text-gray-500 mb-4">No awards yet</p>
                     <button
                       onClick={addAccolade}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-                      style={{
-                        backgroundColor: teamColors.primary,
-                        color: primaryText
-                      }}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-blue-500 text-white hover:bg-blue-600"
                     >
                       Add First Award
                     </button>
@@ -1204,15 +1520,14 @@ export default function PlayerEdit() {
                     {formData.accolades.map((accolade, index) => (
                       <div
                         key={index}
-                        className="flex items-center gap-3 p-3 rounded-lg"
-                        style={{ backgroundColor: `${teamColors.primary}08`, border: `1px solid ${teamColors.primary}15` }}
+                        className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200"
                       >
                         <div className="w-20">
                           <input
                             type="number"
                             value={accolade.year || ''}
                             onChange={(e) => updateAccolade(index, 'year', e.target.value)}
-                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-center text-gray-900"
+                            className="w-full px-2 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-center text-gray-900"
                             placeholder="Year"
                           />
                         </div>
@@ -1220,7 +1535,7 @@ export default function PlayerEdit() {
                           <select
                             value={accolade.award || ''}
                             onChange={(e) => updateAccolade(index, 'award', e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
+                            className="w-full px-3 py-2 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
                           >
                             <option value="">Select award</option>
                             <optgroup label="Elite Awards">
@@ -1263,9 +1578,9 @@ export default function PlayerEdit() {
         )}
       </div>
 
-      {/* Fixed Footer */}
+      {/* Fixed Footer - positioned above ticker (48px) */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 shadow-2xl"
+        className="fixed bottom-12 left-0 right-0 z-40 shadow-2xl"
         style={{
           backgroundColor: teamColors.secondary,
           borderTop: `3px solid ${teamColors.primary}`
