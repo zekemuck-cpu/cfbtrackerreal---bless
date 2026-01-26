@@ -231,7 +231,8 @@ export default function BoxScoreSheetModal({
   useEffect(() => {
     const initSheet = async () => {
       // Use ref for immediate check to prevent race conditions (state updates are async)
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Also check showSessionError to stop retrying on OAuth failures
+      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !showSessionError) {
         // Check for existing sheet (unless we're regenerating and should ignore it)
         if (existingSheetId && !ignoreExistingSheetId) {
           setSheetId(existingSheetId)

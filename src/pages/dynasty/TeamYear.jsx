@@ -565,7 +565,11 @@ export default function TeamYear() {
           })
         } else if (g.opponent) {
           // Legacy format with opponent already set
-          result.push(g)
+          // Still need to check if game was actually played (handles 0-0 unplayed games)
+          result.push({
+            ...g,
+            result: isGamePlayed ? g.result : null
+          })
         } else {
           // Legacy format without opponent - skip (incomplete data)
           console.warn('[TeamYear] Skipping game with no opponent:', g)

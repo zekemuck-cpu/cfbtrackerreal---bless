@@ -337,10 +337,19 @@ export default function Team() {
     })
 
   // Calculate all-time record vs this team using perspective
-  const allTimeWins = gamesAgainst.filter(g => g.perspective?.userWon).length
-  const allTimeLosses = gamesAgainst.filter(g => g.perspective && !g.perspective.userWon).length
-  const winPctVs = gamesAgainst.length > 0
-    ? ((allTimeWins / gamesAgainst.length) * 100).toFixed(1)
+  // Helper to check if a game was actually played (not just 0-0 unplayed)
+  // Only rely on scores - don't use result/userWon as they can be set incorrectly for unplayed games
+  const isGamePlayed = (g) => {
+    const userScore = g.perspective?.userScore ?? g.teamScore
+    const opponentScore = g.perspective?.opponentScore ?? g.opponentScore
+    const hasScores = userScore != null && opponentScore != null
+    return hasScores && (userScore > 0 || opponentScore > 0)
+  }
+  const playedGames = gamesAgainst.filter(g => isGamePlayed(g))
+  const allTimeWins = playedGames.filter(g => g.perspective?.userWon).length
+  const allTimeLosses = playedGames.filter(g => g.perspective && !g.perspective.userWon).length
+  const winPctVs = playedGames.length > 0
+    ? ((allTimeWins / playedGames.length) * 100).toFixed(1)
     : null
 
   // Calculate conference titles dynamically from conferenceChampionshipsByYear
@@ -546,10 +555,19 @@ export default function Team() {
   }
 
   const gamesAsTeam = getGamesAsTeam()
-  const gamesAsWins = gamesAsTeam.filter(g => g.perspective?.userWon).length
-  const gamesAsLosses = gamesAsTeam.filter(g => g.perspective && !g.perspective.userWon).length
-  const winPctAs = gamesAsTeam.length > 0
-    ? ((gamesAsWins / gamesAsTeam.length) * 100).toFixed(1)
+  // Helper to check if game was actually played (not just 0-0 unplayed)
+  // Only rely on scores - don't use result/userWon as they can be set incorrectly for unplayed games
+  const isAsTeamGamePlayed = (g) => {
+    const userScore = g.perspective?.userScore ?? g.teamScore
+    const opponentScore = g.perspective?.opponentScore ?? g.opponentScore
+    const hasScores = userScore != null && opponentScore != null
+    return hasScores && (userScore > 0 || opponentScore > 0)
+  }
+  const playedAsTeamGames = gamesAsTeam.filter(g => isAsTeamGamePlayed(g))
+  const gamesAsWins = playedAsTeamGames.filter(g => g.perspective?.userWon).length
+  const gamesAsLosses = playedAsTeamGames.filter(g => g.perspective && !g.perspective.userWon).length
+  const winPctAs = playedAsTeamGames.length > 0
+    ? ((gamesAsWins / playedAsTeamGames.length) * 100).toFixed(1)
     : null
 
   // Calculate seasons coached as this team
@@ -1116,11 +1134,20 @@ export default function Team() {
 
   // Calculate vs user record (for Your History section)
   // gamesAgainst already has perspective attached
+  // Helper to check if game was actually played
+  // Only rely on scores - don't use result/userWon as they can be set incorrectly for unplayed games
+  const isVsUserGamePlayed = (g) => {
+    const userScore = g.perspective?.userScore ?? g.teamScore
+    const opponentScore = g.perspective?.opponentScore ?? g.opponentScore
+    const hasScores = userScore != null && opponentScore != null
+    return hasScores && (userScore > 0 || opponentScore > 0)
+  }
   const vsUserYearRecords = years.map(year => {
     const yearGames = gamesAgainst.filter(g => g.year === year)
-    const wins = yearGames.filter(g => g.perspective?.userWon).length
-    const losses = yearGames.filter(g => g.perspective && !g.perspective.userWon).length
-    return { year, wins, losses, hasGames: yearGames.length > 0 }
+    const playedYearGames = yearGames.filter(g => isVsUserGamePlayed(g))
+    const wins = playedYearGames.filter(g => g.perspective?.userWon).length
+    const losses = playedYearGames.filter(g => g.perspective && !g.perspective.userWon).length
+    return { year, wins, losses, hasGames: playedYearGames.length > 0 }
   })
   const vsUserYearsWithGames = vsUserYearRecords.filter(yr => yr.hasGames)
 
@@ -1665,10 +1692,16 @@ export default function Team() {
                     // Get scores from perspective or legacy fields
                     const userScore = game.perspective?.userScore ?? game.teamScore
                     const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                    // A game is played if it has actual scores (not 0-0)
+                    // Don't rely on result/userWon - those can be set incorrectly for unplayed games
                     const hasScores = userScore != null && opponentScore != null
+                    const isPlayed = hasScores && (userScore > 0 || opponentScore > 0)
 
                     // Get location from perspective or legacy
                     const isHome = game.perspective?.isHome ?? (game.location === 'home')
+                    const borderColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                    const badgeColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                    const badgeText = !isPlayed ? '—' : (isWin ? 'W' : 'L')
 
                     return (
                       <Link
@@ -1677,7 +1710,7 @@ export default function Team() {
                         className="flex items-center justify-between p-3 rounded-lg hover:scale-[1.01] transition-transform"
                         style={{
                           backgroundColor: userTeamBgColor,
-                          border: `3px solid ${isWin ? '#16a34a' : '#dc2626'}`
+                          border: `3px solid ${borderColor}`
                         }}
                         onClick={() => setShowGamesModal(false)}
                       >
@@ -1686,11 +1719,11 @@ export default function Team() {
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
                             style={{
-                              backgroundColor: isWin ? '#16a34a' : '#dc2626',
+                              backgroundColor: badgeColor,
                               color: '#FFFFFF'
                             }}
                           >
-                            {isWin ? 'W' : 'L'}
+                            {badgeText}
                           </div>
                           {/* User's Team Logo */}
                           {userTeamLogo && (
@@ -1755,7 +1788,7 @@ export default function Team() {
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: teamPrimaryText }}>All-Time Record</h2>
                   <p className="text-sm opacity-80" style={{ color: teamPrimaryText }}>
-                    {allTimeTeamWins}-{allTimeTeamLosses} ({allTimeTeamWinPct}%)
+                    {gamesAsWins}-{gamesAsLosses} ({winPctAs || 0}%)
                   </p>
                 </div>
               </div>
@@ -1774,8 +1807,19 @@ export default function Team() {
               ) : (
                 <div className="space-y-4">
                   {[...yearsWithRecords].reverse().map((yr) => {
-                    const yearGames = gamesAsTeam.filter(g => Number(g.year) === yr.year)
+                    // Filter to only played games (not 0-0 unplayed games)
+                    const yearGames = gamesAsTeam.filter(g => {
+                      if (Number(g.year) !== yr.year) return false
+                      const userScore = g.perspective?.userScore ?? g.teamScore
+                      const opponentScore = g.perspective?.opponentScore ?? g.opponentScore
+                      const hasScores = userScore != null && opponentScore != null
+                      return hasScores && (userScore > 0 || opponentScore > 0)
+                    })
                     if (yearGames.length === 0) return null
+
+                    // Calculate record from actual played games shown
+                    const yearWins = yearGames.filter(g => g.perspective?.userWon ?? (g.result === 'W' || g.result === 'win')).length
+                    const yearLosses = yearGames.length - yearWins
 
                     return (
                       <div key={yr.year}>
@@ -1784,7 +1828,7 @@ export default function Team() {
                           style={{ backgroundColor: teamInfo.textColor, color: teamPrimaryText }}
                         >
                           <span>{yr.year} Season</span>
-                          <span>{yr.wins}-{yr.losses}</span>
+                          <span>{yearWins}-{yearLosses}</span>
                         </div>
                         <div className="space-y-2">
                           {yearGames
@@ -1805,10 +1849,16 @@ export default function Team() {
                               // Get scores from perspective or legacy fields
                               const userScore = game.perspective?.userScore ?? game.teamScore
                               const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                              // A game is played if it has actual scores (not 0-0)
+                              // Don't rely on result/userWon - those can be set incorrectly for unplayed games
                               const hasScores = userScore != null && opponentScore != null
+                              const isPlayed = hasScores && (userScore > 0 || opponentScore > 0)
 
                               // Get location from perspective or legacy
                               const isHome = game.perspective?.isHome ?? (game.location === 'home')
+                              const borderColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                              const badgeColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                              const badgeText = !isPlayed ? '—' : (isWin ? 'W' : 'L')
 
                               return (
                                 <Link
@@ -1817,16 +1867,16 @@ export default function Team() {
                                   className="flex items-center justify-between p-3 rounded-lg hover:scale-[1.01] transition-transform"
                                   style={{
                                     backgroundColor: oppBgColor,
-                                    border: `3px solid ${isWin ? '#16a34a' : '#dc2626'}`
+                                    border: `3px solid ${borderColor}`
                                   }}
                                   onClick={() => setShowAllTimeModal(false)}
                                 >
                                   <div className="flex items-center gap-3">
                                     <div
                                       className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                                      style={{ backgroundColor: isWin ? '#16a34a' : '#dc2626', color: '#FFFFFF' }}
+                                      style={{ backgroundColor: badgeColor, color: '#FFFFFF' }}
                                     >
-                                      {isWin ? 'W' : 'L'}
+                                      {badgeText}
                                     </div>
                                     {oppLogo && (
                                       <div
@@ -2459,10 +2509,16 @@ export default function Team() {
                     // Get scores from perspective or legacy fields
                     const userScore = game.perspective?.userScore ?? game.teamScore
                     const opponentScore = game.perspective?.opponentScore ?? game.opponentScore
+                    // A game is played if it has actual scores (not 0-0)
+                    // Don't rely on result/userWon - those can be set incorrectly for unplayed games
                     const hasScores = userScore != null && opponentScore != null
+                    const isPlayed = hasScores && (userScore > 0 || opponentScore > 0)
 
                     // Get location from perspective or legacy
                     const isHome = game.perspective?.isHome ?? (game.location === 'home')
+                    const borderColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                    const badgeColor = !isPlayed ? '#6b7280' : (isWin ? '#16a34a' : '#dc2626')
+                    const badgeText = !isPlayed ? '—' : (isWin ? 'W' : 'L')
 
                     return (
                       <Link
@@ -2471,7 +2527,7 @@ export default function Team() {
                         className="flex items-center justify-between p-3 rounded-lg hover:scale-[1.01] transition-transform"
                         style={{
                           backgroundColor: oppBgColor,
-                          border: `3px solid ${isWin ? '#16a34a' : '#dc2626'}`
+                          border: `3px solid ${borderColor}`
                         }}
                         onClick={() => setShowAsTeamModal(false)}
                       >
@@ -2479,9 +2535,9 @@ export default function Team() {
                           {/* W/L Badge */}
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                            style={{ backgroundColor: isWin ? '#16a34a' : '#dc2626', color: '#FFFFFF' }}
+                            style={{ backgroundColor: badgeColor, color: '#FFFFFF' }}
                           >
-                            {isWin ? 'W' : 'L'}
+                            {badgeText}
                           </div>
                           {/* Opponent Logo */}
                           {oppLogo && (

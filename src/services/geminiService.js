@@ -1830,10 +1830,13 @@ Correct headline: "Team A holds off late Team B rally" NOT "Team A completes com
 
 If NO scoring summary is provided, do NOT invent game flow narratives about comebacks, lead changes, or clutch moments. Simply report the final score and focus on what it means.
 
-**SCALING LENGTH BASED ON DATA:**
-- If you have: scoring summary, box scores, quarter scores → Write 6-10 detailed paragraphs
-- If you have: quarter scores but no scoring summary → Write 3-5 paragraphs, describe flow by quarters only
+**SCALING LENGTH BASED ON DATA - WRITE MORE WHEN DATA IS RICH:**
+- If you have: scoring summary, box scores with individual stats, quarter scores → Write 10-15 DETAILED paragraphs. This is a COMPREHENSIVE game story.
+- If you have: scoring summary AND box scores → Write 8-12 paragraphs with heavy emphasis on player performances
+- If you have: quarter scores but no scoring summary → Write 4-6 paragraphs, describe flow by quarters only
 - If you ONLY have: final score and teams → Write 2-3 short paragraphs about the result and historical context
+
+When rich data is available (box scores with individual player stats), you should write like a beat reporter who watched every play. Go deep into player performances, game flow, key moments, and what it means going forward.
 
 **FORMAT:**
 1. Start with a compelling HEADLINE in title case (like "Hurricanes Storm Back to Stun Rebels in Fiesta Bowl Thriller")
@@ -1854,37 +1857,60 @@ If NO scoring summary is provided, do NOT invent game flow narratives about come
 5. You CAN use historical data (head-to-head, bowl history, season results) - that context is always valuable
 6. Reference team stats like turnovers only if they appear in the TEAM STATISTICS section
 
-**FEATURING PLAYER STATISTICS - VERY IMPORTANT:**
-Real sports articles prominently feature player performances. If INDIVIDUAL STATS are provided, you MUST include them:
+**FEATURING PLAYER STATISTICS - EXTREMELY IMPORTANT - THE HEART OF YOUR ARTICLE:**
+Real sports journalism is ABOUT the players. When INDIVIDUAL STATS are provided, they should be the CENTERPIECE of your article, not an afterthought. Players and their performances make the story compelling.
 
-1. QUARTERBACK STATS: Always mention the starting QB's stat line when available
-   - Example: "Jaylen Raynor completed 31 of 38 passes for 271 yards and two touchdowns"
-   - Include passer rating if notable (above 140 is excellent, below 100 is poor)
-   - Mention interceptions if any were thrown
+**CRITICAL: Only feature players whose stats are ACTUALLY PROVIDED in the data. Do NOT invent stats or mention players without data.**
 
-2. RUSHING LEADERS: Highlight the top rushers from each team
-   - Example: "Kenyon Clay led the ground attack with 85 yards on 12 carries and a touchdown"
-   - Mention yards per carry if impressive (5+ YPC is good)
+When box score data is available, dedicate FULL PARAGRAPHS to standout performances:
 
-3. RECEIVING LEADERS: Feature top receivers
-   - Example: "Hunter Summers hauled in 8 catches for 112 yards and a score"
-   - Mention big plays (long receptions of 30+ yards)
+1. QUARTERBACK SPOTLIGHT (if passing stats provided):
+   - Lead with the QB's full stat line in the first few paragraphs
+   - Example: "Jaylen Raynor was masterful, completing 31 of 38 passes for 271 yards and two touchdowns while avoiding turnovers. His 81.6% completion rate kept the chains moving all afternoon."
+   - Analyze the performance: Was it efficient? Did they take shots downfield? Mention long completions.
+   - Include passer rating context if available (above 140 is elite, 120+ is excellent, below 100 is poor)
 
-4. DEFENSIVE STANDOUTS: Highlight defensive performances
-   - Example: "Devyn Curtis led all defenders with 16 tackles"
-   - Mention sacks, interceptions, forced fumbles, and tackles for loss
+2. RUSHING ATTACK (if rushing stats provided):
+   - Dedicate a paragraph to the ground game
+   - Example: "The ground attack was punishing. Kenyon Clay bulldozed his way to 85 yards on 12 carries (7.1 YPC) including a 23-yard touchdown burst. Backup Demarco Williams added 47 yards on 8 carries, giving the offense balance."
+   - Mention multiple rushers if they contributed significantly
+   - Call out impressive yards-per-carry averages (5+ YPC is good, 6+ is excellent)
 
-5. SPECIAL TEAMS: Mention kickers for game-winning/clutch field goals
-   - Example: "Clune Van Andel connected on field goals of 32 and 41 yards, including the game-winner"
+3. RECEIVING CORPS (if receiving stats provided):
+   - Feature top receivers with full stat lines
+   - Example: "Hunter Summers emerged as the go-to target, hauling in 8 catches for 112 yards and a score, including a crucial 34-yard grab on third down. Tight end Marcus Bell added 5 receptions for 67 yards."
+   - Mention long receptions (30+ yards) as big plays
 
-Include at least 2-3 specific player stat lines in every recap where the data is available. This makes the article feel like real sports journalism, not just a generic summary.
+4. DEFENSIVE HEROES (if defensive stats provided):
+   - Give defenders their own paragraph(s)
+   - Example: "Defensively, linebacker Devyn Curtis was everywhere, piling up a game-high 16 tackles including 3 for loss. Defensive end Jaylen Thompson added 2 sacks, consistently pressuring the quarterback."
+   - Feature players with: 10+ tackles, 2+ sacks, any interceptions, forced fumbles, or defensive TDs
+   - Mention tackles for loss, pass deflections, and QB pressures
+
+5. SPECIAL TEAMS (if kicking stats provided):
+   - Feature clutch kicking performances
+   - Example: "Clune Van Andel was perfect on the day, connecting on field goals of 32, 41, and 47 yards while going 4-for-4 on extra points."
+
+**STAT LINE REQUIREMENTS:**
+- When INDIVIDUAL STATS are provided: Include AT LEAST 5-8 specific player stat lines throughout the article
+- Weave stats naturally into the narrative - don't just list them
+- Compare performances when relevant ("outdueled", "outgained", "more than doubled")
+- Use stats to support your narrative about WHY the game went the way it did
+
+**IF NO INDIVIDUAL STATS ARE PROVIDED:**
+- Do NOT invent player performances
+- Do NOT guess at who scored or made big plays
+- Focus instead on the final score, quarter-by-quarter flow (if available), and historical context
+- It's better to write a shorter, accurate article than to fabricate player performances
 
 **NARRATIVE STYLE:**
-1. Lead with the most compelling storyline - the result, the upset, the implications
-2. If detailed play data exists, describe the game flow chronologically
-3. If only the final score exists, focus on what the result MEANS (historical context, playoff implications, rivalry significance)
-4. Use vivid, active language - avoid passive voice
-5. Connect this game to the bigger picture using the historical data provided
+1. Lead with the most compelling storyline - the result, a standout player performance, the upset, the implications
+2. PLAYER-FIRST APPROACH: When stats are available, build your narrative around player performances. Who won the game for their team? Whose stats jumped off the page?
+3. If detailed play data exists, describe the game flow chronologically, crediting specific players for key moments
+4. If only the final score exists, focus on what the result MEANS (historical context, playoff implications, rivalry significance)
+5. Use vivid, active language - avoid passive voice
+6. Connect this game to the bigger picture using the historical data provided
+7. Structure for rich data: Opening (result + star player), Game flow, Offensive standouts paragraph, Defensive standouts paragraph, Key moments from scoring summary, What it means going forward
 
 **TEAM NAME USAGE - VERY IMPORTANT:**
 Write like a real sports journalist. Do NOT overuse abbreviations like "ARST", "ISU", "ARK". Instead:

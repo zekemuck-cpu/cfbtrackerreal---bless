@@ -1714,7 +1714,6 @@ export default function Player() {
                           {renderSortableHeader('passing', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'passing' && renderSortableHeader('passing', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('passing', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('passing', 'cmp', 'Cmp', 'right')}
                           {renderSortableHeader('passing', 'att', 'Att', 'right')}
                           {renderSortableHeader('passing', 'pct', 'Pct', 'right')}
@@ -1727,6 +1726,7 @@ export default function Player() {
                           {renderSortableHeader('passing', 'tdInt', 'TD:INT', 'right')}
                           {renderSortableHeader('passing', 'lng', 'Lng', 'right')}
                           {renderSortableHeader('passing', 'sck', 'Sck', 'right')}
+                          {showSnapsCol && renderSortableHeader('passing', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -1754,7 +1754,6 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'passing' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.passing.cmp}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.passing.att}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{calcPct(y.passing.cmp, y.passing.att)}</td>
@@ -1767,6 +1766,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.passing.int > 0 ? `${(y.passing.td / y.passing.int).toFixed(2)}:1` : (y.passing.td > 0 ? '∞' : '-')}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.passing.lng}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.passing.sacks}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'passing')}
                             </React.Fragment>
@@ -1779,7 +1779,6 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'passing' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerPassing.cmp.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPassing.att.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{calcPct(careerPassing.cmp, careerPassing.att)}</td>
@@ -1792,6 +1791,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPassing.int > 0 ? `${(careerPassing.td / careerPassing.int).toFixed(2)}:1` : (careerPassing.td > 0 ? '∞' : '-')}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPassing.lng}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPassing.sacks}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -1829,7 +1829,6 @@ export default function Player() {
                           {renderSortableHeader('rushing', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'rushing' && renderSortableHeader('rushing', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('rushing', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('rushing', 'car', 'Car', 'right')}
                           {renderSortableHeader('rushing', 'yds', 'Yds', 'right')}
                           {renderSortableHeader('rushing', 'ypc', 'AVG', 'right')}
@@ -1838,6 +1837,7 @@ export default function Player() {
                           {renderSortableHeader('rushing', 'lng', 'Lng', 'right')}
                           {renderSortableHeader('rushing', 'fum', 'Fum', 'right')}
                           {renderSortableHeader('rushing', 'bt', 'BTkl', 'right')}
+                          {showSnapsCol && renderSortableHeader('rushing', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -1865,7 +1865,6 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'rushing' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.rushing.car}</td>
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.rushing.yds.toLocaleString()}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{calcAvg(y.rushing.yds, y.rushing.car)}</td>
@@ -1874,6 +1873,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.rushing.lng}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.rushing.fum}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.rushing.bt}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'rushing')}
                             </React.Fragment>
@@ -1886,7 +1886,6 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'rushing' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerRushing.car.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerRushing.yds.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{calcAvg(careerRushing.yds, careerRushing.car)}</td>
@@ -1895,6 +1894,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerRushing.lng}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerRushing.fum}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerRushing.bt}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -1933,7 +1933,6 @@ export default function Player() {
                           {renderSortableHeader('receiving', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'receiving' && renderSortableHeader('receiving', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('receiving', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('receiving', 'rec', 'Rec', 'right')}
                           {renderSortableHeader('receiving', 'yds', 'Yds', 'right')}
                           {renderSortableHeader('receiving', 'ypr', 'AVG', 'right')}
@@ -1941,6 +1940,7 @@ export default function Player() {
                           {renderSortableHeader('receiving', 'ypg', 'YDS/G', 'right')}
                           {renderSortableHeader('receiving', 'lng', 'Lng', 'right')}
                           {renderSortableHeader('receiving', 'drops', 'Drops', 'right')}
+                          {showSnapsCol && renderSortableHeader('receiving', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -1968,7 +1968,6 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'receiving' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.receiving.rec}</td>
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.receiving.yds.toLocaleString()}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{calcAvg(y.receiving.yds, y.receiving.rec)}</td>
@@ -1976,6 +1975,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.gamesPlayed > 0 ? calcAvg(y.receiving.yds, y.gamesPlayed) : '0.0'}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.receiving.lng}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.receiving.drops}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'receiving')}
                             </React.Fragment>
@@ -1988,7 +1988,6 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'receiving' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerReceiving.rec.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerReceiving.yds.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{calcAvg(careerReceiving.yds, careerReceiving.rec)}</td>
@@ -1996,6 +1995,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerGames > 0 ? calcAvg(careerReceiving.yds, careerGames) : '0.0'}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerReceiving.lng}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerReceiving.drops}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -2031,8 +2031,8 @@ export default function Player() {
                           {renderSortableHeader('blocking', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'blocking' && renderSortableHeader('blocking', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('blocking', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('blocking', 'sacksAllowed', 'Sacks Allowed', 'right')}
+                          {showSnapsCol && renderSortableHeader('blocking', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -2060,8 +2060,8 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'blocking' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed || 0}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{(y.snapsPlayed || 0).toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.blocking.sacksAllowed}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{(y.snapsPlayed || 0).toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'blocking')}
                             </React.Fragment>
@@ -2074,8 +2074,8 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'blocking' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerBlocking.sacksAllowed}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -2113,7 +2113,6 @@ export default function Player() {
                           {renderSortableHeader('defense', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'defense' && renderSortableHeader('defense', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('defense', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('defense', 'solo', 'Solo', 'right')}
                           {renderSortableHeader('defense', 'ast', 'Ast', 'right')}
                           {renderSortableHeader('defense', 'tot', 'Tot', 'right')}
@@ -2125,6 +2124,7 @@ export default function Player() {
                           {renderSortableHeader('defense', 'pd', 'PD', 'right')}
                           {renderSortableHeader('defense', 'ff', 'FF', 'right')}
                           {renderSortableHeader('defense', 'fr', 'FR', 'right')}
+                          {showSnapsCol && renderSortableHeader('defense', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -2152,7 +2152,6 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'defense' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.defensive.solo}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.defensive.ast}</td>
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.defensive.solo + y.defensive.ast}</td>
@@ -2164,6 +2163,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.defensive.pdef}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.defensive.ff}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.defensive.fr}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'defense')}
                             </React.Fragment>
@@ -2176,7 +2176,6 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'defense' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerDefensive.solo}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerDefensive.ast}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerDefensive.solo + careerDefensive.ast}</td>
@@ -2188,6 +2187,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerDefensive.pdef}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerDefensive.ff}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerDefensive.fr}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -2226,7 +2226,6 @@ export default function Player() {
                           {renderSortableHeader('kicking', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'kicking' && renderSortableHeader('kicking', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('kicking', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('kicking', 'fgm', 'FGM', 'right')}
                           {renderSortableHeader('kicking', 'fga', 'FGA', 'right')}
                           {renderSortableHeader('kicking', 'fgPct', 'FG%', 'right')}
@@ -2234,6 +2233,7 @@ export default function Player() {
                           {renderSortableHeader('kicking', 'xpm', 'XPM', 'right')}
                           {renderSortableHeader('kicking', 'xpa', 'XPA', 'right')}
                           {renderSortableHeader('kicking', 'xpPct', 'XP%', 'right')}
+                          {showSnapsCol && renderSortableHeader('kicking', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -2261,7 +2261,6 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'kicking' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.kicking.fgm}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.kicking.fga}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{calcPct(y.kicking.fgm, y.kicking.fga)}</td>
@@ -2269,6 +2268,7 @@ export default function Player() {
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.kicking.xpm}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.kicking.xpa}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{calcPct(y.kicking.xpm, y.kicking.xpa)}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'kicking')}
                             </React.Fragment>
@@ -2281,7 +2281,6 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'kicking' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerKicking.fgm}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerKicking.fga}</td>
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{calcPct(careerKicking.fgm, careerKicking.fga)}</td>
@@ -2289,6 +2288,7 @@ export default function Player() {
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerKicking.xpm}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerKicking.xpa}</td>
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{calcPct(careerKicking.xpm, careerKicking.xpa)}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>
@@ -2326,13 +2326,13 @@ export default function Player() {
                           {renderSortableHeader('punting', 'class', 'Class', 'left', 'w-16')}
                           <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center w-12" style={{ color: secondaryText, opacity: 0.8 }}>Team</th>
                           {primaryStat === 'punting' && renderSortableHeader('punting', 'gamesPlayed', 'G', 'right')}
-                          {showSnapsCol && renderSortableHeader('punting', 'snapsPlayed', 'Snaps', 'right')}
                           {renderSortableHeader('punting', 'punts', 'Punts', 'right')}
                           {renderSortableHeader('punting', 'yds', 'Yds', 'right')}
                           {renderSortableHeader('punting', 'avg', 'Avg', 'right')}
                           {renderSortableHeader('punting', 'lng', 'Lng', 'right')}
                           {renderSortableHeader('punting', 'in20', 'In20', 'right')}
                           {renderSortableHeader('punting', 'tb', 'TB', 'right')}
+                          {showSnapsCol && renderSortableHeader('punting', 'snapsPlayed', 'Snaps', 'right')}
                         </tr>
                       </thead>
                       <tbody style={{ borderTop: `1px solid ${teamColors.primary}30` }}>
@@ -2360,13 +2360,13 @@ export default function Player() {
                                   </Link>
                                 </td>
                                 {primaryStat === 'punting' && <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.gamesPlayed}</td>}
-                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.punting.punts}</td>
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{y.punting.yds.toLocaleString()}</td>
                                 <td className="px-2 py-2 text-right font-semibold" style={{ color: secondaryText }}>{calcAvg(y.punting.yds, y.punting.punts)}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.punting.lng}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText }}>{y.punting.in20}</td>
                                 <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.punting.tb}</td>
+                                {showSnapsCol && <td className="px-2 py-2 text-right" style={{ color: secondaryText, opacity: 0.8 }}>{y.snapsPlayed.toLocaleString()}</td>}
                               </tr>
                               {renderGameLogRow(y.year, colSpan, 'punting')}
                             </React.Fragment>
@@ -2379,13 +2379,13 @@ export default function Player() {
                           <td className="px-2 py-2 w-16"></td>
                           <td className="px-2 py-2 w-12"></td>
                           {primaryStat === 'punting' && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerGames}</td>}
-                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerPunting.punts}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerPunting.yds.toLocaleString()}</td>
                           <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{calcAvg(careerPunting.yds, careerPunting.punts)}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPunting.lng}</td>
                           <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerPunting.in20}</td>
                           <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPunting.tb}</td>
+                          {showSnapsCol && <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerSnaps.toLocaleString()}</td>}
                         </tr>
                       </tfoot>
                     </table>

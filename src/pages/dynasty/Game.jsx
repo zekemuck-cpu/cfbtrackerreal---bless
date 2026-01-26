@@ -1622,32 +1622,23 @@ export default function Game() {
               </h3>
             </div>
 
-            {/* Stat Category Tabs with player counts */}
+            {/* Stat Category Tabs */}
             <div className="flex border-b border-gray-700 overflow-x-auto">
               {STAT_TAB_ORDER.map(key => {
                 const tab = STAT_TABS[key]
-                const homeCount = game.boxScore.home?.[key]?.length || 0
-                const awayCount = game.boxScore.away?.[key]?.length || 0
-                const totalCount = homeCount + awayCount
-                if (totalCount === 0) return null
+                const hasData = (game.boxScore.home?.[key]?.length || 0) + (game.boxScore.away?.[key]?.length || 0) > 0
+                if (!hasData) return null
                 return (
                   <button
                     key={key}
                     onClick={() => setActiveStatTab(key)}
-                    className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                    className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
                       activeStatTab === key
                         ? 'text-white border-b-2 border-white bg-gray-800'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }`}
                   >
                     {tab.title}
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                      activeStatTab === key
-                        ? 'bg-white/20 text-white'
-                        : 'bg-gray-700 text-gray-400'
-                    }`}>
-                      {totalCount}
-                    </span>
                   </button>
                 )
               })}
@@ -1729,11 +1720,6 @@ export default function Game() {
                                         <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
                                           {value}
                                         </Link>
-                                      ) : highlight === 'exceptional' ? (
-                                        <span className="inline-flex items-center gap-1">
-                                          {value}
-                                          <span className="text-[10px]">⭐</span>
-                                        </span>
                                       ) : value}
                                     </td>
                                   )
@@ -1818,11 +1804,6 @@ export default function Game() {
                                         <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
                                           {value}
                                         </Link>
-                                      ) : highlight === 'exceptional' ? (
-                                        <span className="inline-flex items-center gap-1">
-                                          {value}
-                                          <span className="text-[10px]">⭐</span>
-                                        </span>
                                       ) : value}
                                     </td>
                                   )

@@ -35,7 +35,7 @@ export const STAT_TABS = {
   kicking: {
     key: 'kicking',
     title: 'Kicking',
-    headers: ['Player Name', 'FGM', 'FGA', 'FG Long', 'FG Block', 'XPM', 'XPA', 'XPB', 'FGM 29', 'FGA 29', 'FGM 39', 'FGA 39', 'FGM 49', 'FGA 49', 'FGM 50+', 'FGA 50+', 'Kickoffs', 'Touchbacks'],
+    headers: ['Player Name', 'FGA', 'FGM', 'FG Long', 'FG Block', 'XPM', 'XPA', 'XPB', 'FGA 29', 'FGM 29', 'FGA 39', 'FGM 39', 'FGA 49', 'FGM 49', 'FGA 50+', 'FGM 50+', 'Kickoffs', 'Touchbacks'],
     rowCount: 3
   },
   punting: {
@@ -47,7 +47,7 @@ export const STAT_TABS = {
   kickReturn: {
     key: 'kickReturn',
     title: 'Kick Return',
-    headers: ['Player Name', 'KR', 'Yards', 'TD', 'Long'],
+    headers: ['Player Name', 'KR', 'Yards', 'Long', 'TD'],
     rowCount: 6
   },
   puntReturn: {

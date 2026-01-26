@@ -2841,7 +2841,7 @@ export default function Dashboard() {
                     {currentRank && <span className="mr-2 opacity-70">#{currentRank}</span>}
                     {userTeamName}
                   </h2>
-                  <p className="text-sm sm:text-base mt-1 flex items-center gap-2" style={{ color: primaryBgText, opacity: 0.85 }}>
+                  <div className="text-sm sm:text-base mt-1 flex items-center gap-2" style={{ color: primaryBgText, opacity: 0.85 }}>
                     <span className="font-display font-bold text-lg">{headerWins}-{headerLosses}</span>
                     {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
                       <>
@@ -2861,7 +2861,7 @@ export default function Dashboard() {
                         )}
                       </>
                     )}
-                  </p>
+                  </div>
                 </div>
               </Link>
               {teamRatings && (
