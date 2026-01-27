@@ -214,10 +214,10 @@ export default function NewsTicker({ dynasty }) {
                       onClick={() => handleItemClick(item)}
                       style={{ minHeight: '32px' }}
                     >
-                      {/* Label (e.g., year, W/L, bowl name) */}
+                      {/* Label (e.g., year, W/L, bowl name) - hide long labels on mobile for two-team format */}
                       {item.label && (
                         <span
-                          className="font-semibold text-xs sm:text-sm flex-shrink-0"
+                          className={`font-semibold text-xs sm:text-sm flex-shrink-0 ${item.team2 ? 'hidden sm:inline' : ''}`}
                           style={{ color: item.labelColor || '#f3f4f6' }}
                         >
                           {item.label}
