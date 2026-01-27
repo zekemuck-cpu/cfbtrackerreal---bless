@@ -349,11 +349,17 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
             {showSessionError && (
               <SheetErrorBanner
                 teamColors={teamColors}
-                onReload={() => setShowSessionError(false)}
+                onReload={() => {
+                  setShowSessionError(false)
+                  setRetryCount(c => c + 1)
+                }}
                 onOpenNewTab={() => window.open(`https://docs.google.com/spreadsheets/d/${sheetId}/edit`, '_blank')}
                 onRefreshSession={async () => {
                   const success = await refreshSession()
-                  if (success) setShowSessionError(false)
+                  if (success) {
+                    setShowSessionError(false)
+                    setRetryCount(c => c + 1)
+                  }
                 }}
               />
             )}
