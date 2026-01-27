@@ -118,6 +118,24 @@ export default function BoxScoreSheetModal({
   // Get the game year (use game's year, fallback to dynasty's current year)
   const gameYear = game?.year || currentDynasty?.currentYear
 
+  // Get the user-controlled team tid for the game's specific year
+  // This ensures we only enforce strict dropdowns for the team the user controlled that season
+  const userTidForGameYear = useMemo(() => {
+    if (!gameYear) return null
+
+    // First check coachTeamByYear for that specific year
+    const yearRecord = currentDynasty?.coachTeamByYear?.[gameYear] ||
+                       currentDynasty?.coachTeamByYear?.[String(gameYear)]
+    if (yearRecord?.tid) return yearRecord.tid
+
+    // Fallback: if game year is current year, use currentTid
+    if (gameYear === currentDynasty?.currentYear && currentDynasty?.currentTid) {
+      return currentDynasty.currentTid
+    }
+
+    return null
+  }, [gameYear, currentDynasty?.coachTeamByYear, currentDynasty?.currentYear, currentDynasty?.currentTid])
+
   // Helper to get roster for a specific team using tid directly
   const getRosterForTeamByTid = (tid) => {
     if (!currentDynasty?.players || !tid) return []
@@ -133,6 +151,11 @@ export default function BoxScoreSheetModal({
   const awayRoster = useMemo(() => getRosterForTeamByTid(awayTeamTid),
     [currentDynasty?.players, awayTeamTid, gameYear])
 
+  // Check if home/away teams are user-controlled FOR THIS GAME'S YEAR (for dropdown behavior)
+  // Only the team the user controlled in the game's season should have strict dropdown
+  const isHomeTeamUserControlled = userTidForGameYear && homeTeamTid === userTidForGameYear
+  const isAwayTeamUserControlled = userTidForGameYear && awayTeamTid === userTidForGameYear
+
   // Determine title and team info based on sheet type
   const getSheetConfig = () => {
     switch (sheetType) {
@@ -143,6 +166,7 @@ export default function BoxScoreSheetModal({
           teamName: homeTeamName,
           opponentAbbr: awayTeamAbbr,
           roster: homeRoster,
+          isUserControlled: isHomeTeamUserControlled,
           sheetIdKey: 'homeStatsSheetId',
           instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
           columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
@@ -154,6 +178,7 @@ export default function BoxScoreSheetModal({
           teamName: awayTeamName,
           opponentAbbr: homeTeamAbbr,
           roster: awayRoster,
+          isUserControlled: isAwayTeamUserControlled,
           sheetIdKey: 'awayStatsSheetId',
           instructions: 'Enter player statistics for each category tab (Passing, Rushing, Receiving, etc.)',
           columns: 'Passing, Rushing, Receiving, Blocking, Defense, Kicking, Punting, Kick Return, Punt Return'
@@ -275,17 +300,18 @@ export default function BoxScoreSheetModal({
             const existingPlayerStats = sheetType === 'homeStats'
               ? game?.boxScore?.home || null
               : game?.boxScore?.away || null
-            // Pass roster if team has players - enables strict dropdown for user-controlled teams
-            // A "user team" is any team with a roster (players entered), not just current team
+            // Only enforce strict dropdown for user-controlled teams (current + past teams from coachTeamByYear)
+            // Opponent teams should allow free text entry even if they have some players in the dynasty
             const roster = config.roster || []
+            const isUserTeam = config.isUserControlled || false
             sheetInfo = await createGameBoxScoreSheet(
               config.teamName,
               config.teamAbbr,
               config.opponentAbbr,
               year,
               week,
-              roster.length > 0,  // isUserTeam: true if team has a roster
-              roster,  // Pass full roster for dropdown
+              isUserTeam,  // Only true for user-controlled teams
+              isUserTeam ? roster : [],  // Only pass roster for user teams (enables dropdown)
               existingPlayerStats
             )
           }

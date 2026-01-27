@@ -378,11 +378,10 @@ export default function ConferenceStandings() {
                                     className="flex items-center gap-1.5 hover:opacity-80"
                                   >
                                     {logo && (
-                                      <img src={logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
+                                      <img src={logo} alt="" className="w-5 h-5 object-contain flex-shrink-0 rounded-full bg-white p-0.5" />
                                     )}
                                     <span
-                                      className="font-semibold truncate text-xs"
-                                      style={{ color: colors.primary }}
+                                      className="font-semibold truncate text-xs text-white"
                                     >
                                       {getSchoolName(mascotName) || teamAbbr}
                                     </span>

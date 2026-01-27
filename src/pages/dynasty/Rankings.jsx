@@ -2,10 +2,32 @@ import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getContrastTextColor } from '../../utils/colorUtils'
-import { teamAbbreviations } from '../../data/teamAbbreviations'
+import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
+
+// Extract school name from full mascot name
+const getSchoolName = (mascotName) => {
+  if (!mascotName) return null
+  const specialMascots = [
+    'Crimson Tide', 'Blue Hens', 'Fightin\' Blue Hens', 'Golden Flashes', 'Mean Green',
+    'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
+    'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
+    'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',
+    'Sun Devils', 'Wolf Pack', 'Black Knights', 'Tar Heels', 'Red Storm'
+  ]
+  for (const mascot of specialMascots) {
+    if (mascotName.endsWith(mascot)) {
+      return mascotName.slice(0, -mascot.length).trim()
+    }
+  }
+  const parts = mascotName.split(' ')
+  if (parts.length > 1) {
+    return parts.slice(0, -1).join(' ')
+  }
+  return mascotName
+}
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
@@ -176,6 +198,8 @@ export default function Rankings() {
   const navigate = useNavigate()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+  const [activeTab, setActiveTab] = useState('both') // 'both', 'media', 'coaches'
 
   if (!currentDynasty) return null
 
@@ -196,6 +220,23 @@ export default function Rankings() {
   const mediaPoll = yearPolls.media || []
   const coachesPoll = yearPolls.coaches || []
 
+  // Build a lookup map for team records from conference standings
+  const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
+  const yearStandings = standingsByYear[displayYear] || {}
+  const teamRecords = {}
+  Object.values(yearStandings).forEach(conferenceTeams => {
+    if (Array.isArray(conferenceTeams)) {
+      conferenceTeams.forEach(team => {
+        if (team.team) {
+          teamRecords[team.team] = {
+            wins: team.wins || 0,
+            losses: team.losses || 0
+          }
+        }
+      })
+    }
+  })
+
   // Navigate to year when dropdown changes
   const handleYearChange = (year) => {
     navigate(`${pathPrefix}/rankings/${year}`)
@@ -206,10 +247,18 @@ export default function Rankings() {
     return (
       <div className="space-y-6">
         <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <h1 className="text-2xl font-bold mb-4 text-white">
+          <svg
+            className="w-16 h-16 mx-auto mb-4 opacity-50 text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          </svg>
+          <h1 className="text-2xl font-bold mb-2 text-white">
             Final Top 25
           </h1>
-          <p className="text-lg text-gray-400">
+          <p className="text-gray-400">
             No final polls recorded yet. Complete a season and enter final polls to see rankings.
           </p>
         </div>
@@ -217,29 +266,30 @@ export default function Rankings() {
     )
   }
 
-  // Render a single ranking row
-  const RankingRow = ({ rank, teamAbbr, year }) => {
-    const teamInfo = teamAbbreviations[teamAbbr] || {}
+  // Render a single ranking row - compact table style
+  const RankingRow = ({ rank, teamAbbr, year, isEven }) => {
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const bgColor = teamInfo.backgroundColor || '#6B7280'
-    const textColor = getContrastTextColor(bgColor)
+    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
+    const isCFP = rank <= 4
+    const isTop12 = rank <= 12
+    const record = teamRecords[teamAbbr]
 
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
-        className="flex items-center gap-3 p-3 rounded-lg hover:scale-[1.02] transition-transform"
+        className="flex items-center gap-3 py-2.5 px-3 transition-colors hover:bg-gray-700/50"
         style={{
-          backgroundColor: bgColor,
-          border: `2px solid ${teamInfo.textColor || '#374151'}`
+          backgroundColor: isEven ? 'rgba(55, 65, 81, 0.3)' : 'transparent',
+          borderLeft: isCFP ? `3px solid ${teamColors.primary}` : '3px solid transparent'
         }}
       >
         {/* Rank */}
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
+          className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
           style={{
-            backgroundColor: rank <= 4 ? '#EAB308' : rank <= 12 ? '#9CA3AF' : `${textColor}20`,
-            color: rank <= 4 ? '#000' : rank <= 12 ? '#000' : textColor
+            backgroundColor: isCFP ? teamColors.primary : isTop12 ? 'rgba(156, 163, 175, 0.3)' : 'rgba(75, 85, 99, 0.3)',
+            color: isCFP ? teamColors.secondary : '#fff'
           }}
         >
           {rank}
@@ -248,12 +298,12 @@ export default function Rankings() {
         {/* Logo */}
         {teamLogo && (
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}
+            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-white p-0.5"
+            style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }}
           >
             <img
               src={teamLogo}
-              alt={`${teamAbbr} logo`}
+              alt=""
               className="w-full h-full object-contain"
             />
           </div>
@@ -261,92 +311,153 @@ export default function Rankings() {
 
         {/* Team Name */}
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-lg truncate" style={{ color: textColor }}>
-            {mascotName || teamInfo.name || teamAbbr}
-          </div>
+          <span className="font-semibold text-sm text-white truncate block">
+            {getSchoolName(mascotName) || teamAbbr}
+          </span>
         </div>
+
+        {/* Record or team color indicator */}
+        {record ? (
+          <span className="text-sm font-medium text-gray-300 flex-shrink-0 tabular-nums">
+            {record.wins}-{record.losses}
+          </span>
+        ) : (
+          <div
+            className="w-1 h-6 rounded-full flex-shrink-0"
+            style={{ backgroundColor: colors.primary }}
+          />
+        )}
       </Link>
     )
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header with Year Selector */}
-      <div className="rounded-lg shadow-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-800 border-2 border-gray-600">
-        <h1 className="text-2xl font-bold text-white">
-          Final Top 25
-        </h1>
-
-        <select
-          value={displayYear}
-          onChange={(e) => handleYearChange(parseInt(e.target.value))}
-          className="px-4 py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 bg-gray-700 text-white border-2 border-gray-500"
-        >
-          {availableYears.map((year) => (
-            <option key={year} value={year}>
-              {year} Season
-            </option>
-          ))}
-        </select>
+  // Poll column component
+  const PollColumn = ({ title, data, pollType }) => (
+    <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border border-gray-700">
+      {/* Poll Header */}
+      <div
+        className="px-4 py-3 border-b border-gray-700"
+        style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-white">{title}</h2>
+          <span className="text-xs text-gray-400 font-medium">
+            {data.length} teams
+          </span>
+        </div>
       </div>
 
-      {/* Polls Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Media Poll */}
-        <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-          <div className="px-4 py-3 bg-gray-700">
-            <h2 className="text-lg font-bold text-white">
-              Media Poll
-            </h2>
+      {/* Poll Content */}
+      <div className="divide-y divide-gray-700/50">
+        {data.length > 0 ? (
+          data
+            .sort((a, b) => a.rank - b.rank)
+            .map((entry, idx) => (
+              <RankingRow
+                key={`${pollType}-${entry.rank}`}
+                rank={entry.rank}
+                teamAbbr={entry.team}
+                year={displayYear}
+                isEven={idx % 2 === 0}
+              />
+            ))
+        ) : (
+          <div className="p-8 text-center">
+            <p className="text-gray-400 text-sm">
+              No {title.toLowerCase()} data for {displayYear}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="rounded-lg shadow-lg p-6 bg-gray-800 border border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">
+              Final Top 25
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">
+              End of season poll rankings
+            </p>
           </div>
 
-          <div className="p-4 space-y-2">
-            {mediaPoll.length > 0 ? (
-              mediaPoll
-                .sort((a, b) => a.rank - b.rank)
-                .map((entry) => (
-                  <RankingRow
-                    key={`media-${entry.rank}`}
-                    rank={entry.rank}
-                    teamAbbr={entry.team}
-                    year={displayYear}
-                  />
-                ))
-            ) : (
-              <p className="text-center py-8 text-gray-400">
-                No media poll data for {displayYear}
-              </p>
-            )}
+          {/* Year Selector */}
+          <div className="flex items-center gap-3">
+            <label className="font-semibold text-sm text-white">
+              Year:
+            </label>
+            <select
+              value={displayYear}
+              onChange={(e) => handleYearChange(parseInt(e.target.value))}
+              className="px-4 py-2 rounded-lg font-bold text-lg border bg-gray-700 text-white border-gray-600 focus:outline-none focus:ring-2"
+              style={{ '--tw-ring-color': teamColors.primary }}
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {/* Mobile Tab Switcher */}
+        <div className="mt-4 lg:hidden">
+          <div className="flex rounded-lg overflow-hidden border border-gray-600">
+            {[
+              { key: 'both', label: 'Both' },
+              { key: 'media', label: 'Media' },
+              { key: 'coaches', label: 'Coaches' }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className="flex-1 py-2 text-sm font-semibold transition-colors"
+                style={{
+                  backgroundColor: activeTab === tab.key ? teamColors.primary : 'transparent',
+                  color: activeTab === tab.key ? teamColors.secondary : '#9CA3AF'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CFP Indicator Legend */}
+      {(mediaPoll.length > 0 || coachesPoll.length > 0) && (
+        <div className="flex items-center gap-4 text-xs text-gray-400 px-1">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: teamColors.primary }}
+            />
+            <span>CFP Playoff (1-4)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-gray-500/30" />
+            <span>CFP Bye (5-12)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Polls Container */}
+      <div className={`grid gap-6 ${activeTab === 'both' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-2xl'}`}>
+        {/* Media Poll */}
+        {(activeTab === 'both' || activeTab === 'media') && (
+          <PollColumn title="Media Poll" data={mediaPoll} pollType="media" />
+        )}
 
         {/* Coaches Poll */}
-        <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-          <div className="px-4 py-3 bg-gray-700">
-            <h2 className="text-lg font-bold text-white">
-              Coaches Poll
-            </h2>
-          </div>
-
-          <div className="p-4 space-y-2">
-            {coachesPoll.length > 0 ? (
-              coachesPoll
-                .sort((a, b) => a.rank - b.rank)
-                .map((entry) => (
-                  <RankingRow
-                    key={`coaches-${entry.rank}`}
-                    rank={entry.rank}
-                    teamAbbr={entry.team}
-                    year={displayYear}
-                  />
-                ))
-            ) : (
-              <p className="text-center py-8 text-gray-400">
-                No coaches poll data for {displayYear}
-              </p>
-            )}
-          </div>
-        </div>
+        {(activeTab === 'both' || activeTab === 'coaches') && (
+          <PollColumn title="Coaches Poll" data={coachesPoll} pollType="coaches" />
+        )}
       </div>
     </div>
   )

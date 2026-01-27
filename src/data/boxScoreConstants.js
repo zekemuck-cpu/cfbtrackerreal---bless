@@ -23,7 +23,7 @@ export const STAT_TABS = {
   blocking: {
     key: 'blocking',
     title: 'Blocking',
-    headers: ['Player Name', 'Sacks Allowed', 'Pancakes'],
+    headers: ['Player Name', 'Pancakes', 'Sacks Allowed'],
     rowCount: 20
   },
   defense: {
@@ -35,7 +35,7 @@ export const STAT_TABS = {
   kicking: {
     key: 'kicking',
     title: 'Kicking',
-    headers: ['Player Name', 'FGA', 'FGM', 'FG Long', 'FG Block', 'XPM', 'XPA', 'XPB', 'FGA 29', 'FGM 29', 'FGA 39', 'FGM 39', 'FGA 49', 'FGM 49', 'FGA 50+', 'FGM 50+', 'Kickoffs', 'Touchbacks'],
+    headers: ['Player Name', 'FGM', 'FGA', 'FG Long', 'FG Block', 'XPM', 'XPA', 'XPB', 'FGA 29', 'FGM 29', 'FGA 39', 'FGM 39', 'FGA 49', 'FGM 49', 'FGA 50+', 'FGM 50+', 'Kickoffs', 'Touchbacks'],
     rowCount: 3
   },
   punting: {
@@ -74,7 +74,7 @@ export const STAT_TAB_ORDER = [
 // Scoring Summary configuration
 export const SCORING_SUMMARY = {
   title: 'Scoring Summary',
-  headers: ['Team', 'Scorer', 'Passer', 'Yards', 'Score Type', 'PAT Result', 'PAT Notes', 'Quarter', 'Time Left', 'Video Link'],
+  headers: ['Team', 'Scorer', 'Passer', 'Yards', 'Score Type', 'PAT Result', 'Quarter', 'Time Left', 'Video Link'],
   rowCount: 30
 }
 
@@ -425,7 +425,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: tdYards,
         scoreType: isTDPass ? 'Passing TD' : 'Rushing TD',
         patResult: 'Made XP',
-        patNotes: kickers[0] || 'K',
         quarter,
         timeLeft: generateTime()
       })
@@ -441,7 +440,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: tdYards,
         scoreType: isTDPass ? 'Passing TD' : 'Rushing TD',
         patResult: 'Converted 2PT',
-        patNotes: `${rushers[0] || 'RB'} run`,
         quarter,
         timeLeft: generateTime()
       })
@@ -458,7 +456,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: tdYards,
         scoreType: isTDPass ? 'Passing TD' : 'Rushing TD',
         patResult: patFailed,
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })
@@ -472,7 +469,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: rand(22, 52),
         scoreType: 'Field Goal',
         patResult: '',
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })
@@ -486,7 +482,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: '',
         scoreType: 'Safety',
         patResult: '',
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })
@@ -508,7 +503,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: rand(10, 65),
         scoreType: 'Passing TD',
         patResult: 'Made XP',
-        patNotes: 'Opponent K',
         quarter,
         timeLeft: generateTime()
       })
@@ -521,7 +515,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: rand(1, 40),
         scoreType: 'Rushing TD',
         patResult: 'Missed XP',
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })
@@ -534,7 +527,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: rand(22, 52),
         scoreType: 'Field Goal',
         patResult: '',
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })
@@ -547,7 +539,6 @@ const generateScoringSummary = (teamScore, opponentScore, userTeamAbbr, opponent
         yards: '',
         scoreType: 'Safety',
         patResult: '',
-        patNotes: '',
         quarter,
         timeLeft: generateTime()
       })

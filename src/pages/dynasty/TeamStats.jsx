@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, getUserGamePerspective, isPlayerOnRoster } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -17,10 +17,10 @@ const INTERNAL_TO_BOXSCORE = {
     cmp: 'comp', att: 'attempts', yds: 'yards', td: 'tD', int: 'iNT', lng: 'long', sacks: 'sacks'
   },
   rushing: {
-    car: 'carries', yds: 'yards', td: 'tD', lng: 'long', fum: 'fumbles', bt: 'brokenTackles'
+    car: 'carries', yds: 'yards', td: 'tD', lng: 'long', fum: 'fumbles', bt: 'brokenTackles', yac: 'yAC', twentyPlus: '20+'
   },
   receiving: {
-    rec: 'receptions', yds: 'yards', td: 'tD', lng: 'long', drops: 'drops'
+    rec: 'receptions', yds: 'yards', td: 'tD', lng: 'long', drops: 'drops', rac: 'rAC'
   },
   blocking: {
     sacksAllowed: 'sacksAllowed', pancakes: 'pancakes'
@@ -575,73 +575,79 @@ export default function TeamStats() {
     }
   }, [currentDynasty, selectedTeam, selectedTid, selectedYear])
 
-  // Aggregate team stats from box scores
+  // Aggregate team stats from player.statsByYear (single source of truth)
+  // Box scores feed into player stats, then player stats feed into team stats
   const teamStats = useMemo(() => {
-    let pointsFor = 0, totalOffense = 0, rushAttempts = 0, rushYards = 0, rushTds = 0
-    let passAttempts = 0, passYards = 0, passTds = 0, firstDowns = 0
-    let pointsAgainst = 0, defTotalYards = 0, defPassYards = 0, defRushYards = 0
-    let defSacks = 0, forcedFumbles = 0, defInterceptions = 0
-    let gamesWithStats = 0
+    const allPlayers = currentDynasty?.players || []
+    const yearKey = String(selectedYear)
+    const numKey = Number(selectedYear)
 
+    // Helper to get player's year stats
+    const getYearStats = (player) => {
+      return player.statsByYear?.[yearKey]
+        ?? player.statsByYear?.[numKey]
+        ?? player.statsByYear?.[selectedYear]
+    }
+
+    // Points come from games
+    let pointsFor = 0, pointsAgainst = 0
     stats.games.forEach(game => {
       pointsFor += game.teamScore || 0
       pointsAgainst += game.opponentScore || 0
+    })
 
-      if (!game.boxScore) return
+    // Aggregate offensive stats from player.statsByYear
+    let passAttempts = 0, passYards = 0, passTds = 0
+    let rushAttempts = 0, rushYards = 0, rushTds = 0
 
-      const isHome = game.location === 'home' || game.location === 'Home'
-      const ourPlayerBoxScore = isHome ? game.boxScore.home : game.boxScore.away
+    // Aggregate defensive stats from player.statsByYear
+    let defSacks = 0, forcedFumbles = 0, defInterceptions = 0
 
-      if (game.boxScore.teamStats) {
-        const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-        const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
+    allPlayers.forEach(player => {
+      // Use unified isPlayerOnRoster which checks teamHistory (stint-based) then teamsByYear
+      if (!isPlayerOnRoster(player, selectedTid, selectedYear)) return
 
-        let ourTeamStats = null, oppTeamStats = null
+      const yearStats = getYearStats(player)
+      if (!yearStats) return
 
-        if (homeAbbr === selectedTeam) {
-          ourTeamStats = game.boxScore.teamStats.home
-          oppTeamStats = game.boxScore.teamStats.away
-        } else if (awayAbbr === selectedTeam) {
-          ourTeamStats = game.boxScore.teamStats.away
-          oppTeamStats = game.boxScore.teamStats.home
-        }
-
-        if (ourTeamStats) {
-          gamesWithStats++
-          totalOffense += parseFloat(ourTeamStats.totalOffense) || 0
-          rushAttempts += parseFloat(ourTeamStats.rushAttempts) || 0
-          rushYards += parseFloat(ourTeamStats.rushYards) || 0
-          rushTds += parseFloat(ourTeamStats.rushTds) || 0
-          passAttempts += parseFloat(ourTeamStats.passAttempts) || 0
-          passYards += parseFloat(ourTeamStats.passYards) || 0
-          passTds += parseFloat(ourTeamStats.passTds) || 0
-          firstDowns += parseFloat(ourTeamStats.firstDowns) || 0
-        }
-
-        if (oppTeamStats) {
-          defTotalYards += parseFloat(oppTeamStats.totalOffense) || 0
-          defPassYards += parseFloat(oppTeamStats.passYards) || 0
-          defRushYards += parseFloat(oppTeamStats.rushYards) || 0
-        }
+      // Passing stats
+      const passing = yearStats.passing
+      if (passing) {
+        passAttempts += parseFloat(passing.att) || 0
+        passYards += parseFloat(passing.yds) || 0
+        passTds += parseFloat(passing.td) || 0
       }
 
-      if (ourPlayerBoxScore?.defense && Array.isArray(ourPlayerBoxScore.defense)) {
-        ourPlayerBoxScore.defense.forEach(player => {
-          defSacks += parseFloat(player.sack) || 0
-          forcedFumbles += parseFloat(player.fF) || 0
-          defInterceptions += parseFloat(player.iNT) || 0
-        })
+      // Rushing stats
+      const rushing = yearStats.rushing
+      if (rushing) {
+        rushAttempts += parseFloat(rushing.car) || 0
+        rushYards += parseFloat(rushing.yds) || 0
+        rushTds += parseFloat(rushing.td) || 0
+      }
+
+      // Defense stats
+      const defense = yearStats.defense
+      if (defense) {
+        defSacks += parseFloat(defense.sacks) || 0
+        forcedFumbles += parseFloat(defense.ff) || 0
+        defInterceptions += parseFloat(defense.int) || 0
       }
     })
 
     const totalGamesPlayed = stats.games.length
+    const totalOffense = passYards + rushYards
     const totalPlays = rushAttempts + passAttempts
     const yardsPerPlay = totalPlays > 0 ? totalOffense / totalPlays : 0
     const passYardsPerGame = totalGamesPlayed > 0 ? passYards / totalGamesPlayed : 0
     const rushYardsPerCarry = rushAttempts > 0 ? rushYards / rushAttempts : 0
 
+    // Defensive yards allowed - these still need to come from opponent data if available
+    // For now, leave as 0 unless manually overridden (opponent stats aren't in player.statsByYear)
+    let defTotalYards = 0, defPassYards = 0, defRushYards = 0, firstDowns = 0
+
     const aggregated = {
-      gamesWithStats, pointsFor, totalOffense, yardsPerPlay, passYards,
+      gamesWithStats: totalGamesPlayed, pointsFor, totalOffense, yardsPerPlay, passYards,
       passYardsPerGame, passTds, rushYards, rushYardsPerCarry, rushTds, firstDowns,
       pointsAgainst, defTotalYards, defPassYards, defRushYards,
       defSacks, forcedFumbles, defInterceptions
@@ -664,21 +670,13 @@ export default function TeamStats() {
     }
 
     return aggregated
-  }, [currentDynasty, selectedTeam, selectedYear, stats.games])
+  }, [currentDynasty, selectedTid, selectedYear, stats.games])
 
   // Read player stats from player.statsByYear (primary for games/snaps) and box scores (for detailed stats)
   const playerStats = useMemo(() => {
     const allPlayers = currentDynasty?.players || []
     const yearKey = String(selectedYear)
     const numKey = Number(selectedYear)
-
-    // Helper to check if player was on the selected team during the selected year
-    const isPlayerOnSelectedTeam = (player) => {
-      const teamForYear = player.teamsByYear?.[yearKey]
-        ?? player.teamsByYear?.[numKey]
-        ?? player.teamsByYear?.[selectedYear]
-      return teamForYear === selectedTid
-    }
 
     // Helper to get player's year stats with consistent key handling
     const getPlayerYearStats = (player) => {
@@ -688,8 +686,8 @@ export default function TeamStats() {
     }
 
     // Helper to convert internal format to box score format for display
-    const convertInternalToBoxScore = (playerName, categoryStats, categoryName, gamesPlayed) => {
-      const result = { playerName, games: gamesPlayed }
+    const convertInternalToBoxScore = (playerName, jerseyNumber, categoryStats, categoryName, gamesPlayed) => {
+      const result = { playerName, jerseyNumber, games: gamesPlayed }
       const mapping = INTERNAL_TO_BOXSCORE[categoryName] || {}
       Object.entries(categoryStats || {}).forEach(([key, value]) => {
         if (key === 'gamesPlayed' || key === 'snapsPlayed') return
@@ -707,7 +705,8 @@ export default function TeamStats() {
         if (!player.name) return
 
         // Only include players who were on the selected team during the selected year
-        if (!isPlayerOnSelectedTeam(player)) return
+        // Use unified isPlayerOnRoster which checks teamHistory (stint-based) then teamsByYear
+        if (!isPlayerOnRoster(player, selectedTid, selectedYear)) return
 
         const normalizedName = player.name.toLowerCase().trim()
         if (playerStatsMap.has(normalizedName)) return
@@ -721,8 +720,8 @@ export default function TeamStats() {
 
         // Only include if has meaningful stats in this category
         if (categoryStats) {
-          const stats = convertInternalToBoxScore(player.name, categoryStats, internalCatName, gamesPlayed)
-          const statKeys = Object.keys(stats).filter(k => k !== 'playerName' && k !== 'games')
+          const stats = convertInternalToBoxScore(player.name, player.jerseyNumber, categoryStats, internalCatName, gamesPlayed)
+          const statKeys = Object.keys(stats).filter(k => k !== 'playerName' && k !== 'jerseyNumber' && k !== 'games')
           if (statKeys.some(k => stats[k] > 0)) {
             playerStatsMap.set(normalizedName, stats)
           }
@@ -757,7 +756,7 @@ export default function TeamStats() {
       yardsPerGame: p.games > 0 ? (p.yards / p.games).toFixed(1) : '0.0',
       tdPct: p.attempts > 0 ? ((p.tD / p.attempts) * 100).toFixed(1) : '0.0',
       intPct: p.attempts > 0 ? ((p.iNT / p.attempts) * 100).toFixed(1) : '0.0',
-      tdIntRatio: p.iNT > 0 ? `${(p.tD / p.iNT).toFixed(2)}:1` : (p.tD > 0 ? '∞' : '-')
+      tdIntRatio: p.iNT > 0 ? `${(p.tD / p.iNT).toFixed(1)}:1` : (p.tD > 0 ? '∞' : '-')
     })).filter(p => p.comp > 0 || p.attempts > 0)
 
     const rushing = rawRushing.map(p => ({
@@ -1209,14 +1208,21 @@ export default function TeamStats() {
                           className={`px-2 py-2 text-sm ${colIdx === 0 ? 'text-left font-medium' : 'text-right'}`}
                           style={{ color: primaryText, opacity: colIdx === 0 ? 1 : 0.9 }}
                         >
-                          {colIdx === 0 && playerPID ? (
-                            <Link
-                              to={`${pathPrefix}/player/${playerPID}`}
-                              className="hover:underline"
-                              style={{ color: primaryText }}
-                            >
-                              {rawValue}
-                            </Link>
+                          {colIdx === 0 ? (
+                            <span className="flex items-center gap-1.5">
+                              {player.jerseyNumber && (
+                                <span className="text-xs opacity-60 tabular-nums w-5 text-right">{player.jerseyNumber}</span>
+                              )}
+                              {playerPID ? (
+                                <Link
+                                  to={`${pathPrefix}/player/${playerPID}`}
+                                  className="hover:underline"
+                                  style={{ color: primaryText }}
+                                >
+                                  {rawValue}
+                                </Link>
+                              ) : rawValue}
+                            </span>
                           ) : formattedValue}
                         </td>
                       )

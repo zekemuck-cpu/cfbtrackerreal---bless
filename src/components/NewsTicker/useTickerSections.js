@@ -107,17 +107,39 @@ export function useTickerSections(dynasty) {
       }, 0)
       const diff = totalPF - totalPA
 
+      // Calculate current streak (W3, L2, etc.)
+      let streak = ''
+      if (seasonGames.length > 0) {
+        const sortedGames = [...seasonGames].sort((a, b) => getGameOrder(b) - getGameOrder(a))
+        const lastResult = sortedGames[0]?.perspective?.userWon
+        if (lastResult !== undefined) {
+          let count = 0
+          for (const g of sortedGames) {
+            if (g.perspective?.userWon === lastResult) count++
+            else break
+          }
+          streak = lastResult ? `W${count}` : `L${count}`
+        }
+      }
+
+      const items = [
+        { id: 'record', label: 'Record', text: record }
+      ]
+      if (streak) {
+        items.push({ id: 'streak', label: 'Streak', text: streak, labelColor: streak.startsWith('W') ? '#22c55e' : '#ef4444' })
+      }
+      items.push(
+        { id: 'pf', label: 'PF', text: String(totalPF) },
+        { id: 'pa', label: 'PA', text: String(totalPA) },
+        { id: 'diff', label: 'Diff', text: diff >= 0 ? `+${diff}` : String(diff) }
+      )
+
       sections.push({
         type: 'season',
         label: `${displayYear} SEASON`,
         teamLogo: teamAbbr,
         teamRecord: record,
-        items: [
-          { id: 'record', label: 'Record', text: record },
-          { id: 'pf', label: 'PF', text: String(totalPF) },
-          { id: 'pa', label: 'PA', text: String(totalPA) },
-          { id: 'diff', label: 'Diff', text: diff >= 0 ? `+${diff}` : String(diff) }
-        ]
+        items
       })
     }
 
@@ -278,31 +300,82 @@ export function useTickerSections(dynasty) {
       })
       const items = []
 
-      // Passing leader
-      const passLeader = teamPlayers
-        .filter(p => (p.statsByYear[displayYear]?.passing?.yds || 0) > 200)
-        .sort((a, b) => (b.statsByYear[displayYear]?.passing?.yds || 0) - (a.statsByYear[displayYear]?.passing?.yds || 0))[0]
+      // Helper to get top player for a stat (no minimum threshold)
+      const getLeader = (statPath, minValue = 1) => {
+        return teamPlayers
+          .map(p => {
+            const keys = statPath.split('.')
+            let val = p.statsByYear[displayYear]
+            for (const k of keys) val = val?.[k]
+            return { player: p, value: val || 0 }
+          })
+          .filter(x => x.value >= minValue)
+          .sort((a, b) => b.value - a.value)[0]?.player
+      }
+
+      // Passing leader (yards)
+      const passLeader = getLeader('passing.yds')
       if (passLeader) {
         const s = passLeader.statsByYear[displayYear].passing
-        items.push({ id: 'pass', label: passLeader.name, text: `${s.yds.toLocaleString()} yds, ${s.td} TD`, link: `/player/${passLeader.pid}` })
+        items.push({ id: 'pass', label: passLeader.name, text: `${s.yds.toLocaleString()} yds, ${s.td || 0} TD`, link: `/player/${passLeader.pid}` })
       }
 
-      // Rushing leader
-      const rushLeader = teamPlayers
-        .filter(p => (p.statsByYear[displayYear]?.rushing?.yds || 0) > 100)
-        .sort((a, b) => (b.statsByYear[displayYear]?.rushing?.yds || 0) - (a.statsByYear[displayYear]?.rushing?.yds || 0))[0]
+      // Rushing leader (yards)
+      const rushLeader = getLeader('rushing.yds')
       if (rushLeader) {
         const s = rushLeader.statsByYear[displayYear].rushing
-        items.push({ id: 'rush', label: rushLeader.name, text: `${s.yds.toLocaleString()} yds, ${s.td} TD`, link: `/player/${rushLeader.pid}` })
+        items.push({ id: 'rush', label: rushLeader.name, text: `${s.yds.toLocaleString()} yds, ${s.td || 0} TD`, link: `/player/${rushLeader.pid}` })
       }
 
-      // Receiving leader
-      const recLeader = teamPlayers
-        .filter(p => (p.statsByYear[displayYear]?.receiving?.yds || 0) > 100)
-        .sort((a, b) => (b.statsByYear[displayYear]?.receiving?.yds || 0) - (a.statsByYear[displayYear]?.receiving?.yds || 0))[0]
+      // Receiving leader (yards)
+      const recLeader = getLeader('receiving.yds')
       if (recLeader) {
         const s = recLeader.statsByYear[displayYear].receiving
-        items.push({ id: 'rec', label: recLeader.name, text: `${s.rec} rec, ${s.yds.toLocaleString()} yds`, link: `/player/${recLeader.pid}` })
+        items.push({ id: 'rec', label: recLeader.name, text: `${s.rec || 0} rec, ${s.yds.toLocaleString()} yds, ${s.td || 0} TD`, link: `/player/${recLeader.pid}` })
+      }
+
+      // Total TDs leader (passing + rushing + receiving TDs combined)
+      const tdLeader = teamPlayers
+        .map(p => {
+          const stats = p.statsByYear[displayYear]
+          const totalTDs = (stats?.passing?.td || 0) + (stats?.rushing?.td || 0) + (stats?.receiving?.td || 0)
+          return { player: p, value: totalTDs }
+        })
+        .filter(x => x.value >= 1)
+        .sort((a, b) => b.value - a.value)[0]?.player
+      if (tdLeader) {
+        const stats = tdLeader.statsByYear[displayYear]
+        const totalTDs = (stats?.passing?.td || 0) + (stats?.rushing?.td || 0) + (stats?.receiving?.td || 0)
+        items.push({ id: 'tds', label: tdLeader.name, text: `${totalTDs} Total TD`, link: `/player/${tdLeader.pid}` })
+      }
+
+      // Sacks leader
+      const sackLeader = getLeader('defense.sacks')
+      if (sackLeader) {
+        const s = sackLeader.statsByYear[displayYear].defense
+        items.push({ id: 'sacks', label: sackLeader.name, text: `${s.sacks} Sacks`, link: `/player/${sackLeader.pid}` })
+      }
+
+      // Interceptions leader
+      const intLeader = getLeader('defense.int')
+      if (intLeader) {
+        const s = intLeader.statsByYear[displayYear].defense
+        items.push({ id: 'ints', label: intLeader.name, text: `${s.int} INT`, link: `/player/${intLeader.pid}` })
+      }
+
+      // Tackles leader (solo + assisted)
+      const tklLeader = teamPlayers
+        .map(p => {
+          const def = p.statsByYear[displayYear]?.defense
+          const totalTkl = (def?.soloTkl || 0) + (def?.astTkl || 0)
+          return { player: p, value: totalTkl }
+        })
+        .filter(x => x.value >= 1)
+        .sort((a, b) => b.value - a.value)[0]?.player
+      if (tklLeader) {
+        const def = tklLeader.statsByYear[displayYear].defense
+        const totalTkl = (def?.soloTkl || 0) + (def?.astTkl || 0)
+        items.push({ id: 'tkl', label: tklLeader.name, text: `${totalTkl} Tackles`, link: `/player/${tklLeader.pid}` })
       }
 
       if (items.length > 0) {
@@ -316,7 +389,510 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    // === 6. MY POSTSEASON HISTORY (user's bowls + CFP games with scores) ===
+    // === 6. SEASON HIGHLIGHTS ===
+    if (seasonGames.length >= 3) {
+      const gamesWithMargins = seasonGames.map(g => {
+        const info = getGameInfo(g)
+        const userScore = Number(info?.userScore) || 0
+        const oppScore = Number(info?.opponentScore) || 0
+        const margin = userScore - oppScore
+        const totalPoints = userScore + oppScore
+        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        const isWin = info?.isWin ?? (g.result === 'win')
+        return { game: g, userScore, oppScore, margin, totalPoints, oppAbbr, isWin }
+      })
+
+      const highlightItems = []
+
+      // Biggest win (largest positive margin)
+      const biggestWin = gamesWithMargins
+        .filter(x => x.isWin && x.margin > 0)
+        .sort((a, b) => b.margin - a.margin)[0]
+      if (biggestWin) {
+        highlightItems.push({
+          id: 'bigwin',
+          team: biggestWin.oppAbbr,
+          label: 'BIG W',
+          labelColor: '#22c55e',
+          text: `${biggestWin.userScore}-${biggestWin.oppScore}`,
+          link: biggestWin.game.id ? `/game/${biggestWin.game.id}` : null
+        })
+      }
+
+      // Highest scoring game (most combined points)
+      const highestScoring = [...gamesWithMargins].sort((a, b) => b.totalPoints - a.totalPoints)[0]
+      if (highestScoring && highestScoring.totalPoints > 0) {
+        highlightItems.push({
+          id: 'highscore',
+          team: highestScoring.oppAbbr,
+          label: highestScoring.isWin ? 'W' : 'L',
+          labelColor: highestScoring.isWin ? '#22c55e' : '#ef4444',
+          text: `${highestScoring.userScore}-${highestScoring.oppScore} (${highestScoring.totalPoints} pts)`,
+          link: highestScoring.game.id ? `/game/${highestScoring.game.id}` : null
+        })
+      }
+
+      if (highlightItems.length >= 1) {
+        sections.push({
+          type: 'highlights',
+          label: 'HIGHLIGHTS',
+          teamLogo: teamAbbr,
+          teamRecord: record,
+          items: highlightItems
+        })
+      }
+    }
+
+    // === 7. MILESTONE WATCH ===
+    // Players approaching season milestones
+    if (dynasty.players?.length > 0) {
+      const teamPlayers = dynasty.players.filter(p => {
+        const playerTeamVal = p.teamsByYear?.[displayYear]
+        if (!playerTeamVal || !p.statsByYear?.[displayYear]) return false
+        if (typeof playerTeamVal === 'number') return playerTeamVal === currentTeamTid
+        return playerTeamVal === teamAbbr
+      })
+
+      const milestoneItems = []
+
+      // Define milestones: [statPath, threshold, target, label]
+      const milestones = [
+        ['rushing.yds', 750, 1000, '1K rush'],
+        ['receiving.yds', 750, 1000, '1K rec'],
+        ['passing.yds', 2500, 3000, '3K pass'],
+        ['rushing.td', 15, 20, '20 rush TD'],
+        ['receiving.td', 15, 20, '20 rec TD'],
+        ['passing.td', 25, 30, '30 pass TD']
+      ]
+
+      milestones.forEach(([statPath, threshold, target, label]) => {
+        const keys = statPath.split('.')
+        const candidates = teamPlayers
+          .map(p => {
+            let val = p.statsByYear[displayYear]
+            for (const k of keys) val = val?.[k]
+            return { player: p, value: val || 0 }
+          })
+          .filter(x => x.value >= threshold && x.value < target)
+          .sort((a, b) => b.value - a.value)
+
+        if (candidates.length > 0) {
+          const top = candidates[0]
+          const remaining = target - top.value
+          milestoneItems.push({
+            id: `ms-${statPath}`,
+            label: top.player.name,
+            text: `${remaining} from ${label}`,
+            link: `/player/${top.player.pid}`
+          })
+        }
+      })
+
+      if (milestoneItems.length > 0) {
+        sections.push({
+          type: 'milestones',
+          label: 'MILESTONE WATCH',
+          teamLogo: teamAbbr,
+          teamRecord: record,
+          items: milestoneItems
+        })
+      }
+    }
+
+    // === 8. HOT STREAKS (ON FIRE) ===
+    // Players with 3+ consecutive games hitting performance thresholds
+    if (seasonGames.length >= 3 && dynasty.players?.length > 0) {
+      const sortedSeasonGames = [...seasonGames].sort((a, b) => getGameOrder(a) - getGameOrder(b))
+      const hotStreakItems = []
+
+      // Build per-game stats for each player from box scores
+      const playerGameStats = {}
+      sortedSeasonGames.forEach((game, gameIdx) => {
+        const info = getGameInfo(game)
+        const loc = info?.location || game.location
+        const stats = loc === 'away' ? game.boxScore?.away : game.boxScore?.home
+        if (!stats) return
+
+        // Process each stat category
+        const processStats = (statArray, statType) => {
+          if (!statArray) return
+          statArray.forEach(stat => {
+            const name = stat.playerName
+            if (!name) return
+            if (!playerGameStats[name]) playerGameStats[name] = []
+            if (!playerGameStats[name][gameIdx]) playerGameStats[name][gameIdx] = {}
+            playerGameStats[name][gameIdx][statType] = stat
+          })
+        }
+
+        processStats(stats.passing, 'passing')
+        processStats(stats.rushing, 'rushing')
+        processStats(stats.receiving, 'receiving')
+        processStats(stats.defense, 'defense')
+      })
+
+      // Find player pid by name
+      const findPlayerPid = (name) => {
+        const player = dynasty.players?.find(p => p.name === name)
+        return player?.pid || null
+      }
+
+      // Check for streaks - streak definitions: [checkFn, minStreak, label]
+      const streakDefs = [
+        [(g) => g?.rushing?.yds >= 100, 3, '100+ rush'],
+        [(g) => g?.receiving?.yds >= 100, 3, '100+ rec'],
+        [(g) => g?.passing?.yds >= 250, 3, '250+ pass'],
+        [(g) => (g?.passing?.td || 0) + (g?.rushing?.td || 0) + (g?.receiving?.td || 0) >= 1, 3, 'TD'],
+        [(g) => g?.defense?.sacks >= 1, 3, 'sack'],
+        [(g) => g?.defense?.int >= 1, 3, 'INT']
+      ]
+
+      Object.entries(playerGameStats).forEach(([playerName, gameStats]) => {
+        streakDefs.forEach(([checkFn, minStreak, label]) => {
+          // Count consecutive games from most recent going backwards
+          let streak = 0
+          for (let i = gameStats.length - 1; i >= 0; i--) {
+            if (gameStats[i] && checkFn(gameStats[i])) streak++
+            else break
+          }
+
+          if (streak >= minStreak) {
+            const pid = findPlayerPid(playerName)
+            // Avoid duplicates
+            if (!hotStreakItems.find(x => x.id === `streak-${playerName}-${label}`)) {
+              hotStreakItems.push({
+                id: `streak-${playerName}-${label}`,
+                label: playerName,
+                text: `${label} in ${streak} straight`,
+                link: pid ? `/player/${pid}` : null
+              })
+            }
+          }
+        })
+      })
+
+      if (hotStreakItems.length > 0) {
+        sections.push({
+          type: 'hotstreaks',
+          label: 'ON FIRE',
+          teamLogo: teamAbbr,
+          teamRecord: record,
+          items: hotStreakItems.slice(0, 5) // Limit to top 5 streaks
+        })
+      }
+    }
+
+    // === 9. THIS WEEK IN HISTORY ===
+    // Show what happened in the same week number in previous years
+    if (dynasty.currentPhase === 'regular_season' && dynasty.currentWeek) {
+      const currentWeekNum = Number(dynasty.currentWeek)
+      const historyItems = []
+
+      // Get all user games from previous years in the same week
+      const allUserGamesForHistory = (dynasty.games || [])
+        .filter(g => isGamePlayed(g) && Number(g.year) !== currentYear)
+        .map(g => {
+          const perspective = getUserGamePerspective(g, dynasty)
+          return perspective ? { ...g, perspective } : null
+        })
+        .filter(g => g !== null && isSameWeek(g.week, currentWeekNum))
+        .sort((a, b) => Number(b.year) - Number(a.year))
+        .slice(0, 5)
+
+      allUserGamesForHistory.forEach((g, i) => {
+        const info = getGameInfo(g)
+        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        const isWin = info?.isWin ?? (g.result === 'win')
+        const loc = info?.location === 'away' ? '@' : 'vs'
+        const userScore = info?.userScore ?? g.teamScore
+        const oppScore = info?.opponentScore ?? g.opponentScore
+
+        historyItems.push({
+          id: `hist${i}`,
+          team: oppAbbr,
+          label: `'${String(g.year).slice(-2)}`,
+          labelColor: isWin ? '#22c55e' : '#ef4444',
+          text: `${isWin ? 'W' : 'L'} ${loc} ${userScore}-${oppScore}`,
+          link: g.id ? `/game/${g.id}` : null
+        })
+      })
+
+      if (historyItems.length > 0) {
+        sections.push({
+          type: 'history',
+          label: `WEEK ${currentWeekNum} HISTORY`,
+          teamLogo: teamAbbr,
+          items: historyItems
+        })
+      }
+    }
+
+    // === 10. RIVALRY RECORDS ===
+    // Head-to-head records against opponents played 2+ times
+    if ((dynasty.games || []).length > 0) {
+      const allUserGamesForRivalries = (dynasty.games || [])
+        .filter(g => isGamePlayed(g))
+        .map(g => {
+          const perspective = getUserGamePerspective(g, dynasty)
+          return perspective ? { ...g, perspective } : null
+        })
+        .filter(g => g !== null)
+
+      // Group by opponent
+      const rivalryMap = {}
+      allUserGamesForRivalries.forEach(g => {
+        const info = getGameInfo(g)
+        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+        if (!oppAbbr) return
+        if (!rivalryMap[oppAbbr]) rivalryMap[oppAbbr] = { wins: 0, losses: 0 }
+        if (g.perspective?.userWon === true) rivalryMap[oppAbbr].wins++
+        else if (g.perspective?.userWon === false) rivalryMap[oppAbbr].losses++
+      })
+
+      // Filter to 2+ meetings, sort by total games
+      const rivalries = Object.entries(rivalryMap)
+        .map(([opp, rec]) => ({ opp, wins: rec.wins, losses: rec.losses, total: rec.wins + rec.losses }))
+        .filter(r => r.total >= 2)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 6)
+
+      if (rivalries.length > 0) {
+        const rivalryItems = rivalries.map((r, i) => ({
+          id: `rival${i}`,
+          team: r.opp,
+          label: `vs ${r.opp}`,
+          text: `${r.wins}-${r.losses}`
+        }))
+
+        sections.push({
+          type: 'rivalries',
+          label: 'RIVALRIES',
+          teamLogo: teamAbbr,
+          items: rivalryItems
+        })
+      }
+    }
+
+    // === 11. DYNASTY ACHIEVEMENTS ===
+    // National championships, conference championships, best season
+    if ((dynasty.games || []).length > 0) {
+      const allUserGamesForAchievements = (dynasty.games || [])
+        .filter(g => isGamePlayed(g))
+        .map(g => {
+          const perspective = getUserGamePerspective(g, dynasty)
+          return perspective ? { ...g, perspective } : null
+        })
+        .filter(g => g !== null)
+
+      const achievementItems = []
+
+      // Count national championships (cfp_championship wins)
+      const nattyWins = allUserGamesForAchievements.filter(
+        g => g.gameType === 'cfp_championship' && g.perspective?.userWon === true
+      ).length
+      if (nattyWins > 0) {
+        achievementItems.push({
+          id: 'natty',
+          label: 'NATL CHAMPS',
+          labelColor: '#fcd34d',
+          text: String(nattyWins)
+        })
+      }
+
+      // Count conference championships
+      const confWins = allUserGamesForAchievements.filter(
+        g => g.gameType === 'conference_championship' && g.perspective?.userWon === true
+      ).length
+      if (confWins > 0) {
+        achievementItems.push({
+          id: 'conf',
+          label: 'CONF TITLES',
+          text: String(confWins)
+        })
+      }
+
+      // Bowl record
+      const bowlWins = allUserGamesForAchievements.filter(
+        g => g.gameType === 'bowl' && g.perspective?.userWon === true
+      ).length
+      const bowlLosses = allUserGamesForAchievements.filter(
+        g => g.gameType === 'bowl' && g.perspective?.userWon === false
+      ).length
+      if (bowlWins + bowlLosses > 0) {
+        achievementItems.push({
+          id: 'bowls',
+          label: 'BOWLS',
+          text: `${bowlWins}-${bowlLosses}`
+        })
+      }
+
+      // Best single season record
+      const seasonRecords = {}
+      allUserGamesForAchievements.forEach(g => {
+        const yr = g.year
+        if (!seasonRecords[yr]) seasonRecords[yr] = { wins: 0, losses: 0 }
+        if (g.perspective?.userWon === true) seasonRecords[yr].wins++
+        else if (g.perspective?.userWon === false) seasonRecords[yr].losses++
+      })
+      const bestSeason = Object.entries(seasonRecords)
+        .map(([yr, rec]) => ({ year: yr, wins: rec.wins, losses: rec.losses, winPct: rec.wins / (rec.wins + rec.losses || 1) }))
+        .filter(s => s.wins + s.losses >= 5) // Need at least 5 games
+        .sort((a, b) => b.winPct - a.winPct || b.wins - a.wins)[0]
+
+      if (bestSeason) {
+        achievementItems.push({
+          id: 'best',
+          label: 'BEST',
+          text: `${bestSeason.wins}-${bestSeason.losses} '${String(bestSeason.year).slice(-2)}`
+        })
+      }
+
+      if (achievementItems.length >= 2) {
+        sections.push({
+          type: 'achievements',
+          label: 'DYNASTY',
+          teamLogo: teamAbbr,
+          items: achievementItems
+        })
+      }
+    }
+
+    // === 12. ALL-TIME RECORDS ===
+    // Best performances ever recorded in the dynasty
+    if ((dynasty.games || []).length >= 5) {
+      const allUserGamesForRecords = (dynasty.games || [])
+        .filter(g => isGamePlayed(g))
+        .map(g => {
+          const perspective = getUserGamePerspective(g, dynasty)
+          return perspective ? { ...g, perspective } : null
+        })
+        .filter(g => g !== null)
+
+      const recordItems = []
+
+      // Longest win streak ever
+      const sortedByDate = [...allUserGamesForRecords].sort((a, b) => {
+        const yearDiff = Number(a.year) - Number(b.year)
+        if (yearDiff !== 0) return yearDiff
+        return getGameOrder(a) - getGameOrder(b)
+      })
+
+      let maxStreak = 0
+      let currentStreak = 0
+      sortedByDate.forEach(g => {
+        if (g.perspective?.userWon === true) {
+          currentStreak++
+          if (currentStreak > maxStreak) maxStreak = currentStreak
+        } else {
+          currentStreak = 0
+        }
+      })
+
+      if (maxStreak >= 5) {
+        recordItems.push({
+          id: 'winstreak',
+          label: 'WIN STREAK',
+          text: `${maxStreak} games`
+        })
+      }
+
+      // Most points scored in a game
+      let highScore = { score: 0, game: null }
+      allUserGamesForRecords.forEach(g => {
+        const info = getGameInfo(g)
+        const userScore = Number(info?.userScore) || 0
+        if (userScore > highScore.score) {
+          highScore = { score: userScore, game: g, oppAbbr: info?.opponentAbbr }
+        }
+      })
+
+      if (highScore.score >= 35) {
+        recordItems.push({
+          id: 'highscore',
+          team: highScore.oppAbbr,
+          label: 'HIGH SCORE',
+          text: `${highScore.score} pts`,
+          link: highScore.game?.id ? `/game/${highScore.game.id}` : null
+        })
+      }
+
+      // Biggest blowout win
+      let biggestBlowout = { margin: 0, game: null, userScore: 0, oppScore: 0 }
+      allUserGamesForRecords.forEach(g => {
+        const info = getGameInfo(g)
+        if (!info?.isWin) return
+        const userScore = Number(info?.userScore) || 0
+        const oppScore = Number(info?.opponentScore) || 0
+        const margin = userScore - oppScore
+        if (margin > biggestBlowout.margin) {
+          biggestBlowout = { margin, game: g, oppAbbr: info?.opponentAbbr, userScore, oppScore }
+        }
+      })
+
+      if (biggestBlowout.margin >= 21) {
+        recordItems.push({
+          id: 'blowout',
+          team: biggestBlowout.oppAbbr,
+          label: 'BLOWOUT',
+          text: `${biggestBlowout.userScore}-${biggestBlowout.oppScore}`,
+          link: biggestBlowout.game?.id ? `/game/${biggestBlowout.game.id}` : null
+        })
+      }
+
+      // Best single-game rushing performance (from box scores)
+      let bestRush = { yds: 0, player: null, game: null }
+      let bestPass = { yds: 0, player: null, game: null }
+
+      allUserGamesForRecords.forEach(g => {
+        const info = getGameInfo(g)
+        const loc = info?.location || g.location
+        const stats = loc === 'away' ? g.boxScore?.away : g.boxScore?.home
+        if (!stats) return
+
+        stats.rushing?.forEach(r => {
+          if ((r.yds || 0) > bestRush.yds) {
+            bestRush = { yds: r.yds, player: r.playerName, game: g }
+          }
+        })
+
+        stats.passing?.forEach(p => {
+          if ((p.yds || 0) > bestPass.yds) {
+            bestPass = { yds: p.yds, player: p.playerName, game: g }
+          }
+        })
+      })
+
+      if (bestRush.yds >= 150) {
+        const pid = dynasty.players?.find(p => p.name === bestRush.player)?.pid
+        recordItems.push({
+          id: 'bestrush',
+          label: 'RUSH GAME',
+          text: `${bestRush.yds} yds ${bestRush.player ? bestRush.player.split(' ').pop() : ''}`,
+          link: pid ? `/player/${pid}` : (bestRush.game?.id ? `/game/${bestRush.game.id}` : null)
+        })
+      }
+
+      if (bestPass.yds >= 300) {
+        const pid = dynasty.players?.find(p => p.name === bestPass.player)?.pid
+        recordItems.push({
+          id: 'bestpass',
+          label: 'PASS GAME',
+          text: `${bestPass.yds} yds ${bestPass.player ? bestPass.player.split(' ').pop() : ''}`,
+          link: pid ? `/player/${pid}` : (bestPass.game?.id ? `/game/${bestPass.game.id}` : null)
+        })
+      }
+
+      if (recordItems.length >= 2) {
+        sections.push({
+          type: 'records',
+          label: 'ALL-TIME',
+          teamLogo: teamAbbr,
+          items: recordItems
+        })
+      }
+    }
+
+    // === 13. POSTSEASON HISTORY (user's bowls + CFP games with scores) ===
     const postseasonTypes = ['bowl', 'cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const postseasonGames = (dynasty.games || [])
       .filter(g => postseasonTypes.includes(g.gameType) && isGamePlayed(g))
@@ -382,7 +958,7 @@ export function useTickerSections(dynasty) {
       })
     }
 
-    // === 7. CFP BRACKETS BY YEAR (from games[] array) ===
+    // === 14. CFP BRACKETS BY YEAR (from games[] array) ===
     const cfpGameTypes = ['cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const allCfpGames = (dynasty.games || []).filter(g => cfpGameTypes.includes(g.gameType) && isGamePlayed(g))
     const cfpYears = [...new Set(allCfpGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
@@ -498,7 +1074,7 @@ export function useTickerSections(dynasty) {
       }
     })
 
-    // === 8. LEAGUE BOWL GAMES BY YEAR ===
+    // === 15. LEAGUE BOWL GAMES BY YEAR ===
     // Get all bowl games (including CPU vs CPU) grouped by year - only played games
     const allBowlGames = (dynasty.games || []).filter(g => g.gameType === 'bowl' && isGamePlayed(g))
     const bowlYears = [...new Set(allBowlGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
@@ -578,7 +1154,7 @@ export function useTickerSections(dynasty) {
       }
     })
 
-    // === 9. DYNASTY LEADERBOARDS ===
+    // === 16. DYNASTY LEADERBOARDS ===
     // Career leaderboards - one stat from each major category
     if (dynasty.players?.length > 0) {
       const rosterPlayers = dynasty.players.filter(p => !p.isHonorOnly)
@@ -665,7 +1241,7 @@ export function useTickerSections(dynasty) {
       })
     }
 
-    // === 10. CAREER SUMMARY - Each season individually ===
+    // === 17. CAREER SUMMARY - Each season individually ===
     // Uses perspective to find all games where user coached (only played games)
     const allUserGames = (dynasty.games || [])
       .filter(g => isGamePlayed(g))

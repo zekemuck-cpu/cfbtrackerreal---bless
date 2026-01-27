@@ -5574,7 +5574,7 @@ const DETAILED_STATS_TABS = {
     'Receptions', 'Yards', 'Touchdowns', 'Receiving Long', 'Yards After Catch', 'Drops'
   ],
   'Blocking': [
-    'Sacks Allowed'
+    'Pancakes', 'Sacks Allowed'
   ],
   'Defensive': [
     'Solo Tackles', 'Assisted Tackles', 'Tackles for Loss', 'Sacks', 'Interceptions',
@@ -11467,7 +11467,7 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
   if (!scoringData || scoringData.length === 0) return
 
   // Convert scoring data objects to row arrays
-  // Headers: Team, Scorer, Passer, Yards, Score Type, PAT Result, PAT Notes, Quarter, Time Left, Video Link
+  // Headers: Team, Scorer, Passer, Yards, Score Type, PAT Result, Quarter, Time Left, Video Link
   const rows = scoringData.map(play => [
     play.team || '',
     play.scorer || '',
@@ -11475,14 +11475,13 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
     play.yards || '',
     play.scoreType || '',
     play.patResult || '',
-    play.patNotes || '',
     play.quarter || '',
     play.timeLeft || '',
     play.videoLink || ''
   ])
 
   // Write data to sheet starting at row 2 (after headers)
-  const range = `'${SCORING_SUMMARY.title}'!A2:J${rows.length + 1}`
+  const range = `'${SCORING_SUMMARY.title}'!A2:I${rows.length + 1}`
   const response = await fetch(
     `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     {
@@ -11628,15 +11627,15 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
         }
       }
     },
-    // Quarter dropdown (column H - index 7)
+    // Quarter dropdown (column G - index 6)
     {
       setDataValidation: {
         range: {
           sheetId: sheetId,
           startRowIndex: 1,
           endRowIndex: SCORING_SUMMARY.rowCount + 1,
-          startColumnIndex: 7,
-          endColumnIndex: 8
+          startColumnIndex: 6,
+          endColumnIndex: 7
         },
         rule: {
           condition: {
@@ -11693,26 +11692,6 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
       }
     })
 
-    // Add player dropdown for PAT Notes column (column G - index 6) for XP/2PT scorer
-    requests.push({
-      setDataValidation: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: 1,
-          endRowIndex: SCORING_SUMMARY.rowCount + 1,
-          startColumnIndex: 6,
-          endColumnIndex: 7
-        },
-        rule: {
-          condition: {
-            type: 'ONE_OF_LIST',
-            values: allPlayers.map(name => ({ userEnteredValue: name }))
-          },
-          showCustomUi: true,
-          strict: false // Allow free text entry or empty
-        }
-      }
-    })
   }
 
   // Add conditional formatting for team colors
@@ -11817,7 +11796,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId) {
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse rows into objects - columns: Team, Scorer, Passer, Yards, Score Type, PAT Result, PAT Notes, Quarter, Time Left, Video Link
+    // Parse rows into objects - columns: Team, Scorer, Passer, Yards, Score Type, PAT Result, Quarter, Time Left, Video Link
     return rows
       .filter(row => {
         const hasTeam = row[0] && row[0].trim()
@@ -11834,10 +11813,9 @@ export async function readScoringSummaryFromSheet(spreadsheetId) {
         yards: (row[3] || '').trim(),
         scoreType: (row[4] || '').trim(),
         patResult: (row[5] || '').trim(),
-        patNotes: (row[6] || '').trim(),
-        quarter: (row[7] || '').trim(),
-        timeLeft: (row[8] || '').trim(),
-        videoLink: (row[9] || '').trim()
+        quarter: (row[6] || '').trim(),
+        timeLeft: (row[7] || '').trim(),
+        videoLink: (row[8] || '').trim()
       }))
   } catch (error) {
     console.error('Error reading scoring summary:', error)
@@ -11865,7 +11843,7 @@ const TEAM_STATS_ROWS = [
   '2PT Att',
   'Red Zone TD',
   'Red Zone FG',
-  'Red Zone Att',
+  'Red Zone Pct',
   'Turnovers',
   'Fumbles Lost',
   'Interceptions',

@@ -1427,7 +1427,7 @@ export default function Game() {
                           </div>
                           <div className="text-gray-400 text-[10px] sm:text-xs mt-0.5 truncate">
                             {is2PTAttempt(play) ? (
-                              <span>{play.patNotes || (is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed')}</span>
+                              <span>{is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed'}</span>
                             ) : (
                               <>
                                 {scorerPID ? (
@@ -1866,9 +1866,12 @@ export default function Game() {
           { label: '4th Down Att', left: leftTeamStats['4thDownAtt'], right: rightTeamStats['4thDownAtt'] },
           { label: '2-Point Conv', left: leftTeamStats['2ptConv'], right: rightTeamStats['2ptConv'] },
           { label: '2-Point Att', left: leftTeamStats['2ptAtt'], right: rightTeamStats['2ptAtt'] },
-          { label: 'Red Zone TDs', left: leftTeamStats.redZoneTd, right: rightTeamStats.redZoneTd },
-          { label: 'Red Zone FGs', left: leftTeamStats.redZoneFg, right: rightTeamStats.redZoneFg },
-          { label: 'Red Zone Att', left: leftTeamStats.redZoneAtt, right: rightTeamStats.redZoneAtt },
+          {
+            label: 'Red Zone',
+            left: `${leftTeamStats.redZoneTd || 0} | ${leftTeamStats.redZoneFg || 0} | ${leftTeamStats.redZonePct || 0}%`,
+            right: `${rightTeamStats.redZoneTd || 0} | ${rightTeamStats.redZoneFg || 0} | ${rightTeamStats.redZonePct || 0}%`,
+            subLabel: 'TD | FG | %'
+          },
           { label: 'Turnovers', left: leftTeamStats.turnovers, right: rightTeamStats.turnovers, inverted: true, key: true },
           { label: 'Fumbles Lost', left: leftTeamStats.fumblesLost, right: rightTeamStats.fumblesLost, inverted: true },
           { label: 'Interceptions', left: leftTeamStats.interceptions, right: rightTeamStats.interceptions, inverted: true },
@@ -1907,9 +1910,14 @@ export default function Game() {
               </div>
 
               {/* Stat label */}
-              <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide px-1 sm:px-2 text-center flex-shrink-0 ${stat.key ? 'text-white' : 'text-gray-500'}`}>
-                {stat.label}
-              </span>
+              <div className="text-center flex-shrink-0 px-1 sm:px-2">
+                <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide ${stat.key ? 'text-white' : 'text-gray-500'}`}>
+                  {stat.label}
+                </span>
+                {stat.subLabel && (
+                  <div className="text-[8px] sm:text-[10px] text-gray-600 mt-0.5">{stat.subLabel}</div>
+                )}
+              </div>
 
               {/* Right value with team color indicator */}
               <div className="flex-1 flex items-center justify-end gap-2">

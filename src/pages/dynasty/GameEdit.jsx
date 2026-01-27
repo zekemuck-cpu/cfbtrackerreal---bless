@@ -454,6 +454,11 @@ export default function GameEdit() {
   const isLeftUserTeam = leftTeamTid === userTidForGame
   const isRightUserTeam = rightTeamTid === userTidForGame
 
+  // Compute actual homeTeamTid based on current location setting (for modal sheet type mapping)
+  // This is used to correctly map team buttons to 'homeStats' or 'awayStats'
+  const gameHomeTeamTid = formData.location === 'home' ? team1Tid :
+                          formData.location === 'away' ? team2Tid : null
+
   // Calculate team records - uses centralized function, excludes current game being edited
   const calculateTeamRecord = (tid, year) => {
     if (!currentDynasty?.games || !tid) return ''
@@ -1654,7 +1659,11 @@ export default function GameEdit() {
               </button>
 
               <button
-                onClick={() => openBoxScoreModal(displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')}
+                onClick={() => openBoxScoreModal(
+                  gameHomeTeamTid === null
+                    ? (displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')
+                    : (leftTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
+                )}
                 className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
@@ -1665,13 +1674,20 @@ export default function GameEdit() {
                   )}
                 </div>
                 <div className="text-sm font-medium text-gray-300">{leftTeamAbbr} Stats</div>
-                {(displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
+                {(gameHomeTeamTid === null
+                  ? (displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                  : (leftTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                ) && (
                   <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>
 
               <button
-                onClick={() => openBoxScoreModal(displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')}
+                onClick={() => openBoxScoreModal(
+                  gameHomeTeamTid === null
+                    ? (displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')
+                    : (rightTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
+                )}
                 className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
               >
                 <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
@@ -1682,7 +1698,10 @@ export default function GameEdit() {
                   )}
                 </div>
                 <div className="text-sm font-medium text-gray-300">{rightTeamAbbr} Stats</div>
-                {(displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId) && (
+                {(gameHomeTeamTid === null
+                  ? (displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                  : (rightTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                ) && (
                   <div className="text-xs text-green-400 mt-1">Connected</div>
                 )}
               </button>

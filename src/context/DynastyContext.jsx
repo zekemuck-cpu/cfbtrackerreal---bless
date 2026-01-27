@@ -9099,7 +9099,6 @@ export function DynastyProvider({ children }) {
             const updated = { ...play }
             if (updated.scorer === oldName) updated.scorer = newName
             if (updated.passer === oldName) updated.passer = newName
-            if (updated.patNotes === oldName) updated.patNotes = newName
             return updated
           })
         }

@@ -146,6 +146,17 @@ export default function NewsTicker({ dynasty }) {
             padding-bottom: env(safe-area-inset-bottom);
           }
         }
+        /* Mobile-specific ticker fixes */
+        @media (max-width: 639px) {
+          .ticker-header {
+            max-width: 90px;
+            min-width: 70px;
+          }
+          .ticker-content-area {
+            min-width: 0;
+            flex: 1 1 0%;
+          }
+        }
       `}</style>
       <div
         className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50 overflow-hidden"
@@ -158,11 +169,11 @@ export default function NewsTicker({ dynasty }) {
       >
         <div className="flex items-center" style={{ height: '48px' }}>
           {/* Main content with fade transition */}
-          <div className={`flex-1 flex items-center h-full overflow-hidden transition-opacity duration-300 ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+          <div className={`flex items-center h-full overflow-hidden transition-opacity duration-300 w-full ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
 
-            {/* Header - increased padding for better mobile tap targets */}
+            {/* Header - constrained on mobile to prevent overflow */}
             <div
-              className={`h-full flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 font-bold text-[11px] sm:text-sm uppercase tracking-wide whitespace-nowrap flex-shrink-0 ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
+              className={`ticker-header h-full flex items-center gap-1 sm:gap-2 px-2 sm:px-4 font-bold text-[10px] sm:text-sm uppercase tracking-wide whitespace-nowrap flex-shrink-0 overflow-hidden ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
               style={{ backgroundColor: '#1f2937', color: '#f3f4f6' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
@@ -171,11 +182,11 @@ export default function NewsTicker({ dynasty }) {
                   <img
                     src={getLogoUrl(currentSection.teamLogo)}
                     alt=""
-                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
+                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
                   {currentSection.teamRecord && (
-                    <span className="text-[7px] sm:text-[8px] text-gray-400 leading-none mt-0.5">
+                    <span className="text-[6px] sm:text-[8px] text-gray-400 leading-none mt-0.5 hidden sm:block">
                       {currentSection.teamRecord}
                     </span>
                   )}
@@ -183,41 +194,41 @@ export default function NewsTicker({ dynasty }) {
               )}
               {currentSection.opponentLogo ? (
                 <>
-                  <span className="text-gray-400 text-[9px] sm:text-xs">vs</span>
+                  <span className="text-gray-400 text-[8px] sm:text-xs">vs</span>
                   <img
                     src={getLogoUrl(currentSection.opponentLogo)}
                     alt=""
-                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
+                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
                 </>
               ) : (
-                currentSection.label
+                <span className="truncate">{currentSection.label}</span>
               )}
             </div>
 
             {/* Scrolling items */}
-            <div ref={containerRef} className="ticker-container flex-1 overflow-hidden">
+            <div ref={containerRef} className="ticker-container ticker-content-area flex-1 overflow-hidden min-w-0">
               <div
                 ref={contentRef}
-                className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 whitespace-nowrap h-full"
+                className="flex items-center gap-1.5 sm:gap-3 px-1.5 sm:px-4 whitespace-nowrap h-full"
                 style={{ willChange: 'transform' }}
               >
                 {currentSection.items.map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center gap-1.5 sm:gap-2">
+                  <div key={item.id || idx} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     {/* Separator between items */}
                     {idx > 0 && (
-                      <span className="text-gray-600 text-xs sm:text-sm mx-1 sm:mx-1">|</span>
+                      <span className="text-gray-600 text-[10px] sm:text-sm mx-0.5 sm:mx-1">|</span>
                     )}
                     <div
-                      className={`flex items-center gap-1.5 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
+                      className={`flex items-center gap-1 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
                       onClick={() => handleItemClick(item)}
-                      style={{ minHeight: '32px' }}
+                      style={{ minHeight: '28px' }}
                     >
                       {/* Label (e.g., year, W/L, bowl name) - hide long labels on mobile for two-team format */}
                       {item.label && (
                         <span
-                          className={`font-semibold text-xs sm:text-sm flex-shrink-0 ${item.team2 ? 'hidden sm:inline' : ''}`}
+                          className={`font-semibold text-[10px] sm:text-sm flex-shrink-0 ${item.team2 ? 'hidden sm:inline' : ''}`}
                           style={{ color: item.labelColor || '#f3f4f6' }}
                         >
                           {item.label}
@@ -228,28 +239,28 @@ export default function NewsTicker({ dynasty }) {
                         <img
                           src={getLogoUrl(item.team)}
                           alt=""
-                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                          className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       )}
                       {/* Two-team format (CFP games): Logo1 Score1 - Logo2 Score2 */}
                       {item.team && item.team2 && (
-                        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+                        <div className="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
                           <img
                             src={getLogoUrl(item.team)}
                             alt=""
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                           <span
-                            className="text-xs sm:text-sm tabular-nums"
+                            className="text-[10px] sm:text-sm tabular-nums"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team ? 'bold' : 'normal' }}
                           >
                             {item.score1}
                           </span>
-                          <span className="text-xs sm:text-sm text-gray-500">-</span>
+                          <span className="text-[10px] sm:text-sm text-gray-500">-</span>
                           <span
-                            className="text-xs sm:text-sm tabular-nums"
+                            className="text-[10px] sm:text-sm tabular-nums"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team2 ? 'bold' : 'normal' }}
                           >
                             {item.score2}
@@ -257,7 +268,7 @@ export default function NewsTicker({ dynasty }) {
                           <img
                             src={getLogoUrl(item.team2)}
                             alt=""
-                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                         </div>
@@ -265,7 +276,7 @@ export default function NewsTicker({ dynasty }) {
                       {/* Standard text (only if not two-team format) */}
                       {item.text && !item.team2 && (
                         <span
-                          className="text-xs sm:text-sm"
+                          className="text-[10px] sm:text-sm"
                           style={{ color: '#f3f4f6', opacity: item.label ? 0.9 : 1 }}
                         >
                           {item.text}
