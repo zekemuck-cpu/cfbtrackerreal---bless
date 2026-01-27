@@ -183,8 +183,8 @@ export default function ConferenceStandings() {
 
   const availableYears = yearsWithData.sort((a, b) => b - a)
 
-  // Use URL year if provided, otherwise most recent, otherwise current year
-  const displayYear = urlYear ? parseInt(urlYear) : (availableYears[0] || currentDynasty.currentYear)
+  // Use URL year if provided, otherwise previous season
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
 
   // Navigate to year when dropdown changes
   const handleYearChange = (year) => {

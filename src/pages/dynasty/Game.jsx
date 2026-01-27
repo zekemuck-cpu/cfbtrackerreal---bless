@@ -1702,18 +1702,13 @@ export default function Game() {
                                     value = Number(value).toFixed(1)
                                   }
                                   const playerPID = colIdx === 0 ? getPlayerPID(value) : null
-                                  const highlight = colIdx > 0 ? getStatHighlight(activeStatTab, key, value) : null
                                   return (
                                     <td
                                       key={colIdx}
-                                      className={`py-2 px-3 whitespace-nowrap ${
+                                      className={`py-2 px-3 whitespace-nowrap text-white ${
                                         colIdx === 0
-                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px] text-white'
+                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]'
                                           : 'text-center min-w-[40px] sm:min-w-[50px]'
-                                      } ${
-                                        highlight === 'exceptional'
-                                          ? 'text-yellow-400 font-bold'
-                                          : 'text-white'
                                       }`}
                                     >
                                       {colIdx === 0 && playerPID ? (
@@ -1786,18 +1781,13 @@ export default function Game() {
                                     value = Number(value).toFixed(1)
                                   }
                                   const playerPID = colIdx === 0 ? getPlayerPID(value) : null
-                                  const highlight = colIdx > 0 ? getStatHighlight(activeStatTab, key, value) : null
                                   return (
                                     <td
                                       key={colIdx}
-                                      className={`py-2 px-3 whitespace-nowrap ${
+                                      className={`py-2 px-3 whitespace-nowrap text-white ${
                                         colIdx === 0
-                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px] text-white'
+                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]'
                                           : 'text-center min-w-[40px] sm:min-w-[50px]'
-                                      } ${
-                                        highlight === 'exceptional'
-                                          ? 'text-yellow-400 font-bold'
-                                          : 'text-white'
                                       }`}
                                     >
                                       {colIdx === 0 && playerPID ? (

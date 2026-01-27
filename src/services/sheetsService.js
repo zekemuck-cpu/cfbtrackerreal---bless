@@ -7603,14 +7603,19 @@ export async function readAwardsFromSheet(spreadsheetId, year) {
     const data = await response.json()
     const rows = data.values || []
 
+    // Coach awards have merged cells - team is in column C (row[2]) instead of D (row[3])
+    const COACH_AWARDS = ['Bear Bryant Coach of the Year', 'Broyles']
+
     // Map to awards object
     const awards = {}
     rows.forEach((row) => {
       const award = row[0]
       const player = row[1] || ''
-      const position = row[2] || ''
-      const team = (row[3] || '').toUpperCase()
-      const playerClass = row[4] || ''
+      const isCoachAward = COACH_AWARDS.includes(award)
+      // For coach awards, team is in the merged cell (column C), not column D
+      const position = isCoachAward ? '' : (row[2] || '')
+      const team = isCoachAward ? (row[2] || '').toUpperCase() : (row[3] || '').toUpperCase()
+      const playerClass = isCoachAward ? '' : (row[4] || '')
 
       if (award && player) {
         // Convert award name to camelCase key

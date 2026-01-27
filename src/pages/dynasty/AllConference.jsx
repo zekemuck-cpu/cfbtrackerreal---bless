@@ -201,8 +201,8 @@ export default function AllConference() {
     availableYears.push(year)
   }
 
-  // Use URL year if provided, otherwise most recent (current year)
-  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
+  // Use URL year if provided, otherwise previous season
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
   const yearData = allAmericansByYear[displayYear] || {}
 
   // Get the user's team abbreviation FOR THE DISPLAY YEAR (not current year)

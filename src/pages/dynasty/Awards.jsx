@@ -231,7 +231,7 @@ export default function Awards() {
   }
 
   // Use URL year if provided, otherwise most recent (current year)
-  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
   const yearAwards = awardsByYear[displayYear] || {}
 
   // Navigate to year when dropdown changes

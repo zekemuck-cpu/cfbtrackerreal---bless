@@ -200,8 +200,8 @@ export default function AllAmericans() {
     availableYears.push(year)
   }
 
-  // Use URL year if provided, otherwise most recent, otherwise current year
-  const displayYear = urlYear ? parseInt(urlYear) : (availableYears.length > 0 ? availableYears[0] : currentDynasty.currentYear)
+  // Use URL year if provided, otherwise previous season
+  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
   const yearData = allAmericansByYear[displayYear] || {}
   const allAmericans = yearData.allAmericans || []
 
