@@ -162,8 +162,8 @@ export default function NewsTicker({ dynasty }) {
 
             {/* Header - increased padding for better mobile tap targets */}
             <div
-              className={`h-full flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 font-bold text-[10px] sm:text-sm uppercase tracking-wider whitespace-nowrap ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
-              style={{ backgroundColor: '#1f2937', color: '#f3f4f6', minWidth: 'fit-content' }}
+              className={`h-full flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 font-bold text-[11px] sm:text-sm uppercase tracking-wide whitespace-nowrap flex-shrink-0 ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
+              style={{ backgroundColor: '#1f2937', color: '#f3f4f6' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
               {currentSection.teamLogo && (
@@ -200,24 +200,24 @@ export default function NewsTicker({ dynasty }) {
             <div ref={containerRef} className="ticker-container flex-1 overflow-hidden">
               <div
                 ref={contentRef}
-                className="flex items-center gap-1 sm:gap-3 px-2 sm:px-4 whitespace-nowrap h-full"
+                className="flex items-center gap-2 sm:gap-3 px-2 sm:px-4 whitespace-nowrap h-full"
                 style={{ willChange: 'transform' }}
               >
                 {currentSection.items.map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center gap-1 sm:gap-2">
+                  <div key={item.id || idx} className="flex items-center gap-1.5 sm:gap-2">
                     {/* Separator between items */}
                     {idx > 0 && (
-                      <span className="text-gray-500 text-[10px] sm:text-sm mx-0.5 sm:mx-1">|</span>
+                      <span className="text-gray-600 text-xs sm:text-sm mx-1 sm:mx-1">|</span>
                     )}
                     <div
-                      className={`flex items-center gap-1 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
+                      className={`flex items-center gap-1.5 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
                       onClick={() => handleItemClick(item)}
                       style={{ minHeight: '32px' }}
                     >
-                      {/* Label (e.g., year, W/L) */}
+                      {/* Label (e.g., year, W/L, bowl name) */}
                       {item.label && (
                         <span
-                          className="font-semibold text-[10px] sm:text-sm"
+                          className="font-semibold text-xs sm:text-sm flex-shrink-0"
                           style={{ color: item.labelColor || '#f3f4f6' }}
                         >
                           {item.label}
@@ -228,28 +228,28 @@ export default function NewsTicker({ dynasty }) {
                         <img
                           src={getLogoUrl(item.team)}
                           alt=""
-                          className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                           onError={(e) => { e.target.style.display = 'none' }}
                         />
                       )}
                       {/* Two-team format (CFP games): Logo1 Score1 - Logo2 Score2 */}
                       {item.team && item.team2 && (
-                        <>
+                        <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                           <img
                             src={getLogoUrl(item.team)}
                             alt=""
-                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                           <span
-                            className="text-[10px] sm:text-sm"
+                            className="text-xs sm:text-sm tabular-nums"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team ? 'bold' : 'normal' }}
                           >
                             {item.score1}
                           </span>
-                          <span className="text-[10px] sm:text-sm text-gray-400">-</span>
+                          <span className="text-xs sm:text-sm text-gray-500">-</span>
                           <span
-                            className="text-[10px] sm:text-sm"
+                            className="text-xs sm:text-sm tabular-nums"
                             style={{ color: '#f3f4f6', fontWeight: item.winner === item.team2 ? 'bold' : 'normal' }}
                           >
                             {item.score2}
@@ -257,15 +257,15 @@ export default function NewsTicker({ dynasty }) {
                           <img
                             src={getLogoUrl(item.team2)}
                             alt=""
-                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
-                        </>
+                        </div>
                       )}
                       {/* Standard text (only if not two-team format) */}
                       {item.text && !item.team2 && (
                         <span
-                          className="text-[10px] sm:text-sm"
+                          className="text-xs sm:text-sm"
                           style={{ color: '#f3f4f6', opacity: item.label ? 0.9 : 1 }}
                         >
                           {item.text}
