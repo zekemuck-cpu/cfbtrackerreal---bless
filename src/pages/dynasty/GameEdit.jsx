@@ -1109,6 +1109,47 @@ export default function GameEdit() {
     }
   }
 
+  // Handle sheet creation - save sheet ID to game so it can be reused
+  const handleSheetCreated = async (sheetId) => {
+    if (!currentGameId || !currentDynasty?.id || !sheetId) return
+
+    try {
+      const games = currentDynasty.games || []
+      const existingGame = games.find(g => g.id === currentGameId)
+
+      if (existingGame) {
+        const updatedGame = { ...existingGame }
+
+        // Save sheet ID based on modal type
+        if (boxScoreModalType === 'teamStats') {
+          updatedGame.teamStatsSheetId = sheetId
+        } else if (boxScoreModalType === 'scoring') {
+          updatedGame.scoringSummarySheetId = sheetId
+        } else if (boxScoreModalType === 'homeStats') {
+          updatedGame.homeStatsSheetId = sheetId
+        } else if (boxScoreModalType === 'awayStats') {
+          updatedGame.awayStatsSheetId = sheetId
+        }
+
+        await addGame(currentDynasty.id, updatedGame)
+      }
+    } catch (error) {
+      console.error('Error saving sheet ID:', error)
+    }
+  }
+
+  // Get existing sheet ID based on modal type
+  const getExistingSheetId = () => {
+    if (!existingGame) return null
+    switch (boxScoreModalType) {
+      case 'teamStats': return existingGame.teamStatsSheetId
+      case 'scoring': return existingGame.scoringSummarySheetId
+      case 'homeStats': return existingGame.homeStatsSheetId
+      case 'awayStats': return existingGame.awayStatsSheetId
+      default: return null
+    }
+  }
+
   // Generate AI recap
   const handleGenerateRecap = async () => {
     if (!user?.uid) return
@@ -1905,6 +1946,8 @@ export default function GameEdit() {
           isOpen={showBoxScoreModal}
           onClose={() => setShowBoxScoreModal(false)}
           onSave={handleBoxScoreSave}
+          onSheetCreated={handleSheetCreated}
+          existingSheetId={getExistingSheetId()}
           sheetType={boxScoreModalType}
           game={existingGame ? {
             ...existingGame,
