@@ -2208,6 +2208,16 @@ export default function TeamYear() {
                           </svg>
                         </div>
                       )}
+                      {/* Jersey Number */}
+                      <div
+                        className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 font-bold text-sm"
+                        style={{
+                          backgroundColor: `${teamInfo.textColor}15`,
+                          color: teamInfo.textColor
+                        }}
+                      >
+                        {player.jerseyNumber || '-'}
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold truncate" style={{ color: teamInfo.textColor }}>
                           {player.name}
