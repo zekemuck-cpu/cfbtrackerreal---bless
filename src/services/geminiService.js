@@ -1826,6 +1826,13 @@ You may ONLY write about facts EXPLICITLY provided in the data above. This is a 
 3. Is this statistic explicitly provided? If NO, do not cite it.
 4. Am I assuming something based on common knowledge? If YES, remove it - only use PROVIDED data.
 
+**RANKINGS AND RECORDS - CRITICAL - DO NOT ASSUME BASED ON TEAM REPUTATION:**
+- ONLY use the ranking shown in "FINAL SCORE" section. If it says "UNRANKED", the team is UNRANKED - do NOT assume a ranking.
+- ONLY use the record shown in "SEASON CONTEXT" or opponent's season results. Do NOT assume a record.
+- Teams like Georgia, Alabama, Ohio State are NOT automatically #1, undefeated, or highly ranked. Use ONLY the data provided.
+- If a team is listed as UNRANKED with a 4-1 record, write about them as an UNRANKED team with a 4-1 record - NOT as a top team.
+- Never write phrases like "the top-ranked Bulldogs" or "undefeated Georgia" unless the data explicitly shows #1 ranking or 0 losses.
+
 If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
 
 **USER TEAM PRIORITY:**
@@ -1986,8 +1993,8 @@ ${homeTeam ? `HOME TEAM: ${homeTeam}` : ''}
 ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
-${ctx.team1Ranking ? `${ctx.team1FullName} Ranking: #${ctx.team1Ranking}` : ''}
-${ctx.team2Ranking ? `${ctx.team2FullName} Ranking: #${ctx.team2Ranking}` : ''}`
+${ctx.team1FullName} Ranking: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
+${ctx.team2FullName} Ranking: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}`
 
   // Add quarter-by-quarter scores if available
   // Support both new format (team1/team2) and legacy format (team/opponent)
@@ -2299,7 +2306,8 @@ PAST SEASON RECORDS
     const oppLosses = ctx.team2SeasonResults.filter(g => g.result === 'L').length
     prompt += `\n
 ===========================================
-${ctx.team2FullName.toUpperCase()}'S SEASON (${oppWins}-${oppLosses} entering this game)
+${ctx.team2FullName.toUpperCase()}'S SEASON RECORD: ${oppWins}-${oppLosses}
+(THIS IS THEIR ACTUAL RECORD - DO NOT ASSUME A DIFFERENT RECORD)
 ===========================================`
     ctx.team2SeasonResults.forEach(g => {
       const oppName = getTeamName(g.opponent) || g.opponent
