@@ -169,7 +169,8 @@ export default function ImageUpload({
           className="flex-1 px-3 py-2 rounded border focus:outline-none focus:ring-2 disabled:opacity-50"
           style={{
             borderColor: teamColors.primary,
-            backgroundColor: '#fff'
+            backgroundColor: '#fff',
+            color: '#000'
           }}
         />
         <input
@@ -312,7 +313,8 @@ export default function ImageUpload({
           className="flex-1 px-3 py-2 rounded border focus:outline-none focus:ring-2 text-sm"
           style={{
             borderColor: `${teamColors.primary}50`,
-            backgroundColor: '#fff'
+            backgroundColor: '#fff',
+            color: '#000'
           }}
         />
         {value && !disabled && (

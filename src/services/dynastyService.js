@@ -330,6 +330,7 @@ export async function getGamesSubcollection(dynastyId) {
 /**
  * Save a single player to the players subcollection
  * Uses player.pid as document ID for consistent updates
+ * This is the EFFICIENT method for single-player updates (1 write instead of N)
  * @param {string} dynastyId - The dynasty document ID
  * @param {Object} player - The player object (must have pid)
  */
@@ -339,9 +340,15 @@ export async function savePlayerToSubcollection(dynastyId, player) {
       throw new Error('Player must have a pid')
     }
     const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(player.pid))
-    // Remove _firestoreId before saving (it's metadata, not data)
-    const { _firestoreId, ...playerData } = player
+    // Remove _firestoreId before saving and sanitize
+    const { _firestoreId, ...rawPlayerData } = player
+    const playerData = sanitizeForFirestore(rawPlayerData)
+
     await setDoc(playerRef, playerData)
+
+    // Wait for server confirmation
+    await waitForPendingWrites(db)
+    console.log(`[savePlayerToSubcollection] Saved player ${player.pid} (${player.name}) to server`)
   } catch (error) {
     console.error('Error saving player to subcollection:', error)
     throw error
@@ -483,6 +490,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
 
 /**
  * Delete a player from the players subcollection
+ * This is the EFFICIENT method for single-player deletes (1 delete instead of N writes)
  * @param {string} dynastyId - The dynasty document ID
  * @param {number|string} playerId - The player's pid
  */
@@ -490,6 +498,10 @@ export async function deletePlayerFromSubcollection(dynastyId, playerId) {
   try {
     const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(playerId))
     await deleteDoc(playerRef)
+
+    // Wait for server confirmation
+    await waitForPendingWrites(db)
+    console.log(`[deletePlayerFromSubcollection] Deleted player ${playerId} from server`)
   } catch (error) {
     console.error('Error deleting player from subcollection:', error)
     throw error
@@ -499,6 +511,7 @@ export async function deletePlayerFromSubcollection(dynastyId, playerId) {
 /**
  * Save a single game to the games subcollection
  * Uses game.id as document ID for consistent updates
+ * This is the EFFICIENT method for single-game updates (1 write instead of N)
  * @param {string} dynastyId - The dynasty document ID
  * @param {Object} game - The game object (must have id)
  */
@@ -508,9 +521,15 @@ export async function saveGameToSubcollection(dynastyId, game) {
       throw new Error('Game must have an id')
     }
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
-    // Remove _firestoreId before saving
-    const { _firestoreId, ...gameData } = game
+    // Remove _firestoreId before saving and sanitize
+    const { _firestoreId, ...rawGameData } = game
+    const gameData = sanitizeForFirestore(rawGameData)
+
     await setDoc(gameRef, gameData)
+
+    // Wait for server confirmation
+    await waitForPendingWrites(db)
+    console.log(`[saveGameToSubcollection] Saved game ${game.id} to server`)
   } catch (error) {
     console.error('Error saving game to subcollection:', error)
     throw error
@@ -592,6 +611,7 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
 
 /**
  * Delete a game from the games subcollection
+ * This is the EFFICIENT method for single-game deletes (1 delete instead of N writes)
  * @param {string} dynastyId - The dynasty document ID
  * @param {string} gameId - The game's id
  */
@@ -599,6 +619,10 @@ export async function deleteGameFromSubcollection(dynastyId, gameId) {
   try {
     const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(gameId))
     await deleteDoc(gameRef)
+
+    // Wait for server confirmation
+    await waitForPendingWrites(db)
+    console.log(`[deleteGameFromSubcollection] Deleted game ${gameId} from server`)
   } catch (error) {
     console.error('Error deleting game from subcollection:', error)
     throw error

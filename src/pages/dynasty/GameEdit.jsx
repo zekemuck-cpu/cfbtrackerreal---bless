@@ -125,7 +125,7 @@ export default function GameEdit() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, updateGame, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const { user } = useAuth()
   const teamColors = defaultColors
@@ -583,8 +583,8 @@ export default function GameEdit() {
       }
 
       try {
-        const games = currentDynasty.games || []
-        await updateDynasty(currentDynasty.id, { games: [...games, initialGameData] })
+        // OPTIMIZED: Use addGame for efficient single-doc saves to cloud
+        await addGame(currentDynasty.id, initialGameData)
         setCurrentGameId(newGameId)
         setGameCreated(true)
         // Update URL to reflect the new game ID without adding to history
@@ -908,7 +908,7 @@ export default function GameEdit() {
         })()
       }
 
-      // Update or add game
+      // Update or add game - build updated games array for CFP propagation and record calc
       const games = currentDynasty.games || []
       const existingIndex = games.findIndex(g => g.id === gameData.id)
 
@@ -920,10 +920,22 @@ export default function GameEdit() {
         updatedGames = [...games, gameData]
       }
 
-      // If this is a CFP game with scores, propagate winner to next round
+      // Track CFP propagation - identify which games get modified
+      let cfpGamesToPropagate = []
       const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
       if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
+        // Snapshot games before propagation to detect changes
+        const gamesBeforeProp = updatedGames.map(g => ({ id: g.id, team1Tid: g.team1Tid, team2Tid: g.team2Tid }))
         updatedGames = propagateCFPWinner(updatedGames, savedGame)
+
+        // Find games that were modified by propagation (not the main game)
+        for (const game of updatedGames) {
+          if (game.id === savedGame.id) continue // Skip main game
+          const before = gamesBeforeProp.find(g => g.id === game.id)
+          if (before && (before.team1Tid !== game.team1Tid || before.team2Tid !== game.team2Tid)) {
+            cfpGamesToPropagate.push(game)
+          }
+        }
       }
 
       // Build record updates for both teams involved
@@ -936,7 +948,8 @@ export default function GameEdit() {
         Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team2Tid, gameYear))
       }
 
-      await updateDynasty(currentDynasty.id, { games: updatedGames, ...recordUpdates })
+      // OPTIMIZED: Use updateGame for efficient single-doc saves to cloud
+      await updateGame(currentDynasty.id, savedGame, { recordUpdates, cfpGamesToPropagate })
 
       setToastMessage('Game saved successfully!')
       setShowToast(true)
@@ -1033,7 +1046,7 @@ export default function GameEdit() {
         })()
       }
 
-      // Update or add game
+      // Update or add game - build updated games array for CFP propagation and record calc
       const games = currentDynasty.games || []
       const existingIndex = games.findIndex(g => g.id === gameData.id)
 
@@ -1045,10 +1058,22 @@ export default function GameEdit() {
         updatedGames = [...games, gameData]
       }
 
-      // If this is a CFP game with scores, propagate winner to next round
+      // Track CFP propagation - identify which games get modified
+      let cfpGamesToPropagate = []
       const savedGame = existingIndex >= 0 ? updatedGames[existingIndex] : updatedGames[updatedGames.length - 1]
       if (savedGame.cfpSlot && savedGame.team1Score != null && savedGame.team2Score != null) {
+        // Snapshot games before propagation to detect changes
+        const gamesBeforeProp = updatedGames.map(g => ({ id: g.id, team1Tid: g.team1Tid, team2Tid: g.team2Tid }))
         updatedGames = propagateCFPWinner(updatedGames, savedGame)
+
+        // Find games that were modified by propagation (not the main game)
+        for (const game of updatedGames) {
+          if (game.id === savedGame.id) continue // Skip main game
+          const before = gamesBeforeProp.find(g => g.id === game.id)
+          if (before && (before.team1Tid !== game.team1Tid || before.team2Tid !== game.team2Tid)) {
+            cfpGamesToPropagate.push(game)
+          }
+        }
       }
 
       // Build record updates for both teams involved
@@ -1061,7 +1086,8 @@ export default function GameEdit() {
         Object.assign(recordUpdates, buildRecordUpdatePayload(dynastyWithUpdatedGames, team2Tid, gameYear))
       }
 
-      await updateDynasty(currentDynasty.id, { games: updatedGames, ...recordUpdates })
+      // OPTIMIZED: Use updateGame for efficient single-doc saves to cloud
+      await updateGame(currentDynasty.id, savedGame, { recordUpdates, cfpGamesToPropagate })
       return true
     } catch (error) {
       console.error('Error auto-saving game:', error)

@@ -13,7 +13,12 @@ import {
   getGamesSubcollection,
   savePlayersToSubcollection,
   saveGamesToSubcollection,
-  migrateDynastyToSubcollections
+  migrateDynastyToSubcollections,
+  // Single-document functions (efficient for individual updates)
+  savePlayerToSubcollection,
+  deletePlayerFromSubcollection,
+  saveGameToSubcollection,
+  deleteGameFromSubcollection
 } from '../services/dynastyService'
 import { indexedDBStorage, storageService } from '../services/storage'
 import { doc, updateDoc } from 'firebase/firestore'
@@ -5332,7 +5337,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
-    const { skipLastModified = false, forceOverwrite = false } = options
+    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false } = options
 
     // Find the dynasty to determine its storage type
     let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
@@ -5461,8 +5466,8 @@ export function DynastyProvider({ children }) {
         mainDocUpdates._subcollectionsMigrated = true
       }
 
-      // Route games to subcollection
-      if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games)) {
+      // Route games to subcollection (unless skipGamesSubcollection is true - for optimized single-game updates)
+      if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games) && !skipGamesSubcollection) {
         console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
         subcollectionPromises.push(
           saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
@@ -5471,6 +5476,10 @@ export function DynastyProvider({ children }) {
         delete mainDocUpdates.games
         // Ensure subcollection flag is set
         mainDocUpdates._subcollectionsMigrated = true
+      } else if (mainDocUpdates.games && skipGamesSubcollection) {
+        // Games already saved individually - just remove from main doc updates
+        console.log('[updateDynasty] Skipping games subcollection (already saved individually)')
+        delete mainDocUpdates.games
       }
 
       // Execute subcollection writes and main doc update in parallel
@@ -6020,9 +6029,12 @@ export function DynastyProvider({ children }) {
     // cfpResultsByYear is deprecated and only kept for reading legacy data
     const updates = { games: updatedGames }
 
+    // Determine if we need to process box score stats
+    const hasBoxScoreToProcess = cleanGameData.boxScore && !isCPUGame
+
     // AUTO-SYNC: Process box score stats if present (delta tracking)
     // The manual "Sync Stats" button in Player Editor is a backup for fixing discrepancies
-    if (cleanGameData.boxScore && !isCPUGame) {
+    if (hasBoxScoreToProcess) {
       const existingGame = existingGameIndex !== -1 && existingGameIndex !== undefined
         ? dynasty.games[existingGameIndex]
         : null
@@ -6039,15 +6051,163 @@ export function DynastyProvider({ children }) {
       const gameIndex = updatedGames.findIndex(g => g.id === game.id)
       if (gameIndex !== -1) {
         updatedGames[gameIndex] = { ...updatedGames[gameIndex], statsContributed }
+        game = updatedGames[gameIndex] // Update game reference with statsContributed
       }
 
       updates.players = updatedPlayers
       updates.games = updatedGames
     }
 
+    // Determine storage type for optimization
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    // OPTIMIZATION: For cloud storage with simple game (no box score processing),
+    // save just the single game doc instead of rewriting all games
+    if (isCloudStorage && !hasBoxScoreToProcess) {
+      console.log(`[addGame] OPTIMIZED: Saving single game ${game.id} to cloud (no box score)`)
+
+      try {
+        // Save single game to Firestore subcollection (1 write instead of N)
+        await saveGameToSubcollection(dynastyId, game)
+        console.log(`[addGame] Single game saved successfully: ${game.id}`)
+
+        // Update local React state
+        const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        return game
+      } catch (error) {
+        console.error('[addGame] Single-doc update failed, falling back to batch:', error)
+        // Fall through to batch update
+      }
+    }
+
+    // BATCH PATH: Used for local storage OR when box score needs to update players
+    if (hasBoxScoreToProcess) {
+      console.log(`[addGame] BATCH: Saving game ${game.id} with box score (updating players too)`)
+    } else {
+      console.log(`[addGame] BATCH: Saving game ${game.id} via updateDynasty`)
+    }
+
     await updateDynasty(dynastyId, updates)
 
     return game
+  }
+
+  /**
+   * OPTIMIZED: Update a single game with optional record updates
+   * Used by GameEdit.jsx to avoid rewriting all games to Firestore
+   * Handles CFP winner propagation by saving affected games individually
+   *
+   * @param {string} dynastyId - Dynasty ID
+   * @param {Object} gameData - Full game object to save
+   * @param {Object} options - Optional config { recordUpdates, cfpGamesToPropagate }
+   */
+  const updateGame = async (dynastyId, gameData, options = {}) => {
+    const { recordUpdates = {}, cfpGamesToPropagate = [] } = options
+
+    console.log('[updateGame] Called with:', {
+      dynastyId,
+      gameId: gameData.id,
+      hasCFPPropagation: cfpGamesToPropagate.length > 0,
+      hasRecordUpdates: Object.keys(recordUpdates).length > 0
+    })
+
+    // Find dynasty
+    let dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+
+    if (!dynasty) {
+      const localDynasties = await indexedDBStorage.getDynasties() || []
+      dynasty = localDynasties.find(d => String(d.id) === String(dynastyId))
+    }
+
+    if (!dynasty) {
+      console.error('[updateGame] Dynasty not found:', dynastyId)
+      throw new Error('Dynasty not found')
+    }
+
+    // Determine storage type
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    // Build updated games array for local state
+    const games = dynasty.games || []
+    const existingIndex = games.findIndex(g => g.id === gameData.id)
+    let updatedGames = [...games]
+
+    if (existingIndex >= 0) {
+      updatedGames[existingIndex] = { ...games[existingIndex], ...gameData, updatedAt: new Date().toISOString() }
+    } else {
+      updatedGames.push({ ...gameData, createdAt: new Date().toISOString() })
+    }
+
+    // Apply CFP propagation games (if any)
+    for (const propagatedGame of cfpGamesToPropagate) {
+      const propIndex = updatedGames.findIndex(g => g.id === propagatedGame.id)
+      if (propIndex >= 0) {
+        updatedGames[propIndex] = { ...updatedGames[propIndex], ...propagatedGame }
+      }
+    }
+
+    // OPTIMIZED PATH: Cloud storage - save individual games + record updates only
+    if (isCloudStorage) {
+      console.log(`[updateGame] OPTIMIZED: Saving ${1 + cfpGamesToPropagate.length} game(s) to cloud individually`)
+
+      try {
+        // Save main game to subcollection
+        await saveGameToSubcollection(dynastyId, updatedGames.find(g => g.id === gameData.id))
+        console.log(`[updateGame] Saved main game: ${gameData.id}`)
+
+        // Save any CFP propagated games
+        for (const propagatedGame of cfpGamesToPropagate) {
+          const fullPropGame = updatedGames.find(g => g.id === propagatedGame.id)
+          if (fullPropGame) {
+            await saveGameToSubcollection(dynastyId, fullPropGame)
+            console.log(`[updateGame] Saved propagated game: ${propagatedGame.id}`)
+          }
+        }
+
+        // Update dynasty document with ONLY record updates (not games array)
+        // This is the key optimization - we don't rewrite all 261 games
+        if (Object.keys(recordUpdates).length > 0) {
+          console.log('[updateGame] Updating dynasty with record updates only:', Object.keys(recordUpdates))
+          await updateDynasty(dynastyId, recordUpdates, { skipGamesSubcollection: true })
+        }
+
+        // Update local React state
+        const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        console.log(`[updateGame] SUCCESS: Saved ${1 + cfpGamesToPropagate.length} game(s) with ${Object.keys(recordUpdates).length} record fields`)
+        return gameData
+      } catch (error) {
+        console.error('[updateGame] Optimized save failed, falling back to batch:', error)
+        // Fall through to batch update
+      }
+    }
+
+    // FALLBACK PATH: Local storage or cloud error - use batch update
+    console.log(`[updateGame] BATCH: Saving via updateDynasty (local storage or fallback)`)
+    await updateDynasty(dynastyId, { games: updatedGames, ...recordUpdates })
+
+    return gameData
   }
 
   // Add or update CPU bowl games as proper game entries in the games[] array
@@ -9052,9 +9212,68 @@ export function DynastyProvider({ children }) {
     const newName = updatedPlayer.name
     const nameChanged = oldName && newName && oldName !== newName
 
+    // Determine storage type
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    // Prepare the final player object (with yearStats if provided)
+    let finalPlayer = { ...updatedPlayer }
+    if (yearStats && yearStats.year) {
+      const year = Number(yearStats.year)
+      const existingStatsByYear = { ...(finalPlayer.statsByYear || {}) }
+      existingStatsByYear[year] = {
+        ...(existingStatsByYear[year] || {}),
+        gamesPlayed: yearStats.gamesPlayed,
+        snapsPlayed: yearStats.snapsPlayed,
+        ...(yearStats.passing && { passing: yearStats.passing }),
+        ...(yearStats.rushing && { rushing: yearStats.rushing }),
+        ...(yearStats.receiving && { receiving: yearStats.receiving }),
+        ...(yearStats.blocking && { blocking: yearStats.blocking }),
+        ...(yearStats.defense && { defense: yearStats.defense }),
+        ...(yearStats.defensive && { defense: yearStats.defensive }), // Handle both names
+        ...(yearStats.kicking && { kicking: yearStats.kicking }),
+        ...(yearStats.punting && { punting: yearStats.punting }),
+        ...(yearStats.kickReturn && { kickReturn: yearStats.kickReturn }),
+        ...(yearStats.puntReturn && { puntReturn: yearStats.puntReturn })
+      }
+      finalPlayer.statsByYear = existingStatsByYear
+    }
+
+    // OPTIMIZATION: For cloud storage, use single-document updates instead of rewriting all players
+    if (isCloudStorage && !nameChanged) {
+      // Simple case: no name change, just save the single player doc
+      console.log(`[updatePlayer] OPTIMIZED: Saving single player ${finalPlayer.pid} (${finalPlayer.name}) to cloud`)
+
+      try {
+        // Save single player to Firestore subcollection (1 write instead of N)
+        await savePlayerToSubcollection(dynastyId, finalPlayer)
+
+        // Update local React state
+        const updatedPlayers = (dynasty.players || []).map(player =>
+          player.pid === finalPlayer.pid ? finalPlayer : player
+        )
+
+        const updatedDynasty = { ...dynasty, players: updatedPlayers, lastModified: Date.now() }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        return
+      } catch (error) {
+        console.error('[updatePlayer] Single-doc update failed, falling back to batch:', error)
+        // Fall through to batch update
+      }
+    }
+
+    // BATCH PATH: Used for local storage OR when name changed (need to update games too)
     // Update the player in the players array
     const updatedPlayers = (dynasty.players || []).map(player =>
-      player.pid === updatedPlayer.pid ? updatedPlayer : player
+      player.pid === finalPlayer.pid ? finalPlayer : player
     )
 
     // Build the update object
@@ -9062,19 +9281,31 @@ export function DynastyProvider({ children }) {
 
     // If name changed, update all box scores in all games
     if (nameChanged) {
+      console.log(`[updatePlayer] Name changed from "${oldName}" to "${newName}" - updating box scores`)
+
+      // Helper to check if a game's box score contains the old name
+      const gameHasPlayerName = (game, name) => {
+        if (!game.boxScore) return false
+        const checkStats = (stats) => Array.isArray(stats) && stats.some(row => row.playerName === name)
+        const checkSide = (side) => side && Object.values(side).some(checkStats)
+        return checkSide(game.boxScore.home) || checkSide(game.boxScore.away) ||
+          (Array.isArray(game.boxScore.scoringSummary) &&
+           game.boxScore.scoringSummary.some(play => play.scorer === name || play.passer === name))
+      }
+
+      // Helper to update player names in a stat category
+      const updateStatCategory = (stats) => {
+        if (!Array.isArray(stats)) return stats
+        return stats.map(row => {
+          if (row.playerName === oldName) {
+            return { ...row, playerName: newName }
+          }
+          return row
+        })
+      }
+
       const updatedGames = (dynasty.games || []).map(game => {
         if (!game.boxScore) return game
-
-        // Helper to update player names in a stat category
-        const updateStatCategory = (stats) => {
-          if (!Array.isArray(stats)) return stats
-          return stats.map(row => {
-            if (row.playerName === oldName) {
-              return { ...row, playerName: newName }
-            }
-            return row
-          })
-        }
 
         // Update both home and away box scores
         const updatedBoxScore = { ...game.boxScore }
@@ -9107,44 +9338,43 @@ export function DynastyProvider({ children }) {
       })
 
       updateData.games = updatedGames
-      // Note: Legacy playerStatsByYear and detailedStatsByYear updates removed
-      // Stats are now stored in player.statsByYear only
-    }
 
-    // If yearStats is provided, update player.statsByYear directly
-    if (yearStats && yearStats.year) {
-      const year = Number(yearStats.year)
+      // OPTIMIZATION: For cloud storage with name change, save player + only affected games individually
+      if (isCloudStorage) {
+        try {
+          console.log(`[updatePlayer] OPTIMIZED: Saving player + affected games individually`)
 
-      // Update player.statsByYear in the players array
-      // Use updateData.players (which already has the updatedPlayer changes) as the base
-      const playersBase = updateData.players || dynasty.players
-      const updatedPlayersWithStats = playersBase.map(p => {
-        if (p.pid !== updatedPlayer.pid) return p
+          // Save the player
+          await savePlayerToSubcollection(dynastyId, finalPlayer)
 
-        // Start from the updated player (which has the form changes) to preserve all edits
-        const existingStatsByYear = { ...(p.statsByYear || {}) }
-        existingStatsByYear[year] = {
-          ...(existingStatsByYear[year] || {}),
-          gamesPlayed: yearStats.gamesPlayed,
-          snapsPlayed: yearStats.snapsPlayed,
-          ...(yearStats.passing && { passing: yearStats.passing }),
-          ...(yearStats.rushing && { rushing: yearStats.rushing }),
-          ...(yearStats.receiving && { receiving: yearStats.receiving }),
-          ...(yearStats.blocking && { blocking: yearStats.blocking }),
-          ...(yearStats.defense && { defense: yearStats.defense }),
-          ...(yearStats.defensive && { defense: yearStats.defensive }), // Handle both names
-          ...(yearStats.kicking && { kicking: yearStats.kicking }),
-          ...(yearStats.punting && { punting: yearStats.punting }),
-          ...(yearStats.kickReturn && { kickReturn: yearStats.kickReturn }),
-          ...(yearStats.puntReturn && { puntReturn: yearStats.puntReturn })
+          // Find and save only the games that actually had the player's name
+          const affectedGames = updatedGames.filter(game => gameHasPlayerName(game, newName))
+          console.log(`[updatePlayer] Updating ${affectedGames.length} affected games (out of ${updatedGames.length} total)`)
+
+          for (const game of affectedGames) {
+            await saveGameToSubcollection(dynastyId, game)
+          }
+
+          // Update local React state
+          const updatedDynasty = { ...dynasty, players: updatedPlayers, games: updatedGames, lastModified: Date.now() }
+
+          setDynasties(prev => prev.map(d =>
+            String(d.id) === String(dynastyId) ? updatedDynasty : d
+          ))
+
+          if (String(currentDynasty?.id) === String(dynastyId)) {
+            setCurrentDynasty(updatedDynasty)
+          }
+
+          return
+        } catch (error) {
+          console.error('[updatePlayer] Optimized name-change update failed, falling back to batch:', error)
+          // Fall through to batch update
         }
-
-        return { ...p, statsByYear: existingStatsByYear }
-      })
-
-      updateData.players = updatedPlayersWithStats
+      }
     }
 
+    // Fallback: Use batch update (for local storage or if optimization failed)
     await updateDynasty(dynastyId, updateData)
   }
 
@@ -9159,11 +9389,43 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // Determine storage type
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
     // Find the player being deleted to add a removal movement
     const playerToDelete = (dynasty.players || []).find(p => p.pid === playerPid)
     // Get tid directly - tid is the ONLY source of truth
     const teamTid = getCurrentTeamTid(dynasty)
 
+    // OPTIMIZATION: For cloud storage, use single-document delete instead of rewriting all players
+    if (isCloudStorage) {
+      console.log(`[deletePlayer] OPTIMIZED: Deleting single player ${playerPid} from cloud`)
+
+      try {
+        // Delete single player from Firestore subcollection (1 delete instead of N writes)
+        await deletePlayerFromSubcollection(dynastyId, playerPid)
+
+        // Update local React state - remove the player from the array
+        const updatedPlayers = (dynasty.players || []).filter(player => player.pid !== playerPid)
+        const updatedDynasty = { ...dynasty, players: updatedPlayers, lastModified: Date.now() }
+
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? updatedDynasty : d
+        ))
+
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          setCurrentDynasty(updatedDynasty)
+        }
+
+        return
+      } catch (error) {
+        console.error('[deletePlayer] Single-doc delete failed, falling back to batch:', error)
+        // Fall through to batch update
+      }
+    }
+
+    // BATCH PATH: Used for local storage or if optimization failed
     // If player exists and has movements, add a 'removed' movement before deleting
     if (playerToDelete) {
       // Get player's team as tid
@@ -11254,6 +11516,7 @@ export function DynastyProvider({ children }) {
     deleteDynasty,
     selectDynasty,
     addGame,
+    updateGame,
     saveCPUBowlGames,
     saveCFPGames,
     saveCPUConferenceChampionships,
