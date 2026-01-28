@@ -1531,6 +1531,11 @@ export function buildGameRecapContext(dynasty, game) {
     // Game type flag
     isCPUGame,
 
+    // User team detection - helps AI focus on the user's perspective
+    isUserGame: isCurrentGameUserGame,
+    userTeamName: isCurrentGameUserGame ? team1FullName : null,
+    userTeamAbbr: isCurrentGameUserGame ? team1 : null,
+
     // Team info (abbreviations)
     team1,
     team2,
@@ -1801,15 +1806,37 @@ function formatEnhancedPlayerLine(p, category) {
  * Default writing instructions for game recaps
  * Placeholder [HOME_TEAM] will be replaced with the actual home team at generation time
  */
-export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `CRITICAL RULE - READ THIS FIRST:
-You may ONLY write about facts explicitly provided in the data above. NEVER fabricate, invent, or assume ANY information that is not explicitly given:
+export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `CRITICAL RULE - READ THIS FIRST - ZERO TOLERANCE FOR FABRICATION:
+You may ONLY write about facts EXPLICITLY provided in the data above. This is a HARD requirement with NO exceptions.
+
+**WHAT YOU MUST NEVER DO:**
 - Do NOT invent cities, locations, stadiums, or venues (if neutral site, you don't know where it was played)
 - Do NOT invent weather, crowd size, atmosphere, or game conditions
 - Do NOT invent specific plays, drives, or moments unless they appear in the SCORING SUMMARY
 - Do NOT invent player stats unless they appear in the INDIVIDUAL STATS sections
 - Do NOT assume facts based on team names or bowl game names - only use data explicitly provided
+- Do NOT invent player names that don't appear in the data
+- Do NOT invent jersey numbers, positions, or classes for players unless provided
+- Do NOT describe plays that aren't in the SCORING SUMMARY (no "crucial third-down conversions", "goal-line stands", "key penalties" unless documented)
+- Do NOT attribute stats to players who aren't listed (if a player isn't in INDIVIDUAL STATS, you have NO data about them)
+
+**DATA VALIDATION CHECKLIST - Before writing about ANY fact, ask yourself:**
+1. Is this player name in the INDIVIDUAL STATS sections? If NO, do not mention them.
+2. Is this play in the SCORING SUMMARY? If NO, do not describe it.
+3. Is this statistic explicitly provided? If NO, do not cite it.
+4. Am I assuming something based on common knowledge? If YES, remove it - only use PROVIDED data.
+
+**RANKINGS AND RECORDS - CRITICAL - DO NOT ASSUME BASED ON TEAM REPUTATION:**
+- ONLY use the ranking shown in "FINAL SCORE" section. If it says "UNRANKED", the team is UNRANKED - do NOT assume a ranking.
+- ONLY use the record shown in "SEASON CONTEXT" or opponent's season results. Do NOT assume a record.
+- Teams like Georgia, Alabama, Ohio State are NOT automatically #1, undefeated, or highly ranked. Use ONLY the data provided.
+- If a team is listed as UNRANKED with a 4-1 record, write about them as an UNRANKED team with a 4-1 record - NOT as a top team.
+- Never write phrases like "the top-ranked Bulldogs" or "undefeated Georgia" unless the data explicitly shows #1 ranking or 0 losses.
 
 If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
+
+**USER TEAM PRIORITY:**
+If a "USER'S TEAM PERSPECTIVE" section appears above, that team is the user's team. Frame the article from their perspective - they are the protagonist of the story. Lead with their players and performance.
 
 **UNDERSTANDING GAME FLOW FROM SCORING SUMMARY - EXTREMELY IMPORTANT:**
 If a SCORING SUMMARY is provided, it is your PRIMARY source of truth for understanding how the game unfolded. You MUST:
@@ -1966,8 +1993,8 @@ ${homeTeam ? `HOME TEAM: ${homeTeam}` : ''}
 ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
-${ctx.team1Ranking ? `${ctx.team1FullName} Ranking: #${ctx.team1Ranking}` : ''}
-${ctx.team2Ranking ? `${ctx.team2FullName} Ranking: #${ctx.team2Ranking}` : ''}`
+${ctx.team1FullName} Ranking: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
+${ctx.team2FullName} Ranking: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}`
 
   // Add quarter-by-quarter scores if available
   // Support both new format (team1/team2) and legacy format (team/opponent)
@@ -1993,6 +2020,20 @@ ${ctx.team1FullName}:
 ${ctx.team2FullName}:
   Q1: ${team2Quarters.Q1 ?? '-'}, Q2: ${team2Quarters.Q2 ?? '-'}, Q3: ${team2Quarters.Q3 ?? '-'}, Q4: ${team2Quarters.Q4 ?? '-'}${ctx.overtimes ? ', OT: ' + (ctx.overtimes[0]?.opponent ?? '-') : ''}
   First Half: ${team2FirstHalf}, Second Half: ${team2SecondHalf}, Final: ${ctx.team2Score}`
+  }
+
+  // Add user team focus section (when this is the user's game, not a CPU vs CPU game)
+  if (ctx.isUserGame && ctx.userTeamName) {
+    prompt += `\n
+===========================================
+USER'S TEAM PERSPECTIVE
+===========================================
+THIS IS THE USER'S GAME - The user coaches ${ctx.userTeamName}.
+FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
+- Lead with ${ctx.userTeamName}'s performance and players
+- Feature ${ctx.userTeamName} players more prominently in the narrative
+- Frame the result from ${ctx.userTeamName}'s viewpoint (their win/loss, their comeback, etc.)
+- Still include opponent stats and context, but ${ctx.userTeamName} should be the protagonist`
   }
 
   // Add scoring summary (CRITICAL for game flow narrative)
@@ -2265,7 +2306,8 @@ PAST SEASON RECORDS
     const oppLosses = ctx.team2SeasonResults.filter(g => g.result === 'L').length
     prompt += `\n
 ===========================================
-${ctx.team2FullName.toUpperCase()}'S SEASON (${oppWins}-${oppLosses} entering this game)
+${ctx.team2FullName.toUpperCase()}'S SEASON RECORD: ${oppWins}-${oppLosses}
+(THIS IS THEIR ACTUAL RECORD - DO NOT ASSUME A DIFFERENT RECORD)
 ===========================================`
     ctx.team2SeasonResults.forEach(g => {
       const oppName = getTeamName(g.opponent) || g.opponent
