@@ -14,7 +14,7 @@ import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from 
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, applyStintMigration, revertStintMigration } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, applyStintMigration, revertStintMigration, syncAllPlayersStats } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -77,6 +77,10 @@ export default function DangerZone() {
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advanceSelections, setAdvanceSelections] = useState({}) // { pid: boolean }
 
+  // Stats sync state
+  const [statsSyncStatus, setStatsSyncStatus] = useState(null)
+  const [statsSyncYear, setStatsSyncYear] = useState(currentDynasty?.currentYear || new Date().getFullYear())
+
   if (!currentDynasty) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -114,6 +118,22 @@ export default function DangerZone() {
       setOrphanCleanupStatus(result)
     } catch (error) {
       setOrphanCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  const handleSyncAllStats = async () => {
+    setStatsSyncStatus('running')
+    try {
+      await syncAllPlayersStats(currentDynasty.id, statsSyncYear)
+      const gamesWithBoxScores = (currentDynasty.games || []).filter(g =>
+        g.boxScore && Number(g.year) === Number(statsSyncYear)
+      ).length
+      setStatsSyncStatus({
+        success: true,
+        message: `Synced stats from ${gamesWithBoxScores} game${gamesWithBoxScores !== 1 ? 's' : ''} in ${statsSyncYear}`
+      })
+    } catch (error) {
+      setStatsSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
     }
   }
 
@@ -2121,6 +2141,53 @@ export default function DangerZone() {
             onClick={handleOpenAdvanceModal}
             status={advanceClassesStatus}
           />
+          {/* Custom card for Stats Sync with year selector */}
+          <div
+            className="rounded-lg p-4 flex flex-col h-full"
+            style={{
+              backgroundColor: teamColors.secondary,
+              border: `2px solid ${teamColors.primary}20`
+            }}
+          >
+            <div className="mb-3">
+              <h3 className="font-semibold text-sm" style={{ color: secondaryBgText }}>
+                Sync Player Stats
+              </h3>
+              <p className="text-xs mt-0.5 leading-relaxed" style={{ color: secondaryBgText, opacity: 0.7 }}>
+                Recalculates all player stats from box scores for selected season
+              </p>
+            </div>
+            <div className="mt-auto space-y-2">
+              <select
+                value={statsSyncYear}
+                onChange={(e) => setStatsSyncYear(parseInt(e.target.value))}
+                className="w-full px-2 py-1.5 rounded-md text-xs border bg-white text-gray-900"
+                style={{ borderColor: `${teamColors.primary}40` }}
+              >
+                {Array.from({ length: 10 }, (_, i) => currentDynasty.currentYear - i)
+                  .filter(y => y >= (currentDynasty.startYear || 2024))
+                  .map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+              </select>
+              <button
+                onClick={handleSyncAllStats}
+                disabled={statsSyncStatus === 'running'}
+                className="w-full px-3 py-1.5 rounded-md font-medium text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
+                style={{
+                  backgroundColor: teamColors.primary,
+                  color: primaryBgText
+                }}
+              >
+                {statsSyncStatus === 'running' ? 'Syncing...' : 'Sync Stats'}
+              </button>
+              {statsSyncStatus && statsSyncStatus !== 'running' && (
+                <div className={`text-xs mt-1 ${statsSyncStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                  {statsSyncStatus.message}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -1098,6 +1098,8 @@ export default function Team() {
       year,
       wins: record?.wins || 0,
       losses: record?.losses || 0,
+      confWins: record?.confWins || 0,
+      confLosses: record?.confLosses || 0,
       hasRecord: !!record,
       bowlResult,
       ccWin,
@@ -1333,11 +1335,21 @@ export default function Team() {
                 </div>
 
                 {/* Record */}
-                <div
-                  className="text-2xl font-bold mt-1"
-                  style={{ color: yr.hasRecord ? teamBgText : `${teamBgText}50` }}
-                >
-                  {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '--'}
+                <div className="mt-1">
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: yr.hasRecord ? teamBgText : `${teamBgText}50` }}
+                  >
+                    {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '--'}
+                  </div>
+                  {yr.hasRecord && (yr.confWins > 0 || yr.confLosses > 0) && (
+                    <div
+                      className="text-xs font-medium"
+                      style={{ color: teamBgText, opacity: 0.6 }}
+                    >
+                      {yr.confWins}-{yr.confLosses} conf
+                    </div>
+                  )}
                 </div>
 
                 {/* Achievements */}

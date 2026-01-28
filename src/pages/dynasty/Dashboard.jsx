@@ -112,6 +112,8 @@ export default function Dashboard() {
   const scheduleRecord = getCurrentTeamRecord(currentDynasty)
   const wins = scheduleRecord?.wins || 0
   const losses = scheduleRecord?.losses || 0
+  const confWins = scheduleRecord?.confWins || 0
+  const confLosses = scheduleRecord?.confLosses || 0
 
   // IMPORTANT: On Signing Day (week 6) and Training Camp (week 7), the year has already flipped.
   // Use offseasonDataYear for data that was entered during weeks 1-5 (playersLeaving, recruiting, etc.)
@@ -2798,6 +2800,8 @@ export default function Dashboard() {
         const teamRecord = getCurrentTeamRecord(currentDynasty)
         const headerWins = teamRecord?.wins || 0
         const headerLosses = teamRecord?.losses || 0
+        const headerConfWins = teamRecord?.confWins || 0
+        const headerConfLosses = teamRecord?.confLosses || 0
 
         // UNIFIED RANKING: Use centralized helper (prioritizes final poll, falls back to most recent game)
         const rankingData = getCurrentTeamRanking(currentDynasty)
@@ -2842,7 +2846,12 @@ export default function Dashboard() {
                     {userTeamName}
                   </h2>
                   <div className="text-sm sm:text-base mt-1 flex items-center gap-2" style={{ color: primaryBgText, opacity: 0.85 }}>
-                    <span className="font-display font-bold text-lg">{headerWins}-{headerLosses}</span>
+                    <span className="font-display font-bold text-lg">
+                      {headerWins}-{headerLosses}
+                      {(headerConfWins > 0 || headerConfLosses > 0) && (
+                        <span style={{ opacity: 0.7 }}> ({headerConfWins}-{headerConfLosses})</span>
+                      )}
+                    </span>
                     {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
                       <>
                         <span style={{ opacity: 0.4 }}>•</span>
@@ -7942,7 +7951,10 @@ export default function Dashboard() {
                 {currentDynasty.currentYear} Schedule
               </h2>
               <p className="text-sm text-zinc-500">
-                <span className="font-display font-semibold text-zinc-300">{wins}-{losses}</span> Record
+                <span className="font-display font-semibold text-zinc-300">{wins}-{losses}</span>
+                {(confWins > 0 || confLosses > 0) && (
+                  <span className="text-zinc-400"> ({confWins}-{confLosses})</span>
+                )}
               </p>
             </div>
             {!isViewOnly && (

@@ -81,7 +81,7 @@ const nestedStatsToFlat = (yearStats) => {
     passLong: passing.lng ?? passing.long ?? '',
     sacked: passing.sacks ?? passing.sacked ?? '',
     // Rushing
-    rushAtt: rushing.att ?? rushing.carries ?? '',
+    rushAtt: rushing.car ?? rushing.att ?? rushing.carries ?? '',
     rushYds: rushing.yds ?? '',
     rushTD: rushing.td ?? '',
     rushLong: rushing.lng ?? rushing.long ?? '',
@@ -92,8 +92,8 @@ const nestedStatsToFlat = (yearStats) => {
     recTD: receiving.td ?? '',
     recLong: receiving.lng ?? receiving.long ?? '',
     drops: receiving.drops ?? '',
-    // Defense
-    tackles: defense.tackles ?? defense.tkl ?? '',
+    // Defense - combine soloTkl + astTkl for display
+    tackles: (defense.soloTkl || 0) + (defense.astTkl || 0) || defense.tackles || defense.tkl || '',
     tfl: defense.tfl ?? '',
     sacks: defense.sacks ?? '',
     ints: defense.int ?? defense.ints ?? '',
@@ -139,7 +139,7 @@ const flatStatsToNested = (flatStats) => {
   if (Object.keys(passing).length > 0) result.passing = passing
 
   const rushing = {}
-  if (flatStats.rushAtt !== '') rushing.att = num(flatStats.rushAtt)
+  if (flatStats.rushAtt !== '') rushing.car = num(flatStats.rushAtt)
   if (flatStats.rushYds !== '') rushing.yds = num(flatStats.rushYds)
   if (flatStats.rushTD !== '') rushing.td = num(flatStats.rushTD)
   if (flatStats.rushLong !== '') rushing.lng = num(flatStats.rushLong)
@@ -155,7 +155,11 @@ const flatStatsToNested = (flatStats) => {
   if (Object.keys(receiving).length > 0) result.receiving = receiving
 
   const defense = {}
-  if (flatStats.tackles !== '') defense.tackles = num(flatStats.tackles)
+  // Store tackles as soloTkl (Player.jsx expects soloTkl + astTkl)
+  if (flatStats.tackles !== '') {
+    defense.soloTkl = num(flatStats.tackles)
+    defense.astTkl = 0 // Form doesn't track solo/assisted breakdown
+  }
   if (flatStats.tfl !== '') defense.tfl = num(flatStats.tfl)
   if (flatStats.sacks !== '') defense.sacks = num(flatStats.sacks)
   if (flatStats.ints !== '') defense.int = num(flatStats.ints)
@@ -1353,20 +1357,89 @@ export default function PlayerEdit() {
                 <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
                   Season Stats
                 </h2>
-                <select
-                  value={selectedStatsYear || ''}
-                  onChange={(e) => {
-                    const year = parseInt(e.target.value)
-                    setSelectedStatsYear(year)
-                    const yearStats = player.statsByYear?.[year] || {}
-                    setFormData(prev => ({ ...prev, stats: { ...yearStats } }))
-                  }}
-                  className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      const yearToSync = selectedStatsYear || dynasty?.currentYear
+
+                      // Get box score totals for this player
+                      const totals = getPlayerBoxScoreTotals(player.name, dynasty?.games || [], yearToSync)
+
+                      if (!totals) {
+                        alert('No box score data found for this player in ' + yearToSync)
+                        return
+                      }
+
+                      // Map internal format to form field format
+                      const newStats = {
+                        gamesPlayed: totals.gamesPlayed || 0,
+                        // Passing
+                        passComp: totals.passing?.cmp || '',
+                        passAtt: totals.passing?.att || '',
+                        passYds: totals.passing?.yds || '',
+                        passTD: totals.passing?.td || '',
+                        passInt: totals.passing?.int || '',
+                        passLong: totals.passing?.lng || '',
+                        sacked: totals.passing?.sacks || '',
+                        // Rushing
+                        rushAtt: totals.rushing?.car || '',
+                        rushYds: totals.rushing?.yds || '',
+                        rushTD: totals.rushing?.td || '',
+                        rushLong: totals.rushing?.lng || '',
+                        fumbles: totals.rushing?.fum || '',
+                        // Receiving
+                        receptions: totals.receiving?.rec || '',
+                        recYds: totals.receiving?.yds || '',
+                        recTD: totals.receiving?.td || '',
+                        recLong: totals.receiving?.lng || '',
+                        drops: totals.receiving?.drops || '',
+                        // Defense - tackles = soloTkl + astTkl
+                        tackles: (totals.defense?.soloTkl || 0) + (totals.defense?.astTkl || 0) || '',
+                        tfl: totals.defense?.tfl || '',
+                        sacks: totals.defense?.sacks || '',
+                        ints: totals.defense?.int || '',
+                        pd: totals.defense?.pd || '',
+                        ff: totals.defense?.ff || '',
+                        fr: totals.defense?.fr || '',
+                        defTD: totals.defense?.td || '',
+                        // Kicking
+                        fgm: totals.kicking?.fgm || '',
+                        fga: totals.kicking?.fga || '',
+                        fgLong: totals.kicking?.lng || '',
+                        xpm: totals.kicking?.xpm || '',
+                        xpa: totals.kicking?.xpa || '',
+                        // Punting
+                        punts: totals.punting?.punts || '',
+                        puntYds: totals.punting?.yds || '',
+                        puntLong: totals.punting?.lng || '',
+                        puntIn20: totals.punting?.in20 || '',
+                        touchbacks: totals.punting?.tb || '',
+                      }
+
+                      setFormData(prev => ({ ...prev, stats: newStats }))
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Sync from Box Scores
+                  </button>
+                  <select
+                    value={selectedStatsYear || ''}
+                    onChange={(e) => {
+                      const year = parseInt(e.target.value)
+                      setSelectedStatsYear(year)
+                      const yearStats = player.statsByYear?.[year] || {}
+                      setFormData(prev => ({ ...prev, stats: { ...yearStats } }))
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                  >
+                    {availableYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="p-5">

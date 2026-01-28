@@ -1007,6 +1007,8 @@ export default function TeamYear() {
     displayRecord = {
       wins: calculatedRecord.wins,
       losses: calculatedRecord.losses,
+      confWins: calculatedRecord.confWins || 0,
+      confLosses: calculatedRecord.confLosses || 0,
       pointsFor: null,
       pointsAgainst: null
     }
@@ -1480,6 +1482,9 @@ export default function TeamYear() {
                     style={{ color: teamBgText }}
                   >
                     {displayRecord.wins}-{displayRecord.losses}
+                    {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
+                      <span style={{ opacity: 0.7 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
+                    )}
                   </div>
                   <div className="text-xs font-semibold" style={{ color: teamBgText, opacity: 0.7 }}>
                     Record
@@ -1852,6 +1857,9 @@ export default function TeamYear() {
                   style={{ color: teamBgText }}
                 >
                   {displayRecord.wins}-{displayRecord.losses}
+                  {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
+                    <span style={{ opacity: 0.7 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
+                  )}
                 </div>
                 <div className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.7 }}>
                   Record
