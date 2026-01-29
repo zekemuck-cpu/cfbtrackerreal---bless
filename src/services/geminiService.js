@@ -1093,24 +1093,31 @@ function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
  */
 function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
   const seasonsByYear = {}
+  const teamTid = getTidFromAbbr(teamAbbr)
 
   for (const g of allGames) {
     const gYear = Number(g.year)
     if (gYear >= Number(currentYear)) continue
 
-    // Check if this game involved the team
-    const teamInGame = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
-    if (!teamInGame) continue
+    // Check if this game involved the team (support both legacy and unified formats)
+    const teamInGameLegacy = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
+    const teamInGameUnified = teamTid && (g.team1Tid === teamTid || g.team2Tid === teamTid || g.userTid === teamTid)
+    if (!teamInGameLegacy && !teamInGameUnified) continue
 
     if (!seasonsByYear[gYear]) {
       seasonsByYear[gYear] = { year: gYear, wins: 0, losses: 0, confWins: 0, confLosses: 0 }
     }
 
-    // Determine if team won
+    // Determine if team won (handle all formats)
     let won
-    if (g.userTeam === teamAbbr) {
-      won = g.result === 'win' || g.result === 'W'
-    } else if (g.team1 === teamAbbr) {
+    if (g.userTeam === teamAbbr || (teamTid && g.userTid === teamTid)) {
+      // User game - check result field or scores
+      if (g.result) {
+        won = g.result === 'win' || g.result === 'W'
+      } else {
+        won = (g.teamScore || g.team1Score) > (g.opponentScore || g.team2Score)
+      }
+    } else if (g.team1 === teamAbbr || (teamTid && g.team1Tid === teamTid)) {
       won = g.team1Score > g.team2Score
     } else {
       won = g.team2Score > g.team1Score
@@ -1133,44 +1140,61 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
 /**
  * Get opponent's season results (their games this year)
  * Shows how the opponent has performed leading up to this matchup
+ * Supports both legacy and unified game formats
  */
 function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder) {
   const results = []
+  const opponentTid = getTidFromAbbr(opponentAbbr)
 
   for (const g of allGames) {
     if (Number(g.year) !== Number(year)) continue
     if (getGameOrder(g) >= currentGameOrder) continue
 
     // Check if opponent was in this game
-    let opponentWon, oppScore, otherTeam, otherScore
+    let opponentWon, oppScore, otherTeam, otherScore, found = false
 
+    // Legacy format: userTeam/opponent
     if (g.userTeam === opponentAbbr) {
-      // Opponent was the user team in this game (job change scenario)
       opponentWon = g.result === 'win' || g.result === 'W'
       oppScore = g.teamScore
       otherTeam = g.opponent
       otherScore = g.opponentScore
+      found = true
     } else if (g.opponent === opponentAbbr) {
-      // Opponent was our opponent in a previous game
       opponentWon = g.result !== 'win' && g.result !== 'W'
       oppScore = g.opponentScore
       otherTeam = g.userTeam
       otherScore = g.teamScore
+      found = true
     } else if (g.team1 === opponentAbbr) {
-      // CPU game where opponent was team1
       opponentWon = g.team1Score > g.team2Score
       oppScore = g.team1Score
       otherTeam = g.team2
       otherScore = g.team2Score
+      found = true
     } else if (g.team2 === opponentAbbr) {
-      // CPU game where opponent was team2
       opponentWon = g.team2Score > g.team1Score
       oppScore = g.team2Score
       otherTeam = g.team1
       otherScore = g.team1Score
-    } else {
-      continue // Opponent not in this game
+      found = true
     }
+    // Unified format: team1Tid/team2Tid
+    else if (opponentTid && g.team1Tid === opponentTid) {
+      opponentWon = g.team1Score > g.team2Score
+      oppScore = g.team1Score
+      otherTeam = getAbbrFromTid(g.team2Tid) || g.team2
+      otherScore = g.team2Score
+      found = true
+    } else if (opponentTid && g.team2Tid === opponentTid) {
+      opponentWon = g.team2Score > g.team1Score
+      oppScore = g.team2Score
+      otherTeam = getAbbrFromTid(g.team1Tid) || g.team1
+      otherScore = g.team1Score
+      found = true
+    }
+
+    if (!found) continue
 
     results.push({
       week: g.week,
