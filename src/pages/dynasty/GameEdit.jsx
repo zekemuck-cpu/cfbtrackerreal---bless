@@ -1252,12 +1252,29 @@ export default function GameEdit() {
       }
 
       const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, customInstructions)
-      await navigator.clipboard.writeText(fullPrompt)
+
+      // Try modern clipboard API first, fall back to legacy method
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(fullPrompt)
+      } else {
+        // Fallback for non-secure contexts or older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = fullPrompt
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        textArea.remove()
+      }
+
       setPromptCopied(true)
       setTimeout(() => setPromptCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy prompt:', error)
-      setRecapError('Failed to copy prompt to clipboard')
+      setRecapError('Failed to copy prompt to clipboard: ' + error.message)
     }
   }
 
