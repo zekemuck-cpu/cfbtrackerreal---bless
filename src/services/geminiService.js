@@ -2450,6 +2450,18 @@ export async function getCustomRecapInstructions(userId) {
 }
 
 /**
+ * Build the full prompt for a game recap (for copying to external AI)
+ * @param {object} dynasty - The dynasty data
+ * @param {object} game - The game data
+ * @param {string} customInstructions - Optional custom writing instructions
+ * @returns {string} The full prompt text ready to paste into any AI
+ */
+export function getFullRecapPrompt(dynasty, game, customInstructions = null) {
+  const context = buildGameRecapContext(dynasty, game)
+  return buildGameRecapPrompt(context, customInstructions)
+}
+
+/**
  * Generate a game recap using any supported AI provider
  * @param {object} dynasty - The dynasty data
  * @param {object} game - The game data

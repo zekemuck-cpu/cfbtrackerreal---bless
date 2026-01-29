@@ -8,7 +8,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
+import { generateGameRecap, getCustomRecapInstructions, getAiConfig, getFullRecapPrompt } from '../../services/geminiService'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -166,6 +166,7 @@ export default function GameEdit() {
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
   const [recapError, setRecapError] = useState(null)
   const [streamingRecap, setStreamingRecap] = useState('')
+  const [promptCopied, setPromptCopied] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -1231,6 +1232,35 @@ export default function GameEdit() {
     }
   }
 
+  // Copy full prompt to clipboard for use in external AI
+  const handleCopyPrompt = async () => {
+    try {
+      // Fetch custom instructions if user is logged in
+      const customInstructions = user?.uid ? await getCustomRecapInstructions(user.uid) : null
+
+      // Build game object for prompt generation
+      const gameForRecap = {
+        ...gameData,
+        team1: team1Name,
+        team2: team2Name,
+        team1Score: formData.team1Score,
+        team2Score: formData.team2Score,
+        quarters: formData.quarters,
+        gameType,
+        bowlName,
+        year: gameYear
+      }
+
+      const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, customInstructions)
+      await navigator.clipboard.writeText(fullPrompt)
+      setPromptCopied(true)
+      setTimeout(() => setPromptCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy prompt:', error)
+      setRecapError('Failed to copy prompt to clipboard')
+    }
+  }
+
   // View-only check
   if (isViewOnly) {
     return (
@@ -1751,18 +1781,31 @@ export default function GameEdit() {
       <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-lg font-bold text-white">Game Recap</h3>
-          <button
-            onClick={handleGenerateRecap}
-            disabled={isGeneratingRecap || !formData.team1Score || !formData.team2Score}
-            className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            {isGeneratingRecap ? 'Generating...' : 'Generate with AI'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyPrompt}
+              disabled={!formData.team1Score || !formData.team2Score}
+              className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              {promptCopied ? 'Copied!' : 'Copy Prompt'}
+            </button>
+            <button
+              onClick={handleGenerateRecap}
+              disabled={isGeneratingRecap || !formData.team1Score || !formData.team2Score}
+              className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              {isGeneratingRecap ? 'Generating...' : 'Generate with AI'}
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-400 mb-3">Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap.</p>
+        <p className="text-xs text-gray-400 mb-3">Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap. Use "Copy Prompt" to paste into ChatGPT or another AI.</p>
         {recapError && (
           <p className="text-sm text-red-400 mb-2">{recapError}</p>
         )}
