@@ -1207,7 +1207,7 @@ export default function GameEdit() {
 
       // Build game object for recap generation
       const gameForRecap = {
-        ...gameData,
+        ...existingGame,
         team1: team1Name,
         team2: team2Name,
         team1Score: formData.team1Score,
@@ -1240,7 +1240,7 @@ export default function GameEdit() {
 
       // Build game object for prompt generation
       const gameForRecap = {
-        ...gameData,
+        ...existingGame,
         team1: team1Name,
         team2: team2Name,
         team1Score: formData.team1Score,
