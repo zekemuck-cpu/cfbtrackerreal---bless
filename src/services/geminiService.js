@@ -409,21 +409,8 @@ function getTeamRatings(dynasty, teamAbbr, year) {
 }
 
 /**
- * Convert a numeric rating to a descriptive talent level
- */
-function describeTalentLevel(rating) {
-  if (!rating || isNaN(rating)) return null
-  const r = parseInt(rating)
-  if (r >= 92) return 'elite'
-  if (r >= 87) return 'very talented'
-  if (r >= 82) return 'solid'
-  if (r >= 77) return 'average'
-  if (r >= 72) return 'below average'
-  return 'rebuilding'
-}
-
-/**
  * Build a talent comparison description for two teams
+ * Shows actual OVR numbers but instructs AI not to mention them directly
  */
 function buildTalentContext(team1Ratings, team2Ratings, team1Name, team2Name, team1Won) {
   if (!team1Ratings?.overall && !team2Ratings?.overall) return null
@@ -438,86 +425,43 @@ function buildTalentContext(team1Ratings, team2Ratings, team1Name, team2Name, te
   const t2Offense = parseInt(team2Ratings?.offense) || 0
   const t2Defense = parseInt(team2Ratings?.defense) || 0
 
-  // Describe overall talent matchup
+  // Show actual ratings for AI context
+  lines.push(`TEAM RATINGS (for context only - do NOT mention these numbers in the article):`)
+  if (t1Overall) {
+    lines.push(`${team1Name}: ${t1Overall} OVR${t1Offense ? ` (OFF: ${t1Offense}, DEF: ${t1Defense})` : ''}`)
+  }
+  if (t2Overall) {
+    lines.push(`${team2Name}: ${t2Overall} OVR${t2Offense ? ` (OFF: ${t2Offense}, DEF: ${t2Defense})` : ''}`)
+  }
+
+  // Add context about what the matchup means
+  lines.push('')
+  lines.push(`TALENT CONTEXT:`)
+
   if (t1Overall && t2Overall) {
     const diff = Math.abs(t1Overall - t2Overall)
-    const t1Level = describeTalentLevel(t1Overall)
-    const t2Level = describeTalentLevel(t2Overall)
+    const favorite = t1Overall > t2Overall ? team1Name : team2Name
+    const underdog = t1Overall > t2Overall ? team2Name : team1Name
+    const favoriteWon = (t1Overall > t2Overall && team1Won) || (t2Overall > t1Overall && !team1Won)
 
     if (diff <= 3) {
-      lines.push(`This was an evenly matched game between two ${t1Level} programs.`)
+      lines.push(`- Evenly matched game (${diff} point talent gap)`)
     } else if (diff <= 7) {
-      const favorite = t1Overall > t2Overall ? team1Name : team2Name
-      const underdog = t1Overall > t2Overall ? team2Name : team1Name
-      lines.push(`${favorite} entered as the more talented team, though ${underdog} was competitive.`)
+      lines.push(`- ${favorite} was slightly more talented (+${diff} OVR)`)
     } else if (diff <= 12) {
-      const favorite = t1Overall > t2Overall ? team1Name : team2Name
-      const underdog = t1Overall > t2Overall ? team2Name : team1Name
-      const favLevel = t1Overall > t2Overall ? t1Level : t2Level
-      const undLevel = t1Overall > t2Overall ? t2Level : t1Level
-      lines.push(`${favorite} (${favLevel} roster) was a clear favorite over ${underdog} (${undLevel} roster).`)
-
-      // Check for upset
-      const favoriteWon = (t1Overall > t2Overall && team1Won) || (t2Overall > t1Overall && !team1Won)
+      lines.push(`- ${favorite} was a clear favorite (+${diff} OVR advantage)`)
       if (!favoriteWon) {
-        lines.push(`This result qualifies as a significant upset based on roster talent.`)
+        lines.push(`- This qualifies as an UPSET - ${underdog} overcame the talent gap`)
       }
     } else {
-      const favorite = t1Overall > t2Overall ? team1Name : team2Name
-      const underdog = t1Overall > t2Overall ? team2Name : team1Name
-      lines.push(`${favorite} was a heavy favorite with a major talent advantage over ${underdog}.`)
-
-      // Check for major upset
-      const favoriteWon = (t1Overall > t2Overall && team1Won) || (t2Overall > t1Overall && !team1Won)
+      lines.push(`- ${favorite} was a heavy favorite (+${diff} OVR advantage)`)
       if (!favoriteWon) {
-        lines.push(`This is a major upset - ${underdog} overcame a significant talent gap.`)
+        lines.push(`- This is a MAJOR UPSET - ${underdog} overcame a huge talent deficit`)
       }
     }
-  } else if (t1Overall) {
-    lines.push(`${team1Name} entered with a ${describeTalentLevel(t1Overall)} roster.`)
-  } else if (t2Overall) {
-    lines.push(`${team2Name} entered with a ${describeTalentLevel(t2Overall)} roster.`)
   }
 
-  // Describe unit strengths/weaknesses if interesting
-  if (t1Offense && t1Defense) {
-    const offDiff = t1Offense - t1Defense
-    if (offDiff >= 8) {
-      lines.push(`${team1Name} is an offense-first team with a high-powered attack.`)
-    } else if (offDiff <= -8) {
-      lines.push(`${team1Name} is built around a dominant defense.`)
-    }
-  }
-
-  if (t2Offense && t2Defense) {
-    const offDiff = t2Offense - t2Defense
-    if (offDiff >= 8) {
-      lines.push(`${team2Name} relies heavily on their explosive offense.`)
-    } else if (offDiff <= -8) {
-      lines.push(`${team2Name} is a defense-first program.`)
-    }
-  }
-
-  // Key matchup insight
-  if (t1Offense && t2Defense) {
-    const matchupDiff = t1Offense - t2Defense
-    if (matchupDiff >= 10) {
-      lines.push(`Key matchup: ${team1Name}'s potent offense against ${team2Name}'s weaker defense.`)
-    } else if (matchupDiff <= -10) {
-      lines.push(`Key matchup: ${team2Name}'s stout defense against ${team1Name}'s offense.`)
-    }
-  }
-
-  if (t2Offense && t1Defense) {
-    const matchupDiff = t2Offense - t1Defense
-    if (matchupDiff >= 10) {
-      lines.push(`Key matchup: ${team2Name}'s potent offense against ${team1Name}'s weaker defense.`)
-    } else if (matchupDiff <= -10) {
-      lines.push(`Key matchup: ${team1Name}'s stout defense against ${team2Name}'s offense.`)
-    }
-  }
-
-  return lines.length > 0 ? lines.join('\n') : null
+  return lines.join('\n')
 }
 
 /**
