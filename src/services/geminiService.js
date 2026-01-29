@@ -567,16 +567,24 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
   }
 
   // Extract passing leaders with enhanced context
+  // Note: Box score from sheets uses: comp, attempts, yards, tD, iNT (camelCase from headers)
   if (boxScore[side]?.passing?.length > 0) {
-    const passers = boxScore[side].passing.filter(p => p.att > 0)
+    const passers = boxScore[side].passing.filter(p => (p.attempts || p.att) > 0)
     passers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
       const recentGames = getPlayerRecentGames(p.playerName, allGames, year, currentGameOrder, teamAbbr)
 
+      // Handle both field name formats (sheets uses comp/attempts, aggregated uses cmp/att)
+      const cmp = p.comp ?? p.cmp ?? 0
+      const att = p.attempts ?? p.att ?? 0
+      const yds = p.yards ?? p.yds ?? 0
+      const td = p.tD ?? p.td ?? 0
+      const int = p.iNT ?? p.int ?? 0
+
       highlights.passing.push({
         player: p.playerName,
-        stats: `${p.cmp}/${p.att}, ${p.yds} yards, ${p.td} TD${p.td !== 1 ? 's' : ''}${p.int > 0 ? `, ${p.int} INT` : ''}`,
+        stats: `${cmp}/${att}, ${yds} yards, ${td} TD${td !== 1 ? 's' : ''}${int > 0 ? `, ${int} INT` : ''}`,
         // Enhanced fields
         position: player?.position || 'QB',
         class: player?.classByYear?.[year] || player?.year || null,
@@ -599,16 +607,22 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
   }
 
   // Extract rushing leaders with enhanced context
+  // Note: Box score from sheets uses: carries, yards, tD (camelCase from headers)
   if (boxScore[side]?.rushing?.length > 0) {
-    const rushers = boxScore[side].rushing.filter(p => p.car > 0).slice(0, 3)
+    const rushers = boxScore[side].rushing.filter(p => (p.carries || p.car) > 0).slice(0, 3)
     rushers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
       const recentGames = getPlayerRecentGames(p.playerName, allGames, year, currentGameOrder, teamAbbr)
 
+      // Handle both field name formats
+      const car = p.carries ?? p.car ?? 0
+      const yds = p.yards ?? p.yds ?? 0
+      const td = p.tD ?? p.td ?? 0
+
       highlights.rushing.push({
         player: p.playerName,
-        stats: `${p.car} carries, ${p.yds} yards${p.td > 0 ? `, ${p.td} TD${p.td !== 1 ? 's' : ''}` : ''}`,
+        stats: `${car} carries, ${yds} yards${td > 0 ? `, ${td} TD${td !== 1 ? 's' : ''}` : ''}`,
         position: player?.position || null,
         class: player?.classByYear?.[year] || player?.year || null,
         overall: player?.overall || null,
@@ -629,16 +643,22 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
   }
 
   // Extract receiving leaders with enhanced context
+  // Note: Box score from sheets uses: receptions, yards, tD (camelCase from headers)
   if (boxScore[side]?.receiving?.length > 0) {
-    const receivers = boxScore[side].receiving.filter(p => p.rec > 0).slice(0, 3)
+    const receivers = boxScore[side].receiving.filter(p => (p.receptions || p.rec) > 0).slice(0, 3)
     receivers.forEach(p => {
       const player = getPlayerByName(players, p.playerName)
       const seasonStats = player ? getPlayerSeasonStats(player, year) : null
       const recentGames = getPlayerRecentGames(p.playerName, allGames, year, currentGameOrder, teamAbbr)
 
+      // Handle both field name formats
+      const rec = p.receptions ?? p.rec ?? 0
+      const yds = p.yards ?? p.yds ?? 0
+      const td = p.tD ?? p.td ?? 0
+
       highlights.receiving.push({
         player: p.playerName,
-        stats: `${p.rec} catches, ${p.yds} yards${p.td > 0 ? `, ${p.td} TD${p.td !== 1 ? 's' : ''}` : ''}`,
+        stats: `${rec} catches, ${yds} yards${td > 0 ? `, ${td} TD${td !== 1 ? 's' : ''}` : ''}`,
         position: player?.position || null,
         class: player?.classByYear?.[year] || player?.year || null,
         overall: player?.overall || null,
@@ -699,15 +719,21 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
   }
 
   // Extract kicking with enhanced context
+  // Note: Box score from sheets uses: fGM, fGA, fGLong (camelCase from headers like 'FGM', 'FGA', 'FG Long')
   if (boxScore[side]?.kicking?.length > 0) {
     boxScore[side].kicking.forEach(p => {
-      if (p.fgm > 0 || p.fga > 0) {
+      // Handle both field name formats
+      const fgm = p.fGM ?? p.fgm ?? 0
+      const fga = p.fGA ?? p.fga ?? 0
+      const lng = p.fGLong ?? p.lng ?? p.long ?? null
+
+      if (fgm > 0 || fga > 0) {
         const player = getPlayerByName(players, p.playerName)
         const seasonStats = player ? getPlayerSeasonStats(player, year) : null
 
         highlights.kicking.push({
           player: p.playerName,
-          stats: `${p.fgm}/${p.fga} FG${p.lng ? `, long ${p.lng}` : ''}`,
+          stats: `${fgm}/${fga} FG${lng ? `, long ${lng}` : ''}`,
           position: player?.position || 'K',
           class: player?.classByYear?.[year] || player?.year || null,
           overall: player?.overall || null,
