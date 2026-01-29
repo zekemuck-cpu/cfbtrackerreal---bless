@@ -1331,9 +1331,21 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
           const entries = g.boxScore?.[gameSide]?.[category] || []
           const playerEntry = entries.find(p => normalizePlayerName(p.playerName) === normalized)
           if (playerEntry) {
+            // Get opponent team - for unified format, need to look up team name from tid
+            let opponentName = g.opponent
+            if (!opponentName) {
+              const opponentTid = gameSide === 'home' ? g.team2Tid : g.team1Tid
+              if (opponentTid && TEAMS[opponentTid]) {
+                opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
+              } else {
+                // Fallback to team1/team2 which might be names or tids
+                const fallback = gameSide === 'home' ? g.team2 : g.team1
+                opponentName = typeof fallback === 'string' ? fallback : null
+              }
+            }
             recentGames.push({
               week: g.week,
-              opponent: g.opponent || (gameSide === 'home' ? g.team2 : g.team1),
+              opponent: opponentName,
               category,
               stats: playerEntry
             })
@@ -1347,26 +1359,29 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
       const player = players.find(p => normalizePlayerName(p.name) === normalized)
       let trendDescription = null
 
+      // Helper to get yards from stats (handles both field name formats)
+      const getYards = (stats) => stats?.yards ?? stats?.yds ?? 0
+
       // Check for passing trends
       const passingGames = recentGames.filter(g => g.category === 'passing')
       if (passingGames.length >= 2) {
-        const ydsRecent = passingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        const ydsRecent = passingGames.slice(0, 2).reduce((sum, g) => sum + getYards(g.stats), 0) / 2
         if (ydsRecent > 250) trendDescription = 'on a hot streak'
-        else if (passingGames[0]?.stats?.yds > passingGames[1]?.stats?.yds + 50) trendDescription = 'bouncing back'
+        else if (getYards(passingGames[0]?.stats) > getYards(passingGames[1]?.stats) + 50) trendDescription = 'bouncing back'
       }
 
       // Check for rushing trends
       const rushingGames = recentGames.filter(g => g.category === 'rushing')
       if (rushingGames.length >= 2) {
-        const ydsRecent = rushingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        const ydsRecent = rushingGames.slice(0, 2).reduce((sum, g) => sum + getYards(g.stats), 0) / 2
         if (ydsRecent > 100) trendDescription = 'running hot'
-        else if (rushingGames[0]?.stats?.yds > rushingGames[1]?.stats?.yds + 30) trendDescription = 'finding his stride'
+        else if (getYards(rushingGames[0]?.stats) > getYards(rushingGames[1]?.stats) + 30) trendDescription = 'finding his stride'
       }
 
       // Check for receiving trends
       const receivingGames = recentGames.filter(g => g.category === 'receiving')
       if (receivingGames.length >= 2) {
-        const ydsRecent = receivingGames.slice(0, 2).reduce((sum, g) => sum + (g.stats.yds || 0), 0) / 2
+        const ydsRecent = receivingGames.slice(0, 2).reduce((sum, g) => sum + getYards(g.stats), 0) / 2
         if (ydsRecent > 80) trendDescription = 'red hot'
       }
 
@@ -1375,15 +1390,26 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
           player: playerName,
           position: player?.position || null,
           trend: trendDescription,
-          recentGames: recentGames.slice(0, 3).map(g => ({
-            week: g.week,
-            opponent: g.opponent,
-            category: g.category,
-            stats: g.category === 'passing' ? `${g.stats.cmp}/${g.stats.att}, ${g.stats.yds} yds, ${g.stats.td} TD` :
-                   g.category === 'rushing' ? `${g.stats.car} car, ${g.stats.yds} yds` :
-                   g.category === 'receiving' ? `${g.stats.rec} rec, ${g.stats.yds} yds` :
-                   `${(g.stats.solo || 0) + (g.stats.assists || 0)} tkl`
-          }))
+          recentGames: recentGames.slice(0, 3).map(g => {
+            // Handle both field name formats (sheets vs aggregated)
+            const s = g.stats
+            const cmp = s.comp ?? s.cmp ?? 0
+            const att = s.attempts ?? s.att ?? 0
+            const yds = s.yards ?? s.yds ?? 0
+            const td = s.tD ?? s.td ?? 0
+            const car = s.carries ?? s.car ?? 0
+            const rec = s.receptions ?? s.rec ?? 0
+
+            return {
+              week: g.week,
+              opponent: g.opponent,
+              category: g.category,
+              stats: g.category === 'passing' ? `${cmp}/${att}, ${yds} yds, ${td} TD` :
+                     g.category === 'rushing' ? `${car} car, ${yds} yds` :
+                     g.category === 'receiving' ? `${rec} rec, ${yds} yds` :
+                     `${(s.solo || 0) + (s.assists || 0)} tkl`
+            }
+          })
         })
       }
     }
