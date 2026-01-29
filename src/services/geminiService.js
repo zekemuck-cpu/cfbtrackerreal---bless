@@ -1109,10 +1109,13 @@ function getPriorYearPostseason(allGames, teamAbbr, currentYear) {
 
       // Determine result based on game format
       if (g.team1Tid && g.team2Tid) {
-        // Unified format
+        // Unified format - resolve opponent from tid
         const isTeam1 = (teamTid && g.team1Tid === teamTid) || g.team1 === teamAbbr
         won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
-        opponent = isTeam1 ? g.team2 : g.team1
+        const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
+        // Get opponent abbr from tid, fallback to g.team2/g.team1 if available
+        const opponentInfo = getGameTeamInfo(TEAMS, opponentTid)
+        opponent = opponentInfo?.abbr || (isTeam1 ? g.team2 : g.team1) || opponentTid
         score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
       } else if (g.team1 && g.team2) {
         // Legacy CPU game format
@@ -1123,7 +1126,13 @@ function getPriorYearPostseason(allGames, teamAbbr, currentYear) {
       } else {
         // Legacy user game format
         won = g.result === 'win' || g.result === 'W'
-        opponent = g.opponent
+        // Try to get opponent from opponentTid if opponent abbr not available
+        if (g.opponent) {
+          opponent = g.opponent
+        } else if (g.opponentTid) {
+          const oppInfo = getGameTeamInfo(TEAMS, g.opponentTid)
+          opponent = oppInfo?.abbr || g.opponentTid
+        }
         score = `${g.teamScore}-${g.opponentScore}`
       }
 
