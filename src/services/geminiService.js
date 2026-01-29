@@ -8,6 +8,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
+import { getTeamConference } from '../data/conferenceTeams'
 import { getUserGamePerspective } from '../context/DynastyContext'
 import { getProvider, getDefaultModel as getProviderDefaultModel } from './providers'
 
@@ -1088,6 +1089,86 @@ function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
 }
 
 /**
+ * Get a team's postseason result from the prior year (the year before the current game)
+ * Returns bowl game or CFP participation details from the previous season
+ */
+function getPriorYearPostseason(allGames, teamAbbr, currentYear) {
+  const priorYear = Number(currentYear) - 1
+  const teamTid = getTidFromAbbr(teamAbbr)
+
+  for (const g of allGames) {
+    if (Number(g.year) !== priorYear) continue
+    if (!g.isBowlGame && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) continue
+
+    // Check if this team was in the game (support both formats)
+    const teamInGameLegacy = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
+    const teamInGameUnified = teamTid && (g.team1Tid === teamTid || g.team2Tid === teamTid || g.userTid === teamTid)
+
+    if (teamInGameLegacy || teamInGameUnified) {
+      let won, opponent, score, gameName
+
+      // Determine result based on game format
+      if (g.team1Tid && g.team2Tid) {
+        // Unified format
+        const isTeam1 = (teamTid && g.team1Tid === teamTid) || g.team1 === teamAbbr
+        won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+        opponent = isTeam1 ? g.team2 : g.team1
+        score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
+      } else if (g.team1 && g.team2) {
+        // Legacy CPU game format
+        const isTeam1 = g.team1 === teamAbbr
+        won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+        opponent = isTeam1 ? g.team2 : g.team1
+        score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
+      } else {
+        // Legacy user game format
+        won = g.result === 'win' || g.result === 'W'
+        opponent = g.opponent
+        score = `${g.teamScore}-${g.opponentScore}`
+      }
+
+      // Determine game type name
+      if (g.isCFPChampionship) {
+        gameName = 'National Championship'
+      } else if (g.isCFPSemifinal) {
+        gameName = g.bowlName || 'CFP Semifinal'
+      } else if (g.isCFPQuarterfinal) {
+        gameName = g.bowlName || 'CFP Quarterfinal'
+      } else if (g.isCFPFirstRound) {
+        gameName = 'CFP First Round'
+      } else {
+        gameName = g.bowlName || 'Bowl Game'
+      }
+
+      // For CFP games, check if they made it further
+      let cfpRound = null
+      if (g.isCFPChampionship) {
+        cfpRound = 'National Championship'
+      } else if (g.isCFPSemifinal) {
+        cfpRound = 'CFP Semifinal'
+      } else if (g.isCFPQuarterfinal) {
+        cfpRound = 'CFP Quarterfinal'
+      } else if (g.isCFPFirstRound) {
+        cfpRound = 'CFP First Round'
+      }
+
+      return {
+        year: priorYear,
+        gameName,
+        result: won ? 'W' : 'L',
+        opponent,
+        score,
+        isCFP: g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship,
+        cfpRound,
+        wonNationalChampionship: g.isCFPChampionship && won
+      }
+    }
+  }
+
+  return null
+}
+
+/**
  * Get a team's season history (past years' records)
  * Returns records for previous seasons where this team was coached
  */
@@ -1550,6 +1631,16 @@ export function buildGameRecapContext(dynasty, game) {
     ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder)
     : []
 
+  // Get conferences for both teams
+  const customConferences = dynasty?.conferencesByYear?.[year] || dynasty?.conferences || null
+  const customTeams = dynasty?.customTeams || null
+  const team1Conference = getTeamConference(team1, customConferences, customTeams)
+  const team2Conference = getTeamConference(team2, customConferences, customTeams)
+
+  // Get prior year postseason results for both teams
+  const team1PriorPostseason = getPriorYearPostseason(allGames, team1, year)
+  const team2PriorPostseason = getPriorYearPostseason(allGames, team2, year)
+
   // NEW: Get player performance trends from box score (using determined sides)
   let team1PlayerTrends = []
   let team2PlayerTrends = []
@@ -1640,6 +1731,8 @@ export function buildGameRecapContext(dynasty, game) {
     // Conference info
     conference: dynasty.conference,
     isConferenceGame: game.isConferenceGame,
+    team1Conference,
+    team2Conference,
 
     // NEW: Team ratings
     team1Ratings,
@@ -1695,6 +1788,10 @@ export function buildGameRecapContext(dynasty, game) {
 
     // NEW: Opponent's season results (their games this year)
     team2SeasonResults,
+
+    // NEW: Prior year postseason results (bowl/CFP from previous season)
+    team1PriorPostseason,
+    team2PriorPostseason,
 
     // NEW: Player performance trends (hot streaks, bounce backs)
     team1PlayerTrends,
@@ -1941,7 +2038,9 @@ ${awayTeam ? `AWAY TEAM: ${awayTeam}` : ''}
 ${!homeTeam && !awayTeam ? 'NEUTRAL SITE GAME' : ''}
 ${ctx.isOvertime ? 'OVERTIME GAME' : ''}
 ${ctx.team1FullName} Ranking: ${ctx.team1Ranking ? `#${ctx.team1Ranking}` : 'UNRANKED'}
-${ctx.team2FullName} Ranking: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}`
+${ctx.team2FullName} Ranking: ${ctx.team2Ranking ? `#${ctx.team2Ranking}` : 'UNRANKED'}
+${ctx.team1Conference ? `${ctx.team1FullName} Conference: ${ctx.team1Conference}` : ''}
+${ctx.team2Conference ? `${ctx.team2FullName} Conference: ${ctx.team2Conference}` : ''}`
 
   // Add quarter-by-quarter scores if available
   // Support both new format (team1/team2) and legacy format (team/opponent)
@@ -2244,6 +2343,35 @@ PAST SEASON RECORDS
       ctx.team2SeasonHistory.forEach(s => {
         prompt += `\n  ${s.year}: ${s.wins}-${s.losses} overall${s.confWins || s.confLosses ? `, ${s.confWins}-${s.confLosses} conference` : ''}`
       })
+    }
+  }
+
+  // Add prior year postseason results (bowl/CFP from previous season)
+  if (ctx.team1PriorPostseason || ctx.team2PriorPostseason) {
+    prompt += `\n
+===========================================
+PRIOR YEAR POSTSEASON RESULTS
+===========================================
+Use this context to enrich your narrative when relevant (e.g., defending national champions, coming off a bowl win, etc.). This is optional context - only mention if it naturally fits the story.`
+    if (ctx.team1PriorPostseason) {
+      const p = ctx.team1PriorPostseason
+      const oppName = getTeamName(p.opponent) || p.opponent
+      prompt += `\n${ctx.team1FullName} (${p.year}): ${p.result} ${p.score} vs ${oppName} (${p.gameName})`
+      if (p.wonNationalChampionship) {
+        prompt += ` - NATIONAL CHAMPIONS`
+      } else if (p.isCFP) {
+        prompt += ` - Made CFP (${p.cfpRound})`
+      }
+    }
+    if (ctx.team2PriorPostseason) {
+      const p = ctx.team2PriorPostseason
+      const oppName = getTeamName(p.opponent) || p.opponent
+      prompt += `\n${ctx.team2FullName} (${p.year}): ${p.result} ${p.score} vs ${oppName} (${p.gameName})`
+      if (p.wonNationalChampionship) {
+        prompt += ` - NATIONAL CHAMPIONS`
+      } else if (p.isCFP) {
+        prompt += ` - Made CFP (${p.cfpRound})`
+      }
     }
   }
 
