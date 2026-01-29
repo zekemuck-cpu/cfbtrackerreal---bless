@@ -1539,8 +1539,9 @@ export function buildGameRecapContext(dynasty, game) {
   const isOvertime = game.overtime || game.isOvertime
 
   // Check for ranked matchup and upset
-  const team1Ranking = isCPUGame ? game.team1Rank : game.ranking
-  const team2Ranking = isCPUGame ? game.team2Rank : game.opponentRank
+  // All games use unified format with team1Rank/team2Rank
+  const team1Ranking = game.team1Rank
+  const team2Ranking = game.team2Rank
   const isRankedMatchup = team1Ranking && team2Ranking
   const isUpset = (team2Ranking && team2Ranking <= 10 && team1Won) ||
                   (team1Ranking && team1Ranking <= 10 && !team1Won)
