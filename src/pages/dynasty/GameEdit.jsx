@@ -1206,12 +1206,13 @@ export default function GameEdit() {
       const model = aiConfig?.model || 'gemini-2.5-flash'
 
       // Build game object for recap generation
+      // IMPORTANT: Parse scores as integers - string comparison fails ("24" > "3" is false alphabetically)
       const gameForRecap = {
         ...existingGame,
         team1: team1Name,
         team2: team2Name,
-        team1Score: formData.team1Score,
-        team2Score: formData.team2Score,
+        team1Score: parseInt(formData.team1Score) || 0,
+        team2Score: parseInt(formData.team2Score) || 0,
         quarters: formData.quarters,
         gameType,
         bowlName,
@@ -1239,12 +1240,13 @@ export default function GameEdit() {
       const customInstructions = user?.uid ? await getCustomRecapInstructions(user.uid) : null
 
       // Build game object for prompt generation
+      // IMPORTANT: Parse scores as integers - string comparison fails ("24" > "3" is false alphabetically)
       const gameForRecap = {
         ...existingGame,
         team1: team1Name,
         team2: team2Name,
-        team1Score: formData.team1Score,
-        team2Score: formData.team2Score,
+        team1Score: parseInt(formData.team1Score) || 0,
+        team2Score: parseInt(formData.team2Score) || 0,
         quarters: formData.quarters,
         gameType,
         bowlName,
