@@ -1806,165 +1806,51 @@ function formatEnhancedPlayerLine(p, category) {
  * Default writing instructions for game recaps
  * Placeholder [HOME_TEAM] will be replaced with the actual home team at generation time
  */
-export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `CRITICAL RULE - READ THIS FIRST - ZERO TOLERANCE FOR FABRICATION:
-You may ONLY write about facts EXPLICITLY provided in the data above. This is a HARD requirement with NO exceptions.
+export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `Write a professional game recap article like a college football writer for ESPN or The Athletic.
 
-**WHAT YOU MUST NEVER DO:**
-- Do NOT invent cities, locations, stadiums, or venues (if neutral site, you don't know where it was played)
-- Do NOT invent weather, crowd size, atmosphere, or game conditions
-- Do NOT invent specific plays, drives, or moments unless they appear in the SCORING SUMMARY
-- Do NOT invent player stats unless they appear in the INDIVIDUAL STATS sections
-- Do NOT assume facts based on team names or bowl game names - only use data explicitly provided
-- Do NOT invent player names that don't appear in the data
-- Do NOT invent jersey numbers, positions, or classes for players unless provided
-- Do NOT describe plays that aren't in the SCORING SUMMARY (no "crucial third-down conversions", "goal-line stands", "key penalties" unless documented)
-- Do NOT attribute stats to players who aren't listed (if a player isn't in INDIVIDUAL STATS, you have NO data about them)
+CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats, drive details, time remaining, etc.) MUST be directly supported by the data provided above. Do not make up any numbers, injuries, rankings, or plays. It's fine to add neutral connecting language (e.g., "Clemson took control in the fourth quarter") but don't invent extra drives, turnovers, or scoring plays that aren't in the data.
 
-**DATA VALIDATION CHECKLIST - Before writing about ANY fact, ask yourself:**
-1. Is this player name in the INDIVIDUAL STATS sections? If NO, do not mention them.
-2. Is this play in the SCORING SUMMARY? If NO, do not describe it.
-3. Is this statistic explicitly provided? If NO, do not cite it.
-4. Am I assuming something based on common knowledge? If YES, remove it - only use PROVIDED data.
+FORMAT:
+- Start with a strong headline in proper title case (e.g., "Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
+- Begin the article body with a dateline: "City, State —" format (e.g., "Madison, WI —" or "Tuscaloosa, AL —"). Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
+- For longer articles with rich data, use subheadings to break up sections (e.g., "Early fireworks and a heavyweight feel", "Fourth-quarter chaos: lead changes and clutch plays")
+- Write in plain text only - no markdown formatting (**, ##, *)
 
-**RANKINGS AND RECORDS - CRITICAL - DO NOT ASSUME BASED ON TEAM REPUTATION:**
-- ONLY use the ranking shown in "FINAL SCORE" section. If it says "UNRANKED", the team is UNRANKED - do NOT assume a ranking.
-- ONLY use the record shown in "SEASON CONTEXT" or opponent's season results. Do NOT assume a record.
-- Teams like Georgia, Alabama, Ohio State are NOT automatically #1, undefeated, or highly ranked. Use ONLY the data provided.
-- If a team is listed as UNRANKED with a 4-1 record, write about them as an UNRANKED team with a 4-1 record - NOT as a top team.
-- Never write phrases like "the top-ranked Bulldogs" or "undefeated Georgia" unless the data explicitly shows #1 ranking or 0 losses.
+USING THE DATA:
+- Use the SCORING SUMMARY to walk through scoring plays chronologically with times and running scores
+- Call out EXACT stat lines throughout: "Shembo completed 27 of 28 passes for 266 yards and three touchdowns with no interceptions, posting a 211.5 passer rating"
+- Include yards per carry, yards per attempt, completion percentage when the numbers are notable
+- Use records/schedule context for big-picture framing (e.g., "The win moves Wisconsin to 8-1 overall and 6-0 in Big Ten play")
+- Only mention rankings if explicitly shown - don't assume teams are ranked based on reputation
 
-If specific game details like scoring plays, play-by-play, individual stats, or quarter scores are NOT provided, do NOT invent them. Write a SHORTER article that focuses on what IS known (final score, historical context, season implications). A 2-3 paragraph recap based on real data is infinitely better than a 10-paragraph article full of fabricated details.
+GAME FLOW:
+When a scoring summary is provided, track the running score after each play to understand lead changes. Walk through the game quarter by quarter, describing how momentum shifted. A "comeback win" means a team was losing and then won.
 
-**USER TEAM PRIORITY:**
-If a "USER'S TEAM PERSPECTIVE" section appears above, that team is the user's team. Frame the article from their perspective - they are the protagonist of the story. Lead with their players and performance.
+ARTICLE STRUCTURE (for rich data):
+1. Headline
+2. Opening paragraph: Capture the drama - the key play, final score, what made this game special
+3. Context paragraph: Records, standings, what this means for both teams
+4. Section: The decisive moment or finish (with subheading)
+5. Section: Key player performances with full stat lines (with subheading)
+6. Section: Early game and how things developed (with subheading)
+7. Section: Fourth quarter drama (with subheading if applicable)
+8. Closing: Big-picture takeaway, what's next
 
-**UNDERSTANDING GAME FLOW FROM SCORING SUMMARY - EXTREMELY IMPORTANT:**
-If a SCORING SUMMARY is provided, it is your PRIMARY source of truth for understanding how the game unfolded. You MUST:
-1. Track the RUNNING SCORE after each scoring play to understand who was ahead/behind at each moment
-2. Pay close attention to WHEN leads changed - a team that fell behind 3-14 in Q1 but took the lead 17-14 by Q2 completed their comeback in Q2, NOT at the end of the game
-3. Accurately identify WHO was "coming back" at each point - it's the team that was BEHIND trying to catch up
-4. If Team A led most of the game and Team B tied it late, Team B almost completed a comeback, not Team A
-5. A "comeback win" means a team was losing and then won - NOT that they held on after being ahead
-6. Read the scoring summary CHRONOLOGICALLY and note every lead change before writing your narrative
+PLAYER FOCUS:
+Make players the centerpiece. Feature standout performances with FULL stat lines woven naturally: "Frisch ran 8 times for 48 yards and two touchdowns, averaging 6.0 yards per carry." Cover both teams' key players.
 
-Example of CORRECT analysis:
-- Q1: Team A 3, Team B 0 (A leads)
-- Q1: Team A 3, Team B 14 (B takes lead - A is now behind and needs to come back)
-- Q2: Team A 17, Team B 14 (A completes comeback, takes lead)
-- Q4: Team A 24, Team B 24 (B ties it - B almost completed THEIR comeback)
-- Q4: Team A 27, Team B 24 (A wins)
-Correct headline: "Team A holds off late Team B rally" NOT "Team A completes comeback"
+TEAM NAMES:
+Write like a real journalist - use full team names ("Wisconsin", "Penn State") and nicknames ("the Badgers", "the Nittany Lions"). Vary your references for readability.
 
-If NO scoring summary is provided, do NOT invent game flow narratives about comebacks, lead changes, or clutch moments. Simply report the final score and focus on what it means.
+USER'S TEAM:
+If a "USER'S TEAM PERSPECTIVE" section appears, frame the article from that team's perspective - they are the protagonist.
 
-**SCALING LENGTH BASED ON DATA - WRITE MORE WHEN DATA IS RICH:**
-- If you have: scoring summary, box scores with individual stats, quarter scores → Write 10-15 DETAILED paragraphs. This is a COMPREHENSIVE game story.
-- If you have: scoring summary AND box scores → Write 8-12 paragraphs with heavy emphasis on player performances
-- If you have: quarter scores but no scoring summary → Write 4-6 paragraphs, describe flow by quarters only
-- If you ONLY have: final score and teams → Write 2-3 short paragraphs about the result and historical context
+SCALING LENGTH:
+- Rich data (scoring summary, box scores, quarter scores): Write a comprehensive article with subheadings, 10-20 paragraphs
+- Moderate data (some stats, quarter scores): Write 4-8 paragraphs, no subheadings needed
+- Limited data (just final score): Write 2-3 short paragraphs focusing on the result and any available context
 
-When rich data is available (box scores with individual player stats), you should write like a beat reporter who watched every play. Go deep into player performances, game flow, key moments, and what it means going forward.
-
-**FORMAT:**
-1. Start with a compelling HEADLINE in title case (like "Hurricanes Storm Back to Stun Rebels in Fiesta Bowl Thriller")
-2. Start the article body with a proper dateline: "CITY, State --" format (e.g., "TUSCALOOSA, Ala. --" or "SOUTH BEND, Ind. --")
-   - IMPORTANT: Look at the HOME TEAM field above. The game is played at the HOME TEAM's stadium.
-   - HOME TEAM for this game: [HOME_TEAM]
-   - If there IS a home team: Use the REAL city where that team plays their home games
-   - If this is a NEUTRAL SITE GAME: You do NOT know the city. Simply omit the dateline entirely and start the article without one. Do NOT invent a city like Atlanta, Dallas, or any other location.
-   - NEVER use the away team's city - the dateline MUST be the home team's city
-   - NEVER write "STAFF REPORT" - always use a real city name or omit the dateline for neutral sites
-3. Do NOT use markdown formatting like **, ##, or * - write in plain text only. The headline should just be the text, not wrapped in any symbols.
-
-**CONTENT REQUIREMENTS:**
-1. ONLY use facts from the data above - if a SCORING SUMMARY section exists, use it; if not, do NOT invent scoring plays
-2. ONLY mention specific plays if they appear in the SCORING SUMMARY with quarter and time
-3. ONLY include player stat lines if they appear in the INDIVIDUAL STATS sections
-4. ONLY describe quarter-by-quarter flow if QUARTER-BY-QUARTER SCORES are provided
-5. You CAN use historical data (head-to-head, bowl history, season results) - that context is always valuable
-6. Reference team stats like turnovers only if they appear in the TEAM STATISTICS section
-
-**FEATURING PLAYER STATISTICS - EXTREMELY IMPORTANT - THE HEART OF YOUR ARTICLE:**
-Real sports journalism is ABOUT the players. When INDIVIDUAL STATS are provided, they should be the CENTERPIECE of your article, not an afterthought. Players and their performances make the story compelling.
-
-**CRITICAL: Only feature players whose stats are ACTUALLY PROVIDED in the data. Do NOT invent stats or mention players without data.**
-
-When box score data is available, dedicate FULL PARAGRAPHS to standout performances:
-
-1. QUARTERBACK SPOTLIGHT (if passing stats provided):
-   - Lead with the QB's full stat line in the first few paragraphs
-   - Example: "Jaylen Raynor was masterful, completing 31 of 38 passes for 271 yards and two touchdowns while avoiding turnovers. His 81.6% completion rate kept the chains moving all afternoon."
-   - Analyze the performance: Was it efficient? Did they take shots downfield? Mention long completions.
-   - Include passer rating context if available (above 140 is elite, 120+ is excellent, below 100 is poor)
-
-2. RUSHING ATTACK (if rushing stats provided):
-   - Dedicate a paragraph to the ground game
-   - Example: "The ground attack was punishing. Kenyon Clay bulldozed his way to 85 yards on 12 carries (7.1 YPC) including a 23-yard touchdown burst. Backup Demarco Williams added 47 yards on 8 carries, giving the offense balance."
-   - Mention multiple rushers if they contributed significantly
-   - Call out impressive yards-per-carry averages (5+ YPC is good, 6+ is excellent)
-
-3. RECEIVING CORPS (if receiving stats provided):
-   - Feature top receivers with full stat lines
-   - Example: "Hunter Summers emerged as the go-to target, hauling in 8 catches for 112 yards and a score, including a crucial 34-yard grab on third down. Tight end Marcus Bell added 5 receptions for 67 yards."
-   - Mention long receptions (30+ yards) as big plays
-
-4. DEFENSIVE HEROES (if defensive stats provided):
-   - Give defenders their own paragraph(s)
-   - Example: "Defensively, linebacker Devyn Curtis was everywhere, piling up a game-high 16 tackles including 3 for loss. Defensive end Jaylen Thompson added 2 sacks, consistently pressuring the quarterback."
-   - Feature players with: 10+ tackles, 2+ sacks, any interceptions, forced fumbles, or defensive TDs
-   - Mention tackles for loss, pass deflections, and QB pressures
-
-5. SPECIAL TEAMS (if kicking stats provided):
-   - Feature clutch kicking performances
-   - Example: "Clune Van Andel was perfect on the day, connecting on field goals of 32, 41, and 47 yards while going 4-for-4 on extra points."
-
-**STAT LINE REQUIREMENTS:**
-- When INDIVIDUAL STATS are provided: Include AT LEAST 5-8 specific player stat lines throughout the article
-- Weave stats naturally into the narrative - don't just list them
-- Compare performances when relevant ("outdueled", "outgained", "more than doubled")
-- Use stats to support your narrative about WHY the game went the way it did
-
-**IF NO INDIVIDUAL STATS ARE PROVIDED:**
-- Do NOT invent player performances
-- Do NOT guess at who scored or made big plays
-- Focus instead on the final score, quarter-by-quarter flow (if available), and historical context
-- It's better to write a shorter, accurate article than to fabricate player performances
-
-**NARRATIVE STYLE:**
-1. Lead with the most compelling storyline - the result, a standout player performance, the upset, the implications
-2. PLAYER-FIRST APPROACH: When stats are available, build your narrative around player performances. Who won the game for their team? Whose stats jumped off the page?
-3. If detailed play data exists, describe the game flow chronologically, crediting specific players for key moments
-4. If only the final score exists, focus on what the result MEANS (historical context, playoff implications, rivalry significance)
-5. Use vivid, active language - avoid passive voice
-6. Connect this game to the bigger picture using the historical data provided
-7. Structure for rich data: Opening (result + star player), Game flow, Offensive standouts paragraph, Defensive standouts paragraph, Key moments from scoring summary, What it means going forward
-
-**TEAM NAME USAGE - VERY IMPORTANT:**
-Write like a real sports journalist. Do NOT overuse abbreviations like "ARST", "ISU", "ARK". Instead:
-- Use full team names: "Arkansas State", "Iowa State", "Arkansas", "Michigan", "Ohio State"
-- Use team nicknames: "the Red Wolves", "the Cyclones", "the Razorbacks", "the Wolverines", "the Buckeyes"
-- Vary your references: "Arkansas State" → "the Red Wolves" → "Arkansas State" → "the visitors/hosts"
-- In headlines, you may use shorter forms but prefer nicknames over abbreviations
-- Abbreviations are OK occasionally for variety, but should NOT be the primary way you refer to teams
-- BAD: "ARST defeated ISU 27-17. ARST's defense was strong. ISU couldn't score."
-- GOOD: "Arkansas State defeated Iowa State 27-17. The Red Wolves' defense was dominant. The Cyclones couldn't find the end zone."
-
-**VERIFY CLAIMS AGAINST QUARTER SCORES - CRITICAL:**
-Before writing any claims about "scoreless" periods, "shutout halves", or "held them without points", you MUST verify against the QUARTER-BY-QUARTER SCORES:
-- If you say "Team X held Team Y scoreless in the second half" - CHECK that Q3 AND Q4 both show 0 for Team Y
-- If you say "Team X shut out Team Y in the final 30 minutes" - same verification required
-- If Q4 shows points scored, you CANNOT claim they were "scoreless in the final minutes"
-- Example: If quarters show Team Y: Q1=0, Q2=6, Q3=0, Q4=7, you CANNOT say they were "scoreless in the second half" because they scored 7 in Q4
-
-**ABSOLUTELY DO NOT:**
-1. Do NOT make up specific times for touchdowns (like "with 3:00 left in the first quarter") unless in SCORING SUMMARY
-2. Do NOT invent play-by-play descriptions (like "chipped away at the deficit" or "mounted a final drive") unless you have actual play data
-3. Do NOT fabricate quarterback stats, rushing yards, or any numbers not explicitly provided
-4. Do NOT create fictional narrative about how drives unfolded unless you have the scoring summary
-5. Do NOT make up quotes from players or coaches
-6. Do NOT speculate about injuries, weather, crowd, or atmosphere
-7. If data is limited, write a SHORT factual recap - do NOT pad with invented details
-8. Do NOT claim a team was "scoreless" in any quarter or half without verifying the quarter scores show 0 for those periods`
+A shorter, accurate article is always better than a longer one padded with invented details.`
 
 /**
  * Build the prompt for a game recap
@@ -2561,6 +2447,18 @@ export async function getCustomRecapInstructions(userId) {
     console.error('Error fetching custom instructions:', error)
     return null
   }
+}
+
+/**
+ * Build the full prompt for a game recap (for copying to external AI)
+ * @param {object} dynasty - The dynasty data
+ * @param {object} game - The game data
+ * @param {string} customInstructions - Optional custom writing instructions
+ * @returns {string} The full prompt text ready to paste into any AI
+ */
+export function getFullRecapPrompt(dynasty, game, customInstructions = null) {
+  const context = buildGameRecapContext(dynasty, game)
+  return buildGameRecapPrompt(context, customInstructions)
 }
 
 /**
