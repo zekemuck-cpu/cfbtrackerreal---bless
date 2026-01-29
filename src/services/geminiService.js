@@ -1811,38 +1811,43 @@ export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `Write a professional game recap 
 CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats, drive details, time remaining, etc.) MUST be directly supported by the data provided above. Do not make up any numbers, injuries, rankings, or plays. It's fine to add neutral connecting language (e.g., "Clemson took control in the fourth quarter") but don't invent extra drives, turnovers, or scoring plays that aren't in the data.
 
 FORMAT:
-- Start with a strong headline in proper title case (no dateline or location needed)
+- Start with a strong headline in proper title case (e.g., "Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
+- Begin the article body with a dateline: "City, State —" format (e.g., "Madison, WI —" or "Tuscaloosa, AL —"). Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
+- For longer articles with rich data, use subheadings to break up sections (e.g., "Early fireworks and a heavyweight feel", "Fourth-quarter chaos: lead changes and clutch plays")
 - Write in plain text only - no markdown formatting (**, ##, *)
-- Write as a single, cohesive article with clear paragraphs
 
 USING THE DATA:
-- Use the SCORING SUMMARY and quarter-by-quarter scores to describe how the game flowed, in order
-- Use the player stats to highlight key performances - call out exact stat lines for QBs, RBs, and top receivers/defenders when available
-- Use records/schedule context for big-picture framing (e.g., "Wisconsin falls to 2-1 after wins over Kent State and New Mexico State")
+- Use the SCORING SUMMARY to walk through scoring plays chronologically with times and running scores
+- Call out EXACT stat lines throughout: "Shembo completed 27 of 28 passes for 266 yards and three touchdowns with no interceptions, posting a 211.5 passer rating"
+- Include yards per carry, yards per attempt, completion percentage when the numbers are notable
+- Use records/schedule context for big-picture framing (e.g., "The win moves Wisconsin to 8-1 overall and 6-0 in Big Ten play")
 - Only mention rankings if explicitly shown - don't assume teams are ranked based on reputation
 
-GAME FLOW FROM SCORING SUMMARY:
-When a scoring summary is provided, track the running score after each play to understand lead changes. A "comeback win" means a team was losing and then won. Be accurate about who was behind and when they took the lead.
+GAME FLOW:
+When a scoring summary is provided, track the running score after each play to understand lead changes. Walk through the game quarter by quarter, describing how momentum shifted. A "comeback win" means a team was losing and then won.
 
-ARTICLE STRUCTURE (when data is available):
-- Opening: The result and key storyline
-- Early game: How things started
-- Turning points: Key moments that shifted momentum
-- Fourth quarter: How it finished
-- Big-picture takeaway: What this means for the season
+ARTICLE STRUCTURE (for rich data):
+1. Headline
+2. Opening paragraph: Capture the drama - the key play, final score, what made this game special
+3. Context paragraph: Records, standings, what this means for both teams
+4. Section: The decisive moment or finish (with subheading)
+5. Section: Key player performances with full stat lines (with subheading)
+6. Section: Early game and how things developed (with subheading)
+7. Section: Fourth quarter drama (with subheading if applicable)
+8. Closing: Big-picture takeaway, what's next
 
 PLAYER FOCUS:
-When individual stats are provided, make players the centerpiece. Feature standout performances with full stat lines woven naturally into the narrative.
+Make players the centerpiece. Feature standout performances with FULL stat lines woven naturally: "Frisch ran 8 times for 48 yards and two touchdowns, averaging 6.0 yards per carry." Cover both teams' key players.
 
 TEAM NAMES:
-Write like a real journalist - use full team names ("Arkansas State") and nicknames ("the Red Wolves") instead of abbreviations ("ARST"). Vary your references for readability.
+Write like a real journalist - use full team names ("Wisconsin", "Penn State") and nicknames ("the Badgers", "the Nittany Lions"). Vary your references for readability.
 
 USER'S TEAM:
 If a "USER'S TEAM PERSPECTIVE" section appears, frame the article from that team's perspective - they are the protagonist.
 
 SCALING LENGTH:
-- Rich data (scoring summary, box scores, quarter scores): Write a comprehensive 8-15 paragraph article
-- Moderate data (some stats, quarter scores): Write 4-8 paragraphs
+- Rich data (scoring summary, box scores, quarter scores): Write a comprehensive article with subheadings, 10-20 paragraphs
+- Moderate data (some stats, quarter scores): Write 4-8 paragraphs, no subheadings needed
 - Limited data (just final score): Write 2-3 short paragraphs focusing on the result and any available context
 
 A shorter, accurate article is always better than a longer one padded with invented details.`
