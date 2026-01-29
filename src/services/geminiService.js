@@ -7,7 +7,7 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { getTeamName } from '../data/teamAbbreviations'
-import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getUserGamePerspective } from '../context/DynastyContext'
 import { getProvider, getDefaultModel as getProviderDefaultModel } from './providers'
 
@@ -385,6 +385,15 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
 }
 
 /**
+ * Get abbreviation from tid using TEAMS registry
+ */
+function getAbbrFromTid(tid) {
+  if (!tid) return null
+  const teamData = TEAMS[tid]
+  return teamData?.abbr || null
+}
+
+/**
  * Get team ratings for a team/year
  * Checks tid-based storage first, then falls back to legacy abbr-based storage
  */
@@ -482,34 +491,67 @@ function getCoachingStaff(dynasty, teamAbbr, year) {
 
 /**
  * Get all season results before this game
+ * Supports both legacy (userTeam/opponent) and unified (team1Tid/team2Tid) formats
  */
 function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder) {
   if (!allGames) return []
+
+  const teamTid = getTidFromAbbr(teamAbbr)
 
   return allGames
     .filter(g => {
       if (Number(g.year) !== Number(year)) return false
       if (getGameOrder(g) >= currentGameOrder) return false
-      // Must be a user game for this team
-      if (g.userTeam !== teamAbbr) return false
+      // Must be a user game for this team (check both legacy and unified formats)
+      const isUserTeamLegacy = g.userTeam === teamAbbr
+      const isUserTeamUnified = teamTid && (g.userTid === teamTid || g.team1Tid === teamTid)
+      if (!isUserTeamLegacy && !isUserTeamUnified) return false
       return true
     })
     .sort((a, b) => getGameOrder(a) - getGameOrder(b))
-    .map(g => ({
-      week: g.week,
-      opponent: g.opponent,
-      result: g.result,
-      teamScore: g.teamScore,
-      opponentScore: g.opponentScore,
-      isConferenceGame: g.isConferenceGame,
-      opponentRank: g.opponentRank,
-      location: g.location,
-      gameType: g.isConferenceChampionship ? 'CCG' :
-                g.isBowlGame ? 'Bowl' :
-                g.isCFPFirstRound ? 'CFP R1' :
-                g.isCFPQuarterfinal ? 'CFP QF' :
-                g.isCFPSemifinal ? 'CFP SF' : 'Regular'
-    }))
+    .map(g => {
+      // Handle both legacy and unified formats for opponent and scores
+      let opponent, teamScore, opponentScore, opponentRank
+
+      if (g.userTeam) {
+        // Legacy format
+        opponent = g.opponent
+        teamScore = g.teamScore
+        opponentScore = g.opponentScore
+        opponentRank = g.opponentRank
+      } else if (teamTid && g.team1Tid === teamTid) {
+        // Unified format - user is team1
+        opponent = getAbbrFromTid(g.team2Tid) || g.team2
+        teamScore = g.team1Score
+        opponentScore = g.team2Score
+        opponentRank = g.team2Rank
+      } else if (teamTid && g.team2Tid === teamTid) {
+        // Unified format - user is team2
+        opponent = getAbbrFromTid(g.team1Tid) || g.team1
+        teamScore = g.team2Score
+        opponentScore = g.team1Score
+        opponentRank = g.team1Rank
+      }
+
+      // Determine result
+      const result = teamScore > opponentScore ? 'W' : 'L'
+
+      return {
+        week: g.week,
+        opponent,
+        result,
+        teamScore,
+        opponentScore,
+        isConferenceGame: g.isConferenceGame,
+        opponentRank,
+        location: g.location,
+        gameType: g.isConferenceChampionship ? 'CCG' :
+                  g.isBowlGame ? 'Bowl' :
+                  g.isCFPFirstRound ? 'CFP R1' :
+                  g.isCFPQuarterfinal ? 'CFP QF' :
+                  g.isCFPSemifinal ? 'CFP SF' : 'Regular'
+      }
+    })
 }
 
 /**
@@ -693,18 +735,25 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
 function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5) {
   const history = []
 
+  // Get tids for unified format matching
+  const team1Tid = getTidFromAbbr(team1)
+  const team2Tid = getTidFromAbbr(team2)
+
   for (const g of allGames) {
     // Skip games from current year (we only want historical)
     if (Number(g.year) >= Number(currentYear)) continue
 
-    // Check if this game involves both teams
+    // Check if this game involves both teams (support multiple formats)
     const isMatch = (
-      // User game format
+      // Legacy user game format (userTeam/opponent abbreviations)
       (g.userTeam === team1 && g.opponent === team2) ||
       (g.userTeam === team2 && g.opponent === team1) ||
-      // CPU game format
+      // Legacy CPU game format (team1/team2 abbreviations)
       (g.team1 === team1 && g.team2 === team2) ||
-      (g.team1 === team2 && g.team2 === team1)
+      (g.team1 === team2 && g.team2 === team1) ||
+      // Unified format (team1Tid/team2Tid)
+      (team1Tid && team2Tid && g.team1Tid === team1Tid && g.team2Tid === team2Tid) ||
+      (team1Tid && team2Tid && g.team1Tid === team2Tid && g.team2Tid === team1Tid)
     )
 
     if (isMatch) {
@@ -1369,9 +1418,27 @@ export function buildGameRecapContext(dynasty, game) {
   // Get players array for enhanced context
   const players = dynasty.players || []
 
-  // Get team ratings for both teams
-  const team1Ratings = getTeamRatings(dynasty, team1, year)
-  const team2Ratings = getTeamRatings(dynasty, team2, year)
+  // Get team ratings for both teams - check dynasty data first, then game-level data as fallback
+  let team1Ratings = getTeamRatings(dynasty, team1, year)
+  let team2Ratings = getTeamRatings(dynasty, team2, year)
+
+  // Fallback: Use game-level ratings if dynasty ratings not found
+  // Games may have team1Overall/team2Overall or opponentOverall stored
+  if (!team1Ratings?.overall && isCurrentGameUserGame) {
+    const userOverall = currentGamePerspective?.userOverall || game.team1Overall
+    if (userOverall) {
+      team1Ratings = { overall: userOverall }
+    }
+  }
+  if (!team2Ratings?.overall) {
+    // Try game-level opponent ratings
+    const oppOverall = isCurrentGameUserGame
+      ? (currentGamePerspective?.opponentOverall || game.opponentOverall || game.team2Overall)
+      : game.team2Overall
+    if (oppOverall) {
+      team2Ratings = { overall: oppOverall }
+    }
+  }
 
   // Get coaching staff for user team (team1 for user games)
   const team1Staff = !isCPUGame ? getCoachingStaff(dynasty, team1, year) : null
