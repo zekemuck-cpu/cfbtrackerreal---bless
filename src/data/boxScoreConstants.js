@@ -11,7 +11,7 @@ export const STAT_TABS = {
   rushing: {
     key: 'rushing',
     title: 'Rushing',
-    headers: ['Player Name', 'Carries', 'Yards', 'TD', 'Fumbles', 'Broken Tackles', 'YAC', '20+', 'Long'],
+    headers: ['Player Name', 'Carries', 'Yards', 'TD', 'Fumbles', 'BT', 'YAC', '20+', 'Long'],
     rowCount: 15
   },
   receiving: {

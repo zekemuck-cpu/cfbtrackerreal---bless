@@ -7858,13 +7858,24 @@ export default function Dashboard() {
             <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
               <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
               <div className="px-4 sm:px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
-                <div>
-                  <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
-                    {currentDynasty.currentYear} Roster
-                  </h2>
-                  <p className="text-sm text-zinc-500">
-                    {teamRoster.length} Players
-                  </p>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
+                      {currentDynasty.currentYear} Roster
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                      {teamRoster.length} Players
+                    </p>
+                  </div>
+                  <Link
+                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    title="View full roster on team page"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Link>
                 </div>
                 {/* Sort controls */}
                 <div className="flex items-center gap-1">
@@ -7969,6 +7980,15 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+            <Link
+              to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+              title="View full schedule on team page"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Link>
           </div>
           {!isViewOnly && (
             <button
@@ -8481,6 +8501,15 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
+                  <Link
+                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                    title="View full schedule on team page"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Link>
                 </div>
                 {!isViewOnly && (
                   <button
@@ -8629,6 +8658,15 @@ export default function Dashboard() {
                     <span className="text-sm font-semibold text-white">{teamRoster.length} Players</span>
                   </div>
                 </div>
+                <Link
+                  to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+                  title="View full roster on team page"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </Link>
               </div>
               {/* Sort controls */}
               <div className="flex items-center gap-1">
