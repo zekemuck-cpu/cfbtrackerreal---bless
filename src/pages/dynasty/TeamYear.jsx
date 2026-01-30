@@ -1230,96 +1230,8 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
-  // Get team leaders from box score data OR player.statsByYear
+  // Get team leaders from player.statsByYear (single source of truth)
   const teamLeaders = useMemo(() => {
-    const games = currentDynasty.games || []
-    const boxScoreStats = {} // { playerName: { passing: {...}, rushing: {...}, ... } }
-
-    // First, try to aggregate from box scores
-    games.forEach(game => {
-      if (Number(game.year) !== selectedYear) return
-      if (!game.boxScore) return
-
-      // Check if this team's stats are in the home or away slot
-      const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr?.toUpperCase()
-      const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr?.toUpperCase()
-      const targetAbbr = teamAbbr?.toUpperCase()
-
-      let teamSide = null
-      if (homeAbbr === targetAbbr) teamSide = 'home'
-      else if (awayAbbr === targetAbbr) teamSide = 'away'
-
-      // If no teamStats match, try to infer from game data
-      if (!teamSide) {
-        const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
-        const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
-        if (isTeam1) teamSide = game.homeTeamTid === tid ? 'home' : 'away'
-        else if (isTeam2) teamSide = game.homeTeamTid === tid ? 'away' : 'home'
-      }
-
-      if (!teamSide || !game.boxScore[teamSide]) return
-
-      const boxData = game.boxScore[teamSide]
-
-      // Aggregate passing stats
-      ;(boxData.passing || []).forEach(row => {
-        if (!row.playerName) return
-        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!boxScoreStats[row.playerName].passing) {
-          boxScoreStats[row.playerName].passing = { yards: 0, tD: 0, comp: 0, attempts: 0 }
-        }
-        boxScoreStats[row.playerName].passing.yards += parseFloat(row.yards) || 0
-        boxScoreStats[row.playerName].passing.tD += parseFloat(row.tD) || 0
-        boxScoreStats[row.playerName].passing.comp += parseFloat(row.comp) || 0
-        boxScoreStats[row.playerName].passing.attempts += parseFloat(row.attempts) || 0
-      })
-
-      // Aggregate rushing stats
-      ;(boxData.rushing || []).forEach(row => {
-        if (!row.playerName) return
-        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!boxScoreStats[row.playerName].rushing) {
-          boxScoreStats[row.playerName].rushing = { yards: 0, tD: 0, carries: 0 }
-        }
-        boxScoreStats[row.playerName].rushing.yards += parseFloat(row.yards) || 0
-        boxScoreStats[row.playerName].rushing.tD += parseFloat(row.tD) || 0
-        boxScoreStats[row.playerName].rushing.carries += parseFloat(row.carries) || 0
-      })
-
-      // Aggregate receiving stats
-      ;(boxData.receiving || []).forEach(row => {
-        if (!row.playerName) return
-        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!boxScoreStats[row.playerName].receiving) {
-          boxScoreStats[row.playerName].receiving = { yards: 0, tD: 0, receptions: 0 }
-        }
-        boxScoreStats[row.playerName].receiving.yards += parseFloat(row.yards) || 0
-        boxScoreStats[row.playerName].receiving.tD += parseFloat(row.tD) || 0
-        boxScoreStats[row.playerName].receiving.receptions += parseFloat(row.receptions) || 0
-      })
-
-      // Aggregate defense stats (tackles = solo + assists)
-      ;(boxData.defense || []).forEach(row => {
-        if (!row.playerName) return
-        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!boxScoreStats[row.playerName].defense) {
-          boxScoreStats[row.playerName].defense = { tackles: 0, solo: 0, assists: 0, sacks: 0, interceptions: 0 }
-        }
-        const solo = parseFloat(row.solo) || 0
-        const assists = parseFloat(row.assists) || 0
-        boxScoreStats[row.playerName].defense.solo += solo
-        boxScoreStats[row.playerName].defense.assists += assists
-        boxScoreStats[row.playerName].defense.tackles += solo + assists
-        boxScoreStats[row.playerName].defense.sacks += parseFloat(row.sack) || 0
-        boxScoreStats[row.playerName].defense.interceptions += parseFloat(row.iNT) || 0
-      })
-    })
-
-    // Find player objects for leaders
-    const findPlayer = (name) => {
-      return teamPlayers.find(p => p.name === name)
-    }
-
     // Helper to get stats from player.statsByYear
     const getPlayerYearStats = (player) => {
       const yearKey = String(selectedYear)
@@ -1327,59 +1239,28 @@ export default function TeamYear() {
       return player.statsByYear?.[yearKey] ?? player.statsByYear?.[numKey] ?? player.statsByYear?.[selectedYear]
     }
 
-    // Check if we have any box score data
-    const hasBoxScoreData = Object.keys(boxScoreStats).length > 0
-
-    if (hasBoxScoreData) {
-      // Use box score data
-      const entries = Object.entries(boxScoreStats)
-
-      const topPasser = entries
-        .filter(([_, s]) => s.passing && s.passing.yards > 0)
-        .sort((a, b) => b[1].passing.yards - a[1].passing.yards)[0]
-
-      const topRusher = entries
-        .filter(([_, s]) => s.rushing && s.rushing.yards > 0)
-        .sort((a, b) => b[1].rushing.yards - a[1].rushing.yards)[0]
-
-      const topReceiver = entries
-        .filter(([_, s]) => s.receiving && s.receiving.yards > 0)
-        .sort((a, b) => b[1].receiving.yards - a[1].receiving.yards)[0]
-
-      const topTackler = entries
-        .filter(([_, s]) => s.defense && s.defense.tackles > 0)
-        .sort((a, b) => b[1].defense.tackles - a[1].defense.tackles)[0]
-
-      return {
-        passing: topPasser ? { name: topPasser[0], player: findPlayer(topPasser[0]), stats: topPasser[1].passing } : null,
-        rushing: topRusher ? { name: topRusher[0], player: findPlayer(topRusher[0]), stats: topRusher[1].rushing } : null,
-        receiving: topReceiver ? { name: topReceiver[0], player: findPlayer(topReceiver[0]), stats: topReceiver[1].receiving } : null,
-        tackles: topTackler ? { name: topTackler[0], player: findPlayer(topTackler[0]), stats: topTackler[1].defense } : null
-      }
-    }
-
-    // Fallback: Use player.statsByYear data
+    // Get all players with stats for this year
     const playersWithStats = teamPlayers.map(player => {
       const yearStats = getPlayerYearStats(player)
       return { player, yearStats }
     }).filter(({ yearStats }) => yearStats)
 
-    // Find top passer from statsByYear
+    // Find top passer
     const topPasser = playersWithStats
       .filter(({ yearStats }) => yearStats.passing && (yearStats.passing.yds > 0 || yearStats.passing.att > 0))
       .sort((a, b) => (b.yearStats.passing?.yds || 0) - (a.yearStats.passing?.yds || 0))[0]
 
-    // Find top rusher from statsByYear
+    // Find top rusher
     const topRusher = playersWithStats
       .filter(({ yearStats }) => yearStats.rushing && (yearStats.rushing.yds > 0 || yearStats.rushing.car > 0))
       .sort((a, b) => (b.yearStats.rushing?.yds || 0) - (a.yearStats.rushing?.yds || 0))[0]
 
-    // Find top receiver from statsByYear
+    // Find top receiver
     const topReceiver = playersWithStats
       .filter(({ yearStats }) => yearStats.receiving && (yearStats.receiving.yds > 0 || yearStats.receiving.rec > 0))
       .sort((a, b) => (b.yearStats.receiving?.yds || 0) - (a.yearStats.receiving?.yds || 0))[0]
 
-    // Find top tackler from statsByYear
+    // Find top tackler
     const topTackler = playersWithStats
       .filter(({ yearStats }) => yearStats.defense && ((yearStats.defense.soloTkl || 0) + (yearStats.defense.astTkl || 0) > 0))
       .sort((a, b) => {
@@ -1429,7 +1310,7 @@ export default function TeamYear() {
         }
       } : null
     }
-  }, [currentDynasty.games, selectedYear, teamAbbr, tid, teamPlayers])
+  }, [selectedYear, teamPlayers])
 
   // Get recruits for next year (current year + 1 recruiting class)
   const nextYearRecruits = useMemo(() => {
