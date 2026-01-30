@@ -1230,11 +1230,12 @@ export default function TeamYear() {
     isPlayerOnRoster(p, tid, selectedYear)
   )
 
-  // Get team leaders from box score data
+  // Get team leaders from box score data OR player.statsByYear
   const teamLeaders = useMemo(() => {
     const games = currentDynasty.games || []
-    const playerStats = {} // { playerName: { passing: {...}, rushing: {...}, ... } }
+    const boxScoreStats = {} // { playerName: { passing: {...}, rushing: {...}, ... } }
 
+    // First, try to aggregate from box scores
     games.forEach(game => {
       if (Number(game.year) !== selectedYear) return
       if (!game.boxScore) return
@@ -1263,54 +1264,54 @@ export default function TeamYear() {
       // Aggregate passing stats
       ;(boxData.passing || []).forEach(row => {
         if (!row.playerName) return
-        if (!playerStats[row.playerName]) playerStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!playerStats[row.playerName].passing) {
-          playerStats[row.playerName].passing = { yards: 0, tD: 0, comp: 0, attempts: 0 }
+        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
+        if (!boxScoreStats[row.playerName].passing) {
+          boxScoreStats[row.playerName].passing = { yards: 0, tD: 0, comp: 0, attempts: 0 }
         }
-        playerStats[row.playerName].passing.yards += parseFloat(row.yards) || 0
-        playerStats[row.playerName].passing.tD += parseFloat(row.tD) || 0
-        playerStats[row.playerName].passing.comp += parseFloat(row.comp) || 0
-        playerStats[row.playerName].passing.attempts += parseFloat(row.attempts) || 0
+        boxScoreStats[row.playerName].passing.yards += parseFloat(row.yards) || 0
+        boxScoreStats[row.playerName].passing.tD += parseFloat(row.tD) || 0
+        boxScoreStats[row.playerName].passing.comp += parseFloat(row.comp) || 0
+        boxScoreStats[row.playerName].passing.attempts += parseFloat(row.attempts) || 0
       })
 
       // Aggregate rushing stats
       ;(boxData.rushing || []).forEach(row => {
         if (!row.playerName) return
-        if (!playerStats[row.playerName]) playerStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!playerStats[row.playerName].rushing) {
-          playerStats[row.playerName].rushing = { yards: 0, tD: 0, carries: 0 }
+        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
+        if (!boxScoreStats[row.playerName].rushing) {
+          boxScoreStats[row.playerName].rushing = { yards: 0, tD: 0, carries: 0 }
         }
-        playerStats[row.playerName].rushing.yards += parseFloat(row.yards) || 0
-        playerStats[row.playerName].rushing.tD += parseFloat(row.tD) || 0
-        playerStats[row.playerName].rushing.carries += parseFloat(row.carries) || 0
+        boxScoreStats[row.playerName].rushing.yards += parseFloat(row.yards) || 0
+        boxScoreStats[row.playerName].rushing.tD += parseFloat(row.tD) || 0
+        boxScoreStats[row.playerName].rushing.carries += parseFloat(row.carries) || 0
       })
 
       // Aggregate receiving stats
       ;(boxData.receiving || []).forEach(row => {
         if (!row.playerName) return
-        if (!playerStats[row.playerName]) playerStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!playerStats[row.playerName].receiving) {
-          playerStats[row.playerName].receiving = { yards: 0, tD: 0, receptions: 0 }
+        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
+        if (!boxScoreStats[row.playerName].receiving) {
+          boxScoreStats[row.playerName].receiving = { yards: 0, tD: 0, receptions: 0 }
         }
-        playerStats[row.playerName].receiving.yards += parseFloat(row.yards) || 0
-        playerStats[row.playerName].receiving.tD += parseFloat(row.tD) || 0
-        playerStats[row.playerName].receiving.receptions += parseFloat(row.receptions) || 0
+        boxScoreStats[row.playerName].receiving.yards += parseFloat(row.yards) || 0
+        boxScoreStats[row.playerName].receiving.tD += parseFloat(row.tD) || 0
+        boxScoreStats[row.playerName].receiving.receptions += parseFloat(row.receptions) || 0
       })
 
       // Aggregate defense stats (tackles = solo + assists)
       ;(boxData.defense || []).forEach(row => {
         if (!row.playerName) return
-        if (!playerStats[row.playerName]) playerStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
-        if (!playerStats[row.playerName].defense) {
-          playerStats[row.playerName].defense = { tackles: 0, solo: 0, assists: 0, sacks: 0, interceptions: 0 }
+        if (!boxScoreStats[row.playerName]) boxScoreStats[row.playerName] = { passing: null, rushing: null, receiving: null, defense: null }
+        if (!boxScoreStats[row.playerName].defense) {
+          boxScoreStats[row.playerName].defense = { tackles: 0, solo: 0, assists: 0, sacks: 0, interceptions: 0 }
         }
         const solo = parseFloat(row.solo) || 0
         const assists = parseFloat(row.assists) || 0
-        playerStats[row.playerName].defense.solo += solo
-        playerStats[row.playerName].defense.assists += assists
-        playerStats[row.playerName].defense.tackles += solo + assists
-        playerStats[row.playerName].defense.sacks += parseFloat(row.sack) || 0
-        playerStats[row.playerName].defense.interceptions += parseFloat(row.iNT) || 0
+        boxScoreStats[row.playerName].defense.solo += solo
+        boxScoreStats[row.playerName].defense.assists += assists
+        boxScoreStats[row.playerName].defense.tackles += solo + assists
+        boxScoreStats[row.playerName].defense.sacks += parseFloat(row.sack) || 0
+        boxScoreStats[row.playerName].defense.interceptions += parseFloat(row.iNT) || 0
       })
     })
 
@@ -1319,30 +1320,114 @@ export default function TeamYear() {
       return teamPlayers.find(p => p.name === name)
     }
 
-    // Get top player for each category
-    const entries = Object.entries(playerStats)
+    // Helper to get stats from player.statsByYear
+    const getPlayerYearStats = (player) => {
+      const yearKey = String(selectedYear)
+      const numKey = Number(selectedYear)
+      return player.statsByYear?.[yearKey] ?? player.statsByYear?.[numKey] ?? player.statsByYear?.[selectedYear]
+    }
 
-    const topPasser = entries
-      .filter(([_, s]) => s.passing && s.passing.yards > 0)
-      .sort((a, b) => b[1].passing.yards - a[1].passing.yards)[0]
+    // Check if we have any box score data
+    const hasBoxScoreData = Object.keys(boxScoreStats).length > 0
 
-    const topRusher = entries
-      .filter(([_, s]) => s.rushing && s.rushing.yards > 0)
-      .sort((a, b) => b[1].rushing.yards - a[1].rushing.yards)[0]
+    if (hasBoxScoreData) {
+      // Use box score data
+      const entries = Object.entries(boxScoreStats)
 
-    const topReceiver = entries
-      .filter(([_, s]) => s.receiving && s.receiving.yards > 0)
-      .sort((a, b) => b[1].receiving.yards - a[1].receiving.yards)[0]
+      const topPasser = entries
+        .filter(([_, s]) => s.passing && s.passing.yards > 0)
+        .sort((a, b) => b[1].passing.yards - a[1].passing.yards)[0]
 
-    const topTackler = entries
-      .filter(([_, s]) => s.defense && s.defense.tackles > 0)
-      .sort((a, b) => b[1].defense.tackles - a[1].defense.tackles)[0]
+      const topRusher = entries
+        .filter(([_, s]) => s.rushing && s.rushing.yards > 0)
+        .sort((a, b) => b[1].rushing.yards - a[1].rushing.yards)[0]
+
+      const topReceiver = entries
+        .filter(([_, s]) => s.receiving && s.receiving.yards > 0)
+        .sort((a, b) => b[1].receiving.yards - a[1].receiving.yards)[0]
+
+      const topTackler = entries
+        .filter(([_, s]) => s.defense && s.defense.tackles > 0)
+        .sort((a, b) => b[1].defense.tackles - a[1].defense.tackles)[0]
+
+      return {
+        passing: topPasser ? { name: topPasser[0], player: findPlayer(topPasser[0]), stats: topPasser[1].passing } : null,
+        rushing: topRusher ? { name: topRusher[0], player: findPlayer(topRusher[0]), stats: topRusher[1].rushing } : null,
+        receiving: topReceiver ? { name: topReceiver[0], player: findPlayer(topReceiver[0]), stats: topReceiver[1].receiving } : null,
+        tackles: topTackler ? { name: topTackler[0], player: findPlayer(topTackler[0]), stats: topTackler[1].defense } : null
+      }
+    }
+
+    // Fallback: Use player.statsByYear data
+    const playersWithStats = teamPlayers.map(player => {
+      const yearStats = getPlayerYearStats(player)
+      return { player, yearStats }
+    }).filter(({ yearStats }) => yearStats)
+
+    // Find top passer from statsByYear
+    const topPasser = playersWithStats
+      .filter(({ yearStats }) => yearStats.passing && (yearStats.passing.yds > 0 || yearStats.passing.att > 0))
+      .sort((a, b) => (b.yearStats.passing?.yds || 0) - (a.yearStats.passing?.yds || 0))[0]
+
+    // Find top rusher from statsByYear
+    const topRusher = playersWithStats
+      .filter(({ yearStats }) => yearStats.rushing && (yearStats.rushing.yds > 0 || yearStats.rushing.car > 0))
+      .sort((a, b) => (b.yearStats.rushing?.yds || 0) - (a.yearStats.rushing?.yds || 0))[0]
+
+    // Find top receiver from statsByYear
+    const topReceiver = playersWithStats
+      .filter(({ yearStats }) => yearStats.receiving && (yearStats.receiving.yds > 0 || yearStats.receiving.rec > 0))
+      .sort((a, b) => (b.yearStats.receiving?.yds || 0) - (a.yearStats.receiving?.yds || 0))[0]
+
+    // Find top tackler from statsByYear
+    const topTackler = playersWithStats
+      .filter(({ yearStats }) => yearStats.defense && ((yearStats.defense.soloTkl || 0) + (yearStats.defense.astTkl || 0) > 0))
+      .sort((a, b) => {
+        const aTackles = (b.yearStats.defense?.soloTkl || 0) + (b.yearStats.defense?.astTkl || 0)
+        const bTackles = (a.yearStats.defense?.soloTkl || 0) + (a.yearStats.defense?.astTkl || 0)
+        return aTackles - bTackles
+      })[0]
 
     return {
-      passing: topPasser ? { name: topPasser[0], player: findPlayer(topPasser[0]), stats: topPasser[1].passing } : null,
-      rushing: topRusher ? { name: topRusher[0], player: findPlayer(topRusher[0]), stats: topRusher[1].rushing } : null,
-      receiving: topReceiver ? { name: topReceiver[0], player: findPlayer(topReceiver[0]), stats: topReceiver[1].receiving } : null,
-      tackles: topTackler ? { name: topTackler[0], player: findPlayer(topTackler[0]), stats: topTackler[1].defense } : null
+      passing: topPasser ? {
+        name: topPasser.player.name,
+        player: topPasser.player,
+        stats: {
+          yards: topPasser.yearStats.passing?.yds || 0,
+          tD: topPasser.yearStats.passing?.td || 0,
+          comp: topPasser.yearStats.passing?.cmp || 0,
+          attempts: topPasser.yearStats.passing?.att || 0
+        }
+      } : null,
+      rushing: topRusher ? {
+        name: topRusher.player.name,
+        player: topRusher.player,
+        stats: {
+          yards: topRusher.yearStats.rushing?.yds || 0,
+          tD: topRusher.yearStats.rushing?.td || 0,
+          carries: topRusher.yearStats.rushing?.car || 0
+        }
+      } : null,
+      receiving: topReceiver ? {
+        name: topReceiver.player.name,
+        player: topReceiver.player,
+        stats: {
+          yards: topReceiver.yearStats.receiving?.yds || 0,
+          tD: topReceiver.yearStats.receiving?.td || 0,
+          receptions: topReceiver.yearStats.receiving?.rec || 0
+        }
+      } : null,
+      tackles: topTackler ? {
+        name: topTackler.player.name,
+        player: topTackler.player,
+        stats: {
+          tackles: (topTackler.yearStats.defense?.soloTkl || 0) + (topTackler.yearStats.defense?.astTkl || 0),
+          solo: topTackler.yearStats.defense?.soloTkl || 0,
+          assists: topTackler.yearStats.defense?.astTkl || 0,
+          sacks: topTackler.yearStats.defense?.sacks || 0,
+          interceptions: topTackler.yearStats.defense?.int || 0
+        }
+      } : null
     }
   }, [currentDynasty.games, selectedYear, teamAbbr, tid, teamPlayers])
 
