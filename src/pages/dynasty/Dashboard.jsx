@@ -300,6 +300,7 @@ export default function Dashboard() {
   // Roster sorting state
   const [rosterSort, setRosterSort] = useState('position') // 'position', 'jerseyNumber', 'name', 'class'
   const [rosterSortDir, setRosterSortDir] = useState('asc')
+  const [mobileTab, setMobileTab] = useState('schedule') // 'schedule' or 'roster' - for mobile view
 
   // Roster sort handler
   const handleRosterSort = (column) => {
@@ -7895,7 +7896,7 @@ export default function Dashboard() {
                         className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all hover:bg-zinc-800/60 group"
                       >
                         {/* Jersey Number */}
-                        <span className="text-xs font-mono text-zinc-600 w-6 text-right">{player.jerseyNumber || '--'}</span>
+                        <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                         {/* Player Image */}
                         <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600 transition-all" style={{ backgroundColor: '#27272a' }}>
@@ -7938,45 +7939,46 @@ export default function Dashboard() {
         </div>
         {/* End Left Column */}
 
-        {/* Right Column: Schedule */}
-        <div>
-          {/* Schedule Section */}
-      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-        {/* Team color accent bar */}
-        <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
-
+        {/* Right Column: Schedule - Desktop Only */}
+        <div className="hidden lg:block">
+          {/* Schedule Section - Clean Redesign */}
+      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
         {/* Schedule Header */}
-        <div className="px-4 sm:px-6 py-4" style={{ borderBottom: '1px solid #27272a' }}>
-          <div className="flex items-center justify-between">
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-1 h-10 rounded-full"
+              style={{ backgroundColor: teamColors.primary }}
+            />
             <div>
-              <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
+              <h2 className="text-lg font-bold text-white tracking-tight">
                 {currentDynasty.currentYear} Schedule
               </h2>
-              <p className="text-sm text-zinc-500">
-                <span className="font-display font-semibold text-zinc-300">{wins}-{losses}</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-sm font-semibold text-white">{wins}-{losses}</span>
                 {(confWins > 0 || confLosses > 0) && (
-                  <span className="text-zinc-400"> ({confWins}-{confLosses})</span>
+                  <span className="text-sm text-zinc-500">({confWins}-{confLosses} conf)</span>
                 )}
-              </p>
+              </div>
             </div>
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowScheduleModal(true)}
-                className="p-2 rounded-xl hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-zinc-300"
-                title="Edit Schedule"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            )}
           </div>
+          {!isViewOnly && (
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              className="p-2.5 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white"
+              title="Edit Schedule"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Schedule Body */}
-        <div className="p-3 sm:p-4">
+        <div className="divide-y divide-zinc-800/50">
           {teamSchedule && teamSchedule.length > 0 ? (
-            <div className="space-y-2">
+            <>
               {/* Render all weeks 0-15, showing bye weeks for missing entries */}
               {Array.from({ length: 16 }, (_, weekNum) => {
                 const entry = teamSchedule.find(e => Number(e.week) === weekNum)
@@ -7988,17 +7990,10 @@ export default function Dashboard() {
                   return (
                     <div
                       key={weekNum}
-                      className="rounded-xl overflow-hidden"
-                      style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}
+                      className="flex items-center px-5 py-3"
                     >
-                      <div className="flex items-center w-full overflow-hidden">
-                        <div className="flex-1 flex items-center justify-center py-1.5 sm:py-2 px-2 sm:px-4">
-                          <span className="font-display text-xs sm:text-sm font-semibold text-zinc-600">BYE WEEK</span>
-                        </div>
-                        <div className="w-10 sm:w-14 flex-shrink-0 text-center py-1.5 sm:py-2 font-display font-bold text-[9px] sm:text-xs" style={{ backgroundColor: '#27272a', color: '#71717a' }}>
-                          Wk {weekNum}
-                        </div>
-                      </div>
+                      <span className="w-8 text-xs font-medium text-zinc-600">{weekNum}</span>
+                      <span className="flex-1 text-sm text-zinc-600 italic">Bye Week</span>
                     </div>
                   )
                 }
@@ -8015,124 +8010,80 @@ export default function Dashboard() {
                 const isLoss = entry.perspective && !entry.perspective.userWon
                 const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
 
-                // Render clickable element - use div with onClick when inside Link (played games), use Link when standalone
-                const TeamLogoClickable = ({ isInsideLink, children }) => {
-                  if (isInsideLink) {
-                    return (
-                      <div
-                        className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform cursor-pointer"
-                        style={{ backgroundColor: 'rgba(255,255,255,0.95)', padding: '4px' }}
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
-                      >
-                        {children}
-                      </div>
-                    )
-                  }
-                  return (
-                    <Link
-                      to={teamPageUrl}
-                      className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 hover:scale-110 transition-transform"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.95)', padding: '4px' }}
-                    >
-                      {children}
-                    </Link>
-                  )
-                }
-
-                const renderGameContent = (isInsideLink) => (
-                  <div className="flex items-center w-full overflow-hidden">
-                    {/* Game Info */}
-                    <div
-                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                      style={{ backgroundColor: opponentColors.backgroundColor }}
-                    >
-                      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                        {/* Location Badge */}
-                        <span
-                          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: opponentColors.textColor }}
-                        >
-                          {entry.location === 'away' ? '@' : 'vs'}
+                const renderGameRow = (isLink) => (
+                  <div
+                    className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
+                    style={{
+                      background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
+                      paddingLeft: '1rem',
+                      paddingRight: '1rem',
+                      ...(isCurrentWeek ? { ringColor: teamColors.primary } : {})
+                    }}
+                  >
+                    {/* Week Number */}
+                    <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
+                      {isCurrentWeek ? (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>
+                          {weekNum}
                         </span>
+                      ) : weekNum}
+                    </span>
 
-                        {/* Team Logo */}
-                        {opponentLogo && (
-                          <TeamLogoClickable isInsideLink={isInsideLink}>
-                            <img
-                              src={opponentLogo}
-                              alt={`${opponentName} logo`}
-                              className="w-full h-full object-contain"
-                            />
-                          </TeamLogoClickable>
+                    {/* Team Logo - White background for contrast */}
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-110 transition-transform bg-white shadow-sm"
+                      style={{ padding: '5px' }}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
+                    >
+                      {opponentLogo ? (
+                        <img src={opponentLogo} alt={opponentName} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-xs font-bold" style={{ color: opponentColors.backgroundColor }}>
+                          {entry.opponent?.slice(0, 3)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Opponent Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        {entry.perspective?.opponentRank && (
+                          <span className="text-xs font-bold text-amber-400">
+                            #{entry.perspective.opponentRank}
+                          </span>
                         )}
-
-                        {/* Team Name */}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1">
-                            {entry.perspective?.opponentRank && (
-                              <span
-                                className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0"
-                                style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: opponentColors.textColor }}
-                              >
-                                #{entry.perspective.opponentRank}
-                              </span>
-                            )}
-                            <span
-                              className="text-xs sm:text-base font-semibold truncate"
-                              style={{ color: opponentColors.textColor }}
-                            >
-                              {opponentName}
-                            </span>
-                          </div>
-                        </div>
+                        <span className="text-sm font-semibold text-zinc-100 truncate">
+                          {opponentName}
+                        </span>
                       </div>
+                      <span className="text-[10px] text-white/70">
+                        {entry.location === 'away' ? 'Away' : 'Home'}
+                      </span>
+                    </div>
 
-                      {/* Score / Status */}
-                      <div className="flex-shrink-0 text-right ml-1">
+                    {/* Score with W/L indicator */}
+                    <div className="flex items-center gap-2">
+                      {entry.isPlayed && (
+                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {isWin ? 'W' : 'L'}
+                        </span>
+                      )}
+                      <div className="w-14 text-right">
                         {entry.isPlayed ? (
-                          <div
-                            className="text-sm sm:text-lg font-bold tabular-nums"
-                            style={{ color: opponentColors.textColor }}
-                          >
-                            {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
+                          <div className="flex flex-col items-end">
+                            <span className="text-base font-bold tabular-nums text-white">
+                              {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
+                            </span>
                             {playedGame?.overtimes && playedGame.overtimes.length > 0 && (
-                              <span
-                                className="ml-0.5 text-[8px] sm:text-xs font-medium"
-                                style={{ color: opponentColors.textColor, opacity: 0.7 }}
-                              >
+                              <span className="text-[10px] text-zinc-500">
                                 {playedGame.overtimes.length > 1 ? `${playedGame.overtimes.length}OT` : 'OT'}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span
-                            className="text-xs sm:text-sm font-medium"
-                            style={{ color: opponentColors.textColor, opacity: 0.5 }}
-                          >
-                            —
-                          </span>
+                          <span className="text-sm text-zinc-600">—</span>
                         )}
                       </div>
-                    </div>
-
-                    {/* Week/Result Badge - Now on right */}
-                    <div
-                      className={`w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-display font-bold text-[10px] sm:text-sm ${
-                        entry.isPlayed
-                          ? (isWin ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white')
-                          : isCurrentWeek
-                            ? 'text-white'
-                            : ''
-                      }`}
-                      style={
-                        entry.isPlayed
-                          ? {}
-                          : isCurrentWeek
-                            ? { backgroundColor: teamColors.primary }
-                            : { backgroundColor: '#27272a', color: '#71717a' }
-                      }
-                    >
-                      {entry.isPlayed ? (isWin ? 'W' : 'L') : isCurrentWeek ? 'NEXT' : `Wk ${weekNum}`}
                     </div>
                   </div>
                 )
@@ -8142,25 +8093,16 @@ export default function Dashboard() {
                     <Link
                       key={weekNum}
                       to={`${pathPrefix}/game/${playedGame.id}`}
-                      className="block rounded-xl overflow-hidden transition-all duration-200 hover:ring-2 hover:ring-zinc-600"
-                      style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}
+                      className="block"
                     >
-                      {renderGameContent(true)}
+                      {renderGameRow(true)}
                     </Link>
                   )
                 }
 
                 return (
-                  <div
-                    key={weekNum}
-                    className={`rounded-xl overflow-hidden ${isCurrentWeek ? 'ring-2' : ''}`}
-                    style={{
-                      backgroundColor: '#1f1f23',
-                      border: '1px solid #27272a',
-                      ...(isCurrentWeek ? { ringColor: teamColors.primary, boxShadow: `0 0 15px ${teamColors.primary}40` } : {})
-                    }}
-                  >
-                    {renderGameContent(false)}
+                  <div key={weekNum}>
+                    {renderGameRow(false)}
                   </div>
                 )
               })}
@@ -8172,154 +8114,72 @@ export default function Dashboard() {
             })() && (() => {
               const ccGame = getCCGame()
               const ccDataForYear = currentDynasty.conferenceChampionshipDataByYear?.[currentDynasty.currentYear] || {}
-              // Get opponent abbr from perspective (unified format) or fall back to state/saved data
               const ccOpponentInfo = ccGame?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccGame.perspective.opponentTid) : null
               const ccOpponentAbbr = ccOpponentInfo?.abbr || ccOpponent || ccDataForYear.opponent
               const hasOpponent = !!ccOpponentAbbr
               const ccOpponentColors = hasOpponent ? getOpponentColors(ccOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const ccMascotFromAbbr = hasOpponent ? getMascotName(ccOpponentAbbr) : null
               const ccMascotName = ccMascotFromAbbr || (hasOpponent && getTeamLogo(ccOpponentAbbr) ? ccOpponentAbbr : null)
-              const ccOpponentName = ccMascotName || (hasOpponent ? getTeamNameFromAbbr(ccOpponentAbbr) : 'Opponent Unknown')
+              const ccOpponentName = ccMascotName || (hasOpponent ? getTeamNameFromAbbr(ccOpponentAbbr) : 'TBD')
               const ccOpponentLogo = ccMascotName ? getTeamLogo(ccMascotName) : null
               const isCurrentCCWeek = currentDynasty.currentPhase === 'conference_championship' && !ccGame
               const isWin = ccGame?.perspective?.userWon
-              const isLoss = ccGame?.perspective && !ccGame.perspective.userWon
+              const userScore = ccGame?.perspective?.userScore ?? ccGame?.teamScore
+              const opponentScore = ccGame?.perspective?.opponentScore ?? ccGame?.opponentScore
 
-              const ccContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  {/* Game Info */}
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? ccOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Location Badge */}
-                      <span
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: `${hasOpponent ? ccOpponentColors.textColor : '#fff'}15`,
-                          color: hasOpponent ? ccOpponentColors.textColor : '#fff'
-                        }}
-                      >
-                        vs
-                      </span>
-
-                      {/* Team Logo */}
-                      {ccOpponentLogo && (
-                        <div
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                        >
-                          <img
-                            src={ccOpponentLogo}
-                            alt={`${ccOpponentName} logo`}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {/* Team Name */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          {ccGame?.opponentRank && (
-                            <span className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${ccOpponentColors.textColor}15`, color: ccOpponentColors.textColor }}>
-                              #{ccGame.opponentRank}
-                            </span>
-                          )}
-                          <span className="text-xs sm:text-base font-semibold truncate" style={{ color: hasOpponent ? ccOpponentColors.textColor : '#fff' }}>
-                            {ccOpponentName}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Score / Status */}
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {ccGame ? (() => {
-                        // Get scores from perspective (unified) or legacy fields
-                        const userScore = ccGame.perspective?.userScore ?? ccGame.teamScore
-                        const opponentScore = ccGame.perspective?.opponentScore ?? ccGame.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: ccOpponentColors.textColor }}>
-                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
-                            {ccGame.overtimes && ccGame.overtimes.length > 0 && (
-                              <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
-                                {ccGame.overtimes.length > 1 ? `${ccGame.overtimes.length}OT` : 'OT'}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: ccOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })() : (
-                        <span className="text-xs sm:text-sm font-medium" style={{ color: hasOpponent ? ccOpponentColors.textColor : '#fff', opacity: 0.5 }}>
-                          —
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: ccGame
-                        ? (isWin ? '#22c55e' : '#ef4444')
-                        : isCurrentCCWeek
-                          ? teamColors.primary
-                          : `${secondaryBgText}15`,
-                      color: ccGame || isCurrentCCWeek ? '#fff' : secondaryBgText
-                    }}
-                  >
-                    {ccGame ? (isWin ? 'W' : 'L') : isCurrentCCWeek ? 'NEXT' : 'CC'}
-                  </div>
-                </div>
-              )
-
-              if (ccGame?.id) {
-                return (
-                  <Link
-                    to={`${pathPrefix}/game/${ccGame.id}`}
-                    className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                  >
-                    {ccContent}
-                  </Link>
-                )
-              }
-
-              return (
+              const ccRow = (isLink) => (
                 <div
-                  className={`rounded-xl overflow-hidden ${isCurrentCCWeek ? 'animate-pulse-subtle' : ''}`}
+                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentCCWeek ? 'ring-1 ring-inset' : ''}`}
                   style={{
-                    boxShadow: isCurrentCCWeek
-                      ? `0 2px 12px ${teamColors.primary}40`
-                      : '0 2px 8px rgba(0,0,0,0.06)'
+                    background: `linear-gradient(to right, transparent 0%, ${ccOpponentColors.backgroundColor}99 100%)`,
+                    paddingLeft: '1rem',
+                    paddingRight: '1rem',
+                    ...(isCurrentCCWeek ? { ringColor: teamColors.primary } : {})
                   }}
                 >
-                  {ccContent}
+                  <span className={`w-7 text-xs font-medium ${isCurrentCCWeek ? 'text-white' : 'text-zinc-500'}`}>
+                    {isCurrentCCWeek ? (
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>CC</span>
+                    ) : 'CC'}
+                  </span>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                    {ccOpponentLogo ? <img src={ccOpponentLogo} alt={ccOpponentName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: ccOpponentColors.backgroundColor }}>{ccOpponentAbbr?.slice(0, 3) || '?'}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {ccGame?.opponentRank && <span className="text-xs font-bold text-amber-400">#{ccGame.opponentRank}</span>}
+                      <span className="text-sm font-semibold text-zinc-100 truncate">{ccOpponentName}</span>
+                    </div>
+                    <span className="text-[10px] text-zinc-500">Conf Championship</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {ccGame && (
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                    )}
+                    <div className="w-14 text-right">
+                      {ccGame && userScore != null ? (
+                        <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
+                      ) : <span className="text-sm text-zinc-600">—</span>}
+                    </div>
+                  </div>
                 </div>
               )
+
+              return ccGame?.id ? (
+                <Link to={`${pathPrefix}/game/${ccGame.id}`} className="block">{ccRow(true)}</Link>
+              ) : <div>{ccRow(false)}</div>
             })()}
 
             {/* Bowl Game - shows when user has a bowl game (NOT CFP teams) */}
             {(() => {
-              // Don't show Bowl section if user has a CFP First Round game (CFP IS their bowl)
               const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
               if (userCFPFirstRoundGame) return null
-
               const userBowlGameData = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
               const bowlData = currentDynasty.bowlEligibilityData
               const hasBowlEligibility = bowlData?.eligible === true && bowlData?.bowlGame && bowlData?.opponent
-
-              // Also skip if bowl eligibility data points to a CFP game
               if (hasBowlEligibility && bowlData?.bowlGame?.startsWith('CFP')) return null
-
-              // Only show if user has a bowl game (either played or scheduled via eligibility)
               if (!userBowlGameData && !hasBowlEligibility) return null
 
-              // Get opponent abbr from perspective (unified format) or fall back to bowl data
               const bowlOpponentInfo = userBowlGameData?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, userBowlGameData.perspective.opponentTid) : null
               const bowlOpponentAbbr = bowlOpponentInfo?.abbr || bowlData?.opponent
               const bowlGameName = userBowlGameData?.bowlName || bowlData?.bowlGame
@@ -8327,424 +8187,217 @@ export default function Dashboard() {
               const bowlOpponentColors = hasOpponent ? getOpponentColors(bowlOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(bowlOpponentAbbr) : null
               const bowlMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(bowlOpponentAbbr) ? bowlOpponentAbbr : null)
-              const bowlOpponentName = bowlMascotName || (hasOpponent ? getTeamNameFromAbbr(bowlOpponentAbbr) : 'Opponent Unknown')
+              const bowlOpponentName = bowlMascotName || (hasOpponent ? getTeamNameFromAbbr(bowlOpponentAbbr) : 'TBD')
               const bowlOpponentLogo = bowlMascotName ? getTeamLogo(bowlMascotName) : null
               const isWin = userBowlGameData?.perspective?.userWon
+              const userScore = userBowlGameData?.perspective?.userScore ?? userBowlGameData?.teamScore
+              const opponentScore = userBowlGameData?.perspective?.opponentScore ?? userBowlGameData?.opponentScore
 
-              const bowlContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  {/* Game Info */}
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? bowlOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Location Badge */}
-                      <span
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: `${hasOpponent ? bowlOpponentColors.textColor : '#fff'}15`,
-                          color: hasOpponent ? bowlOpponentColors.textColor : '#fff'
-                        }}
-                      >
-                        vs
-                      </span>
-
-                      {/* Team Logo */}
-                      {bowlOpponentLogo && (
-                        <div
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                        >
-                          <img
-                            src={bowlOpponentLogo}
-                            alt={`${bowlOpponentName} logo`}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {/* Team Name */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          {userBowlGameData?.opponentRank && (
-                            <span className="text-[9px] sm:text-xs font-bold px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0" style={{ backgroundColor: `${bowlOpponentColors.textColor}15`, color: bowlOpponentColors.textColor }}>
-                              #{userBowlGameData.opponentRank}
-                            </span>
-                          )}
-                          <span className="text-xs sm:text-base font-semibold truncate" style={{ color: hasOpponent ? bowlOpponentColors.textColor : '#fff' }}>
-                            {bowlOpponentName}
-                          </span>
-                        </div>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: hasOpponent ? bowlOpponentColors.textColor : '#fff' }}>
-                          {bowlGameName}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Score / Status */}
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {userBowlGameData ? (() => {
-                        // Get scores from perspective (unified) or legacy fields
-                        const userScore = userBowlGameData.perspective?.userScore ?? userBowlGameData.teamScore
-                        const opponentScore = userBowlGameData.perspective?.opponentScore ?? userBowlGameData.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: bowlOpponentColors.textColor }}>
-                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
-                            {userBowlGameData.overtimes && userBowlGameData.overtimes.length > 0 && (
-                              <span className="ml-0.5 text-[8px] sm:text-xs font-medium opacity-60">
-                                {userBowlGameData.overtimes.length > 1 ? `${userBowlGameData.overtimes.length}OT` : 'OT'}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: bowlOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })() : (
-                        <span className="text-xs sm:text-sm font-medium" style={{ color: hasOpponent ? bowlOpponentColors.textColor : '#fff', opacity: 0.5 }}>
-                          —
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: userBowlGameData
-                        ? (isWin ? '#22c55e' : '#ef4444')
-                        : `${secondaryBgText}15`,
-                      color: userBowlGameData ? '#fff' : secondaryBgText
-                    }}
-                  >
-                    {userBowlGameData ? (isWin ? 'W' : 'L') : 'Bowl'}
-                  </div>
-                </div>
-              )
-
-              if (userBowlGameData?.id) {
-                return (
-                  <Link
-                    to={`${pathPrefix}/game/${userBowlGameData.id}`}
-                    className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                  >
-                    {bowlContent}
-                  </Link>
-                )
-              }
-
-              return (
+              const bowlRow = (isLink) => (
                 <div
-                  className="rounded-xl overflow-hidden"
-                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''}`}
+                  style={{
+                    background: `linear-gradient(to right, transparent 0%, ${bowlOpponentColors.backgroundColor}99 100%)`,
+                    paddingLeft: '1rem',
+                    paddingRight: '1rem'
+                  }}
                 >
-                  {bowlContent}
-                </div>
-              )
-            })()}
-
-            {/* CFP First Round Game - shows when user played in First Round */}
-            {(() => {
-              const cfpFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
-              if (!cfpFirstRoundGame) return null
-
-              // Get opponent abbr from perspective (unified format)
-              const cfpOpponentInfo = cfpFirstRoundGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpFirstRoundGame.perspective.opponentTid) : null
-              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
-              const hasOpponent = !!cfpOpponentAbbr
-              const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
-              const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
-              const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
-              const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const isWin = cfpFirstRoundGame.perspective?.userWon
-
-              const cfpContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  {/* Game Info */}
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Location Badge */}
-                      <span
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: `${hasOpponent ? cfpOpponentColors.textColor : '#fff'}15`,
-                          color: hasOpponent ? cfpOpponentColors.textColor : '#fff'
-                        }}
-                      >
-                        vs
-                      </span>
-
-                      {/* Team Logo */}
-                      {cfpOpponentLogo && (
-                        <div
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                        >
-                          <img
-                            src={cfpOpponentLogo}
-                            alt={`${cfpOpponentName} logo`}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {/* Team Name */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs sm:text-base font-semibold truncate" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>
-                            {cfpOpponentName}
-                          </span>
-                        </div>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>
-                          CFP First Round
-                        </span>
-                      </div>
+                  <span className="w-7 text-xs font-medium text-zinc-500">Bowl</span>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                    {bowlOpponentLogo ? <img src={bowlOpponentLogo} alt={bowlOpponentName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: bowlOpponentColors.backgroundColor }}>{bowlOpponentAbbr?.slice(0, 3) || '?'}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      {userBowlGameData?.opponentRank && <span className="text-xs font-bold text-amber-400">#{userBowlGameData.opponentRank}</span>}
+                      <span className="text-sm font-semibold text-zinc-100 truncate">{bowlOpponentName}</span>
                     </div>
-
-                    {/* Score */}
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {(() => {
-                        // Get scores from perspective (unified) or legacy fields
-                        const userScore = cfpFirstRoundGame.perspective?.userScore ?? cfpFirstRoundGame.teamScore
-                        const opponentScore = cfpFirstRoundGame.perspective?.opponentScore ?? cfpFirstRoundGame.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>
-                            {Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}
-                          </div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })()}
+                    <span className="text-[10px] text-zinc-500 truncate block">{bowlGameName}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {userBowlGameData && (
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                    )}
+                    <div className="w-14 text-right">
+                      {userBowlGameData && userScore != null ? (
+                        <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
+                      ) : <span className="text-sm text-zinc-600">—</span>}
                     </div>
                   </div>
+                </div>
+              )
 
-                  {/* Result Badge - Now on right */}
+              return userBowlGameData?.id ? (
+                <Link to={`${pathPrefix}/game/${userBowlGameData.id}`} className="block">{bowlRow(true)}</Link>
+              ) : <div>{bowlRow(false)}</div>
+            })()}
+
+            {/* CFP First Round Game */}
+            {(() => {
+              const cfpGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
+              if (!cfpGame) return null
+              const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
+              const oppAbbr = oppInfo?.abbr
+              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
+              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const isWin = cfpGame.perspective?.userWon
+              const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
+              const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
+
+              return (
+                <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
                   <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
+                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
                     style={{
-                      backgroundColor: isWin ? '#22c55e' : '#ef4444',
-                      color: '#fff'
+                      background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
+                      paddingLeft: '1rem',
+                      paddingRight: '1rem'
                     }}
                   >
-                    {isWin ? 'W' : 'L'}
+                    <span className="w-7 text-xs font-medium text-zinc-500">R1</span>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                      {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
+                      <span className="text-[10px] text-zinc-500">CFP First Round</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                    </div>
                   </div>
-                </div>
-              )
-
-              return (
-                <Link
-                  to={`${pathPrefix}/game/${cfpFirstRoundGame.id}`}
-                  className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                >
-                  {cfpContent}
                 </Link>
               )
             })()}
 
-            {/* CFP Quarterfinal Game - shows when user played in Quarterfinal */}
+            {/* CFP Quarterfinal Game */}
             {(() => {
-              const cfpQFGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
-              if (!cfpQFGame) return null
-
-              // Get opponent abbr from perspective (unified format)
-              const cfpOpponentInfo = cfpQFGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpQFGame.perspective.opponentTid) : null
-              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
-              const hasOpponent = !!cfpOpponentAbbr
-              const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
-              const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
-              const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
-              const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const bowlName = cfpQFGame.bowlName || 'CFP Quarterfinal'
-              const isWin = cfpQFGame.perspective?.userWon
-
-              const cfpContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0" style={{ backgroundColor: `${hasOpponent ? cfpOpponentColors.textColor : '#fff'}15`, color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>vs</span>
-                      {cfpOpponentLogo && (
-                        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}>
-                          <img src={cfpOpponentLogo} alt={`${cfpOpponentName} logo`} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs sm:text-base font-semibold truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>{cfpOpponentName}</span>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>{bowlName}</span>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {(() => {
-                        const userScore = cfpQFGame.perspective?.userScore ?? cfpQFGame.teamScore
-                        const opponentScore = cfpQFGame.perspective?.opponentScore ?? cfpQFGame.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                  {/* Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                </div>
-              )
+              const cfpGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
+              if (!cfpGame) return null
+              const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
+              const oppAbbr = oppInfo?.abbr
+              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
+              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const bowlName = cfpGame.bowlName || 'CFP Quarterfinal'
+              const isWin = cfpGame.perspective?.userWon
+              const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
+              const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
 
               return (
-                <Link to={`${pathPrefix}/game/${cfpQFGame.id}`} className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                  {cfpContent}
+                <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
+                  <div
+                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    style={{
+                      background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
+                      paddingLeft: '1rem',
+                      paddingRight: '1rem'
+                    }}
+                  >
+                    <span className="w-7 text-xs font-medium text-zinc-500">QF</span>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                      {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
+                      <span className="text-[10px] text-zinc-500 truncate block">{bowlName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                    </div>
+                  </div>
                 </Link>
               )
             })()}
 
-            {/* CFP Semifinal Game - shows when user played in Semifinal */}
+            {/* CFP Semifinal Game */}
             {(() => {
-              const cfpSFGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
-              if (!cfpSFGame) return null
-
-              // Get opponent abbr from perspective (unified format)
-              const cfpOpponentInfo = cfpSFGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpSFGame.perspective.opponentTid) : null
-              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
-              const hasOpponent = !!cfpOpponentAbbr
-              const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
-              const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
-              const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
-              const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const bowlName = cfpSFGame.bowlName || 'CFP Semifinal'
-              const isWin = cfpSFGame.perspective?.userWon
-
-              const cfpContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0" style={{ backgroundColor: `${hasOpponent ? cfpOpponentColors.textColor : '#fff'}15`, color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>vs</span>
-                      {cfpOpponentLogo && (
-                        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}>
-                          <img src={cfpOpponentLogo} alt={`${cfpOpponentName} logo`} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs sm:text-base font-semibold truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>{cfpOpponentName}</span>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>{bowlName}</span>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {(() => {
-                        const userScore = cfpSFGame.perspective?.userScore ?? cfpSFGame.teamScore
-                        const opponentScore = cfpSFGame.perspective?.opponentScore ?? cfpSFGame.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                  {/* Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                </div>
-              )
+              const cfpGame = findCurrentTeamGame(currentDynasty, g => g.isCFPSemifinal && isSameYear(g.year, currentDynasty.currentYear))
+              if (!cfpGame) return null
+              const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
+              const oppAbbr = oppInfo?.abbr
+              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
+              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const bowlName = cfpGame.bowlName || 'CFP Semifinal'
+              const isWin = cfpGame.perspective?.userWon
+              const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
+              const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
 
               return (
-                <Link to={`${pathPrefix}/game/${cfpSFGame.id}`} className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                  {cfpContent}
+                <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
+                  <div
+                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    style={{
+                      background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
+                      paddingLeft: '1rem',
+                      paddingRight: '1rem'
+                    }}
+                  >
+                    <span className="w-7 text-xs font-medium text-zinc-500">SF</span>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                      {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
+                      <span className="text-[10px] text-zinc-500 truncate block">{bowlName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                    </div>
+                  </div>
                 </Link>
               )
             })()}
 
-            {/* CFP Championship Game - shows when user played in Championship */}
+            {/* CFP Championship Game */}
             {(() => {
-              const cfpChampGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
-              if (!cfpChampGame) return null
-
-              // Get opponent abbr from perspective (unified format)
-              const cfpOpponentInfo = cfpChampGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpChampGame.perspective.opponentTid) : null
-              const cfpOpponentAbbr = cfpOpponentInfo?.abbr
-              const hasOpponent = !!cfpOpponentAbbr
-              const cfpOpponentColors = hasOpponent ? getOpponentColors(cfpOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const mascotFromAbbr = hasOpponent ? getMascotName(cfpOpponentAbbr) : null
-              const cfpMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(cfpOpponentAbbr) ? cfpOpponentAbbr : null)
-              const cfpOpponentName = cfpMascotName || (hasOpponent ? getTeamNameFromAbbr(cfpOpponentAbbr) : 'Opponent Unknown')
-              const cfpOpponentLogo = cfpMascotName ? getTeamLogo(cfpMascotName) : null
-              const isWin = cfpChampGame.perspective?.userWon
-
-              const cfpContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 min-w-0"
-                    style={{ backgroundColor: hasOpponent ? cfpOpponentColors.backgroundColor : '#6b7280' }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0" style={{ backgroundColor: `${hasOpponent ? cfpOpponentColors.textColor : '#fff'}15`, color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>vs</span>
-                      {cfpOpponentLogo && (
-                        <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}>
-                          <img src={cfpOpponentLogo} alt={`${cfpOpponentName} logo`} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs sm:text-base font-semibold truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>{cfpOpponentName}</span>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: hasOpponent ? cfpOpponentColors.textColor : '#fff' }}>National Championship</span>
-                      </div>
-                    </div>
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {(() => {
-                        const userScore = cfpChampGame.perspective?.userScore ?? cfpChampGame.teamScore
-                        const opponentScore = cfpChampGame.perspective?.opponentScore ?? cfpChampGame.opponentScore
-                        const hasScores = userScore != null && opponentScore != null
-                        return hasScores ? (
-                          <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: cfpOpponentColors.textColor }}>{Math.max(userScore, opponentScore)}-{Math.min(userScore, opponentScore)}</div>
-                        ) : (
-                          <span className="text-xs sm:text-sm font-medium" style={{ color: cfpOpponentColors.textColor, opacity: 0.5 }}>—</span>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                  {/* Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 font-bold text-[10px] sm:text-sm"
-                    style={{ backgroundColor: isWin ? '#22c55e' : '#ef4444', color: '#fff' }}
-                  >
-                    {isWin ? 'W' : 'L'}
-                  </div>
-                </div>
-              )
+              const cfpGame = findCurrentTeamGame(currentDynasty, g => g.isCFPChampionship && isSameYear(g.year, currentDynasty.currentYear))
+              if (!cfpGame) return null
+              const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
+              const oppAbbr = oppInfo?.abbr
+              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
+              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const isWin = cfpGame.perspective?.userWon
+              const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
+              const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
 
               return (
-                <Link to={`${pathPrefix}/game/${cfpChampGame.id}`} className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                  {cfpContent}
+                <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
+                  <div
+                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    style={{
+                      background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
+                      paddingLeft: '1rem',
+                      paddingRight: '1rem'
+                    }}
+                  >
+                    <span className="w-7 text-xs font-bold text-amber-400">NC</span>
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-white shadow-sm" style={{ padding: '5px' }}>
+                      {oppLogo ? <img src={oppLogo} alt={oppName} className="w-full h-full object-contain" /> : <span className="text-xs font-bold" style={{ color: oppColors.backgroundColor }}>{oppAbbr?.slice(0, 3) || '?'}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-zinc-100 truncate block">{oppName}</span>
+                      <span className="text-[10px] text-zinc-500">National Championship</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                    </div>
+                  </div>
                 </Link>
               )
             })()}
-          </div>
-        ) : (
+            </>
+          ) : (
           <div className="text-center py-12">
             <div className="text-zinc-600 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -8764,18 +8417,198 @@ export default function Dashboard() {
         </div>
         {/* End Right Column */}
 
-        {/* Roster Section - Mobile Only (below schedule) */}
+        {/* Mobile Tabbed Section - Schedule/Roster Tabs */}
         <div className="lg:hidden">
-          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-            <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
-            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
-              <div>
-                <h2 className="font-display text-base font-bold text-zinc-100">
-                  {currentDynasty.currentYear} Roster
-                </h2>
-                <p className="text-xs text-zinc-500">
-                  {teamRoster.length} Players
-                </p>
+          {/* Tab Buttons */}
+          <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
+            <button
+              onClick={() => setMobileTab('schedule')}
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                mobileTab === 'schedule'
+                  ? 'text-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              style={mobileTab === 'schedule' ? { backgroundColor: teamColors.primary } : {}}
+            >
+              Schedule
+            </button>
+            <button
+              onClick={() => setMobileTab('roster')}
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                mobileTab === 'roster'
+                  ? 'text-white'
+                  : 'text-zinc-500 hover:text-zinc-300'
+              }`}
+              style={mobileTab === 'roster' ? { backgroundColor: teamColors.primary } : {}}
+            >
+              Roster
+            </button>
+          </div>
+
+          {/* Schedule Tab Content */}
+          {mobileTab === 'schedule' && (
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
+              {/* Schedule Header */}
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-1 h-10 rounded-full"
+                    style={{ backgroundColor: teamColors.primary }}
+                  />
+                  <div>
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      {currentDynasty.currentYear} Schedule
+                    </h2>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-sm font-semibold text-white">{wins}-{losses}</span>
+                      {(confWins > 0 || confLosses > 0) && (
+                        <span className="text-sm text-zinc-500">({confWins}-{confLosses} conf)</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {!isViewOnly && (
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="p-2.5 rounded-xl bg-zinc-800/50 hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white"
+                    title="Edit Schedule"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Schedule Games - Reuse same rendering logic */}
+              <div className="divide-y divide-zinc-800/30">
+                {teamSchedule.length > 0 ? (
+                  <>
+                    {teamSchedule.map((entry, index) => {
+                      const weekNum = entry.week
+                      if (entry.isBye) {
+                        return (
+                          <div key={weekNum} className="flex items-center py-2.5 gap-3 px-4">
+                            <span className="w-7 text-xs font-medium text-zinc-600">{weekNum}</span>
+                            <span className="text-sm text-zinc-600 italic">Bye Week</span>
+                          </div>
+                        )
+                      }
+
+                      const opponentColors = getOpponentColors(entry.opponent)
+                      const mascotFromAbbr = getMascotName(entry.opponent)
+                      const opponentName = mascotFromAbbr || getTeamNameFromAbbr(entry.opponent)
+                      const opponentLogo = mascotFromAbbr ? getTeamLogo(mascotFromAbbr) : getTeamLogo(entry.opponent)
+                      const playedGame = (currentDynasty.games || []).find(g => {
+                        if (!isSameYear(g.year, currentDynasty.currentYear)) return false
+                        if (g.week !== entry.week) return false
+                        const isRegular = !g.isBowlGame && !g.isConferenceChampionship && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship
+                        return isRegular
+                      })
+                      const isCurrentWeek = currentDynasty.currentWeek === entry.week && currentDynasty.currentPhase === 'regular_season'
+                      const isWin = entry.perspective?.userWon
+                      const teamPageUrl = `${pathPrefix}/team/${resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)}/${currentDynasty.currentYear}`
+
+                      const renderMobileGameRow = (isLink) => (
+                        <div
+                          className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
+                          style={{
+                            background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
+                            paddingLeft: '1rem',
+                            paddingRight: '1rem',
+                            ...(isCurrentWeek ? { ringColor: teamColors.primary } : {})
+                          }}
+                        >
+                          <span className={`w-7 text-xs font-medium ${isCurrentWeek ? 'text-white' : 'text-zinc-500'}`}>
+                            {isCurrentWeek ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold" style={{ backgroundColor: teamColors.primary }}>
+                                {weekNum}
+                              </span>
+                            ) : weekNum}
+                          </span>
+                          <div
+                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-110 transition-transform bg-white shadow-sm"
+                            style={{ padding: '5px' }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
+                          >
+                            {opponentLogo ? (
+                              <img src={opponentLogo} alt={opponentName} className="w-full h-full object-contain" />
+                            ) : (
+                              <span className="text-xs font-bold" style={{ color: opponentColors.backgroundColor }}>
+                                {entry.opponent?.slice(0, 3)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {entry.perspective?.opponentRank && (
+                                <span className="text-xs font-bold text-amber-400">
+                                  #{entry.perspective.opponentRank}
+                                </span>
+                              )}
+                              <span className="text-sm font-semibold text-zinc-100 truncate">
+                                {opponentName}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-white/70">
+                              {entry.location === 'away' ? 'Away' : 'Home'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {entry.isPlayed && (
+                              <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {isWin ? 'W' : 'L'}
+                              </span>
+                            )}
+                            <div className="w-14 text-right">
+                              {entry.isPlayed ? (
+                                <span className="text-base font-bold tabular-nums text-white">
+                                  {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
+                                </span>
+                              ) : (
+                                <span className="text-sm text-zinc-600">—</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+
+                      if (playedGame?.id) {
+                        return (
+                          <Link key={weekNum} to={`${pathPrefix}/game/${playedGame.id}`} className="block">
+                            {renderMobileGameRow(true)}
+                          </Link>
+                        )
+                      }
+                      return <div key={weekNum}>{renderMobileGameRow(false)}</div>
+                    })}
+                  </>
+                ) : (
+                  <div className="text-center py-12">
+                    <p className="text-zinc-500">No schedule entered yet.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Roster Tab Content */}
+          {mobileTab === 'roster' && (
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-1 h-10 rounded-full"
+                  style={{ backgroundColor: teamColors.primary }}
+                />
+                <div>
+                  <h2 className="text-lg font-bold text-white tracking-tight">
+                    {currentDynasty.currentYear} Roster
+                  </h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-sm font-semibold text-white">{teamRoster.length} Players</span>
+                  </div>
+                </div>
               </div>
               {/* Sort controls */}
               <div className="flex items-center gap-1">
@@ -8810,7 +8643,7 @@ export default function Dashboard() {
                       className="flex items-center gap-2.5 px-3 py-2 cursor-pointer transition-all active:bg-zinc-800/60"
                     >
                       {/* Jersey Number */}
-                      <span className="text-[10px] font-mono text-zinc-600 w-5 text-right">{player.jerseyNumber || '--'}</span>
+                      <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                       {/* Player Image */}
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700" style={{ backgroundColor: '#27272a' }}>
@@ -8847,6 +8680,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
       {/* End Main Content Grid */}

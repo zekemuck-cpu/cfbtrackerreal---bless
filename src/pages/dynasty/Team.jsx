@@ -1246,20 +1246,43 @@ export default function Team() {
                 </button>
               )}
             </div>
-            {conference && (
-              <div className="flex items-center gap-2 mt-2">
-                {conferenceLogo && (
-                  <img
-                    src={conferenceLogo}
-                    alt={`${conference} logo`}
-                    className="w-5 h-5 object-contain"
-                  />
-                )}
-                <span className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.8 }}>
-                  {conference}
-                </span>
-              </div>
-            )}
+            {/* Record and Conference - inline like Dashboard */}
+            {(() => {
+              const currentYearRecord = yearRecords.find(yr => yr.year === currentYear)
+              const hasRecord = currentYearRecord?.hasRecord
+              return (
+                <div className="flex items-center gap-2 mt-1" style={{ color: teamBgText, opacity: 0.85 }}>
+                  {hasRecord && (
+                    <span className="font-bold text-base sm:text-lg">
+                      {currentYearRecord.wins}-{currentYearRecord.losses}
+                      {(currentYearRecord.confWins > 0 || currentYearRecord.confLosses > 0) && (
+                        <span style={{ opacity: 0.7 }}> ({currentYearRecord.confWins}-{currentYearRecord.confLosses})</span>
+                      )}
+                    </span>
+                  )}
+                  {hasRecord && conference && (
+                    <span style={{ opacity: 0.4 }}>•</span>
+                  )}
+                  {conference && (
+                    <>
+                      <span className="font-medium">{conference}</span>
+                      {conferenceLogo && (
+                        <div
+                          className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '3px' }}
+                        >
+                          <img
+                            src={conferenceLogo}
+                            alt={conference}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
             {/* Teambuilder badge */}
             {teamInfo.isTeambuilder && (
               <div
