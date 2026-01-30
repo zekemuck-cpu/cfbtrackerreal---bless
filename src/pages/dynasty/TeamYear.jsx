@@ -1269,6 +1269,11 @@ export default function TeamYear() {
         return aTackles - bTackles
       })[0]
 
+    // Find top interceptor
+    const topInterceptor = playersWithStats
+      .filter(({ yearStats }) => yearStats.defense && (yearStats.defense.int || 0) > 0)
+      .sort((a, b) => (b.yearStats.defense?.int || 0) - (a.yearStats.defense?.int || 0))[0]
+
     return {
       passing: topPasser ? {
         name: topPasser.player.name,
@@ -1307,6 +1312,14 @@ export default function TeamYear() {
           assists: topTackler.yearStats.defense?.astTkl || 0,
           sacks: topTackler.yearStats.defense?.sacks || 0,
           interceptions: topTackler.yearStats.defense?.int || 0
+        }
+      } : null,
+      interceptions: topInterceptor ? {
+        name: topInterceptor.player.name,
+        player: topInterceptor.player,
+        stats: {
+          interceptions: topInterceptor.yearStats.defense?.int || 0,
+          tackles: (topInterceptor.yearStats.defense?.soloTkl || 0) + (topInterceptor.yearStats.defense?.astTkl || 0)
         }
       } : null
     }
@@ -1700,65 +1713,6 @@ export default function TeamYear() {
                   </div>
                 </div>
               )}
-              {/* Season Record (mobile) */}
-              {displayRecord && (
-                <div
-                  className="text-right relative"
-                  onMouseEnter={() => setShowRecordTooltip(true)}
-                  onMouseLeave={() => setShowRecordTooltip(false)}
-                  onClick={() => setShowRecordTooltip(!showRecordTooltip)}
-                >
-                  <div
-                    className="text-2xl font-bold cursor-pointer"
-                    style={{ color: teamBgText }}
-                  >
-                    {displayRecord.wins}-{displayRecord.losses}
-                    {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
-                      <span style={{ opacity: 0.7 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
-                    )}
-                  </div>
-                  <div className="text-xs font-semibold" style={{ color: teamBgText, opacity: 0.7 }}>
-                    Record
-                  </div>
-                  {/* Points Tooltip */}
-                  {showRecordTooltip && displayRecord.pointsFor !== null && (
-                    <div
-                      className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-36 text-left"
-                      style={{
-                        backgroundColor: teamInfo.textColor,
-                        border: `2px solid ${teamBgText}40`
-                      }}
-                    >
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between gap-4">
-                          <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points For:</span>
-                          <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsFor}</span>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points Against:</span>
-                          <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsAgainst}</span>
-                        </div>
-                        <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: `${teamPrimaryText}30` }}>
-                          <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Diff:</span>
-                          <span
-                            className="font-bold"
-                            style={{
-                              color: displayRecord.pointsFor - displayRecord.pointsAgainst > 0
-                                ? '#16a34a'
-                                : displayRecord.pointsFor - displayRecord.pointsAgainst < 0
-                                  ? '#dc2626'
-                                  : teamPrimaryText
-                            }}
-                          >
-                            {displayRecord.pointsFor - displayRecord.pointsAgainst > 0 ? '+' : ''}
-                            {displayRecord.pointsFor - displayRecord.pointsAgainst}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1867,18 +1821,81 @@ export default function TeamYear() {
                 </div>
               )}
             </div>
-            {conference && (
-              <div className="flex items-center gap-2 mt-1">
-                {conferenceLogo && (
-                  <img
-                    src={conferenceLogo}
-                    alt={`${conference} logo`}
-                    className="w-5 h-5 object-contain"
-                  />
+            {/* Season Record + Conference - same line */}
+            {(displayRecord || conference) && (
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                {displayRecord && (
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowRecordTooltip(true)}
+                    onMouseLeave={() => setShowRecordTooltip(false)}
+                    onClick={() => setShowRecordTooltip(!showRecordTooltip)}
+                  >
+                    <div
+                      className="text-base sm:text-lg font-bold cursor-pointer"
+                      style={{ color: teamBgText }}
+                    >
+                      {displayRecord.wins}-{displayRecord.losses}
+                      {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
+                        <span style={{ opacity: 0.7 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
+                      )}
+                    </div>
+                    {/* Points Tooltip */}
+                    {showRecordTooltip && displayRecord.pointsFor !== null && (
+                      <div
+                        className="absolute left-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-36 text-left"
+                        style={{
+                          backgroundColor: teamInfo.textColor,
+                          border: `2px solid ${teamBgText}40`
+                        }}
+                      >
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between gap-4">
+                            <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points For:</span>
+                            <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsFor}</span>
+                          </div>
+                          <div className="flex justify-between gap-4">
+                            <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points Against:</span>
+                            <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsAgainst}</span>
+                          </div>
+                          <div className="flex justify-between gap-4 pt-1 border-t" style={{ borderColor: `${teamPrimaryText}30` }}>
+                            <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Diff:</span>
+                            <span
+                              className="font-bold"
+                              style={{
+                                color: displayRecord.pointsFor - displayRecord.pointsAgainst > 0
+                                  ? '#16a34a'
+                                  : displayRecord.pointsFor - displayRecord.pointsAgainst < 0
+                                    ? '#dc2626'
+                                    : teamPrimaryText
+                              }}
+                            >
+                              {displayRecord.pointsFor - displayRecord.pointsAgainst > 0 ? '+' : ''}
+                              {displayRecord.pointsFor - displayRecord.pointsAgainst}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
-                <span className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.8 }}>
-                  {conference}
-                </span>
+                {displayRecord && conference && (
+                  <span style={{ color: teamBgText, opacity: 0.4 }}>•</span>
+                )}
+                {conference && (
+                  <div className="flex items-center gap-1.5">
+                    {conferenceLogo && (
+                      <img
+                        src={conferenceLogo}
+                        alt={`${conference} logo`}
+                        className="w-4 h-4 object-contain"
+                      />
+                    )}
+                    <span className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.8 }}>
+                      {conference}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {/* Postseason Result Badge - all CFP badges link to CFP Bracket */}
@@ -2076,64 +2093,6 @@ export default function TeamYear() {
                 </div>
               </div>
             )}
-            {/* Season Record (desktop) */}
-            {displayRecord && (
-              <div
-                className="text-right relative"
-                onMouseEnter={() => setShowRecordTooltip(true)}
-                onMouseLeave={() => setShowRecordTooltip(false)}
-              >
-                <div
-                  className="text-3xl md:text-4xl font-bold cursor-pointer"
-                  style={{ color: teamBgText }}
-                >
-                  {displayRecord.wins}-{displayRecord.losses}
-                  {(displayRecord.confWins > 0 || displayRecord.confLosses > 0) && (
-                    <span style={{ opacity: 0.7 }}> ({displayRecord.confWins}-{displayRecord.confLosses})</span>
-                  )}
-                </div>
-                <div className="text-sm font-semibold" style={{ color: teamBgText, opacity: 0.7 }}>
-                  Record
-                </div>
-                {/* Points Tooltip */}
-                {showRecordTooltip && displayRecord.pointsFor !== null && (
-                  <div
-                    className="absolute right-0 top-full mt-2 p-3 rounded-lg shadow-lg z-50 min-w-44 text-left"
-                    style={{
-                      backgroundColor: teamInfo.textColor,
-                      border: `2px solid ${teamBgText}40`
-                    }}
-                  >
-                    <div className="space-y-1.5 text-sm">
-                      <div className="flex justify-between gap-6">
-                        <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points For:</span>
-                        <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsFor}</span>
-                      </div>
-                      <div className="flex justify-between gap-6">
-                        <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Points Against:</span>
-                        <span className="font-bold" style={{ color: teamPrimaryText }}>{displayRecord.pointsAgainst}</span>
-                      </div>
-                      <div className="flex justify-between gap-6 pt-1.5 border-t" style={{ borderColor: `${teamPrimaryText}30` }}>
-                        <span style={{ color: teamPrimaryText, opacity: 0.7 }}>Diff:</span>
-                        <span
-                          className="font-bold"
-                          style={{
-                            color: displayRecord.pointsFor - displayRecord.pointsAgainst > 0
-                              ? '#16a34a'
-                              : displayRecord.pointsFor - displayRecord.pointsAgainst < 0
-                                ? '#dc2626'
-                                : teamPrimaryText
-                          }}
-                        >
-                          {displayRecord.pointsFor - displayRecord.pointsAgainst > 0 ? '+' : ''}
-                          {displayRecord.pointsFor - displayRecord.pointsAgainst}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2231,10 +2190,13 @@ export default function TeamYear() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold transition-all ${
               activeTab === tab.key
-                ? 'text-white bg-gray-800 border-b-2 border-blue-500'
+                ? 'text-white bg-gray-800 border-b-2'
                 : 'text-gray-400 hover:text-gray-200'
             }`}
-            style={{ marginBottom: '-1px' }}
+            style={{
+              marginBottom: '-1px',
+              borderBottomColor: activeTab === tab.key ? teamInfo.textColor : 'transparent'
+            }}
           >
             {tab.label}
           </button>
@@ -2275,8 +2237,282 @@ export default function TeamYear() {
         const lastGameInfo = getGameInfo(lastGame)
         const nextGameInfo = getGameInfo(nextGame)
 
+        // Helper to get game-specific stats from box score for Previous Game display
+        // Shows both teams' QBs, or two players from one team if opponent data unavailable
+        const getGameSpecificStats = (game) => {
+          if (!game || !game.boxScore) return null
+
+          // Determine if we're team1 or team2
+          const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
+          const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+
+          if (!isTeam1 && !isTeam2) return null
+
+          // Determine if team1 is home (boxScore.home = home team, boxScore.away = away team)
+          const team1IsHome = game.homeTeamTid === game.team1Tid ||
+                              (!game.homeTeamTid && game.location === 'home')
+
+          // Get box scores for both teams
+          let ourBoxScore, oppBoxScore
+          if (isTeam1) {
+            ourBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
+            oppBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
+          } else {
+            ourBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
+            oppBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
+          }
+
+          // Helper to get top passer with comp/att yards format
+          const getTopPasser = (boxScore) => {
+            if (!boxScore?.passing || boxScore.passing.length === 0) return null
+            const sorted = [...boxScore.passing].sort((a, b) => (parseInt(b.yards) || 0) - (parseInt(a.yards) || 0))
+            if (sorted[0]) {
+              return {
+                name: sorted[0].playerName || sorted[0].player,
+                comp: parseInt(sorted[0].comp) || 0,
+                att: parseInt(sorted[0].attempts) || parseInt(sorted[0].att) || 0,
+                yards: parseInt(sorted[0].yards) || parseInt(sorted[0].yds) || 0
+              }
+            }
+            return null
+          }
+
+          // Helper to get top rusher with carries yards format
+          const getTopRusher = (boxScore) => {
+            if (!boxScore?.rushing || boxScore.rushing.length === 0) return null
+            const sorted = [...boxScore.rushing].sort((a, b) => (parseInt(b.yards) || 0) - (parseInt(a.yards) || 0))
+            if (sorted[0]) {
+              return {
+                name: sorted[0].playerName || sorted[0].player,
+                carries: parseInt(sorted[0].carries) || parseInt(sorted[0].car) || 0,
+                yards: parseInt(sorted[0].yards) || parseInt(sorted[0].yds) || 0
+              }
+            }
+            return null
+          }
+
+          const ourPasser = getTopPasser(ourBoxScore)
+          const oppPasser = getTopPasser(oppBoxScore)
+          const ourRusher = getTopRusher(ourBoxScore)
+          const oppRusher = getTopRusher(oppBoxScore)
+
+          // Return both QBs if available, otherwise show passer + rusher from our team
+          const stats = []
+          if (ourPasser) {
+            stats.push({ type: 'pass', ...ourPasser, isOur: true })
+          }
+          if (oppPasser) {
+            stats.push({ type: 'pass', ...oppPasser, isOur: false })
+          } else if (ourRusher && stats.length < 2) {
+            // No opponent passer, show our rusher instead
+            stats.push({ type: 'rush', ...ourRusher, isOur: true })
+          }
+
+          return stats.length > 0 ? stats : null
+        }
+
+        const lastGameStats = getGameSpecificStats(lastGame)
+
         return (
         <div className="space-y-5">
+          {/* Team Stat Leaders with Player Photos */}
+          {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Stat Leaders</h3>
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className="text-xs font-medium transition-colors" style={{ color: teamInfo.textColor, opacity: 0.8 }}
+                >
+                  Full Stats →
+                </button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                {/* Passing Leader */}
+                {teamLeaders.passing && (
+                  <Link
+                    to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {teamLeaders.passing.player?.pictureUrl ? (
+                        <img
+                          src={teamLeaders.passing.player.pictureUrl}
+                          alt={teamLeaders.passing.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
+                          <span className="text-lg font-bold text-gray-400">
+                            {teamLeaders.passing.name?.charAt(0) || 'P'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Passing</div>
+                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
+                          {teamLeaders.passing.name}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {teamLeaders.passing.stats.yards.toLocaleString()}
+                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                      {teamLeaders.passing.stats.comp}/{teamLeaders.passing.stats.attempts} • {teamLeaders.passing.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+
+                {/* Rushing Leader */}
+                {teamLeaders.rushing && (
+                  <Link
+                    to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {teamLeaders.rushing.player?.pictureUrl ? (
+                        <img
+                          src={teamLeaders.rushing.player.pictureUrl}
+                          alt={teamLeaders.rushing.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
+                          <span className="text-lg font-bold text-gray-400">
+                            {teamLeaders.rushing.name?.charAt(0) || 'R'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Rushing</div>
+                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
+                          {teamLeaders.rushing.name}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {teamLeaders.rushing.stats.yards.toLocaleString()}
+                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                      {teamLeaders.rushing.stats.carries} ATT • {teamLeaders.rushing.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+
+                {/* Receiving Leader */}
+                {teamLeaders.receiving && (
+                  <Link
+                    to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {teamLeaders.receiving.player?.pictureUrl ? (
+                        <img
+                          src={teamLeaders.receiving.player.pictureUrl}
+                          alt={teamLeaders.receiving.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
+                          <span className="text-lg font-bold text-gray-400">
+                            {teamLeaders.receiving.name?.charAt(0) || 'W'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Receiving</div>
+                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
+                          {teamLeaders.receiving.name}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {teamLeaders.receiving.stats.yards.toLocaleString()}
+                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                      {teamLeaders.receiving.stats.receptions} REC • {teamLeaders.receiving.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+
+                {/* Tackles Leader */}
+                {teamLeaders.tackles && (
+                  <Link
+                    to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {teamLeaders.tackles.player?.pictureUrl ? (
+                        <img
+                          src={teamLeaders.tackles.player.pictureUrl}
+                          alt={teamLeaders.tackles.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
+                          <span className="text-lg font-bold text-gray-400">
+                            {teamLeaders.tackles.name?.charAt(0) || 'D'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tackles</div>
+                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
+                          {teamLeaders.tackles.name}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {teamLeaders.tackles.stats.tackles}
+                      <span className="text-sm font-medium text-gray-500 ml-1">TKL</span>
+                    </div>
+                  </Link>
+                )}
+
+                {/* Interceptions Leader */}
+                {teamLeaders.interceptions && (
+                  <Link
+                    to={teamLeaders.interceptions.player ? `${pathPrefix}/player/${teamLeaders.interceptions.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      {teamLeaders.interceptions.player?.pictureUrl ? (
+                        <img
+                          src={teamLeaders.interceptions.player.pictureUrl}
+                          alt={teamLeaders.interceptions.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
+                          <span className="text-lg font-bold text-gray-400">
+                            {teamLeaders.interceptions.name?.charAt(0) || 'D'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">INTs</div>
+                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
+                          {teamLeaders.interceptions.name}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-white tabular-nums">
+                      {teamLeaders.interceptions.stats.interceptions}
+                      <span className="text-sm font-medium text-gray-500 ml-1">INT</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                      {teamLeaders.interceptions.stats.tackles} TKL
+                    </div>
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Previous Game + Next Game Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Previous Game with Stats */}
@@ -2315,18 +2551,20 @@ export default function TeamYear() {
                     {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-10 h-10 object-contain" />}
                   </div>
                 </div>
-                {/* Quick game stat leaders */}
-                {teamLeaders.passing && (
-                  <div className="pt-3 border-t border-gray-700/50 flex items-center gap-4 text-xs text-gray-400">
-                    <span className="font-medium text-gray-300">{teamLeaders.passing.name}</span>
-                    <span>{teamLeaders.passing.stats.yards} pass yds</span>
-                    {teamLeaders.rushing && (
-                      <>
-                        <span className="text-gray-600">|</span>
-                        <span className="font-medium text-gray-300">{teamLeaders.rushing.name}</span>
-                        <span>{teamLeaders.rushing.stats.yards} rush yds</span>
-                      </>
-                    )}
+                {/* Quick game stat leaders from box score - both QBs */}
+                {lastGameStats && lastGameStats.length > 0 && (
+                  <div className="pt-3 border-t border-gray-700/50 flex items-center gap-4 text-xs text-gray-400 flex-wrap">
+                    {lastGameStats.map((stat, idx) => (
+                      <span key={idx} className="flex items-center gap-1.5">
+                        {idx > 0 && <span className="text-gray-600 mr-1.5">|</span>}
+                        <span className="font-medium text-gray-300">{stat.name}</span>
+                        {stat.type === 'pass' ? (
+                          <span>{stat.comp}/{stat.att} {stat.yards} yds</span>
+                        ) : (
+                          <span>{stat.carries} car {stat.yards} yds</span>
+                        )}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
@@ -2340,7 +2578,7 @@ export default function TeamYear() {
                 className="group bg-gray-800 rounded-xl border border-gray-700 hover:border-gray-600 transition-all overflow-hidden"
               >
                 <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Next Game</span>
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: teamInfo.textColor }}>Next Game</span>
                   <span className="text-xs text-gray-500">
                     {nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
                   </span>
@@ -2381,218 +2619,98 @@ export default function TeamYear() {
             )}
           </div>
 
-          {/* Compact Season Schedule */}
-          {teamYearGames.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Season Schedule</h3>
-                <button
-                  onClick={() => setActiveTab('schedule')}
-                  className="text-xs font-medium text-gray-500 hover:text-white transition-colors"
-                >
-                  Full Schedule →
-                </button>
-              </div>
-              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 divide-gray-700/50">
-                  {teamYearGames.map((game, index) => {
-                    const rawOpp = game._isFlippedPerspective ? game._displayOpponent : game.opponent
-                    const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
-                    const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
-                    const oppLogo = oppTeam?.logo || (oppTeam?.name ? getTeamLogo(oppTeam.name) : null)
-                    const result = game._isFlippedPerspective ? game._displayResult : game.result
-                    const location = game._isFlippedPerspective ? game._displayLocation : game.location
-                    const teamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
-                    const oppScore = game._isFlippedPerspective ? game._displayOpponentScore : game.opponentScore
-                    const isWin = result === 'win' || result === 'W'
-                    const isLoss = result === 'loss' || result === 'L'
-                    const hasResult = isWin || isLoss
+          {/* Compact Season Schedule - Column-first order */}
+          {teamYearGames.length > 0 && (() => {
+            // Calculate rows needed for column-first layout
+            const totalGames = teamYearGames.length
+            // For 2 columns (sm): split in half
+            // For 3 columns (lg): split in thirds
+            const rowsFor2Col = Math.ceil(totalGames / 2)
+            const rowsFor3Col = Math.ceil(totalGames / 3)
 
-                    return (
-                      <Link
-                        key={game.id || index}
-                        to={`${pathPrefix}/game/${game.id}`}
-                        className={`flex items-center px-3 py-2 hover:bg-gray-700/50 transition-colors ${
-                          index > 0 ? 'sm:border-l sm:border-gray-700/50' : ''
-                        } ${index >= 3 ? 'lg:border-t lg:border-gray-700/50' : ''}`}
-                      >
-                        <span className="text-[10px] font-semibold text-gray-500 w-8 flex-shrink-0">
-                          {game.isBowlGame ? 'Bowl' : game.isConferenceChampionship ? 'CCG' : `Wk${game.week}`}
-                        </span>
-                        <span className="text-[10px] text-gray-600 w-4">
-                          {location === 'away' ? '@' : 'vs'}
-                        </span>
-                        {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain mr-1.5" />}
-                        <span className="text-xs font-medium text-gray-300 truncate flex-1">
-                          {game.opponentRank && <span className="text-gray-500">#{game.opponentRank} </span>}
-                          {oppAbbr}
-                        </span>
-                        {hasResult ? (
-                          <span className={`text-xs font-semibold tabular-nums ${isWin ? 'text-green-400' : 'text-red-400'}`}>
-                            {isWin ? 'W' : 'L'} {teamScore}-{oppScore}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-gray-600">--</span>
-                        )}
-                      </Link>
-                    )
-                  })}
+            // Render a single game item
+            const renderGameItem = (game, index) => {
+              const rawOpp = game._isFlippedPerspective ? game._displayOpponent : game.opponent
+              const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
+              const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
+              const oppLogo = oppTeam?.logo || (oppTeam?.name ? getTeamLogo(oppTeam.name) : null)
+              const result = game._isFlippedPerspective ? game._displayResult : game.result
+              const location = game._isFlippedPerspective ? game._displayLocation : game.location
+              const teamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
+              const oppScore = game._isFlippedPerspective ? game._displayOpponentScore : game.opponentScore
+              const isWin = result === 'win' || result === 'W'
+              const isLoss = result === 'loss' || result === 'L'
+              const hasResult = isWin || isLoss
+
+              return (
+                <Link
+                  key={game.id || index}
+                  to={`${pathPrefix}/game/${game.id}`}
+                  className="flex items-center px-3 py-2 hover:bg-gray-700/50 transition-colors border-b border-gray-700/50 last:border-b-0"
+                >
+                  <span className="text-[10px] font-semibold text-gray-500 w-8 flex-shrink-0">
+                    {game.isBowlGame ? 'Bowl' : game.isConferenceChampionship ? 'CCG' : `Wk${game.week}`}
+                  </span>
+                  <span className="text-[10px] text-gray-600 w-4">
+                    {location === 'away' ? '@' : 'vs'}
+                  </span>
+                  {oppLogo && <img src={oppLogo} alt="" className="w-4 h-4 object-contain mr-1.5" />}
+                  <span className="text-xs font-medium text-gray-300 truncate flex-1">
+                    {game.opponentRank && <span className="text-gray-500">#{game.opponentRank} </span>}
+                    {oppAbbr}
+                  </span>
+                  {hasResult ? (
+                    <span className={`text-xs font-semibold tabular-nums ${isWin ? 'text-green-400' : 'text-red-400'}`}>
+                      {isWin ? 'W' : 'L'} {teamScore}-{oppScore}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-gray-600">--</span>
+                  )}
+                </Link>
+              )
+            }
+
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Season Schedule</h3>
+                  <button
+                    onClick={() => setActiveTab('schedule')}
+                    className="text-xs font-medium transition-colors" style={{ color: teamInfo.textColor, opacity: 0.8 }}
+                  >
+                    Full Schedule →
+                  </button>
+                </div>
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                  {/* Mobile: Single column */}
+                  <div className="sm:hidden">
+                    {teamYearGames.map((game, index) => renderGameItem(game, index))}
+                  </div>
+                  {/* Tablet (sm): 2 columns, column-first order */}
+                  <div className="hidden sm:grid lg:hidden grid-cols-2 divide-x divide-gray-700/50">
+                    <div>
+                      {teamYearGames.slice(0, rowsFor2Col).map((game, index) => renderGameItem(game, index))}
+                    </div>
+                    <div>
+                      {teamYearGames.slice(rowsFor2Col).map((game, index) => renderGameItem(game, rowsFor2Col + index))}
+                    </div>
+                  </div>
+                  {/* Desktop (lg): 3 columns, column-first order */}
+                  <div className="hidden lg:grid grid-cols-3 divide-x divide-gray-700/50">
+                    <div>
+                      {teamYearGames.slice(0, rowsFor3Col).map((game, index) => renderGameItem(game, index))}
+                    </div>
+                    <div>
+                      {teamYearGames.slice(rowsFor3Col, rowsFor3Col * 2).map((game, index) => renderGameItem(game, rowsFor3Col + index))}
+                    </div>
+                    <div>
+                      {teamYearGames.slice(rowsFor3Col * 2).map((game, index) => renderGameItem(game, rowsFor3Col * 2 + index))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Team Stat Leaders with Player Photos */}
-          {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles) && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Stat Leaders</h3>
-                <button
-                  onClick={() => setActiveTab('stats')}
-                  className="text-xs font-medium text-gray-500 hover:text-white transition-colors"
-                >
-                  Full Stats →
-                </button>
-              </div>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Passing Leader */}
-                {teamLeaders.passing && (
-                  <Link
-                    to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.passing.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.passing.player.pictureUrl}
-                          alt={teamLeaders.passing.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center border-2 border-blue-600/30">
-                          <span className="text-lg font-bold text-blue-400">
-                            {teamLeaders.passing.name?.charAt(0) || 'P'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-0.5">Passing</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-blue-400 transition-colors">
-                          {teamLeaders.passing.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
-                      {teamLeaders.passing.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Rushing Leader */}
-                {teamLeaders.rushing && (
-                  <Link
-                    to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.rushing.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.rushing.player.pictureUrl}
-                          alt={teamLeaders.rushing.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-emerald-600/20 flex items-center justify-center border-2 border-emerald-600/30">
-                          <span className="text-lg font-bold text-emerald-400">
-                            {teamLeaders.rushing.name?.charAt(0) || 'R'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-0.5">Rushing</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-emerald-400 transition-colors">
-                          {teamLeaders.rushing.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
-                      {teamLeaders.rushing.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Receiving Leader */}
-                {teamLeaders.receiving && (
-                  <Link
-                    to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.receiving.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.receiving.player.pictureUrl}
-                          alt={teamLeaders.receiving.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-orange-600/20 flex items-center justify-center border-2 border-orange-600/30">
-                          <span className="text-lg font-bold text-orange-400">
-                            {teamLeaders.receiving.name?.charAt(0) || 'W'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-orange-400 mb-0.5">Receiving</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-orange-400 transition-colors">
-                          {teamLeaders.receiving.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
-                      {teamLeaders.receiving.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
-                    </div>
-                  </Link>
-                )}
-
-                {/* Tackles Leader */}
-                {teamLeaders.tackles && (
-                  <Link
-                    to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.tackles.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.tackles.player.pictureUrl}
-                          alt={teamLeaders.tackles.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-red-600/20 flex items-center justify-center border-2 border-red-600/30">
-                          <span className="text-lg font-bold text-red-400">
-                            {teamLeaders.tackles.name?.charAt(0) || 'D'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-red-400 mb-0.5">Tackles</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-red-400 transition-colors">
-                          {teamLeaders.tackles.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
-                      {teamLeaders.tackles.stats.tackles}
-                      <span className="text-sm font-medium text-gray-500 ml-1">TKL</span>
-                    </div>
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
         )
       })()}
@@ -2661,9 +2779,10 @@ export default function TeamYear() {
                         onClick={() => setPositionFilter(key)}
                         className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-150 ${
                           isActive
-                            ? 'bg-blue-600 text-white'
+                            ? 'text-white'
                             : 'text-gray-400 border border-gray-600 hover:text-gray-300'
                         }`}
+                        style={isActive ? { backgroundColor: teamInfo.textColor } : {}}
                       >
                         {positionGroups[key].label}
                       </button>
@@ -2694,9 +2813,10 @@ export default function TeamYear() {
                         onClick={() => handleRosterSort(key)}
                         className={`px-2 py-1 rounded text-xs font-medium transition-all duration-150 flex items-center gap-0.5 ${
                           isActive
-                            ? 'bg-blue-600 text-white'
+                            ? 'text-white'
                             : 'text-gray-400 hover:text-gray-300'
                         }`}
+                        style={isActive ? { backgroundColor: teamInfo.textColor } : {}}
                       >
                         {label}
                         {isActive && (
@@ -2725,7 +2845,8 @@ export default function TeamYear() {
                 <Link
                   key={player.pid}
                   to={`${pathPrefix}/player/${player.pid}`}
-                  className="block p-3 rounded-lg bg-gray-700/50 border-l-4 border-blue-500 active:bg-gray-700 transition-colors"
+                  className="block p-3 rounded-lg bg-gray-700/50 border-l-4 active:bg-gray-700 transition-colors"
+                  style={{ borderLeftColor: teamInfo.textColor }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -2758,7 +2879,7 @@ export default function TeamYear() {
                           )}
                           {/* Camera icon overlay - only show when no image */}
                           {!player.pictureUrl && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center bg-blue-600">
+                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: teamInfo.textColor }}>
                               <svg className="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
@@ -2894,7 +3015,7 @@ export default function TeamYear() {
                               )}
                               {/* Camera icon overlay - only show when no image */}
                               {!player.pictureUrl && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-blue-600">
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ backgroundColor: teamInfo.textColor }}>
                                   <svg className="w-2 h-2" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
@@ -2969,7 +3090,8 @@ export default function TeamYear() {
             </p>
             <button
               onClick={() => setShowRosterModal(true)}
-              className="px-4 py-2 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 rounded-lg font-semibold text-white hover:opacity-90 transition-colors"
+              style={{ backgroundColor: teamInfo.textColor }}
             >
               Add Roster
             </button>
@@ -2993,10 +3115,13 @@ export default function TeamYear() {
                 onClick={() => setStatsSubTab(tab.key)}
                 className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm font-semibold transition-all ${
                   statsSubTab === tab.key
-                    ? 'text-white bg-gray-800 border-b-2 border-blue-500'
+                    ? 'text-white bg-gray-800 border-b-2'
                     : 'text-gray-400 hover:text-gray-200'
                 }`}
-                style={{ marginBottom: '-1px' }}
+                style={{
+                  marginBottom: '-1px',
+                  borderBottomColor: statsSubTab === tab.key ? teamInfo.textColor : 'transparent'
+                }}
               >
                 {tab.label}
               </button>
@@ -3028,7 +3153,7 @@ export default function TeamYear() {
                         {playerStats.passing.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>
@@ -3067,7 +3192,7 @@ export default function TeamYear() {
                         {playerStats.rushing.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>
@@ -3106,7 +3231,7 @@ export default function TeamYear() {
                         {playerStats.receiving.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>
@@ -3145,7 +3270,7 @@ export default function TeamYear() {
                         {playerStats.defense.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>
@@ -3184,7 +3309,7 @@ export default function TeamYear() {
                         {playerStats.kicking.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>
@@ -3223,7 +3348,7 @@ export default function TeamYear() {
                         {playerStats.punting.map((p, i) => (
                           <tr key={p.pid || i} className="border-t border-gray-700">
                             <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline text-blue-400">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="font-medium hover:underline" style={{ color: teamInfo.textColor }}>
                                 {p.name}
                               </Link>
                             </td>

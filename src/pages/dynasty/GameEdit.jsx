@@ -1955,7 +1955,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -1973,7 +1973,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -1996,7 +1996,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -2014,7 +2014,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'

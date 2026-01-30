@@ -778,7 +778,12 @@ export default function BoxScoreSheetModal({
                     try {
                       const success = await refreshSession()
                       if (success) {
-                        setRetryCount(c => c + 1)
+                        // Clear the error state first, then trigger retry
+                        setShowSessionError(false)
+                        // Small delay to ensure token is ready
+                        setTimeout(() => {
+                          setRetryCount(c => c + 1)
+                        }, 500)
                       }
                     } catch (e) {
                       console.error('Refresh failed:', e)

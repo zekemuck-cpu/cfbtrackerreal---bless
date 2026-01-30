@@ -5,7 +5,7 @@ export const STAT_TABS = {
   passing: {
     key: 'passing',
     title: 'Passing',
-    headers: ['Player Name', 'C/Att', 'Yards', 'TD', 'INT', 'Rtg', 'Long', 'Sacks'],
+    headers: ['Player Name', 'Rtg', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Long'],
     rowCount: 6
   },
   rushing: {

@@ -15,6 +15,7 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
+import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 
 // Map abbreviations to mascot names for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -239,6 +240,7 @@ export default function Game() {
   const [quotaRetrySeconds, setQuotaRetrySeconds] = useState(null) // Countdown for quota errors
   const [streamingRecap, setStreamingRecap] = useState('')
   const [tokenUsage, setTokenUsage] = useState(null)
+  const [showHighlightsModal, setShowHighlightsModal] = useState(false)
 
   // Countdown timer for quota errors
   useEffect(() => {
@@ -322,6 +324,7 @@ export default function Game() {
   }
 
   // Get display headers for a stat tab - adds computed "Total" column for defense
+  // Also combines Comp/Att into C/Att for passing display and reorders for display
   const getDisplayHeaders = (tabKey) => {
     const baseHeaders = STAT_TABS[tabKey].headers
     if (tabKey === 'defense') {
@@ -329,6 +332,11 @@ export default function Game() {
       const headers = [...baseHeaders]
       headers.splice(3, 0, 'Total')
       return headers
+    }
+    if (tabKey === 'passing') {
+      // Display order: Player Name, C/Att, Yards, TD, INT, Rtg, Long
+      // Sheet order is different (Rtg comes before Comp/Att)
+      return ['Player Name', 'C/Att', 'Yards', 'TD', 'INT', 'Rtg', 'Long']
     }
     return baseHeaders
   }
@@ -1612,8 +1620,25 @@ export default function Game() {
               return { ...play, runningLeftScore: leftRunning, runningRightScore: rightRunning }
             })
 
+            const hasVideoLinks = playsWithScores.some(p => p.videoLink)
+
             return (
-              <div className="divide-y divide-gray-800/50">
+              <div>
+                {/* Watch All Scores button - only show if there are video links */}
+                {hasVideoLinks && (
+                  <div className="px-4 py-3 border-b border-gray-800/50">
+                    <button
+                      onClick={() => setShowHighlightsModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      Watch All Scores
+                    </button>
+                  </div>
+                )}
+                <div className="divide-y divide-gray-800/50">
                 {playsWithScores.map((play, idx) => {
                   const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
                   const scorerPID = getPlayerPID(play.scorer)
@@ -1730,6 +1755,7 @@ export default function Game() {
                     </div>
                   )
                 })}
+                </div>
               </div>
             )
           })()}
@@ -2588,6 +2614,17 @@ export default function Game() {
           </div>
         </div>
       )}
+
+      {/* Scoring Highlights Modal */}
+      <ScoringHighlightsModal
+        isOpen={showHighlightsModal}
+        onClose={() => setShowHighlightsModal(false)}
+        scoringPlays={game.boxScore?.scoringSummary || []}
+        team1Abbr={leftData?.abbr}
+        team2Abbr={rightData?.abbr}
+        team1Score={game.team1Score}
+        team2Score={game.team2Score}
+      />
     </div>
   )
 }
