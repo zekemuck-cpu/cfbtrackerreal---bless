@@ -342,6 +342,9 @@ export default function Dashboard() {
           const classB = classOrder.indexOf(b.year)
           comparison = (classA === -1 ? 999 : classA) - (classB === -1 ? 999 : classB)
           break
+        case 'overall':
+          comparison = (b.overall || 0) - (a.overall || 0) // Default descending (highest first)
+          break
         default:
           comparison = 0
       }
@@ -7863,8 +7866,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1">
                   {[
                     { key: 'position', label: 'POS' },
-                    { key: 'name', label: 'A-Z' },
-                    { key: 'class', label: 'YR' }
+                    { key: 'overall', label: 'OVR' }
                   ].map(({ key, label }) => (
                     <button
                       key={key}
@@ -8779,7 +8781,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-1">
                 {[
                   { key: 'position', label: 'POS' },
-                  { key: 'name', label: 'A-Z' }
+                  { key: 'overall', label: 'OVR' }
                 ].map(({ key, label }) => (
                   <button
                     key={key}
@@ -8791,6 +8793,9 @@ export default function Dashboard() {
                     }`}
                   >
                     {label}
+                    {rosterSort === key && (
+                      <span className="ml-0.5">{rosterSortDir === 'asc' ? '↑' : '↓'}</span>
+                    )}
                   </button>
                 ))}
               </div>
