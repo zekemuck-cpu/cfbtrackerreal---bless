@@ -4619,6 +4619,10 @@ export function DynastyProvider({ children }) {
   const persistedMigrationDynastiesRef = useRef(new Set())
   // Flag to indicate if a migration save is currently in progress (to serialize saves)
   const migrationSaveInProgressRef = useRef(false)
+  // Track which cloud dynasties have had their subcollections loaded (lazy loading optimization)
+  const loadedDynastyIdsRef = useRef(new Set())
+  // Track which dynasty is currently having its data loaded
+  const [loadingDynastyId, setLoadingDynastyId] = useState(null)
 
   // Helper to find dynasty by ID - checks state first (both local + cloud), then IndexedDB as fallback
   // This ensures cloud dynasties work even if user's premium expired (read-only mode)
@@ -4678,6 +4682,64 @@ export function DynastyProvider({ children }) {
     }
 
     return dynasty?.players || []
+  }
+
+  // Lazy load subcollection data for a cloud dynasty on demand
+  // This reduces Firestore reads by only loading data when user opens a dynasty
+  const loadDynastyData = async (dynastyId) => {
+    // Check if already loaded
+    if (loadedDynastyIdsRef.current.has(dynastyId)) {
+      return
+    }
+
+    // Find the dynasty in state
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) {
+      return
+    }
+
+    // Local dynasties already have their data, just mark as loaded
+    if (dynasty.storageType !== 'cloud') {
+      loadedDynastyIdsRef.current.add(dynastyId)
+      return
+    }
+
+    setLoadingDynastyId(dynastyId)
+
+    try {
+      // Load subcollections from Firestore
+      const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+        getPlayersSubcollection(dynastyId),
+        getGamesSubcollection(dynastyId)
+      ])
+
+      // Use subcollection data if available, otherwise fall back to main document
+      const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
+      const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+      // Apply migrations to the loaded data
+      const dynastyWithData = { ...dynasty, players, games }
+      const [migratedDynasty] = applyMigrations([dynastyWithData])
+
+      // Update the dynasty in state with loaded data
+      setDynasties(prev => prev.map(d =>
+        d.id === dynastyId ? migratedDynasty : d
+      ))
+
+      // If this is the current dynasty, update it too
+      setCurrentDynasty(prev => {
+        if (prev?.id === dynastyId) {
+          return migratedDynasty
+        }
+        return prev
+      })
+
+      loadedDynastyIdsRef.current.add(dynastyId)
+    } catch (err) {
+      console.error(`Error loading dynasty data for ${dynastyId}:`, err)
+    } finally {
+      setLoadingDynastyId(null)
+    }
   }
 
   // Helper to apply migrations to dynasties (games + stats + roster)
@@ -4904,6 +4966,9 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Clear lazy loading cache when user changes (logout or login as different user)
+    loadedDynastyIdsRef.current.clear()
+
     // If user is not signed in, only load local dynasties
     if (!user) {
       const loadOnlyLocal = async () => {
@@ -4958,16 +5023,28 @@ export function DynastyProvider({ children }) {
         }
       }
 
-      // Load subcollections for each cloud dynasty in parallel
+      // LAZY LOADING OPTIMIZATION: Only load subcollections for dynasties that are already loaded
+      // or currently selected. This reduces Firestore reads significantly for users with many dynasties.
       const cloudDynastiesWithSubcollections = await Promise.all(
         firestoreDynasties.map(async (dynasty) => {
           try {
             // Tag as cloud storage
             const taggedDynasty = { ...dynasty, storageType: 'cloud' }
 
-            // ALWAYS try to load from subcollections for cloud dynasties
-            // This fixes issues where _subcollectionsMigrated flag wasn't set but data is in subcollection
-            // (e.g., after stint migration which saves to subcollection via updateDynasty)
+            // Check if this dynasty should have its subcollections loaded:
+            // 1. It's the currently selected dynasty (user is viewing it)
+            // 2. It's already been loaded this session (keep it in sync)
+            const shouldLoadSubcollections =
+              currentDynasty?.id === dynasty.id ||
+              loadedDynastyIdsRef.current.has(dynasty.id)
+
+            if (!shouldLoadSubcollections) {
+              // Return metadata only - players/games will be loaded on demand
+              // Keep any embedded data from main document for display purposes (e.g., player count)
+              return taggedDynasty
+            }
+
+            // Load subcollections for this dynasty
             const [subcollectionPlayers, subcollectionGames] = await Promise.all([
               getPlayersSubcollection(dynasty.id),
               getGamesSubcollection(dynasty.id)
@@ -4976,6 +5053,9 @@ export function DynastyProvider({ children }) {
             // Use subcollection data if it exists, otherwise fall back to main document
             const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
             const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+            // Mark as loaded
+            loadedDynastyIdsRef.current.add(dynasty.id)
 
             return {
               ...taggedDynasty,
@@ -5611,9 +5691,20 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  const selectDynasty = (dynastyId) => {
+  const selectDynasty = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
-    setCurrentDynasty(dynasty || null)
+    if (!dynasty) {
+      setCurrentDynasty(null)
+      return
+    }
+
+    // Set the dynasty immediately (may not have players/games yet if cloud and unloaded)
+    setCurrentDynasty(dynasty)
+
+    // If this is a cloud dynasty that hasn't been loaded yet, trigger lazy loading
+    if (dynasty.storageType === 'cloud' && !loadedDynastyIdsRef.current.has(dynastyId)) {
+      await loadDynastyData(dynastyId)
+    }
   }
 
   const addGame = async (dynastyId, gameData) => {
@@ -11510,6 +11601,7 @@ export function DynastyProvider({ children }) {
     currentDynasty,
     customTeams,
     loading,
+    loadingDynastyId,
     isViewOnly,
     createDynasty,
     updateDynasty,

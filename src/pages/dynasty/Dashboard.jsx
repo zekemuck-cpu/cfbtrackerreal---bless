@@ -59,7 +59,10 @@ const normalizePlayerName = (name) => {
 }
 
 export default function Dashboard() {
-  const { currentDynasty, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
+  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, addGame, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, processHonorPlayers, isViewOnly, exportDynasty } = useDynasty()
+
+  // Check if dynasty data is being lazily loaded
+  const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
   const { user } = useAuth()
   const { id: dynastyId, shareCode } = useParams()
   const navigate = useNavigate()
@@ -7928,6 +7931,11 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
+                ) : isLoadingDynastyData ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
+                    <p className="text-sm text-zinc-500">Loading roster...</p>
+                  </div>
                 ) : (
                   <p className="text-sm text-zinc-500 text-center py-8">
                     No players on roster yet
@@ -8397,6 +8405,13 @@ export default function Dashboard() {
               )
             })()}
             </>
+          ) : isLoadingDynastyData ? (
+          <div className="text-center py-12">
+            <div className="inline-block w-8 h-8 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-4" />
+            <h3 className="font-display text-lg font-medium mb-2 text-zinc-100">
+              Loading Schedule...
+            </h3>
+          </div>
           ) : (
           <div className="text-center py-12">
             <div className="text-zinc-600 mb-4">
@@ -8583,6 +8598,11 @@ export default function Dashboard() {
                       return <div key={weekNum}>{renderMobileGameRow(false)}</div>
                     })}
                   </>
+                ) : isLoadingDynastyData ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
+                    <p className="text-zinc-500">Loading schedule...</p>
+                  </div>
                 ) : (
                   <div className="text-center py-12">
                     <p className="text-zinc-500">No schedule entered yet.</p>
@@ -8672,6 +8692,11 @@ export default function Dashboard() {
                       <div className="text-base font-bold text-zinc-100">{player.overall || '--'}</div>
                     </div>
                   ))}
+                </div>
+              ) : isLoadingDynastyData ? (
+                <div className="text-center py-8">
+                  <div className="inline-block w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin mb-2" />
+                  <p className="text-sm text-zinc-500">Loading roster...</p>
                 </div>
               ) : (
                 <p className="text-sm text-zinc-500 text-center py-8">
