@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import RosterSpreadsheet from './RosterSpreadsheet'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
 import {
