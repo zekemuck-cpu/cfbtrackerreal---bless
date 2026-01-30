@@ -1,7 +1,74 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import ReactPlayer from 'react-player'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
+
+// Extract video embed URL from various platforms
+function getEmbedUrl(url) {
+  if (!url) return null
+
+  // YouTube: youtu.be/VIDEO_ID?t=SECONDS or youtube.com/watch?v=VIDEO_ID&t=SECONDS
+  const youtubeShortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)(?:\?t=(\d+))?/)
+  if (youtubeShortMatch) {
+    const startTime = youtubeShortMatch[2] || '0'
+    return `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&start=${startTime}&rel=0&modestbranding=1`
+  }
+
+  const youtubeLongMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
+  if (youtubeLongMatch) {
+    const startTime = youtubeLongMatch[2] || '0'
+    return `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&start=${startTime}&rel=0&modestbranding=1`
+  }
+
+  const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)
+  if (youtubeEmbedMatch) {
+    return url.includes('autoplay') ? url : `${url}${url.includes('?') ? '&' : '?'}autoplay=1`
+  }
+
+  // Twitch clips: clips.twitch.tv/CLIP_ID or twitch.tv/*/clip/CLIP_ID
+  const twitchClipMatch = url.match(/clips\.twitch\.tv\/([a-zA-Z0-9_-]+)/)
+  if (twitchClipMatch) {
+    return `https://clips.twitch.tv/embed?clip=${twitchClipMatch[1]}&parent=${window.location.hostname}&autoplay=true`
+  }
+
+  const twitchClipAltMatch = url.match(/twitch\.tv\/[^/]+\/clip\/([a-zA-Z0-9_-]+)/)
+  if (twitchClipAltMatch) {
+    return `https://clips.twitch.tv/embed?clip=${twitchClipAltMatch[1]}&parent=${window.location.hostname}&autoplay=true`
+  }
+
+  // Twitch VOD: twitch.tv/videos/VIDEO_ID?t=TIMEhTIMEmTIMEs
+  const twitchVodMatch = url.match(/twitch\.tv\/videos\/(\d+)(?:\?t=([^&]+))?/)
+  if (twitchVodMatch) {
+    const time = twitchVodMatch[2] || '0h0m0s'
+    return `https://player.twitch.tv/?video=${twitchVodMatch[1]}&time=${time}&parent=${window.location.hostname}&autoplay=true`
+  }
+
+  // Vimeo: vimeo.com/VIDEO_ID or vimeo.com/VIDEO_ID#t=TIMEs
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:#t=(\d+)s)?/)
+  if (vimeoMatch) {
+    const startTime = vimeoMatch[2] || '0'
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1${startTime !== '0' ? `#t=${startTime}s` : ''}`
+  }
+
+  // Streamable: streamable.com/CODE
+  const streamableMatch = url.match(/streamable\.com\/([a-zA-Z0-9]+)/)
+  if (streamableMatch) {
+    return `https://streamable.com/e/${streamableMatch[1]}?autoplay=1`
+  }
+
+  // Dailymotion: dailymotion.com/video/VIDEO_ID
+  const dailymotionMatch = url.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/)
+  if (dailymotionMatch) {
+    return `https://www.dailymotion.com/embed/video/${dailymotionMatch[1]}?autoplay=1`
+  }
+
+  // Direct video files (.mp4, .webm, .ogg)
+  if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) {
+    return { type: 'video', url }
+  }
+
+  // If we can't parse it, return null (will show "Open in new tab" fallback)
+  return null
+}
 
 export default function ScoringHighlightsModal({
   isOpen,
@@ -9,21 +76,42 @@ export default function ScoringHighlightsModal({
   scoringPlays,
   team1Abbr,
   team2Abbr,
-  team1Score,
-  team2Score
+  team1Logo,
+  team2Logo,
+  players,
+  getTeamLogo,
+  getMascotName,
+  teamsData
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
-  const [isReady, setIsReady] = useState(false)
-  const [hasError, setHasError] = useState(false)
   const timerRef = useRef(null)
-  const playerRef = useRef(null)
 
   // Filter to only plays with video links
   const playsWithVideo = scoringPlays?.filter(p => p.videoLink) || []
   const currentPlay = playsWithVideo[currentIndex]
   const totalPlays = playsWithVideo.length
+
+  // Find player by name
+  const findPlayer = useCallback((name) => {
+    if (!name || !players) return null
+    return players.find(p => p.name === name)
+  }, [players])
+
+  // Get team logo for a team abbreviation
+  const getTeamLogoForAbbr = useCallback((abbr) => {
+    if (!abbr) return null
+    // Check if it matches team1 or team2
+    if (abbr.toUpperCase() === team1Abbr?.toUpperCase()) return team1Logo
+    if (abbr.toUpperCase() === team2Abbr?.toUpperCase()) return team2Logo
+    // Try to get from getTeamLogo function if provided
+    if (getTeamLogo && getMascotName) {
+      const mascot = getMascotName(abbr, teamsData)
+      return getTeamLogo(mascot || abbr, teamsData)
+    }
+    return null
+  }, [team1Abbr, team2Abbr, team1Logo, team2Logo, getTeamLogo, getMascotName, teamsData])
 
   // Calculate running score up to current play
   const getRunningScore = useCallback((upToIndex) => {
@@ -64,7 +152,7 @@ export default function ScoringHighlightsModal({
 
   // Handle timer for auto-advance
   useEffect(() => {
-    if (!isOpen || !isPlaying || !isReady || hasError) {
+    if (!isOpen || !isPlaying) {
       if (timerRef.current) clearInterval(timerRef.current)
       return
     }
@@ -75,8 +163,6 @@ export default function ScoringHighlightsModal({
           // Auto-advance to next
           if (currentIndex < totalPlays - 1) {
             setCurrentIndex(currentIndex + 1)
-            setIsReady(false)
-            setHasError(false)
             return PLAY_DURATION
           } else {
             // End of playlist
@@ -91,7 +177,7 @@ export default function ScoringHighlightsModal({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [isOpen, isPlaying, isReady, hasError, currentIndex, totalPlays])
+  }, [isOpen, isPlaying, currentIndex, totalPlays])
 
   // Reset when modal opens
   useEffect(() => {
@@ -99,16 +185,12 @@ export default function ScoringHighlightsModal({
       setCurrentIndex(0)
       setIsPlaying(true)
       setTimeRemaining(PLAY_DURATION)
-      setIsReady(false)
-      setHasError(false)
     }
   }, [isOpen])
 
   // Reset timer when changing plays
   useEffect(() => {
     setTimeRemaining(PLAY_DURATION)
-    setIsReady(false)
-    setHasError(false)
   }, [currentIndex])
 
   const handlePrev = () => {
@@ -129,20 +211,23 @@ export default function ScoringHighlightsModal({
     setIsPlaying(!isPlaying)
   }
 
-  const handleReady = () => {
-    setIsReady(true)
-    setHasError(false)
-  }
-
-  const handleError = () => {
-    setHasError(true)
-    setIsReady(false)
-  }
-
   if (!isOpen || totalPlays === 0) return null
 
   const runningScore = getRunningScore(currentIndex)
   const isPassingTD = currentPlay?.scoreType === 'Passing TD'
+
+  // Get embed URL
+  const embedData = getEmbedUrl(currentPlay?.videoLink)
+  const isDirectVideo = embedData && typeof embedData === 'object' && embedData.type === 'video'
+  const embedUrl = isDirectVideo ? null : embedData
+
+  // Get player data for images
+  const scorerPlayer = findPlayer(currentPlay?.scorer)
+  const passerPlayer = findPlayer(currentPlay?.passer)
+
+  // Get team logos for score display
+  const team1LogoUrl = team1Logo
+  const team2LogoUrl = team2Logo
 
   return (
     <div
@@ -174,31 +259,30 @@ export default function ScoringHighlightsModal({
 
         {/* Video Player */}
         <div className="relative bg-black aspect-video">
-          {!hasError ? (
-            <ReactPlayer
-              ref={playerRef}
-              url={currentPlay?.videoLink}
-              playing={isPlaying}
-              controls={true}
-              width="100%"
-              height="100%"
-              onReady={handleReady}
-              onError={handleError}
-              config={{
-                youtube: {
-                  playerVars: {
-                    modestbranding: 1,
-                    rel: 0
-                  }
-                }
-              }}
+          {isDirectVideo ? (
+            <video
+              key={currentIndex}
+              src={embedData.url}
+              className="absolute inset-0 w-full h-full"
+              autoPlay
+              controls
+            />
+          ) : embedUrl ? (
+            <iframe
+              key={currentIndex}
+              src={embedUrl}
+              className="absolute inset-0 w-full h-full"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title={`Scoring play ${currentIndex + 1}`}
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
-              <p className="text-lg mb-2">Unable to load video</p>
+              <p className="text-lg mb-2">Unsupported video format</p>
               <a
                 href={currentPlay?.videoLink}
                 target="_blank"
@@ -210,16 +294,9 @@ export default function ScoringHighlightsModal({
             </div>
           )}
 
-          {/* Loading overlay */}
-          {!isReady && !hasError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-              <div className="w-12 h-12 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-            </div>
-          )}
-
           {/* Timer indicator */}
-          {isReady && isPlaying && (
-            <div className="absolute top-4 right-4 bg-black/70 px-3 py-1 rounded-full">
+          {isPlaying && (
+            <div className="absolute top-4 right-4 bg-black/70 px-3 py-1 rounded-full z-10">
               <span className="text-white text-sm font-mono">{timeRemaining}s</span>
             </div>
           )}
@@ -227,29 +304,59 @@ export default function ScoringHighlightsModal({
 
         {/* Play Info */}
         <div className="px-4 py-3 bg-gray-800 border-t border-gray-700">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="text-gray-400">
-              Q{currentPlay?.quarter} | {currentPlay?.timeLeft}
-            </span>
-            <span className="text-white font-semibold">
-              {currentPlay?.scoreType}
-              {currentPlay?.yards && ` - ${currentPlay.yards} yds`}
-            </span>
-            {currentPlay?.patResult && (
-              <span className="text-gray-400">({currentPlay.patResult})</span>
+          <div className="flex items-start gap-3">
+            {/* Player image */}
+            {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
+                <img
+                  src={scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
             )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm">
-            <span className="text-gray-300">
-              {isPassingTD && currentPlay?.passer ? (
-                <>{currentPlay.passer} to {currentPlay.scorer}</>
-              ) : (
-                currentPlay?.scorer
+
+            {/* Play details */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span className="text-gray-400">
+                  Q{currentPlay?.quarter} | {currentPlay?.timeLeft}
+                </span>
+                <span className="text-white font-semibold">
+                  {currentPlay?.scoreType}
+                  {currentPlay?.yards && ` - ${currentPlay.yards} yds`}
+                </span>
+                {currentPlay?.patResult && (
+                  <span className="text-gray-400">({currentPlay.patResult})</span>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
+                <span className="text-gray-300">
+                  {isPassingTD && currentPlay?.passer ? (
+                    <>{currentPlay.passer} to {currentPlay.scorer}</>
+                  ) : (
+                    currentPlay?.scorer
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Running Score with logos */}
+            <div className="flex-shrink-0 flex items-center gap-2">
+              {team1LogoUrl && (
+                <img src={team1LogoUrl} alt={team1Abbr} className="w-6 h-6 object-contain" />
               )}
-            </span>
-            <span className="text-white font-bold">
-              {team1Abbr} {runningScore.score1} - {team2Abbr} {runningScore.score2}
-            </span>
+              <span className="text-white font-bold text-lg">
+                {runningScore.score1}
+              </span>
+              <span className="text-gray-500">-</span>
+              <span className="text-white font-bold text-lg">
+                {runningScore.score2}
+              </span>
+              {team2LogoUrl && (
+                <img src={team2LogoUrl} alt={team2Abbr} className="w-6 h-6 object-contain" />
+              )}
+            </div>
           </div>
         </div>
 
@@ -273,6 +380,7 @@ export default function ScoringHighlightsModal({
           <button
             onClick={handlePlayPause}
             className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
           >
             {isPlaying ? (
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

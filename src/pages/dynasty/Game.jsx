@@ -2622,8 +2622,12 @@ export default function Game() {
         scoringPlays={game.boxScore?.scoringSummary || []}
         team1Abbr={leftData?.abbr}
         team2Abbr={rightData?.abbr}
-        team1Score={game.team1Score}
-        team2Score={game.team2Score}
+        team1Logo={leftData?.logo}
+        team2Logo={rightData?.logo}
+        players={currentDynasty?.players || []}
+        getTeamLogo={getTeamLogo}
+        getMascotName={getMascotName}
+        teamsData={currentDynasty?.teams || currentDynasty?.customTeams}
       />
     </div>
   )
