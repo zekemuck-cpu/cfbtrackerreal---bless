@@ -2508,11 +2508,18 @@ export default function Dashboard() {
     // Use TID-BASED getter
     const commitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTid, year)
     const allCommitments = []
+    const seenNames = new Set()
 
-    // Collect all commitments from all weeks/phases
+    // Collect all commitments from all weeks/phases, de-duplicating by name
     Object.values(commitmentsForTeamYear).forEach(weekCommitments => {
       if (Array.isArray(weekCommitments)) {
-        allCommitments.push(...weekCommitments)
+        weekCommitments.forEach(commit => {
+          const nameLower = (commit.name || '').toLowerCase().trim()
+          if (nameLower && !seenNames.has(nameLower)) {
+            seenNames.add(nameLower)
+            allCommitments.push(commit)
+          }
+        })
       }
     })
 
@@ -7868,7 +7875,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <Link
-                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
                     className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                     title="View full roster on team page"
                   >
@@ -7981,7 +7988,7 @@ export default function Dashboard() {
               </div>
             </div>
             <Link
-              to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+              to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=schedule`}
               className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
               title="View full schedule on team page"
             >
@@ -8502,7 +8509,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <Link
-                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                    to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=schedule`}
                     className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                     title="View full schedule on team page"
                   >
@@ -8659,7 +8666,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <Link
-                  to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
+                  to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
                   className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
                   title="View full roster on team page"
                 >

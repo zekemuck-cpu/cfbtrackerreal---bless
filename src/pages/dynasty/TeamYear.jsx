@@ -249,7 +249,9 @@ export default function TeamYear() {
 
   // Game state for editing
   const [selectedGame, setSelectedGame] = useState(null)
-  const [showCoachingStaffTooltip, setShowCoachingStaffTooltip] = useState(false)
+  const [showCoachingStaffPopup, setShowCoachingStaffPopup] = useState(false)
+  const [coachingStaffPopupPosition, setCoachingStaffPopupPosition] = useState({ top: 0, right: 0 })
+  const coachingStaffButtonRef = useRef(null)
 
   // Game edit modal state removed - now using game pages
 
@@ -1381,9 +1383,25 @@ export default function TeamYear() {
   // Calculate team-level stats for Stats tab
   const teamStatsData = useMemo(() => {
     const games = currentDynasty.games || []
-    let pointsFor = 0, pointsAgainst = 0, passYards = 0, rushYards = 0
+    // Basic stats
+    let pointsFor = 0, pointsAgainst = 0
     let wins = 0, losses = 0, confWins = 0, confLosses = 0
     let homeWins = 0, homeLosses = 0, awayWins = 0, awayLosses = 0
+    // Offense
+    let passYards = 0, rushYards = 0, totalOffense = 0, totalPlays = 0
+    let completions = 0, passAttempts = 0, passTds = 0
+    let rushAttempts = 0, rushTds = 0
+    let firstDowns = 0
+    // Efficiency
+    let thirdDownConv = 0, thirdDownAtt = 0
+    let fourthDownConv = 0, fourthDownAtt = 0
+    let redZoneTd = 0, redZoneFg = 0, redZoneAtt = 0
+    // Turnovers
+    let turnovers = 0, fumblesLost = 0, interceptions = 0
+    // Special Teams & Misc
+    let puntRetYards = 0, kickRetYards = 0
+    let punts = 0, penalties = 0, penaltyYards = 0
+    let possMinutes = 0, possSeconds = 0
 
     games.forEach(game => {
       if (Number(game.year) !== selectedYear) return
@@ -1438,19 +1456,65 @@ export default function TeamYear() {
 
       if (!teamSide) return
 
-      const teamStats = game.boxScore.teamStats?.[teamSide]
-      if (teamStats) {
-        passYards += parseInt(teamStats.passYards) || 0
-        rushYards += parseInt(teamStats.rushYards) || 0
+      const ts = game.boxScore.teamStats?.[teamSide]
+      if (ts) {
+        // Offense
+        passYards += parseInt(ts.passYards || ts.passingYards) || 0
+        rushYards += parseInt(ts.rushYards) || 0
+        totalOffense += parseInt(ts.totalOffense) || 0
+        totalPlays += parseInt(ts.totalPlays) || 0
+        completions += parseInt(ts.completions) || 0
+        passAttempts += parseInt(ts.passAttempts) || 0
+        passTds += parseInt(ts.passTds) || 0
+        rushAttempts += parseInt(ts.rushAttempts) || 0
+        rushTds += parseInt(ts.rushTds) || 0
+        firstDowns += parseInt(ts.firstDowns) || 0
+        // Efficiency
+        thirdDownConv += parseInt(ts['3rdDownConv']) || 0
+        thirdDownAtt += parseInt(ts['3rdDownAtt']) || 0
+        fourthDownConv += parseInt(ts['4thDownConv']) || 0
+        fourthDownAtt += parseInt(ts['4thDownAtt']) || 0
+        redZoneTd += parseInt(ts.redZoneTd || ts.redZoneTD) || 0
+        redZoneFg += parseInt(ts.redZoneFg || ts.redZoneFG) || 0
+        // Turnovers
+        turnovers += parseInt(ts.turnovers) || 0
+        fumblesLost += parseInt(ts.fumblesLost) || 0
+        interceptions += parseInt(ts.interceptions) || 0
+        // Special Teams & Misc
+        puntRetYards += parseInt(ts.puntRetYards) || 0
+        kickRetYards += parseInt(ts.kickRetYards) || 0
+        punts += parseInt(ts.punts) || 0
+        penalties += parseInt(ts.penalties) || 0
+        penaltyYards += parseInt(ts.penaltyYards) || 0
+        possMinutes += parseInt(ts.possMinutes) || 0
+        possSeconds += parseInt(ts.possSeconds) || 0
       }
     })
+
+    const gamesPlayed = wins + losses
+    // Calculate red zone attempts from TD + FG (approximation if not stored directly)
+    redZoneAtt = redZoneTd + redZoneFg
 
     return {
       wins, losses, confWins, confLosses,
       homeWins, homeLosses, awayWins, awayLosses,
-      pointsFor, pointsAgainst, passYards, rushYards,
-      totalOffense: passYards + rushYards,
-      gamesPlayed: wins + losses
+      pointsFor, pointsAgainst,
+      // Offense
+      passYards, rushYards,
+      totalOffense: totalOffense || (passYards + rushYards),
+      totalPlays, completions, passAttempts, passTds,
+      rushAttempts, rushTds, firstDowns,
+      // Efficiency
+      thirdDownConv, thirdDownAtt,
+      fourthDownConv, fourthDownAtt,
+      redZoneTd, redZoneFg, redZoneAtt,
+      // Turnovers
+      turnovers, fumblesLost, interceptions,
+      // Special Teams & Misc
+      puntRetYards, kickRetYards, punts,
+      penalties, penaltyYards,
+      possMinutes, possSeconds,
+      gamesPlayed
     }
   }, [currentDynasty.games, selectedYear, tid, teamAbbr])
 
@@ -1765,58 +1829,115 @@ export default function TeamYear() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate" style={{ color: teamBgText }}>
                 {mascotName || teamInfo.name}
               </h1>
-              {/* Coaching Staff Info Icon - show for any team/year with coaching staff data */}
+              {/* Coaching Staff Popup - show for any team/year with coaching staff data */}
               {(teamCoachingStaff?.hcName || teamCoachingStaff?.ocName || teamCoachingStaff?.dcName) && (
                 <div className="relative">
                   <button
-                    onClick={() => setShowCoachingStaffTooltip(!showCoachingStaffTooltip)}
-                    onMouseEnter={() => setShowCoachingStaffTooltip(true)}
-                    onMouseLeave={() => setShowCoachingStaffTooltip(false)}
-                    className="w-5 h-5 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
-                    style={{
-                      backgroundColor: `${teamBgText}20`,
-                      color: teamBgText
+                    ref={coachingStaffButtonRef}
+                    onClick={() => {
+                      if (!showCoachingStaffPopup && coachingStaffButtonRef.current) {
+                        const rect = coachingStaffButtonRef.current.getBoundingClientRect()
+                        setCoachingStaffPopupPosition({
+                          top: rect.bottom + 8,
+                          right: window.innerWidth - rect.right
+                        })
+                      }
+                      setShowCoachingStaffPopup(!showCoachingStaffPopup)
                     }}
+                    className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                    style={{ color: teamBgText }}
+                    title="Coaching Staff"
                   >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </button>
-                  {/* Coaching Staff Tooltip */}
-                  {showCoachingStaffTooltip && (
-                    <div
-                      className="fixed sm:absolute left-4 right-4 sm:left-0 sm:right-auto top-auto sm:top-full mt-2 p-3 rounded-lg shadow-lg z-50 sm:min-w-48 sm:max-w-64"
-                      style={{
-                        backgroundColor: teamInfo.textColor,
-                        border: `2px solid ${teamBgText}40`
-                      }}
-                      onMouseEnter={() => setShowCoachingStaffTooltip(true)}
-                      onMouseLeave={() => setShowCoachingStaffTooltip(false)}
-                    >
-                      <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: teamPrimaryText, opacity: 0.7 }}>
-                        {selectedYear} Coaching Staff
+
+                  {showCoachingStaffPopup && (
+                    <>
+                      {/* Backdrop - click to close */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowCoachingStaffPopup(false)}
+                      />
+                      <div
+                        className="fixed z-50 w-72 rounded-2xl overflow-hidden"
+                        style={{
+                          backgroundColor: '#18181b',
+                          border: `1px solid ${teamInfo.textColor}40`,
+                          boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 20px ${teamInfo.textColor}30`,
+                          top: coachingStaffPopupPosition.top,
+                          right: coachingStaffPopupPosition.right
+                        }}
+                      >
+                        <div className="px-4 py-3" style={{ backgroundColor: teamInfo.textColor }}>
+                          <h4 className="font-display font-bold text-sm uppercase tracking-wide" style={{ color: teamBgText }}>
+                            {selectedYear} Coaching Staff
+                          </h4>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          {/* Head Coach */}
+                          {teamCoachingStaff?.hcName && (
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                              >
+                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>HC</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
+                                  Head Coach
+                                </div>
+                                <span className="font-semibold truncate text-zinc-100">
+                                  {teamCoachingStaff.hcName}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Offensive Coordinator */}
+                          {teamCoachingStaff?.ocName && (
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                              >
+                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>OC</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
+                                  Offensive Coordinator
+                                </div>
+                                <span className="font-semibold truncate text-zinc-100">
+                                  {teamCoachingStaff.ocName}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Defensive Coordinator */}
+                          {teamCoachingStaff?.dcName && (
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                              >
+                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>DC</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider text-zinc-500">
+                                  Defensive Coordinator
+                                </div>
+                                <span className="font-semibold truncate text-zinc-100">
+                                  {teamCoachingStaff.dcName}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        {/* Show HC */}
-                        {teamCoachingStaff?.hcName && (
-                          <div className="text-sm font-semibold truncate" style={{ color: teamPrimaryText }}>
-                            HC: {teamCoachingStaff.hcName}
-                          </div>
-                        )}
-                        {/* Show OC */}
-                        {teamCoachingStaff?.ocName && (
-                          <div className="text-sm font-semibold truncate" style={{ color: teamPrimaryText }}>
-                            OC: {teamCoachingStaff.ocName}
-                          </div>
-                        )}
-                        {/* Show DC */}
-                        {teamCoachingStaff?.dcName && (
-                          <div className="text-sm font-semibold truncate" style={{ color: teamPrimaryText }}>
-                            DC: {teamCoachingStaff.dcName}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    </>
                   )}
                 </div>
               )}
@@ -2315,10 +2436,10 @@ export default function TeamYear() {
 
         return (
         <div className="space-y-5">
-          {/* Team Stat Leaders with Player Photos */}
+          {/* Team Stat Leaders - Compact horizontal scroll on mobile, grid on desktop */}
           {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Stat Leaders</h3>
                 <button
                   onClick={() => setActiveTab('stats')}
@@ -2327,184 +2448,216 @@ export default function TeamYear() {
                   Full Stats →
                 </button>
               </div>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                {/* Passing Leader */}
+              {/* Mobile: Horizontal scroll with compact cards */}
+              <div className="lg:hidden flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
                 {teamLeaders.passing && (
                   <Link
                     to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                    className="flex-shrink-0 w-32 bg-gray-800/80 rounded-lg border border-gray-700/50 p-2.5 hover:border-gray-600 transition-colors"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.passing.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.passing.player.pictureUrl}
-                          alt={teamLeaders.passing.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
-                          <span className="text-lg font-bold text-gray-400">
-                            {teamLeaders.passing.name?.charAt(0) || 'P'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Passing</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
-                          {teamLeaders.passing.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Passing</div>
+                    <div className="text-sm font-medium text-white truncate mb-1">{teamLeaders.passing.name}</div>
+                    <div className="text-lg font-bold text-white tabular-nums">
                       {teamLeaders.passing.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                      <span className="text-[10px] font-medium text-gray-500 ml-0.5">YDS</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                    <div className="text-[10px] text-gray-500 tabular-nums">
                       {teamLeaders.passing.stats.comp}/{teamLeaders.passing.stats.attempts} • {teamLeaders.passing.stats.tD} TD
                     </div>
                   </Link>
                 )}
-
-                {/* Rushing Leader */}
                 {teamLeaders.rushing && (
                   <Link
                     to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                    className="flex-shrink-0 w-32 bg-gray-800/80 rounded-lg border border-gray-700/50 p-2.5 hover:border-gray-600 transition-colors"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.rushing.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.rushing.player.pictureUrl}
-                          alt={teamLeaders.rushing.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
-                          <span className="text-lg font-bold text-gray-400">
-                            {teamLeaders.rushing.name?.charAt(0) || 'R'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Rushing</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
-                          {teamLeaders.rushing.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Rushing</div>
+                    <div className="text-sm font-medium text-white truncate mb-1">{teamLeaders.rushing.name}</div>
+                    <div className="text-lg font-bold text-white tabular-nums">
                       {teamLeaders.rushing.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                      <span className="text-[10px] font-medium text-gray-500 ml-0.5">YDS</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                    <div className="text-[10px] text-gray-500 tabular-nums">
                       {teamLeaders.rushing.stats.carries} ATT • {teamLeaders.rushing.stats.tD} TD
                     </div>
                   </Link>
                 )}
-
-                {/* Receiving Leader */}
                 {teamLeaders.receiving && (
                   <Link
                     to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                    className="flex-shrink-0 w-32 bg-gray-800/80 rounded-lg border border-gray-700/50 p-2.5 hover:border-gray-600 transition-colors"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.receiving.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.receiving.player.pictureUrl}
-                          alt={teamLeaders.receiving.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
-                          <span className="text-lg font-bold text-gray-400">
-                            {teamLeaders.receiving.name?.charAt(0) || 'W'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Receiving</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
-                          {teamLeaders.receiving.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Receiving</div>
+                    <div className="text-sm font-medium text-white truncate mb-1">{teamLeaders.receiving.name}</div>
+                    <div className="text-lg font-bold text-white tabular-nums">
                       {teamLeaders.receiving.stats.yards.toLocaleString()}
-                      <span className="text-sm font-medium text-gray-500 ml-1">YDS</span>
+                      <span className="text-[10px] font-medium text-gray-500 ml-0.5">YDS</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                    <div className="text-[10px] text-gray-500 tabular-nums">
                       {teamLeaders.receiving.stats.receptions} REC • {teamLeaders.receiving.stats.tD} TD
                     </div>
                   </Link>
                 )}
-
-                {/* Tackles Leader */}
                 {teamLeaders.tackles && (
                   <Link
                     to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                    className="flex-shrink-0 w-32 bg-gray-800/80 rounded-lg border border-gray-700/50 p-2.5 hover:border-gray-600 transition-colors"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.tackles.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.tackles.player.pictureUrl}
-                          alt={teamLeaders.tackles.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
-                          <span className="text-lg font-bold text-gray-400">
-                            {teamLeaders.tackles.name?.charAt(0) || 'D'}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tackles</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
-                          {teamLeaders.tackles.name}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Tackles</div>
+                    <div className="text-sm font-medium text-white truncate mb-1">{teamLeaders.tackles.name}</div>
+                    <div className="text-lg font-bold text-white tabular-nums">
                       {teamLeaders.tackles.stats.tackles}
-                      <span className="text-sm font-medium text-gray-500 ml-1">TKL</span>
+                      <span className="text-[10px] font-medium text-gray-500 ml-0.5">TKL</span>
                     </div>
                   </Link>
                 )}
-
-                {/* Interceptions Leader */}
                 {teamLeaders.interceptions && (
                   <Link
                     to={teamLeaders.interceptions.player ? `${pathPrefix}/player/${teamLeaders.interceptions.player.pid}` : '#'}
-                    className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors group"
+                    className="flex-shrink-0 w-32 bg-gray-800/80 rounded-lg border border-gray-700/50 p-2.5 hover:border-gray-600 transition-colors"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      {teamLeaders.interceptions.player?.pictureUrl ? (
-                        <img
-                          src={teamLeaders.interceptions.player.pictureUrl}
-                          alt={teamLeaders.interceptions.name}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-600"
-                        />
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">INTs</div>
+                    <div className="text-sm font-medium text-white truncate mb-1">{teamLeaders.interceptions.name}</div>
+                    <div className="text-lg font-bold text-white tabular-nums">
+                      {teamLeaders.interceptions.stats.interceptions}
+                      <span className="text-[10px] font-medium text-gray-500 ml-0.5">INT</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 tabular-nums">
+                      {teamLeaders.interceptions.stats.tackles} TKL
+                    </div>
+                  </Link>
+                )}
+              </div>
+              {/* Desktop: Grid layout with photos */}
+              <div className="hidden lg:grid lg:grid-cols-5 gap-3">
+                {teamLeaders.passing && (
+                  <Link
+                    to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-3 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {teamLeaders.passing.player?.pictureUrl ? (
+                        <img src={teamLeaders.passing.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600" />
                       ) : (
-                        <div className="w-12 h-12 rounded-full bg-gray-600/20 flex items-center justify-center border-2 border-gray-600/30">
-                          <span className="text-lg font-bold text-gray-400">
-                            {teamLeaders.interceptions.name?.charAt(0) || 'D'}
-                          </span>
+                        <div className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center border border-gray-600/30">
+                          <span className="text-sm font-bold text-gray-400">{teamLeaders.passing.name?.charAt(0) || 'P'}</span>
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-0.5">INTs</div>
-                        <div className="text-sm font-medium text-white truncate group-hover:text-gray-300 transition-colors">
-                          {teamLeaders.interceptions.name}
-                        </div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Passing</div>
+                        <div className="text-xs font-medium text-white truncate">{teamLeaders.passing.name}</div>
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-white tabular-nums">
-                      {teamLeaders.interceptions.stats.interceptions}
-                      <span className="text-sm font-medium text-gray-500 ml-1">INT</span>
+                    <div className="text-xl font-bold text-white tabular-nums">
+                      {teamLeaders.passing.stats.yards.toLocaleString()}
+                      <span className="text-xs font-medium text-gray-500 ml-1">YDS</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 tabular-nums">
+                    <div className="text-[10px] text-gray-500 tabular-nums">
+                      {teamLeaders.passing.stats.comp}/{teamLeaders.passing.stats.attempts} • {teamLeaders.passing.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+                {teamLeaders.rushing && (
+                  <Link
+                    to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-3 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {teamLeaders.rushing.player?.pictureUrl ? (
+                        <img src={teamLeaders.rushing.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center border border-gray-600/30">
+                          <span className="text-sm font-bold text-gray-400">{teamLeaders.rushing.name?.charAt(0) || 'R'}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Rushing</div>
+                        <div className="text-xs font-medium text-white truncate">{teamLeaders.rushing.name}</div>
+                      </div>
+                    </div>
+                    <div className="text-xl font-bold text-white tabular-nums">
+                      {teamLeaders.rushing.stats.yards.toLocaleString()}
+                      <span className="text-xs font-medium text-gray-500 ml-1">YDS</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 tabular-nums">
+                      {teamLeaders.rushing.stats.carries} ATT • {teamLeaders.rushing.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+                {teamLeaders.receiving && (
+                  <Link
+                    to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-3 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {teamLeaders.receiving.player?.pictureUrl ? (
+                        <img src={teamLeaders.receiving.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center border border-gray-600/30">
+                          <span className="text-sm font-bold text-gray-400">{teamLeaders.receiving.name?.charAt(0) || 'W'}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Receiving</div>
+                        <div className="text-xs font-medium text-white truncate">{teamLeaders.receiving.name}</div>
+                      </div>
+                    </div>
+                    <div className="text-xl font-bold text-white tabular-nums">
+                      {teamLeaders.receiving.stats.yards.toLocaleString()}
+                      <span className="text-xs font-medium text-gray-500 ml-1">YDS</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 tabular-nums">
+                      {teamLeaders.receiving.stats.receptions} REC • {teamLeaders.receiving.stats.tD} TD
+                    </div>
+                  </Link>
+                )}
+                {teamLeaders.tackles && (
+                  <Link
+                    to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-3 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {teamLeaders.tackles.player?.pictureUrl ? (
+                        <img src={teamLeaders.tackles.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center border border-gray-600/30">
+                          <span className="text-sm font-bold text-gray-400">{teamLeaders.tackles.name?.charAt(0) || 'D'}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Tackles</div>
+                        <div className="text-xs font-medium text-white truncate">{teamLeaders.tackles.name}</div>
+                      </div>
+                    </div>
+                    <div className="text-xl font-bold text-white tabular-nums">
+                      {teamLeaders.tackles.stats.tackles}
+                      <span className="text-xs font-medium text-gray-500 ml-1">TKL</span>
+                    </div>
+                  </Link>
+                )}
+                {teamLeaders.interceptions && (
+                  <Link
+                    to={teamLeaders.interceptions.player ? `${pathPrefix}/player/${teamLeaders.interceptions.player.pid}` : '#'}
+                    className="bg-gray-800 rounded-xl border border-gray-700 p-3 hover:border-gray-600 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {teamLeaders.interceptions.player?.pictureUrl ? (
+                        <img src={teamLeaders.interceptions.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-gray-600" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-600/20 flex items-center justify-center border border-gray-600/30">
+                          <span className="text-sm font-bold text-gray-400">{teamLeaders.interceptions.name?.charAt(0) || 'D'}</span>
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">INTs</div>
+                        <div className="text-xs font-medium text-white truncate">{teamLeaders.interceptions.name}</div>
+                      </div>
+                    </div>
+                    <div className="text-xl font-bold text-white tabular-nums">
+                      {teamLeaders.interceptions.stats.interceptions}
+                      <span className="text-xs font-medium text-gray-500 ml-1">INT</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 tabular-nums">
                       {teamLeaders.interceptions.stats.tackles} TKL
                     </div>
                   </Link>
@@ -2779,10 +2932,10 @@ export default function TeamYear() {
                         onClick={() => setPositionFilter(key)}
                         className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all duration-150 ${
                           isActive
-                            ? 'text-white'
+                            ? ''
                             : 'text-gray-400 border border-gray-600 hover:text-gray-300'
                         }`}
-                        style={isActive ? { backgroundColor: teamInfo.textColor } : {}}
+                        style={isActive ? { backgroundColor: teamInfo.textColor, color: teamPrimaryText } : {}}
                       >
                         {positionGroups[key].label}
                       </button>
@@ -2813,10 +2966,10 @@ export default function TeamYear() {
                         onClick={() => handleRosterSort(key)}
                         className={`px-2 py-1 rounded text-xs font-medium transition-all duration-150 flex items-center gap-0.5 ${
                           isActive
-                            ? 'text-white'
+                            ? ''
                             : 'text-gray-400 hover:text-gray-300'
                         }`}
-                        style={isActive ? { backgroundColor: teamInfo.textColor } : {}}
+                        style={isActive ? { backgroundColor: teamInfo.textColor, color: teamPrimaryText } : {}}
                       >
                         {label}
                         {isActive && (
@@ -3377,112 +3530,184 @@ export default function TeamYear() {
 
           {/* TEAM STATS SUB-TAB */}
           {statsSubTab === 'team' && (
-            <div className="space-y-4">
-              {/* Record Overview */}
-              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-gray-700">
-                  <h4 className="text-sm font-semibold text-white">Record</h4>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-white">
-                        {teamStatsData.wins}-{teamStatsData.losses}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Overall</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">
-                        {teamStatsData.confWins}-{teamStatsData.confLosses}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Conference</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">
-                        {teamStatsData.homeWins}-{teamStatsData.homeLosses}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Home</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-white">
-                        {teamStatsData.awayWins}-{teamStatsData.awayLosses}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Away</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Scoring */}
-              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-gray-700">
-                  <h4 className="text-sm font-semibold text-white">Scoring</h4>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div className="p-3 rounded-lg bg-gray-700/50">
-                      <div className="text-3xl font-bold text-white">
-                        {teamStatsData.pointsFor}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Points For</div>
-                      {teamStatsData.gamesPlayed > 0 && (
-                        <div className="text-sm mt-1 text-gray-400">
-                          {(teamStatsData.pointsFor / teamStatsData.gamesPlayed).toFixed(1)} PPG
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3 rounded-lg bg-gray-700/50">
-                      <div className="text-3xl font-bold text-white">
-                        {teamStatsData.pointsAgainst}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Points Against</div>
-                      {teamStatsData.gamesPlayed > 0 && (
-                        <div className="text-sm mt-1 text-gray-400">
-                          {(teamStatsData.pointsAgainst / teamStatsData.gamesPlayed).toFixed(1)} PPG
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Offense */}
-              <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-gray-700">
-                  <h4 className="text-sm font-semibold text-white">Offense</h4>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-3 rounded-lg bg-gray-700/50">
-                      <div className="text-xl font-bold tabular-nums text-white">
-                        {teamStatsData.totalOffense.toLocaleString()}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Total Yards</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-gray-700/50">
-                      <div className="text-xl font-bold tabular-nums text-white">
-                        {teamStatsData.passYards.toLocaleString()}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Pass Yards</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-gray-700/50">
-                      <div className="text-xl font-bold tabular-nums text-white">
-                        {teamStatsData.rushYards.toLocaleString()}
-                      </div>
-                      <div className="text-xs uppercase text-gray-500">Rush Yards</div>
-                    </div>
-                  </div>
-                  {teamStatsData.gamesPlayed > 0 && (
-                    <div className="mt-3 text-center text-sm text-gray-400">
-                      {(teamStatsData.totalOffense / teamStatsData.gamesPlayed).toFixed(1)} YPG
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {teamStatsData.gamesPlayed === 0 && (
+            <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+              {teamStatsData.gamesPlayed === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   No team statistics available for this season.
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-700">
+                  {/* Record & Scoring Row */}
+                  <div className="p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center text-sm">
+                      <div>
+                        <span className="text-gray-400">Record</span>
+                        <div className="text-lg font-bold text-white">{teamStatsData.wins}-{teamStatsData.losses}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Conference</span>
+                        <div className="text-lg font-bold text-white">{teamStatsData.confWins}-{teamStatsData.confLosses}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Points For</span>
+                        <div className="text-lg font-bold text-white">{teamStatsData.pointsFor} <span className="text-sm font-normal text-gray-500">({(teamStatsData.pointsFor / teamStatsData.gamesPlayed).toFixed(1)})</span></div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Points Against</span>
+                        <div className="text-lg font-bold text-white">{teamStatsData.pointsAgainst} <span className="text-sm font-normal text-gray-500">({(teamStatsData.pointsAgainst / teamStatsData.gamesPlayed).toFixed(1)})</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Offense Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Offense</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Total Yards</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.totalOffense.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Yards/Game</span>
+                        <span className="font-semibold text-white tabular-nums">{(teamStatsData.totalOffense / teamStatsData.gamesPlayed).toFixed(1)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Total Plays</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.totalPlays || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">First Downs</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.firstDowns || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Passing Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Passing</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Pass Yards</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.passYards.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Comp/Att</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.completions || '-'}/{teamStatsData.passAttempts || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Comp %</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.passAttempts > 0 ? ((teamStatsData.completions / teamStatsData.passAttempts) * 100).toFixed(1) + '%' : '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Pass TDs</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.passTds || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rushing Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Rushing</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Rush Yards</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.rushYards.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Attempts</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.rushAttempts || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Yards/Carry</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.rushAttempts > 0 ? (teamStatsData.rushYards / teamStatsData.rushAttempts).toFixed(1) : '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Rush TDs</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.rushTds || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Efficiency Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Efficiency</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">3rd Down</span>
+                        <span className="font-semibold text-white tabular-nums">
+                          {teamStatsData.thirdDownAtt > 0
+                            ? `${teamStatsData.thirdDownConv}/${teamStatsData.thirdDownAtt} (${((teamStatsData.thirdDownConv / teamStatsData.thirdDownAtt) * 100).toFixed(0)}%)`
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">4th Down</span>
+                        <span className="font-semibold text-white tabular-nums">
+                          {teamStatsData.fourthDownAtt > 0
+                            ? `${teamStatsData.fourthDownConv}/${teamStatsData.fourthDownAtt}`
+                            : '-'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Red Zone TD</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.redZoneTd || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Red Zone FG</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.redZoneFg || '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Turnovers Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Turnovers</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Total</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.turnovers || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Fumbles Lost</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.fumblesLost || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">INTs Thrown</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.interceptions || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">TO/Game</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.turnovers > 0 ? (teamStatsData.turnovers / teamStatsData.gamesPlayed).toFixed(1) : '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Special Teams & Misc Section */}
+                  <div className="p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Special Teams & Misc</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Kick Ret Yds</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.kickRetYards || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Punt Ret Yds</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.puntRetYards || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Penalties</span>
+                        <span className="font-semibold text-white tabular-nums">{teamStatsData.penalties > 0 ? `${teamStatsData.penalties} (${teamStatsData.penaltyYards} yds)` : '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Avg Poss</span>
+                        <span className="font-semibold text-white tabular-nums">
+                          {(teamStatsData.possMinutes > 0 || teamStatsData.possSeconds > 0)
+                            ? `${Math.floor((teamStatsData.possMinutes * 60 + teamStatsData.possSeconds) / teamStatsData.gamesPlayed / 60)}:${String(Math.floor((teamStatsData.possMinutes * 60 + teamStatsData.possSeconds) / teamStatsData.gamesPlayed % 60)).padStart(2, '0')}`
+                            : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -3545,7 +3770,7 @@ export default function TeamYear() {
           </div>
 
           {!scheduleCollapsed && (
-          <div className="space-y-2 p-3 sm:p-4">
+          <div className="divide-y divide-gray-700/50">
             {teamYearGames.map((game, index) => {
               // Use display values for flipped games, otherwise use original values
               const rawDisplayOpponent = game._isFlippedPerspective ? game._displayOpponent : game.opponent
@@ -3566,6 +3791,22 @@ export default function TeamYear() {
               const isWin = displayResult === 'win' || displayResult === 'W'
               const isLoss = displayResult === 'loss' || displayResult === 'L'
               const hasResult = isWin || isLoss
+
+              // Get team stats from boxScore if available
+              const getGameStats = () => {
+                if (!game.boxScore?.teamStats) return null
+                const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
+                const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
+                const targetAbbr = teamAbbr.toUpperCase()
+                let stats = null
+                if (homeAbbr === targetAbbr) {
+                  stats = game.boxScore.teamStats.home
+                } else if (awayAbbr === targetAbbr) {
+                  stats = game.boxScore.teamStats.away
+                }
+                return stats
+              }
+              const gameStats = getGameStats()
 
               // Generate proper game ID for CFP games
               // IMPORTANT: Use cfpSlot first (source of truth), then id pattern, then bowl name (legacy fallback)
@@ -3606,92 +3847,110 @@ export default function TeamYear() {
                        game.isBowlGame ? 'Bowl' :
                        game.isPlayoff ? 'CFP' :
                        game.isConferenceChampionship ? 'CCG' :
-                       `Wk ${game.week}`
+                       `Week ${game.week}`
 
-              // Content for the game display - W/L badge on right
+              // Content for the detailed game display
               const gameContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  {/* Game Info */}
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-l-xl min-w-0"
-                    style={{ backgroundColor: oppColors.backgroundColor }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Location Badge */}
-                      <span
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: `${oppColors.textColor}15`,
-                          color: oppColors.textColor
-                        }}
-                      >
-                        {displayLocation === 'away' ? '@' : 'vs'}
-                      </span>
-
-                      {/* Team Logo */}
-                      {oppLogo && (
-                        <div
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                        >
-                          <img
-                            src={oppLogo}
-                            alt={`${oppMascot} logo`}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      )}
-
-                      {/* Team Name with Ranking */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          {game.opponentRank && (
-                            <span
-                              className="text-[10px] sm:text-sm font-bold flex-shrink-0 tabular-nums"
-                              style={{ color: oppColors.textColor }}
-                            >
-                              #{game.opponentRank}
-                            </span>
-                          )}
-                          <span
-                            className="font-semibold text-xs sm:text-base truncate"
-                            style={{ color: oppColors.textColor }}
-                          >
-                            {oppMascot || displayOpponent}
-                          </span>
-                        </div>
-                      </div>
+                <div className="p-3 sm:p-4 hover:bg-gray-750 transition-colors">
+                  {/* Main game row */}
+                  <div className="flex items-center gap-3">
+                    {/* Week/Result Badge */}
+                    <div
+                      className="w-12 sm:w-14 flex-shrink-0 text-center py-1.5 sm:py-2 rounded-lg font-bold text-[10px] sm:text-xs"
+                      style={{
+                        backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : '#3f3f46',
+                        color: '#fff'
+                      }}
+                    >
+                      {hasResult ? (isWin ? 'W' : 'L') : weekLabel}
                     </div>
 
-                    {/* Score or Status */}
-                    <div className="flex-shrink-0 text-right ml-1">
-                      {hasResult ? (
-                        <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: oppColors.textColor }}>
-                          {Math.max(displayTeamScore, displayOpponentScore)}-{Math.min(displayTeamScore, displayOpponentScore)}
-                          {game.overtimes && game.overtimes.length > 0 && (
-                            <span className="ml-1 text-[9px] sm:text-xs opacity-80">
-                              {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
-                            </span>
-                          )}
+                    {/* Team Logo */}
+                    <div className="flex-shrink-0">
+                      {oppLogo ? (
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-white p-1" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                          <img src={oppLogo} alt="" className="w-full h-full object-contain" />
                         </div>
                       ) : (
-                        <span className="text-[10px] sm:text-xs font-medium opacity-70" style={{ color: oppColors.textColor }}>
-                          —
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-600 flex items-center justify-center">
+                          <span className="text-sm font-bold text-gray-300">{displayOpponent?.charAt(0)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Team Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] sm:text-xs text-gray-400 font-medium">
+                          {displayLocation === 'away' ? '@' : 'vs'}
                         </span>
+                        {game.opponentRank && (
+                          <span className="text-[10px] sm:text-xs font-bold text-yellow-500 tabular-nums">
+                            #{game.opponentRank}
+                          </span>
+                        )}
+                        <span className="font-semibold text-sm sm:text-base text-white truncate">
+                          {oppMascot || displayOpponent}
+                        </span>
+                      </div>
+                      {/* Game type subtitle for special games */}
+                      {(game.isBowlGame || game.isConferenceChampionship || game.isCFPSemifinal || game.isCFPQuarterfinal || game.isCFPFirstRound || game.isCFPChampionship) && (
+                        <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                          {game.bowlName || (game.isConferenceChampionship ? 'Conference Championship' : game.isCFPChampionship ? 'National Championship' : game.isCFPSemifinal ? 'CFP Semifinal' : game.isCFPQuarterfinal ? 'CFP Quarterfinal' : game.isCFPFirstRound ? 'CFP First Round' : '')}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Score */}
+                    <div className="flex-shrink-0 text-right">
+                      {hasResult ? (
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            <div className="text-lg sm:text-xl font-bold text-white tabular-nums">
+                              {displayTeamScore}-{displayOpponentScore}
+                            </div>
+                            {game.overtimes && game.overtimes.length > 0 && (
+                              <div className="text-[10px] text-gray-500">
+                                {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">—</span>
                       )}
                     </div>
                   </div>
 
-                  {/* Week/Result Badge - Now on right */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-r-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : oppColors.textColor,
-                      color: hasResult ? '#fff' : oppColors.backgroundColor
-                    }}
-                  >
-                    {hasResult ? (isWin ? 'W' : 'L') : weekLabel}
-                  </div>
+                  {/* Stats row for completed games with box score data */}
+                  {hasResult && gameStats && (
+                    <div className="mt-2 pt-2 border-t border-gray-700/50 flex items-center gap-4 text-[10px] sm:text-xs text-gray-400 overflow-x-auto">
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-gray-500">PASS</span>
+                        <span className="font-medium text-gray-300">{gameStats.passYards || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-gray-500">RUSH</span>
+                        <span className="font-medium text-gray-300">{gameStats.rushYards || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-gray-500">TOT</span>
+                        <span className="font-medium text-gray-300">{(gameStats.passYards || 0) + (gameStats.rushYards || 0)}</span>
+                      </div>
+                      {(gameStats.turnovers > 0 || gameStats.fumblesLost > 0 || gameStats.interceptions > 0) && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span className="text-gray-500">TO</span>
+                          <span className="font-medium text-red-400">{gameStats.turnovers || ((gameStats.fumblesLost || 0) + (gameStats.interceptions || 0))}</span>
+                        </div>
+                      )}
+                      {gameStats.firstDowns > 0 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span className="text-gray-500">1D</span>
+                          <span className="font-medium text-gray-300">{gameStats.firstDowns}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
 
@@ -3701,8 +3960,7 @@ export default function TeamYear() {
                   <Link
                     key={index}
                     to={`${pathPrefix}/game/${properGameId}`}
-                    className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                    className="block"
                   >
                     {gameContent}
                   </Link>
@@ -3710,11 +3968,7 @@ export default function TeamYear() {
               }
 
               return (
-                <div
-                  key={index}
-                  className="rounded-xl overflow-hidden"
-                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                >
+                <div key={index}>
                   {gameContent}
                 </div>
               )
@@ -3758,70 +4012,53 @@ export default function TeamYear() {
 
               // CC game content with new design
               const ccGameContent = (
-                <div className="flex items-center w-full overflow-hidden">
-                  {/* Week/Result Badge */}
-                  <div
-                    className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-l-xl font-bold text-[10px] sm:text-sm"
-                    style={{
-                      backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : ccOppColors.textColor,
-                      color: hasResult ? '#fff' : ccOppColors.backgroundColor
-                    }}
-                  >
-                    {hasResult ? (isWin ? 'W' : 'L') : 'CCG'}
-                  </div>
+                <div className="p-3 sm:p-4 hover:bg-gray-750 transition-colors">
+                  <div className="flex items-center gap-3">
+                    {/* Week/Result Badge */}
+                    <div
+                      className="w-12 sm:w-14 flex-shrink-0 text-center py-1.5 sm:py-2 rounded-lg font-bold text-[10px] sm:text-xs"
+                      style={{
+                        backgroundColor: hasResult ? (isWin ? '#22c55e' : '#ef4444') : '#3f3f46',
+                        color: '#fff'
+                      }}
+                    >
+                      {hasResult ? (isWin ? 'W' : 'L') : 'CCG'}
+                    </div>
 
-                  {/* Game Info */}
-                  <div
-                    className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-r-xl min-w-0"
-                    style={{ backgroundColor: ccOppColors.backgroundColor }}
-                  >
-                    <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                      {/* Location Badge */}
-                      <span
-                        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: `${ccOppColors.textColor}15`,
-                          color: ccOppColors.textColor
-                        }}
-                      >
-                        vs
-                      </span>
-
-                      {/* Team Logo */}
-                      {ccOppLogo && (
-                        <div
-                          className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                        >
-                          <img
-                            src={ccOppLogo}
-                            alt={`${ccOpponentDisplayName} logo`}
-                            className="w-full h-full object-contain"
-                          />
+                    {/* Team Logo */}
+                    <div className="flex-shrink-0">
+                      {ccOppLogo ? (
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-white p-1" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                          <img src={ccOppLogo} alt="" className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-600 flex items-center justify-center">
+                          <span className="text-sm font-bold text-gray-300">{ccOpponentAbbr?.charAt(0)}</span>
                         </div>
                       )}
+                    </div>
 
-                      {/* Team Name */}
-                      <div className="min-w-0 flex-1">
-                        <span className="font-semibold text-xs sm:text-base truncate block" style={{ color: ccOppColors.textColor }}>
+                    {/* Team Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] sm:text-xs text-gray-400 font-medium">vs</span>
+                        <span className="font-semibold text-sm sm:text-base text-white truncate">
                           {ccOpponentDisplayName}
                         </span>
-                        <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: ccOppColors.textColor }}>
-                          {teamCCGame?.conference ? `${teamCCGame.conference} Championship` : 'Conference Championship'}
-                        </span>
+                      </div>
+                      <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                        {teamCCGame?.conference ? `${teamCCGame.conference} Championship` : 'Conference Championship'}
                       </div>
                     </div>
 
-                    {/* Score or Status */}
-                    <div className="flex-shrink-0 text-right ml-1">
+                    {/* Score */}
+                    <div className="flex-shrink-0 text-right">
                       {hasResult ? (
-                        <div className="text-sm sm:text-lg font-bold tabular-nums" style={{ color: ccOppColors.textColor }}>
-                          {Math.max(thisTeamScore, oppScore)}-{Math.min(thisTeamScore, oppScore)}
+                        <div className="text-lg sm:text-xl font-bold text-white tabular-nums">
+                          {thisTeamScore}-{oppScore}
                         </div>
                       ) : (
-                        <span className="text-[10px] sm:text-xs font-medium opacity-70" style={{ color: ccOppColors.textColor }}>
-                          Scheduled
-                        </span>
+                        <span className="text-sm text-gray-500">—</span>
                       )}
                     </div>
                   </div>
@@ -3832,21 +4069,14 @@ export default function TeamYear() {
 
               if (hasResult) {
                 return (
-                  <Link
-                    to={`${pathPrefix}/game/${ccGameId}`}
-                    className="block rounded-xl overflow-hidden hover:scale-[1.01] hover:shadow-lg transition-all duration-200"
-                    style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                  >
+                  <Link to={`${pathPrefix}/game/${ccGameId}`} className="block border-t border-gray-700/50">
                     {ccGameContent}
                   </Link>
                 )
               }
 
               return (
-                <div
-                  className="rounded-xl overflow-hidden"
-                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                >
+                <div className="border-t border-gray-700/50">
                   {ccGameContent}
                 </div>
               )
@@ -3871,70 +4101,44 @@ export default function TeamYear() {
               const opponentDisplayName = bowlOppTeam?.name || getMascotName(bowlOpponentValue, teamsSource) || bowlOpponentValue
 
               return (
-                <div
-                  className="rounded-xl overflow-hidden"
-                  style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                >
-                  <div className="flex items-center w-full overflow-hidden">
-                    {/* Game Info */}
-                    <div
-                      className="flex-1 flex items-center justify-between py-2 sm:py-3 px-2 sm:px-4 rounded-l-xl min-w-0"
-                      style={{ backgroundColor: oppColors.backgroundColor }}
-                    >
-                      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
-                        {/* Location Badge */}
-                        <span
-                          className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[9px] sm:text-xs font-bold flex-shrink-0"
-                          style={{
-                            backgroundColor: `${oppColors.textColor}15`,
-                            color: oppColors.textColor
-                          }}
-                        >
-                          vs
-                        </span>
+                <div className="border-t border-gray-700/50">
+                  <div className="p-3 sm:p-4">
+                    <div className="flex items-center gap-3">
+                      {/* Week Badge */}
+                      <div className="w-12 sm:w-14 flex-shrink-0 text-center py-1.5 sm:py-2 rounded-lg font-bold text-[10px] sm:text-xs bg-zinc-700 text-white">
+                        Bowl
+                      </div>
 
-                        {/* Team Logo */}
-                        {oppLogo && (
-                          <div
-                            className="w-7 h-7 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white"
-                            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)', padding: '3px' }}
-                          >
-                            <img
-                              src={oppLogo}
-                              alt={`${opponentDisplayName} logo`}
-                              className="w-full h-full object-contain"
-                            />
+                      {/* Team Logo */}
+                      <div className="flex-shrink-0">
+                        {oppLogo ? (
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-white p-1" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                            <img src={oppLogo} alt="" className="w-full h-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-600 flex items-center justify-center">
+                            <span className="text-sm font-bold text-gray-300">{bowlOpponentValue?.charAt(0)}</span>
                           </div>
                         )}
+                      </div>
 
-                        {/* Team Name */}
-                        <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-xs sm:text-base truncate block" style={{ color: oppColors.textColor }}>
+                      {/* Team Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] sm:text-xs text-gray-400 font-medium">vs</span>
+                          <span className="font-semibold text-sm sm:text-base text-white truncate">
                             {opponentDisplayName}
                           </span>
-                          <span className="text-[9px] sm:text-xs opacity-70 truncate block" style={{ color: oppColors.textColor }}>
-                            {bowlData.bowlGame}
-                          </span>
+                        </div>
+                        <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                          {bowlData.bowlGame}
                         </div>
                       </div>
 
                       {/* Status */}
-                      <div className="flex-shrink-0 text-right ml-1">
-                        <span className="text-[10px] sm:text-xs font-medium opacity-70" style={{ color: oppColors.textColor }}>
-                          —
-                        </span>
+                      <div className="flex-shrink-0 text-right">
+                        <span className="text-sm text-gray-500">—</span>
                       </div>
-                    </div>
-
-                    {/* Week Badge - Now on right */}
-                    <div
-                      className="w-10 sm:w-14 flex-shrink-0 text-center py-2 sm:py-3 rounded-r-xl font-bold text-[10px] sm:text-sm"
-                      style={{
-                        backgroundColor: oppColors.textColor,
-                        color: oppColors.backgroundColor
-                      }}
-                    >
-                      Bowl
                     </div>
                   </div>
                 </div>

@@ -662,13 +662,13 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-screen pb-40" style={{ backgroundColor: '#f8fafc' }}>
+    <div className="min-h-screen pb-40" style={{ backgroundColor: '#111113' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-30 shadow-lg"
         style={{ backgroundColor: teamColors.primary, borderBottom: `4px solid ${teamColors.secondary}` }}
       >
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             {/* Player Image or Placeholder - Clickable to edit */}
             <div className="relative flex-shrink-0">
@@ -860,7 +860,7 @@ export default function PlayerEdit() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 py-6">
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
