@@ -334,9 +334,9 @@ export default function Game() {
       return headers
     }
     if (tabKey === 'passing') {
-      // Display order: Player Name, C/Att, Yards, TD, INT, Rtg, Long
+      // Display order: Player Name, Rtg, C/Att, Yards, TD, INT, Long
       // Sheet order is different (Rtg comes before Comp/Att)
-      return ['Player Name', 'C/Att', 'Yards', 'TD', 'INT', 'Rtg', 'Long']
+      return ['Player Name', 'Rtg', 'C/Att', 'Yards', 'TD', 'INT', 'Long']
     }
     return baseHeaders
   }
@@ -702,9 +702,11 @@ export default function Game() {
       const passingRow = teamData.passing?.find(r => r.playerName === playerName)
       if (passingRow) {
         const comp = passingRow.comp || 0
-        const att = passingRow.attempts || 0
+        // Support both sheet format (att) and random generator format (attempts)
+        const att = passingRow.att ?? passingRow.attempts ?? 0
         const yards = passingRow.yards || 0
-        const tds = passingRow.tDs || 0
+        // Support both sheet format (tD) and random generator format (tDs)
+        const tds = passingRow.tD ?? passingRow.tDs ?? 0
         const ints = passingRow.iNT || 0
         stats.push(`${comp}/${att}, ${yards} yds, ${tds} TD${ints > 0 ? `, ${ints} INT` : ''}`)
       }
@@ -712,13 +714,17 @@ export default function Game() {
       // Check rushing
       const rushingRow = teamData.rushing?.find(r => r.playerName === playerName)
       if (rushingRow && (rushingRow.carries > 0 || rushingRow.yards > 0)) {
-        stats.push(`${rushingRow.carries || 0} car, ${rushingRow.yards || 0} yds${rushingRow.tDs > 0 ? `, ${rushingRow.tDs} TD` : ''}`)
+        // Support both sheet format (tD) and random generator format (tDs)
+        const rushTds = rushingRow.tD ?? rushingRow.tDs ?? 0
+        stats.push(`${rushingRow.carries || 0} car, ${rushingRow.yards || 0} yds${rushTds > 0 ? `, ${rushTds} TD` : ''}`)
       }
 
       // Check receiving
       const receivingRow = teamData.receiving?.find(r => r.playerName === playerName)
       if (receivingRow && (receivingRow.receptions > 0 || receivingRow.yards > 0)) {
-        stats.push(`${receivingRow.receptions || 0} rec, ${receivingRow.yards || 0} yds${receivingRow.tDs > 0 ? `, ${receivingRow.tDs} TD` : ''}`)
+        // Support both sheet format (tD) and random generator format (tDs)
+        const recTds = receivingRow.tD ?? receivingRow.tDs ?? 0
+        stats.push(`${receivingRow.receptions || 0} rec, ${receivingRow.yards || 0} yds${recTds > 0 ? `, ${recTds} TD` : ''}`)
       }
 
       // Check defense
@@ -1918,11 +1924,13 @@ export default function Game() {
                             // Handle special combined/renamed columns
                             if (header === 'C/Att') {
                               const comp = row.comp ?? 0
-                              const att = row.attempts ?? 0
+                              // Support both sheet format (att) and random generator format (attempts)
+                              const att = row.att ?? row.attempts ?? 0
                               return { value: `${comp}/${att}`, isName: false }
                             }
                             if (header === 'Rtg') {
-                              const rating = row.qBRating
+                              // Support both sheet format (rtg) and random generator format (qBRating)
+                              const rating = row.rtg ?? row.qBRating
                               const value = (rating === '' || rating === null || rating === undefined) ? 0 : Number(rating).toFixed(1)
                               return { value, isName: false }
                             }
@@ -1983,13 +1991,14 @@ export default function Game() {
 
                             // Handle QBR - weighted average based on attempts
                             if (header === 'Rtg') {
-                              const totalAttempts = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.attempts) || 0), 0)
+                              // Support both sheet format (att/rtg) and random generator format (attempts/qBRating)
+                              const totalAttempts = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.att ?? row.attempts) || 0), 0)
                               if (totalAttempts === 0) {
                                 return <td key={colIdx} className="py-2 px-2 text-center text-white">0.0</td>
                               }
                               const weightedRtg = teamData[statKey].reduce((sum, row) => {
-                                const attempts = parseFloat(row.attempts) || 0
-                                const rating = parseFloat(row.qBRating) || 0
+                                const attempts = parseFloat(row.att ?? row.attempts) || 0
+                                const rating = parseFloat(row.rtg ?? row.qBRating) || 0
                                 return sum + (attempts / totalAttempts) * rating
                               }, 0)
                               return <td key={colIdx} className="py-2 px-2 text-center text-white">{weightedRtg.toFixed(1)}</td>
@@ -1998,7 +2007,8 @@ export default function Game() {
                             // Handle C/Att specially
                             if (header === 'C/Att') {
                               const totalComp = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.comp) || 0), 0)
-                              const totalAtt = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.attempts) || 0), 0)
+                              // Support both sheet format (att) and random generator format (attempts)
+                              const totalAtt = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.att ?? row.attempts) || 0), 0)
                               return <td key={colIdx} className="py-2 px-2 text-center text-white">{totalComp}/{totalAtt}</td>
                             }
 
