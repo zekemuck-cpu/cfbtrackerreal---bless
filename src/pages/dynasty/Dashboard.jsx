@@ -4195,7 +4195,7 @@ export default function Dashboard() {
             if (week === 1) {
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
                     Bowl Week 1
                   </h3>
                   <div className="space-y-3 sm:space-y-4">
@@ -5503,7 +5503,7 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                  <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
                     End of Season Recap
                   </h3>
                   <div className="space-y-3 sm:space-y-4">
@@ -6010,7 +6010,7 @@ export default function Dashboard() {
 
             return (
               <>
-                <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4" style={{ color: secondaryBgText }}>
+                <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
                   {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
                 </h3>
                 <div className="space-y-3 sm:space-y-4">
