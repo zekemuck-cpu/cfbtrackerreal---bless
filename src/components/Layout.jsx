@@ -56,19 +56,16 @@ export default function Layout({ children }) {
   const isCoachCareerPage = location.pathname.includes('/coach-career')
 
   // Check if we're on a team-related page and get the viewed team's colors
-  // Now uses tid-based URLs like /team/7/2027, /recruiting/7/2027, /team-stats/7/2027
+  // Now uses tid-based URLs like /team/7/2027, /recruiting/7/2027
   const teamsSource = currentDynasty?.teams || TEAMS
 
   // Match team page: /team/:tid or /team/:tid/:year
   const teamPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team\/(\d+)/)
   // Match recruiting page: /recruiting/:tid/:year
   const recruitingPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/recruiting\/(\d+)/)
-  // Match team-stats page: /team-stats/:tid/:year
-  const teamStatsPageMatch = location.pathname.match(/\/dynasty\/[^/]+\/team-stats\/(\d+)/)
 
   const viewedTeamTid = teamPageMatch ? parseInt(teamPageMatch[1], 10)
     : recruitingPageMatch ? parseInt(recruitingPageMatch[1], 10)
-    : teamStatsPageMatch ? parseInt(teamStatsPageMatch[1], 10)
     : null
   const viewedTeamData = viewedTeamTid ? teamsSource[viewedTeamTid] : null
   const viewedTeamInfo = viewedTeamData ? {

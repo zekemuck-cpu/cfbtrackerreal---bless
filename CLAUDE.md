@@ -69,10 +69,18 @@ Without the explicit `top-0 left-0 right-0 bottom-0` and `margin: 0`, the modal 
 
 ## tid-Based Team System
 
+**CRITICAL: NEVER use teamAbbr for team identification. ALWAYS use tid (Team ID).**
+
 All teams use numeric Team IDs (tid) as the primary identifier:
 - `dynasty.teams[tid]` - Team data keyed by tid
 - `dynasty.currentTid` - User's current team
 - `player.teamsByYear[year]` - Stores tid (number) for roster membership
+- `game.team1Tid`, `game.team2Tid`, `game.homeTeamTid` - Game team references
+
+**Why tid, not abbr:**
+- Team abbreviations can change or conflict (teambuilder teams)
+- tid is the stable, unique identifier across the entire system
+- All data relationships are based on tid
 
 **Helper functions** (in `src/data/teamRegistry.js`):
 - `getTeam(teams, tid)`, `getTidFromAbbr(abbr)`, `getMascotName(abbrOrTid, teams)`

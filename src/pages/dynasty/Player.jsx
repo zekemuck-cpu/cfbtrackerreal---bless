@@ -517,8 +517,8 @@ export default function Player() {
 
     const years = []
 
-    // Sort years chronologically
-    const sortedYears = Array.from(allYears).sort((a, b) => parseInt(a) - parseInt(b))
+    // Sort years by most recent first
+    const sortedYears = Array.from(allYears).sort((a, b) => parseInt(b) - parseInt(a))
 
     sortedYears.forEach(yearStr => {
       const year = parseInt(yearStr)

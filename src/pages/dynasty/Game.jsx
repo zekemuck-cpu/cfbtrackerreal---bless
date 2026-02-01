@@ -732,7 +732,7 @@ export default function Game() {
       if (defenseRow) {
         const total = (parseFloat(defenseRow.solo) || 0) + (parseFloat(defenseRow.assists) || 0)
         const parts = []
-        if (total > 0) parts.push(`${total} tkl`)
+        if (total > 0) parts.push(`${total} TKL`)
         if (defenseRow.sack > 0) parts.push(`${defenseRow.sack} sack`)
         if (defenseRow.iNT > 0) parts.push(`${defenseRow.iNT} INT`)
         if (defenseRow.tFL > 0) parts.push(`${defenseRow.tFL} TFL`)
