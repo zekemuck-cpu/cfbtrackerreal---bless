@@ -305,7 +305,7 @@ export default function StatsEntryModal({
                 Creating GP/Snaps Sheet...
               </p>
               <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
-                Pre-filling roster data
+                Setting up player dropdown
               </p>
             </div>
           </div>
@@ -406,7 +406,7 @@ export default function StatsEntryModal({
                   <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
                   <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
                     <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Enter Games Played and Snaps Played</span></li>
+                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Select a player from the dropdown, enter GP &amp; Snaps</span></li>
                     <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
                     <li className="flex gap-2"><span className="font-bold">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
@@ -476,8 +476,8 @@ export default function StatsEntryModal({
                   />
                 </div>
                 <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
-                  <p><strong>Columns:</strong> Player | Position | Class | Dev Trait | Overall | Games Played | Snaps Played</p>
-                  <p>Enter Games Played and Snaps Played for each player.</p>
+                  <p><strong>Columns:</strong> Player (dropdown) | Games Played | Snaps Played</p>
+                  <p>Select a player from the dropdown, then enter their Games Played and Snaps Played.</p>
                 </div>
               </>
             )}

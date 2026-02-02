@@ -239,10 +239,15 @@ export default function Layout({ children }) {
       const cfpResults = currentDynasty.cfpResultsByYear?.[year] || {}
 
       // Build list of missing CFP games based on current week
+      // Note: Games are played WHEN you advance, so warnings should be for the PREVIOUS phase's games
+      // - Week 1 → 2: CFP First Round plays (entered during week 2)
+      // - Week 2 → 3: CFP Quarterfinals play (entered during week 3)
+      // So we warn about games that should have been entered by now, not games about to be played
       const missingCFPGames = []
 
-      // Week 1+: CFP First Round should be entered (4 games)
-      if (week >= 1) {
+      // Week 2+: CFP First Round should be entered (4 games)
+      // (Games were played when advancing from week 1 to week 2)
+      if (week >= 2) {
         const cfpFirstRoundFromGames = allGames.filter(g => g && (g.isCFPFirstRound || g.gameType === 'cfp_first_round') && Number(g.year) === Number(year))
         const cfpFirstRoundLegacy = cfpResults.firstRound || []
         const cfpFirstRoundGames = cfpFirstRoundFromGames.length > 0 ? cfpFirstRoundFromGames : cfpFirstRoundLegacy
@@ -252,8 +257,9 @@ export default function Layout({ children }) {
         }
       }
 
-      // Week 2+: CFP Quarterfinals should be entered (4 games)
-      if (week >= 2) {
+      // Week 3+: CFP Quarterfinals should be entered (4 games)
+      // (Games were played when advancing from week 2 to week 3)
+      if (week >= 3) {
         const cfpQuartersFromGames = allGames.filter(g => g && (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') && Number(g.year) === Number(year))
         const cfpQuartersLegacy = cfpResults.quarterfinals || []
         const cfpQuarterGames = cfpQuartersFromGames.length > 0 ? cfpQuartersFromGames : cfpQuartersLegacy

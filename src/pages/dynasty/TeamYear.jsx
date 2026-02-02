@@ -10,7 +10,7 @@ import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRou
 // GameDetailModal and GameEntryModal removed - now using game pages
 import RosterEditModal from '../../components/RosterEditModal'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
-import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
 
@@ -268,6 +268,11 @@ export default function TeamYear() {
   const [showRecordGamesModal, setShowRecordGamesModal] = useState(false)
   const [recordGamesModalType, setRecordGamesModalType] = useState(null)
   const [recordGamesModalGames, setRecordGamesModalGames] = useState([])
+  const [showHistoryGamesModal, setShowHistoryGamesModal] = useState(false)
+  const [historyGamesModalTitle, setHistoryGamesModalTitle] = useState('')
+  const [historyGamesModalGames, setHistoryGamesModalGames] = useState([])
+  const [leadersMode, setLeadersMode] = useState('career') // 'career' or 'season'
+  const [leadersCategory, setLeadersCategory] = useState('passing')
   const [editWins, setEditWins] = useState('')
   const [editLosses, setEditLosses] = useState('')
   const [editConference, setEditConference] = useState('')
@@ -434,9 +439,9 @@ export default function TeamYear() {
   const accentColor = usePrimaryAsAccent ? teamInfo.backgroundColor : teamPrimaryText
   const accentColorMuted = usePrimaryAsAccent ? `${teamInfo.backgroundColor}B3` : `${teamPrimaryText}B3`
 
-  // Check if this is the user's team
-  const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-  const isUserTeam = teamAbbr === userTeamAbbr
+  // Check if this is the user's team (tid-based for teambuilder support)
+  const userTeamTid = getCurrentTeamTid(currentDynasty)
+  const isUserTeam = tid === userTeamTid
 
   // Get locked coaching staff for this team/year (preserves coordinators even if fired later)
   const teamCoachingStaff = getLockedCoachingStaff(currentDynasty, selectedYear, teamAbbr)
@@ -452,12 +457,14 @@ export default function TeamYear() {
     })
     .filter(g => {
       if (!g) return false
-      // Check if opponent is the team we're viewing (by tid or abbr)
-      const opponentInfo = g.perspective?.opponentTid
-        ? getGameTeamInfo(teams, g.perspective.opponentTid)
-        : null
-      const opponentAbbr = opponentInfo?.abbr || g.opponent
-      return opponentAbbr === teamAbbr
+      // Check if opponent is the team we're viewing (tid-based for teambuilder support)
+      const opponentTid = g.perspective?.opponentTid
+      if (opponentTid) {
+        return opponentTid === tid
+      }
+      // Fallback: resolve opponent abbr to tid
+      const resolvedTid = g.opponent ? resolveTid(g.opponent, teams) : null
+      return resolvedTid === tid
     })
     .sort((a, b) => a.week - b.week)
 
@@ -498,16 +505,19 @@ export default function TeamYear() {
       const isTeam2ByTid = g.team2Tid === tid
       const isInGameByTid = isTeam1ByTid || isTeam2ByTid
 
-      // LEGACY FORMAT: Check team1/team2 abbreviations or userTeam/opponent
-      const opponentAbbr = getAbbrFromTeamName(g.opponent) || g.opponent
-      const isTeam1ByAbbr = g.team1 === teamAbbr
-      const isTeam2ByAbbr = g.team2 === teamAbbr
-      const isInTeam1Team2 = isTeam1ByAbbr || isTeam2ByAbbr
+      // LEGACY FORMAT: Resolve team1/team2 abbreviations to tids for comparison
+      const team1ResolvedTid = g.team1 ? resolveTid(g.team1, teamsSource) : null
+      const team2ResolvedTid = g.team2 ? resolveTid(g.team2, teamsSource) : null
+      const userTeamResolvedTid = g.userTeam ? resolveTid(g.userTeam, teamsSource) : null
+      const opponentResolvedTid = g.opponent ? resolveTid(getAbbrFromTeamName(g.opponent) || g.opponent, teamsSource) : null
+      const isTeam1ByResolvedTid = team1ResolvedTid === tid
+      const isTeam2ByResolvedTid = team2ResolvedTid === tid
+      const isInTeam1Team2 = isTeam1ByResolvedTid || isTeam2ByResolvedTid
 
-      // Combined check: team is involved in this game
-      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : isTeam1ByAbbr
-      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : isTeam2ByAbbr
-      const teamInGame = hasUnifiedFormat ? isInGameByTid : (isInTeam1Team2 || g.userTeam === teamAbbr || opponentAbbr === teamAbbr)
+      // Combined check: team is involved in this game (tid-based)
+      const isTeam1 = hasUnifiedFormat ? isTeam1ByTid : isTeam1ByResolvedTid
+      const isTeam2 = hasUnifiedFormat ? isTeam2ByTid : isTeam2ByResolvedTid
+      const teamInGame = hasUnifiedFormat ? isInGameByTid : (isInTeam1Team2 || userTeamResolvedTid === tid || opponentResolvedTid === tid)
 
       if (!teamInGame) return
 
@@ -551,24 +561,23 @@ export default function TeamYear() {
       const isGamePlayed = g.isPlayed === true ||
         (team1Score != null && team2Score != null && (team1Score > 0 || team2Score > 0))
 
-      // Determine winner (unified or legacy format) - only if game was played
+      // Determine winner (unified or legacy format) - only if game was played (tid-based)
+      const winnerResolvedTid = g.winner ? resolveTid(g.winner, teamsSource) : null
       const teamWon = isGamePlayed && (hasUnifiedFormat
         ? (g.winnerTid === tid || thisTeamScore > otherTeamScore)
-        : (g.winner === teamAbbr || (g.result === 'win' && g.userTeam === teamAbbr) ||
-           (g.result === 'loss' && opponentAbbr === teamAbbr)))
+        : (winnerResolvedTid === tid || (g.result === 'win' && userTeamResolvedTid === tid) ||
+           (g.result === 'loss' && opponentResolvedTid === tid)))
 
-      // Get opponent tid/abbr
-      const opponentTid = isTeam1 ? g.team2Tid : g.team1Tid
-      // Try multiple sources for opponent abbreviation
+      // Get opponent tid/abbr (tid-based)
+      const opponentTid = isTeam1 ? g.team2Tid : (isTeam2 ? g.team1Tid : null)
+      const opponentTidResolved = opponentTid || (isTeam1 ? team2ResolvedTid : team1ResolvedTid)
+      // Get opponent abbreviation for display
       let opponentAbbrResolved
-      if (hasUnifiedFormat && opponentTid) {
-        // Try teamsSource (includes TEAMS + teambuilder), then fall back to TEAMS directly
-        const oppTeam = teamsSource[opponentTid] || TEAMS[opponentTid]
-        opponentAbbrResolved = oppTeam?.abbr || opponentAbbr
-      } else if (!hasUnifiedFormat) {
-        opponentAbbrResolved = isTeam1ByAbbr ? g.team2 : (isTeam2ByAbbr ? g.team1 : opponentAbbr)
+      if (opponentTidResolved) {
+        const oppTeam = teamsSource[opponentTidResolved] || TEAMS[opponentTidResolved]
+        opponentAbbrResolved = oppTeam?.abbr || g.team2 || g.team1 || g.opponent
       } else {
-        opponentAbbrResolved = opponentAbbr
+        opponentAbbrResolved = isTeam1 ? g.team2 : (isTeam2 ? g.team1 : g.opponent)
       }
 
       if (isCPUGame) {
@@ -589,10 +598,10 @@ export default function TeamYear() {
         return
       }
 
-      // User game - check if this team was the user's team or opponent
+      // User game - check if this team was the user's team or opponent (tid-based)
       const wasUserTeam = hasUnifiedFormat
         ? (isInGameByTid && (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) && (isTeam1ByTid === (g.team1Tid === userTidForYear)))
-        : (g.userTeam === teamAbbr || (!g.userTeam && isUserTeam))
+        : (userTeamResolvedTid === tid || (!g.userTeam && isUserTeam))
 
       if (wasUserTeam) {
         // Game played AS this team - use as-is or convert from unified
@@ -662,48 +671,56 @@ export default function TeamYear() {
     return result
   })()
 
-  // Also check if there's a bowl game in bowlGamesByYear that should be included
+  // Also check if there's a bowl game in bowlGamesByYear that should be included (tid-based)
   const yearBowlDataForTeam = currentDynasty.bowlGamesByYear?.[selectedYear] || {}
   const teamBowlFromLegacy = [...(yearBowlDataForTeam.week1 || []), ...(yearBowlDataForTeam.week2 || [])]
-    .find(bowl =>
-      (bowl.team1 === teamAbbr || bowl.team2 === teamAbbr) &&
-      bowl.team1Score !== null && bowl.team2Score !== null &&
-      // Don't add if already in games array
-      !teamGamesFromArray.some(g => g.isBowlGame && g.bowlName === bowl.bowlName)
-    ) || null
+    .find(bowl => {
+      const team1Tid = bowl.team1Tid || resolveTid(bowl.team1, teamsSource)
+      const team2Tid = bowl.team2Tid || resolveTid(bowl.team2, teamsSource)
+      return (team1Tid === tid || team2Tid === tid) &&
+        bowl.team1Score !== null && bowl.team2Score !== null &&
+        // Don't add if already in games array
+        !teamGamesFromArray.some(g => g.isBowlGame && g.bowlName === bowl.bowlName)
+    }) || null
 
-  // Convert legacy bowl game to schedule format if found
+  // Convert legacy bowl game to schedule format if found (tid-based)
   const teamBowlGameConverted = teamBowlFromLegacy ? (() => {
+    const team1Tid = teamBowlFromLegacy.team1Tid || resolveTid(teamBowlFromLegacy.team1, teamsSource)
+    const isTeam1 = team1Tid === tid
     // Only use real IDs that exist in games array
     const hasRealGameEntry = teamBowlFromLegacy.id && (currentDynasty.games || []).some(g => g.id === teamBowlFromLegacy.id)
     return {
       id: hasRealGameEntry ? teamBowlFromLegacy.id : null, // Only use real IDs, not generated ones
       week: 'Bowl',
       year: selectedYear,
-      opponent: teamBowlFromLegacy.team1 === teamAbbr ? teamBowlFromLegacy.team2 : teamBowlFromLegacy.team1,
+      opponent: isTeam1 ? teamBowlFromLegacy.team2 : teamBowlFromLegacy.team1,
       location: 'neutral',
-      result: (teamBowlFromLegacy.team1 === teamAbbr && teamBowlFromLegacy.team1Score > teamBowlFromLegacy.team2Score) ||
-              (teamBowlFromLegacy.team2 === teamAbbr && teamBowlFromLegacy.team2Score > teamBowlFromLegacy.team1Score) ? 'win' : 'loss',
-      teamScore: teamBowlFromLegacy.team1 === teamAbbr ? teamBowlFromLegacy.team1Score : teamBowlFromLegacy.team2Score,
-      opponentScore: teamBowlFromLegacy.team1 === teamAbbr ? teamBowlFromLegacy.team2Score : teamBowlFromLegacy.team1Score,
+      result: (isTeam1 && teamBowlFromLegacy.team1Score > teamBowlFromLegacy.team2Score) ||
+              (!isTeam1 && teamBowlFromLegacy.team2Score > teamBowlFromLegacy.team1Score) ? 'win' : 'loss',
+      teamScore: isTeam1 ? teamBowlFromLegacy.team1Score : teamBowlFromLegacy.team2Score,
+      opponentScore: isTeam1 ? teamBowlFromLegacy.team2Score : teamBowlFromLegacy.team1Score,
       isBowlGame: true,
       bowlName: teamBowlFromLegacy.bowlName
     }
   })() : null
 
-  // Also check for conference championship games from conferenceChampionshipsByYear
+  // Also check for conference championship games from conferenceChampionshipsByYear (tid-based)
   const ccGamesFromLegacyStructure = (() => {
     const yearChampionships = currentDynasty.conferenceChampionshipsByYear?.[selectedYear] || []
     return yearChampionships
-      .filter(cc =>
-        (cc.team1 === teamAbbr || cc.team2 === teamAbbr) &&
-        cc.team1Score !== null && cc.team2Score !== null &&
-        // Don't add if already in games array
-        !teamGamesFromArray.some(g => g.isConferenceChampionship)
-      )
+      .filter(cc => {
+        const team1Tid = cc.team1Tid || resolveTid(cc.team1, teamsSource)
+        const team2Tid = cc.team2Tid || resolveTid(cc.team2, teamsSource)
+        return (team1Tid === tid || team2Tid === tid) &&
+          cc.team1Score !== null && cc.team2Score !== null &&
+          // Don't add if already in games array
+          !teamGamesFromArray.some(g => g.isConferenceChampionship)
+      })
       .map(cc => {
-        const isTeam1 = cc.team1 === teamAbbr
-        const teamWon = cc.winner === teamAbbr
+        const team1Tid = cc.team1Tid || resolveTid(cc.team1, teamsSource)
+        const winnerTid = cc.winnerTid || resolveTid(cc.winner, teamsSource)
+        const isTeam1 = team1Tid === tid
+        const teamWon = winnerTid === tid
         // Only use real IDs that exist in games array
         const hasRealGameEntry = cc.id && (currentDynasty.games || []).some(g => g.id === cc.id)
         return {
@@ -726,15 +743,18 @@ export default function TeamYear() {
   const teamCFPGamesConverted = (() => {
     const converted = []
 
-    // Helper to convert CFP game to schedule format
+    // Helper to convert CFP game to schedule format (tid-based)
     const convertCFPGame = (game, roundName, cfpFlags) => {
       if (!game || game.team1Score === null || game.team2Score === null) return null
-      // Check both tid and abbr for backwards compatibility
-      const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
-      const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+      // Use tid-based comparison with fallback resolution
+      const team1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+      const team2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+      const isTeam1 = team1Tid === tid
+      const isTeam2 = team2Tid === tid
       if (!isTeam1 && !isTeam2) return null
 
-      const teamWon = game.winner === teamAbbr || game.winnerTid === tid
+      const winnerTid = game.winnerTid || resolveTid(game.winner, teamsSource)
+      const teamWon = winnerTid === tid
       // If the game has a real ID that exists in the games array, use it; otherwise mark as non-linkable
       const hasRealGameEntry = game.id && (currentDynasty.games || []).some(g => g.id === game.id)
       return {
@@ -868,12 +888,14 @@ export default function TeamYear() {
       })
       .filter(g => {
         if (!g || !g.opponentRecord) return false
-        // Check if opponent is the team we're viewing (by tid or abbr)
-        const opponentInfo = g.perspective?.opponentTid
-          ? getGameTeamInfo(teams, g.perspective.opponentTid)
-          : null
-        const opponentAbbr = opponentInfo?.abbr || g.opponent
-        return opponentAbbr === teamAbbr
+        // Check if opponent is the team we're viewing (tid-based)
+        const opponentTid = g.perspective?.opponentTid
+        if (opponentTid) {
+          return opponentTid === tid
+        }
+        // Fallback: resolve opponent abbr to tid
+        const resolvedTid = g.opponent ? resolveTid(g.opponent, teams) : null
+        return resolvedTid === tid
       })
       .sort((a, b) => {
         // Sort by week/game order to get the most recent
@@ -1001,15 +1023,19 @@ export default function TeamYear() {
   // Normalize year to number for consistent lookups
   const yearNum = Number(selectedYear)
 
-  // 1. Conference standings (most authoritative for full season records)
+  // 1. Conference standings (most authoritative for full season records) - tid-based
   const getRecordFromStandings = () => {
     // Check both number and string keys for year
     const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
                           currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
     for (const confTeams of Object.values(yearStandings)) {
       if (Array.isArray(confTeams)) {
-        // Match by abbreviation (case-insensitive for safety)
-        const teamData = confTeams.find(t => t && t.team?.toUpperCase() === teamAbbr?.toUpperCase())
+        // Match by tid (resolve abbreviation to tid for comparison)
+        const teamData = confTeams.find(t => {
+          if (!t || !t.team) return false
+          const resolvedTid = t.tid || resolveTid(t.team, teamsSource)
+          return resolvedTid === tid
+        })
         if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
           return { wins: teamData.wins, losses: teamData.losses }
         }
@@ -1065,16 +1091,25 @@ export default function TeamYear() {
   // Debug log (only once per mount, not on every render)
   // console.log(`[TeamYear:${teamAbbr}] Record for ${yearNum}: source=${recordSource}`, displayRecord)
 
-  // Get team ratings for this year
-  const teamRatings = currentDynasty.teamRatingsByTeamYear?.[teamAbbr]?.[selectedYear] || null
+  // Get team ratings for this year (try both tid and abbr keys for backwards compatibility)
+  const teamRatings = currentDynasty.teamRatingsByTeamYear?.[tid]?.[selectedYear] ||
+                      currentDynasty.teamRatingsByTeamYear?.[teamAbbr]?.[selectedYear] || null
 
-  // Get final poll rankings for this team in this year
+  // Get final poll rankings for this team in this year (tid-based)
   const getFinalPollRankings = () => {
     const pollsData = currentDynasty.finalPollsByYear?.[selectedYear]
     if (!pollsData) return null
 
-    const mediaRank = pollsData.media?.find(p => p && p.team === teamAbbr)?.rank
-    const coachesRank = pollsData.coaches?.find(p => p && p.team === teamAbbr)?.rank
+    const mediaRank = pollsData.media?.find(p => {
+      if (!p) return false
+      const pollTid = p.tid || resolveTid(p.team, teamsSource)
+      return pollTid === tid
+    })?.rank
+    const coachesRank = pollsData.coaches?.find(p => {
+      if (!p) return false
+      const pollTid = p.tid || resolveTid(p.team, teamsSource)
+      return pollTid === tid
+    })?.rank
 
     if (!mediaRank && !coachesRank) return null
 
@@ -1092,59 +1127,70 @@ export default function TeamYear() {
   // Get all games array for unified lookups
   const allGamesArray = currentDynasty.games || []
 
-  // Get conference championship data for this team in this year
+  // Get conference championship data for this team in this year (tid-based)
   // UNIFIED: First check games[] array, then fallback to conferenceChampionshipsByYear
-  // Check both tid and abbr for team matching (supports both unified and legacy formats)
-  const ccGamesFromGames = allGamesArray.filter(g =>
-    g.isConferenceChampionship && Number(g.year) === selectedYear &&
-    (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
-    g.team1Score !== null && g.team1Score !== undefined
-  )
+  const ccGamesFromGames = allGamesArray.filter(g => {
+    if (!g.isConferenceChampionship || Number(g.year) !== selectedYear) return false
+    if (g.team1Score === null || g.team1Score === undefined) return false
+    // Prefer tid, fallback to resolved abbr
+    const team1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+    const team2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+    return team1Tid === tid || team2Tid === tid
+  })
 
-  // Fallback: Also check conferenceChampionshipsByYear for backward compatibility
+  // Fallback: Also check conferenceChampionshipsByYear for backward compatibility (tid-based)
   const yearChampionships = currentDynasty.conferenceChampionshipsByYear?.[selectedYear] || []
-  const ccGamesFromLegacy = yearChampionships.filter(cc =>
-    (cc.team1 === teamAbbr || cc.team2 === teamAbbr) &&
-    cc.team1Score !== null && cc.team2Score !== null &&
-    // Avoid duplicates - skip if already in games[]
-    !ccGamesFromGames.some(g => g.conference === cc.conference)
-  )
+  const ccGamesFromLegacy = yearChampionships.filter(cc => {
+    if (cc.team1Score === null || cc.team2Score === null) return false
+    const team1Tid = cc.team1Tid || resolveTid(cc.team1, teamsSource)
+    const team2Tid = cc.team2Tid || resolveTid(cc.team2, teamsSource)
+    return (team1Tid === tid || team2Tid === tid) &&
+      // Avoid duplicates - skip if already in games[]
+      !ccGamesFromGames.some(g => g.conference === cc.conference)
+  })
 
   // Use games[] version first, then legacy
   const teamCCGame = ccGamesFromGames[0] || ccGamesFromLegacy[0] || null
-  const wonCC = teamCCGame?.winner === teamAbbr || teamCCGame?.winnerTid === tid
+  const ccWinnerTid = teamCCGame?.winnerTid || resolveTid(teamCCGame?.winner, teamsSource)
+  const wonCC = ccWinnerTid === tid
 
-  // Get bowl game for this team in this year
+  // Get bowl game for this team in this year (tid-based)
   // UNIFIED: First check games[] array, then fallback to bowlGamesByYear
   // Exclude CFP games - they have their own badges
-  // Check both tid and abbr for team matching (supports both unified and legacy formats)
-  const bowlGamesFromGames = allGamesArray.filter(g =>
-    (g.isBowlGame || g.gameType === GAME_TYPES.BOWL) && isSameYear(g.year, selectedYear) &&
-    (g.team1 === teamAbbr || g.team2 === teamAbbr || g.team1Tid === tid || g.team2Tid === tid) &&
-    // Only include played games (not UPCOMING) - use same pattern as elsewhere in codebase
-    (g.isPlayed || g.team1Score > 0 || g.team2Score > 0) &&
-    !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship &&
-    g.gameType !== GAME_TYPES.CFP_FIRST_ROUND && g.gameType !== GAME_TYPES.CFP_QUARTERFINAL &&
-    g.gameType !== GAME_TYPES.CFP_SEMIFINAL && g.gameType !== GAME_TYPES.CFP_CHAMPIONSHIP
-  )
+  const bowlGamesFromGames = allGamesArray.filter(g => {
+    if (!(g.isBowlGame || g.gameType === GAME_TYPES.BOWL) || !isSameYear(g.year, selectedYear)) return false
+    // Only include played games (not UPCOMING)
+    if (!(g.isPlayed || g.team1Score > 0 || g.team2Score > 0)) return false
+    // Exclude CFP games
+    if (g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship ||
+        g.gameType === GAME_TYPES.CFP_FIRST_ROUND || g.gameType === GAME_TYPES.CFP_QUARTERFINAL ||
+        g.gameType === GAME_TYPES.CFP_SEMIFINAL || g.gameType === GAME_TYPES.CFP_CHAMPIONSHIP) return false
+    // tid-based team matching
+    const team1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+    const team2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+    return team1Tid === tid || team2Tid === tid
+  })
 
-  // Fallback: Also check bowlGamesByYear for backward compatibility
+  // Fallback: Also check bowlGamesByYear for backward compatibility (tid-based)
   const yearBowlData = currentDynasty.bowlGamesByYear?.[selectedYear] || {}
   const bowlGamesFromLegacy = [...(yearBowlData.week1 || []), ...(yearBowlData.week2 || [])]
-    .filter(bowl =>
-      (bowl.team1 === teamAbbr || bowl.team2 === teamAbbr) &&
-      bowl.team1Score !== null && bowl.team2Score !== null &&
-      // Avoid duplicates - skip if already in games[]
-      !bowlGamesFromGames.some(g => g.bowlName === bowl.bowlName)
-    )
+    .filter(bowl => {
+      if (bowl.team1Score === null || bowl.team2Score === null) return false
+      const team1Tid = bowl.team1Tid || resolveTid(bowl.team1, teamsSource)
+      const team2Tid = bowl.team2Tid || resolveTid(bowl.team2, teamsSource)
+      return (team1Tid === tid || team2Tid === tid) &&
+        // Avoid duplicates - skip if already in games[]
+        !bowlGamesFromGames.some(g => g.bowlName === bowl.bowlName)
+    })
 
   const bowlGames = [...bowlGamesFromGames, ...bowlGamesFromLegacy]
   const teamBowlGame = bowlGames[0] // Just need the first match for this team
 
-  const wonBowl = teamBowlGame && (
-    ((teamBowlGame.team1 === teamAbbr || teamBowlGame.team1Tid === tid) && teamBowlGame.team1Score > teamBowlGame.team2Score) ||
-    ((teamBowlGame.team2 === teamAbbr || teamBowlGame.team2Tid === tid) && teamBowlGame.team2Score > teamBowlGame.team1Score)
-  )
+  const wonBowl = teamBowlGame && (() => {
+    const team1Tid = teamBowlGame.team1Tid || resolveTid(teamBowlGame.team1, teamsSource)
+    return (team1Tid === tid && teamBowlGame.team1Score > teamBowlGame.team2Score) ||
+           (team1Tid !== tid && teamBowlGame.team2Score > teamBowlGame.team1Score)
+  })()
 
   // Get CFP results for this team in this year from cfpResultsByYear
   const cfpResults = currentDynasty.cfpResultsByYear?.[selectedYear] || {}
@@ -1179,11 +1225,13 @@ export default function TeamYear() {
     ...(cfpResults.championship ? [{ ...cfpResults.championship, round: 4, slotId: cfpResults.championship.cfpSlot || 'cfpnc' }] : [])
   ]
 
-  // Find all CFP games involving this team - check both tid and abbr
-  const teamCFPGamesFromResults = allCFPGames.filter(game =>
-    (game.team1Tid === tid || game.team1 === teamAbbr || game.team2Tid === tid || game.team2 === teamAbbr) &&
-    game.team1Score !== null && game.team2Score !== null
-  ).sort((a, b) => a.round - b.round)
+  // Find all CFP games involving this team (tid-based)
+  const teamCFPGamesFromResults = allCFPGames.filter(game => {
+    if (game.team1Score === null || game.team2Score === null) return false
+    const team1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+    const team2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+    return team1Tid === tid || team2Tid === tid
+  }).sort((a, b) => a.round - b.round)
 
   // Determine CFP result for this team - check unified games[] array first, then legacy cfpResultsByYear
   const getCFPResult = () => {
@@ -1193,9 +1241,18 @@ export default function TeamYear() {
     const unifiedQFGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_QUARTERFINAL, selectedYear)
     const unifiedFRGames = getGamesByType(currentDynasty, GAME_TYPES.CFP_FIRST_ROUND, selectedYear)
 
-    // Helper to check if game involves this team (supports both tid and abbr)
-    const gameInvolvesTeam = (g) => g && (g.team1Tid === tid || g.team1 === teamAbbr || g.team2Tid === tid || g.team2 === teamAbbr)
-    const teamWonGame = (g) => g && (g.winnerTid === tid || g.winner === teamAbbr)
+    // Helper to check if game involves this team (tid-based)
+    const gameInvolvesTeam = (g) => {
+      if (!g) return false
+      const team1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+      const team2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+      return team1Tid === tid || team2Tid === tid
+    }
+    const teamWonGame = (g) => {
+      if (!g) return false
+      const winnerTid = g.winnerTid || resolveTid(g.winner, teamsSource)
+      return winnerTid === tid
+    }
 
     // Check championship first - unified games array, then legacy
     const champGame = unifiedChampGames.find(gameInvolvesTeam) ||
@@ -1241,11 +1298,14 @@ export default function TeamYear() {
 
   const cfpResult = getCFPResult()
 
-  // Legacy: Get CFP games from cfpGamesByYear (older format)
+  // Legacy: Get CFP games from cfpGamesByYear (older format) - tid-based
   const cfpGames = currentDynasty.cfpGamesByYear?.[selectedYear] || []
-  const teamCFPGames = cfpGames.filter(game =>
-    (game.team1Tid === tid || game.team1 === teamAbbr || game.team2Tid === tid || game.team2 === teamAbbr) && game.team1Score !== null && game.team2Score !== null
-  ).sort((a, b) => (a.round || 0) - (b.round || 0))
+  const teamCFPGames = cfpGames.filter(game => {
+    if (game.team1Score === null || game.team2Score === null) return false
+    const team1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+    const team2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+    return team1Tid === tid || team2Tid === tid
+  }).sort((a, b) => (a.round || 0) - (b.round || 0))
 
   // Find players associated with this team for the selected year
   // Uses the unified isPlayerOnRoster() helper - teamsByYear is the source of truth
@@ -1435,9 +1495,11 @@ export default function TeamYear() {
     games.forEach(game => {
       if (Number(game.year) !== selectedYear) return
 
-      // Check if this team played in the game
-      const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
-      const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+      // Check if this team played in the game (tid-based)
+      const team1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+      const team2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+      const isTeam1 = team1Tid === tid
+      const isTeam2 = team2Tid === tid
       if (!isTeam1 && !isTeam2) return
 
       // Get scores - only process games that have been played
@@ -1779,40 +1841,6 @@ export default function TeamYear() {
     >
       {/* Navigation Row - Compact on mobile */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* History Link - Icon only on mobile */}
-        <Link
-          to={`${pathPrefix}/team/${tid}`}
-          className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-xs sm:text-sm"
-          style={{
-            backgroundColor: teamInfo.backgroundColor,
-            color: teamBgText,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-          }}
-        >
-          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="hidden xs:inline sm:inline">History</span>
-        </Link>
-
-        {/* Stats Button - switches to Stats tab */}
-        {(teamWins + teamLosses) > 0 && (
-          <button
-            onClick={() => setActiveTab('stats')}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity text-xs sm:text-sm"
-            style={{
-              backgroundColor: teamInfo.backgroundColor,
-              color: teamBgText,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-            }}
-          >
-            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <span className="hidden xs:inline sm:inline">Stats</span>
-          </button>
-        )}
-
         {/* Spacer pushes dropdowns to the right */}
         <div className="flex-1" />
 
@@ -2382,7 +2410,8 @@ export default function TeamYear() {
           { key: 'home', label: 'Home' },
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
-          { key: 'roster', label: 'Roster' }
+          { key: 'roster', label: 'Roster' },
+          { key: 'history', label: 'History' }
         ].map(tab => (
           <button
             key={tab.key}
@@ -2437,24 +2466,38 @@ export default function TeamYear() {
         const getGameSpecificStats = (game) => {
           if (!game || !game.boxScore) return null
 
-          // Determine if we're team1 or team2
-          const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
-          const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+          // Use tid-based lookup to find the correct boxScore side
+          // Get tids from boxScore.teamStats (convert abbr to tid if needed)
+          const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr
+          const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr
+          const homeTid = homeAbbr ? resolveTid(homeAbbr, teamsSource) : null
+          const awayTid = awayAbbr ? resolveTid(awayAbbr, teamsSource) : null
 
-          if (!isTeam1 && !isTeam2) return null
-
-          // Determine if team1 is home (boxScore.home = home team, boxScore.away = away team)
-          const team1IsHome = game.homeTeamTid === game.team1Tid ||
-                              (!game.homeTeamTid && game.location === 'home')
-
-          // Get box scores for both teams
           let ourBoxScore, oppBoxScore
-          if (isTeam1) {
-            ourBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
-            oppBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
+
+          if (homeTid === tid) {
+            ourBoxScore = game.boxScore.home
+            oppBoxScore = game.boxScore.away
+          } else if (awayTid === tid) {
+            ourBoxScore = game.boxScore.away
+            oppBoxScore = game.boxScore.home
           } else {
-            ourBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
-            oppBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
+            // Fallback: use game's team1/team2 tid fields
+            const isTeam1 = game.team1Tid === tid
+            const isTeam2 = game.team2Tid === tid
+
+            if (!isTeam1 && !isTeam2) return null
+
+            const team1IsHome = game.homeTeamTid === game.team1Tid ||
+                                (!game.homeTeamTid && game.location === 'home')
+
+            if (isTeam1) {
+              ourBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
+              oppBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
+            } else {
+              ourBoxScore = team1IsHome ? game.boxScore.away : game.boxScore.home
+              oppBoxScore = team1IsHome ? game.boxScore.home : game.boxScore.away
+            }
           }
 
           // Helper to get top passer with comp/att yards format
@@ -2514,7 +2557,11 @@ export default function TeamYear() {
           {(() => {
             const yearAwards = currentDynasty.awardsByYear?.[selectedYear] || {}
             const teamAwardWinners = Object.entries(yearAwards)
-              .filter(([key, data]) => data.team === teamAbbr)
+              .filter(([key, data]) => {
+                // tid-based comparison
+                const awardTid = data.tid || resolveTid(data.team, teamsSource)
+                return awardTid === tid
+              })
               .map(([key, data]) => ({
                 awardKey: key,
                 awardName: AWARD_DISPLAY[key] || key,
@@ -2550,8 +2597,10 @@ export default function TeamYear() {
                       matchingPlayer = currentDynasty.players?.find(p => {
                         const nameMatch = p.name?.toLowerCase().trim() === award.player?.toLowerCase().trim()
                         if (!nameMatch) return false
-                        const playerTeams = p.teamsPlayed || []
-                        return playerTeams.includes(teamAbbr) || p.team === teamAbbr || p.team === tid || p.team === award.team
+                        // tid-based team matching
+                        const playerTeamTid = p.teamTid || resolveTid(p.team, teamsSource)
+                        const playerTeamsPlayed = (p.teamsPlayed || []).map(t => resolveTid(t, teamsSource))
+                        return playerTeamsPlayed.includes(tid) || playerTeamTid === tid
                       })
                     }
                     if (!matchingPlayer) {
@@ -2690,145 +2739,155 @@ export default function TeamYear() {
                   </Link>
                 )}
               </div>
-              {/* Desktop: Flex layout with photos - uses full width */}
+              {/* Desktop: Flex layout with large photos on left, stats on right */}
               <div className="hidden md:flex gap-3">
                 {teamLeaders.passing && (
                   <Link
                     to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
-                    className="flex-1 rounded-xl p-3 transition-colors group"
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
                     style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Player image */}
+                    <div className="w-16 h-16 flex-shrink-0">
                       {teamLeaders.passing.player?.pictureUrl ? (
-                        <img src={teamLeaders.passing.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: accentColorMuted }} />
+                        <img src={teamLeaders.passing.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{teamLeaders.passing.name?.charAt(0) || 'P'}</span>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                          <span className="text-xl font-bold" style={{ color: accentColor }}>{teamLeaders.passing.name?.charAt(0) || 'P'}</span>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Passing</div>
-                        <div className="text-xs font-medium" style={{ color: accentColor }}>{teamLeaders.passing.name}</div>
+                    </div>
+                    {/* Stats on right */}
+                    <div className="flex-1 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Passing</div>
+                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.passing.name}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
+                        {teamLeaders.passing.stats.yards.toLocaleString()}
+                        <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
                       </div>
-                    </div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
-                      {teamLeaders.passing.stats.yards.toLocaleString()}
-                      <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
-                    </div>
-                    <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
-                      {teamLeaders.passing.stats.comp}/{teamLeaders.passing.stats.attempts} • {teamLeaders.passing.stats.tD} TD • {teamLeaders.passing.stats.int} INT
+                      <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
+                        {teamLeaders.passing.stats.comp}/{teamLeaders.passing.stats.attempts} • {teamLeaders.passing.stats.tD} TD • {teamLeaders.passing.stats.int} INT
+                      </div>
                     </div>
                   </Link>
                 )}
                 {teamLeaders.rushing && (
                   <Link
                     to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
-                    className="flex-1 rounded-xl p-3 transition-colors group"
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
                     style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Player image */}
+                    <div className="w-16 h-16 flex-shrink-0">
                       {teamLeaders.rushing.player?.pictureUrl ? (
-                        <img src={teamLeaders.rushing.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: accentColorMuted }} />
+                        <img src={teamLeaders.rushing.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{teamLeaders.rushing.name?.charAt(0) || 'R'}</span>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                          <span className="text-xl font-bold" style={{ color: accentColor }}>{teamLeaders.rushing.name?.charAt(0) || 'R'}</span>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Rushing</div>
-                        <div className="text-xs font-medium" style={{ color: accentColor }}>{teamLeaders.rushing.name}</div>
+                    </div>
+                    {/* Stats on right */}
+                    <div className="flex-1 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Rushing</div>
+                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.rushing.name}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
+                        {teamLeaders.rushing.stats.yards.toLocaleString()}
+                        <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
                       </div>
-                    </div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
-                      {teamLeaders.rushing.stats.yards.toLocaleString()}
-                      <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
-                    </div>
-                    <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
-                      {teamLeaders.rushing.stats.carries} CAR • {teamLeaders.rushing.stats.tD} TD
+                      <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
+                        {teamLeaders.rushing.stats.carries} CAR • {teamLeaders.rushing.stats.tD} TD
+                      </div>
                     </div>
                   </Link>
                 )}
                 {teamLeaders.receiving && (
                   <Link
                     to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
-                    className="flex-1 rounded-xl p-3 transition-colors group"
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
                     style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Player image */}
+                    <div className="w-16 h-16 flex-shrink-0">
                       {teamLeaders.receiving.player?.pictureUrl ? (
-                        <img src={teamLeaders.receiving.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: accentColorMuted }} />
+                        <img src={teamLeaders.receiving.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{teamLeaders.receiving.name?.charAt(0) || 'W'}</span>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                          <span className="text-xl font-bold" style={{ color: accentColor }}>{teamLeaders.receiving.name?.charAt(0) || 'W'}</span>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Receiving</div>
-                        <div className="text-xs font-medium" style={{ color: accentColor }}>{teamLeaders.receiving.name}</div>
+                    </div>
+                    {/* Stats on right */}
+                    <div className="flex-1 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Receiving</div>
+                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.receiving.name}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
+                        {teamLeaders.receiving.stats.yards.toLocaleString()}
+                        <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
                       </div>
-                    </div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
-                      {teamLeaders.receiving.stats.yards.toLocaleString()}
-                      <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
-                    </div>
-                    <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
-                      {teamLeaders.receiving.stats.receptions} REC • {teamLeaders.receiving.stats.tD} TD
+                      <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
+                        {teamLeaders.receiving.stats.receptions} REC • {teamLeaders.receiving.stats.tD} TD
+                      </div>
                     </div>
                   </Link>
                 )}
                 {teamLeaders.tackles && (
                   <Link
                     to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
-                    className="flex-1 rounded-xl p-3 transition-colors group"
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
                     style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Player image */}
+                    <div className="w-16 h-16 flex-shrink-0">
                       {teamLeaders.tackles.player?.pictureUrl ? (
-                        <img src={teamLeaders.tackles.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: accentColorMuted }} />
+                        <img src={teamLeaders.tackles.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{teamLeaders.tackles.name?.charAt(0) || 'D'}</span>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                          <span className="text-xl font-bold" style={{ color: accentColor }}>{teamLeaders.tackles.name?.charAt(0) || 'D'}</span>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Tackles</div>
-                        <div className="text-xs font-medium" style={{ color: accentColor }}>{teamLeaders.tackles.name}</div>
+                    </div>
+                    {/* Stats on right */}
+                    <div className="flex-1 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Tackles</div>
+                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.tackles.name}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
+                        {teamLeaders.tackles.stats.tackles}
+                        <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>TKL</span>
                       </div>
-                    </div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
-                      {teamLeaders.tackles.stats.tackles}
-                      <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>TKL</span>
-                    </div>
-                    <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
-                      {teamLeaders.tackles.stats.solo} Solo • {teamLeaders.tackles.stats.assists} Ast
+                      <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
+                        {teamLeaders.tackles.stats.solo} Solo • {teamLeaders.tackles.stats.assists} Ast
+                      </div>
                     </div>
                   </Link>
                 )}
                 {teamLeaders.interceptions && (
                   <Link
                     to={teamLeaders.interceptions.player ? `${pathPrefix}/player/${teamLeaders.interceptions.player.pid}` : '#'}
-                    className="flex-1 rounded-xl p-3 transition-colors group"
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
                     style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
+                    {/* Player image */}
+                    <div className="w-16 h-16 flex-shrink-0">
                       {teamLeaders.interceptions.player?.pictureUrl ? (
-                        <img src={teamLeaders.interceptions.player.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: accentColorMuted }} />
+                        <img src={teamLeaders.interceptions.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center border" style={{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{teamLeaders.interceptions.name?.charAt(0) || 'D'}</span>
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                          <span className="text-xl font-bold" style={{ color: accentColor }}>{teamLeaders.interceptions.name?.charAt(0) || 'D'}</span>
                         </div>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>INTs</div>
-                        <div className="text-xs font-medium" style={{ color: accentColor }}>{teamLeaders.interceptions.name}</div>
+                    </div>
+                    {/* Stats on right */}
+                    <div className="flex-1 p-3 flex flex-col justify-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>INTs</div>
+                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.interceptions.name}</div>
+                      <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
+                        {teamLeaders.interceptions.stats.interceptions}
+                        <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>INT</span>
                       </div>
-                    </div>
-                    <div className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
-                      {teamLeaders.interceptions.stats.interceptions}
-                      <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>INT</span>
-                    </div>
-                    <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
-                      {teamLeaders.interceptions.stats.tackles} TKL
+                      <div className="text-[10px] tabular-nums" style={{ color: accentColorMuted }}>
+                        {teamLeaders.interceptions.stats.tackles} TKL
+                      </div>
                     </div>
                   </Link>
                 )}
@@ -2849,7 +2908,7 @@ export default function TeamYear() {
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${accentColor}20` }}>
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Previous Game</span>
                 <span className="text-xs" style={{ color: accentColorMuted }}>
-                  {lastGame.isBowlGame ? 'Bowl' : lastGame.isConferenceChampionship ? 'CCG' : `Week ${lastGame.week}`}
+                  {lastGame.isCFPChampionship ? 'Natty' : lastGame.isCFPSemifinal ? 'CFP SF' : lastGame.isCFPQuarterfinal ? 'CFP QF' : lastGame.isCFPFirstRound ? 'CFP R1' : lastGame.isBowlGame ? 'Bowl' : lastGame.isConferenceChampionship ? 'CCG' : `Week ${lastGame.week}`}
                 </span>
               </div>
               <div className="p-4">
@@ -2878,18 +2937,29 @@ export default function TeamYear() {
                 </div>
                 {/* Quick game stat leaders from box score - both QBs */}
                 {lastGameStats && lastGameStats.length > 0 && (
-                  <div className="pt-3 flex items-center gap-4 text-xs flex-wrap" style={{ borderTop: `1px solid ${accentColor}20`, color: accentColorMuted }}>
-                    {lastGameStats.map((stat, idx) => (
-                      <span key={idx} className="flex items-center gap-1.5">
-                        {idx > 0 && <span className="mr-1.5" style={{ color: `${accentColor}40` }}>|</span>}
-                        <span className="font-medium" style={{ color: accentColor }}>{stat.name}</span>
-                        {stat.type === 'pass' ? (
-                          <span>{stat.comp}/{stat.att} {stat.yards} yds</span>
+                  <div className="pt-3 flex items-center justify-between text-xs" style={{ borderTop: `1px solid ${accentColor}20`, color: accentColorMuted }}>
+                    {/* Our team's QB - left side */}
+                    {lastGameStats[0] && (
+                      <div className="flex flex-col">
+                        <span className="font-medium" style={{ color: accentColor }}>{lastGameStats[0].name}</span>
+                        {lastGameStats[0].type === 'pass' ? (
+                          <span>{lastGameStats[0].comp}/{lastGameStats[0].att} {lastGameStats[0].yards} yds</span>
                         ) : (
-                          <span>{stat.carries} car {stat.yards} yds</span>
+                          <span>{lastGameStats[0].carries} car {lastGameStats[0].yards} yds</span>
                         )}
-                      </span>
-                    ))}
+                      </div>
+                    )}
+                    {/* Opponent's QB - right side */}
+                    {lastGameStats[1] && (
+                      <div className="flex flex-col text-right">
+                        <span className="font-medium" style={{ color: accentColor }}>{lastGameStats[1].name}</span>
+                        {lastGameStats[1].type === 'pass' ? (
+                          <span>{lastGameStats[1].comp}/{lastGameStats[1].att} {lastGameStats[1].yards} yds</span>
+                        ) : (
+                          <span>{lastGameStats[1].carries} car {lastGameStats[1].yards} yds</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2906,7 +2976,7 @@ export default function TeamYear() {
                 <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${accentColor}20` }}>
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Next Game</span>
                   <span className="text-xs" style={{ color: accentColorMuted }}>
-                    {nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
+                    {nextGame.isCFPChampionship ? 'Natty' : nextGame.isCFPSemifinal ? 'CFP SF' : nextGame.isCFPQuarterfinal ? 'CFP QF' : nextGame.isCFPFirstRound ? 'CFP R1' : nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
                   </span>
                 </div>
                 <div className="p-4">
@@ -2977,7 +3047,7 @@ export default function TeamYear() {
                   style={{ borderBottom: `1px solid ${accentColor}15` }}
                 >
                   <span className="text-[10px] font-semibold w-8 flex-shrink-0" style={{ color: accentColorMuted }}>
-                    {game.isBowlGame ? 'Bowl' : game.isConferenceChampionship ? 'CCG' : `Wk${game.week}`}
+                    {game.isCFPChampionship ? 'Nty' : game.isCFPSemifinal ? 'SF' : game.isCFPQuarterfinal ? 'QF' : game.isCFPFirstRound ? 'R1' : game.isBowlGame ? 'Bowl' : game.isConferenceChampionship ? 'CCG' : `Wk${game.week}`}
                   </span>
                   <span className="text-[10px] w-4" style={{ color: `${accentColor}50` }}>
                     {location === 'away' ? '@' : 'vs'}
@@ -3988,69 +4058,9 @@ export default function TeamYear() {
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-          {/* Schedule Header - matches Dashboard style */}
-          <div
-            className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between cursor-pointer"
-            style={{ backgroundColor: teamInfo.backgroundColor, borderBottom: `1px solid ${teamBgText}20` }}
-            onClick={() => setScheduleCollapsed(!scheduleCollapsed)}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-1 h-10 rounded-full"
-                style={{ backgroundColor: teamInfo.backgroundColor }}
-              />
-              <div>
-                <h2 className="text-base sm:text-lg font-bold tracking-tight" style={{ color: teamBgText }}>
-                  {selectedYear} Schedule
-                </h2>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-sm font-semibold" style={{ color: teamBgText }}>
-                    {teamYearGames.filter(g => {
-                      const res = g._isFlippedPerspective ? g._displayResult : g.result
-                      return res === 'win' || res === 'W'
-                    }).length}-{teamYearGames.filter(g => {
-                      const res = g._isFlippedPerspective ? g._displayResult : g.result
-                      return res === 'loss' || res === 'L'
-                    }).length}
-                  </span>
-                  <span className="text-sm" style={{ color: `${teamBgText}80` }}>
-                    ({teamYearGames.length} games)
-                  </span>
-                </div>
-              </div>
-              {/* Collapse indicator */}
-              <svg
-                className={`w-5 h-5 transition-transform duration-200 ${scheduleCollapsed ? '' : 'rotate-90'}`}
-                style={{ color: teamBgText }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-            {/* Edit Schedule Button */}
-            {!isViewOnly && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setShowScheduleModal(true)
-                }}
-                className="p-2.5 rounded-xl transition-colors"
-                style={{ backgroundColor: `${teamBgText}15`, color: teamBgText }}
-                title="Edit Schedule"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {!scheduleCollapsed && (
           <div>
             {/* Column headers for stat leaders - show at md breakpoint */}
-            <div className="hidden md:flex items-center gap-3 py-2 px-4 text-[9px] font-semibold uppercase tracking-wider" style={{ borderBottom: `1px solid ${accentColor}15`, color: accentColorMuted }}>
+            <div className="hidden md:flex items-center gap-3 py-3 px-4 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: `1px solid ${accentColor}15`, color: accentColorMuted }}>
               <span className="w-10 flex-shrink-0"></span>
               <span className="w-11 flex-shrink-0"></span>
               <span className="w-44 flex-shrink-0">Opponent</span>
@@ -4104,18 +4114,17 @@ export default function TeamYear() {
               const getStatLeaders = () => {
                 if (!game.boxScore) return null
 
-                // Determine which boxScore side belongs to this team (use tid only)
-                const isTeam1 = game.team1Tid === tid
-                const isTeam2 = game.team2Tid === tid
-                if (!isTeam1 && !isTeam2) return null
-
-                const team1IsHome = game.homeTeamTid === game.team1Tid
+                // Use tid-based lookup via boxScore.teamStats (convert abbr to tid)
+                const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr
+                const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr
+                const homeTid = homeAbbr ? resolveTid(homeAbbr, teamsSource) : null
+                const awayTid = awayAbbr ? resolveTid(awayAbbr, teamsSource) : null
 
                 let teamData = null
-                if (isTeam1) {
-                  teamData = team1IsHome ? game.boxScore.home : game.boxScore.away
-                } else {
-                  teamData = team1IsHome ? game.boxScore.away : game.boxScore.home
+                if (homeTid === tid) {
+                  teamData = game.boxScore.home
+                } else if (awayTid === tid) {
+                  teamData = game.boxScore.away
                 }
                 if (!teamData) return null
 
@@ -4277,12 +4286,18 @@ export default function TeamYear() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px]" style={{ color: accentColorMuted }}>
-                          {displayLocation === 'away' ? 'Away' : 'Home'}
-                        </span>
-                        {(game.isBowlGame || game.isConferenceChampionship || game.isCFPSemifinal || game.isCFPQuarterfinal || game.isCFPFirstRound || game.isCFPChampionship) && (
-                          <span className="text-[10px] text-amber-400/80">
-                            {game.bowlName || (game.isConferenceChampionship ? 'CCG' : game.isCFPChampionship ? 'Natl Champ' : game.isCFPSemifinal ? 'CFP SF' : game.isCFPQuarterfinal ? 'CFP QF' : game.isCFPFirstRound ? 'CFP R1' : '')}
+                        {game.isCFPFirstRound ? (
+                          /* CFP R1 games are hosted by higher seed - show Home/Away */
+                          <span className="text-[10px]" style={{ color: accentColorMuted }}>
+                            {displayLocation === 'away' ? 'Away' : 'Home'}
+                          </span>
+                        ) : (game.isBowlGame || game.isConferenceChampionship || game.isCFPSemifinal || game.isCFPQuarterfinal || game.isCFPChampionship) ? (
+                          <span className="text-[10px]" style={{ color: accentColorMuted }}>
+                            {game.bowlName || (game.isConferenceChampionship ? 'CCG' : game.isCFPChampionship ? 'Natl Champ' : game.isCFPSemifinal ? 'CFP SF' : game.isCFPQuarterfinal ? 'CFP QF' : '')}
+                          </span>
+                        ) : (
+                          <span className="text-[10px]" style={{ color: accentColorMuted }}>
+                            {displayLocation === 'away' ? 'Away' : 'Home'}
                           </span>
                         )}
                       </div>
@@ -4311,89 +4326,89 @@ export default function TeamYear() {
                     <div className="hidden md:flex flex-1 items-center ml-3 pl-3" style={{ borderLeft: `1px solid ${accentColor}20` }}>
                         {/* PASS column */}
                         <div
-                          className={`flex-1 flex items-center gap-1.5 ${statLeaders?.topPasser?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topPasser?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topPasser?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topPasser.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topPasser && statLeaders.topPasser.yards > 0 ? (
                             <>
                               {statLeaders.topPasser.player?.pictureUrl ? (
-                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-5 h-5 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[8px] font-bold" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                  <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-[10px] truncate" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.split(' ').pop()}</span>
-                              <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topPasser.yards}</span>
+                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.split(' ').pop()}</span>
+                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topPasser.yards}</span>
                             </>
                           ) : (
-                            <span className="text-[10px]" style={{ color: `${accentColor}40` }}>—</span>
+                            <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
                           )}
                         </div>
 
                         {/* RUSH column */}
                         <div
-                          className={`flex-1 flex items-center gap-1.5 ${statLeaders?.topRusher?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topRusher?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topRusher?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topRusher.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topRusher && statLeaders.topRusher.yards > 0 ? (
                             <>
                               {statLeaders.topRusher.player?.pictureUrl ? (
-                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-5 h-5 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[8px] font-bold" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                  <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-[10px] truncate" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.split(' ').pop()}</span>
-                              <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topRusher.yards}</span>
+                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.split(' ').pop()}</span>
+                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topRusher.yards}</span>
                             </>
                           ) : (
-                            <span className="text-[10px]" style={{ color: `${accentColor}40` }}>—</span>
+                            <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
                           )}
                         </div>
 
                         {/* REC column */}
                         <div
-                          className={`flex-1 flex items-center gap-1.5 ${statLeaders?.topReceiver?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topReceiver?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topReceiver?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topReceiver.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topReceiver && statLeaders.topReceiver.yards > 0 ? (
                             <>
                               {statLeaders.topReceiver.player?.pictureUrl ? (
-                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-5 h-5 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[8px] font-bold" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                  <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-[10px] truncate" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.split(' ').pop()}</span>
-                              <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topReceiver.yards}</span>
+                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.split(' ').pop()}</span>
+                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topReceiver.yards}</span>
                             </>
                           ) : (
-                            <span className="text-[10px]" style={{ color: `${accentColor}40` }}>—</span>
+                            <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
                           )}
                         </div>
 
                         {/* TACKLES column */}
                         <div
-                          className={`flex-1 flex items-center gap-1.5 ${statLeaders?.topTackler?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topTackler?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topTackler?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topTackler.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topTackler && statLeaders.topTackler.tackles > 0 ? (
                             <>
                               {statLeaders.topTackler.player?.pictureUrl ? (
-                                <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-5 h-5 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[8px] font-bold" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                  <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-[10px] truncate" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.split(' ').pop()}</span>
-                              <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
+                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.split(' ').pop()}</span>
+                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
                             </>
                           ) : (
-                            <span className="text-[10px]" style={{ color: `${accentColor}40` }}>—</span>
+                            <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
                           )}
                         </div>
                       </div>
@@ -4531,8 +4546,14 @@ export default function TeamYear() {
               // If user didn't make championship or no CC game data, skip
               if (!madeChampionship && !teamCCGame) return null
 
-              // Get opponent from ccData or teamCCGame
-              const ccOpponentAbbr = ccData?.opponent || (teamCCGame ? (teamCCGame.team1 === teamAbbr ? teamCCGame.team2 : teamCCGame.team1) : null)
+              // Get opponent from ccData or teamCCGame (tid-based)
+              let ccOpponentAbbr = ccData?.opponent
+              let ccIsTeam1 = false
+              if (!ccOpponentAbbr && teamCCGame) {
+                const ccTeam1Tid = teamCCGame.team1Tid || resolveTid(teamCCGame.team1, teamsSource)
+                ccIsTeam1 = ccTeam1Tid === tid
+                ccOpponentAbbr = ccIsTeam1 ? teamCCGame.team2 : teamCCGame.team1
+              }
               if (!ccOpponentAbbr) return null
 
               // Use tid-based lookup for CC opponent data (supports teambuilder teams)
@@ -4548,9 +4569,11 @@ export default function TeamYear() {
               const isWin = hasResult && wonCC
               const isLoss = hasResult && !wonCC
 
-              // Calculate scores from this team's perspective
-              const thisTeamScore = teamCCGame ? (teamCCGame.team1 === teamAbbr ? teamCCGame.team1Score : teamCCGame.team2Score) : null
-              const oppScore = teamCCGame ? (teamCCGame.team1 === teamAbbr ? teamCCGame.team2Score : teamCCGame.team1Score) : null
+              // Calculate scores from this team's perspective (tid-based)
+              const ccTeam1Tid = teamCCGame ? (teamCCGame.team1Tid || resolveTid(teamCCGame.team1, teamsSource)) : null
+              const ccTeamIsTeam1 = ccTeam1Tid === tid
+              const thisTeamScore = teamCCGame ? (ccTeamIsTeam1 ? teamCCGame.team1Score : teamCCGame.team2Score) : null
+              const oppScore = teamCCGame ? (ccTeamIsTeam1 ? teamCCGame.team2Score : teamCCGame.team1Score) : null
 
               // CC game content with new design
               const ccGameContent = (
@@ -4688,7 +4711,6 @@ export default function TeamYear() {
             })()}
             </div>
           </div>
-          )}
         </div>
       )}
 
@@ -4713,9 +4735,11 @@ export default function TeamYear() {
 
           <div className="divide-y" style={{ borderColor: `${viewedTeamColors.primary}30` }}>
             {teamCFPGames.map((game, index) => {
-              // Check both tid and abbr for team matching
-              const isTeam1 = game.team1Tid === tid || game.team1 === teamAbbr
-              const isTeam2 = game.team2Tid === tid || game.team2 === teamAbbr
+              // tid-based team matching
+              const cfpTeam1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+              const cfpTeam2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+              const isTeam1 = cfpTeam1Tid === tid
+              const isTeam2 = cfpTeam2Tid === tid
               const teamWon = (isTeam1 && game.team1Score > game.team2Score) ||
                              (isTeam2 && game.team2Score > game.team1Score)
               const roundNames = { 1: 'First Round', 2: 'Quarterfinal', 3: 'Semifinal', 4: 'National Championship' }
@@ -4758,6 +4782,593 @@ export default function TeamYear() {
       )}
         </div>
       )}
+
+      {/* History Tab */}
+      {activeTab === 'history' && (() => {
+        // Calculate records for each year
+        const yearRecords = availableYears.map(year => {
+          // Get record from standings
+          const standingsForYear = currentDynasty.conferenceStandingsByYear?.[year]
+          let yearWins = 0, yearLosses = 0
+
+          if (standingsForYear) {
+            Object.values(standingsForYear).forEach(confTeams => {
+              const teamStanding = confTeams?.find(t => {
+                const standingTid = t.tid || resolveTid(t.team || t.abbr, teamsSource)
+                return standingTid === tid
+              })
+              if (teamStanding) {
+                yearWins = teamStanding.wins || teamStanding.overallWins || 0
+                yearLosses = teamStanding.losses || teamStanding.overallLosses || 0
+              }
+            })
+          }
+
+          // Fallback to games if no standings
+          if (yearWins === 0 && yearLosses === 0) {
+            const yearGames = (currentDynasty.games || []).filter(g => {
+              if (!isSameYear(g.year, year)) return false
+              const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+              const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+              return g1Tid === tid || g2Tid === tid
+            })
+            yearGames.forEach(g => {
+              const isTeam1 = (g.team1Tid || resolveTid(g.team1, teamsSource)) === tid
+              const won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+              if (g.team1Score != null && g.team2Score != null) {
+                if (won) yearWins++
+                else yearLosses++
+              }
+            })
+          }
+
+          // Get bowl game for this team/year
+          const bowlGames = (currentDynasty.games || []).filter(g =>
+            isSameYear(g.year, year) && (g.isBowlGame || g.gameType === GAME_TYPES.BOWL)
+          )
+          const teamBowl = bowlGames.find(g => {
+            const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+            const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+            return g1Tid === tid || g2Tid === tid
+          })
+          let bowlResult = null
+          if (teamBowl && teamBowl.team1Score != null) {
+            const isTeam1 = (teamBowl.team1Tid || resolveTid(teamBowl.team1, teamsSource)) === tid
+            bowlResult = {
+              game: teamBowl,
+              bowlName: teamBowl.bowlName || 'Bowl Game',
+              won: isTeam1 ? teamBowl.team1Score > teamBowl.team2Score : teamBowl.team2Score > teamBowl.team1Score
+            }
+          }
+
+          // Get CC game for this team/year
+          const ccGames = (currentDynasty.games || []).filter(g =>
+            isSameYear(g.year, year) && (g.isConferenceChampionship || g.gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP)
+          )
+          const teamCC = ccGames.find(g => {
+            const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+            const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+            return g1Tid === tid || g2Tid === tid
+          })
+          let ccResult = null
+          if (teamCC && teamCC.team1Score != null) {
+            const isTeam1 = (teamCC.team1Tid || resolveTid(teamCC.team1, teamsSource)) === tid
+            ccResult = {
+              game: teamCC,
+              won: isTeam1 ? teamCC.team1Score > teamCC.team2Score : teamCC.team2Score > teamCC.team1Score
+            }
+          }
+
+          // Get CFP games for this team/year
+          const cfpGames = (currentDynasty.games || []).filter(g =>
+            isSameYear(g.year, year) && (g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship)
+          )
+          const teamCFPGamesForYear = cfpGames.filter(g => {
+            const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+            const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+            return g1Tid === tid || g2Tid === tid
+          })
+          let cfpResult = null
+          if (teamCFPGamesForYear.length > 0) {
+            const lastCFP = teamCFPGamesForYear.sort((a, b) => {
+              const aRound = a.isCFPChampionship ? 4 : a.isCFPSemifinal ? 3 : a.isCFPQuarterfinal ? 2 : 1
+              const bRound = b.isCFPChampionship ? 4 : b.isCFPSemifinal ? 3 : b.isCFPQuarterfinal ? 2 : 1
+              return bRound - aRound
+            })[0]
+            const isTeam1 = (lastCFP.team1Tid || resolveTid(lastCFP.team1, teamsSource)) === tid
+            const won = isTeam1 ? lastCFP.team1Score > lastCFP.team2Score : lastCFP.team2Score > lastCFP.team1Score
+            const roundName = lastCFP.isCFPChampionship ? 'National Championship' : lastCFP.isCFPSemifinal ? 'CFP Semifinal' : lastCFP.isCFPQuarterfinal ? 'CFP Quarterfinal' : 'CFP First Round'
+            cfpResult = {
+              games: teamCFPGamesForYear,
+              lastGame: lastCFP,
+              type: lastCFP.isCFPChampionship && won ? 'champion' : 'eliminated',
+              round: roundName,
+              won
+            }
+          }
+
+          // Get final ranking
+          let finalRank = null
+          const rankings = currentDynasty.rankingsByYear?.[year]
+          if (rankings?.final) {
+            const teamRank = rankings.final.find(r => {
+              const rankTid = r.tid || resolveTid(r.team || r.abbr, teamsSource)
+              return rankTid === tid
+            })
+            if (teamRank) finalRank = teamRank.rank
+          }
+
+          // Build postseason description
+          let postseasonText = 'N/A'
+          if (cfpResult?.type === 'champion') {
+            postseasonText = 'Won the National Championship'
+          } else if (cfpResult?.type === 'eliminated') {
+            postseasonText = `Lost in ${cfpResult.round}`
+          } else if (bowlResult) {
+            postseasonText = bowlResult.won ? `Won the ${bowlResult.bowlName}` : `Lost the ${bowlResult.bowlName}`
+          }
+
+          return {
+            year,
+            wins: yearWins,
+            losses: yearLosses,
+            hasRecord: yearWins > 0 || yearLosses > 0,
+            bowlResult,
+            ccResult,
+            cfpResult,
+            finalRank,
+            postseasonText,
+            isNationalChamp: cfpResult?.type === 'champion'
+          }
+        })
+
+        // Calculate summary stats
+        const yearsWithRecords = yearRecords.filter(yr => yr.hasRecord)
+        const allTimeWins = yearsWithRecords.reduce((sum, yr) => sum + yr.wins, 0)
+        const allTimeLosses = yearsWithRecords.reduce((sum, yr) => sum + yr.losses, 0)
+        const winPct = (allTimeWins + allTimeLosses) > 0 ? (allTimeWins / (allTimeWins + allTimeLosses) * 100).toFixed(1) : '0.0'
+        const nationalChampionships = yearRecords.filter(yr => yr.isNationalChamp)
+        const conferenceChampionships = yearRecords.filter(yr => yr.ccResult?.won)
+        const cfpAppearances = yearRecords.filter(yr => yr.cfpResult)
+        const bowlGamesPlayed = yearRecords.filter(yr => yr.bowlResult)
+        const bowlWins = yearRecords.filter(yr => yr.bowlResult?.won)
+
+        // Get all games for this team to calculate user history
+        const allTeamGames = (currentDynasty.games || []).filter(g => {
+          const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+          const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+          return g1Tid === tid || g2Tid === tid
+        })
+
+        // Calculate user's record coaching this team
+        const userTid = getCurrentTeamTid(currentDynasty)
+        const userCoachingYears = []
+        for (let y = currentDynasty.startYear; y <= currentDynasty.currentYear; y++) {
+          const userTidForYear = currentDynasty.teamsByYear?.[y] ? resolveTid(currentDynasty.teamsByYear[y], teamsSource) : userTid
+          if (userTidForYear === tid) userCoachingYears.push(y)
+        }
+        let userAsCoachWins = 0, userAsCoachLosses = 0
+        userCoachingYears.forEach(y => {
+          const yr = yearRecords.find(r => r.year === y)
+          if (yr) {
+            userAsCoachWins += yr.wins
+            userAsCoachLosses += yr.losses
+          }
+        })
+
+        // Calculate user's record vs this team (if not coaching this team)
+        let userVsTeamWins = 0, userVsTeamLosses = 0
+        if (userTid !== tid) {
+          allTeamGames.forEach(g => {
+            const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
+            const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
+            const userInGame = g1Tid === userTid || g2Tid === userTid
+            if (userInGame && g.team1Score != null && g.team2Score != null) {
+              const userIsTeam1 = g1Tid === userTid
+              const userWon = userIsTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
+              if (userWon) userVsTeamWins++
+              else userVsTeamLosses++
+            }
+          })
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Summary Stats Bar */}
+            <div
+              className="rounded-lg overflow-hidden"
+              style={{
+                backgroundColor: teamInfo.textColor,
+                border: `2px solid ${teamInfo.backgroundColor}`
+              }}
+            >
+              <div className="px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm" style={{ borderBottom: `1px solid ${accentColor}20` }}>
+                <span style={{ color: accentColor }}>
+                  <span className="font-bold">{yearsWithRecords.length}</span>
+                  <span style={{ color: accentColorMuted }}> Seasons</span>
+                </span>
+                <span style={{ color: accentColor }}>
+                  <span className="font-bold">{allTimeWins}-{allTimeLosses}</span>
+                  <span style={{ color: accentColorMuted }}> ({winPct}%)</span>
+                </span>
+                {nationalChampionships.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const games = nationalChampionships.flatMap(yr => yr.cfpResult?.games || [])
+                      setHistoryGamesModalTitle('National Championships')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }}
+                    className="hover:underline"
+                    style={{ color: '#eab308' }}
+                  >
+                    <span className="font-bold">{nationalChampionships.length}</span> Natl Champ{nationalChampionships.length !== 1 ? 's' : ''}
+                  </button>
+                )}
+                {conferenceChampionships.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const games = conferenceChampionships.map(yr => yr.ccResult?.game).filter(Boolean)
+                      setHistoryGamesModalTitle('Conference Championships')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }}
+                    className="hover:underline"
+                    style={{ color: accentColor }}
+                  >
+                    <span className="font-bold">{conferenceChampionships.length}</span> Conf Champ{conferenceChampionships.length !== 1 ? 's' : ''}
+                  </button>
+                )}
+                {cfpAppearances.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const games = cfpAppearances.flatMap(yr => yr.cfpResult?.games || [])
+                      setHistoryGamesModalTitle('CFP Appearances')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }}
+                    className="hover:underline"
+                    style={{ color: accentColor }}
+                  >
+                    <span className="font-bold">{cfpAppearances.length}</span> CFP App{cfpAppearances.length !== 1 ? 's' : ''}
+                  </button>
+                )}
+                {bowlGamesPlayed.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const games = bowlGamesPlayed.map(yr => yr.bowlResult?.game).filter(Boolean)
+                      setHistoryGamesModalTitle('Bowl Games')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }}
+                    className="hover:underline"
+                    style={{ color: accentColor }}
+                  >
+                    <span className="font-bold">{bowlWins.length}-{bowlGamesPlayed.length - bowlWins.length}</span> Bowls
+                  </button>
+                )}
+              </div>
+
+              {/* Season Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ backgroundColor: `${accentColor}10` }}>
+                      <th className="px-4 py-2 text-left font-semibold" style={{ color: accentColor }}>Year</th>
+                      <th className="px-4 py-2 text-left font-semibold" style={{ color: accentColor }}>Record</th>
+                      <th className="px-4 py-2 text-left font-semibold" style={{ color: accentColor }}>Final Rank</th>
+                      <th className="px-4 py-2 text-left font-semibold" style={{ color: accentColor }}>Postseason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {yearRecords.map((yr, idx) => (
+                      <tr
+                        key={yr.year}
+                        onClick={() => navigate(`${pathPrefix}/team/${tid}/${yr.year}`)}
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{
+                          backgroundColor: yr.isNationalChamp
+                            ? '#fbbf2415'
+                            : idx % 2 === 0
+                              ? 'transparent'
+                              : `${accentColor}05`,
+                          borderLeft: yr.isNationalChamp ? '3px solid #eab308' : '3px solid transparent'
+                        }}
+                      >
+                        <td className="px-4 py-2.5 font-semibold" style={{ color: accentColor }}>
+                          {yr.year}
+                          {yr.year === selectedYear && (
+                            <span className="ml-2 text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: `${accentColor}20`, color: accentColorMuted }}>
+                              current
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-semibold tabular-nums" style={{ color: yr.hasRecord ? accentColor : accentColorMuted }}>
+                          {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '--'}
+                        </td>
+                        <td className="px-4 py-2.5" style={{ color: yr.finalRank ? '#eab308' : accentColorMuted }}>
+                          {yr.finalRank ? `#${yr.finalRank}` : '--'}
+                        </td>
+                        <td className="px-4 py-2.5" style={{ color: yr.isNationalChamp ? '#eab308' : accentColorMuted }}>
+                          {yr.isNationalChamp ? (
+                            <span className="font-semibold">{yr.postseasonText}</span>
+                          ) : yr.postseasonText}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* All-Time Team Leaders */}
+            {(() => {
+              // Stat categories for team leaders
+              const LEADER_CATEGORIES = {
+                passing: {
+                  name: 'Passing',
+                  stats: [
+                    { key: 'yds', label: 'Yards', field: 'yds' },
+                    { key: 'td', label: 'TDs', field: 'td' },
+                    { key: 'cmp', label: 'Completions', field: 'cmp' },
+                  ]
+                },
+                rushing: {
+                  name: 'Rushing',
+                  stats: [
+                    { key: 'yds', label: 'Yards', field: 'yds' },
+                    { key: 'td', label: 'TDs', field: 'td' },
+                    { key: 'car', label: 'Carries', field: 'car' },
+                  ]
+                },
+                receiving: {
+                  name: 'Receiving',
+                  stats: [
+                    { key: 'yds', label: 'Yards', field: 'yds' },
+                    { key: 'td', label: 'TDs', field: 'td' },
+                    { key: 'rec', label: 'Receptions', field: 'rec' },
+                  ]
+                },
+                defense: {
+                  name: 'Defense',
+                  stats: [
+                    { key: 'tackles', label: 'Tackles', calculated: true },
+                    { key: 'sacks', label: 'Sacks', field: 'sacks' },
+                    { key: 'int', label: 'INTs', field: 'int' },
+                    { key: 'tfl', label: 'TFL', field: 'tfl' },
+                  ]
+                }
+              }
+
+              // Helper to check if player was on this team in a given year
+              const wasOnTeamInYear = (player, year) => {
+                // Check teamsByYear first
+                if (player.teamsByYear?.[year]) {
+                  const playerTidForYear = resolveTid(player.teamsByYear[year], teamsSource)
+                  return playerTidForYear === tid
+                }
+                // Check teamHistory stints
+                if (player.teamHistory) {
+                  return player.teamHistory.some(stint => {
+                    const stintTid = stint.teamTid || resolveTid(stint.team, teamsSource)
+                    return stintTid === tid && year >= stint.fromYear && (stint.toYear === null || year <= stint.toYear)
+                  })
+                }
+                // Fallback to team field
+                const playerTid = resolveTid(player.team, teamsSource)
+                return playerTid === tid
+              }
+
+              // Get all players who ever played for this team
+              const teamPlayers = (currentDynasty.players || []).filter(p => {
+                if (p.isHonorOnly) return false
+                // Check if they have any stats from a year on this team
+                const statsYears = Object.keys(p.statsByYear || {}).map(Number)
+                return statsYears.some(year => wasOnTeamInYear(p, year))
+              })
+
+              // Calculate leaders
+              const calculateLeaders = (category) => {
+                const catKey = category === 'defense' ? 'defense' : category
+                const playerTotals = {}
+
+                teamPlayers.forEach(player => {
+                  const statsByYear = player.statsByYear || {}
+
+                  Object.entries(statsByYear).forEach(([yearStr, yearStats]) => {
+                    const year = parseInt(yearStr)
+                    if (!wasOnTeamInYear(player, year)) return
+
+                    const catStats = yearStats[catKey]
+                    if (!catStats) return
+
+                    const playerKey = leadersMode === 'career' ? player.pid : `${player.pid}-${year}`
+
+                    if (!playerTotals[playerKey]) {
+                      playerTotals[playerKey] = {
+                        pid: player.pid,
+                        name: player.name,
+                        position: player.position,
+                        pictureUrl: player.pictureUrl,
+                        year: leadersMode === 'season' ? year : null,
+                        years: []
+                      }
+                    }
+
+                    if (!playerTotals[playerKey].years.includes(year)) {
+                      playerTotals[playerKey].years.push(year)
+                    }
+
+                    // Aggregate stats
+                    Object.entries(catStats).forEach(([statKey, value]) => {
+                      if (typeof value === 'number') {
+                        if (leadersMode === 'career') {
+                          playerTotals[playerKey][statKey] = (playerTotals[playerKey][statKey] || 0) + value
+                        } else {
+                          playerTotals[playerKey][statKey] = value
+                        }
+                      }
+                    })
+
+                    // Calculate tackles for defense
+                    if (catKey === 'defense') {
+                      const tackles = (catStats.soloTkl || 0) + (catStats.astTkl || 0)
+                      if (leadersMode === 'career') {
+                        playerTotals[playerKey].tackles = (playerTotals[playerKey].tackles || 0) + tackles
+                      } else {
+                        playerTotals[playerKey].tackles = tackles
+                      }
+                    }
+                  })
+                })
+
+                return Object.values(playerTotals)
+              }
+
+              const currentCategory = LEADER_CATEGORIES[leadersCategory]
+              const leaders = calculateLeaders(leadersCategory)
+
+              return (
+                <div
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    backgroundColor: teamInfo.textColor,
+                    border: `2px solid ${teamInfo.backgroundColor}`
+                  }}
+                >
+                  <div className="px-4 py-2 flex items-center justify-between flex-wrap gap-2" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                    <h3 className="text-sm font-bold" style={{ color: teamBgText }}>All-Time Team Leaders</h3>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={leadersMode}
+                        onChange={(e) => setLeadersMode(e.target.value)}
+                        className="text-xs px-2 py-1 rounded font-semibold cursor-pointer"
+                        style={{ backgroundColor: `${teamBgText}20`, color: teamBgText }}
+                      >
+                        <option value="career">Career</option>
+                        <option value="season">Single Season</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Category Tabs */}
+                  <div className="flex border-b" style={{ borderColor: `${accentColor}20` }}>
+                    {Object.entries(LEADER_CATEGORIES).map(([key, cat]) => (
+                      <button
+                        key={key}
+                        onClick={() => setLeadersCategory(key)}
+                        className="flex-1 px-3 py-2 text-xs font-semibold transition-colors"
+                        style={{
+                          backgroundColor: leadersCategory === key ? `${accentColor}15` : 'transparent',
+                          color: leadersCategory === key ? accentColor : accentColorMuted,
+                          borderBottom: leadersCategory === key ? `2px solid ${accentColor}` : '2px solid transparent'
+                        }}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Stats Tables */}
+                  <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {currentCategory.stats.map(stat => {
+                      const sortedLeaders = [...leaders]
+                        .filter(p => {
+                          const value = stat.calculated ? p[stat.key] : p[stat.field]
+                          return value && value > 0
+                        })
+                        .sort((a, b) => {
+                          const aVal = stat.calculated ? a[stat.key] : a[stat.field]
+                          const bVal = stat.calculated ? b[stat.key] : b[stat.field]
+                          return (bVal || 0) - (aVal || 0)
+                        })
+                        .slice(0, 5)
+
+                      return (
+                        <div key={stat.key} className="rounded-lg overflow-hidden" style={{ backgroundColor: `${accentColor}08` }}>
+                          <div className="px-3 py-1.5 text-xs font-bold" style={{ backgroundColor: `${accentColor}15`, color: accentColor }}>
+                            {stat.label}
+                          </div>
+                          <div className="divide-y" style={{ borderColor: `${accentColor}10` }}>
+                            {sortedLeaders.length === 0 ? (
+                              <div className="px-3 py-2 text-xs" style={{ color: accentColorMuted }}>No data</div>
+                            ) : (
+                              sortedLeaders.map((player, idx) => {
+                                const value = stat.calculated ? player[stat.key] : player[stat.field]
+                                return (
+                                  <Link
+                                    key={player.pid + (player.year || '')}
+                                    to={`${pathPrefix}/player/${player.pid}`}
+                                    className="flex items-center gap-2 px-3 py-1.5 hover:opacity-80 transition-opacity"
+                                  >
+                                    <span
+                                      className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                                      style={{
+                                        backgroundColor: idx === 0 ? '#fbbf24' : idx === 1 ? '#9ca3af' : idx === 2 ? '#d97706' : `${accentColor}20`,
+                                        color: idx < 3 ? '#000' : accentColorMuted
+                                      }}
+                                    >
+                                      {idx + 1}
+                                    </span>
+                                    {player.pictureUrl ? (
+                                      <img src={player.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                        <span className="text-[10px] font-bold" style={{ color: accentColorMuted }}>{player.name?.charAt(0)}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-medium truncate" style={{ color: accentColor }}>{player.name}</div>
+                                      <div className="text-[10px]" style={{ color: accentColorMuted }}>
+                                        {leadersMode === 'season' ? player.year : player.years?.length > 1 ? `${Math.min(...player.years)}-${Math.max(...player.years)}` : player.years?.[0]}
+                                      </div>
+                                    </div>
+                                    <span className="text-sm font-bold tabular-nums" style={{ color: accentColor }}>
+                                      {value?.toLocaleString()}
+                                    </span>
+                                  </Link>
+                                )
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Your History Section */}
+            {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
+              <div
+                className="rounded-lg overflow-hidden"
+                style={{
+                  backgroundColor: teamInfo.textColor,
+                  border: `2px solid ${teamInfo.backgroundColor}`
+                }}
+              >
+                <div className="px-4 py-2" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                  <h3 className="text-sm font-bold" style={{ color: teamBgText }}>Your History</h3>
+                </div>
+                <div className="px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                  {userCoachingYears.length > 0 && (
+                    <span style={{ color: accentColorMuted }}>
+                      As Coach: <span className="font-semibold" style={{ color: accentColor }}>{userAsCoachWins}-{userAsCoachLosses}</span>
+                      <span className="ml-1">({userCoachingYears[0]}{userCoachingYears.length > 1 ? `-${userCoachingYears[userCoachingYears.length - 1]}` : ''})</span>
+                    </span>
+                  )}
+                  {(userVsTeamWins > 0 || userVsTeamLosses > 0) && (
+                    <span style={{ color: accentColorMuted }}>
+                      vs {mascotName}: <span className="font-semibold" style={{ color: accentColor }}>{userVsTeamWins}-{userVsTeamLosses}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* GameEntryModal removed - now using game pages instead */}
 
@@ -5179,6 +5790,97 @@ export default function TeamYear() {
                         </Link>
                       )
                     })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Games Modal */}
+      {showHistoryGamesModal && (
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => setShowHistoryGamesModal(false)}
+        >
+          <div
+            className="rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+            style={{ backgroundColor: teamInfo.textColor }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+              style={{ backgroundColor: teamInfo.backgroundColor }}
+            >
+              <h3 className="text-xl font-bold" style={{ color: teamBgText }}>
+                {historyGamesModalTitle}
+              </h3>
+              <button
+                onClick={() => setShowHistoryGamesModal(false)}
+                className="p-1 rounded hover:bg-black/10 transition-colors"
+                style={{ color: teamBgText }}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Games List */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {historyGamesModalGames.length === 0 ? (
+                <p className="text-center py-8" style={{ color: accentColorMuted }}>No games found</p>
+              ) : (
+                <div className="space-y-2">
+                  {historyGamesModalGames.map((game, idx) => {
+                    const g1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
+                    const g2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+                    const isTeam1 = g1Tid === tid
+                    const teamScore = isTeam1 ? game.team1Score : game.team2Score
+                    const oppScore = isTeam1 ? game.team2Score : game.team1Score
+                    const opponent = isTeam1 ? game.team2 : game.team1
+                    const won = teamScore > oppScore
+                    const gameType = game.isCFPChampionship ? 'National Championship' :
+                                    game.isCFPSemifinal ? 'CFP Semifinal' :
+                                    game.isCFPQuarterfinal ? 'CFP Quarterfinal' :
+                                    game.isCFPFirstRound ? 'CFP First Round' :
+                                    game.isConferenceChampionship ? 'Conference Championship' :
+                                    game.bowlName || 'Bowl Game'
+
+                    return (
+                      <Link
+                        key={idx}
+                        to={`${pathPrefix}/game/${game.id}`}
+                        className="flex items-center justify-between p-3 rounded-lg hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: `${accentColor}10` }}
+                        onClick={() => setShowHistoryGamesModal(false)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                            style={{ backgroundColor: won ? '#16a34a' : '#dc2626' }}
+                          >
+                            {won ? 'W' : 'L'}
+                          </span>
+                          <div>
+                            <div className="font-semibold" style={{ color: accentColor }}>
+                              vs {opponent}
+                            </div>
+                            <div className="text-xs" style={{ color: accentColorMuted }}>
+                              {game.year} {gameType}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold tabular-nums" style={{ color: accentColor }}>
+                            {teamScore}-{oppScore}
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -6923,7 +6923,9 @@ export function DynastyProvider({ children }) {
       nextWeek = 1
 
       // Execute pending coordinator firing if any
-      const pendingFiring = dynasty.conferenceChampionshipData?.pendingFiring
+      // Read from conferenceChampionshipDataByYear (where Dashboard saves it)
+      const ccDataForYear = dynasty.conferenceChampionshipDataByYear?.[dynasty.currentYear] || {}
+      const pendingFiring = ccDataForYear.pendingFiring
       if (pendingFiring && pendingFiring !== 'none') {
         const firedOCName = (pendingFiring === 'oc' || pendingFiring === 'both') ? dynasty.coachingStaff?.ocName : null
         const firedDCName = (pendingFiring === 'dc' || pendingFiring === 'both') ? dynasty.coachingStaff?.dcName : null
@@ -6937,12 +6939,18 @@ export function DynastyProvider({ children }) {
         }
 
         additionalUpdates.coachingStaff = updatedStaff
-        additionalUpdates.conferenceChampionshipData = {
-          ...dynasty.conferenceChampionshipData,
-          firingCoordinators: true,
-          coordinatorToFire: pendingFiring,
-          firedOCName,
-          firedDCName
+
+        // Write to conferenceChampionshipDataByYear (where Dashboard reads it)
+        const existingByYear = dynasty.conferenceChampionshipDataByYear || {}
+        additionalUpdates.conferenceChampionshipDataByYear = {
+          ...existingByYear,
+          [dynasty.currentYear]: {
+            ...ccDataForYear,
+            firingCoordinators: true,
+            coordinatorToFire: pendingFiring,
+            firedOCName,
+            firedDCName
+          }
         }
         // Reset coachingStaffEntered so user must re-enter in next preseason
         additionalUpdates['preseasonSetup.coachingStaffEntered'] = false
@@ -8129,8 +8137,9 @@ export function DynastyProvider({ children }) {
       )
 
       // Restore fired coordinators if any were fired during this CC phase
-      const ccData = dynasty.conferenceChampionshipData
-      if (ccData && isSameYear(ccData.year, year)) {
+      // Read from conferenceChampionshipDataByYear (where the firing data is stored)
+      const ccData = dynasty.conferenceChampionshipDataByYear?.[year]
+      if (ccData) {
         // Restore coordinator names that were fired
         if (ccData.firedOCName || ccData.firedDCName) {
           const restoredStaff = { ...dynasty.coachingStaff }
@@ -8144,9 +8153,22 @@ export function DynastyProvider({ children }) {
           // Restore the coachingStaffEntered flag since we're restoring the coordinators
           additionalUpdates['preseasonSetup.coachingStaffEntered'] = true
         }
+
+        // Clear fired coordinator data from the byYear structure
+        const existingByYear = dynasty.conferenceChampionshipDataByYear || {}
+        additionalUpdates.conferenceChampionshipDataByYear = {
+          ...existingByYear,
+          [year]: {
+            ...ccData,
+            firedOCName: null,
+            firedDCName: null,
+            firingCoordinators: null,
+            coordinatorToFire: null
+          }
+        }
       }
 
-      // Clear all CC data
+      // Clear legacy CC data
       additionalUpdates.conferenceChampionshipData = null
       // Clear CC sheet ID
       additionalUpdates.conferenceChampionshipSheetId = null

@@ -3937,7 +3937,22 @@ export default function Dashboard() {
             const cfpFirstRoundGames = cfpFirstRoundFromGames.length > 0 ? cfpFirstRoundFromGames : cfpFirstRoundLegacy
             const enteredBowlWeek1 = bowlWeek1Games.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
             const enteredCFPFirstRound = cfpFirstRoundGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
-            const totalEnteredWeek1 = enteredBowlWeek1 + enteredCFPFirstRound
+
+            // Check if user's bowl game is entered but not counted in bowlWeek1Games
+            // (User's game may not have bowlWeek:'week1' set if entered via game entry flow)
+            const userBowlGameTemp = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
+            const userBowlHasScores = userBowlGameTemp && userBowlGameTemp.team1Score !== undefined && userBowlGameTemp.team1Score !== null
+            const userBowlIsInWeek1List = userBowlGameTemp && bowlWeek1Games.some(g => g.id === userBowlGameTemp.id)
+            const userBowlIsWeek1Temp = selectedBowl && isBowlInWeek1(selectedBowl)
+            const userBowlWeek1NotCounted = userBowlHasScores && userBowlIsWeek1Temp && !userBowlIsInWeek1List
+
+            // Similarly check for CFP First Round
+            const userCFPR1GameTemp = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPR1HasScores = userCFPR1GameTemp && userCFPR1GameTemp.team1Score !== undefined && userCFPR1GameTemp.team1Score !== null
+            const userCFPR1IsInList = userCFPR1GameTemp && cfpFirstRoundGames.some(g => g.id === userCFPR1GameTemp.id || (g.cfpSlot && g.cfpSlot === userCFPR1GameTemp.cfpSlot))
+            const userCFPR1NotCounted = userCFPR1HasScores && !userCFPR1IsInList
+
+            const totalEnteredWeek1 = enteredBowlWeek1 + enteredCFPFirstRound + (userBowlWeek1NotCounted ? 1 : 0) + (userCFPR1NotCounted ? 1 : 0)
 
             // CFP Quarterfinals - check games[] then fallback to legacy
             const cfpQuarterfinalsFromGames = allGames.filter(g => g && (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && Number(g.year) === Number(year))
@@ -3948,7 +3963,16 @@ export default function Dashboard() {
             const cfpQuarterfinalGames = cfpQuarterfinalsFromGames.length > 0 ? cfpQuarterfinalsFromGames : cfpQuarterfinalsLegacy
             const enteredBowlWeek2 = bowlWeek2Games.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
             const enteredCFPQuarterfinals = cfpQuarterfinalGames.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
-            const totalEnteredWeek2 = enteredBowlWeek2 + enteredCFPQuarterfinals
+
+            // Check if user's Week 2 bowl/CFP QF is entered but not counted
+            const userBowlIsWeek2Temp = selectedBowl && isBowlInWeek2(selectedBowl)
+            const userBowlWeek2NotCounted = userBowlHasScores && userBowlIsWeek2Temp && !bowlWeek2Games.some(g => g.id === userBowlGameTemp?.id)
+            const userCFPQFGameTemp = findCurrentTeamGame(currentDynasty, g => (g.isCFPQuarterfinal || g.gameType === GAME_TYPES.CFP_QUARTERFINAL) && isSameYear(g.year, currentDynasty.currentYear))
+            const userCFPQFHasScores = userCFPQFGameTemp && userCFPQFGameTemp.team1Score !== undefined && userCFPQFGameTemp.team1Score !== null
+            const userCFPQFIsInList = userCFPQFGameTemp && cfpQuarterfinalGames.some(g => g.id === userCFPQFGameTemp.id || (g.cfpSlot && g.cfpSlot === userCFPQFGameTemp.cfpSlot))
+            const userCFPQFNotCounted = userCFPQFHasScores && !userCFPQFIsInList
+
+            const totalEnteredWeek2 = enteredBowlWeek2 + enteredCFPQuarterfinals + (userBowlWeek2NotCounted ? 1 : 0) + (userCFPQFNotCounted ? 1 : 0)
             const userBowlGame = findCurrentTeamGame(currentDynasty, g => g.isBowlGame && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPFirstRoundGame = findCurrentTeamGame(currentDynasty, g => (g.isCFPFirstRound || g.gameType === GAME_TYPES.CFP_FIRST_ROUND) && isSameYear(g.year, currentDynasty.currentYear))
             const userCFPFirstRoundShell = findUserCFPGameShell(currentDynasty, 'first_round', currentDynasty.currentYear)
@@ -5560,21 +5584,15 @@ export default function Dashboard() {
 
                     {/* Task: GP/Snaps Entry */}
                     {(() => {
-                      // Check if user has actually saved GP/Snaps for this year OR has box score data
+                      // Check if user has actually saved GP/Snaps for this year
                       const year = currentDynasty.currentYear
-                      const explicitlyCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
-
-                      // Count players with gamesPlayed set OR appearing in box scores
-                      const yearGames = (currentDynasty?.games || []).filter(g => Number(g.year) === Number(year))
-                      const hasBoxScoreData = yearGames.some(g => g.boxScore && (g.boxScore.home || g.boxScore.away))
+                      const isCompleted = currentDynasty?.gpSnapsCompletedByYear?.[year] || currentDynasty?.gpSnapsCompletedByYear?.[String(year)]
 
                       const playerCount = currentDynasty?.players?.filter(p => {
                         const yearStats = p.statsByYear?.[year] || p.statsByYear?.[String(year)]
                         return yearStats && (yearStats.gamesPlayed || yearStats.snapsPlayed)
                       }).length || 0
 
-                      // Task is "done" if explicitly completed OR has box score data
-                      const isCompleted = explicitlyCompleted || hasBoxScoreData
                       const taskNumber = !userInCFPChampionship ? 2 : 1
 
                       return (
@@ -5607,9 +5625,7 @@ export default function Dashboard() {
                               </div>
                               {isCompleted && (
                                 <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  {hasBoxScoreData && !explicitlyCompleted
-                                    ? `✓ Stats available from ${yearGames.filter(g => g.boxScore).length} box scores`
-                                    : `✓ Stats entered for ${playerCount} players`}
+                                  ✓ Stats entered for {playerCount} players
                                 </div>
                               )}
                             </div>
