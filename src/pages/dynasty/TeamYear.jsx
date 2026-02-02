@@ -3433,35 +3433,42 @@ export default function TeamYear() {
                       <thead>
                         <tr className="bg-gray-700/50">
                           <th className="text-left px-3 py-2 font-semibold text-gray-300">Player</th>
-                          <th className="text-center px-2 py-2 font-semibold text-gray-300">CMP</th>
-                          <th className="text-center px-2 py-2 font-semibold text-gray-300">ATT</th>
+                          <th className="text-center px-2 py-2 font-semibold text-gray-300">CMP/ATT</th>
+                          <th className="text-center px-2 py-2 font-semibold text-gray-300">PCT</th>
                           <th className="text-center px-2 py-2 font-semibold text-gray-300">YDS</th>
                           <th className="text-center px-2 py-2 font-semibold text-gray-300">TD</th>
                           <th className="text-center px-2 py-2 font-semibold text-gray-300">INT</th>
+                          <th className="text-center px-2 py-2 font-semibold text-gray-300">LNG</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {playerStats.passing.map((p, i) => (
-                          <tr key={p.pid || i} className="border-t border-gray-700">
-                            <td className="px-3 py-2">
-                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: teamInfo.textColor }}>
-                                {p.pictureUrl ? (
-                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-[10px] font-bold text-gray-400">{p.name?.charAt(0)}</span>
-                                  </div>
-                                )}
-                                {p.name}
-                              </Link>
-                            </td>
-                            <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.cmp || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.att || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums font-semibold text-white">{(p.yds || 0).toLocaleString()}</td>
-                            <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.td || 0}</td>
-                            <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.int || 0}</td>
-                          </tr>
-                        ))}
+                        {playerStats.passing.map((p, i) => {
+                          const cmp = p.cmp ?? p.comp ?? 0
+                          const att = p.att ?? p.attempts ?? 0
+                          const pct = att > 0 ? ((cmp / att) * 100).toFixed(1) : '-'
+                          return (
+                            <tr key={p.pid || i} className="border-t border-gray-700">
+                              <td className="px-3 py-2">
+                                <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: teamInfo.textColor }}>
+                                  {p.pictureUrl ? (
+                                    <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
+                                      <span className="text-[10px] font-bold text-gray-400">{p.name?.charAt(0)}</span>
+                                    </div>
+                                  )}
+                                  {p.name}
+                                </Link>
+                              </td>
+                              <td className="text-center px-2 py-2 tabular-nums text-gray-300">{cmp}/{att}</td>
+                              <td className="text-center px-2 py-2 tabular-nums text-gray-300">{pct}{pct !== '-' ? '%' : ''}</td>
+                              <td className="text-center px-2 py-2 tabular-nums font-semibold text-white">{(p.yds || 0).toLocaleString()}</td>
+                              <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.td || 0}</td>
+                              <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.int || 0}</td>
+                              <td className="text-center px-2 py-2 tabular-nums text-gray-300">{p.lng ?? p.long ?? '-'}</td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>

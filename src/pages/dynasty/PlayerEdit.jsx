@@ -1359,6 +1359,7 @@ export default function PlayerEdit() {
                 </h2>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => {
                       const yearToSync = selectedStatsYear || dynasty?.currentYear
 
@@ -1417,6 +1418,7 @@ export default function PlayerEdit() {
                       }
 
                       setFormData(prev => ({ ...prev, stats: newStats }))
+                      alert(`Synced stats from ${totals.gamesPlayed} games for ${yearToSync}`)
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
                   >

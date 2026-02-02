@@ -1425,7 +1425,7 @@ export function migrateToUnifiedGames(dynasty) {
  */
 const BOX_SCORE_STATS = {
   passing: {
-    sum: ['comp', 'attempts', 'yards', 'tD', 'iNT', 'sacks'],
+    sum: ['comp', 'att', 'yards', 'tD', 'iNT', 'sacks'],
     max: ['long']
   },
   rushing: {
@@ -1461,7 +1461,7 @@ const BOX_SCORE_STATS = {
 
 // Convert box score format to internal format for statsByYear storage
 const BOXSCORE_TO_INTERNAL_MAP = {
-  passing: { comp: 'cmp', attempts: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
+  passing: { comp: 'cmp', att: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
   rushing: { carries: 'car', yards: 'yds', tD: 'td', long: 'lng', fumbles: 'fum', brokenTackles: 'bt', yAC: 'yac', '20+': 'twentyPlus' },
   receiving: { receptions: 'rec', yards: 'yds', tD: 'td', long: 'lng', drops: 'drops', rAC: 'rac' },
   blocking: { pancakes: 'pancakes', sacksAllowed: 'sacksAllowed' },
@@ -2110,7 +2110,8 @@ export function getScheduleWithGameData(dynasty) {
  */
 export function isPlayerOnRoster(player, tidOrAbbr, year) {
   // STINT-BASED SYSTEM (preferred if player has been migrated)
-  // Check if player has teamHistory - if so, use stint-based lookup
+  // Use stint-based lookup if player has teamHistory AND entryYear is set (even if null)
+  // entryYear !== undefined indicates player was saved through the new system
   if (player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined) {
     return isPlayerOnRosterStintBased(player, tidOrAbbr, year)
   }
@@ -2263,13 +2264,16 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     tidNum = getTidFromAbbr(teamTid)
   }
 
+  // Helper to check if stint is "open" (active - no end date)
+  const isStintOpen = (s) => s.toYear === null || s.toYear === undefined
+
   // If player has new teamHistory, use that for roster membership
   if (player.teamHistory && player.teamHistory.length > 0) {
     // Find stint that covers this year on this team
     const stint = player.teamHistory.find(s =>
       Number(s.teamTid) === tidNum &&
       yearNum >= Number(s.fromYear) &&
-      (s.toYear === null || yearNum <= Number(s.toYear))
+      (isStintOpen(s) || yearNum <= Number(s.toYear))
     )
 
     if (stint) return true
@@ -2277,7 +2281,7 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     // Check if player has ANY stint for this team (even if closed)
     // If they have a closed stint, they left - don't use legacy fallback
     const hasClosedStintForTeam = player.teamHistory.some(s =>
-      Number(s.teamTid) === tidNum && s.toYear !== null && yearNum > Number(s.toYear)
+      Number(s.teamTid) === tidNum && !isStintOpen(s) && yearNum > Number(s.toYear)
     )
 
     if (hasClosedStintForTeam) {
@@ -7361,7 +7365,71 @@ export function DynastyProvider({ children }) {
         // Check if player was on THIS team last season
         if (!wasOnTeamLastSeason(player)) {
           otherTeamSkipped++
-          return player
+
+          // ========== SIMPLE AGING FOR OTHER TEAM PLAYERS ==========
+          // These players aren't on the user's team, so apply simple linear progression
+          // No redshirt logic - just advance class and graduate seniors
+
+          const otherTeamClass = player.year ||
+            player.classByYear?.[previousSeasonYear] ||
+            player.classByYear?.[String(previousSeasonYear)]
+
+          // Check if player is graduating (Sr or RS Sr)
+          if (otherTeamClass === 'Sr' || otherTeamClass === 'RS Sr') {
+            // Graduate this player - close their stint
+            if (player.teamHistory && player.teamHistory.length > 0) {
+              const updatedHistory = player.teamHistory.map(stint => {
+                // Close any open stints
+                if (stint.toYear === null || stint.toYear === undefined) {
+                  return { ...stint, toYear: previousSeasonYear, endReason: 'graduation' }
+                }
+                return stint
+              })
+              return { ...player, teamHistory: updatedHistory }
+            }
+            // For legacy players without teamHistory, just return unchanged
+            // They won't be added to next year since teamsByYear won't have nextYear
+            return player
+          }
+
+          // Not graduating - advance their class
+          const newOtherClass = CLASS_PROGRESSION[otherTeamClass] || otherTeamClass
+
+          // Get their current team tid (from most recent stint or teamsByYear)
+          let otherTeamTid = null
+          if (player.teamHistory && player.teamHistory.length > 0) {
+            // Find their active stint
+            const activeStint = player.teamHistory.find(s => s.toYear === null || s.toYear === undefined)
+            otherTeamTid = activeStint?.teamTid
+          }
+          if (!otherTeamTid) {
+            otherTeamTid = player.teamsByYear?.[previousSeasonYear] ||
+                           player.teamsByYear?.[String(previousSeasonYear)] ||
+                           player.team
+          }
+
+          // Update the player with new class
+          const updatedOtherPlayer = {
+            ...player,
+            year: newOtherClass,
+            classByYear: {
+              ...(player.classByYear || {}),
+              [nextYear]: newOtherClass
+            }
+          }
+
+          // For legacy players (no teamHistory), also update teamsByYear
+          if (!player.teamHistory || player.teamHistory.length === 0) {
+            if (otherTeamTid) {
+              updatedOtherPlayer.teamsByYear = {
+                ...(player.teamsByYear || {}),
+                [nextYear]: otherTeamTid
+              }
+            }
+          }
+          // For stint-based players, their open stint already covers the next year
+
+          return updatedOtherPlayer
         }
 
         // Check if player is leaving

@@ -298,6 +298,219 @@ export default function Player() {
     window.scrollTo(0, 0)
   }, [pid])
 
+  // These useMemo hooks MUST be before early returns to maintain consistent hook order
+  const playerGameLog = useMemo(() => {
+    if (!dynasty?.games || !player?.name) return []
+
+    const games = dynasty.games || []
+    const playerName = player.name
+    const gameLog = []
+    const teams = dynasty?.teams || {}
+
+    // Helper to normalize names for comparison
+    const normalizeName = (name) => name ? name.toLowerCase().trim().replace(/\s+/g, ' ') : ''
+    const normalizedPlayerName = normalizeName(playerName)
+
+    games.forEach(game => {
+      if (!game.boxScore) return
+      const statCategories = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'blocking', 'punting', 'kickReturn', 'puntReturn']
+      let playerStats = null
+      let foundInTeam = null
+
+      for (const side of ['home', 'away']) {
+        if (!game.boxScore[side]) continue
+        for (const category of statCategories) {
+          const categoryStats = game.boxScore[side][category] || []
+          const found = categoryStats.find(s => normalizeName(s.playerName) === normalizedPlayerName)
+          if (found) {
+            playerStats = { ...found, category }
+            foundInTeam = side
+            break
+          }
+        }
+        if (playerStats) break
+      }
+
+      if (playerStats) {
+        let playerTeamScore, opponentTeamScore, opponentAbbr
+
+        if (game.team1Tid && game.team2Tid) {
+          const team1Info = teams[game.team1Tid] || {}
+          const team2Info = teams[game.team2Tid] || {}
+          const isTeam1Home = game.homeTeamTid === game.team1Tid || game.homeTeamTid == null
+
+          if (foundInTeam === 'home') {
+            playerTeamScore = isTeam1Home ? game.team1Score : game.team2Score
+            opponentTeamScore = isTeam1Home ? game.team2Score : game.team1Score
+            const opponentTeamTid = isTeam1Home ? game.team2Tid : game.team1Tid
+            const opponentInfo = teams[opponentTeamTid] || {}
+            opponentAbbr = opponentInfo.abbr || (isTeam1Home ? game.team2 : game.team1)
+          } else {
+            playerTeamScore = isTeam1Home ? game.team2Score : game.team1Score
+            opponentTeamScore = isTeam1Home ? game.team1Score : game.team2Score
+            const opponentTeamTid = isTeam1Home ? game.team1Tid : game.team2Tid
+            const opponentInfo = teams[opponentTeamTid] || {}
+            opponentAbbr = opponentInfo.abbr || (isTeam1Home ? game.team1 : game.team2)
+          }
+        } else if (game.opponent) {
+          const isUserHome = game.location === 'home' || game.location === 'neutral'
+          if (foundInTeam === 'home') {
+            playerTeamScore = isUserHome ? game.teamScore : game.opponentScore
+            opponentTeamScore = isUserHome ? game.opponentScore : game.teamScore
+            opponentAbbr = isUserHome ? game.opponent : game.userTeam
+          } else {
+            playerTeamScore = isUserHome ? game.opponentScore : game.teamScore
+            opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
+            opponentAbbr = isUserHome ? game.userTeam : game.opponent
+          }
+        } else if (game.team1 && game.team2) {
+          if (foundInTeam === 'home') {
+            playerTeamScore = game.team1Score
+            opponentTeamScore = game.team2Score
+            opponentAbbr = game.team2
+          } else {
+            playerTeamScore = game.team2Score
+            opponentTeamScore = game.team1Score
+            opponentAbbr = game.team1
+          }
+        }
+
+        const result = playerTeamScore != null && opponentTeamScore != null
+          ? (Number(playerTeamScore) > Number(opponentTeamScore) ? 'W' : 'L')
+          : null
+        const isNeutralSite = game.homeTeamTid === null || game.location === 'neutral'
+        const playerLocation = isNeutralSite ? 'neutral' : (foundInTeam === 'home' ? 'home' : 'away')
+
+        gameLog.push({
+          game: { ...game, teamScore: playerTeamScore, opponentScore: opponentTeamScore, opponent: opponentAbbr || game.opponent, result: result || game.result, location: playerLocation },
+          stats: playerStats,
+          team: foundInTeam
+        })
+      }
+    })
+
+    // Sort by year desc, then game order
+    const getGameOrder = (g) => {
+      if (g.isConferenceChampionship || g.gameType === 'conference_championship') return 100
+      if (g.isCFPFirstRound || g.gameType === 'cfp_first_round') return 101
+      if (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') return 102
+      if (g.isCFPSemifinal || g.gameType === 'cfp_semifinal') return 103
+      if (g.isCFPChampionship || g.gameType === 'cfp_championship') return 104
+      if (g.isBowlGame || g.gameType === 'bowl') return 100 + (parseInt(g.week) || 1)
+      return parseInt(g.week) || 0
+    }
+    gameLog.sort((a, b) => {
+      if (b.game.year !== a.game.year) return b.game.year - a.game.year
+      return getGameOrder(b.game) - getGameOrder(a.game)
+    })
+
+    return gameLog
+  }, [dynasty?.games, dynasty?.teams, player?.name])
+
+  const yearByYearStats = useMemo(() => {
+    if (!player?.statsByYear) return []
+    const playerOwnStats = player.statsByYear || {}
+    const allYears = new Set(Object.keys(playerOwnStats))
+    const years = []
+    const sortedYears = Array.from(allYears).sort((a, b) => parseInt(b) - parseInt(a))
+    sortedYears.forEach(yearStr => {
+      const year = parseInt(yearStr)
+      const ownYearStats = playerOwnStats[yearStr] || playerOwnStats[year]
+      if (!ownYearStats) return
+      const passing = ownYearStats?.passing
+      const rushing = ownYearStats?.rushing
+      const receiving = ownYearStats?.receiving
+      const blocking = ownYearStats?.blocking
+      const defensive = ownYearStats?.defense
+      const kicking = ownYearStats?.kicking
+      const punting = ownYearStats?.punting
+      const kickReturn = ownYearStats?.kickReturn
+      const puntReturn = ownYearStats?.puntReturn
+      const playerClass = player?.classByYear?.[year] || player?.classByYear?.[yearStr] || player?.year
+      years.push({
+        year,
+        class: playerClass,
+        gamesPlayed: ownYearStats?.gamesPlayed || 0,
+        snapsPlayed: ownYearStats?.snapsPlayed || 0,
+        passing: passing ? {
+          cmp: passing.cmp ?? passing.comp ?? 0,
+          att: passing.att ?? passing.attempts ?? 0,
+          yds: passing.yds ?? passing.yards ?? 0,
+          td: passing.td ?? passing.touchdowns ?? 0,
+          int: passing.int ?? passing.interceptions ?? 0,
+          lng: passing.lng ?? passing.long ?? 0,
+          sacks: passing.sacks ?? 0
+        } : null,
+        rushing: rushing ? {
+          car: rushing.car ?? rushing.carries ?? 0,
+          yds: rushing.yds ?? rushing.yards ?? 0,
+          td: rushing.td ?? rushing.touchdowns ?? 0,
+          lng: rushing.lng ?? rushing.long ?? 0,
+          fum: rushing.fum ?? rushing.fumbles ?? 0,
+          bt: rushing.bt ?? rushing.brokenTackles ?? 0
+        } : null,
+        receiving: receiving ? {
+          rec: receiving.rec ?? receiving.receptions ?? 0,
+          yds: receiving.yds ?? receiving.yards ?? 0,
+          td: receiving.td ?? receiving.touchdowns ?? 0,
+          lng: receiving.lng ?? receiving.long ?? 0,
+          drops: receiving.drops ?? 0
+        } : null,
+        blocking: blocking ? {
+          pancakes: blocking.pancakes ?? 0,
+          sacksAllowed: blocking.sacksAllowed ?? 0
+        } : null,
+        defense: defensive ? {
+          soloTkl: defensive.soloTkl ?? defensive.solo ?? 0,
+          astTkl: defensive.astTkl ?? defensive.assists ?? 0,
+          tfl: defensive.tfl ?? 0,
+          sacks: defensive.sacks ?? 0,
+          int: defensive.int ?? 0,
+          pd: defensive.pd ?? defensive.deflections ?? 0,
+          ff: defensive.ff ?? 0,
+          fr: defensive.fr ?? 0,
+          td: defensive.td ?? 0
+        } : null,
+        kicking: kicking ? {
+          fgm: kicking.fgm ?? 0,
+          fga: kicking.fga ?? 0,
+          fgPct: kicking.fga > 0 ? ((kicking.fgm / kicking.fga) * 100).toFixed(1) : '-',
+          xpm: kicking.xpm ?? 0,
+          xpa: kicking.xpa ?? 0,
+          lng: kicking.lng ?? 0
+        } : null,
+        punting: punting ? {
+          punts: punting.punts ?? 0,
+          yds: punting.yds ?? 0,
+          avg: punting.punts > 0 ? (punting.yds / punting.punts).toFixed(1) : '-',
+          lng: punting.lng ?? 0,
+          in20: punting.in20 ?? 0,
+          tb: punting.tb ?? 0
+        } : null,
+        kickReturn: kickReturn ? {
+          ret: kickReturn.ret ?? 0,
+          yds: kickReturn.yds ?? 0,
+          avg: kickReturn.ret > 0 ? (kickReturn.yds / kickReturn.ret).toFixed(1) : '-',
+          td: kickReturn.td ?? 0,
+          lng: kickReturn.lng ?? 0
+        } : null,
+        puntReturn: puntReturn ? {
+          ret: puntReturn.ret ?? 0,
+          yds: puntReturn.yds ?? 0,
+          avg: puntReturn.ret > 0 ? (puntReturn.yds / puntReturn.ret).toFixed(1) : '-',
+          td: puntReturn.td ?? 0,
+          lng: puntReturn.lng ?? 0
+        } : null
+      })
+    })
+    return years
+  }, [player?.statsByYear, player?.classByYear, player?.year])
+
+  const gameLog = useMemo(() => {
+    if (!expandedGameLogYear || !player?.name || !dynasty) return []
+    return getPlayerGameLog(dynasty, player.name, expandedGameLogYear, playerTeamAbbr)
+  }, [expandedGameLogYear, dynasty, player?.name, playerTeamAbbr])
+
   // Early returns AFTER all hooks
   if (!dynasty) {
     return <div className="text-center py-12"><p style={{ color: 'var(--text-secondary)' }}>Dynasty not found</p></div>
@@ -359,298 +572,12 @@ export default function Player() {
 
   const getTeamNameFromAbbr = (abbr) => getMascotName(abbr, dynasty?.teams || dynasty?.customTeams) || abbr
 
-  // Get all games where this player has box score stats
-  // Simple: if the player is in a box score, include the game
-  const getAllPlayerGameLogs = () => {
-    const games = dynasty.games || []
-    const playerName = player.name
-    const gameLog = []
-
-    // Helper to normalize names for comparison (handles case, extra whitespace)
-    const normalizeName = (name) => name ? name.toLowerCase().trim().replace(/\s+/g, ' ') : ''
-    const normalizedPlayerName = normalizeName(playerName)
-
-    games.forEach(game => {
-      // Skip games without box scores
-      if (!game.boxScore) return
-
-      // Check both home and away box scores for this player
-      const statCategories = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'blocking', 'punting', 'kickReturn', 'puntReturn']
-      let playerStats = null
-      let foundInTeam = null
-
-      for (const side of ['home', 'away']) {
-        if (!game.boxScore[side]) continue
-        for (const category of statCategories) {
-          const categoryStats = game.boxScore[side][category] || []
-          const found = categoryStats.find(s => normalizeName(s.playerName) === normalizedPlayerName)
-          if (found) {
-            playerStats = { ...found, category }
-            foundInTeam = side
-            break
-          }
-        }
-        if (playerStats) break
-      }
-
-      if (playerStats) {
-        // Derive scores based on game format and which side the player was on
-        let playerTeamScore, opponentTeamScore, opponentAbbr
-        const teams = dynasty?.teams || {}
-
-        if (game.team1Tid && game.team2Tid) {
-          // Unified format with tid
-          // Must use homeTeamTid to determine which team is in boxScore.home vs boxScore.away
-          const team1Info = teams[game.team1Tid] || {}
-          const team2Info = teams[game.team2Tid] || {}
-
-          // Determine which team corresponds to boxScore.home
-          // If homeTeamTid === team1Tid, then home=team1, away=team2
-          // If homeTeamTid === team2Tid, then home=team2, away=team1
-          // If neutral (homeTeamTid is null), assume team1 is in home boxScore
-          const isTeam1Home = game.homeTeamTid === game.team1Tid || game.homeTeamTid == null
-
-          let playerTeamTid, opponentTeamTid
-          if (foundInTeam === 'home') {
-            playerTeamTid = isTeam1Home ? game.team1Tid : game.team2Tid
-            opponentTeamTid = isTeam1Home ? game.team2Tid : game.team1Tid
-            playerTeamScore = isTeam1Home ? game.team1Score : game.team2Score
-            opponentTeamScore = isTeam1Home ? game.team2Score : game.team1Score
-          } else {
-            playerTeamTid = isTeam1Home ? game.team2Tid : game.team1Tid
-            opponentTeamTid = isTeam1Home ? game.team1Tid : game.team2Tid
-            playerTeamScore = isTeam1Home ? game.team2Score : game.team1Score
-            opponentTeamScore = isTeam1Home ? game.team1Score : game.team2Score
-          }
-
-          const opponentInfo = teams[opponentTeamTid] || {}
-          opponentAbbr = opponentInfo.abbr || (opponentTeamTid === game.team1Tid ? game.team1 : game.team2)
-        } else if (game.opponent) {
-          // Legacy user game format
-          const isUserHome = game.location === 'home' || game.location === 'neutral'
-          if (foundInTeam === 'home') {
-            playerTeamScore = isUserHome ? game.teamScore : game.opponentScore
-            opponentTeamScore = isUserHome ? game.opponentScore : game.teamScore
-            opponentAbbr = isUserHome ? game.opponent : game.userTeam
-          } else {
-            playerTeamScore = isUserHome ? game.opponentScore : game.teamScore
-            opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
-            opponentAbbr = isUserHome ? game.userTeam : game.opponent
-          }
-        } else if (game.team1 && game.team2) {
-          // CPU game format
-          if (foundInTeam === 'home') {
-            playerTeamScore = game.team1Score
-            opponentTeamScore = game.team2Score
-            opponentAbbr = game.team2
-          } else {
-            playerTeamScore = game.team2Score
-            opponentTeamScore = game.team1Score
-            opponentAbbr = game.team1
-          }
-        }
-
-        const result = playerTeamScore != null && opponentTeamScore != null
-          ? (Number(playerTeamScore) > Number(opponentTeamScore) ? 'W' : 'L')
-          : null
-
-        // Determine location from player's perspective
-        // foundInTeam tells us if player was in home or away boxScore
-        // Neutral site (homeTeamTid is null) should show "vs"
-        const isNeutralSite = game.homeTeamTid === null || game.location === 'neutral'
-        const playerLocation = isNeutralSite ? 'neutral' : (foundInTeam === 'home' ? 'home' : 'away')
-
-        gameLog.push({
-          game: {
-            ...game,
-            // Add derived fields for display
-            teamScore: playerTeamScore,
-            opponentScore: opponentTeamScore,
-            opponent: opponentAbbr || game.opponent,
-            result: result || game.result,
-            location: playerLocation
-          },
-          stats: playerStats,
-          team: foundInTeam
-        })
-      }
-    })
-
-    // Sort by year desc, then game order desc (postseason at top, then regular season weeks desc)
-    const getGameOrder = (g) => {
-      // Conference Championship
-      if (g.isConferenceChampionship || g.gameType === 'conference_championship') return 100
-      // CFP/Bowl games - come after regular season
-      if (g.isCFPFirstRound || g.gameType === 'cfp_first_round') return 101
-      if (g.isCFPQuarterfinal || g.gameType === 'cfp_quarterfinal') return 102
-      if (g.isCFPSemifinal || g.gameType === 'cfp_semifinal') return 103
-      if (g.isCFPChampionship || g.gameType === 'cfp_championship') return 104
-      if (g.isBowlGame || g.gameType === 'bowl') return 100 + (parseInt(g.week) || 1)
-      // Regular season - use week number
-      return parseInt(g.week) || 0
-    }
-    gameLog.sort((a, b) => {
-      if (b.game.year !== a.game.year) return b.game.year - a.game.year
-      // Within same year, higher game order first (postseason before regular season)
-      return getGameOrder(b.game) - getGameOrder(a.game)
-    })
-
-    return gameLog
-  }
-
-  const playerGameLog = useMemo(() => getAllPlayerGameLogs(), [dynasty.games, player.name])
-
   const handlePlayerSave = async (updatedPlayer, yearStats) => {
     // Use dynastyId from URL params, or fall back to currentDynasty.id
     const targetDynastyId = dynastyId || dynasty?.id
     await updatePlayer(targetDynastyId, updatedPlayer, yearStats)
     setShowEditModal(false)
   }
-
-  // Get year-by-year stats for this player
-  // ONLY reads from player.statsByYear (single source of truth)
-  const yearByYearStats = useMemo(() => {
-    const playerOwnStats = player.statsByYear || {}
-
-    // Get all years that have stats
-    const allYears = new Set(Object.keys(playerOwnStats))
-
-    const years = []
-
-    // Sort years by most recent first
-    const sortedYears = Array.from(allYears).sort((a, b) => parseInt(b) - parseInt(a))
-
-    sortedYears.forEach(yearStr => {
-      const year = parseInt(yearStr)
-
-      // Get stats from player.statsByYear (the only source of truth)
-      const ownYearStats = playerOwnStats[yearStr] || playerOwnStats[year]
-      if (!ownYearStats) return
-
-      // Get category stats from player.statsByYear (internal format)
-      const passing = ownYearStats?.passing
-      const rushing = ownYearStats?.rushing
-      const receiving = ownYearStats?.receiving
-      const blocking = ownYearStats?.blocking
-      const defensive = ownYearStats?.defense
-      const kicking = ownYearStats?.kicking
-      const punting = ownYearStats?.punting
-      const kickReturn = ownYearStats?.kickReturn
-      const puntReturn = ownYearStats?.puntReturn
-
-      // Determine player's class for this year from classByYear or calculate
-      let playerClass = player.classByYear?.[year] || player.classByYear?.[String(year)] || '-'
-      if (playerClass === '-' && player.year) {
-        // If this is the current dynasty year, use current class
-        if (year === dynasty.currentYear) {
-          playerClass = player.year
-        } else {
-          // For past years, calculate backwards from current class
-          const classIndex = CLASS_ORDER.indexOf(player.year)
-          const yearDiff = dynasty.currentYear - year
-          if (classIndex >= 0 && classIndex - yearDiff >= 0) {
-            playerClass = CLASS_ORDER[classIndex - yearDiff]
-          }
-        }
-      }
-
-      // Determine the team for this specific year
-      // Priority: teamsByYear[year] > player.team > dynasty team
-      const yearTeam = player.teamsByYear?.[year]
-        || player.teamsByYear?.[String(year)]
-        || player.team
-        || getCurrentTeamAbbr(dynasty)
-        || ''
-
-      // Build year stats object from player.statsByYear (single source of truth)
-      const yearData = {
-        year,
-        team: yearTeam,
-        class: playerClass,
-        gamesPlayed: ownYearStats?.gamesPlayed || 0,
-        snapsPlayed: ownYearStats?.snapsPlayed || 0,
-        // Passing
-        passing: passing ? {
-          cmp: passing.cmp || 0,
-          att: passing.att || 0,
-          yds: passing.yds || 0,
-          td: passing.td || 0,
-          int: passing.int || 0,
-          lng: passing.lng || 0,
-          sacks: passing.sacks || 0
-        } : null,
-        // Rushing
-        rushing: rushing ? {
-          car: rushing.car || 0,
-          yds: rushing.yds || 0,
-          td: rushing.td || 0,
-          lng: rushing.lng || 0,
-          fum: rushing.fum || 0,
-          bt: rushing.bt || 0
-        } : null,
-        // Receiving
-        receiving: receiving ? {
-          rec: receiving.rec || 0,
-          yds: receiving.yds || 0,
-          td: receiving.td || 0,
-          lng: receiving.lng || 0,
-          drops: receiving.drops || 0
-        } : null,
-        // Blocking
-        blocking: blocking ? {
-          sacksAllowed: blocking.sacksAllowed || 0,
-          pancakes: blocking.pancakes || 0
-        } : null,
-        // Defensive (map internal to display format)
-        defensive: defensive ? {
-          solo: defensive.soloTkl || 0,
-          ast: defensive.astTkl || 0,
-          tfl: defensive.tfl || 0,
-          sacks: defensive.sacks || 0,
-          int: defensive.int || 0,
-          intYds: defensive.intYds || 0,
-          intTd: defensive.td || 0,
-          pdef: defensive.pd || 0,
-          ff: defensive.ff || 0,
-          fr: defensive.fr || 0
-        } : null,
-        // Kicking
-        kicking: kicking ? {
-          fgm: kicking.fgm || 0,
-          fga: kicking.fga || 0,
-          lng: kicking.lng || 0,
-          xpm: kicking.xpm || 0,
-          xpa: kicking.xpa || 0
-        } : null,
-        // Punting
-        punting: punting ? {
-          punts: punting.punts || 0,
-          yds: punting.yds || 0,
-          lng: punting.lng || 0,
-          in20: punting.in20 || 0,
-          tb: punting.tb || 0
-        } : null,
-        // Kick Return
-        kickReturn: kickReturn ? {
-          ret: kickReturn.ret || 0,
-          yds: kickReturn.yds || 0,
-          td: kickReturn.td || 0,
-          lng: kickReturn.lng || 0
-        } : null,
-        // Punt Return
-        puntReturn: puntReturn ? {
-          ret: puntReturn.ret || 0,
-          yds: puntReturn.yds || 0,
-          td: puntReturn.td || 0,
-          lng: puntReturn.lng || 0
-        } : null
-      }
-
-      years.push(yearData)
-    })
-
-    return years
-  }, [dynasty, player])
 
   // Calculate career totals
   const calculateCareerTotals = (years, statKey, fields) => {
@@ -706,11 +633,6 @@ export default function Player() {
   const careerSnaps = yearByYearStats.reduce((sum, y) => sum + (y.snapsPlayed || 0), 0)
 
   // Get game log for the expanded year
-  const gameLog = useMemo(() => {
-    if (!expandedGameLogYear || !player?.name) return []
-    return getPlayerGameLog(dynasty, player.name, expandedGameLogYear, teamAbbr)
-  }, [expandedGameLogYear, dynasty, player?.name, teamAbbr])
-
   // Helper to toggle game log
   const toggleGameLog = (year) => {
     setExpandedGameLogYear(expandedGameLogYear === year ? null : year)

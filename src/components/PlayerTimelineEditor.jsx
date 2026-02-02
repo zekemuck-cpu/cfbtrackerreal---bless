@@ -176,7 +176,9 @@ function StintCard({
   // Store original stint when editing starts, for cancel functionality
   const [originalStint, setOriginalStint] = useState(null)
 
-  const isOpen = stint.toYear === null || stint.toYear === undefined
+  // Helper: A stint is "open" (active) if toYear is null or undefined
+  const isStintOpen = (s) => s.toYear === null || s.toYear === undefined
+  const isOpen = isStintOpen(stint)
   const isCurrent = isOpen || stint.toYear >= currentYear
 
   // Helper to update local state AND propagate to parent immediately
