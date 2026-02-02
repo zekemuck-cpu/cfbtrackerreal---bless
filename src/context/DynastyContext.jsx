@@ -4614,6 +4614,9 @@ export function DynastyProvider({ children }) {
   const lastPlayersUpdateTimestampRef = useRef(0)
   // Also track the dynasty ID that was updated to be more precise
   const lastPlayersUpdateDynastyIdRef = useRef(null)
+  // CRITICAL: Track when we last updated games locally to prevent listener from overwriting
+  const lastGamesUpdateTimestampRef = useRef(0)
+  const lastGamesUpdateDynastyIdRef = useRef(null)
   // Track which dynasties have had their migration data persisted this session
   // This prevents the auto-save from running multiple times for the same dynasty
   const persistedMigrationDynastiesRef = useRef(new Set())
@@ -5091,7 +5094,7 @@ export function DynastyProvider({ children }) {
       setLoading(false)
 
       // Update current dynasty if it's in the list
-      // CRITICAL: Check if we recently updated players locally - if so, preserve local players
+      // CRITICAL: Check if we recently updated players/games locally - if so, preserve local data
       // to prevent race condition where Firestore returns stale data
       if (currentDynasty) {
         const updated = migratedDynasties.find(d => d.id === currentDynasty.id)
@@ -5099,16 +5102,21 @@ export function DynastyProvider({ children }) {
           // Check if this dynasty had a recent local player update (within 10 seconds)
           const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === currentDynasty.id &&
             (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
+          // Check if this dynasty had a recent local games update (within 10 seconds)
+          const recentGamesUpdate = lastGamesUpdateDynastyIdRef.current === currentDynasty.id &&
+            (Date.now() - lastGamesUpdateTimestampRef.current) < 10000
 
-          if (recentPlayerUpdate && currentDynasty.players) {
-            // Preserve local players - they're more recent than Firestore data
-            setCurrentDynasty({
+          if (recentPlayerUpdate || recentGamesUpdate) {
+            // Preserve local data - they're more recent than Firestore data
+            const preservedDynasty = {
               ...updated,
-              players: currentDynasty.players
-            })
-            // Also update the dynasty in the array to preserve players
+              ...(recentPlayerUpdate && currentDynasty.players ? { players: currentDynasty.players } : {}),
+              ...(recentGamesUpdate && currentDynasty.games ? { games: currentDynasty.games } : {})
+            }
+            setCurrentDynasty(preservedDynasty)
+            // Also update the dynasty in the array to preserve data
             setDynasties(prev => prev.map(d =>
-              d.id === currentDynasty.id ? { ...d, players: currentDynasty.players } : d
+              d.id === currentDynasty.id ? preservedDynasty : d
             ))
           } else {
             setCurrentDynasty(updated)
@@ -5549,6 +5557,9 @@ export function DynastyProvider({ children }) {
       // Route games to subcollection (unless skipGamesSubcollection is true - for optimized single-game updates)
       if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games) && !skipGamesSubcollection) {
         console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
+        // CRITICAL: Track this games update to prevent listener from overwriting with stale data
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
         subcollectionPromises.push(
           saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
         )

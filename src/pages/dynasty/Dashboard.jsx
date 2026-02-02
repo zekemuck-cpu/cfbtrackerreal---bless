@@ -503,6 +503,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!currentDynasty?.id || isViewOnly) return
 
+    // CRITICAL: Wait until dynasty data is fully loaded from subcollections
+    // Without this guard, games array may be empty during lazy loading,
+    // causing orphan cleanup to DELETE all existing games
+    if (isLoadingDynastyData) return
+
     // CRITICAL: Only run during postseason phase when CFP is active
     // This prevents race conditions during phase changes
     const phase = currentDynasty.currentPhase
@@ -576,7 +581,7 @@ export default function Dashboard() {
 
     // Save the shells
     updateDynasty(currentDynasty.id, { games: updatedGames })
-  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.currentPhase, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly])
+  }, [currentDynasty?.id, currentDynasty?.currentYear, currentDynasty?.currentPhase, currentDynasty?.cfpSeedsByYear, currentDynasty?.games?.length, isViewOnly, isLoadingDynastyData])
 
   if (!currentDynasty) return null
 

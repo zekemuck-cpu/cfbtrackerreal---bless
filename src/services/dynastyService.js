@@ -317,10 +317,12 @@ export async function getGamesSubcollection(dynastyId) {
   try {
     const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
     const snapshot = await getDocs(gamesRef)
-    return snapshot.docs.map(doc => ({
+    const games = snapshot.docs.map(doc => ({
       ...doc.data(),
       _firestoreId: doc.id // Keep track of Firestore doc ID for updates
     }))
+    console.log(`[getGamesSubcollection] Dynasty ${dynastyId}: Loaded ${games.length} games from subcollection`)
+    return games
   } catch (error) {
     console.error('Error fetching games subcollection:', error)
     throw error
@@ -396,10 +398,32 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
       const snapshot = await getDocs(playersRef)
       const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+      const existingCount = existingIds.size
       const newIds = new Set(playersToSave.filter(p => p.pid).map(p => String(p.pid)))
       const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
 
-      if (orphanedIds.length > 0) {
+      // CRITICAL SAFETY CHECK: Prevent accidental mass deletion
+      // If we're about to delete more than 50% of existing players, refuse unless forced
+      if (orphanedIds.length > 0 && existingCount > 50) {
+        const deletionPercentage = (orphanedIds.length / existingCount) * 100
+        if (deletionPercentage > 50 && !forceOverwrite) {
+          console.error(`[savePlayersToSubcollection] SAFETY CHECK BLOCKED: Would delete ${orphanedIds.length} of ${existingCount} players (${deletionPercentage.toFixed(1)}%). This looks like a bug. Saving ${playersToSave.length} players WITHOUT orphan cleanup.`)
+          console.error(`[savePlayersToSubcollection] To force deletion, use forceOverwrite: true`)
+          // Continue WITHOUT deleting orphans - just save the new players
+        } else {
+          // Safe to delete
+          console.log(`[savePlayersToSubcollection] Deleting ${orphanedIds.length} orphaned players (${deletionPercentage.toFixed(1)}% of ${existingCount})`)
+          for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db)
+            orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
+              batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
+            })
+            await batch.commit()
+          }
+          await waitForPendingWrites(db)
+        }
+      } else if (orphanedIds.length > 0) {
+        // Small deletion - safe to proceed
         console.log(`[savePlayersToSubcollection] Deleting ${orphanedIds.length} orphaned players`)
         for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
           const batch = writeBatch(db)
@@ -543,9 +567,10 @@ export async function saveGameToSubcollection(dynastyId, game) {
  * @param {Array} games - Array of game objects
  * @param {Object} options - Optional settings
  * @param {boolean} options.deleteOrphans - If true, deletes games not in the array (DANGEROUS - only use for full sync)
+ * @param {boolean} options.forceDeleteOrphans - If true, bypasses safety check (EXTREMELY DANGEROUS - only for explicit user actions)
  */
 export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
-  const { deleteOrphans = false } = options
+  const { deleteOrphans = false, forceDeleteOrphans = false } = options
 
   try {
     // Handle empty array case
@@ -557,6 +582,7 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
       const snapshot = await getDocs(gamesRef)
       const existingIds = new Set(snapshot.docs.map(doc => doc.id))
+      const existingCount = existingIds.size
 
       // Get IDs we're about to save
       const newIds = new Set(gamesToSave.filter(g => g.id).map(g => String(g.id)))
@@ -564,8 +590,31 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       // Find orphaned IDs (exist in subcollection but not in our save list)
       const orphanedIds = [...existingIds].filter(id => !newIds.has(id))
 
-      // Delete orphaned documents
-      if (orphanedIds.length > 0) {
+      // CRITICAL SAFETY CHECK: Prevent accidental mass deletion
+      // If we're about to delete more than 50% of existing games, refuse unless forced
+      if (orphanedIds.length > 0 && existingCount > 20) {
+        const deletionPercentage = (orphanedIds.length / existingCount) * 100
+        if (deletionPercentage > 50 && !forceDeleteOrphans) {
+          console.error(`[saveGamesToSubcollection] SAFETY CHECK BLOCKED: Would delete ${orphanedIds.length} of ${existingCount} games (${deletionPercentage.toFixed(1)}%). This looks like a bug. Saving ${gamesToSave.length} games WITHOUT orphan cleanup.`)
+          console.error(`[saveGamesToSubcollection] To force deletion, use forceDeleteOrphans: true`)
+          // Continue WITHOUT deleting orphans - just save the new games
+        } else {
+          // Safe to delete - either low percentage or explicitly forced
+          console.log(`[saveGamesToSubcollection] Deleting ${orphanedIds.length} orphaned game documents (deleteOrphans=true, ${deletionPercentage.toFixed(1)}% of ${existingCount})`)
+          for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+            const batch = writeBatch(db)
+            const batchIds = orphanedIds.slice(i, i + BATCH_SIZE)
+
+            for (const id of batchIds) {
+              const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id)
+              batch.delete(gameRef)
+            }
+
+            await batch.commit()
+          }
+        }
+      } else if (orphanedIds.length > 0) {
+        // Small number of existing games or small deletion - safe to proceed
         console.log(`[saveGamesToSubcollection] Deleting ${orphanedIds.length} orphaned game documents (deleteOrphans=true)`)
         for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
           const batch = writeBatch(db)
