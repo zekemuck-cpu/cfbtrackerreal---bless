@@ -2035,7 +2035,7 @@ export default function TeamYear() {
                   className="bg-transparent text-xl sm:text-2xl md:text-3xl font-bold cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
                   style={{
                     color: teamBgText,
-                    width: `${Math.max((mascotName || teamInfo.name || '').length * 0.52 + 1, 6)}ch`
+                    width: `${Math.max((mascotName || teamInfo.name || '').length * 0.7 + 1, 8)}ch`
                   }}
                 >
                   {allTeams.map((t) => (

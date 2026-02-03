@@ -3,17 +3,15 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
 
-// Extract school name from full mascot name (e.g., "Miami Hurricanes" -> "Miami")
+// Extract school name from full mascot name
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
-  // Handle special multi-word mascots first
   const specialMascots = [
     'Crimson Tide', 'Blue Hens', 'Fightin\' Blue Hens', 'Golden Flashes', 'Mean Green',
     'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
@@ -26,7 +24,6 @@ const getSchoolName = (mascotName) => {
       return mascotName.slice(0, -mascot.length).trim()
     }
   }
-  // Default: remove last word (single-word mascot)
   const parts = mascotName.split(' ')
   if (parts.length > 1) {
     return parts.slice(0, -1).join(' ')
@@ -36,7 +33,6 @@ const getSchoolName = (mascotName) => {
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
-  // Try tid-based lookup first if teams data provided
   if (teamsData) {
     const result = getMascotNameFromTeams(abbr, teamsData)
     if (result) return result
@@ -113,29 +109,17 @@ const getMascotName = (abbr, teamsData = null) => {
     'MIZ': 'Missouri Tigers', 'OU': 'Oklahoma Sooners',
     'GSU': 'Georgia State Panthers',
     'USM': 'Southern Mississippi Golden Eagles',
-    // FCS teams
     'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
     'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
   }
   return mascotMap[abbr] || null
 }
 
-// Conference order for display
 const CONFERENCE_ORDER = [
-  'ACC',
-  'American',
-  'Big 12',
-  'Big Ten',
-  'Conference USA',
-  'Independent',
-  'MAC',
-  'Mountain West',
-  'Pac-12',
-  'SEC',
-  'Sun Belt'
+  'ACC', 'American', 'Big 12', 'Big Ten', 'Conference USA',
+  'Independent', 'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt'
 ]
 
-// Map alternate conference names to canonical names (for data lookup)
 const CONFERENCE_ALIASES = {
   'Mountain West': ['Mountain West', 'MWC'],
   'ACC': ['ACC'],
@@ -150,7 +134,6 @@ const CONFERENCE_ALIASES = {
   'Sun Belt': ['Sun Belt']
 }
 
-// Get conference data checking all possible aliases
 const getConferenceData = (yearStandings, conferenceName) => {
   const aliases = CONFERENCE_ALIASES[conferenceName] || [conferenceName]
   for (const alias of aliases) {
@@ -162,7 +145,7 @@ const getConferenceData = (yearStandings, conferenceName) => {
 }
 
 export default function ConferenceStandings() {
-  const { id, year: urlYear } = useParams()
+  const { year: urlYear } = useParams()
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
@@ -172,283 +155,250 @@ export default function ConferenceStandings() {
 
   if (!currentDynasty) return null
 
-  // Get available years from standings data (most recent first)
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
   const yearsWithData = Object.keys(standingsByYear).map(y => parseInt(y))
 
-  // Always include current year so user can view/enter current season's data
   if (!yearsWithData.includes(currentDynasty.currentYear)) {
     yearsWithData.push(currentDynasty.currentYear)
   }
 
   const availableYears = yearsWithData.sort((a, b) => b - a)
-
-  // Use URL year if provided, otherwise previous season
   const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
-
-  // Navigate to year when dropdown changes
-  const handleYearChange = (year) => {
-    navigate(`${pathPrefix}/conference-standings/${year}`)
-  }
-
-  // Get standings for selected year
+  const handleYearChange = (year) => navigate(`${pathPrefix}/conference-standings/${year}`)
   const yearStandings = standingsByYear[displayYear] || {}
 
-  // Filter conferences by search
   const filteredConferences = CONFERENCE_ORDER.filter(conf => {
     if (searchQuery === '') return true
     return conf.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  // Get total teams with standings
-  const getTotalTeams = () => {
-    let total = 0
-    Object.values(yearStandings).forEach(teams => {
-      if (Array.isArray(teams)) {
-        total += teams.length
-      }
-    })
-    return total
+  // Empty state
+  if (availableYears.length === 0 || Object.keys(yearStandings).length === 0) {
+    return (
+      <div className="space-y-8">
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-2xl">
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)' }} />
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
+          <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl opacity-20" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }} />
+          <div className="relative px-6 py-8 sm:px-8 sm:py-10">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-blue-400 to-blue-600" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500/80">Standings</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Conference Standings</h1>
+            <p className="text-sm text-slate-400 mt-1">Season records by conference</p>
+          </div>
+        </div>
+
+        <div className="min-h-[40vh] flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-6">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center">
+              <svg className="w-10 h-10 text-blue-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-3">No Standings Data</h2>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Conference standings will appear here after you enter them during the End of Season Recap.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Team row component
+  const TeamRow = ({ team, rank, idx }) => {
+    const teamAbbr = team.team
+    const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
+    const logo = mascotName ? getTeamLogo(mascotName) : null
+    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
+    const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
+
+    return (
+      <Link
+        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
+        className="group flex items-center gap-3 py-2 px-3 transition-all duration-200 hover:bg-white/5"
+      >
+        {/* Rank */}
+        <div className="w-6 h-6 rounded flex items-center justify-center font-bold text-xs flex-shrink-0" style={{ backgroundColor: 'rgba(71, 85, 105, 0.3)', color: '#94a3b8' }}>
+          {rank}
+        </div>
+
+        {/* Logo */}
+        <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 shadow-sm">
+          {logo ? (
+            <img src={logo} alt="" className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
+              <span className="text-[10px] font-bold" style={{ color: colors.secondary }}>{teamAbbr?.charAt(0)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Team Name */}
+        <span className="flex-1 font-medium text-sm text-gray-200 truncate group-hover:text-white transition-colors">
+          {getSchoolName(mascotName) || teamAbbr}
+        </span>
+
+        {/* Record */}
+        <span className="text-xs font-bold text-white tabular-nums flex-shrink-0">
+          {team.wins || 0}-{team.losses || 0}
+        </span>
+
+        {/* Point Diff with tooltip */}
+        <div className="relative flex-shrink-0 group/diff">
+          <span
+            className="text-[10px] font-semibold tabular-nums w-10 text-right block cursor-help"
+            style={{ color: pointDiff > 0 ? '#4ade80' : pointDiff < 0 ? '#f87171' : '#64748b' }}
+          >
+            {pointDiff > 0 ? '+' : ''}{pointDiff}
+          </span>
+          {/* Tooltip */}
+          <div className="absolute bottom-full right-0 mb-1.5 px-2 py-1 rounded-md bg-slate-900 border border-slate-700 text-[10px] text-slate-300 opacity-0 group-hover/diff:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+            <span className="text-green-400">{team.pointsFor || 0} PF</span>
+            <span className="mx-1 text-slate-600">|</span>
+            <span className="text-red-400">{team.pointsAgainst || 0} PA</span>
+          </div>
+        </div>
+      </Link>
+    )
+  }
+
+  // Conference card component
+  const ConferenceCard = ({ conferenceName }) => {
+    const teams = getConferenceData(yearStandings, conferenceName)
+    const hasData = teams.length > 0
+    const confLogo = getConferenceLogo(conferenceName)
+
+    if (!hasData && searchQuery) return null
+
+    return (
+      <div className="rounded-xl overflow-hidden bg-slate-800/30 border border-slate-700/50">
+        {/* Conference Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/50" style={{ backgroundColor: 'rgba(30, 41, 59, 0.5)' }}>
+          <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-white/10 p-1">
+            {confLogo ? (
+              <img src={confLogo} alt="" className="w-full h-full object-contain" />
+            ) : (
+              <span className="text-sm font-bold text-slate-400">{conferenceName.charAt(0)}</span>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-white text-sm truncate">{conferenceName}</h3>
+          </div>
+          <span className="text-xs font-medium text-slate-500">{teams.length} teams</span>
+        </div>
+
+        {/* Teams */}
+        {hasData ? (
+          <div className="divide-y divide-slate-700/30">
+            {teams.sort((a, b) => (a.rank || 0) - (b.rank || 0)).map((team, idx) => (
+              <TeamRow key={team.team || idx} team={team} rank={team.rank || idx + 1} idx={idx} />
+            ))}
+          </div>
+        ) : (
+          <div className="p-8 text-center">
+            <p className="text-slate-500 text-sm">No standings data for {displayYear}</p>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-lg shadow-lg p-6 bg-gray-800 border-2 border-gray-600">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              Conference Standings
-            </h1>
-          </div>
+    <div className="space-y-8">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl">
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)' }} />
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }} />
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl opacity-20" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' }} />
 
-          {/* Year Selector and Edit Button */}
-          <div className="flex items-center gap-3">
-            {availableYears.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="font-semibold text-sm text-white">
-                  Year:
-                </label>
-                <select
-                  value={displayYear}
-                  onChange={(e) => handleYearChange(parseInt(e.target.value))}
-                  className="px-4 py-2 rounded-lg font-bold text-lg border-2 bg-gray-700 text-white border-gray-500"
-                >
-                  {availableYears.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
+        <div className="relative px-6 py-8 sm:px-8 sm:py-10">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+            {/* Title */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-blue-400 to-blue-600" />
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500/80">Standings</span>
               </div>
-            )}
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowConferencesModal(true)}
-                className="px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-colors flex items-center gap-2"
-                style={{ backgroundColor: teamColors.primary, color: teamColors.secondary }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Conferences
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Conference Standings</h1>
+              <p className="text-sm text-slate-400 mt-1">Season records by conference</p>
+            </div>
 
-      {/* Search */}
-      <div className="rounded-lg shadow-lg p-4 bg-gray-800 border-2 border-gray-600">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search conferences..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg font-semibold text-lg transition-colors"
-            style={{
-              backgroundColor: 'var(--surface-3)',
-              color: 'var(--text-primary)',
-              border: '1px solid var(--surface-5)'
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:opacity-70"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Conference Standings Grid */}
-      {Object.keys(yearStandings).length > 0 ? (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          {filteredConferences.map(conferenceName => {
-            const teams = getConferenceData(yearStandings, conferenceName)
-            const hasData = teams.length > 0
-
-            if (!hasData && searchQuery) return null
-
-            return (
-              <div
-                key={conferenceName}
-                className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600"
-                style={{ maxWidth: '600px' }}
-              >
-                {/* Conference Header */}
-                <div className="flex items-center gap-3 p-3 border-b border-gray-600">
-                  {/* Conference Logo */}
-                  <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center p-1" style={{ backgroundColor: 'var(--surface-4)', border: '1px solid var(--surface-5)' }}>
-                    {getConferenceLogo(conferenceName) ? (
-                      <img
-                        src={getConferenceLogo(conferenceName)}
-                        alt={`${conferenceName} logo`}
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-lg font-bold" style={{ color: 'var(--text-secondary)' }}>
-                        {conferenceName.charAt(0)}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Conference Name and Stats */}
-                  <div className="flex-1">
-                    <div className="font-bold text-white">
-                      {conferenceName}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {hasData ? `${teams.length} teams` : 'No standings data'}
-                    </div>
-                  </div>
+            {/* Controls */}
+            <div className="flex items-center gap-3">
+              {/* Year Selector */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Season</span>
+                <div className="relative">
+                  <select
+                    value={displayYear}
+                    onChange={(e) => handleYearChange(parseInt(e.target.value))}
+                    className="appearance-none pl-4 pr-10 py-2.5 rounded-xl font-bold text-xl bg-slate-800/80 text-white border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer hover:bg-slate-700/80 transition-colors"
+                  >
+                    {availableYears.map((year) => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
-
-                {/* Standings Table */}
-                {hasData ? (
-                  <div className="p-2">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs uppercase tracking-wider text-gray-400">
-                          <th className="py-1 px-1 text-left w-6">#</th>
-                          <th className="py-1 px-1 text-left">Team</th>
-                          <th className="py-1 px-1 text-center w-8">W</th>
-                          <th className="py-1 px-1 text-center w-8">L</th>
-                          <th className="py-1 px-1 text-center w-10">PF</th>
-                          <th className="py-1 px-1 text-center w-10">PA</th>
-                          <th className="py-1 px-1 text-center w-10">+/-</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {teams
-                          .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-                          .map((team, idx) => {
-                            const teamAbbr = team.team
-                            const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-                            const logo = mascotName ? getTeamLogo(mascotName) : null
-                            const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
-                            const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
-
-                            return (
-                              <tr
-                                key={teamAbbr || idx}
-                                className="transition-colors hover:bg-surface-4"
-                                style={{ backgroundColor: idx % 2 === 0 ? 'var(--surface-2)' : 'var(--surface-3)', borderBottom: '1px solid var(--surface-4)' }}
-                              >
-                                <td className="py-1.5 px-1">
-                                  <span className="font-bold text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                    {team.rank || idx + 1}
-                                  </span>
-                                </td>
-                                <td className="py-1.5 px-1">
-                                  <Link
-                                    to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-                                    className="flex items-center gap-1.5 hover:opacity-80"
-                                  >
-                                    {logo && (
-                                      <img src={logo} alt="" className="w-5 h-5 object-contain flex-shrink-0 rounded-full bg-white p-0.5" />
-                                    )}
-                                    <span
-                                      className="font-semibold truncate text-xs text-white"
-                                    >
-                                      {getSchoolName(mascotName) || teamAbbr}
-                                    </span>
-                                  </Link>
-                                </td>
-                                <td className="py-1.5 px-1 text-center font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
-                                  {team.wins || 0}
-                                </td>
-                                <td className="py-1.5 px-1 text-center font-bold text-xs" style={{ color: 'var(--text-primary)' }}>
-                                  {team.losses || 0}
-                                </td>
-                                <td className="py-1.5 px-1 text-center font-medium text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                  {team.pointsFor || 0}
-                                </td>
-                                <td className="py-1.5 px-1 text-center font-medium text-xs" style={{ color: 'var(--text-secondary)' }}>
-                                  {team.pointsAgainst || 0}
-                                </td>
-                                <td
-                                  className="py-1.5 px-1 text-center font-bold text-xs"
-                                  style={{
-                                    color: pointDiff > 0 ? 'var(--accent-success)' : pointDiff < 0 ? 'var(--accent-error)' : 'var(--text-muted)'
-                                  }}
-                                >
-                                  {pointDiff > 0 ? '+' : ''}{pointDiff}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="p-4 text-center">
-                    <p className="text-gray-400 text-sm">
-                      No standings data for {displayYear}.
-                    </p>
-                  </div>
-                )}
               </div>
-            )
-          })}
+
+              {/* Edit Button */}
+              {!isViewOnly && (
+                <button
+                  onClick={() => setShowConferencesModal(true)}
+                  className="px-4 py-2.5 rounded-xl font-semibold text-sm transition-all hover:scale-105 flex items-center gap-2"
+                  style={{ backgroundColor: teamColors.primary, color: teamColors.secondary }}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="mt-6 max-w-md">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search conferences..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm bg-slate-800/60 text-white border border-slate-700/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-slate-500"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <svg
-            className="w-16 h-16 mx-auto mb-4 opacity-50"
-            style={{ color: 'var(--text-muted)' }}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <p className="text-lg font-semibold mb-2 text-white">
-            No Conference Standings Data
-          </p>
-          <p className="text-gray-400">
-            Conference standings will appear here after you enter them during the End of Season Recap.
-          </p>
-        </div>
-      )}
+      </div>
+
+      {/* Conference Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filteredConferences.map(conferenceName => (
+          <ConferenceCard key={conferenceName} conferenceName={conferenceName} />
+        ))}
+      </div>
 
       {filteredConferences.length === 0 && searchQuery && (
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <p className="text-gray-400">
-            No conferences found matching "{searchQuery}"
-          </p>
+        <div className="rounded-xl bg-slate-800/30 border border-slate-700/50 p-12 text-center">
+          <p className="text-slate-500">No conferences found matching "{searchQuery}"</p>
         </div>
       )}
 
@@ -457,28 +407,18 @@ export default function ConferenceStandings() {
         isOpen={showConferencesModal}
         onClose={() => setShowConferencesModal(false)}
         onSave={async (data) => {
-          // Data can be either:
-          // - conferencesByYear object: { 2025: {...}, 2026: {...} } (new multi-tab format)
-          // - single conferences object: { ACC: [...], ... } (legacy format)
           const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
-
           if (isMultiYear) {
-            // Multi-year format - save all years
             const existingByYear = currentDynasty.customConferencesByYear || {}
             const newByYear = { ...existingByYear, ...data }
             await updateDynasty(currentDynasty.id, {
               customConferencesByYear: newByYear,
-              // Also update current customConferences if current year is included
               ...(data[currentDynasty.currentYear] ? { customConferences: data[currentDynasty.currentYear] } : {})
             })
           } else {
-            // Legacy single-year format - save for current year
             const existingByYear = currentDynasty.customConferencesByYear || {}
             await updateDynasty(currentDynasty.id, {
-              customConferencesByYear: {
-                ...existingByYear,
-                [currentDynasty.currentYear]: data
-              },
+              customConferencesByYear: { ...existingByYear, [currentDynasty.currentYear]: data },
               customConferences: data
             })
           }

@@ -5,7 +5,6 @@ import { useTickerSections } from './useTickerSections'
 import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 
-// Get logo URL - handles both abbreviations and full team names
 function getLogoUrl(teamIdentifier) {
   if (!teamIdentifier) return null
   const teamData = teamAbbreviations[teamIdentifier]
@@ -16,9 +15,8 @@ function getLogoUrl(teamIdentifier) {
   return getTeamLogo(teamIdentifier)
 }
 
-// Timing constants
-const HOLD_TIME = 4000 // Time to display before scrolling or advancing
-const SCROLL_SPEED = 0.06 // pixels per ms
+const HOLD_TIME = 4000
+const SCROLL_SPEED = 0.06
 
 export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
@@ -28,19 +26,15 @@ export default function NewsTicker({ dynasty }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
-  // Scroll state
   const containerRef = useRef(null)
   const contentRef = useRef(null)
   const [overflow, setOverflow] = useState(0)
-  const [scrollPos, setScrollPos] = useState(0)
   const timerRef = useRef(null)
   const animationRef = useRef(null)
 
   const currentSection = sections[currentIndex] || null
 
-  // Measure overflow when section changes
   useEffect(() => {
-    setScrollPos(0)
     if (contentRef.current) {
       contentRef.current.style.transform = 'translateX(0)'
     }
@@ -56,30 +50,25 @@ export default function NewsTicker({ dynasty }) {
     return () => clearTimeout(timeout)
   }, [currentIndex, currentSection?.items?.length])
 
-  // Advance to next section
   const advance = useCallback(() => {
     setIsTransitioning(true)
     setTimeout(() => {
       setCurrentIndex(prev => (prev + 1) % sections.length)
       setIsTransitioning(false)
-    }, 300)
+    }, 250)
   }, [sections.length])
 
-  // Main animation/timing loop
   useEffect(() => {
     if (sections.length === 0 || isTransitioning || !currentSection) return
 
-    // Clear any existing timers
     if (timerRef.current) clearTimeout(timerRef.current)
     if (animationRef.current) cancelAnimationFrame(animationRef.current)
 
-    // No overflow - just hold then advance
     if (overflow === 0) {
       timerRef.current = setTimeout(advance, HOLD_TIME)
       return () => clearTimeout(timerRef.current)
     }
 
-    // Has overflow - hold, scroll, hold, advance
     let phase = 'hold-start'
     let startTime = null
     let currentScroll = 0
@@ -99,7 +88,6 @@ export default function NewsTicker({ dynasty }) {
         if (contentRef.current) {
           contentRef.current.style.transform = `translateX(-${currentScroll}px)`
         }
-        setScrollPos(currentScroll)
         if (progress >= 1) {
           phase = 'hold-end'
           startTime = null
@@ -130,7 +118,6 @@ export default function NewsTicker({ dynasty }) {
     if (section?.headerLink) navigate(`${pathPrefix}${section.headerLink}`)
   }, [navigate, pathPrefix])
 
-  // Don't render if no data
   if (!dynasty || sections.length === 0 || !currentSection) {
     return null
   }
@@ -140,147 +127,138 @@ export default function NewsTicker({ dynasty }) {
       <style>{`
         .ticker-container::-webkit-scrollbar { display: none; }
         .ticker-container { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Support for safe area on phones with home indicators */
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          .ticker-wrapper {
-            padding-bottom: env(safe-area-inset-bottom);
-          }
+          .ticker-wrapper { padding-bottom: env(safe-area-inset-bottom); }
         }
-        /* Mobile-specific ticker fixes */
         @media (max-width: 639px) {
-          .ticker-header {
-            max-width: 90px;
-            min-width: 70px;
-          }
-          .ticker-content-area {
-            min-width: 0;
-            flex: 1 1 0%;
-          }
+          .ticker-header { max-width: 90px; min-width: 70px; }
+          .ticker-content-area { min-width: 0; flex: 1 1 0%; }
         }
       `}</style>
+
       <div
-        className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50 overflow-hidden"
+        className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50"
         style={{
-          backgroundColor: '#111827',
-          borderTop: '2px solid #374151',
-          /* Minimum height for content, padding-bottom handles safe area */
-          minHeight: '48px'
+          background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
+          borderTop: '1px solid rgba(71, 85, 105, 0.3)',
+          height: '36px'
         }}
       >
-        <div className="flex items-center" style={{ height: '48px' }}>
-          {/* Main content with fade transition */}
-          <div className={`flex items-center h-full overflow-hidden transition-opacity duration-300 w-full ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+        <div className="flex items-center h-full">
+          <div className={`flex items-center h-full overflow-hidden transition-opacity duration-250 w-full ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
 
-            {/* Header - constrained on mobile to prevent overflow */}
+            {/* Header */}
             <div
-              className={`ticker-header h-full flex items-center gap-1 sm:gap-2 px-2 sm:px-4 font-bold text-[10px] sm:text-sm uppercase tracking-wide whitespace-nowrap flex-shrink-0 overflow-hidden ${currentSection.headerLink ? 'cursor-pointer hover:opacity-80 active:opacity-60' : ''}`}
-              style={{ backgroundColor: '#1f2937', color: '#f3f4f6' }}
+              className={`h-full flex items-center gap-1.5 px-2 sm:px-3 flex-shrink-0 ticker-header ${currentSection.headerLink ? 'cursor-pointer hover:bg-white/5' : ''}`}
+              style={{ borderRight: '1px solid rgba(71, 85, 105, 0.3)' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
               {currentSection.teamLogo && (
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                   <img
                     src={getLogoUrl(currentSection.teamLogo)}
                     alt=""
-                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
+                    className="w-full h-full object-contain"
                     onError={(e) => { e.target.style.display = 'none' }}
                   />
-                  {currentSection.teamRecord && (
-                    <span className="text-[6px] sm:text-[8px] text-gray-400 leading-none mt-0.5 hidden sm:block">
-                      {currentSection.teamRecord}
-                    </span>
-                  )}
                 </div>
               )}
               {currentSection.opponentLogo ? (
                 <>
-                  <span className="text-gray-400 text-[8px] sm:text-xs">vs</span>
-                  <img
-                    src={getLogoUrl(currentSection.opponentLogo)}
-                    alt=""
-                    className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5"
-                    onError={(e) => { e.target.style.display = 'none' }}
-                  />
+                  <span className="text-[9px] text-slate-500">vs</span>
+                  <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                    <img
+                      src={getLogoUrl(currentSection.opponentLogo)}
+                      alt=""
+                      className="w-full h-full object-contain"
+                      onError={(e) => { e.target.style.display = 'none' }}
+                    />
+                  </div>
                 </>
               ) : (
-                <span className="truncate">{currentSection.label}</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-300 uppercase tracking-wide truncate">
+                  {currentSection.label}
+                </span>
               )}
             </div>
 
-            {/* Scrolling items */}
+            {/* Content */}
             <div ref={containerRef} className="ticker-container ticker-content-area flex-1 overflow-hidden min-w-0">
               <div
                 ref={contentRef}
-                className="flex items-center gap-1.5 sm:gap-3 px-1.5 sm:px-4 whitespace-nowrap h-full"
+                className="flex items-center gap-3 sm:gap-4 px-2 sm:px-3 whitespace-nowrap h-full"
                 style={{ willChange: 'transform' }}
               >
                 {currentSection.items.map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                    {/* Separator between items */}
-                    {idx > 0 && (
-                      <span className="text-gray-600 text-[10px] sm:text-sm mx-0.5 sm:mx-1">|</span>
-                    )}
+                  <div key={item.id || idx} className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                    {idx > 0 && <span className="text-slate-700">|</span>}
+
                     <div
-                      className={`flex items-center gap-1 sm:gap-2 whitespace-nowrap py-1 ${item.link ? 'cursor-pointer hover:opacity-70 active:opacity-50' : ''}`}
+                      className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${item.link ? 'cursor-pointer hover:opacity-70' : ''}`}
                       onClick={() => handleItemClick(item)}
-                      style={{ minHeight: '28px' }}
                     >
-                      {/* Label (e.g., year, W/L, bowl name) - hide long labels on mobile for two-team format */}
                       {item.label && (
                         <span
-                          className={`font-semibold text-[10px] sm:text-sm flex-shrink-0 ${item.team2 ? 'hidden sm:inline' : ''}`}
-                          style={{ color: item.labelColor || '#f3f4f6' }}
+                          className={`font-medium text-[10px] sm:text-xs ${item.team2 ? 'hidden sm:inline' : ''}`}
+                          style={{ color: item.labelColor || '#94a3b8' }}
                         >
                           {item.label}
                         </span>
                       )}
-                      {/* Single team logo (standard format) */}
+
                       {item.team && !item.team2 && getLogoUrl(item.team) && (
-                        <img
-                          src={getLogoUrl(item.team)}
-                          alt=""
-                          className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
-                          onError={(e) => { e.target.style.display = 'none' }}
-                        />
-                      )}
-                      {/* Two-team format (CFP games): Logo1 Score1 - Logo2 Score2 */}
-                      {item.team && item.team2 && (
-                        <div className="flex items-center gap-0.5 sm:gap-1.5 flex-shrink-0">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                           <img
                             src={getLogoUrl(item.team)}
                             alt=""
-                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
-                          <span
-                            className="text-[10px] sm:text-sm tabular-nums"
-                            style={{ color: '#f3f4f6', fontWeight: item.winner === item.team ? 'bold' : 'normal' }}
-                          >
-                            {item.score1}
-                          </span>
-                          <span className="text-[10px] sm:text-sm text-gray-500">-</span>
-                          <span
-                            className="text-[10px] sm:text-sm tabular-nums"
-                            style={{ color: '#f3f4f6', fontWeight: item.winner === item.team2 ? 'bold' : 'normal' }}
-                          >
-                            {item.score2}
-                          </span>
-                          <img
-                            src={getLogoUrl(item.team2)}
-                            alt=""
-                            className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-white p-0.5 flex-shrink-0"
+                            className="w-full h-full object-contain"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                         </div>
                       )}
-                      {/* Standard text (only if not two-team format) */}
+
+                      {item.team && item.team2 && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                            <img
+                              src={getLogoUrl(item.team)}
+                              alt=""
+                              className="w-full h-full object-contain"
+                              onError={(e) => { e.target.style.display = 'none' }}
+                            />
+                          </div>
+                          <span
+                            className="text-[10px] sm:text-xs tabular-nums"
+                            style={{
+                              color: item.winner === item.team ? '#4ade80' : '#e2e8f0',
+                              fontWeight: item.winner === item.team ? '600' : '400'
+                            }}
+                          >
+                            {item.score1}
+                          </span>
+                          <span className="text-[10px] text-slate-600">-</span>
+                          <span
+                            className="text-[10px] sm:text-xs tabular-nums"
+                            style={{
+                              color: item.winner === item.team2 ? '#4ade80' : '#e2e8f0',
+                              fontWeight: item.winner === item.team2 ? '600' : '400'
+                            }}
+                          >
+                            {item.score2}
+                          </span>
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                            <img
+                              src={getLogoUrl(item.team2)}
+                              alt=""
+                              className="w-full h-full object-contain"
+                              onError={(e) => { e.target.style.display = 'none' }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {item.text && !item.team2 && (
-                        <span
-                          className="text-[10px] sm:text-sm"
-                          style={{ color: '#f3f4f6', opacity: item.label ? 0.9 : 1 }}
-                        >
-                          {item.text}
-                        </span>
+                        <span className="text-[10px] sm:text-xs text-slate-300">{item.text}</span>
                       )}
                     </div>
                   </div>
@@ -288,7 +266,6 @@ export default function NewsTicker({ dynasty }) {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </>
