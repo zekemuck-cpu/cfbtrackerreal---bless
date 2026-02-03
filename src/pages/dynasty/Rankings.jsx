@@ -252,12 +252,6 @@ export default function Rankings() {
             {record.wins}-{record.losses}
           </span>
         )}
-
-        {/* Team color accent */}
-        <div
-          className="w-1 h-5 rounded-full flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
-          style={{ backgroundColor: colors.primary }}
-        />
       </Link>
     )
   }
