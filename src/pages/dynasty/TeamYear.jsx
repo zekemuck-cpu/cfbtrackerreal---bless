@@ -2035,12 +2035,12 @@ export default function TeamYear() {
                   className="bg-transparent text-xl sm:text-2xl md:text-3xl font-bold cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
                   style={{
                     color: teamBgText,
-                    width: `${Math.max((getSchoolName(mascotName) || teamInfo.name || '').length * 0.7 + 1, 8)}ch`
+                    width: `${Math.max((mascotName || teamInfo.name || '').length * 0.62 + 2, 12)}ch`
                   }}
                 >
                   {allTeams.map((t) => (
                     <option key={t.tid} value={t.tid} style={{ color: '#000', fontSize: '14px' }}>
-                      {getSchoolName(t.name) || t.name}
+                      {t.name}
                     </option>
                   ))}
                 </select>
