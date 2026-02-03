@@ -5,7 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { bowlLogos, getAllBowlNames } from '../../data/bowlLogos'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -564,7 +564,7 @@ export default function BowlHistory() {
                           <span
                             className={`text-xs sm:text-sm font-medium truncate ${winner === game.team1 ? 'text-white' : 'text-slate-500'}`}
                           >
-                            {team1Mascot?.split(' ').pop() || game.team1}
+                            {getSchoolName(game.team1, currentDynasty?.teams) || game.team1}
                           </span>
                         </div>
 
@@ -584,7 +584,7 @@ export default function BowlHistory() {
                           <span
                             className={`text-xs sm:text-sm font-medium truncate ${winner === game.team2 ? 'text-white' : 'text-slate-500'}`}
                           >
-                            {team2Mascot?.split(' ').pop() || game.team2}
+                            {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
                           </span>
                           {team2Logo && (
                             <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
