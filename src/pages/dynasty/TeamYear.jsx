@@ -10,6 +10,8 @@ import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRou
 // GameDetailModal and GameEntryModal removed - now using game pages
 import RosterEditModal from '../../components/RosterEditModal'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
+import StatsEntryModal from '../../components/StatsEntryModal'
+import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
@@ -180,6 +182,40 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
+// Extract school name from full team name (e.g., "Kentucky Wildcats" -> "Kentucky")
+const getSchoolName = (mascotName) => {
+  if (!mascotName) return ''
+
+  // Three-word mascots that need to be removed
+  const threeWordMascots = ["Fightin' Blue Hens"]
+  for (const mascot of threeWordMascots) {
+    if (mascotName.endsWith(mascot)) {
+      return mascotName.replace(` ${mascot}`, '')
+    }
+  }
+
+  // Two-word mascots that need to be removed
+  const twoWordMascots = [
+    'Crimson Tide', 'Golden Bears', 'Sun Devils', 'Red Wolves', 'Black Knights',
+    'Blue Devils', 'Fighting Illini', 'Yellow Jackets', 'Fighting Irish', 'Nittany Lions',
+    'Scarlet Knights', 'Golden Eagles', 'Demon Deacons', 'Horned Frogs', 'Green Wave',
+    'Golden Hurricane', 'Mean Green', 'Tar Heels', 'Golden Gophers', 'Golden Flashes',
+    'Blue Raiders', 'Wolf Pack', "Ragin' Cajuns", 'Rainbow Warriors'
+  ]
+  for (const mascot of twoWordMascots) {
+    if (mascotName.endsWith(mascot)) {
+      return mascotName.replace(` ${mascot}`, '')
+    }
+  }
+
+  // Default: remove last word (single-word mascot)
+  const words = mascotName.split(' ')
+  if (words.length > 1) {
+    return words.slice(0, -1).join(' ')
+  }
+  return mascotName
+}
+
 // Award display names
 const AWARD_DISPLAY = {
   heisman: 'Heisman Trophy',
@@ -271,6 +307,8 @@ export default function TeamYear() {
   const [showHistoryGamesModal, setShowHistoryGamesModal] = useState(false)
   const [historyGamesModalTitle, setHistoryGamesModalTitle] = useState('')
   const [historyGamesModalGames, setHistoryGamesModalGames] = useState([])
+  const [showStatsEntryModal, setShowStatsEntryModal] = useState(false)
+  const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false)
   const [leadersMode, setLeadersMode] = useState('career') // 'career' or 'season'
   const [leadersCategory, setLeadersCategory] = useState('passing')
   const [editWins, setEditWins] = useState('')
@@ -359,7 +397,8 @@ export default function TeamYear() {
     .map(team => ({
       tid: team.tid,
       abbr: team.abbr,
-      name: team.name
+      name: team.name,
+      shortName: getSchoolName(team.name)
     }))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
@@ -1839,71 +1878,6 @@ export default function TeamYear() {
       className="space-y-4 sm:space-y-6 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-4 sm:pb-6 min-h-screen"
       style={{ backgroundColor: teamInfo.textColor }}
     >
-      {/* Navigation Row - Compact on mobile */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {/* Spacer pushes dropdowns to the right */}
-        <div className="flex-1" />
-
-        {/* Team Dropdown - Compact */}
-        <select
-          value={tid}
-          onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
-          className="max-w-[120px] sm:max-w-[180px] px-2 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-xs sm:text-sm truncate"
-          style={{
-            backgroundColor: teamInfo.backgroundColor,
-            color: teamBgText,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-          }}
-        >
-          {allTeams.map((t) => (
-            <option key={t.tid} value={t.tid}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-
-        {/* Year Dropdown - Compact */}
-        <select
-          value={selectedYear}
-          onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
-          className="w-16 sm:w-20 px-2 py-1.5 sm:py-2 rounded-lg font-semibold cursor-pointer focus:outline-none focus:ring-2 text-xs sm:text-sm"
-          style={{
-            backgroundColor: teamInfo.backgroundColor,
-            color: teamBgText,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-          }}
-        >
-          {availableYears.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-
-        {/* Edit Team Info Button - Smaller on mobile */}
-        {!isViewOnly && (
-          <button
-            onClick={() => {
-              setEditWins(displayRecord?.wins?.toString() || '')
-              setEditLosses(displayRecord?.losses?.toString() || '')
-              setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
-              setShowTeamEditModal(true)
-            }}
-            className="p-1.5 sm:p-2 rounded-lg transition-colors hover:opacity-80 flex-shrink-0"
-            style={{
-              backgroundColor: teamInfo.backgroundColor,
-              color: teamBgText,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-            }}
-            title="Edit Team Info"
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </button>
-        )}
-      </div>
-
       {/* Team Header */}
       <div
         className="rounded-lg shadow-lg p-4 sm:p-6"
@@ -1930,7 +1904,7 @@ export default function TeamYear() {
                 />
               </div>
             )}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* Team Ratings (mobile) */}
               {teamRatings && (
                 <div className="flex gap-1 bg-black/20 rounded-lg px-2 py-1">
@@ -1960,6 +1934,24 @@ export default function TeamYear() {
                   </div>
                 </div>
               )}
+              {/* Edit Team Info Button (mobile) */}
+              {!isViewOnly && (
+                <button
+                  onClick={() => {
+                    setEditWins(displayRecord?.wins?.toString() || '')
+                    setEditLosses(displayRecord?.losses?.toString() || '')
+                    setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
+                    setShowTeamEditModal(true)
+                  }}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-white/20 flex-shrink-0"
+                  style={{ color: teamBgText }}
+                  title="Edit Team Info"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1981,10 +1973,33 @@ export default function TeamYear() {
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm font-semibold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.7 }}>
-              {selectedYear} Season
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Year Selector - embedded in season label */}
+            <div className="flex items-center gap-1.5">
+              <div
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded cursor-pointer hover:bg-white/10 transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+              >
+                <select
+                  value={selectedYear}
+                  onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
+                  className="bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none"
+                  style={{ color: teamBgText }}
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y} style={{ color: '#000' }}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke={teamBgText} viewBox="0 0 24 24" style={{ opacity: 0.7 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              <span className="text-xs sm:text-sm font-semibold uppercase tracking-wide" style={{ color: teamBgText, opacity: 0.6 }}>
+                Season
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
               {/* Ranking Badge - Final poll (yellow) or In-season (blue/gray) */}
               {finalPollRanking ? (
                 <div
@@ -2009,9 +2024,30 @@ export default function TeamYear() {
                   #{unifiedRanking.rank}
                 </div>
               ) : null}
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate" style={{ color: teamBgText }}>
-                {mascotName || teamInfo.name}
-              </h1>
+              {/* Team Selector - embedded in team name */}
+              <div
+                className="inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-white/10 transition-colors"
+                style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+              >
+                <select
+                  value={tid}
+                  onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
+                  className="bg-transparent text-xl sm:text-2xl md:text-3xl font-bold cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
+                  style={{
+                    color: teamBgText,
+                    width: `${Math.max((mascotName || teamInfo.name || '').length * 0.52 + 1, 6)}ch`
+                  }}
+                >
+                  {allTeams.map((t) => (
+                    <option key={t.tid} value={t.tid} style={{ color: '#000', fontSize: '14px' }}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                <svg className="w-5 h-5 flex-shrink-0 mr-1.5" fill="none" stroke={teamBgText} viewBox="0 0 24 24" style={{ opacity: 0.6 }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
               {/* Coaching Staff Popup - show for any team/year with coaching staff data */}
               {(teamCoachingStaff?.hcName || teamCoachingStaff?.ocName || teamCoachingStaff?.dcName) && (
                 <div className="relative">
@@ -2044,77 +2080,77 @@ export default function TeamYear() {
                         onClick={() => setShowCoachingStaffPopup(false)}
                       />
                       <div
-                        className="fixed z-50 w-72 rounded-2xl overflow-hidden"
+                        className="fixed z-50 w-72 rounded-xl overflow-hidden"
                         style={{
-                          backgroundColor: '#18181b',
-                          border: `1px solid ${teamInfo.textColor}40`,
-                          boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 20px ${teamInfo.textColor}30`,
+                          backgroundColor: teamInfo.textColor,
+                          border: `2px solid ${teamInfo.backgroundColor}`,
+                          boxShadow: `0 10px 40px rgba(0,0,0,0.2)`,
                           top: coachingStaffPopupPosition.top,
                           right: coachingStaffPopupPosition.right
                         }}
                       >
-                        <div className="px-4 py-3" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                          <h4 className="font-display font-bold text-sm uppercase tracking-wide" style={{ color: teamBgText }}>
+                        <div className="px-4 py-2.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                          <h4 className="font-bold text-sm" style={{ color: teamBgText }}>
                             {selectedYear} Coaching Staff
                           </h4>
                         </div>
-                        <div className="p-4 space-y-3 " style={{ backgroundColor: `${accentColor}10` }}>
+                        <div className="p-3 space-y-2">
                           {/* Head Coach */}
                           {teamCoachingStaff?.hcName && (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
                               <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: teamInfo.backgroundColor }}
                               >
-                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>HC</span>
+                                <span className="text-xs font-bold" style={{ color: teamBgText }}>HC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider " style={{ color: accentColorMuted }}>
+                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
                                   Head Coach
                                 </div>
-                                <span className="font-semibold truncate " style={{ color: accentColor }}>
+                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
                                   {teamCoachingStaff.hcName}
-                                </span>
+                                </div>
                               </div>
                             </div>
                           )}
 
                           {/* Offensive Coordinator */}
                           {teamCoachingStaff?.ocName && (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
                               <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: teamInfo.backgroundColor }}
                               >
-                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>OC</span>
+                                <span className="text-xs font-bold" style={{ color: teamBgText }}>OC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider " style={{ color: accentColorMuted }}>
+                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
                                   Offensive Coordinator
                                 </div>
-                                <span className="font-semibold truncate " style={{ color: accentColor }}>
+                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
                                   {teamCoachingStaff.ocName}
-                                </span>
+                                </div>
                               </div>
                             </div>
                           )}
 
                           {/* Defensive Coordinator */}
                           {teamCoachingStaff?.dcName && (
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 p-2 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
                               <div
-                                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${teamInfo.textColor}25` }}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: teamInfo.backgroundColor }}
                               >
-                                <span className="font-display text-xs font-bold" style={{ color: teamInfo.textColor }}>DC</span>
+                                <span className="text-xs font-bold" style={{ color: teamBgText }}>DC</span>
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="font-display text-[10px] uppercase font-semibold tracking-wider " style={{ color: accentColorMuted }}>
+                                <div className="text-[10px] uppercase font-semibold tracking-wider" style={{ color: accentColorMuted }}>
                                   Defensive Coordinator
                                 </div>
-                                <span className="font-semibold truncate " style={{ color: accentColor }}>
+                                <div className="font-semibold text-sm" style={{ color: accentColor }}>
                                   {teamCoachingStaff.dcName}
-                                </span>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -2367,7 +2403,7 @@ export default function TeamYear() {
           </div>
 
           {/* Ratings and Record Section (desktop only - mobile shown above) */}
-          <div className="hidden sm:flex items-center gap-6">
+          <div className="hidden sm:flex items-center gap-4">
             {/* Team Ratings (desktop) */}
             {teamRatings && (
               <div className="flex bg-black/20 rounded-lg px-3 py-2">
@@ -2397,6 +2433,24 @@ export default function TeamYear() {
                 </div>
               </div>
             )}
+            {/* Edit Team Info Button (desktop) */}
+            {!isViewOnly && (
+              <button
+                onClick={() => {
+                  setEditWins(displayRecord?.wins?.toString() || '')
+                  setEditLosses(displayRecord?.losses?.toString() || '')
+                  setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
+                  setShowTeamEditModal(true)
+                }}
+                className="p-2 rounded-lg transition-colors hover:bg-white/20 flex-shrink-0"
+                style={{ color: teamBgText }}
+                title="Edit Team Info"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2404,7 +2458,7 @@ export default function TeamYear() {
       {/* Tab Navigation */}
       <div
         className="flex rounded-lg overflow-hidden"
-        style={{ backgroundColor: `${teamInfo.backgroundColor}15`, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+        style={{ backgroundColor: `${teamInfo.backgroundColor}20`, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: `1px solid ${teamInfo.backgroundColor}40` }}
       >
         {[
           { key: 'home', label: 'Home' },
@@ -2416,10 +2470,11 @@ export default function TeamYear() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold transition-all"
+            className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-base font-semibold transition-all whitespace-nowrap"
             style={{
               backgroundColor: activeTab === tab.key ? teamInfo.backgroundColor : 'transparent',
-              color: activeTab === tab.key ? teamBgText : teamInfo.backgroundColor
+              color: activeTab === tab.key ? teamBgText : teamInfo.backgroundColor,
+              borderBottom: activeTab === tab.key ? 'none' : `2px solid transparent`
             }}
           >
             {tab.label}
@@ -2744,11 +2799,11 @@ export default function TeamYear() {
                 {teamLeaders.passing && (
                   <Link
                     to={teamLeaders.passing.player ? `${pathPrefix}/player/${teamLeaders.passing.player.pid}` : '#'}
-                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
-                    style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: teamInfo.textColor, boxShadow: `0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px ${teamInfo.backgroundColor}30` }}
                   >
-                    {/* Player image */}
-                    <div className="w-16 h-16 flex-shrink-0">
+                    {/* Player image - circular */}
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                       {teamLeaders.passing.player?.pictureUrl ? (
                         <img src={teamLeaders.passing.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -2758,9 +2813,9 @@ export default function TeamYear() {
                       )}
                     </div>
                     {/* Stats on right */}
-                    <div className="flex-1 p-3 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Passing</div>
-                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.passing.name}</div>
+                      <div className="text-sm font-semibold truncate" style={{ color: accentColor }}>{teamLeaders.passing.name}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
                         {teamLeaders.passing.stats.yards.toLocaleString()}
                         <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
@@ -2774,11 +2829,11 @@ export default function TeamYear() {
                 {teamLeaders.rushing && (
                   <Link
                     to={teamLeaders.rushing.player ? `${pathPrefix}/player/${teamLeaders.rushing.player.pid}` : '#'}
-                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
-                    style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: teamInfo.textColor, boxShadow: `0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px ${teamInfo.backgroundColor}30` }}
                   >
-                    {/* Player image */}
-                    <div className="w-16 h-16 flex-shrink-0">
+                    {/* Player image - circular */}
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                       {teamLeaders.rushing.player?.pictureUrl ? (
                         <img src={teamLeaders.rushing.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -2788,9 +2843,9 @@ export default function TeamYear() {
                       )}
                     </div>
                     {/* Stats on right */}
-                    <div className="flex-1 p-3 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Rushing</div>
-                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.rushing.name}</div>
+                      <div className="text-sm font-semibold truncate" style={{ color: accentColor }}>{teamLeaders.rushing.name}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
                         {teamLeaders.rushing.stats.yards.toLocaleString()}
                         <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
@@ -2804,11 +2859,11 @@ export default function TeamYear() {
                 {teamLeaders.receiving && (
                   <Link
                     to={teamLeaders.receiving.player ? `${pathPrefix}/player/${teamLeaders.receiving.player.pid}` : '#'}
-                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
-                    style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: teamInfo.textColor, boxShadow: `0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px ${teamInfo.backgroundColor}30` }}
                   >
-                    {/* Player image */}
-                    <div className="w-16 h-16 flex-shrink-0">
+                    {/* Player image - circular */}
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                       {teamLeaders.receiving.player?.pictureUrl ? (
                         <img src={teamLeaders.receiving.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -2818,9 +2873,9 @@ export default function TeamYear() {
                       )}
                     </div>
                     {/* Stats on right */}
-                    <div className="flex-1 p-3 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Receiving</div>
-                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.receiving.name}</div>
+                      <div className="text-sm font-semibold truncate" style={{ color: accentColor }}>{teamLeaders.receiving.name}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
                         {teamLeaders.receiving.stats.yards.toLocaleString()}
                         <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>YDS</span>
@@ -2834,11 +2889,11 @@ export default function TeamYear() {
                 {teamLeaders.tackles && (
                   <Link
                     to={teamLeaders.tackles.player ? `${pathPrefix}/player/${teamLeaders.tackles.player.pid}` : '#'}
-                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
-                    style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: teamInfo.textColor, boxShadow: `0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px ${teamInfo.backgroundColor}30` }}
                   >
-                    {/* Player image */}
-                    <div className="w-16 h-16 flex-shrink-0">
+                    {/* Player image - circular */}
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                       {teamLeaders.tackles.player?.pictureUrl ? (
                         <img src={teamLeaders.tackles.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -2848,9 +2903,9 @@ export default function TeamYear() {
                       )}
                     </div>
                     {/* Stats on right */}
-                    <div className="flex-1 p-3 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Tackles</div>
-                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.tackles.name}</div>
+                      <div className="text-sm font-semibold truncate" style={{ color: accentColor }}>{teamLeaders.tackles.name}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
                         {teamLeaders.tackles.stats.tackles}
                         <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>TKL</span>
@@ -2864,11 +2919,11 @@ export default function TeamYear() {
                 {teamLeaders.interceptions && (
                   <Link
                     to={teamLeaders.interceptions.player ? `${pathPrefix}/player/${teamLeaders.interceptions.player.pid}` : '#'}
-                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex"
-                    style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    className="flex-1 rounded-xl overflow-hidden transition-colors group flex items-center gap-3 px-3 py-2"
+                    style={{ backgroundColor: teamInfo.textColor, boxShadow: `0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px ${teamInfo.backgroundColor}30` }}
                   >
-                    {/* Player image */}
-                    <div className="w-16 h-16 flex-shrink-0">
+                    {/* Player image - circular */}
+                    <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
                       {teamLeaders.interceptions.player?.pictureUrl ? (
                         <img src={teamLeaders.interceptions.player.pictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -2878,9 +2933,9 @@ export default function TeamYear() {
                       )}
                     </div>
                     {/* Stats on right */}
-                    <div className="flex-1 p-3 flex flex-col justify-center">
+                    <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>INTs</div>
-                      <div className="text-sm font-semibold" style={{ color: accentColor }}>{teamLeaders.interceptions.name}</div>
+                      <div className="text-sm font-semibold truncate" style={{ color: accentColor }}>{teamLeaders.interceptions.name}</div>
                       <div className="text-lg font-bold tabular-nums" style={{ color: accentColor }}>
                         {teamLeaders.interceptions.stats.interceptions}
                         <span className="text-xs font-medium ml-1" style={{ color: accentColorMuted }}>INT</span>
@@ -2903,9 +2958,9 @@ export default function TeamYear() {
             <Link
               to={`${pathPrefix}/game/${lastGame.id}`}
               className={`group rounded-xl transition-all overflow-hidden ${(!nextGame) ? 'md:w-1/2' : 'flex-1'}`}
-              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}
             >
-              <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${accentColor}20` }}>
+              <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: `${teamInfo.backgroundColor}15`, borderBottom: `1px solid ${teamInfo.backgroundColor}30` }}>
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Previous Game</span>
                 <span className="text-xs" style={{ color: accentColorMuted }}>
                   {lastGame.isCFPChampionship ? 'Natty' : lastGame.isCFPSemifinal ? 'CFP SF' : lastGame.isCFPQuarterfinal ? 'CFP QF' : lastGame.isCFPFirstRound ? 'CFP R1' : lastGame.isBowlGame ? 'Bowl' : lastGame.isConferenceChampionship ? 'CCG' : `Week ${lastGame.week}`}
@@ -2971,9 +3026,9 @@ export default function TeamYear() {
               <Link
                 to={`${pathPrefix}/game/${nextGame.id}`}
                 className={`group rounded-xl transition-all overflow-hidden ${(!lastGame) ? 'md:w-1/2' : 'flex-1'}`}
-              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}
               >
-                <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${accentColor}20` }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: `${teamInfo.backgroundColor}15`, borderBottom: `1px solid ${teamInfo.backgroundColor}30` }}>
                   <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Next Game</span>
                   <span className="text-xs" style={{ color: accentColorMuted }}>
                     {nextGame.isCFPChampionship ? 'Natty' : nextGame.isCFPSemifinal ? 'CFP SF' : nextGame.isCFPQuarterfinal ? 'CFP QF' : nextGame.isCFPFirstRound ? 'CFP R1' : nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
@@ -3079,14 +3134,14 @@ export default function TeamYear() {
                     Full Schedule →
                   </button>
                 </div>
-                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}>
                   {/* Mobile: Single column */}
                   <div className="sm:hidden">
                     {teamYearGames.map((game, index) => renderGameItem(game, index))}
                   </div>
                   {/* Tablet (sm): 2 columns, column-first order */}
-                  <div className="hidden sm:grid lg:hidden grid-cols-2 divide-x">
-                    <div>
+                  <div className="hidden sm:grid lg:hidden grid-cols-2" style={{ borderColor: `${teamInfo.backgroundColor}30` }}>
+                    <div style={{ borderRight: `1px solid ${teamInfo.backgroundColor}30` }}>
                       {teamYearGames.slice(0, rowsFor2Col).map((game, index) => renderGameItem(game, index))}
                     </div>
                     <div>
@@ -3094,11 +3149,11 @@ export default function TeamYear() {
                     </div>
                   </div>
                   {/* Desktop (lg): 3 columns, column-first order */}
-                  <div className="hidden lg:grid grid-cols-3 divide-x">
-                    <div>
+                  <div className="hidden lg:grid grid-cols-3" style={{ borderColor: `${teamInfo.backgroundColor}30` }}>
+                    <div style={{ borderRight: `1px solid ${teamInfo.backgroundColor}30` }}>
                       {teamYearGames.slice(0, rowsFor3Col).map((game, index) => renderGameItem(game, index))}
                     </div>
-                    <div>
+                    <div style={{ borderRight: `1px solid ${teamInfo.backgroundColor}30` }}>
                       {teamYearGames.slice(rowsFor3Col, rowsFor3Col * 2).map((game, index) => renderGameItem(game, rowsFor3Col + index))}
                     </div>
                     <div>
@@ -3118,7 +3173,7 @@ export default function TeamYear() {
       <div className="space-y-6">
           {/* Roster Section - All Teams */}
           {sortedTeamPlayers.length > 0 && (
-        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+        <div className="rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}>
           {/* Roster Header */}
           <div
             className="cursor-pointer"
@@ -3510,25 +3565,52 @@ export default function TeamYear() {
       {/* STATS TAB */}
       {activeTab === 'stats' && (
         <div className="space-y-4">
-          {/* Player/Team Sub-tabs */}
-          <div className="flex border-b " style={{ borderColor: `${accentColor}20` }}>
-            {[
-              { key: 'player', label: 'Player' },
-              { key: 'team', label: 'Team' }
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setStatsSubTab(tab.key)}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm font-semibold transition-all rounded-t-lg"
-                style={{
-                  backgroundColor: statsSubTab === tab.key ? `${teamInfo.backgroundColor}15` : 'transparent',
-                  color: statsSubTab === tab.key ? accentColor : accentColorMuted,
-                  borderBottom: statsSubTab === tab.key ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent'
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* Player/Team Sub-tabs + Edit Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex border-b sm:border-b-0" style={{ borderColor: `${accentColor}20` }}>
+              {[
+                { key: 'player', label: 'Player' },
+                { key: 'team', label: 'Team' }
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setStatsSubTab(tab.key)}
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm font-semibold transition-all rounded-t-lg"
+                  style={{
+                    backgroundColor: statsSubTab === tab.key ? `${teamInfo.backgroundColor}15` : 'transparent',
+                    color: statsSubTab === tab.key ? accentColor : accentColorMuted,
+                    borderBottom: statsSubTab === tab.key ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {/* Edit Buttons - only show for non-view-only */}
+            {!isViewOnly && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowStatsEntryModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: teamInfo.backgroundColor,
+                    color: teamBgText
+                  }}
+                >
+                  Edit GP/Snaps
+                </button>
+                <button
+                  onClick={() => setShowDetailedStatsModal(true)}
+                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors hover:opacity-80"
+                  style={{
+                    backgroundColor: teamInfo.backgroundColor,
+                    color: teamBgText
+                  }}
+                >
+                  Edit Detailed Stats
+                </button>
+              </div>
+            )}
           </div>
 
           {/* PLAYER STATS SUB-TAB */}
@@ -4323,23 +4405,23 @@ export default function TeamYear() {
                     </div>
 
                     {/* Stat Leaders - Desktop: flex columns that fill remaining space */}
-                    <div className="hidden md:flex flex-1 items-center ml-3 pl-3" style={{ borderLeft: `1px solid ${accentColor}20` }}>
+                    <div className="hidden md:flex flex-1 items-center ml-3 pl-3 min-w-0 overflow-hidden" style={{ borderLeft: `1px solid ${accentColor}20` }}>
                         {/* PASS column */}
                         <div
-                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topPasser?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 min-w-0 flex items-center gap-1 lg:gap-2 ${statLeaders?.topPasser?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topPasser?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topPasser.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topPasser && statLeaders.topPasser.yards > 0 ? (
                             <>
                               {statLeaders.topPasser.player?.pictureUrl ? (
-                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.split(' ').pop()}</span>
-                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topPasser.yards}</span>
+                              <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.split(' ').pop()}</span>
+                              <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: accentColor }}>{statLeaders.topPasser.yards}</span>
                             </>
                           ) : (
                             <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
@@ -4348,20 +4430,20 @@ export default function TeamYear() {
 
                         {/* RUSH column */}
                         <div
-                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topRusher?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 min-w-0 flex items-center gap-1 lg:gap-2 ${statLeaders?.topRusher?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topRusher?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topRusher.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topRusher && statLeaders.topRusher.yards > 0 ? (
                             <>
                               {statLeaders.topRusher.player?.pictureUrl ? (
-                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.split(' ').pop()}</span>
-                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topRusher.yards}</span>
+                              <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.split(' ').pop()}</span>
+                              <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: accentColor }}>{statLeaders.topRusher.yards}</span>
                             </>
                           ) : (
                             <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
@@ -4370,20 +4452,20 @@ export default function TeamYear() {
 
                         {/* REC column */}
                         <div
-                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topReceiver?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 min-w-0 flex items-center gap-1 lg:gap-2 ${statLeaders?.topReceiver?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topReceiver?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topReceiver.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topReceiver && statLeaders.topReceiver.yards > 0 ? (
                             <>
                               {statLeaders.topReceiver.player?.pictureUrl ? (
-                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.split(' ').pop()}</span>
-                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topReceiver.yards}</span>
+                              <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.split(' ').pop()}</span>
+                              <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: accentColor }}>{statLeaders.topReceiver.yards}</span>
                             </>
                           ) : (
                             <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
@@ -4392,20 +4474,20 @@ export default function TeamYear() {
 
                         {/* TACKLES column */}
                         <div
-                          className={`flex-1 flex items-center gap-2 ${statLeaders?.topTackler?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                          className={`flex-1 min-w-0 flex items-center gap-1 lg:gap-2 ${statLeaders?.topTackler?.player?.pid ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                           onClick={statLeaders?.topTackler?.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topTackler.player.pid}`) } : undefined}
                         >
                           {statLeaders?.topTackler && statLeaders.topTackler.tackles > 0 ? (
                             <>
                               {statLeaders.topTackler.player?.pictureUrl ? (
-                                <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0" style={{ borderColor: `${accentColor}20` }} />
+                                <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${accentColor}20` }} />
                               ) : (
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}20` }}>
+                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${accentColor}20` }}>
                                   <span className="text-xs font-bold" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
                                 </div>
                               )}
-                              <span className="text-xs truncate" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.split(' ').pop()}</span>
-                              <span className="text-sm font-bold" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
+                              <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.split(' ').pop()}</span>
+                              <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
                             </>
                           ) : (
                             <span className="text-xs" style={{ color: `${accentColor}40` }}>—</span>
@@ -4419,20 +4501,14 @@ export default function TeamYear() {
                     <div className="md:hidden mt-1.5 pt-1.5 border-t" style={{ borderColor: `${accentColor}15` }}>
                       <div className="grid grid-cols-4 gap-1">
                         {/* PASS */}
-                        <div className="text-center">
+                        <div className="text-center min-w-0">
                           <div className="text-[7px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: accentColorMuted }}>Pass</div>
                           {statLeaders.topPasser && statLeaders.topPasser.yards > 0 ? (
                             <div
-                              className={`flex items-center justify-center gap-1 ${statLeaders.topPasser.player?.pid ? 'cursor-pointer' : ''}`}
+                              className={`flex flex-col items-center ${statLeaders.topPasser.player?.pid ? 'cursor-pointer' : ''}`}
                               onClick={statLeaders.topPasser.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topPasser.player.pid}`) } : undefined}
                             >
-                              {statLeaders.topPasser.player?.pictureUrl ? (
-                                <img src={statLeaders.topPasser.player.pictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[6px] font-bold " style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <span className="text-[8px] truncate max-w-full" style={{ color: accentColorMuted }}>{statLeaders.topPasser.name.split(' ').pop()}</span>
                               <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topPasser.yards}</span>
                             </div>
                           ) : (
@@ -4441,20 +4517,14 @@ export default function TeamYear() {
                         </div>
 
                         {/* RUSH */}
-                        <div className="text-center">
+                        <div className="text-center min-w-0">
                           <div className="text-[7px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: accentColorMuted }}>Rush</div>
                           {statLeaders.topRusher && statLeaders.topRusher.yards > 0 ? (
                             <div
-                              className={`flex items-center justify-center gap-1 ${statLeaders.topRusher.player?.pid ? 'cursor-pointer' : ''}`}
+                              className={`flex flex-col items-center ${statLeaders.topRusher.player?.pid ? 'cursor-pointer' : ''}`}
                               onClick={statLeaders.topRusher.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topRusher.player.pid}`) } : undefined}
                             >
-                              {statLeaders.topRusher.player?.pictureUrl ? (
-                                <img src={statLeaders.topRusher.player.pictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[6px] font-bold " style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <span className="text-[8px] truncate max-w-full" style={{ color: accentColorMuted }}>{statLeaders.topRusher.name.split(' ').pop()}</span>
                               <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topRusher.yards}</span>
                             </div>
                           ) : (
@@ -4463,20 +4533,14 @@ export default function TeamYear() {
                         </div>
 
                         {/* REC */}
-                        <div className="text-center">
+                        <div className="text-center min-w-0">
                           <div className="text-[7px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: accentColorMuted }}>Rec</div>
                           {statLeaders.topReceiver && statLeaders.topReceiver.yards > 0 ? (
                             <div
-                              className={`flex items-center justify-center gap-1 ${statLeaders.topReceiver.player?.pid ? 'cursor-pointer' : ''}`}
+                              className={`flex flex-col items-center ${statLeaders.topReceiver.player?.pid ? 'cursor-pointer' : ''}`}
                               onClick={statLeaders.topReceiver.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topReceiver.player.pid}`) } : undefined}
                             >
-                              {statLeaders.topReceiver.player?.pictureUrl ? (
-                                <img src={statLeaders.topReceiver.player.pictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
-                                  <span className="text-[6px] font-bold " style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <span className="text-[8px] truncate max-w-full" style={{ color: accentColorMuted }}>{statLeaders.topReceiver.name.split(' ').pop()}</span>
                               <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topReceiver.yards}</span>
                             </div>
                           ) : (
@@ -4485,22 +4549,16 @@ export default function TeamYear() {
                         </div>
 
                         {/* TACKLES */}
-                        <div className="text-center">
+                        <div className="text-center min-w-0">
                           <div className="text-[7px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: accentColorMuted }}>Tackles</div>
                           {statLeaders.topTackler && statLeaders.topTackler.tackles > 0 ? (
                             <div
-                              className={`flex items-center justify-center gap-1 ${statLeaders.topTackler.player?.pid ? 'cursor-pointer' : ''}`}
+                              className={`flex flex-col items-center ${statLeaders.topTackler.player?.pid ? 'cursor-pointer' : ''}`}
                               onClick={statLeaders.topTackler.player?.pid ? (e) => { e.preventDefault(); e.stopPropagation(); navigate(`${pathPrefix}/player/${statLeaders.topTackler.player.pid}`) } : undefined}
                             >
-                              {statLeaders.topTackler.player?.pictureUrl ? (
-                                  <img src={statLeaders.topTackler.player.pictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}20` }}>
-                                    <span className="text-[6px] font-bold " style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
-                                  </div>
-                                )}
-                                <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
-                              </div>
+                              <span className="text-[8px] truncate max-w-full" style={{ color: accentColorMuted }}>{statLeaders.topTackler.name.split(' ').pop()}</span>
+                              <span className="text-[10px] font-semibold" style={{ color: accentColor }}>{statLeaders.topTackler.tackles}</span>
+                            </div>
                           ) : (
                             <span className="text-[10px] " style={{ color: `${accentColor}40` }}>—</span>
                           )}
@@ -4933,6 +4991,30 @@ export default function TeamYear() {
         const bowlGamesPlayed = yearRecords.filter(yr => yr.bowlResult)
         const bowlWins = yearRecords.filter(yr => yr.bowlResult?.won)
 
+        // Calculate AP Top 25 finishes
+        const apTop25Finishes = yearRecords.filter(yr => yr.finalRank && yr.finalRank <= 25)
+
+        // Calculate All-Americans for this team
+        const teamAllAmericans = (currentDynasty.players || []).filter(p => {
+          // Check if player was on this team and has all-american honors
+          const wasOnTeam = Object.entries(p.teamsByYear || {}).some(([year, team]) => {
+            const playerTid = resolveTid(team, teamsSource)
+            return playerTid === tid
+          }) || (p.teamHistory || []).some(stint => {
+            const stintTid = stint.teamTid || resolveTid(stint.team, teamsSource)
+            return stintTid === tid
+          }) || resolveTid(p.team, teamsSource) === tid
+
+          if (!wasOnTeam) return false
+
+          // Check for all-american honors
+          const honors = p.honors || p.awards || []
+          return honors.some(h => {
+            const honorStr = typeof h === 'string' ? h.toLowerCase() : (h.award || h.type || '').toLowerCase()
+            return honorStr.includes('all-american') || honorStr.includes('all american')
+          })
+        })
+
         // Get all games for this team to calculate user history
         const allTeamGames = (currentDynasty.games || []).filter(g => {
           const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
@@ -4974,7 +5056,233 @@ export default function TeamYear() {
 
         return (
           <div className="space-y-4">
-            {/* Summary Stats Bar */}
+            {/* Program Overview - Sleek Modern Design */}
+            <div className="rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: teamInfo.textColor }}>
+              {/* Hero Section - All-Time Record */}
+              <div
+                className="relative px-6 py-5"
+                style={{
+                  background: `linear-gradient(135deg, ${teamInfo.backgroundColor} 0%, ${teamInfo.backgroundColor}dd 100%)`
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: `${teamBgText}80` }}>
+                      Program Record
+                    </div>
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-4xl font-black tracking-tight tabular-nums" style={{ color: teamBgText }}>
+                        {allTimeWins}-{allTimeLosses}
+                      </span>
+                      <span
+                        className="text-lg font-semibold px-2 py-0.5 rounded"
+                        style={{
+                          backgroundColor: `${teamBgText}15`,
+                          color: teamBgText
+                        }}
+                      >
+                        {winPct}%
+                      </span>
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: `${teamBgText}70` }}>
+                      {yearsWithRecords.length} season{yearsWithRecords.length !== 1 ? 's' : ''} tracked
+                    </div>
+                  </div>
+
+                  {/* Championship Trophy Icon - only if has titles */}
+                  {nationalChampionships.length > 0 && (
+                    <div
+                      className="flex flex-col items-center cursor-pointer hover:scale-105 transition-transform"
+                      onClick={() => {
+                        const games = nationalChampionships.flatMap(yr => yr.cfpResult?.games || [])
+                        setHistoryGamesModalTitle('National Championships')
+                        setHistoryGamesModalGames(games)
+                        setShowHistoryGamesModal(true)
+                      }}
+                    >
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                        style={{ backgroundColor: '#fbbf24', color: '#78350f' }}
+                      >
+                        {nationalChampionships.length}
+                      </div>
+                      <div className="text-[10px] font-bold uppercase mt-1" style={{ color: '#fbbf24' }}>
+                        {nationalChampionships.length === 1 ? 'Title' : 'Titles'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 sm:grid-cols-6 divide-x" style={{ borderTop: `1px solid ${accentColor}10`, divideColor: `${accentColor}10` }}>
+                {/* AP Top 25 */}
+                <div className="px-3 py-4 text-center">
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: apTop25Finishes.length > 0 ? '#eab308' : accentColorMuted }}>
+                    {apTop25Finishes.length}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: accentColorMuted }}>
+                    Top 25
+                  </div>
+                </div>
+
+                {/* Conference Titles */}
+                <div
+                  className={`px-3 py-4 text-center transition-colors ${conferenceChampionships.length > 0 ? 'cursor-pointer hover:bg-black/[0.02]' : ''}`}
+                  onClick={() => {
+                    if (conferenceChampionships.length > 0) {
+                      const games = conferenceChampionships.map(yr => yr.ccResult?.game).filter(Boolean)
+                      setHistoryGamesModalTitle('Conference Championships')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }
+                  }}
+                >
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: conferenceChampionships.length > 0 ? accentColor : accentColorMuted }}>
+                    {conferenceChampionships.length}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: accentColorMuted }}>
+                    Conf Titles
+                  </div>
+                </div>
+
+                {/* Bowl Games */}
+                <div
+                  className={`px-3 py-4 text-center transition-colors ${bowlGamesPlayed.length > 0 ? 'cursor-pointer hover:bg-black/[0.02]' : ''}`}
+                  onClick={() => {
+                    if (bowlGamesPlayed.length > 0) {
+                      const games = bowlGamesPlayed.map(yr => yr.bowlResult?.game).filter(Boolean)
+                      setHistoryGamesModalTitle('Bowl Games')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }
+                  }}
+                >
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: bowlGamesPlayed.length > 0 ? accentColor : accentColorMuted }}>
+                    {bowlGamesPlayed.length > 0 ? `${bowlWins.length}-${bowlGamesPlayed.length - bowlWins.length}` : '0'}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: accentColorMuted }}>
+                    Bowls
+                  </div>
+                </div>
+
+                {/* CFP Appearances */}
+                <div
+                  className={`px-3 py-4 text-center transition-colors ${cfpAppearances.length > 0 ? 'cursor-pointer hover:bg-black/[0.02]' : ''}`}
+                  onClick={() => {
+                    if (cfpAppearances.length > 0) {
+                      const games = cfpAppearances.flatMap(yr => yr.cfpResult?.games || [])
+                      setHistoryGamesModalTitle('CFP Appearances')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }
+                  }}
+                >
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: cfpAppearances.length > 0 ? accentColor : accentColorMuted }}>
+                    {cfpAppearances.length}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: accentColorMuted }}>
+                    CFP
+                  </div>
+                </div>
+
+                {/* National Titles */}
+                <div
+                  className={`px-3 py-4 text-center transition-colors ${nationalChampionships.length > 0 ? 'cursor-pointer hover:bg-black/[0.02]' : ''}`}
+                  style={{ backgroundColor: nationalChampionships.length > 0 ? '#fbbf2408' : 'transparent' }}
+                  onClick={() => {
+                    if (nationalChampionships.length > 0) {
+                      const games = nationalChampionships.flatMap(yr => yr.cfpResult?.games || [])
+                      setHistoryGamesModalTitle('National Championships')
+                      setHistoryGamesModalGames(games)
+                      setShowHistoryGamesModal(true)
+                    }
+                  }}
+                >
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: nationalChampionships.length > 0 ? '#eab308' : accentColorMuted }}>
+                    {nationalChampionships.length}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: nationalChampionships.length > 0 ? '#a16207' : accentColorMuted }}>
+                    Natl Titles
+                  </div>
+                </div>
+
+                {/* All-Americans */}
+                <div
+                  className={`px-3 py-4 text-center transition-colors ${teamAllAmericans.length > 0 ? 'cursor-pointer hover:bg-black/[0.02]' : ''}`}
+                  onClick={() => {
+                    if (teamAllAmericans.length > 0) {
+                      navigate(`${pathPrefix}/all-americans`)
+                    }
+                  }}
+                >
+                  <div className="text-2xl font-bold tabular-nums" style={{ color: teamAllAmericans.length > 0 ? accentColor : accentColorMuted }}>
+                    {teamAllAmericans.length}
+                  </div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: accentColorMuted }}>
+                    All-Amer
+                  </div>
+                </div>
+              </div>
+
+              {/* Your History Bar */}
+              <div
+                className="flex items-stretch divide-x"
+                style={{
+                  borderTop: `1px solid ${accentColor}10`,
+                  backgroundColor: `${accentColor}03`,
+                  divideColor: `${accentColor}10`
+                }}
+              >
+                <div className="flex-1 px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accentColorMuted }}>
+                      As {teamAbbr} Coach
+                    </div>
+                    {userCoachingYears.length > 0 ? (
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        <span className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
+                          {userAsCoachWins}-{userAsCoachLosses}
+                        </span>
+                        <span className="text-xs" style={{ color: accentColorMuted }}>
+                          {((userAsCoachWins / (userAsCoachWins + userAsCoachLosses || 1)) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-sm font-medium mt-0.5" style={{ color: accentColorMuted }}>—</div>
+                    )}
+                  </div>
+                  {userCoachingYears.length > 0 && (
+                    <div
+                      className="text-xs font-medium px-2 py-1 rounded-full"
+                      style={{ backgroundColor: `${accentColor}10`, color: accentColor }}
+                    >
+                      {userCoachingYears.length} yr{userCoachingYears.length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 px-4 py-3">
+                  <div className="text-[10px] font-bold uppercase tracking-wide" style={{ color: accentColorMuted }}>
+                    Vs {teamAbbr}
+                  </div>
+                  {(userVsTeamWins > 0 || userVsTeamLosses > 0) ? (
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className="text-xl font-bold tabular-nums" style={{ color: accentColor }}>
+                        {userVsTeamWins}-{userVsTeamLosses}
+                      </span>
+                      <span className="text-xs" style={{ color: accentColorMuted }}>
+                        {((userVsTeamWins / (userVsTeamWins + userVsTeamLosses || 1)) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-sm font-medium mt-0.5" style={{ color: accentColorMuted }}>—</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Season History Table */}
             <div
               className="rounded-lg overflow-hidden"
               style={{
@@ -4982,71 +5290,8 @@ export default function TeamYear() {
                 border: `2px solid ${teamInfo.backgroundColor}`
               }}
             >
-              <div className="px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm" style={{ borderBottom: `1px solid ${accentColor}20` }}>
-                <span style={{ color: accentColor }}>
-                  <span className="font-bold">{yearsWithRecords.length}</span>
-                  <span style={{ color: accentColorMuted }}> Seasons</span>
-                </span>
-                <span style={{ color: accentColor }}>
-                  <span className="font-bold">{allTimeWins}-{allTimeLosses}</span>
-                  <span style={{ color: accentColorMuted }}> ({winPct}%)</span>
-                </span>
-                {nationalChampionships.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const games = nationalChampionships.flatMap(yr => yr.cfpResult?.games || [])
-                      setHistoryGamesModalTitle('National Championships')
-                      setHistoryGamesModalGames(games)
-                      setShowHistoryGamesModal(true)
-                    }}
-                    className="hover:underline"
-                    style={{ color: '#eab308' }}
-                  >
-                    <span className="font-bold">{nationalChampionships.length}</span> Natl Champ{nationalChampionships.length !== 1 ? 's' : ''}
-                  </button>
-                )}
-                {conferenceChampionships.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const games = conferenceChampionships.map(yr => yr.ccResult?.game).filter(Boolean)
-                      setHistoryGamesModalTitle('Conference Championships')
-                      setHistoryGamesModalGames(games)
-                      setShowHistoryGamesModal(true)
-                    }}
-                    className="hover:underline"
-                    style={{ color: accentColor }}
-                  >
-                    <span className="font-bold">{conferenceChampionships.length}</span> Conf Champ{conferenceChampionships.length !== 1 ? 's' : ''}
-                  </button>
-                )}
-                {cfpAppearances.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const games = cfpAppearances.flatMap(yr => yr.cfpResult?.games || [])
-                      setHistoryGamesModalTitle('CFP Appearances')
-                      setHistoryGamesModalGames(games)
-                      setShowHistoryGamesModal(true)
-                    }}
-                    className="hover:underline"
-                    style={{ color: accentColor }}
-                  >
-                    <span className="font-bold">{cfpAppearances.length}</span> CFP App{cfpAppearances.length !== 1 ? 's' : ''}
-                  </button>
-                )}
-                {bowlGamesPlayed.length > 0 && (
-                  <button
-                    onClick={() => {
-                      const games = bowlGamesPlayed.map(yr => yr.bowlResult?.game).filter(Boolean)
-                      setHistoryGamesModalTitle('Bowl Games')
-                      setHistoryGamesModalGames(games)
-                      setShowHistoryGamesModal(true)
-                    }}
-                    className="hover:underline"
-                    style={{ color: accentColor }}
-                  >
-                    <span className="font-bold">{bowlWins.length}-{bowlGamesPlayed.length - bowlWins.length}</span> Bowls
-                  </button>
-                )}
+              <div className="px-4 py-2" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                <h3 className="text-sm font-bold" style={{ color: teamBgText }}>Season History</h3>
               </div>
 
               {/* Season Table */}
@@ -5339,33 +5584,6 @@ export default function TeamYear() {
               )
             })()}
 
-            {/* Your History Section */}
-            {(userCoachingYears.length > 0 || userVsTeamWins > 0 || userVsTeamLosses > 0) && (
-              <div
-                className="rounded-lg overflow-hidden"
-                style={{
-                  backgroundColor: teamInfo.textColor,
-                  border: `2px solid ${teamInfo.backgroundColor}`
-                }}
-              >
-                <div className="px-4 py-2" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                  <h3 className="text-sm font-bold" style={{ color: teamBgText }}>Your History</h3>
-                </div>
-                <div className="px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                  {userCoachingYears.length > 0 && (
-                    <span style={{ color: accentColorMuted }}>
-                      As Coach: <span className="font-semibold" style={{ color: accentColor }}>{userAsCoachWins}-{userAsCoachLosses}</span>
-                      <span className="ml-1">({userCoachingYears[0]}{userCoachingYears.length > 1 ? `-${userCoachingYears[userCoachingYears.length - 1]}` : ''})</span>
-                    </span>
-                  )}
-                  {(userVsTeamWins > 0 || userVsTeamLosses > 0) && (
-                    <span style={{ color: accentColorMuted }}>
-                      vs {mascotName}: <span className="font-semibold" style={{ color: accentColor }}>{userVsTeamWins}-{userVsTeamLosses}</span>
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )
       })()}
@@ -5377,6 +5595,161 @@ export default function TeamYear() {
         isOpen={showRosterModal}
         onClose={() => setShowRosterModal(false)}
         onSave={handleRosterSave}
+        currentYear={selectedYear}
+        teamColors={viewedTeamColors}
+        teamAbbr={teamAbbr}
+        teamName={mascotName || teamAbbr}
+      />
+
+      {/* Stats Entry Modal (GP/Snaps) */}
+      <StatsEntryModal
+        isOpen={showStatsEntryModal}
+        onClose={() => setShowStatsEntryModal(false)}
+        onSave={async (stats) => {
+          const year = String(selectedYear)
+
+          // Update each player's statsByYear with gamesPlayed/snapsPlayed
+          const updatedPlayers = (currentDynasty.players || []).map(player => {
+            // Find this player's stats in the returned array
+            const playerStats = stats.find(s =>
+              (s.pid && player.pid && Number(s.pid) === Number(player.pid)) ||
+              (s.name && player.name && s.name.toLowerCase().trim() === player.name.toLowerCase().trim())
+            )
+
+            if (!playerStats) return player
+
+            const existingStatsByYear = { ...(player.statsByYear || {}) }
+            const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
+            existingStatsByYear[year] = {
+              ...existingYearStats,
+              gamesPlayed: playerStats.gamesPlayed,
+              snapsPlayed: playerStats.snapsPlayed
+            }
+
+            return { ...player, statsByYear: existingStatsByYear }
+          })
+
+          await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+        }}
+        currentYear={selectedYear}
+        teamColors={viewedTeamColors}
+        teamAbbr={teamAbbr}
+        teamName={mascotName || teamAbbr}
+      />
+
+      {/* Detailed Stats Entry Modal */}
+      <DetailedStatsEntryModal
+        isOpen={showDetailedStatsModal}
+        onClose={() => setShowDetailedStatsModal(false)}
+        onSave={async (detailedStats) => {
+          const year = String(selectedYear)
+
+          // Category mapping from sheet names to internal names
+          const categoryMapping = {
+            'Passing': 'passing', 'Rushing': 'rushing', 'Receiving': 'receiving',
+            'Blocking': 'blocking', 'Defensive': 'defense', 'Kicking': 'kicking',
+            'Punting': 'punting', 'Kick Return': 'kickReturn', 'Punt Return': 'puntReturn'
+          }
+
+          // Mapping from sheet column names to internal stat keys
+          const SHEET_TO_INTERNAL = {
+            passing: {
+              Completions: 'cmp', Attempts: 'att', Yards: 'yds', Touchdowns: 'td',
+              Interceptions: 'int', 'Passing Long': 'lng', 'Sacks Taken': 'sacks'
+            },
+            rushing: {
+              Carries: 'car', Yards: 'yds', Touchdowns: 'td', 'Rushing Long': 'lng',
+              Fumbles: 'fum', 'Broken Tackles': 'bt', 'Yards After Contact': 'yac'
+            },
+            receiving: {
+              Receptions: 'rec', Yards: 'yds', Touchdowns: 'td', 'Receiving Long': 'lng',
+              Drops: 'drops', 'Yards After Catch': 'rac'
+            },
+            blocking: {
+              'Sacks Allowed': 'sacksAllowed', Pancakes: 'pancakes'
+            },
+            defense: {
+              'Solo Tackles': 'soloTkl', 'Assisted Tackles': 'astTkl', 'Tackles for Loss': 'tfl',
+              Sacks: 'sacks', Interceptions: 'int', 'INT Return Yards': 'intYds',
+              Deflections: 'pd', 'Forced Fumbles': 'ff', 'Fumble Recoveries': 'fr', 'Defensive TDs': 'td'
+            },
+            kicking: {
+              'FG Made': 'fgm', 'FG Attempted': 'fga', 'FG Long': 'lng',
+              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks'
+            },
+            punting: {
+              Punts: 'punts', 'Punting Yards': 'yds', 'Net Punting Yards': 'netYds',
+              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb'
+            },
+            kickReturn: {
+              'Kickoff Returns': 'ret', 'KR Yardage': 'yds', 'KR Touchdowns': 'td', 'KR Long': 'lng'
+            },
+            puntReturn: {
+              'Punt Returns': 'ret', 'PR Yardage': 'yds', 'PR Touchdowns': 'td', 'PR Long': 'lng'
+            }
+          }
+
+          // Convert sheet format to internal format, skipping null values
+          const convertToInternal = (statsOnly, categoryName) => {
+            const mapping = SHEET_TO_INTERNAL[categoryName] || {}
+            const converted = {}
+            Object.entries(statsOnly).forEach(([key, value]) => {
+              if (value === null || value === undefined) return
+              const internalKey = mapping[key] || key
+              const numValue = typeof value === 'string' ? parseFloat(value) : value
+              if (!isNaN(numValue)) {
+                converted[internalKey] = numValue
+              }
+            })
+            return converted
+          }
+
+          // Build a map of player stats by name
+          const playerStatsMap = new Map()
+          Object.entries(detailedStats).forEach(([categoryName, players]) => {
+            const internalCat = categoryMapping[categoryName] || categoryName.toLowerCase()
+            if (Array.isArray(players)) {
+              players.forEach(playerData => {
+                if (!playerData.name) return
+                const key = playerData.name.toLowerCase().trim()
+                if (!playerStatsMap.has(key)) {
+                  playerStatsMap.set(key, {})
+                }
+                const statsOnly = { ...playerData }
+                delete statsOnly.name
+                delete statsOnly.pid
+                const convertedStats = convertToInternal(statsOnly, internalCat)
+                if (Object.keys(convertedStats).length > 0) {
+                  playerStatsMap.get(key)[internalCat] = convertedStats
+                }
+              })
+            }
+          })
+
+          // Update players with merged stats
+          const updatedPlayers = (currentDynasty.players || []).map(player => {
+            const key = player.name?.toLowerCase().trim()
+            const newStats = playerStatsMap.get(key)
+            if (!newStats) return player
+
+            const existingStatsByYear = { ...(player.statsByYear || {}) }
+            const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
+
+            // Merge new category stats with existing, preserving gamesPlayed/snapsPlayed
+            const mergedYearStats = { ...existingYearStats }
+            Object.entries(newStats).forEach(([category, categoryStats]) => {
+              mergedYearStats[category] = {
+                ...(existingYearStats[category] || {}),
+                ...categoryStats
+              }
+            })
+            existingStatsByYear[year] = mergedYearStats
+
+            return { ...player, statsByYear: existingStatsByYear }
+          })
+
+          await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+        }}
         currentYear={selectedYear}
         teamColors={viewedTeamColors}
         teamAbbr={teamAbbr}

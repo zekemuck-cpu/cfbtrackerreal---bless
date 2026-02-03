@@ -1668,24 +1668,17 @@ export function processBoxScoreDelete(players, oldContribution, year) {
  * @param {Array} players - Current players array
  * @param {Array} games - All games array
  * @param {number} year - The year to recalculate
- * @param {number|string} userTeamTidOrAbbr - The user's team tid or abbreviation
  * @returns {Array} Updated players array with recalculated stats
  */
-export function recalculateStatsFromBoxScores(players, games, year, userTeamTidOrAbbr) {
+export function recalculateStatsFromBoxScores(players, games, year) {
   const yearNum = Number(year)
 
-  // Convert to tid for consistent comparison
-  const userTid = typeof userTeamTidOrAbbr === 'number' ? userTeamTidOrAbbr : getTidFromAbbr(userTeamTidOrAbbr)
-
   // Get all games for this year that have box scores
-  // Support both new (userTid) and old (userTeam) fields
-  const gamesWithBoxScores = (games || []).filter(g => {
-    if (Number(g.year) !== yearNum || !g.boxScore) return false
-    // Prefer tid comparison, fall back to abbr comparison
-    if (g.userTid) return g.userTid === userTid
-    if (g.userTeam) return g.userTeam === userTeamTidOrAbbr || getTidFromAbbr(g.userTeam) === userTid
-    return false
-  })
+  // NOTE: Don't filter by team - we want stats from ALL games where players appeared
+  // This matches getPlayerBoxScoreTotals() behavior
+  const gamesWithBoxScores = (games || []).filter(g =>
+    Number(g.year) === yearNum && g.boxScore
+  )
 
   // Build aggregated stats for each player from all box scores
   const aggregatedStats = {} // { normalizedPlayerName: { category: { field: value } } }
@@ -9669,15 +9662,14 @@ export function DynastyProvider({ children }) {
       throw new Error('Dynasty not found')
     }
 
-    const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-    console.log('Syncing stats for team:', userTeamAbbr, 'year:', year)
-    console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
+    const gamesWithBoxScores = (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year)).length
+    console.log('Syncing stats for year:', year)
+    console.log('Games with box scores:', gamesWithBoxScores)
 
     const updatedPlayers = recalculateStatsFromBoxScores(
       dynasty.players || [],
       dynasty.games || [],
-      year,
-      userTeamAbbr
+      year
     )
 
     console.log('Updated', updatedPlayers.length, 'players')

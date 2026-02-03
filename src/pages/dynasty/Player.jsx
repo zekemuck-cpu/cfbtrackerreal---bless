@@ -909,7 +909,7 @@ export default function Player() {
           {/* Team and Class */}
           <div className="flex items-center justify-between">
             <Link
-              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}`}
+              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
               className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
               style={{ color: primaryText, opacity: 0.9 }}
             >
@@ -992,7 +992,7 @@ export default function Player() {
                 : transferredFromTeam
               return (
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
+                  to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}/${currentYear - 1}`}
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                 >
@@ -1115,7 +1115,7 @@ export default function Player() {
 
               <div className="flex items-center gap-2 mb-2">
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}`}
+                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
                   style={{ color: primaryText, opacity: 0.9 }}
                 >
@@ -1176,7 +1176,7 @@ export default function Player() {
                     : transferredFromTeam
                   return (
                     <Link
-                      to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}`}
+                      to={`${pathPrefix}/team/${resolveTid(transferredFromTeam, currentDynasty?.teams || TEAMS)}/${currentYear - 1}`}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold hover:opacity-80 transition-opacity"
                       style={{ backgroundColor: prevTeamColors.primary, color: prevTeamTextColor }}
                     >

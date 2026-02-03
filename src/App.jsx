@@ -24,7 +24,6 @@ import AllAmericans from './pages/dynasty/AllAmericans'
 import AllConference from './pages/dynasty/AllConference'
 import DynastyRecords from './pages/dynasty/DynastyRecords'
 import Teams from './pages/dynasty/Teams'
-import Team from './pages/dynasty/Team'
 import TeamYear from './pages/dynasty/TeamYear'
 import BowlHistory from './pages/dynasty/BowlHistory'
 import ConferenceChampionshipHistory from './pages/dynasty/ConferenceChampionshipHistory'
@@ -87,7 +86,6 @@ function AppRoutes() {
           <Route path="all-conference/:year/:conference" element={<AllConference />} />
           <Route path="dynasty-records" element={<DynastyRecords />} />
           <Route path="teams" element={<Teams />} />
-          <Route path="team/:tid" element={<Team />} />
           <Route path="team/:tid/:year" element={<TeamYear />} />
           <Route path="bowl-history" element={<BowlHistory />} />
           <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
@@ -162,7 +160,6 @@ function AppRoutes() {
                 <Route path="all-conference/:year/:conference" element={<AllConference />} />
                 <Route path="dynasty-records" element={<DynastyRecords />} />
                 <Route path="teams" element={<Teams />} />
-                <Route path="team/:tid" element={<Team />} />
                 <Route path="team/:tid/:year" element={<TeamYear />} />
                 <Route path="bowl-history" element={<BowlHistory />} />
                 <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
