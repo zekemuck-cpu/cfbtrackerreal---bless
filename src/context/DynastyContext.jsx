@@ -10632,7 +10632,7 @@ export function DynastyProvider({ children }) {
 
         // If player should NOT be on roster but IS, remove them
         let wasRemovedFromCurrentYear = false
-        let updatedTeamHistory = player.teamHistory ? [...player.teamHistory] : null
+        // Note: updatedTeamHistory is already initialized at the top of the map callback
         if (!shouldBeOnRoster && (updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)])) {
           // Only remove if it's this team's entry
           const currentYearTeam = updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)]
