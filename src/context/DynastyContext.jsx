@@ -3638,7 +3638,44 @@ export function migrateRosterData(dynasty) {
       // Check if they've enrolled (not a future recruit)
       const hasEnrolled = !player.recruitYear || Number(currentYear) > Number(player.recruitYear)
 
-      if (isOnCurrentTeam && notLeaving && hasEnrolled) {
+      // CRITICAL: Also check if player has departed via teamHistory or movements
+      // This prevents re-adding players that were fixed by "Fix Roster" button
+      const previousYear = currentYear - 1
+
+      // Check if player has a closed teamHistory stint (they left the team)
+      const hasClosedStint = player.teamHistory && player.teamHistory.some(stint => {
+        const stintTeamMatches = Number(stint.teamTid) === teamTid
+        const stintClosed = stint.toYear !== null && stint.toYear !== undefined
+        const stintEndedBeforeCurrentYear = stintClosed && Number(stint.toYear) < currentYear
+        return stintTeamMatches && stintEndedBeforeCurrentYear
+      })
+
+      // Check if player has a departure movement from this team
+      const hasDepartureMovement = (player.movements || []).some(m => {
+        const isDeparture = m.type === 'departure' || m.type === 'transfer' || m.type === 'entered_portal'
+        const fromThisTeam = m.from === teamTid || m.from === teamAbbr ||
+                             (typeof m.from === 'string' && getTidFromAbbr(m.from) === teamTid)
+        return isDeparture && fromThisTeam
+      })
+
+      // Check if player is in the playersLeavingByYear list
+      const leavingByYear = dynasty.playersLeavingByYear?.[previousYear] ||
+                            dynasty.playersLeavingByYear?.[String(previousYear)] || []
+      const leavingByTeamAbbr = dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[previousYear] ||
+                                dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[String(previousYear)] || []
+      const leavingByTeamTid = dynasty.playersLeavingByTeamYear?.[teamTid]?.[previousYear] ||
+                               dynasty.playersLeavingByTeamYear?.[teamTid]?.[String(previousYear)] ||
+                               dynasty.playersLeavingByTeamYear?.[String(teamTid)]?.[previousYear] ||
+                               dynasty.playersLeavingByTeamYear?.[String(teamTid)]?.[String(previousYear)] || []
+      const allLeavingList = [...leavingByYear, ...leavingByTeamAbbr, ...leavingByTeamTid]
+      const isInLeavingList = allLeavingList.some(l =>
+        l.pid === player.pid || l.playerName?.toLowerCase() === player.name?.toLowerCase()
+      )
+
+      // Player has departed - don't re-add them
+      const hasActuallyDeparted = hasClosedStint || hasDepartureMovement || isInLeavingList
+
+      if (isOnCurrentTeam && notLeaving && hasEnrolled && !hasActuallyDeparted) {
         const existingTeamsByYear = modifiedPlayer.teamsByYear || {}
         // If current year is missing from teamsByYear, add it
         if (!existingTeamsByYear[currentYear] && !existingTeamsByYear[String(currentYear)]) {
