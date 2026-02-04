@@ -80,6 +80,7 @@ export default function DangerZone() {
   // Stats sync state
   const [statsSyncStatus, setStatsSyncStatus] = useState(null)
   const [statsSyncYear, setStatsSyncYear] = useState(currentDynasty?.currentYear || new Date().getFullYear())
+  const [statsSyncSkipGamesPlayed, setStatsSyncSkipGamesPlayed] = useState(false) // Option to skip updating games played/snaps
 
   if (!currentDynasty) {
     return (
@@ -124,13 +125,13 @@ export default function DangerZone() {
   const handleSyncAllStats = async () => {
     setStatsSyncStatus('running')
     try {
-      await syncAllPlayersStats(currentDynasty.id, statsSyncYear)
+      await syncAllPlayersStats(currentDynasty.id, statsSyncYear, { skipGamesPlayed: statsSyncSkipGamesPlayed })
       const gamesWithBoxScores = (currentDynasty.games || []).filter(g =>
         g.boxScore && Number(g.year) === Number(statsSyncYear)
       ).length
       setStatsSyncStatus({
         success: true,
-        message: `Synced stats from ${gamesWithBoxScores} game${gamesWithBoxScores !== 1 ? 's' : ''} in ${statsSyncYear}`
+        message: `Synced stats from ${gamesWithBoxScores} game${gamesWithBoxScores !== 1 ? 's' : ''} in ${statsSyncYear}${statsSyncSkipGamesPlayed ? ' (kept games played)' : ''}`
       })
     } catch (error) {
       setStatsSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
@@ -2170,6 +2171,17 @@ export default function DangerZone() {
                     <option key={year} value={year}>{year}</option>
                   ))}
               </select>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={statsSyncSkipGamesPlayed}
+                  onChange={(e) => setStatsSyncSkipGamesPlayed(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-xs" style={{ color: secondaryBgText, opacity: 0.8 }}>
+                  Keep existing games played
+                </span>
+              </label>
               <button
                 onClick={handleSyncAllStats}
                 disabled={statsSyncStatus === 'running'}
