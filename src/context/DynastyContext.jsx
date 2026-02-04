@@ -2210,23 +2210,48 @@ export function getPlayerClassForYear(player, year) {
   const entryIsRS = player.entryClass?.startsWith('RS ')
   const baseEntryClass = (player.entryClass || 'Fr').replace('RS ', '')
 
-  // Determine if we should use RS track
-  const useRSTrack = entryIsRS || (player.redshirtYear !== null && yearNum > player.redshirtYear)
-  const track = useRSTrack ? RS_CLASS_ORDER : CLASS_ORDER
-
-  // Find entry position on class track
+  // Find entry position on the BASE class track (Fr/So/Jr/Sr)
   const entryIndex = CLASS_ORDER.indexOf(baseEntryClass)
   if (entryIndex === -1) {
     // Invalid class - fall back to legacy
     return getLegacyClass()
   }
 
-  // Calculate current position
-  let currentIndex = entryIndex + yearsSinceEntry
+  // Handle redshirt progression correctly
+  let track, currentIndex
 
-  // If they redshirted during their time here (not coming in with RS), subtract that year
-  if (player.redshirtYear !== null && yearNum > player.redshirtYear && !entryIsRS) {
-    currentIndex = entryIndex + yearsSinceEntry - 1
+  if (entryIsRS) {
+    // Player entered as RS (e.g., "RS Fr") - they're already on RS track from day 1
+    track = RS_CLASS_ORDER
+    currentIndex = entryIndex + yearsSinceEntry
+  } else if (player.redshirtYear !== null) {
+    // Player has a redshirt year
+    const yearsBeforeRedshirt = player.redshirtYear - player.entryYear
+    const yearsAfterRedshirt = Math.max(0, yearNum - player.redshirtYear)
+
+    if (yearNum < player.redshirtYear) {
+      // Before redshirt year - normal progression
+      track = CLASS_ORDER
+      currentIndex = entryIndex + yearsSinceEntry
+    } else if (yearNum === player.redshirtYear && player.redshirtYear === player.entryYear) {
+      // Redshirting in entry year - they should be RS Fr immediately
+      track = RS_CLASS_ORDER
+      currentIndex = entryIndex
+    } else if (yearNum === player.redshirtYear) {
+      // During redshirt year (but not entry year)
+      track = CLASS_ORDER
+      currentIndex = entryIndex + yearsSinceEntry
+    } else {
+      // After redshirt year - on RS track
+      track = RS_CLASS_ORDER
+      // Position = years before redshirt + years after redshirt
+      // We don't count the redshirt year itself in progression
+      currentIndex = entryIndex + yearsBeforeRedshirt + yearsAfterRedshirt
+    }
+  } else {
+    // Normal progression on regular track (no redshirt)
+    track = CLASS_ORDER
+    currentIndex = entryIndex + yearsSinceEntry
   }
 
   const calculatedClass = track[currentIndex]
