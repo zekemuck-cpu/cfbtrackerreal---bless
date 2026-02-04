@@ -1083,7 +1083,7 @@ export default function Recruiting() {
                   border: selectedStars.includes(5) ? '2px solid #FBBF24' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#FBBF24' }}>{classStats.fiveStars}</div>
+                <div className="text-lg sm:text-xl font-bold text-white">{classStats.fiveStars}</div>
                 <MiniStars count={5} />
               </button>
 
@@ -1098,7 +1098,7 @@ export default function Recruiting() {
                   border: selectedStars.includes(4) ? '2px solid #8B5CF6' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#A78BFA' }}>{classStats.fourStars}</div>
+                <div className="text-lg sm:text-xl font-bold text-white">{classStats.fourStars}</div>
                 <MiniStars count={4} />
               </button>
 
@@ -1113,7 +1113,7 @@ export default function Recruiting() {
                   border: selectedStars.includes(3) ? '2px solid #3B82F6' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#60A5FA' }}>{classStats.threeStars}</div>
+                <div className="text-lg sm:text-xl font-bold text-white">{classStats.threeStars}</div>
                 <MiniStars count={3} />
               </button>
 
@@ -1128,7 +1128,7 @@ export default function Recruiting() {
                   border: selectedStars.includes(2) ? '2px solid #9CA3AF' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#9CA3AF' }}>{classStats.twoStars}</div>
+                <div className="text-lg sm:text-xl font-bold text-white">{classStats.twoStars}</div>
                 <MiniStars count={2} />
               </button>
 
@@ -1143,7 +1143,7 @@ export default function Recruiting() {
                   border: selectedStars.includes(1) ? '2px solid #6B7280' : '1px solid var(--surface-4)'
                 }}
               >
-                <div className="text-lg sm:text-xl font-bold" style={{ color: '#6B7280' }}>{classStats.oneStars}</div>
+                <div className="text-lg sm:text-xl font-bold text-white">{classStats.oneStars}</div>
                 <MiniStars count={1} />
               </button>
             </div>

@@ -19,8 +19,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Add scopes for Google Sheets and Drive access
-googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets');
+// Add scope for Google Drive file access (files created by or opened with the app)
 googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 
 // CRITICAL: Use memory-only cache to disable IndexedDB persistence

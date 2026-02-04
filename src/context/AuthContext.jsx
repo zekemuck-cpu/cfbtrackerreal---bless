@@ -165,16 +165,23 @@ export function AuthProvider({ children }) {
   }
 
   // Refresh the session to get a new access token without full sign-out
-  const refreshSession = async () => {
+  // Tries silent refresh first, falls back to popup if needed
+  const refreshSession = async (silent = false) => {
     try {
-      // Create a fresh provider with prompt settings to force re-consent
-      // This ensures we always get a new access token, even if already signed in
       const freshProvider = new GoogleAuthProvider()
-      freshProvider.addScope('https://www.googleapis.com/auth/spreadsheets')
       freshProvider.addScope('https://www.googleapis.com/auth/drive.file')
-      freshProvider.setCustomParameters({
-        prompt: 'consent'  // Force consent screen to get new tokens
-      })
+
+      if (silent) {
+        // Try silent refresh - works if user's Google session is still active
+        freshProvider.setCustomParameters({
+          prompt: 'none'
+        })
+      } else {
+        // Regular refresh - just account selection, not full consent
+        freshProvider.setCustomParameters({
+          prompt: 'select_account'
+        })
+      }
 
       const result = await signInWithPopup(auth, freshProvider)
 
@@ -196,12 +203,32 @@ export function AuthProvider({ children }) {
       }
       return false
     } catch (error) {
+      // If silent refresh fails, caller can retry with popup
+      if (silent && (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request')) {
+        return false
+      }
       if (error.code === 'auth/popup-closed-by-user') {
         return false
       }
       console.error('Error refreshing session:', error)
       throw error
     }
+  }
+
+  // Auto-refresh: tries silent first, falls back to popup if needed
+  const autoRefreshToken = async () => {
+    // First, try silent refresh (no UI if Google session is active)
+    try {
+      const silentSuccess = await refreshSession(true)
+      if (silentSuccess) {
+        return true
+      }
+    } catch (e) {
+      // Silent refresh failed, will try popup below
+    }
+
+    // Silent failed, try with popup (just account selection, not full consent)
+    return await refreshSession(false)
   }
 
   const signOut = async () => {
@@ -235,6 +262,31 @@ export function AuthProvider({ children }) {
     await redirectToPortal(user.uid)
   }
 
+  // Auto-refresh when token is about to expire
+  // This runs silently in the background - if it works, user never sees the warning
+  const autoRefreshAttemptedRef = useRef(false)
+  useEffect(() => {
+    if (tokenExpiringSoon && user && !autoRefreshAttemptedRef.current) {
+      autoRefreshAttemptedRef.current = true
+      // Try silent refresh in the background
+      refreshSession(true)
+        .then((success) => {
+          if (success) {
+            // Silent refresh worked, user doesn't need to do anything
+            autoRefreshAttemptedRef.current = false
+          }
+          // If failed, tokenExpiringSoon stays true and user will see the warning
+        })
+        .catch(() => {
+          // Silent refresh failed, user will see the warning
+        })
+    }
+    // Reset the flag when token is no longer expiring (after successful refresh)
+    if (!tokenExpiringSoon) {
+      autoRefreshAttemptedRef.current = false
+    }
+  }, [tokenExpiringSoon, user])
+
   const value = {
     user,
     accessToken,
@@ -245,6 +297,7 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     signOut,
     refreshSession,
+    autoRefreshToken,
     upgradeToPremium,
     manageSubscription
   }

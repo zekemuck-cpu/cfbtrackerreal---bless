@@ -16,16 +16,51 @@ import { getProvider, getDefaultModel as getProviderDefaultModel } from './provi
 // API KEY MANAGEMENT (Legacy + Multi-Provider)
 // ============================================
 
+// In-memory cache for user AI config to reduce Firestore reads
+// Cache expires after 1 hour or when user changes
+const aiConfigCache = new Map() // userId -> { data, timestamp }
+const AI_CONFIG_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+function getCachedConfig(userId) {
+  const cached = aiConfigCache.get(userId)
+  if (cached && Date.now() - cached.timestamp < AI_CONFIG_CACHE_TTL) {
+    return cached.data
+  }
+  return null
+}
+
+function setCachedConfig(userId, data) {
+  aiConfigCache.set(userId, { data, timestamp: Date.now() })
+}
+
+// Clear cache for a specific user (call on logout or settings change)
+export function clearAiConfigCache(userId) {
+  if (userId) {
+    aiConfigCache.delete(userId)
+  } else {
+    aiConfigCache.clear()
+  }
+}
+
 /**
  * Fetch the user's Gemini API key from Firestore (legacy support)
+ * Uses in-memory cache to reduce Firestore reads
  */
 export async function getGeminiApiKey(userId) {
   if (!userId) return null
+
+  // Check cache first
+  const cached = getCachedConfig(userId)
+  if (cached) {
+    return cached.apiKeys?.gemini || cached.geminiApiKey || null
+  }
 
   try {
     const userDoc = await getDoc(doc(db, 'users', userId))
     if (!userDoc.exists()) return null
     const data = userDoc.data()
+    // Cache the full user data
+    setCachedConfig(userId, data)
     // Check new structure first, then legacy
     return data.apiKeys?.gemini || data.geminiApiKey || null
   } catch (error) {
@@ -48,15 +83,33 @@ export async function getGeminiModel(userId) {
 
 /**
  * Get user's AI configuration (provider, model, and API keys)
+ * Uses in-memory cache to reduce Firestore reads
  */
 export async function getAiConfig(userId) {
   if (!userId) return null
+
+  // Check cache first
+  const cached = getCachedConfig(userId)
+  if (cached) {
+    return {
+      provider: cached.aiProvider || 'gemini',
+      model: cached.aiModel || 'gemini-2.5-flash',
+      apiKeys: {
+        gemini: cached.apiKeys?.gemini || cached.geminiApiKey || null,
+        openai: cached.apiKeys?.openai || null,
+        anthropic: cached.apiKeys?.anthropic || null,
+        openrouter: cached.apiKeys?.openrouter || null
+      }
+    }
+  }
 
   try {
     const userDoc = await getDoc(doc(db, 'users', userId))
     if (!userDoc.exists()) return null
 
     const data = userDoc.data()
+    // Cache the full user data
+    setCachedConfig(userId, data)
 
     // Build config from new structure with fallback to legacy
     return {
@@ -124,6 +177,8 @@ export async function saveApiKey(userId, providerName, apiKey) {
     }
 
     await setDoc(doc(db, 'users', userId), updates, { merge: true })
+    // Invalidate cache so next request gets fresh data
+    clearAiConfigCache(userId)
     return { success: true, message: 'API key saved' }
   } catch (error) {
     console.error(`Error saving ${providerName} API key:`, error)
@@ -169,6 +224,8 @@ export async function setSelectedProvider(userId, providerName, modelId = null) 
     }
 
     await setDoc(doc(db, 'users', userId), updates, { merge: true })
+    // Invalidate cache so next request gets fresh data
+    clearAiConfigCache(userId)
     return { success: true, message: 'Provider updated' }
   } catch (error) {
     console.error('Error setting provider:', error)
@@ -2175,7 +2232,7 @@ TEAM STATISTICS
 First Downs:            ${home.firstDowns ?? '-'}         ${away.firstDowns ?? '-'}
 Total Yards:            ${home.totalYards ?? home.totalOffense ?? '-'}       ${away.totalYards ?? away.totalOffense ?? '-'}
 Rushing (ATT-YDS):      ${home.rushAttempts ?? '-'}-${home.rushYards ?? '-'}     ${away.rushAttempts ?? '-'}-${away.rushYards ?? '-'}
-Passing (CMP-ATT-YDS):  ${home.completions ?? '-'}-${home.passAttempts ?? '-'}-${home.passYards ?? '-'}   ${away.completions ?? '-'}-${away.passAttempts ?? '-'}-${away.passYards ?? '-'}
+Passing (CMP-ATT-YDS):  ${home.completions ?? '-'}-${home.passAttempts ?? '-'}-${home.passingYards ?? home.passYards ?? '-'}   ${away.completions ?? '-'}-${away.passAttempts ?? '-'}-${away.passingYards ?? away.passYards ?? '-'}
 Turnovers:              ${home.turnovers ?? '-'}         ${away.turnovers ?? '-'}
 3rd Down:               ${home['3rdDownConv'] ?? '-'}/${home['3rdDownAtt'] ?? '-'}       ${away['3rdDownConv'] ?? '-'}/${away['3rdDownAtt'] ?? '-'}
 Possession:             ${home.possMinutes ?? ''}:${String(home.possSeconds ?? '').padStart(2, '0')}      ${away.possMinutes ?? ''}:${String(away.possSeconds ?? '').padStart(2, '0')}`

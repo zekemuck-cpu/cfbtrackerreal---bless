@@ -5,13 +5,13 @@ export const STAT_TABS = {
   passing: {
     key: 'passing',
     title: 'Passing',
-    headers: ['Player Name', 'QB Rating', 'Comp', 'Attempts', 'Yards', 'TD', 'INT', 'Long', 'Sacks'],
+    headers: ['Player Name', 'Rtg', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Long'],
     rowCount: 6
   },
   rushing: {
     key: 'rushing',
     title: 'Rushing',
-    headers: ['Player Name', 'Carries', 'Yards', 'TD', 'Fumbles', 'Broken Tackles', 'YAC', '20+', 'Long'],
+    headers: ['Player Name', 'Carries', 'Yards', 'TD', 'Fumbles', 'BT', 'YAC', '20+', 'Long'],
     rowCount: 15
   },
   receiving: {

@@ -662,13 +662,13 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-screen pb-40" style={{ backgroundColor: '#f8fafc' }}>
+    <div className="min-h-screen pb-40" style={{ backgroundColor: '#111113' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-30 shadow-lg"
         style={{ backgroundColor: teamColors.primary, borderBottom: `4px solid ${teamColors.secondary}` }}
       >
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             {/* Player Image or Placeholder - Clickable to edit */}
             <div className="relative flex-shrink-0">
@@ -860,7 +860,7 @@ export default function PlayerEdit() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 py-6">
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
@@ -1359,6 +1359,7 @@ export default function PlayerEdit() {
                 </h2>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => {
                       const yearToSync = selectedStatsYear || dynasty?.currentYear
 
@@ -1417,6 +1418,7 @@ export default function PlayerEdit() {
                       }
 
                       setFormData(prev => ({ ...prev, stats: newStats }))
+                      alert(`Synced stats from ${totals.gamesPlayed} games for ${yearToSync}`)
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
                   >

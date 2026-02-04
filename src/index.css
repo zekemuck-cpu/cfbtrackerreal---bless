@@ -60,7 +60,12 @@
   --shadow-glow: 0 0 20px rgba(var(--team-primary-rgb, 234, 88, 12), 0.3);
 }
 
-/* Base styles */
+/* Base styles - use clip instead of hidden to not break sticky positioning */
+html, body {
+  overflow-x: clip;
+  max-width: 100vw;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);

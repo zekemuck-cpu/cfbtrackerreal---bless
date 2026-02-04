@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName } from '../../data/teamRegistry'
@@ -15,6 +15,7 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
+import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 
 // Map abbreviations to mascot names for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -200,6 +201,7 @@ export default function Game() {
   const { id, gameId } = useParams()
   const navigate = useNavigate()
   const routeLocation = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   // Use neutral colors for game recap pages instead of user's team colors
@@ -209,10 +211,27 @@ export default function Game() {
   // Box score sort state: { column: string | null, direction: 'asc' | 'desc' | null }
   const [homeSortConfig, setHomeSortConfig] = useState({ column: null, direction: null })
   const [awaySortConfig, setAwaySortConfig] = useState({ column: null, direction: null })
-  // Collapsible sections
-  const [scoringPlaysExpanded, setScoringPlaysExpanded] = useState(true)
-  // Game details tab state
-  const [activeDetailsTab, setActiveDetailsTab] = useState('ratings')
+
+  // Main content tab state - persisted in URL params
+  const activeTab = searchParams.get('tab') || 'boxscore'
+  const setActiveTab = (tab) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev)
+      newParams.set('tab', tab)
+      return newParams
+    }, { replace: true })
+  }
+
+  // Mobile box score team tab - persisted in URL params
+  const boxScoreTeamTab = searchParams.get('team') || 'left'
+  const setBoxScoreTeamTab = (team) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev)
+      newParams.set('team', team)
+      return newParams
+    }, { replace: true })
+  }
+
 
   // AI Recap state
   const { user } = useAuth()
@@ -221,6 +240,7 @@ export default function Game() {
   const [quotaRetrySeconds, setQuotaRetrySeconds] = useState(null) // Countdown for quota errors
   const [streamingRecap, setStreamingRecap] = useState('')
   const [tokenUsage, setTokenUsage] = useState(null)
+  const [showHighlightsModal, setShowHighlightsModal] = useState(false)
 
   // Countdown timer for quota errors
   useEffect(() => {
@@ -304,6 +324,7 @@ export default function Game() {
   }
 
   // Get display headers for a stat tab - adds computed "Total" column for defense
+  // Also combines Comp/Att into C/Att for passing display and reorders for display
   const getDisplayHeaders = (tabKey) => {
     const baseHeaders = STAT_TABS[tabKey].headers
     if (tabKey === 'defense') {
@@ -311,6 +332,11 @@ export default function Game() {
       const headers = [...baseHeaders]
       headers.splice(3, 0, 'Total')
       return headers
+    }
+    if (tabKey === 'passing') {
+      // Display order: Player Name, Rtg, C/Att, Yards, TD, INT, Long
+      // Sheet order is different (Rtg comes before Comp/Att)
+      return ['Player Name', 'Rtg', 'C/Att', 'Yards', 'TD', 'INT', 'Long']
     }
     return baseHeaders
   }
@@ -656,6 +682,76 @@ export default function Game() {
   const getPlayerPID = (playerName) => {
     const player = currentDynasty?.players?.find(p => p.name === playerName)
     return player?.pid
+  }
+
+  // Helper function to get full player object by name
+  const getPlayerByName = (playerName) => {
+    return currentDynasty?.players?.find(p => p.name === playerName)
+  }
+
+  // Helper function to get player stats from box score
+  const getPlayerBoxScoreStats = (playerName) => {
+    if (!game.boxScore) return null
+    const stats = []
+
+    // Search both home and away teams
+    const searchTeams = [game.boxScore.home, game.boxScore.away].filter(Boolean)
+
+    for (const teamData of searchTeams) {
+      // Check passing
+      const passingRow = teamData.passing?.find(r => r.playerName === playerName)
+      if (passingRow) {
+        const comp = passingRow.comp || 0
+        // Support both sheet format (att) and random generator format (attempts)
+        const att = passingRow.att ?? passingRow.attempts ?? 0
+        const yards = passingRow.yards || 0
+        // Support both sheet format (tD) and random generator format (tDs)
+        const tds = passingRow.tD ?? passingRow.tDs ?? 0
+        const ints = passingRow.iNT || 0
+        stats.push(`${comp}/${att}, ${yards} yds, ${tds} TD${ints > 0 ? `, ${ints} INT` : ''}`)
+      }
+
+      // Check rushing
+      const rushingRow = teamData.rushing?.find(r => r.playerName === playerName)
+      if (rushingRow && (rushingRow.carries > 0 || rushingRow.yards > 0)) {
+        // Support both sheet format (tD) and random generator format (tDs)
+        const rushTds = rushingRow.tD ?? rushingRow.tDs ?? 0
+        stats.push(`${rushingRow.carries || 0} car, ${rushingRow.yards || 0} yds${rushTds > 0 ? `, ${rushTds} TD` : ''}`)
+      }
+
+      // Check receiving
+      const receivingRow = teamData.receiving?.find(r => r.playerName === playerName)
+      if (receivingRow && (receivingRow.receptions > 0 || receivingRow.yards > 0)) {
+        // Support both sheet format (tD) and random generator format (tDs)
+        const recTds = receivingRow.tD ?? receivingRow.tDs ?? 0
+        stats.push(`${receivingRow.receptions || 0} rec, ${receivingRow.yards || 0} yds${recTds > 0 ? `, ${recTds} TD` : ''}`)
+      }
+
+      // Check defense
+      const defenseRow = teamData.defense?.find(r => r.playerName === playerName)
+      if (defenseRow) {
+        const total = (parseFloat(defenseRow.solo) || 0) + (parseFloat(defenseRow.assists) || 0)
+        const parts = []
+        if (total > 0) parts.push(`${total} TKL`)
+        if (defenseRow.sack > 0) parts.push(`${defenseRow.sack} sack`)
+        if (defenseRow.iNT > 0) parts.push(`${defenseRow.iNT} INT`)
+        if (defenseRow.tFL > 0) parts.push(`${defenseRow.tFL} TFL`)
+        if (defenseRow.fF > 0) parts.push(`${defenseRow.fF} FF`)
+        if (defenseRow.fR > 0) parts.push(`${defenseRow.fR} FR`)
+        if (parts.length > 0) stats.push(parts.join(', '))
+      }
+
+      // Check kicking
+      const kickingRow = teamData.kicking?.find(r => r.playerName === playerName)
+      if (kickingRow && (kickingRow.fGM > 0 || kickingRow.xPM > 0)) {
+        const parts = []
+        if (kickingRow.fGM > 0 || kickingRow.fGA > 0) parts.push(`${kickingRow.fGM || 0}/${kickingRow.fGA || 0} FG`)
+        if (kickingRow.xPM > 0 || kickingRow.xPA > 0) parts.push(`${kickingRow.xPM || 0}/${kickingRow.xPA || 0} XP`)
+        if (parts.length > 0) stats.push(parts.join(', '))
+      }
+    }
+
+    return stats.length > 0 ? stats.join(' | ') : null
   }
 
   // Get user's record as of this game using centralized single-source-of-truth
@@ -1050,6 +1146,183 @@ export default function Game() {
           )}
         </div>
 
+        {/* Desktop: ESPN-style integrated layout with quarter table in center */}
+        {gameIsPlayed && game.quarters && (
+          <div className="hidden lg:block px-8 py-6">
+            <div className="flex items-center justify-between">
+              {/* Left Team */}
+              <div className={`flex items-center gap-4 flex-1 ${!leftData.isWinner ? 'opacity-75' : ''}`}>
+                <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                      style={{
+                        boxShadow: leftData.isWinner
+                          ? `0 0 20px ${leftData.colors.primary}60, 0 4px 16px rgba(0,0,0,0.4)`
+                          : '0 4px 16px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {leftData.logo && (
+                        <img src={leftData.logo} alt={leftData.name} className="w-full h-full object-contain" />
+                      )}
+                    </div>
+                    {isCFPGame && (leftTeam === 'user' ? userSeed : oppSeed) && (
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border-2 border-gray-900">
+                        <span className="text-[10px] font-black text-gray-900">{leftTeam === 'user' ? userSeed : oppSeed}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-left">
+                    {leftData.rank && !isCFPGame && (
+                      <div className="text-yellow-500 text-xs font-bold">#{leftData.rank}</div>
+                    )}
+                    <div className="text-white font-bold text-lg group-hover:underline">{leftData.name}</div>
+                    {leftData.record && (
+                      <div className="text-gray-400 text-sm">{leftData.record}</div>
+                    )}
+                  </div>
+                </Link>
+                {/* Score with winner triangle */}
+                <div className="flex items-center gap-2 ml-auto">
+                  <div
+                    className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                    style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                  >
+                    {leftData.score}
+                  </div>
+                  {leftData.isWinner && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M15 19V5l-7 7 7 7z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              {/* Center: Quarter Scores Table */}
+              <div className="flex-shrink-0 mx-4">
+                {(() => {
+                  const t = game.quarters.team1 || game.quarters.team || {}
+                  const o = game.quarters.team2 || game.quarters.opponent || {}
+                  const isNewFormat = game.quarters.team1 || game.quarters.team2
+                  const isLeftTeam1 = leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
+                  const leftQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team1' : 'team2') : (leftTeam === 'user' ? 'team' : 'opponent')
+                  const rightQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team2' : 'team1') : (leftTeam === 'user' ? 'opponent' : 'team')
+                  const leftQuarters = game.quarters[leftQuarterKey] || {}
+                  const rightQuarters = game.quarters[rightQuarterKey] || {}
+
+                  return (
+                    <table className="text-center">
+                      <thead>
+                        <tr className="text-xs text-gray-500 uppercase">
+                          <th className="px-2 py-1"></th>
+                          <th className="px-3 py-1">1</th>
+                          <th className="px-3 py-1">2</th>
+                          <th className="px-3 py-1">3</th>
+                          <th className="px-3 py-1">4</th>
+                          {game.overtimes?.map((_, i) => (
+                            <th key={i} className="px-3 py-1">OT{i > 0 ? i + 1 : ''}</th>
+                          ))}
+                          <th className="px-3 py-1 pl-4 border-l border-gray-700">T</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${leftData.isWinner ? 'text-white' : 'text-gray-400'}`}>{leftData.abbr}</td>
+                          {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                            <td key={q} className="px-3 py-1.5 text-gray-300 text-sm">
+                              {leftQuarters[q] === '' || leftQuarters[q] === null || leftQuarters[q] === undefined ? 0 : leftQuarters[q]}
+                            </td>
+                          ))}
+                          {game.overtimes?.map((ot, i) => (
+                            <td key={i} className="px-3 py-1.5 text-gray-300 text-sm">{ot[leftQuarterKey] ?? '-'}</td>
+                          ))}
+                          <td className={`px-3 py-1.5 pl-4 border-l border-gray-700 text-xl font-black ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                            {leftData.score}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${rightData.isWinner ? 'text-white' : 'text-gray-400'}`}>{rightData.abbr}</td>
+                          {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                            <td key={q} className="px-3 py-1.5 text-gray-300 text-sm">
+                              {rightQuarters[q] === '' || rightQuarters[q] === null || rightQuarters[q] === undefined ? 0 : rightQuarters[q]}
+                            </td>
+                          ))}
+                          {game.overtimes?.map((ot, i) => (
+                            <td key={i} className="px-3 py-1.5 text-gray-300 text-sm">{ot[rightQuarterKey] ?? '-'}</td>
+                          ))}
+                          <td className={`px-3 py-1.5 pl-4 border-l border-gray-700 text-xl font-black ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                            {rightData.score}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )
+                })()}
+                <div className="text-center mt-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }}>
+                    Final
+                  </span>
+                  {game.overtimes && game.overtimes.length > 0 && (
+                    <span className="ml-2 text-yellow-500 text-xs font-bold">
+                      {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Team */}
+              <div className={`flex items-center gap-4 flex-1 justify-end ${!rightData.isWinner ? 'opacity-75' : ''}`}>
+                {/* Score with winner triangle */}
+                <div className="flex items-center gap-2 mr-auto">
+                  {rightData.isWinner && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 5v14l7-7-7-7z" />
+                    </svg>
+                  )}
+                  <div
+                    className={`text-6xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                    style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
+                  >
+                    {rightData.score}
+                  </div>
+                </div>
+                <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
+                  <div className="text-right">
+                    {rightData.rank && !isCFPGame && (
+                      <div className="text-yellow-500 text-xs font-bold">#{rightData.rank}</div>
+                    )}
+                    <div className="text-white font-bold text-lg group-hover:underline">{rightData.name}</div>
+                    {rightData.record && (
+                      <div className="text-gray-400 text-sm">{rightData.record}</div>
+                    )}
+                  </div>
+                  <div className="relative flex-shrink-0">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                      style={{
+                        boxShadow: rightData.isWinner
+                          ? `0 0 20px ${rightData.colors.primary}60, 0 4px 16px rgba(0,0,0,0.4)`
+                          : '0 4px 16px rgba(0,0,0,0.4)'
+                      }}
+                    >
+                      {rightData.logo && (
+                        <img src={rightData.logo} alt={rightData.name} className="w-full h-full object-contain" />
+                      )}
+                    </div>
+                    {isCFPGame && (rightTeam === 'user' ? userSeed : oppSeed) && (
+                      <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border-2 border-gray-900">
+                        <span className="text-[10px] font-black text-gray-900">{rightTeam === 'user' ? userSeed : oppSeed}</span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile/Tablet: Stacked layout (also shows for upcoming games on all screens) */}
+        <div className={gameIsPlayed && game.quarters ? 'lg:hidden' : ''}>
         {/* Hero Scoreboard Content */}
         <div className="px-1 py-3 sm:px-8 sm:py-8 md:py-10">
           <div className="flex items-center justify-between gap-1 sm:gap-6 md:gap-10 max-w-full">
@@ -1181,9 +1454,10 @@ export default function Game() {
           </div>
 
         </div>
+        </div>
       </div>
 
-      {/* Scoring Summary - Dark theme continuation */}
+      {/* Scoring Summary - Dark theme continuation (hidden on desktop when integrated) */}
       {game.quarters && (() => {
         // Support both new format (team1/team2) and legacy format (team/opponent)
         const t = game.quarters.team1 || game.quarters.team || {}
@@ -1193,7 +1467,7 @@ export default function Game() {
         )
         return hasData
       })() && (
-        <div className="bg-gray-800 rounded-xl overflow-hidden shadow-lg">
+        <div className="lg:hidden bg-gray-800 rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -1257,101 +1531,120 @@ export default function Game() {
         </div>
       )}
 
-      {/* Scoring Plays - Collapsible, moved above game recap for prominence */}
-      {game.boxScore?.scoringSummary?.length > 0 && (() => {
-        // Check if play is a standalone 2PT attempt (no scorer, 2PT mentioned in scoreType or patResult)
-        const is2PTAttempt = (play) => {
-          if (play.scorer) return false
-          const scoreType = play.scoreType || ''
-          const patResult = play.patResult || ''
-          return scoreType.includes('2PT') || patResult.includes('2PT')
-        }
+      {/* ESPN-Style Tab Navigation and Content */}
+      {gameIsPlayed && (
+        <div className="bg-gray-900 rounded-xl overflow-hidden shadow-lg">
+          {/* Tab Bar - always fits screen width */}
+          {(() => {
+            // Check if box score has any actual player data
+            const hasBoxScoreData = game.boxScore && (
+              game.boxScore.home && STAT_TAB_ORDER.some(key => game.boxScore.home[key]?.length > 0) ||
+              game.boxScore.away && STAT_TAB_ORDER.some(key => game.boxScore.away[key]?.length > 0)
+            )
+            // Check if recap exists or can be generated
+            const hasRecapOrCanGenerate = game.aiRecap || !isViewOnly
 
-        // Check if 2PT was converted (check both fields)
-        const is2PTConverted = (play) => {
-          const scoreType = play.scoreType || ''
-          const patResult = play.patResult || ''
-          return scoreType.includes('Converted') || patResult.includes('Converted')
-        }
+            return (
+          <div className="flex border-b border-gray-700">
+            {[
+              { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxScoreData },
+              { key: 'scoring', label: 'Scoring', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
+              { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecapOrCanGenerate },
+              { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) },
+              { key: 'ratings', label: 'Ratings', shortLabel: 'Rtg', show: !isCPUGame && (game.team1Overall || game.team1Offense || game.team1Defense || game.team2Overall || game.opponentOverall) },
+              { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) },
+            ].filter(tab => tab.show).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 sm:flex-none px-1 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'text-white border-b-2 border-white bg-gray-800'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                }`}
+              >
+                <span className="sm:hidden">{tab.shortLabel}</span>
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+            )
+          })()}
 
-        // Calculate points for a play
-        const getPlayPoints = (play) => {
-          const scoreType = play.scoreType || ''
-          const patResult = play.patResult || ''
+          {/* Scoring Plays Tab */}
+          {activeTab === 'scoring' && game.boxScore?.scoringSummary?.length > 0 && (() => {
+            // Check if play is a standalone 2PT attempt (no scorer, 2PT mentioned in scoreType or patResult)
+            const is2PTAttempt = (play) => {
+              if (play.scorer) return false
+              const scoreType = play.scoreType || ''
+              const patResult = play.patResult || ''
+              return scoreType.includes('2PT') || patResult.includes('2PT')
+            }
 
-          // TD-based plays (but not standalone 2PT which might have "2PT" in scoreType)
-          if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
-            let points = 6
-            if (patResult.includes('Made XP')) points += 1
-            else if (patResult.includes('Converted 2PT')) points += 2
-            return points
-          }
-          // Field goal
-          if (scoreType === 'Field Goal') return 3
-          // Safety
-          if (scoreType === 'Safety') return 2
-          // Standalone 2PT conversion (no scorer, 2PT in either field)
-          if (is2PTAttempt(play)) {
-            return is2PTConverted(play) ? 2 : 0
-          }
+            // Check if 2PT was converted (check both fields)
+            const is2PTConverted = (play) => {
+              const scoreType = play.scoreType || ''
+              const patResult = play.patResult || ''
+              return scoreType.includes('Converted') || patResult.includes('Converted')
+            }
 
-          return 0
-        }
+            // Calculate points for a play
+            const getPlayPoints = (play) => {
+              const scoreType = play.scoreType || ''
+              const patResult = play.patResult || ''
 
-        // Calculate running scores
-        let leftRunning = 0
-        let rightRunning = 0
-        const playsWithScores = game.boxScore.scoringSummary.map((play) => {
-          const points = getPlayPoints(play)
-          const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
-          if (isLeftTeam) {
-            leftRunning += points
-          } else {
-            rightRunning += points
-          }
-          return { ...play, runningLeftScore: leftRunning, runningRightScore: rightRunning }
-        })
+              // TD-based plays (but not standalone 2PT which might have "2PT" in scoreType)
+              if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
+                let points = 6
+                if (patResult.includes('Made XP')) points += 1
+                else if (patResult.includes('Converted 2PT')) points += 2
+                return points
+              }
+              // Field goal
+              if (scoreType === 'Field Goal') return 3
+              // Safety
+              if (scoreType === 'Safety') return 2
+              // Standalone 2PT conversion (no scorer, 2PT in either field)
+              if (is2PTAttempt(play)) {
+                return is2PTConverted(play) ? 2 : 0
+              }
 
-        const playCount = playsWithScores.length
+              return 0
+            }
 
-        return (
-          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
-            {/* Collapsible Header */}
-            <button
-              onClick={() => setScoringPlaysExpanded(!scoringPlaysExpanded)}
-              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-800/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                  Scoring Plays
-                </h3>
-                <span className="px-2 py-0.5 bg-gray-700 rounded-full text-xs font-medium text-gray-300">
-                  {playCount}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Mini score preview when collapsed */}
-                {!scoringPlaysExpanded && (
-                  <div className="flex items-center gap-1 mr-2 text-sm font-bold">
-                    <span className={leftData.isWinner ? 'text-white' : 'text-gray-500'}>{leftData.score}</span>
-                    <span className="text-gray-600">-</span>
-                    <span className={rightData.isWinner ? 'text-white' : 'text-gray-500'}>{rightData.score}</span>
+            // Calculate running scores
+            let leftRunning = 0
+            let rightRunning = 0
+            const playsWithScores = game.boxScore.scoringSummary.map((play) => {
+              const points = getPlayPoints(play)
+              const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
+              if (isLeftTeam) {
+                leftRunning += points
+              } else {
+                rightRunning += points
+              }
+              return { ...play, runningLeftScore: leftRunning, runningRightScore: rightRunning }
+            })
+
+            const hasVideoLinks = playsWithScores.some(p => p.videoLink)
+
+            return (
+              <div>
+                {/* Watch All Scores button - only show if there are video links */}
+                {hasVideoLinks && (
+                  <div className="px-4 py-3 border-b border-gray-800/50">
+                    <button
+                      onClick={() => setShowHighlightsModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      Watch All Scores
+                    </button>
                   </div>
                 )}
-                <svg
-                  className={`w-5 h-5 text-gray-400 transition-transform ${scoringPlaysExpanded ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </button>
-
-            {/* Collapsible Content */}
-            {scoringPlaysExpanded && (
-              <div className="border-t border-gray-800 divide-y divide-gray-800/50">
+                <div className="divide-y divide-gray-800/50">
                 {playsWithScores.map((play, idx) => {
                   const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
                   const scorerPID = getPlayerPID(play.scorer)
@@ -1468,40 +1761,14 @@ export default function Game() {
                     </div>
                   )
                 })}
+                </div>
               </div>
-            )}
-          </div>
-        )
-      })()}
+            )
+          })()}
 
-      {/* Game Recap Section - only show for played games */}
-      {!isViewOnly && gameIsPlayed && (
-        <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
-          <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-            <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-              Game Recap
-            </h3>
-            {game.aiRecap && (
-              <button
-                onClick={handleGenerateRecap}
-                disabled={isGeneratingRecap || quotaRetrySeconds > 0}
-                className="text-xs text-gray-400 hover:text-white flex items-center gap-1 transition-colors disabled:opacity-50"
-              >
-                {isGeneratingRecap ? (
-                  <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                )}
-                {isGeneratingRecap ? 'Generating...' : 'AI Regenerate'}
-              </button>
-            )}
-          </div>
-          <div className={game.aiRecap || isGeneratingRecap ? 'p-4' : 'px-4 py-2'}>
+          {/* Game Recap Tab */}
+          {activeTab === 'recap' && !isViewOnly && (
+            <div className={game.aiRecap || isGeneratingRecap ? 'p-4 max-h-[500px] overflow-y-auto' : 'px-4 py-2'}>
             {/* Show loading state while waiting for stream to start */}
             {isGeneratingRecap && !streamingRecap ? (
               <div className="flex flex-col items-center justify-center py-8">
@@ -1608,213 +1875,276 @@ export default function Game() {
               </div>
             )}
           </div>
-        </div>
-      )}
+          )}
 
-      {/* Box Score Section */}
-      {game.boxScore && (
-        <div className="space-y-6">
-          {/* Box Score Stats */}
-          <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
-            <div className="px-4 py-3 border-b border-gray-700">
-              <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                Box Score
-              </h3>
-            </div>
+          {/* Box Score Tab - Team tabs on mobile, side-by-side on desktop */}
+          {activeTab === 'boxscore' && game.boxScore && (() => {
+            // Get team data for box score
+            const leftData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? game.boxScore.home : game.boxScore.away) : (leftTeam === 'user' ? game.boxScore.away : game.boxScore.home)
+            const rightData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? game.boxScore.away : game.boxScore.home) : (leftTeam === 'user' ? game.boxScore.home : game.boxScore.away)
+            const leftTeamData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? boxScoreHomeTeamData : boxScoreAwayTeamData) : (leftTeam === 'user' ? boxScoreAwayTeamData : boxScoreHomeTeamData)
+            const rightTeamData_bs = boxScoreHomeIsUser ? (leftTeam === 'user' ? boxScoreAwayTeamData : boxScoreHomeTeamData) : (leftTeam === 'user' ? boxScoreHomeTeamData : boxScoreAwayTeamData)
 
-            {/* Stat Category Tabs */}
-            <div className="flex border-b border-gray-700 overflow-x-auto">
-              {STAT_TAB_ORDER.map(key => {
-                const tab = STAT_TABS[key]
-                const hasData = (game.boxScore.home?.[key]?.length || 0) + (game.boxScore.away?.[key]?.length || 0) > 0
-                if (!hasData) return null
+            // Helper to render a team's stat table for a specific stat category
+            const renderTeamStatTable = (teamData, teamInfo, statKey, showTeamHeader = true) => {
+              const tab = STAT_TABS[statKey]
+              if (!teamData?.[statKey]?.length) {
                 return (
-                  <button
-                    key={key}
-                    onClick={() => setActiveStatTab(key)}
-                    className={`px-3 sm:px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
-                      activeStatTab === key
-                        ? 'text-white border-b-2 border-white bg-gray-800'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    {tab.title}
-                  </button>
+                  <div className="py-2 px-2">
+                    {showTeamHeader && (
+                      <div className="text-gray-400 text-sm font-medium mb-2">{tab.title}</div>
+                    )}
+                    <div className="text-gray-500 text-sm py-2">No {tab.title.toLowerCase()} stats</div>
+                  </div>
                 )
-              })}
-            </div>
+              }
 
-            {/* Stats Table */}
-            <div className="p-4">
-              {STAT_TABS[activeStatTab] && (
-                <div className="space-y-6">
-                  {/* Home Team Stats - uses boxScoreHomeTeamData (matches BoxScoreSheetModal logic) */}
-                  {game.boxScore.home?.[activeStatTab]?.length > 0 && (
-                    <div>
-                      {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreHomeTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
-                          <img
-                            src={getTeamLogo(getMascotName(boxScoreHomeTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreHomeTeamData.abbr)}
-                            alt={boxScoreHomeTeamData.name}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                        <span className="text-white font-semibold group-hover:underline">{boxScoreHomeTeamData.name}</span>
-                      </Link>
-                      {/* Scrollable table container */}
-                      <div className="overflow-x-auto">
-                        <table className="text-sm border-collapse">
-                          <thead>
-                            <tr className="text-gray-400 text-left">
-                              {getDisplayHeaders(activeStatTab).map((header, idx) => {
-                                const columnKey = idx === 0 ? 'playerName' : header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-                                const isSorted = homeSortConfig.column === columnKey
-                                const sortArrow = isSorted ? (homeSortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''
-                                return (
-                                  <th
-                                    key={idx}
-                                    onClick={() => handleSort('home', columnKey)}
-                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]' : 'text-center min-w-[40px] sm:min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
-                                  >
-                                    {header}{sortArrow}
-                                  </th>
-                                )
-                              })}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {sortBoxScoreData(game.boxScore.home[activeStatTab], homeSortConfig).map((row, rowIdx) => (
-                              <tr key={rowIdx} className="border-t border-gray-800">
-                                {getDisplayHeaders(activeStatTab).map((header, colIdx) => {
-                                  const key = colIdx === 0 ? 'playerName' : header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-                                  let rawValue = row[key]
-                                  // Compute total tackles for defense (solo + assists)
-                                  if (activeStatTab === 'defense' && key === 'total') {
-                                    rawValue = (parseFloat(row.solo) || 0) + (parseFloat(row.assists) || 0)
-                                  }
-                                  // For stat columns (not player name), treat blank/null/undefined as 0
-                                  let value = colIdx === 0
-                                    ? (rawValue ?? '-')
-                                    : (rawValue === '' || rawValue === null || rawValue === undefined ? 0 : rawValue)
-                                  // Format QB Rating to always show 1 decimal place
-                                  if (key === 'qBRating' && value !== 0 && value !== '') {
-                                    value = Number(value).toFixed(1)
-                                  }
-                                  const playerPID = colIdx === 0 ? getPlayerPID(value) : null
-                                  return (
-                                    <td
-                                      key={colIdx}
-                                      className={`py-2 px-3 whitespace-nowrap text-white ${
-                                        colIdx === 0
-                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]'
-                                          : 'text-center min-w-[40px] sm:min-w-[50px]'
-                                      }`}
-                                    >
-                                      {colIdx === 0 && playerPID ? (
-                                        <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
-                                          {value}
-                                        </Link>
-                                      ) : value}
-                                    </td>
-                                  )
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+              return (
+                <div className="py-2">
+                  {showTeamHeader && (
+                    <div className="text-gray-400 text-sm font-medium mb-2 px-2">{tab.title}</div>
                   )}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-gray-400 text-left border-b border-gray-700">
+                          {getDisplayHeaders(statKey).map((header, idx) => (
+                            <th
+                              key={idx}
+                              className={`py-2 px-2 font-medium whitespace-nowrap text-xs ${idx === 0 ? 'text-left' : 'text-center'}`}
+                            >
+                              {header}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {teamData[statKey].map((row, rowIdx) => {
+                          const values = getDisplayHeaders(statKey).map((header, colIdx) => {
+                            // Handle special combined/renamed columns
+                            if (header === 'C/Att') {
+                              const comp = row.comp ?? 0
+                              // Support both sheet format (att) and random generator format (attempts)
+                              const att = row.att ?? row.attempts ?? 0
+                              return { value: `${comp}/${att}`, isName: false }
+                            }
+                            if (header === 'Rtg') {
+                              // Support both sheet format (rtg) and random generator format (qBRating)
+                              const rating = row.rtg ?? row.qBRating
+                              const value = (rating === '' || rating === null || rating === undefined) ? 0 : Number(rating).toFixed(1)
+                              return { value, isName: false }
+                            }
 
-                  {/* Away Team Stats - uses boxScoreAwayTeamData (matches BoxScoreSheetModal logic) */}
-                  {game.boxScore.away?.[activeStatTab]?.length > 0 && (
-                    <div>
-                      {/* Team Header - Fixed, doesn't scroll */}
-                      <Link to={`${pathPrefix}/team/${resolveTid(boxScoreAwayTeamData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 mb-2 px-2">
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-1 group-hover:scale-105 transition-transform">
-                          <img
-                            src={getTeamLogo(getMascotName(boxScoreAwayTeamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || boxScoreAwayTeamData.abbr)}
-                            alt={boxScoreAwayTeamData.name}
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                        <span className="text-white font-semibold group-hover:underline">{boxScoreAwayTeamData.name}</span>
-                      </Link>
-                      {/* Scrollable table container */}
-                      <div className="overflow-x-auto">
-                        <table className="text-sm border-collapse">
-                          <thead>
-                            <tr className="text-gray-400 text-left">
-                              {getDisplayHeaders(activeStatTab).map((header, idx) => {
-                                const columnKey = idx === 0 ? 'playerName' : header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-                                const isSorted = awaySortConfig.column === columnKey
-                                const sortArrow = isSorted ? (awaySortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''
-                                return (
-                                  <th
-                                    key={idx}
-                                    onClick={() => handleSort('away', columnKey)}
-                                    className={`py-2 px-3 font-medium whitespace-nowrap cursor-pointer hover:text-white select-none ${idx === 0 ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]' : 'text-center min-w-[40px] sm:min-w-[50px]'} ${isSorted ? 'text-white' : ''}`}
-                                  >
-                                    {header}{sortArrow}
-                                  </th>
-                                )
-                              })}
+                            // Map abbreviated headers to their data keys
+                            const headerKeyMap = { 'BT': 'brokenTackles' }
+                            const key = colIdx === 0 ? 'playerName' : (headerKeyMap[header] || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase()))
+                            let rawValue = row[key]
+                            if (statKey === 'defense' && key === 'total') {
+                              rawValue = (parseFloat(row.solo) || 0) + (parseFloat(row.assists) || 0)
+                            }
+                            let value = colIdx === 0
+                              ? (rawValue ?? '-')
+                              : (rawValue === '' || rawValue === null || rawValue === undefined ? 0 : rawValue)
+                            if (key === 'qBRating' && value !== 0 && value !== '') {
+                              value = Number(value).toFixed(1)
+                            }
+                            return { value, isName: colIdx === 0 }
+                          })
+                          const playerPID = getPlayerPID(values[0].value)
+
+                          return (
+                            <tr key={rowIdx} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                              {values.map((cell, colIdx) => (
+                                <td
+                                  key={colIdx}
+                                  className={`py-1.5 px-2 whitespace-nowrap ${colIdx === 0 ? 'text-left' : 'text-center text-gray-300'}`}
+                                >
+                                  {colIdx === 0 && playerPID ? (
+                                    <Link to={`${pathPrefix}/player/${playerPID}`} className="text-white hover:underline hover:text-blue-300">
+                                      {cell.value}
+                                    </Link>
+                                  ) : colIdx === 0 ? (
+                                    <span className="text-white">{cell.value}</span>
+                                  ) : cell.value}
+                                </td>
+                              ))}
                             </tr>
-                          </thead>
-                          <tbody>
-                            {sortBoxScoreData(game.boxScore.away[activeStatTab], awaySortConfig).map((row, rowIdx) => (
-                              <tr key={rowIdx} className="border-t border-gray-800">
-                                {getDisplayHeaders(activeStatTab).map((header, colIdx) => {
-                                  const key = colIdx === 0 ? 'playerName' : header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-                                  let rawValue = row[key]
-                                  // Compute total tackles for defense (solo + assists)
-                                  if (activeStatTab === 'defense' && key === 'total') {
-                                    rawValue = (parseFloat(row.solo) || 0) + (parseFloat(row.assists) || 0)
-                                  }
-                                  // For stat columns (not player name), treat blank/null/undefined as 0
-                                  let value = colIdx === 0
-                                    ? (rawValue ?? '-')
-                                    : (rawValue === '' || rawValue === null || rawValue === undefined ? 0 : rawValue)
-                                  // Format QB Rating to always show 1 decimal place
-                                  if (key === 'qBRating' && value !== 0 && value !== '') {
-                                    value = Number(value).toFixed(1)
-                                  }
-                                  const playerPID = colIdx === 0 ? getPlayerPID(value) : null
-                                  return (
-                                    <td
-                                      key={colIdx}
-                                      className={`py-2 px-3 whitespace-nowrap text-white ${
-                                        colIdx === 0
-                                          ? 'sticky left-0 bg-gray-900 z-10 min-w-[100px] sm:min-w-[150px]'
-                                          : 'text-center min-w-[40px] sm:min-w-[50px]'
-                                      }`}
-                                    >
-                                      {colIdx === 0 && playerPID ? (
-                                        <Link to={`${pathPrefix}/player/${playerPID}`} className="hover:underline hover:text-blue-300">
-                                          {value}
-                                        </Link>
-                                      ) : value}
-                                    </td>
-                                  )
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                          )
+                        })}
+                        {/* Totals Row */}
+                        <tr className="border-t border-gray-600 bg-gray-800/50 font-semibold">
+                          {getDisplayHeaders(statKey).map((header, colIdx) => {
+                            if (colIdx === 0) {
+                              return (
+                                <td key={colIdx} className="py-2 px-2 text-left text-white text-xs uppercase">
+                                  Total
+                                </td>
+                              )
+                            }
+
+                            // Handle Long columns - show max value
+                            if (header === 'Long' || header === 'FG Long') {
+                              const key = header === 'FG Long' ? 'fGLong' : 'long'
+                              const maxLong = Math.max(...teamData[statKey].map(row => parseFloat(row[key]) || 0))
+                              return <td key={colIdx} className="py-2 px-2 text-center text-white">{maxLong || 0}</td>
+                            }
+
+                            // Handle QBR - weighted average based on attempts
+                            if (header === 'Rtg') {
+                              // Support both sheet format (att/rtg) and random generator format (attempts/qBRating)
+                              const totalAttempts = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.att ?? row.attempts) || 0), 0)
+                              if (totalAttempts === 0) {
+                                return <td key={colIdx} className="py-2 px-2 text-center text-white">0.0</td>
+                              }
+                              const weightedRtg = teamData[statKey].reduce((sum, row) => {
+                                const attempts = parseFloat(row.att ?? row.attempts) || 0
+                                const rating = parseFloat(row.rtg ?? row.qBRating) || 0
+                                return sum + (attempts / totalAttempts) * rating
+                              }, 0)
+                              return <td key={colIdx} className="py-2 px-2 text-center text-white">{weightedRtg.toFixed(1)}</td>
+                            }
+
+                            // Handle C/Att specially
+                            if (header === 'C/Att') {
+                              const totalComp = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.comp) || 0), 0)
+                              // Support both sheet format (att) and random generator format (attempts)
+                              const totalAtt = teamData[statKey].reduce((sum, row) => sum + (parseFloat(row.att ?? row.attempts) || 0), 0)
+                              return <td key={colIdx} className="py-2 px-2 text-center text-white">{totalComp}/{totalAtt}</td>
+                            }
+
+                            // Sum numeric columns
+                            const headerKeyMap = { 'BT': 'brokenTackles' }
+                            const key = headerKeyMap[header] || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
+                            let total = teamData[statKey].reduce((sum, row) => {
+                              let val = row[key]
+                              // Handle defense total specially
+                              if (statKey === 'defense' && key === 'total') {
+                                val = (parseFloat(row.solo) || 0) + (parseFloat(row.assists) || 0)
+                              }
+                              return sum + (parseFloat(val) || 0)
+                            }, 0)
+
+                            return (
+                              <td key={colIdx} className="py-2 px-2 text-center text-white">
+                                {Number.isInteger(total) ? total : total.toFixed(1)}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
+              )
+            }
 
-        </div>
-      )}
+            return (
+              <div>
+                {/* Mobile: Team tabs */}
+                <div className="lg:hidden border-b border-gray-700">
+                  <div className="flex">
+                    {[
+                      { key: 'left', teamData: leftTeamData_bs },
+                      { key: 'right', teamData: rightTeamData_bs }
+                    ].map(({ key, teamData }) => (
+                      <button
+                        key={key}
+                        onClick={() => setBoxScoreTeamTab(key)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm font-medium transition-colors min-w-0 ${
+                          boxScoreTeamTab === key
+                            ? 'text-white border-b-2 border-white bg-gray-800'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                        }`}
+                      >
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5">
+                          <img
+                            src={getTeamLogo(getMascotName(teamData.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || teamData.abbr)}
+                            alt={teamData.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <span className="truncate">{teamData.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-      {/* Team Stats Section - Comprehensive Display */}
-      {game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) && (() => {
+                {/* Mobile: Show selected team's stats */}
+                <div className="lg:hidden divide-y divide-gray-700">
+                  {STAT_TAB_ORDER.map(statKey => {
+                    const teamData = boxScoreTeamTab === 'left' ? leftData_bs : rightData_bs
+                    const teamInfo = boxScoreTeamTab === 'left' ? leftTeamData_bs : rightTeamData_bs
+                    const hasData = teamData?.[statKey]?.length > 0
+                    if (!hasData) return null
+                    return (
+                      <div key={statKey} className="px-2">
+                        {renderTeamStatTable(teamData, teamInfo, statKey, true)}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Desktop: Side-by-side layout */}
+                <div className="hidden lg:block divide-y divide-gray-700">
+                  {STAT_TAB_ORDER.map(statKey => {
+                    const tab = STAT_TABS[statKey]
+                    const hasLeftData = leftData_bs?.[statKey]?.length > 0
+                    const hasRightData = rightData_bs?.[statKey]?.length > 0
+
+                    if (!hasLeftData && !hasRightData) return null
+
+                    return (
+                      <div key={statKey} className="py-4 px-4">
+                        <div className="grid grid-cols-2 gap-6">
+                          {/* Left Team */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-2 px-2">
+                              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 group-hover:scale-105 transition-transform">
+                                  <img
+                                    src={getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
+                                    alt={leftTeamData_bs.name}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                                <span className="text-white font-semibold text-sm group-hover:underline">{leftTeamData_bs.name}</span>
+                              </Link>
+                              <span className="text-gray-400 text-sm">{tab.title}</span>
+                            </div>
+                            {hasLeftData ? renderTeamStatTable(leftData_bs, leftTeamData_bs, statKey, false) : (
+                              <div className="text-gray-500 text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
+                            )}
+                          </div>
+                          {/* Right Team */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-2 px-2">
+                              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 group-hover:scale-105 transition-transform">
+                                  <img
+                                    src={getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
+                                    alt={rightTeamData_bs.name}
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                                <span className="text-white font-semibold text-sm group-hover:underline">{rightTeamData_bs.name}</span>
+                              </Link>
+                              <span className="text-gray-400 text-sm">{tab.title}</span>
+                            </div>
+                            {hasRightData ? renderTeamStatTable(rightData_bs, rightTeamData_bs, statKey, false) : (
+                              <div className="text-gray-500 text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Team Stats Tab */}
+          {activeTab === 'stats' && game.boxScore?.teamStats && (game.boxScore.teamStats.home || game.boxScore.teamStats.away) && (() => {
         const homeStats = game.boxScore.teamStats.home || {}
         const awayStats = game.boxScore.teamStats.away || {}
         const homeTeamAbbrForLink = getAbbrFromTeamName(homeStats.teamAbbr) || homeStats.teamAbbr
@@ -1934,257 +2264,243 @@ export default function Game() {
         }
 
         return (
-          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
-            {/* Header with team logos */}
-            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-white p-1 group-hover:scale-105 transition-transform">
+          <>
+            {/* Team header with logos */}
+            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-white p-1">
                   <img src={getTeamLogoRobust(leftTeamAbbr)} alt="" className="w-full h-full object-contain" />
                 </div>
-                <span className="text-sm font-bold text-white group-hover:underline hidden sm:inline">
+                <span className="text-sm font-bold text-white hidden sm:inline">
                   {getMascotName(leftTeamAbbr, currentDynasty?.teams) || leftTeamAbbr}
                 </span>
-              </Link>
-              <h3 className="font-bold text-white text-sm uppercase tracking-wide">
-                Team Stats
-              </h3>
-              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                <span className="text-sm font-bold text-white group-hover:underline hidden sm:inline">
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white hidden sm:inline">
                   {getMascotName(rightTeamAbbr, currentDynasty?.teams) || rightTeamAbbr}
                 </span>
-                <div className="w-8 h-8 rounded-full bg-white p-1 group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-full bg-white p-1">
                   <img src={getTeamLogoRobust(rightTeamAbbr)} alt="" className="w-full h-full object-contain" />
                 </div>
-              </Link>
+              </div>
             </div>
 
             {/* All stats in display order */}
             <div className="divide-y divide-gray-800/30">
               {allStats.map((stat, idx) => renderStatRow(stat, idx))}
             </div>
-          </div>
+          </>
         )
       })()}
 
-      {/* Game Details Section - Unified Tabbed Interface */}
-      {(() => {
-        // Calculate what tabs we have
-        const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
-        const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, game.year)
-        const userRatings = {
-          ovr: game.team1Overall ?? storedUserRatings?.overall,
-          off: game.team1Offense ?? storedUserRatings?.offense,
-          def: game.team1Defense ?? storedUserRatings?.defense
-        }
-        const oppRatings = {
-          ovr: game.team2Overall ?? game.opponentOverall,
-          off: game.team2Offense ?? game.opponentOffense,
-          def: game.team2Defense ?? game.opponentDefense
-        }
-        const hasRatings = !isCPUGame && (userRatings.ovr || userRatings.off || userRatings.def || oppRatings.ovr || oppRatings.off || oppRatings.def)
-        const hasPOW = !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)
-        const hasNotes = !!game.gameNote
+          {/* Ratings Tab */}
+          {activeTab === 'ratings' && (() => {
+            const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
+            const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, game.year)
+            const userRatings = {
+              ovr: game.team1Overall ?? storedUserRatings?.overall,
+              off: game.team1Offense ?? storedUserRatings?.offense,
+              def: game.team1Defense ?? storedUserRatings?.defense
+            }
+            const oppRatings = {
+              ovr: game.team2Overall ?? game.opponentOverall,
+              off: game.team2Offense ?? game.opponentOffense,
+              def: game.team2Defense ?? game.opponentDefense
+            }
+            const leftIsOpponent = leftTeam !== 'user'
+            const leftRatings = leftIsOpponent ? oppRatings : userRatings
+            const rightRatings = !leftIsOpponent ? oppRatings : userRatings
 
-        // Build available tabs
-        const tabs = []
-        if (hasRatings) tabs.push({ key: 'ratings', label: 'Ratings' })
-        if (hasPOW) tabs.push({ key: 'awards', label: 'Awards' })
-        if (hasNotes) tabs.push({ key: 'notes', label: 'Notes' })
+            return (
+              <div className="p-4 space-y-4">
+                {[leftData, rightData].map((team, idx) => {
+                  const ratings = idx === 0 ? leftRatings : rightRatings
+                  if (!ratings.ovr && !ratings.off && !ratings.def) return null
 
-        // Don't render if no tabs
-        if (tabs.length === 0) return null
+                  const ovrBetter = (ratings.ovr || 0) > ((idx === 0 ? rightRatings : leftRatings).ovr || 0)
+                  const offBetter = (ratings.off || 0) > ((idx === 0 ? rightRatings : leftRatings).off || 0)
+                  const defBetter = (ratings.def || 0) > ((idx === 0 ? rightRatings : leftRatings).def || 0)
 
-        // Ensure active tab is valid
-        const currentTab = tabs.find(t => t.key === activeDetailsTab) ? activeDetailsTab : tabs[0].key
-
-        // Rating calculations
-        const leftIsOpponent = leftTeam !== 'user'
-        const leftRatings = leftIsOpponent ? oppRatings : userRatings
-        const rightRatings = !leftIsOpponent ? oppRatings : userRatings
-
-        return (
-          <div className="rounded-2xl overflow-hidden shadow-lg bg-gray-900">
-            {/* Tab Navigation */}
-            <div className="flex border-b border-gray-800">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveDetailsTab(tab.key)}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                    currentTab === tab.key
-                      ? 'text-white border-b-2 border-white bg-gray-800/50'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab Content */}
-            <div className="p-4">
-              {/* Ratings Tab */}
-              {currentTab === 'ratings' && hasRatings && (
-                <div className="space-y-4">
-                  {[leftData, rightData].map((team, idx) => {
-                    const ratings = idx === 0 ? leftRatings : rightRatings
-                    if (!ratings.ovr && !ratings.off && !ratings.def) return null
-
-                    const ovrBetter = (ratings.ovr || 0) > ((idx === 0 ? rightRatings : leftRatings).ovr || 0)
-                    const offBetter = (ratings.off || 0) > ((idx === 0 ? rightRatings : leftRatings).off || 0)
-                    const defBetter = (ratings.def || 0) > ((idx === 0 ? rightRatings : leftRatings).def || 0)
-
-                    return (
-                      <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                        <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform">
-                          {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
+                  return (
+                    <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 transition-colors">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform">
+                        {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm truncate group-hover:underline">{team.name}</div>
+                        <div className="flex gap-4 mt-1.5">
+                          {ratings.ovr && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-500 font-medium uppercase">OVR</span>
+                              <span className={`text-lg ${ovrBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.ovr}</span>
+                            </div>
+                          )}
+                          {ratings.off && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-500 font-medium uppercase">OFF</span>
+                              <span className={`text-lg ${offBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.off}</span>
+                            </div>
+                          )}
+                          {ratings.def && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-500 font-medium uppercase">DEF</span>
+                              <span className={`text-lg ${defBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.def}</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-white text-sm truncate group-hover:underline">{team.name}</div>
-                          <div className="flex gap-4 mt-1.5">
-                            {ratings.ovr && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-500 font-medium uppercase">OVR</span>
-                                <span className={`text-lg ${ovrBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.ovr}</span>
-                              </div>
-                            )}
-                            {ratings.off && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-500 font-medium uppercase">OFF</span>
-                                <span className={`text-lg ${offBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.off}</span>
-                              </div>
-                            )}
-                            {ratings.def && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] text-gray-500 font-medium uppercase">DEF</span>
-                                <span className={`text-lg ${defBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.def}</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* Awards Tab */}
+          {activeTab === 'awards' && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Conference Player of the Week */}
+              {(game.conferencePOW || game.confDefensePOW) && (
+                <div className="p-4 rounded-xl bg-gray-800/50">
+                  <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-4">Conference Player of the Week</div>
+                  <div className="space-y-4">
+                    {game.conferencePOW && (() => {
+                      const player = getPlayerByName(game.conferencePOW)
+                      const stats = getPlayerBoxScoreStats(game.conferencePOW)
+                      return (
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-amber-500/20 ring-2 ring-amber-500/30">
+                            {player?.pictureUrl ? (
+                              <img src={player.pictureUrl} alt={game.conferencePOW} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
                               </div>
                             )}
                           </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[9px] text-amber-500 uppercase font-semibold">Offensive</div>
+                            {getPlayerPID(game.conferencePOW) ? (
+                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.conferencePOW)}`} className="font-bold text-white text-sm hover:underline block">
+                                {game.conferencePOW}
+                              </Link>
+                            ) : (
+                              <div className="font-bold text-white text-sm">{game.conferencePOW}</div>
+                            )}
+                            {stats && <div className="text-xs text-gray-400 mt-1">{stats}</div>}
+                          </div>
                         </div>
-                      </Link>
-                    )
-                  })}
+                      )
+                    })()}
+                    {game.confDefensePOW && (() => {
+                      const player = getPlayerByName(game.confDefensePOW)
+                      const stats = getPlayerBoxScoreStats(game.confDefensePOW)
+                      return (
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-500/20 ring-2 ring-blue-500/30">
+                            {player?.pictureUrl ? (
+                              <img src={player.pictureUrl} alt={game.confDefensePOW} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[9px] text-blue-400 uppercase font-semibold">Defensive</div>
+                            {getPlayerPID(game.confDefensePOW) ? (
+                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.confDefensePOW)}`} className="font-bold text-white text-sm hover:underline block">
+                                {game.confDefensePOW}
+                              </Link>
+                            ) : (
+                              <div className="font-bold text-white text-sm">{game.confDefensePOW}</div>
+                            )}
+                            {stats && <div className="text-xs text-gray-400 mt-1">{stats}</div>}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
               )}
 
-              {/* Awards Tab */}
-              {currentTab === 'awards' && hasPOW && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Conference POW */}
-                  {(game.conferencePOW || game.confDefensePOW) && (
-                    <div className="p-4 rounded-xl bg-gray-800/50">
-                      <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-3">Conference POW</div>
-                      <div className="space-y-3">
-                        {game.conferencePOW && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <div className="text-[9px] text-gray-500 uppercase">Offensive</div>
-                              {getPlayerPID(game.conferencePOW) ? (
-                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.conferencePOW)}`} className="font-bold text-white text-sm hover:underline">
-                                  {game.conferencePOW}
-                                </Link>
-                              ) : (
-                                <div className="font-bold text-white text-sm">{game.conferencePOW}</div>
-                              )}
-                            </div>
+              {/* National Player of the Week */}
+              {(game.nationalPOW || game.natlDefensePOW) && (
+                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/20">
+                  <div className="text-[10px] text-yellow-400 uppercase font-bold tracking-wider mb-4">National Player of the Week</div>
+                  <div className="space-y-4">
+                    {game.nationalPOW && (() => {
+                      const player = getPlayerByName(game.nationalPOW)
+                      const stats = getPlayerBoxScoreStats(game.nationalPOW)
+                      return (
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-yellow-500/20 ring-2 ring-yellow-500/40">
+                            {player?.pictureUrl ? (
+                              <img src={player.pictureUrl} alt={game.nationalPOW} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {game.confDefensePOW && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <div className="text-[9px] text-gray-500 uppercase">Defensive</div>
-                              {getPlayerPID(game.confDefensePOW) ? (
-                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.confDefensePOW)}`} className="font-bold text-white text-sm hover:underline">
-                                  {game.confDefensePOW}
-                                </Link>
-                              ) : (
-                                <div className="font-bold text-white text-sm">{game.confDefensePOW}</div>
-                              )}
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[9px] text-yellow-500 uppercase font-semibold">Offensive</div>
+                            {getPlayerPID(game.nationalPOW) ? (
+                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
+                                {game.nationalPOW}
+                              </Link>
+                            ) : (
+                              <div className="font-bold text-yellow-300 text-sm">{game.nationalPOW}</div>
+                            )}
+                            {stats && <div className="text-xs text-yellow-200/60 mt-1">{stats}</div>}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* National POW */}
-                  {(game.nationalPOW || game.natlDefensePOW) && (
-                    <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/20">
-                      <div className="text-[10px] text-yellow-400 uppercase font-bold tracking-wider mb-3">National POW</div>
-                      <div className="space-y-3">
-                        {game.nationalPOW && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <div className="text-[9px] text-yellow-500/70 uppercase">Offensive</div>
-                              {getPlayerPID(game.nationalPOW) ? (
-                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`} className="font-bold text-yellow-300 text-sm hover:underline">
-                                  {game.nationalPOW}
-                                </Link>
-                              ) : (
-                                <div className="font-bold text-yellow-300 text-sm">{game.nationalPOW}</div>
-                              )}
-                            </div>
+                        </div>
+                      )
+                    })()}
+                    {game.natlDefensePOW && (() => {
+                      const player = getPlayerByName(game.natlDefensePOW)
+                      const stats = getPlayerBoxScoreStats(game.natlDefensePOW)
+                      return (
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-yellow-500/20 ring-2 ring-yellow-500/40">
+                            {player?.pictureUrl ? (
+                              <img src={player.pictureUrl} alt={game.natlDefensePOW} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {game.natlDefensePOW && (
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                              </svg>
-                            </div>
-                            <div>
-                              <div className="text-[9px] text-yellow-500/70 uppercase">Defensive</div>
-                              {getPlayerPID(game.natlDefensePOW) ? (
-                                <Link to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`} className="font-bold text-yellow-300 text-sm hover:underline">
-                                  {game.natlDefensePOW}
-                                </Link>
-                              ) : (
-                                <div className="font-bold text-yellow-300 text-sm">{game.natlDefensePOW}</div>
-                              )}
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[9px] text-yellow-500 uppercase font-semibold">Defensive</div>
+                            {getPlayerPID(game.natlDefensePOW) ? (
+                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
+                                {game.natlDefensePOW}
+                              </Link>
+                            ) : (
+                              <div className="font-bold text-yellow-300 text-sm">{game.natlDefensePOW}</div>
+                            )}
+                            {stats && <div className="text-xs text-yellow-200/60 mt-1">{stats}</div>}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Notes Tab */}
-              {currentTab === 'notes' && hasNotes && (
-                <div
-                  className="p-4 rounded-xl"
-                  style={{
-                    backgroundColor: `${displayTeamColors.primary}20`,
-                    borderLeft: `4px solid ${displayTeamColors.primary}`
-                  }}
-                >
-                  <p className="text-sm text-gray-200 whitespace-pre-wrap leading-relaxed">
-                    {game.gameNote}
-                  </p>
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-        )
-      })()}
+          )}
+
+        </div>
+      )}
 
       {/* Media Section */}
       {links.length > 0 && (
@@ -2308,6 +2624,21 @@ export default function Game() {
           </div>
         </div>
       )}
+
+      {/* Scoring Highlights Modal */}
+      <ScoringHighlightsModal
+        isOpen={showHighlightsModal}
+        onClose={() => setShowHighlightsModal(false)}
+        scoringPlays={game.boxScore?.scoringSummary || []}
+        team1Abbr={leftData?.abbr}
+        team2Abbr={rightData?.abbr}
+        team1Logo={leftData?.logo}
+        team2Logo={rightData?.logo}
+        players={currentDynasty?.players || []}
+        getTeamLogo={getTeamLogo}
+        getMascotName={getMascotName}
+        teamsData={currentDynasty?.teams || currentDynasty?.customTeams}
+      />
     </div>
   )
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import ScheduleSpreadsheet from './ScheduleSpreadsheet'
 import SheetToolbar, { SheetErrorBanner } from './SheetToolbar'
 import {
   createScheduleSheet,

@@ -5199,6 +5199,7 @@ export async function createStatsEntrySheet(dynastyName, year, players = []) {
     const accessToken = await getAccessToken()
 
     // Create the spreadsheet with Stats tab
+    // 3 columns: Player (dropdown), Games Played, Snaps Played
     const response = await fetch(SHEETS_API_BASE, {
       method: 'POST',
       headers: {
@@ -5214,8 +5215,8 @@ export async function createStatsEntrySheet(dynastyName, year, players = []) {
             properties: {
               title: 'GP/Snaps',
               gridProperties: {
-                rowCount: Math.max(players.length + 1, 86),
-                columnCount: 8, // PID + Player + Position + Class + Dev Trait + Overall + GP + Snaps
+                rowCount: Math.max(players.length + 10, 100), // Extra rows for flexibility
+                columnCount: 3, // Player + GP + Snaps
                 frozenRowCount: 1
               }
             }
@@ -5233,7 +5234,7 @@ export async function createStatsEntrySheet(dynastyName, year, players = []) {
     const sheet = await response.json()
     const statsSheetId = sheet.sheets[0].properties.sheetId
 
-    // Initialize headers and pre-fill player data
+    // Initialize headers and set up dropdown validation for player names
     await initializeStatsEntrySheet(sheet.spreadsheetId, accessToken, statsSheetId, players)
 
     // Share sheet publicly so it can be embedded in iframe
@@ -5249,10 +5250,19 @@ export async function createStatsEntrySheet(dynastyName, year, players = []) {
   }
 }
 
-// Initialize the Stats Entry sheet with headers and player data
+// Initialize the Stats Entry sheet with headers and player dropdown validation
 async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, players) {
+  // Sort players alphabetically by name for the dropdown
+  const sortedPlayerNames = [...players]
+    .map(p => p.name)
+    .filter(name => name && name.trim())
+    .sort((a, b) => a.localeCompare(b))
+
+  // Number of data rows (one per player, plus a few extra)
+  const numDataRows = Math.max(sortedPlayerNames.length + 5, 90)
+
   const requests = [
-    // Set headers
+    // Set headers - only 3 columns now
     {
       updateCells: {
         range: {
@@ -5260,16 +5270,11 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
           startRowIndex: 0,
           endRowIndex: 1,
           startColumnIndex: 0,
-          endColumnIndex: 8
+          endColumnIndex: 3
         },
         rows: [{
           values: [
-            { userEnteredValue: { stringValue: 'PID' } },
             { userEnteredValue: { stringValue: 'Player' } },
-            { userEnteredValue: { stringValue: 'Position' } },
-            { userEnteredValue: { stringValue: 'Class' } },
-            { userEnteredValue: { stringValue: 'Dev Trait' } },
-            { userEnteredValue: { stringValue: 'Overall Rating\n(before game one)' } },
             { userEnteredValue: { stringValue: 'Games Played' } },
             { userEnteredValue: { stringValue: 'Snaps Played' } }
           ]
@@ -5296,7 +5301,7 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
         fields: 'userEnteredFormat(textFormat.bold,horizontalAlignment,verticalAlignment,wrapStrategy)'
       }
     },
-    // Hide PID column (used internally for player matching but not needed by user)
+    // Set column widths
     {
       updateDimensionProperties: {
         range: {
@@ -5305,8 +5310,8 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
           startIndex: 0,
           endIndex: 1
         },
-        properties: { hiddenByUser: true },
-        fields: 'hiddenByUser'
+        properties: { pixelSize: 200 }, // Player name (dropdown)
+        fields: 'pixelSize'
       }
     },
     {
@@ -5315,69 +5320,9 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
           sheetId: sheetId,
           dimension: 'COLUMNS',
           startIndex: 1,
-          endIndex: 2
-        },
-        properties: { pixelSize: 180 }, // Player name
-        fields: 'pixelSize'
-      }
-    },
-    {
-      updateDimensionProperties: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'COLUMNS',
-          startIndex: 2,
           endIndex: 3
         },
-        properties: { pixelSize: 80 }, // Position
-        fields: 'pixelSize'
-      }
-    },
-    {
-      updateDimensionProperties: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'COLUMNS',
-          startIndex: 3,
-          endIndex: 4
-        },
-        properties: { pixelSize: 70 }, // Class
-        fields: 'pixelSize'
-      }
-    },
-    {
-      updateDimensionProperties: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'COLUMNS',
-          startIndex: 4,
-          endIndex: 5
-        },
-        properties: { pixelSize: 80 }, // Dev Trait
-        fields: 'pixelSize'
-      }
-    },
-    {
-      updateDimensionProperties: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'COLUMNS',
-          startIndex: 5,
-          endIndex: 6
-        },
-        properties: { pixelSize: 100 }, // Overall Rating
-        fields: 'pixelSize'
-      }
-    },
-    {
-      updateDimensionProperties: {
-        range: {
-          sheetId: sheetId,
-          dimension: 'COLUMNS',
-          startIndex: 6,
-          endIndex: 8
-        },
-        properties: { pixelSize: 90 }, // GP, Snaps
+        properties: { pixelSize: 120 }, // GP, Snaps
         fields: 'pixelSize'
       }
     },
@@ -5395,79 +5340,15 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
         }
       }
     },
-    // Protect columns A-F (pre-filled data: PID, Player, Position, Class, Dev Trait, Overall)
+    // Center all data cells
     {
-      addProtectedRange: {
-        protectedRange: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: 1,
-            startColumnIndex: 0,
-            endColumnIndex: 6
-          },
-          description: 'Protected player info columns',
-          warningOnly: false
-        }
-      }
-    }
-  ]
-
-  // Pre-fill player data if available
-  if (players.length > 0) {
-    // Sort players by position order and then by overall rating
-    const positionOrder = [
-      'QB', 'HB', 'FB', 'WR', 'TE',
-      'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
-      'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
-      'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
-      'CB', 'FS', 'SS', 'S', 'K', 'P'
-    ]
-    const sortedPlayers = [...players].sort((a, b) => {
-      const posA = positionOrder.indexOf(a.position) !== -1 ? positionOrder.indexOf(a.position) : 999
-      const posB = positionOrder.indexOf(b.position) !== -1 ? positionOrder.indexOf(b.position) : 999
-      if (posA !== posB) return posA - posB
-      return (b.overall || 0) - (a.overall || 0)
-    })
-
-    requests.push({
-      updateCells: {
-        range: {
-          sheetId: sheetId,
-          startRowIndex: 1,
-          endRowIndex: sortedPlayers.length + 1,
-          startColumnIndex: 0,
-          endColumnIndex: 8
-        },
-        rows: sortedPlayers.map(player => ({
-          values: [
-            { userEnteredValue: { numberValue: player.pid || 0 } },
-            { userEnteredValue: { stringValue: player.name || '' } },
-            { userEnteredValue: { stringValue: player.position || '' } },
-            { userEnteredValue: { stringValue: player.year || '' } },
-            { userEnteredValue: { stringValue: player.devTrait || '' } },
-            { userEnteredValue: { numberValue: player.overall || 0 } },
-            // Pre-fill existing gamesPlayed/snapsPlayed - leave blank if null (not 0)
-            player.gamesPlayed != null
-              ? { userEnteredValue: { numberValue: player.gamesPlayed } }
-              : { userEnteredValue: { stringValue: '' } },
-            player.snapsPlayed != null
-              ? { userEnteredValue: { numberValue: player.snapsPlayed } }
-              : { userEnteredValue: { stringValue: '' } }
-          ]
-        })),
-        fields: 'userEnteredValue'
-      }
-    })
-
-    // Center all data cells (columns B-I, skipping PID column A which is already numeric)
-    requests.push({
       repeatCell: {
         range: {
           sheetId: sheetId,
           startRowIndex: 1,
-          endRowIndex: sortedPlayers.length + 1,
-          startColumnIndex: 1,
-          endColumnIndex: 9
+          endRowIndex: numDataRows + 1,
+          startColumnIndex: 0,
+          endColumnIndex: 3
         },
         cell: {
           userEnteredFormat: {
@@ -5476,19 +5357,28 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
         },
         fields: 'userEnteredFormat.horizontalAlignment'
       }
-    })
+    }
+  ]
 
-    // Add auto-filter to header row
+  // Add dropdown validation for Player column (column A) with all roster player names
+  // This prevents free text entry - users must select from the dropdown
+  if (sortedPlayerNames.length > 0) {
     requests.push({
-      setBasicFilter: {
-        filter: {
-          range: {
-            sheetId: sheetId,
-            startRowIndex: 0,
-            endRowIndex: sortedPlayers.length + 1,
-            startColumnIndex: 0,
-            endColumnIndex: 9
-          }
+      setDataValidation: {
+        range: {
+          sheetId: sheetId,
+          startRowIndex: 1,
+          endRowIndex: numDataRows + 1,
+          startColumnIndex: 0,
+          endColumnIndex: 1
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: sortedPlayerNames.map(name => ({ userEnteredValue: name }))
+          },
+          showCustomUi: true,
+          strict: true // Reject input not in the list
         }
       }
     })
@@ -5516,13 +5406,14 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
 
 /**
  * Read stats data from the stats entry sheet
+ * New format: Column A = Player Name, Column B = Games Played, Column C = Snaps Played
  */
 export async function readStatsFromSheet(spreadsheetId) {
   try {
     const accessToken = await getAccessToken()
 
-    // Read all data from the GP/Snaps sheet (A-H: PID, Player, Position, Class, Dev Trait, Overall, GP, Snaps)
-    const range = encodeURIComponent("'GP/Snaps'!A2:H200")
+    // Read all data from the GP/Snaps sheet (A-C: Player, GP, Snaps)
+    const range = encodeURIComponent("'GP/Snaps'!A2:C200")
     const response = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
       {
@@ -5541,15 +5432,10 @@ export async function readStatsFromSheet(spreadsheetId) {
     const rows = data.values || []
 
     return rows.map(row => ({
-      pid: parseInt(row[0]) || 0,
-      name: row[1] || '',
-      position: row[2] || '',
-      year: row[3] || '',
-      devTrait: row[4] || '',
-      overall: parseInt(row[5]) || 0,
-      gamesPlayed: parseInt(row[6]) || 0,
-      snapsPlayed: parseInt(row[7]) || 0
-    })).filter(player => player.pid > 0) // Filter by PID instead of name for robustness
+      name: row[0] || '',
+      gamesPlayed: parseInt(row[1]) || 0,
+      snapsPlayed: parseInt(row[2]) || 0
+    })).filter(player => player.name && player.name.trim()) // Filter by player name (must have selected from dropdown)
   } catch (error) {
     console.error('Error reading stats from sheet:', error)
     throw error

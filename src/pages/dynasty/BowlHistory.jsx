@@ -5,7 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { bowlLogos, getAllBowlNames } from '../../data/bowlLogos'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -375,259 +375,251 @@ export default function BowlHistory() {
     return game.team1Score > game.team2Score ? game.team1 : game.team2
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-lg shadow-lg p-6 bg-gray-800 border-2 border-gray-600 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">
-          Bowl History
-        </h1>
-        {!isViewOnly && (
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors flex items-center gap-2"
-            style={{ backgroundColor: teamColors.primary, color: primaryText }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            Edit
-          </button>
-        )}
-      </div>
+  const totalBowlGames = getTotalBowlGames()
 
-      {/* Search */}
-      <div className="rounded-lg shadow-lg p-4 bg-gray-800 border-2 border-gray-600">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5"
-            fill="none"
-            stroke="white"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search bowl games..."
-            className="w-full pl-10 pr-4 py-3 rounded-lg border-2 font-semibold text-lg text-gray-900 placeholder-gray-400"
-            style={{
-              borderColor: '#4b5563',
-              backgroundColor: 'white'
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:opacity-70 text-gray-500"
+  return (
+    <div className="space-y-4">
+      {/* Hero Header */}
+      <div
+        className="relative rounded-xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)'
+        }}
+      >
+        {/* Subtle pattern overlay */}
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+          }}
+        />
+
+        <div className="relative px-4 sm:px-6 py-6">
+          {/* Title row with edit button */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-1.5 h-10 rounded-full"
+                style={{ background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)' }}
+              />
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Bowl History
+                </h1>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  {totalBowlGames} bowl game{totalBowlGames !== 1 ? 's' : ''} played
+                </p>
+              </div>
+            </div>
+
+            {!isViewOnly && (
+              <button
+                onClick={() => setShowEditModal(true)}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-colors border border-slate-600/50"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          {/* Search bar */}
+          <div className="relative max-w-md">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search bowl games..."
+              className="w-full pl-9 pr-8 py-2 rounded-lg text-sm bg-slate-800/60 border border-slate-700/50 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <p className="mt-2 text-xs text-slate-500">
+              {filteredBowls.length} bowl{filteredBowls.length !== 1 ? 's' : ''} found
+            </p>
           )}
         </div>
-        {searchQuery && (
-          <p className="mt-2 text-sm font-semibold text-gray-400">
-            {filteredBowls.length} bowl{filteredBowls.length !== 1 ? 's' : ''} found
-          </p>
-        )}
       </div>
 
       {/* Bowl Games List */}
-      <div className="rounded-lg shadow-lg overflow-hidden bg-gray-800 border-2 border-gray-600">
-        <div className="divide-y divide-gray-700">
-          {filteredBowls.map(bowlName => {
-            const logo = bowlLogos[bowlName]
-            const results = getBowlResults(bowlName)
-            const isExpanded = expandedBowl === bowlName
+      <div className="space-y-2">
+        {filteredBowls.map(bowlName => {
+          const logo = bowlLogos[bowlName]
+          const results = getBowlResults(bowlName)
+          const isExpanded = expandedBowl === bowlName
 
-            return (
-              <div
-                key={bowlName}
-                ref={el => bowlRefs.current[bowlName] = el}
-                style={{ scrollMarginTop: '100px' }}
+          return (
+            <div
+              key={bowlName}
+              ref={el => bowlRefs.current[bowlName] = el}
+              className="rounded-lg overflow-hidden"
+              style={{
+                scrollMarginTop: '100px',
+                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                boxShadow: '0 0 0 1px rgba(71, 85, 105, 0.3)'
+              }}
+            >
+              {/* Bowl Header */}
+              <button
+                onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
+                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors"
               >
-                {/* Bowl Header */}
-                <button
-                  onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-gray-700 transition-colors"
-                >
-                  {/* Bowl Logo */}
-                  <div
-                    className="w-14 h-14 rounded-lg flex-shrink-0 flex items-center justify-center bg-white border-2 border-gray-600"
-                    style={{ padding: '4px' }}
+                {/* Bowl Logo */}
+                <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white p-1">
+                  {logo ? (
+                    <img
+                      src={logo}
+                      alt=""
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-lg">🏈</span>
+                  )}
+                </div>
+
+                {/* Bowl Name and Stats */}
+                <div className="flex-1 text-left min-w-0">
+                  <div className="font-semibold text-white truncate">
+                    {bowlName}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {results.length === 0 ? 'No games played' : `${results.length} game${results.length !== 1 ? 's' : ''}`}
+                  </div>
+                </div>
+
+                {/* Expand Icon */}
+                <div className="text-slate-500 flex-shrink-0">
+                  <svg
+                    className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    {logo ? (
-                      <img
-                        src={logo}
-                        alt={`${bowlName} logo`}
-                        className="w-full h-full object-contain"
-                      />
-                    ) : (
-                      <span className="text-2xl">🏈</span>
-                    )}
-                  </div>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
 
-                  {/* Bowl Name and Stats */}
-                  <div className="flex-1 text-left">
-                    <div className="font-bold text-lg text-white">
-                      {bowlName}
-                    </div>
-                    <div className="text-sm text-gray-400">
-                      {results.length === 0 ? 'No games played' : `${results.length} game${results.length !== 1 ? 's' : ''} played`}
-                    </div>
-                  </div>
+              {/* Expanded Results */}
+              {isExpanded && results.length > 0 && (
+                <div className="px-3 pb-3 space-y-1.5 border-t border-slate-700/50">
+                  <div className="pt-2" />
+                  {results.map((game, idx) => {
+                    const winner = getWinner(game)
+                    const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
+                    const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
+                    const team1Logo = team1Mascot ? getTeamLogo(team1Mascot) : null
+                    const team2Logo = team2Mascot ? getTeamLogo(team2Mascot) : null
 
-                  {/* Expand Icon */}
-                  <div className="text-white">
-                    <svg
-                      className={`w-6 h-6 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
+                    // Generate game ID for navigation
+                    const gameBowlName = game.bowlName || bowlName
+                    const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
+                    let gameId
+                    if (game.gameRef?.id) {
+                      gameId = game.gameRef.id
+                    } else if (game.cfpSlot) {
+                      gameId = getCFPGameId(game.cfpSlot, game.year)
+                    } else if (game.isCFP) {
+                      const slotId = getSlotIdFromBowlName(gameBowlName)
+                      gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
+                    } else {
+                      gameId = `bowl-${game.year}-${bowlSlug}`
+                    }
 
-                {/* Expanded Results */}
-                {isExpanded && results.length > 0 && (
-                  <div
-                    className="px-4 pb-4 space-y-2"
-                    style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
-                  >
-                    {results.map((game, idx) => {
-                      const winner = getWinner(game)
-                      const team1Info = teamAbbreviations[game.team1]
-                      const team2Info = teamAbbreviations[game.team2]
-                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team1Logo = team1Mascot ? getTeamLogo(team1Mascot) : null
-                      const team2Logo = team2Mascot ? getTeamLogo(team2Mascot) : null
-                      const team1Colors = team1Mascot ? getTeamColors(team1Mascot) : { primary: '#666', secondary: '#fff' }
-                      const team2Colors = team2Mascot ? getTeamColors(team2Mascot) : { primary: '#666', secondary: '#fff' }
+                    return (
+                      <Link
+                        key={`${game.year}-${idx}`}
+                        to={`${pathPrefix}/game/${gameId}`}
+                        className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors"
+                      >
+                        {/* Year */}
+                        <div className="w-10 sm:w-12 text-center font-bold text-sm text-amber-500 flex-shrink-0">
+                          {game.year}
+                        </div>
 
-                      // Generate game ID for navigation
-                      // Prefer actual game ID from gameRef when available (most reliable)
-                      // Fall back to generated IDs for legacy data
-                      // IMPORTANT: For CFP, use cfpSlot first (bowl names rotate per year/dynasty)
-                      const gameBowlName = game.bowlName || bowlName
-                      const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
-                      let gameId
-                      if (game.gameRef?.id) {
-                        // Use actual game ID from database
-                        gameId = game.gameRef.id
-                      } else if (game.cfpSlot) {
-                        // Use cfpSlot if available (most reliable for CFP games)
-                        gameId = getCFPGameId(game.cfpSlot, game.year)
-                      } else if (game.isCFP) {
-                        // CFP games: fall back to bowl name lookup (legacy, less reliable)
-                        const slotId = getSlotIdFromBowlName(gameBowlName)
-                        gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
-                      } else {
-                        // Regular bowl games use bowl-{year}-{slug} format as fallback
-                        gameId = `bowl-${game.year}-${bowlSlug}`
-                      }
+                        {/* Team 1 */}
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {team1Logo && (
+                            <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
+                              <img src={team1Logo} alt="" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                          <span
+                            className={`text-xs sm:text-sm font-medium truncate ${winner === game.team1 ? 'text-white' : 'text-slate-500'}`}
+                          >
+                            {getSchoolName(game.team1, currentDynasty?.teams) || game.team1}
+                          </span>
+                        </div>
 
-                      return (
-                        <Link
-                          key={`${game.year}-${idx}`}
-                          to={`${pathPrefix}/game/${gameId}`}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-white hover:scale-[1.01] transition-transform border-2 border-gray-300"
-                        >
-                          {/* Year */}
-                          <div className="w-16 text-center font-bold text-lg text-gray-700">
-                            {game.year}
-                          </div>
+                        {/* Score */}
+                        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm flex-shrink-0">
+                          <span className={winner === game.team1 ? 'text-green-400' : 'text-slate-500'}>
+                            {game.team1Score}
+                          </span>
+                          <span className="text-slate-600">-</span>
+                          <span className={winner === game.team2 ? 'text-green-400' : 'text-slate-500'}>
+                            {game.team2Score}
+                          </span>
+                        </div>
 
-                          {/* Team 1 */}
-                          <div className="flex items-center gap-2 flex-1">
-                            {team1Logo && (
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{
-                                  backgroundColor: '#FFFFFF',
-                                  border: `2px solid ${team1Colors.primary}`,
-                                  padding: '2px'
-                                }}
-                              >
-                                <img src={team1Logo} alt="" className="w-full h-full object-contain" />
-                              </div>
-                            )}
-                            <span
-                              className={`font-semibold ${winner === game.team1 ? '' : 'opacity-60'}`}
-                              style={{ color: team1Info?.backgroundColor || '#333' }}
-                            >
-                              {team1Mascot || game.team1}
-                            </span>
-                          </div>
+                        {/* Team 2 */}
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                          <span
+                            className={`text-xs sm:text-sm font-medium truncate ${winner === game.team2 ? 'text-white' : 'text-slate-500'}`}
+                          >
+                            {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
+                          </span>
+                          {team2Logo && (
+                            <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
+                              <img src={team2Logo} alt="" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
 
-                          {/* Score */}
-                          <div className="flex items-center gap-2 font-bold">
-                            <span
-                              className={winner === game.team1 ? 'text-green-600' : 'text-gray-400'}
-                            >
-                              {game.team1Score}
-                            </span>
-                            <span className="text-gray-400">-</span>
-                            <span
-                              className={winner === game.team2 ? 'text-green-600' : 'text-gray-400'}
-                            >
-                              {game.team2Score}
-                            </span>
-                          </div>
-
-                          {/* Team 2 */}
-                          <div className="flex items-center gap-2 flex-1 justify-end">
-                            <span
-                              className={`font-semibold ${winner === game.team2 ? '' : 'opacity-60'}`}
-                              style={{ color: team2Info?.backgroundColor || '#333' }}
-                            >
-                              {team2Mascot || game.team2}
-                            </span>
-                            {team2Logo && (
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{
-                                  backgroundColor: '#FFFFFF',
-                                  border: `2px solid ${team2Colors.primary}`,
-                                  padding: '2px'
-                                }}
-                              >
-                                <img src={team2Logo} alt="" className="w-full h-full object-contain" />
-                              </div>
-                            )}
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* No results message */}
-                {isExpanded && results.length === 0 && (
-                  <div
-                    className="px-4 pb-4 text-center py-6"
-                    style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}
-                  >
-                    <p className="text-gray-400">
-                      No games have been played in this bowl yet.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+              {/* No results message */}
+              {isExpanded && results.length === 0 && (
+                <div className="px-3 pb-4 pt-2 text-center border-t border-slate-700/50">
+                  <p className="text-sm text-slate-500">
+                    No games have been played in this bowl yet.
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {filteredBowls.length === 0 && (
-        <div className="rounded-lg shadow-lg p-8 text-center bg-gray-800 border-2 border-gray-600">
-          <p className="text-gray-400">
+        <div
+          className="rounded-lg p-8 text-center"
+          style={{
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            boxShadow: '0 0 0 1px rgba(71, 85, 105, 0.3)'
+          }}
+        >
+          <p className="text-slate-500">
             No bowls found matching "{searchQuery}"
           </p>
         </div>

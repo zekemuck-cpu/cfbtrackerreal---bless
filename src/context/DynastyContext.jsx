@@ -1425,7 +1425,7 @@ export function migrateToUnifiedGames(dynasty) {
  */
 const BOX_SCORE_STATS = {
   passing: {
-    sum: ['comp', 'attempts', 'yards', 'tD', 'iNT', 'sacks'],
+    sum: ['comp', 'att', 'yards', 'tD', 'iNT', 'sacks'],
     max: ['long']
   },
   rushing: {
@@ -1461,7 +1461,7 @@ const BOX_SCORE_STATS = {
 
 // Convert box score format to internal format for statsByYear storage
 const BOXSCORE_TO_INTERNAL_MAP = {
-  passing: { comp: 'cmp', attempts: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
+  passing: { comp: 'cmp', att: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
   rushing: { carries: 'car', yards: 'yds', tD: 'td', long: 'lng', fumbles: 'fum', brokenTackles: 'bt', yAC: 'yac', '20+': 'twentyPlus' },
   receiving: { receptions: 'rec', yards: 'yds', tD: 'td', long: 'lng', drops: 'drops', rAC: 'rac' },
   blocking: { pancakes: 'pancakes', sacksAllowed: 'sacksAllowed' },
@@ -1668,27 +1668,20 @@ export function processBoxScoreDelete(players, oldContribution, year) {
  * @param {Array} players - Current players array
  * @param {Array} games - All games array
  * @param {number} year - The year to recalculate
- * @param {number|string} userTeamTidOrAbbr - The user's team tid or abbreviation
  * @param {Object} options - Optional settings
  * @param {boolean} options.skipGamesPlayed - If true, preserve existing gamesPlayed values
  * @returns {Array} Updated players array with recalculated stats
  */
-export function recalculateStatsFromBoxScores(players, games, year, userTeamTidOrAbbr, options = {}) {
+export function recalculateStatsFromBoxScores(players, games, year, options = {}) {
   const { skipGamesPlayed = false } = options
   const yearNum = Number(year)
 
-  // Convert to tid for consistent comparison
-  const userTid = typeof userTeamTidOrAbbr === 'number' ? userTeamTidOrAbbr : getTidFromAbbr(userTeamTidOrAbbr)
-
   // Get all games for this year that have box scores
-  // Support both new (userTid) and old (userTeam) fields
-  const gamesWithBoxScores = (games || []).filter(g => {
-    if (Number(g.year) !== yearNum || !g.boxScore) return false
-    // Prefer tid comparison, fall back to abbr comparison
-    if (g.userTid) return g.userTid === userTid
-    if (g.userTeam) return g.userTeam === userTeamTidOrAbbr || getTidFromAbbr(g.userTeam) === userTid
-    return false
-  })
+  // NOTE: Don't filter by team - we want stats from ALL games where players appeared
+  // This matches getPlayerBoxScoreTotals() behavior
+  const gamesWithBoxScores = (games || []).filter(g =>
+    Number(g.year) === yearNum && g.boxScore
+  )
 
   // Build aggregated stats for each player from all box scores
   const aggregatedStats = {} // { normalizedPlayerName: { category: { field: value } } }
@@ -2116,7 +2109,8 @@ export function getScheduleWithGameData(dynasty) {
  */
 export function isPlayerOnRoster(player, tidOrAbbr, year) {
   // STINT-BASED SYSTEM (preferred if player has been migrated)
-  // Check if player has teamHistory - if so, use stint-based lookup
+  // Use stint-based lookup if player has teamHistory AND entryYear is set (even if null)
+  // entryYear !== undefined indicates player was saved through the new system
   if (player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined) {
     return isPlayerOnRosterStintBased(player, tidOrAbbr, year)
   }
@@ -2269,13 +2263,16 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     tidNum = getTidFromAbbr(teamTid)
   }
 
+  // Helper to check if stint is "open" (active - no end date)
+  const isStintOpen = (s) => s.toYear === null || s.toYear === undefined
+
   // If player has new teamHistory, use that for roster membership
   if (player.teamHistory && player.teamHistory.length > 0) {
     // Find stint that covers this year on this team
     const stint = player.teamHistory.find(s =>
       Number(s.teamTid) === tidNum &&
       yearNum >= Number(s.fromYear) &&
-      (s.toYear === null || yearNum <= Number(s.toYear))
+      (isStintOpen(s) || yearNum <= Number(s.toYear))
     )
 
     if (stint) return true
@@ -2283,7 +2280,7 @@ export function isPlayerOnRosterStintBased(player, teamTid, year) {
     // Check if player has ANY stint for this team (even if closed)
     // If they have a closed stint, they left - don't use legacy fallback
     const hasClosedStintForTeam = player.teamHistory.some(s =>
-      Number(s.teamTid) === tidNum && s.toYear !== null && yearNum > Number(s.toYear)
+      Number(s.teamTid) === tidNum && !isStintOpen(s) && yearNum > Number(s.toYear)
     )
 
     if (hasClosedStintForTeam) {
@@ -4620,11 +4617,18 @@ export function DynastyProvider({ children }) {
   const lastPlayersUpdateTimestampRef = useRef(0)
   // Also track the dynasty ID that was updated to be more precise
   const lastPlayersUpdateDynastyIdRef = useRef(null)
+  // CRITICAL: Track when we last updated games locally to prevent listener from overwriting
+  const lastGamesUpdateTimestampRef = useRef(0)
+  const lastGamesUpdateDynastyIdRef = useRef(null)
   // Track which dynasties have had their migration data persisted this session
   // This prevents the auto-save from running multiple times for the same dynasty
   const persistedMigrationDynastiesRef = useRef(new Set())
   // Flag to indicate if a migration save is currently in progress (to serialize saves)
   const migrationSaveInProgressRef = useRef(false)
+  // Track which cloud dynasties have had their subcollections loaded (lazy loading optimization)
+  const loadedDynastyIdsRef = useRef(new Set())
+  // Track which dynasty is currently having its data loaded
+  const [loadingDynastyId, setLoadingDynastyId] = useState(null)
 
   // Helper to find dynasty by ID - checks state first (both local + cloud), then IndexedDB as fallback
   // This ensures cloud dynasties work even if user's premium expired (read-only mode)
@@ -4684,6 +4688,64 @@ export function DynastyProvider({ children }) {
     }
 
     return dynasty?.players || []
+  }
+
+  // Lazy load subcollection data for a cloud dynasty on demand
+  // This reduces Firestore reads by only loading data when user opens a dynasty
+  const loadDynastyData = async (dynastyId) => {
+    // Check if already loaded
+    if (loadedDynastyIdsRef.current.has(dynastyId)) {
+      return
+    }
+
+    // Find the dynasty in state
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) {
+      return
+    }
+
+    // Local dynasties already have their data, just mark as loaded
+    if (dynasty.storageType !== 'cloud') {
+      loadedDynastyIdsRef.current.add(dynastyId)
+      return
+    }
+
+    setLoadingDynastyId(dynastyId)
+
+    try {
+      // Load subcollections from Firestore
+      const [subcollectionPlayers, subcollectionGames] = await Promise.all([
+        getPlayersSubcollection(dynastyId),
+        getGamesSubcollection(dynastyId)
+      ])
+
+      // Use subcollection data if available, otherwise fall back to main document
+      const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
+      const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+      // Apply migrations to the loaded data
+      const dynastyWithData = { ...dynasty, players, games }
+      const [migratedDynasty] = applyMigrations([dynastyWithData])
+
+      // Update the dynasty in state with loaded data
+      setDynasties(prev => prev.map(d =>
+        d.id === dynastyId ? migratedDynasty : d
+      ))
+
+      // If this is the current dynasty, update it too
+      setCurrentDynasty(prev => {
+        if (prev?.id === dynastyId) {
+          return migratedDynasty
+        }
+        return prev
+      })
+
+      loadedDynastyIdsRef.current.add(dynastyId)
+    } catch (err) {
+      console.error(`Error loading dynasty data for ${dynastyId}:`, err)
+    } finally {
+      setLoadingDynastyId(null)
+    }
   }
 
   // Helper to apply migrations to dynasties (games + stats + roster)
@@ -4910,6 +4972,9 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Clear lazy loading cache when user changes (logout or login as different user)
+    loadedDynastyIdsRef.current.clear()
+
     // If user is not signed in, only load local dynasties
     if (!user) {
       const loadOnlyLocal = async () => {
@@ -4964,16 +5029,28 @@ export function DynastyProvider({ children }) {
         }
       }
 
-      // Load subcollections for each cloud dynasty in parallel
+      // LAZY LOADING OPTIMIZATION: Only load subcollections for dynasties that are already loaded
+      // or currently selected. This reduces Firestore reads significantly for users with many dynasties.
       const cloudDynastiesWithSubcollections = await Promise.all(
         firestoreDynasties.map(async (dynasty) => {
           try {
             // Tag as cloud storage
             const taggedDynasty = { ...dynasty, storageType: 'cloud' }
 
-            // ALWAYS try to load from subcollections for cloud dynasties
-            // This fixes issues where _subcollectionsMigrated flag wasn't set but data is in subcollection
-            // (e.g., after stint migration which saves to subcollection via updateDynasty)
+            // Check if this dynasty should have its subcollections loaded:
+            // 1. It's the currently selected dynasty (user is viewing it)
+            // 2. It's already been loaded this session (keep it in sync)
+            const shouldLoadSubcollections =
+              currentDynasty?.id === dynasty.id ||
+              loadedDynastyIdsRef.current.has(dynasty.id)
+
+            if (!shouldLoadSubcollections) {
+              // Return metadata only - players/games will be loaded on demand
+              // Keep any embedded data from main document for display purposes (e.g., player count)
+              return taggedDynasty
+            }
+
+            // Load subcollections for this dynasty
             const [subcollectionPlayers, subcollectionGames] = await Promise.all([
               getPlayersSubcollection(dynasty.id),
               getGamesSubcollection(dynasty.id)
@@ -4982,6 +5059,9 @@ export function DynastyProvider({ children }) {
             // Use subcollection data if it exists, otherwise fall back to main document
             const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
             const games = subcollectionGames.length > 0 ? subcollectionGames : (dynasty.games || [])
+
+            // Mark as loaded
+            loadedDynastyIdsRef.current.add(dynasty.id)
 
             return {
               ...taggedDynasty,
@@ -5017,7 +5097,7 @@ export function DynastyProvider({ children }) {
       setLoading(false)
 
       // Update current dynasty if it's in the list
-      // CRITICAL: Check if we recently updated players locally - if so, preserve local players
+      // CRITICAL: Check if we recently updated players/games locally - if so, preserve local data
       // to prevent race condition where Firestore returns stale data
       if (currentDynasty) {
         const updated = migratedDynasties.find(d => d.id === currentDynasty.id)
@@ -5025,16 +5105,21 @@ export function DynastyProvider({ children }) {
           // Check if this dynasty had a recent local player update (within 10 seconds)
           const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === currentDynasty.id &&
             (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
+          // Check if this dynasty had a recent local games update (within 10 seconds)
+          const recentGamesUpdate = lastGamesUpdateDynastyIdRef.current === currentDynasty.id &&
+            (Date.now() - lastGamesUpdateTimestampRef.current) < 10000
 
-          if (recentPlayerUpdate && currentDynasty.players) {
-            // Preserve local players - they're more recent than Firestore data
-            setCurrentDynasty({
+          if (recentPlayerUpdate || recentGamesUpdate) {
+            // Preserve local data - they're more recent than Firestore data
+            const preservedDynasty = {
               ...updated,
-              players: currentDynasty.players
-            })
-            // Also update the dynasty in the array to preserve players
+              ...(recentPlayerUpdate && currentDynasty.players ? { players: currentDynasty.players } : {}),
+              ...(recentGamesUpdate && currentDynasty.games ? { games: currentDynasty.games } : {})
+            }
+            setCurrentDynasty(preservedDynasty)
+            // Also update the dynasty in the array to preserve data
             setDynasties(prev => prev.map(d =>
-              d.id === currentDynasty.id ? { ...d, players: currentDynasty.players } : d
+              d.id === currentDynasty.id ? preservedDynasty : d
             ))
           } else {
             setCurrentDynasty(updated)
@@ -5475,6 +5560,9 @@ export function DynastyProvider({ children }) {
       // Route games to subcollection (unless skipGamesSubcollection is true - for optimized single-game updates)
       if (mainDocUpdates.games && Array.isArray(mainDocUpdates.games) && !skipGamesSubcollection) {
         console.log(`Saving ${mainDocUpdates.games.length} games to subcollection (with orphan cleanup)`)
+        // CRITICAL: Track this games update to prevent listener from overwriting with stale data
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
         subcollectionPromises.push(
           saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
         )
@@ -5617,9 +5705,20 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  const selectDynasty = (dynastyId) => {
+  const selectDynasty = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
-    setCurrentDynasty(dynasty || null)
+    if (!dynasty) {
+      setCurrentDynasty(null)
+      return
+    }
+
+    // Set the dynasty immediately (may not have players/games yet if cloud and unloaded)
+    setCurrentDynasty(dynasty)
+
+    // If this is a cloud dynasty that hasn't been loaded yet, trigger lazy loading
+    if (dynasty.storageType === 'cloud' && !loadedDynastyIdsRef.current.has(dynastyId)) {
+      await loadDynastyData(dynastyId)
+    }
   }
 
   const addGame = async (dynastyId, gameData) => {
@@ -6823,7 +6922,9 @@ export function DynastyProvider({ children }) {
       nextWeek = 1
 
       // Execute pending coordinator firing if any
-      const pendingFiring = dynasty.conferenceChampionshipData?.pendingFiring
+      // Read from conferenceChampionshipDataByYear (where Dashboard saves it)
+      const ccDataForYear = dynasty.conferenceChampionshipDataByYear?.[dynasty.currentYear] || {}
+      const pendingFiring = ccDataForYear.pendingFiring
       if (pendingFiring && pendingFiring !== 'none') {
         const firedOCName = (pendingFiring === 'oc' || pendingFiring === 'both') ? dynasty.coachingStaff?.ocName : null
         const firedDCName = (pendingFiring === 'dc' || pendingFiring === 'both') ? dynasty.coachingStaff?.dcName : null
@@ -6837,12 +6938,18 @@ export function DynastyProvider({ children }) {
         }
 
         additionalUpdates.coachingStaff = updatedStaff
-        additionalUpdates.conferenceChampionshipData = {
-          ...dynasty.conferenceChampionshipData,
-          firingCoordinators: true,
-          coordinatorToFire: pendingFiring,
-          firedOCName,
-          firedDCName
+
+        // Write to conferenceChampionshipDataByYear (where Dashboard reads it)
+        const existingByYear = dynasty.conferenceChampionshipDataByYear || {}
+        additionalUpdates.conferenceChampionshipDataByYear = {
+          ...existingByYear,
+          [dynasty.currentYear]: {
+            ...ccDataForYear,
+            firingCoordinators: true,
+            coordinatorToFire: pendingFiring,
+            firedOCName,
+            firedDCName
+          }
         }
         // Reset coachingStaffEntered so user must re-enter in next preseason
         additionalUpdates['preseasonSetup.coachingStaffEntered'] = false
@@ -7265,7 +7372,71 @@ export function DynastyProvider({ children }) {
         // Check if player was on THIS team last season
         if (!wasOnTeamLastSeason(player)) {
           otherTeamSkipped++
-          return player
+
+          // ========== SIMPLE AGING FOR OTHER TEAM PLAYERS ==========
+          // These players aren't on the user's team, so apply simple linear progression
+          // No redshirt logic - just advance class and graduate seniors
+
+          const otherTeamClass = player.year ||
+            player.classByYear?.[previousSeasonYear] ||
+            player.classByYear?.[String(previousSeasonYear)]
+
+          // Check if player is graduating (Sr or RS Sr)
+          if (otherTeamClass === 'Sr' || otherTeamClass === 'RS Sr') {
+            // Graduate this player - close their stint
+            if (player.teamHistory && player.teamHistory.length > 0) {
+              const updatedHistory = player.teamHistory.map(stint => {
+                // Close any open stints
+                if (stint.toYear === null || stint.toYear === undefined) {
+                  return { ...stint, toYear: previousSeasonYear, endReason: 'graduation' }
+                }
+                return stint
+              })
+              return { ...player, teamHistory: updatedHistory }
+            }
+            // For legacy players without teamHistory, just return unchanged
+            // They won't be added to next year since teamsByYear won't have nextYear
+            return player
+          }
+
+          // Not graduating - advance their class
+          const newOtherClass = CLASS_PROGRESSION[otherTeamClass] || otherTeamClass
+
+          // Get their current team tid (from most recent stint or teamsByYear)
+          let otherTeamTid = null
+          if (player.teamHistory && player.teamHistory.length > 0) {
+            // Find their active stint
+            const activeStint = player.teamHistory.find(s => s.toYear === null || s.toYear === undefined)
+            otherTeamTid = activeStint?.teamTid
+          }
+          if (!otherTeamTid) {
+            otherTeamTid = player.teamsByYear?.[previousSeasonYear] ||
+                           player.teamsByYear?.[String(previousSeasonYear)] ||
+                           player.team
+          }
+
+          // Update the player with new class
+          const updatedOtherPlayer = {
+            ...player,
+            year: newOtherClass,
+            classByYear: {
+              ...(player.classByYear || {}),
+              [nextYear]: newOtherClass
+            }
+          }
+
+          // For legacy players (no teamHistory), also update teamsByYear
+          if (!player.teamHistory || player.teamHistory.length === 0) {
+            if (otherTeamTid) {
+              updatedOtherPlayer.teamsByYear = {
+                ...(player.teamsByYear || {}),
+                [nextYear]: otherTeamTid
+              }
+            }
+          }
+          // For stint-based players, their open stint already covers the next year
+
+          return updatedOtherPlayer
         }
 
         // Check if player is leaving
@@ -7965,8 +8136,9 @@ export function DynastyProvider({ children }) {
       )
 
       // Restore fired coordinators if any were fired during this CC phase
-      const ccData = dynasty.conferenceChampionshipData
-      if (ccData && isSameYear(ccData.year, year)) {
+      // Read from conferenceChampionshipDataByYear (where the firing data is stored)
+      const ccData = dynasty.conferenceChampionshipDataByYear?.[year]
+      if (ccData) {
         // Restore coordinator names that were fired
         if (ccData.firedOCName || ccData.firedDCName) {
           const restoredStaff = { ...dynasty.coachingStaff }
@@ -7980,9 +8152,22 @@ export function DynastyProvider({ children }) {
           // Restore the coachingStaffEntered flag since we're restoring the coordinators
           additionalUpdates['preseasonSetup.coachingStaffEntered'] = true
         }
+
+        // Clear fired coordinator data from the byYear structure
+        const existingByYear = dynasty.conferenceChampionshipDataByYear || {}
+        additionalUpdates.conferenceChampionshipDataByYear = {
+          ...existingByYear,
+          [year]: {
+            ...ccData,
+            firedOCName: null,
+            firedDCName: null,
+            firingCoordinators: null,
+            coordinatorToFire: null
+          }
+        }
       }
 
-      // Clear all CC data
+      // Clear legacy CC data
       additionalUpdates.conferenceChampionshipData = null
       // Clear CC sheet ID
       additionalUpdates.conferenceChampionshipSheetId = null
@@ -9484,15 +9669,14 @@ export function DynastyProvider({ children }) {
       throw new Error('Dynasty not found')
     }
 
-    const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-    console.log('Syncing stats for team:', userTeamAbbr, 'year:', year, 'skipGamesPlayed:', options.skipGamesPlayed)
-    console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
+    const gamesWithBoxScores = (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year)).length
+    console.log('Syncing stats for year:', year, 'skipGamesPlayed:', options.skipGamesPlayed)
+    console.log('Games with box scores:', gamesWithBoxScores)
 
     const updatedPlayers = recalculateStatsFromBoxScores(
       dynasty.players || [],
       dynasty.games || [],
       year,
-      userTeamAbbr,
       options
     )
 
@@ -11549,6 +11733,7 @@ export function DynastyProvider({ children }) {
     currentDynasty,
     customTeams,
     loading,
+    loadingDynastyId,
     isViewOnly,
     createDynasty,
     updateDynasty,

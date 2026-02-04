@@ -878,11 +878,11 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
-        // Player of the Week fields
-        ...(formData.conferencePOW && { conferencePOW: formData.conferencePOW }),
-        ...(formData.confDefensePOW && { confDefensePOW: formData.confDefensePOW }),
-        ...(formData.nationalPOW && { nationalPOW: formData.nationalPOW }),
-        ...(formData.natlDefensePOW && { natlDefensePOW: formData.natlDefensePOW }),
+        // Player of the Week fields - always include to allow clearing
+        conferencePOW: formData.conferencePOW || '',
+        confDefensePOW: formData.confDefensePOW || '',
+        nationalPOW: formData.nationalPOW || '',
+        natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Set game type flags from existingGame or gameType query param for new games
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
@@ -1016,11 +1016,11 @@ export default function GameEdit() {
         homeTeamTid,
         isConferenceGame: formData.isConferenceGame || isConferenceGame,
         aiRecap: formData.aiRecap,
-        // Player of the Week fields
-        ...(formData.conferencePOW && { conferencePOW: formData.conferencePOW }),
-        ...(formData.confDefensePOW && { confDefensePOW: formData.confDefensePOW }),
-        ...(formData.nationalPOW && { nationalPOW: formData.nationalPOW }),
-        ...(formData.natlDefensePOW && { natlDefensePOW: formData.natlDefensePOW }),
+        // Player of the Week fields - always include to allow clearing
+        conferencePOW: formData.conferencePOW || '',
+        confDefensePOW: formData.confDefensePOW || '',
+        nationalPOW: formData.nationalPOW || '',
+        natlDefensePOW: formData.natlDefensePOW || '',
         // NOTE: No userTid - games are team-centric (team1Tid/team2Tid), not user-centric
         // Preserve game type flags
         ...(existingGame?.isBowlGame && { isBowlGame: true, bowlName: existingGame.bowlName }),
@@ -1955,7 +1955,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -1973,7 +1973,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -1996,7 +1996,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
@@ -2014,7 +2014,7 @@ export default function GameEdit() {
               >
                 <option value="">None</option>
                 {availablePlayers.map(player => (
-                  <option key={player.id} value={player.name}>
+                  <option key={player.pid} value={player.name}>
                     {player.name} ({player.position || 'N/A'}) - {
                       team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
                       team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'

@@ -24,7 +24,6 @@ import AllAmericans from './pages/dynasty/AllAmericans'
 import AllConference from './pages/dynasty/AllConference'
 import DynastyRecords from './pages/dynasty/DynastyRecords'
 import Teams from './pages/dynasty/Teams'
-import Team from './pages/dynasty/Team'
 import TeamYear from './pages/dynasty/TeamYear'
 import BowlHistory from './pages/dynasty/BowlHistory'
 import ConferenceChampionshipHistory from './pages/dynasty/ConferenceChampionshipHistory'
@@ -32,7 +31,6 @@ import ConferenceStandings from './pages/dynasty/ConferenceStandings'
 import CFPBracket from './pages/dynasty/CFPBracket'
 import Game from './pages/dynasty/Game'
 import GameEdit from './pages/dynasty/GameEdit'
-import TeamStats from './pages/dynasty/TeamStats'
 import DangerZone from './pages/dynasty/DangerZone'
 import AISettings from './pages/dynasty/AISettings'
 import Account from './pages/Account'
@@ -88,7 +86,6 @@ function AppRoutes() {
           <Route path="all-conference/:year/:conference" element={<AllConference />} />
           <Route path="dynasty-records" element={<DynastyRecords />} />
           <Route path="teams" element={<Teams />} />
-          <Route path="team/:tid" element={<Team />} />
           <Route path="team/:tid/:year" element={<TeamYear />} />
           <Route path="bowl-history" element={<BowlHistory />} />
           <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
@@ -97,7 +94,6 @@ function AppRoutes() {
           <Route path="cfp-bracket" element={<CFPBracket />} />
           <Route path="cfp-bracket/:year" element={<CFPBracket />} />
           <Route path="game/:gameId" element={<Game />} />
-          <Route path="team-stats/:tid/:year" element={<TeamStats />} />
           <Route path="admin" element={<DangerZone />} />
         </Route>
 
@@ -164,7 +160,6 @@ function AppRoutes() {
                 <Route path="all-conference/:year/:conference" element={<AllConference />} />
                 <Route path="dynasty-records" element={<DynastyRecords />} />
                 <Route path="teams" element={<Teams />} />
-                <Route path="team/:tid" element={<Team />} />
                 <Route path="team/:tid/:year" element={<TeamYear />} />
                 <Route path="bowl-history" element={<BowlHistory />} />
                 <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
@@ -175,8 +170,7 @@ function AppRoutes() {
                 <Route path="game/new" element={<GameEdit />} />
                 <Route path="game/:gameId" element={<Game />} />
                 <Route path="game/:gameId/edit" element={<GameEdit />} />
-                <Route path="team-stats/:tid/:year" element={<TeamStats />} />
-                <Route path="admin" element={<DangerZone />} />
+                      <Route path="admin" element={<DangerZone />} />
               </Route>
             </Routes>
           </DynastyProvider>
