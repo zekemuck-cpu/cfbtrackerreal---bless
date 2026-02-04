@@ -10479,6 +10479,8 @@ export function DynastyProvider({ children }) {
 
       let modified = false
       let updatedTeamsByYear = { ...(player.teamsByYear || {}) }
+      // Track teamHistory updates for stint-based players
+      let updatedTeamHistory = player.teamHistory ? [...player.teamHistory] : null
 
       // Check for departure movements - player should not have teamsByYear entries AFTER their departure year
       // Handle both tid (number) and legacy abbr (string) in movement.from
@@ -10516,6 +10518,18 @@ export function DynastyProvider({ children }) {
                 modified = true
               }
             })
+
+            // CRITICAL: Also close teamHistory stint for stint-based players
+            if (updatedTeamHistory && updatedTeamHistory.length > 0) {
+              updatedTeamHistory = updatedTeamHistory.map(stint => {
+                // Find open stint for this team that should be closed at departure year
+                if (Number(stint.teamTid) === teamTid && (stint.toYear === null || Number(stint.toYear) > earliestDeparture)) {
+                  console.log(`[cleanupRosterData] Closing teamHistory stint for ${player.name} at departure year ${earliestDeparture}`)
+                  return { ...stint, toYear: earliestDeparture }
+                }
+                return stint
+              })
+            }
           }
         }
       }
@@ -10610,6 +10624,7 @@ export function DynastyProvider({ children }) {
 
         // If player should NOT be on roster but IS, remove them
         let wasRemovedFromCurrentYear = false
+        let updatedTeamHistory = player.teamHistory ? [...player.teamHistory] : null
         if (!shouldBeOnRoster && (updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)])) {
           // Only remove if it's this team's entry
           const currentYearTeam = updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)]
@@ -10622,6 +10637,19 @@ export function DynastyProvider({ children }) {
             modified = true
             fixedCount++
             console.log(`[cleanupRosterData] Removed ${player.name} from ${currentYear} roster (departed/graduated)`)
+
+            // CRITICAL: Also close teamHistory stint for stint-based players
+            // Without this, isPlayerOnRoster will still show them as on roster
+            if (updatedTeamHistory && updatedTeamHistory.length > 0) {
+              updatedTeamHistory = updatedTeamHistory.map(stint => {
+                // Find open stint for this team and close it
+                if (Number(stint.teamTid) === teamTid && stint.toYear === null) {
+                  console.log(`[cleanupRosterData] Closing teamHistory stint for ${player.name} (toYear=${previousYear})`)
+                  return { ...stint, toYear: previousYear }
+                }
+                return stint
+              })
+            }
           }
         }
 
@@ -10633,7 +10661,8 @@ export function DynastyProvider({ children }) {
               ...player,
               teamsByYear: updatedTeamsByYear,
               classByYear: updatedClassByYear,
-              isRecruit: updatedIsRecruit
+              isRecruit: updatedIsRecruit,
+              ...(updatedTeamHistory ? { teamHistory: updatedTeamHistory } : {})
             }
           }
           return player
@@ -10752,7 +10781,9 @@ export function DynastyProvider({ children }) {
           ...player,
           teamsByYear: updatedTeamsByYear,
           classByYear: updatedClassByYear,
-          isRecruit: updatedIsRecruit
+          isRecruit: updatedIsRecruit,
+          // Include teamHistory if it was updated (for stint-based players)
+          ...(updatedTeamHistory ? { teamHistory: updatedTeamHistory } : {})
         }
       }
       return player
