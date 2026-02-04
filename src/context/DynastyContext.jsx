@@ -1669,9 +1669,12 @@ export function processBoxScoreDelete(players, oldContribution, year) {
  * @param {Array} games - All games array
  * @param {number} year - The year to recalculate
  * @param {number|string} userTeamTidOrAbbr - The user's team tid or abbreviation
+ * @param {Object} options - Optional settings
+ * @param {boolean} options.skipGamesPlayed - If true, preserve existing gamesPlayed values
  * @returns {Array} Updated players array with recalculated stats
  */
-export function recalculateStatsFromBoxScores(players, games, year, userTeamTidOrAbbr) {
+export function recalculateStatsFromBoxScores(players, games, year, userTeamTidOrAbbr, options = {}) {
+  const { skipGamesPlayed = false } = options
   const yearNum = Number(year)
 
   // Convert to tid for consistent comparison
@@ -1752,13 +1755,16 @@ export function recalculateStatsFromBoxScores(players, games, year, userTeamTidO
     const boxScoreGamesPlayed = gamesPlayedCount[playerNameNormalized]
 
     // Build new year stats - sync box score stat categories (passing, rushing, etc.)
-    // but preserve manually entered gamesPlayed and snapsPlayed
+    // but preserve manually entered gamesPlayed and snapsPlayed if requested
     const newYearStats = {
-      // Preserve gamesPlayed if manually entered and player not found in box scores
+      // If skipGamesPlayed is true, always preserve existing gamesPlayed value
+      // Otherwise: preserve gamesPlayed if manually entered and player not found in box scores
       // Only overwrite if player was actually found in box score data
-      gamesPlayed: boxScoreGamesPlayed !== undefined
-        ? boxScoreGamesPlayed
-        : (existingYearStats.gamesPlayed ?? 0),
+      gamesPlayed: skipGamesPlayed
+        ? (existingYearStats.gamesPlayed ?? 0)
+        : (boxScoreGamesPlayed !== undefined
+          ? boxScoreGamesPlayed
+          : (existingYearStats.gamesPlayed ?? 0)),
       // Preserve snapsPlayed if it exists (manually entered)
       ...(existingYearStats.snapsPlayed !== undefined ? { snapsPlayed: existingYearStats.snapsPlayed } : {}),
       // Add all aggregated category stats from box scores
@@ -9467,8 +9473,9 @@ export function DynastyProvider({ children }) {
   }
 
   // Sync all players' stats to match box score totals for a given year
-  const syncAllPlayersStats = async (dynastyId, year) => {
-    console.log('syncAllPlayersStats called with:', { dynastyId, year })
+  // Options: { skipGamesPlayed: boolean } - if true, preserve existing gamesPlayed values
+  const syncAllPlayersStats = async (dynastyId, year, options = {}) => {
+    console.log('syncAllPlayersStats called with:', { dynastyId, year, options })
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9478,14 +9485,15 @@ export function DynastyProvider({ children }) {
     }
 
     const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-    console.log('Syncing stats for team:', userTeamAbbr, 'year:', year)
+    console.log('Syncing stats for team:', userTeamAbbr, 'year:', year, 'skipGamesPlayed:', options.skipGamesPlayed)
     console.log('Games with box scores:', (dynasty.games || []).filter(g => g.boxScore && Number(g.year) === Number(year) && g.userTeam === userTeamAbbr).length)
 
     const updatedPlayers = recalculateStatsFromBoxScores(
       dynasty.players || [],
       dynasty.games || [],
       year,
-      userTeamAbbr
+      userTeamAbbr,
+      options
     )
 
     console.log('Updated', updatedPlayers.length, 'players')
