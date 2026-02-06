@@ -221,7 +221,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-xl shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
+        className="rounded-xl shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border overflow-hidden"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >

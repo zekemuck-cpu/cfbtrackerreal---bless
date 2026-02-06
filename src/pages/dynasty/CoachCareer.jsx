@@ -673,7 +673,7 @@ export default function CoachCareer() {
               <div>
                 <div className="flex items-center gap-2">
                   <Link
-                    to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}`}
+                    to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${stint.endYear}`}
                     className="text-2xl font-bold hover:underline"
                     style={{ color: stintPrimaryText }}
                   >
@@ -860,11 +860,14 @@ export default function CoachCareer() {
 
                     if (years.length === 0) return null
 
+                    // Sort years from most recent to oldest
+                    years.sort((a, b) => b.year - a.year)
+
                     return (
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr style={{ backgroundColor: `${stintSecondaryText}10` }}>
+                            <tr style={{ backgroundColor: `${stintColors.primary}20` }}>
                               <th className="px-4 py-2 text-left font-semibold" style={{ color: stintSecondaryText }}>Year</th>
                               <th className="px-4 py-2 text-left font-semibold" style={{ color: stintSecondaryText }}>Record</th>
                               <th className="px-4 py-2 text-left font-semibold" style={{ color: stintSecondaryText }}>Final Rank</th>
@@ -882,7 +885,7 @@ export default function CoachCareer() {
                                     ? '#fbbf2415'
                                     : idx % 2 === 0
                                       ? 'transparent'
-                                      : `${stintSecondaryText}05`,
+                                      : `${stintColors.primary}10`,
                                   borderLeft: yr.isNationalChamp ? '3px solid #eab308' : '3px solid transparent'
                                 }}
                               >
@@ -893,7 +896,7 @@ export default function CoachCareer() {
                                   {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '--'}
                                 </td>
                                 <td className="px-4 py-2.5" style={{ color: yr.finalRank ? '#eab308' : `${stintSecondaryText}50` }}>
-                                  {yr.finalRank ? `#${yr.finalRank}` : '--'}
+                                  {yr.finalRank ? `#${yr.finalRank}` : 'N/R'}
                                 </td>
                                 <td className="px-4 py-2.5" style={{ color: yr.isNationalChamp ? '#eab308' : `${stintSecondaryText}80` }}>
                                   {yr.isNationalChamp ? (
