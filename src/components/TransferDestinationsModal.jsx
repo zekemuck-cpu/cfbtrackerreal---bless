@@ -22,7 +22,16 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
-  const [sheetId, setSheetId] = useState(null)
+  const [sheetId, setSheetId] = useState(() => {
+    // Reuse existing sheet if it was created for the same season
+    if (
+      currentDynasty?.transferDestinationsSheetId &&
+      currentDynasty?.transferDestinationsSheetYear === currentYear
+    ) {
+      return currentDynasty.transferDestinationsSheetId
+    }
+    return null
+  })
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
@@ -125,10 +134,19 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
     })
   }
 
-  // Create sheet when modal opens
+  // Create sheet when modal opens (only if no existing sheet for this season)
   useEffect(() => {
     const createSheet = async () => {
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !noTransfers) {
+        // Check if dynasty already has a sheet for this season (avoid race with restore effect)
+        if (
+          currentDynasty?.transferDestinationsSheetId &&
+          currentDynasty?.transferDestinationsSheetYear === currentYear
+        ) {
+          setSheetId(currentDynasty.transferDestinationsSheetId)
+          return
+        }
+
         const transferringPlayers = getTransferringPlayers()
 
         if (transferringPlayers.length === 0) {
@@ -148,9 +166,10 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
           )
           setSheetId(sheetInfo.spreadsheetId)
 
-          // Save sheet ID to dynasty
+          // Save sheet ID and year to dynasty so we can reuse it
           await updateDynasty(currentDynasty.id, {
-            transferDestinationsSheetId: sheetInfo.spreadsheetId
+            transferDestinationsSheetId: sheetInfo.spreadsheetId,
+            transferDestinationsSheetYear: currentYear
           })
         } catch (error) {
           console.error('Failed to create transfer destinations sheet:', error)
@@ -172,8 +191,19 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
     if (!isOpen) {
       setShowDeletedNote(false)
       setNoTransfers(false)
-      setSheetId(null) // Always create fresh sheet
       creatingSheetRef.current = false
+    }
+  }, [isOpen])
+
+  // Restore sheetId from dynasty when modal re-opens (e.g. after app reload)
+  useEffect(() => {
+    if (isOpen && !sheetId && !creatingSheet && !creatingSheetRef.current) {
+      if (
+        currentDynasty?.transferDestinationsSheetId &&
+        currentDynasty?.transferDestinationsSheetYear === currentYear
+      ) {
+        setSheetId(currentDynasty.transferDestinationsSheetId)
+      }
     }
   }, [isOpen])
 
@@ -205,8 +235,12 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
       const destinations = await readTransferDestinationsFromSheet(sheetId)
       await onSave(destinations)
 
-      // Move sheet to trash
+      // Move sheet to trash and clear saved reference
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, {
+        transferDestinationsSheetId: null,
+        transferDestinationsSheetYear: null
+      })
 
       setSheetId(null)
       setShowDeletedNote(true)
@@ -234,7 +268,10 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
     setRegenerating(true)
     try {
       await deleteGoogleSheet(sheetId)
-      await updateDynasty(currentDynasty.id, { transferDestinationsSheetId: null })
+      await updateDynasty(currentDynasty.id, {
+        transferDestinationsSheetId: null,
+        transferDestinationsSheetYear: null
+      })
       setSheetId(null)
       setRetryCount(c => c + 1)
     } catch (error) {
