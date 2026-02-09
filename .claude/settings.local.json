@@ -63,7 +63,10 @@
       "WebFetch(domain:forums.operationsports.com)",
       "Bash(git config:*)",
       "Bash(git log:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": []

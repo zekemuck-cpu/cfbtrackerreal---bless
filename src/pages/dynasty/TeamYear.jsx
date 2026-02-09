@@ -1981,7 +1981,11 @@ export default function TeamYear() {
               >
                 <select
                   value={selectedYear}
-                  onChange={(e) => navigate(`${pathPrefix}/team/${tid}/${e.target.value}`)}
+                  onChange={(e) => {
+                    const newYear = e.target.value
+                    const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
+                    navigate(`${pathPrefix}/team/${tid}/${newYear}${tabParam}`)
+                  }}
                   className="bg-transparent text-xs sm:text-sm font-bold uppercase tracking-wide cursor-pointer focus:outline-none appearance-none"
                   style={{ color: teamBgText }}
                 >
@@ -2031,7 +2035,11 @@ export default function TeamYear() {
               >
                 <select
                   value={tid}
-                  onChange={(e) => navigate(`${pathPrefix}/team/${e.target.value}/${selectedYear}`)}
+                  onChange={(e) => {
+                    const newTid = e.target.value
+                    const tabParam = activeTab && activeTab !== 'home' ? `?tab=${activeTab}` : ''
+                    navigate(`${pathPrefix}/team/${newTid}/${selectedYear}${tabParam}`)
+                  }}
                   className="bg-transparent text-xl sm:text-2xl md:text-3xl font-bold cursor-pointer focus:outline-none appearance-none px-2 py-0.5"
                   style={{
                     color: teamBgText,
@@ -3061,9 +3069,6 @@ export default function TeamYear() {
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="mt-3 pt-3 text-center" style={{ borderTop: `1px solid ${accentColor}20` }}>
-                    <span className="text-sm" style={{ color: accentColorMuted }}>{nextGameInfo.oppMascot}</span>
                   </div>
                 </div>
               </Link>

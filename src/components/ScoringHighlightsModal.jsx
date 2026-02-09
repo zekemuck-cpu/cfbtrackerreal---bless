@@ -129,6 +129,7 @@ export default function ScoringHighlightsModal({
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
   const [showGameDropdown, setShowGameDropdown] = useState(false)
+  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false)
   const timerRef = useRef(null)
   const gameDropdownRef = useRef(null)
 
@@ -265,6 +266,22 @@ export default function ScoringHighlightsModal({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Check if dropdown should open upward to avoid overflow
+  useEffect(() => {
+    if (showGameDropdown && gameDropdownRef.current) {
+      const dropdownButton = gameDropdownRef.current.querySelector('button')
+      if (dropdownButton) {
+        const rect = dropdownButton.getBoundingClientRect()
+        const viewportHeight = window.innerHeight
+        const spaceBelow = viewportHeight - rect.bottom
+        const estimatedDropdownHeight = Math.min(games.length * 40, 240) // 40px per item, max 240px (max-h-60)
+
+        // Open upward if not enough space below
+        setDropdownOpenUpward(spaceBelow < estimatedDropdownHeight + 20)
+      }
+    }
+  }, [showGameDropdown, games.length])
 
   // Handle timer for auto-advance
   useEffect(() => {
@@ -526,7 +543,9 @@ export default function ScoringHighlightsModal({
                     </svg>
                   </button>
                   {showGameDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                    <div className={`absolute left-0 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50 ${
+                      dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+                    }`}>
                       {games.map(game => (
                         <button
                           key={`${game.year}-${game.week}-${game.opponent}`}

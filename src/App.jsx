@@ -16,6 +16,7 @@ import CoachCareer from './pages/dynasty/CoachCareer'
 import Players from './pages/dynasty/Players'
 import Player from './pages/dynasty/Player'
 import PlayerEdit from './pages/dynasty/PlayerEdit'
+import PlayersByState from './pages/dynasty/PlayersByState'
 import AllTimeLineup from './pages/dynasty/AllTimeLineup'
 import Recruiting from './pages/dynasty/Recruiting'
 import Leaders from './pages/dynasty/Leaders'
@@ -146,6 +147,7 @@ function AppRoutes() {
                 <Route path="stats" element={<Stats />} />
                 <Route path="coach-career" element={<CoachCareer />} />
                 <Route path="players" element={<Players />} />
+                <Route path="players/state/:state" element={<PlayersByState />} />
                 <Route path="all-time-lineup" element={<AllTimeLineup />} />
                 <Route path="recruiting" element={<Recruiting />} />
                 <Route path="recruiting/:tid/:year" element={<Recruiting />} />

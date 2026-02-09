@@ -742,7 +742,7 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-screen pb-40" style={{ backgroundColor: '#111113' }}>
+    <div className="min-h-screen pb-24 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6" style={{ backgroundColor: '#f9fafb' }}>
       {/* Header */}
       <div
         className="sticky top-0 z-30 shadow-lg"
@@ -909,17 +909,6 @@ export default function PlayerEdit() {
                 )}
               </div>
             </div>
-
-            {/* Close button */}
-            <button
-              onClick={handleCancel}
-              className="p-2 rounded-lg hover:opacity-70 transition-opacity flex-shrink-0"
-              style={{ color: primaryText }}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
           </div>
 
           {/* Tabs */}
@@ -943,11 +932,11 @@ export default function PlayerEdit() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 py-4">
 
         {/* Profile Tab */}
         {activeTab === 'profile' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Basic Info Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
@@ -956,7 +945,7 @@ export default function PlayerEdit() {
                 </h2>
               </div>
 
-              <div className="p-5 space-y-5">
+              <div className="p-5 space-y-4">
                 {/* Name Row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1094,7 +1083,7 @@ export default function PlayerEdit() {
                 </h2>
               </div>
 
-              <div className="p-5 space-y-5">
+              <div className="p-5 space-y-4">
                 {/* Hometown Row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -1181,7 +1170,7 @@ export default function PlayerEdit() {
 
         {/* Career Tab */}
         {activeTab === 'career' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Recruiting & Entry Information Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
@@ -1190,7 +1179,7 @@ export default function PlayerEdit() {
                 </h2>
               </div>
 
-              <div className="p-5 space-y-5">
+              <div className="p-5 space-y-4">
                 {/* Stars and Rankings Row */}
                 <div className="grid grid-cols-4 gap-4">
                   <div>
@@ -1431,7 +1420,7 @@ export default function PlayerEdit() {
 
         {/* Stats Tab */}
         {activeTab === 'stats' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Year Selector */}
             <div
               className="bg-white rounded-xl shadow-sm border border-gray-200"
@@ -1737,7 +1726,7 @@ export default function PlayerEdit() {
 
         {/* Awards Tab */}
         {activeTab === 'awards' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div
               className="bg-white rounded-xl shadow-sm border border-gray-200"
             >
@@ -1827,18 +1816,19 @@ export default function PlayerEdit() {
         )}
       </div>
 
-      {/* Fixed Footer - positioned above ticker (48px) */}
+      {/* Fixed Footer - positioned above ticker */}
       <div
-        className="fixed bottom-12 left-0 right-0 z-40 shadow-2xl"
+        className="fixed bottom-[36px] left-0 right-0 z-[60] shadow-2xl"
         style={{
           backgroundColor: teamColors.secondary,
-          borderTop: `3px solid ${teamColors.primary}`
+          borderTop: `3px solid ${teamColors.primary}`,
+          paddingBottom: 'env(safe-area-inset-bottom)'
         }}
       >
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+        <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           <button
             onClick={handleCancel}
-            className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-80"
             style={{
               backgroundColor: 'transparent',
               color: secondaryText,
@@ -1851,7 +1841,7 @@ export default function PlayerEdit() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-8 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+            className="w-full sm:w-auto px-8 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
             style={{
               backgroundColor: teamColors.primary,
               color: primaryText,
