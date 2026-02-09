@@ -414,19 +414,44 @@ export default function PlayerEdit() {
     return ARCHETYPES[pos] || []
   }
 
+  // Convert a file/blob to base64 string (handles HEIC and other iOS formats)
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        // Result is "data:image/...;base64,XXXX" - extract just the base64 part
+        const base64 = reader.result.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.readAsDataURL(file)
+    })
+  }
+
   // Upload image to ImgBB
   const uploadToImgBB = async (file) => {
     const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
-    const formDataUpload = new FormData()
-    formDataUpload.append('image', file)
-    formDataUpload.append('key', apiKey)
 
     try {
       setUploading(true)
+
+      // Convert to base64 first - this normalizes HEIC/HEIF from iOS camera roll
+      const base64 = await fileToBase64(file)
+
+      const formDataUpload = new FormData()
+      formDataUpload.append('image', base64)
+      formDataUpload.append('key', apiKey)
+
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000)
+
       const response = await fetch('https://api.imgbb.com/1/upload', {
         method: 'POST',
-        body: formDataUpload
+        body: formDataUpload,
+        signal: controller.signal
       })
+      clearTimeout(timeout)
+
       const data = await response.json()
       if (data.success) {
         setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
@@ -435,7 +460,11 @@ export default function PlayerEdit() {
         alert('Upload failed: ' + (data.error?.message || 'Unknown error'))
       }
     } catch (error) {
-      alert('Upload failed: ' + error.message)
+      if (error.name === 'AbortError') {
+        alert('Upload timed out. Please try again or use a smaller image.')
+      } else {
+        alert('Upload failed: ' + error.message)
+      }
     } finally {
       setUploading(false)
     }
@@ -463,21 +492,39 @@ export default function PlayerEdit() {
 
   // Handle paste from clipboard button
   const handlePasteFromClipboard = async () => {
+    // Try reading image data from clipboard (works on desktop, limited on iOS)
     try {
-      const items = await navigator.clipboard.read()
-      for (const item of items) {
-        for (const type of item.types) {
-          if (type.startsWith('image/')) {
-            const blob = await item.getType(type)
-            await uploadToImgBB(blob)
-            return
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read()
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type)
+              await uploadToImgBB(blob)
+              return
+            }
           }
         }
       }
-      alert('No image found in clipboard')
-    } catch (error) {
-      alert('Could not access clipboard. Try pasting directly into the URL field.')
+    } catch (e) {
+      // Clipboard.read() failed (common on iOS) - fall through to text fallback
     }
+
+    // Fallback: check if clipboard has a text URL pointing to an image
+    try {
+      if (navigator.clipboard?.readText) {
+        const text = (await navigator.clipboard.readText()).trim()
+        if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
+          setFormData(prev => ({ ...prev, pictureUrl: text }))
+          setShowImageUpload(false)
+          return
+        }
+      }
+    } catch (e) {
+      // readText also failed
+    }
+
+    alert('No image found in clipboard. On iOS, tap the URL field above and use Paste from the keyboard instead.')
   }
 
   // Update overall for a specific year
