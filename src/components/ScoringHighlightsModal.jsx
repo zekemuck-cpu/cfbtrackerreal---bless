@@ -6,17 +6,25 @@ const PLAY_DURATION = 30 // seconds per play before auto-advance
 function getEmbedUrl(url) {
   if (!url) return null
 
+  console.log('getEmbedUrl received URL:', url)
+
   // YouTube: youtu.be/VIDEO_ID?t=SECONDS or youtube.com/watch?v=VIDEO_ID&t=SECONDS
   const youtubeShortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)(?:\?t=(\d+))?/)
   if (youtubeShortMatch) {
-    const startTime = youtubeShortMatch[2] || '0'
-    return `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&start=${startTime}&rel=0&modestbranding=1`
+    const startTime = youtubeShortMatch[2]
+    const embedUrl = startTime
+      ? `https://www.youtube.com/embed/${youtubeShortMatch[1]}?start=${startTime}`
+      : `https://www.youtube.com/embed/${youtubeShortMatch[1]}`
+    console.log('Generated YouTube embed URL:', embedUrl)
+    return embedUrl
   }
 
   const youtubeLongMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
   if (youtubeLongMatch) {
-    const startTime = youtubeLongMatch[2] || '0'
-    return `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&start=${startTime}&rel=0&modestbranding=1`
+    const startTime = youtubeLongMatch[2]
+    return startTime
+      ? `https://www.youtube.com/embed/${youtubeLongMatch[1]}?start=${startTime}`
+      : `https://www.youtube.com/embed/${youtubeLongMatch[1]}`
   }
 
   const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)

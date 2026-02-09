@@ -12,6 +12,14 @@ import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 
+// Load premium fonts
+const FONT_LINK = document.createElement('link')
+FONT_LINK.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@500;600;700;800&family=Barlow+Condensed:wght@500;600;700;800&display=swap'
+FONT_LINK.rel = 'stylesheet'
+if (!document.querySelector(`link[href="${FONT_LINK.href}"]`)) {
+  document.head.appendChild(FONT_LINK)
+}
+
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
   // Try tid-based lookup first if teams data provided
@@ -939,7 +947,7 @@ export default function Player() {
           {/* Team and Class */}
           <div className="flex items-center justify-between">
             <Link
-              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
+              to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
               className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
               style={{ color: primaryText, opacity: 0.9 }}
             >
@@ -1669,9 +1677,9 @@ export default function Player() {
         <div className="space-y-6">
           {/* Passing Table */}
           {hasStats.passing && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Passing</h3>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)` }}>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Passing</h3>
               </div>
               {(() => {
                 const passingYearsUnsorted = yearByYearStats.filter(y => y.passing && hasNonZeroStats(y.passing, ['att', 'cmp', 'yds', 'td']))
@@ -1789,7 +1797,7 @@ export default function Player() {
           {hasStats.rushing && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Rushing</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Rushing</h3>
               </div>
               {(() => {
                 const rushingYearsUnsorted = yearByYearStats.filter(y => y.rushing && hasNonZeroStats(y.rushing, ['car', 'yds', 'td']))
@@ -1898,7 +1906,7 @@ export default function Player() {
           {hasStats.receiving && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Receiving</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Receiving</h3>
               </div>
               {(() => {
                 // Check if any receiving year has non-zero snaps
@@ -2002,7 +2010,7 @@ export default function Player() {
           {hasStats.blocking && ['TE', 'LT', 'LG', 'C', 'RG', 'RT'].includes(player.position?.toUpperCase()) && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Blocking</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Blocking</h3>
               </div>
               {(() => {
                 const blockingYearsUnsorted = yearByYearStats.filter(y => y.blocking && hasNonZeroStats(y.blocking, ['sacksAllowed', 'pancakes']))
@@ -2082,7 +2090,7 @@ export default function Player() {
           {hasStats.defensive && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Defense</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Defense</h3>
               </div>
               {(() => {
                 const defenseYearsUnsorted = yearByYearStats.filter(y => y.defensive && hasNonZeroStats(y.defensive, ['solo', 'ast', 'tfl', 'sacks', 'int', 'pdef', 'ff', 'fr']))
@@ -2194,7 +2202,7 @@ export default function Player() {
           {hasStats.kicking && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Kicking</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kicking</h3>
               </div>
               {(() => {
                 const kickingYearsUnsorted = yearByYearStats.filter(y => y.kicking && hasNonZeroStats(y.kicking, ['fgm', 'fga', 'xpm', 'xpa']))
@@ -2295,7 +2303,7 @@ export default function Player() {
           {hasStats.punting && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Punting</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punting</h3>
               </div>
               {(() => {
                 const puntingYearsUnsorted = yearByYearStats.filter(y => y.punting && hasNonZeroStats(y.punting, ['punts', 'yds']))
@@ -2392,7 +2400,7 @@ export default function Player() {
           {hasStats.kickReturn && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Kick Returns</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kick Returns</h3>
               </div>
               {(() => {
                 const kickReturnYearsUnsorted = yearByYearStats.filter(y => y.kickReturn && hasNonZeroStats(y.kickReturn, ['ret', 'yds', 'td']))
@@ -2478,7 +2486,7 @@ export default function Player() {
           {hasStats.puntReturn && (
             <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
               <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                <h3 className="text-sm font-bold uppercase tracking-wide" style={{ color: primaryText }}>Punt Returns</h3>
+                <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punt Returns</h3>
               </div>
               {(() => {
                 const puntReturnYearsUnsorted = yearByYearStats.filter(y => y.puntReturn && hasNonZeroStats(y.puntReturn, ['ret', 'yds', 'td']))
@@ -2745,16 +2753,50 @@ export default function Player() {
                 // YouTube embed
                 if (url.includes('youtube.com/watch') || url.includes('youtu.be/') || url.includes('youtube.com/embed')) {
                   let videoId = null
+                  let startTime = null
+
                   if (url.includes('youtube.com/watch')) {
                     const urlParams = new URLSearchParams(url.split('?')[1])
                     videoId = urlParams.get('v')
+                    startTime = urlParams.get('t')
                   } else if (url.includes('youtu.be/')) {
-                    videoId = url.split('youtu.be/')[1]?.split('?')[0]
+                    const parts = url.split('youtu.be/')[1]
+                    videoId = parts?.split('?')[0]?.split('&')[0]
+                    // Extract timestamp from youtu.be URLs (format: ?t=477)
+                    if (parts?.includes('?')) {
+                      const urlParams = new URLSearchParams(parts.split('?')[1])
+                      startTime = urlParams.get('t')
+                    }
                   } else if (url.includes('youtube.com/embed/')) {
-                    videoId = url.split('youtube.com/embed/')[1]?.split('?')[0]
+                    const parts = url.split('youtube.com/embed/')[1]
+                    videoId = parts?.split('?')[0]?.split('&')[0]
+                    if (parts?.includes('?')) {
+                      const urlParams = new URLSearchParams(parts.split('?')[1])
+                      startTime = urlParams.get('start') || urlParams.get('t')
+                    }
                   }
 
                   if (!videoId) return null
+
+                  // Build embed URL with timestamp if present
+                  let embedUrl = `https://www.youtube.com/embed/${videoId}`
+                  const embedParams = []
+                  if (startTime) {
+                    embedParams.push(`start=${startTime}`)
+                  }
+                  // Add parameters to help with embedding
+                  embedParams.push('rel=0')
+                  embedParams.push('modestbranding=1')
+
+                  if (embedParams.length > 0) {
+                    embedUrl += `?${embedParams.join('&')}`
+                  }
+
+                  // Build watch URL for fallback link
+                  let watchUrl = `https://www.youtube.com/watch?v=${videoId}`
+                  if (startTime) {
+                    watchUrl += `&t=${startTime}`
+                  }
 
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
@@ -2766,12 +2808,24 @@ export default function Player() {
                       <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                         <iframe
                           className="absolute top-0 left-0 w-full h-full"
-                          src={`https://www.youtube.com/embed/${videoId}`}
+                          src={embedUrl}
                           title={link.title || 'YouTube video'}
                           frameBorder="0"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
                         />
+                      </div>
+                      {/* Fallback link if embed is blocked */}
+                      <div className="px-3 py-2 text-center" style={{ backgroundColor: teamColors.secondary }}>
+                        <a
+                          href={watchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-semibold hover:underline"
+                          style={{ color: teamColors.primary }}
+                        >
+                          Watch on YouTube →
+                        </a>
                       </div>
                     </div>
                   )
