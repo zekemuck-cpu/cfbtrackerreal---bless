@@ -10,6 +10,9 @@ import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from
 import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
+// Version format: YYYY.MM.DD.build
+const APP_VERSION = '2026.02.09.0001'
+
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -646,6 +649,11 @@ export default function Layout({ children }) {
           children
         )}
       </main>
+
+      {/* Version Footer */}
+      <footer className="py-2 text-center">
+        <p className="text-xs text-gray-500">Dynasty Tracker v{APP_VERSION}</p>
+      </footer>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}
       <ClassAdvancementModal
