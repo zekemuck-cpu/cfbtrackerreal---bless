@@ -414,16 +414,48 @@ export default function PlayerEdit() {
     return ARCHETYPES[pos] || []
   }
 
-  // Convert a file/blob to base64 string (handles HEIC and other iOS formats)
-  const fileToBase64 = (file) => {
+  // Compress and normalize an image file via canvas (handles HEIC, reduces size)
+  const compressImage = (file, maxDimension = 800) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload = () => {
-        // Result is "data:image/...;base64,XXXX" - extract just the base64 part
-        const base64 = reader.result.split(',')[1]
-        resolve(base64)
-      }
       reader.onerror = () => reject(new Error('Failed to read file'))
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = () => {
+          // If canvas approach fails, fall back to raw base64
+          resolve(reader.result.split(',')[1])
+        }
+        img.onload = () => {
+          try {
+            // Calculate scaled dimensions
+            let { width, height } = img
+            if (width > maxDimension || height > maxDimension) {
+              if (width > height) {
+                height = Math.round((height * maxDimension) / width)
+                width = maxDimension
+              } else {
+                width = Math.round((width * maxDimension) / height)
+                height = maxDimension
+              }
+            }
+
+            const canvas = document.createElement('canvas')
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0, width, height)
+
+            // Export as JPEG base64
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
+            const base64 = dataUrl.split(',')[1]
+            resolve(base64)
+          } catch (e) {
+            // Fall back to raw base64
+            resolve(reader.result.split(',')[1])
+          }
+        }
+        img.src = reader.result
+      }
       reader.readAsDataURL(file)
     })
   }
@@ -435,8 +467,8 @@ export default function PlayerEdit() {
     try {
       setUploading(true)
 
-      // Convert to base64 first - this normalizes HEIC/HEIF from iOS camera roll
-      const base64 = await fileToBase64(file)
+      // Compress and normalize (handles HEIC, reduces file size for faster upload)
+      const base64 = await compressImage(file)
 
       const formDataUpload = new FormData()
       formDataUpload.append('image', base64)
