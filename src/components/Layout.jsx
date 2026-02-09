@@ -11,7 +11,7 @@ import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.02.09.0002'
+const APP_VERSION = '2026.02.09.0003'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -651,8 +651,8 @@ export default function Layout({ children }) {
       </main>
 
       {/* Version Footer - positioned above ticker */}
-      <footer className="pb-10 pt-2 text-center">
-        <p className="text-xs text-gray-500">Dynasty Tracker v{APP_VERSION}</p>
+      <footer className="pb-10 pt-2 px-4 text-right">
+        <p className="text-[10px] sm:text-xs text-gray-500">v{APP_VERSION}</p>
       </footer>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}
