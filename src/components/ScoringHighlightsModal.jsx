@@ -13,8 +13,8 @@ function getEmbedUrl(url) {
   if (youtubeShortMatch) {
     const startTime = youtubeShortMatch[2]
     const embedUrl = startTime
-      ? `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1&start=${startTime}`
-      : `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1`
+      ? `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1&start=${startTime}`
+      : `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1`
     console.log('Generated YouTube embed URL:', embedUrl)
     return embedUrl
   }
@@ -23,8 +23,8 @@ function getEmbedUrl(url) {
   if (youtubeLongMatch) {
     const startTime = youtubeLongMatch[2]
     return startTime
-      ? `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1&start=${startTime}`
-      : `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1`
+      ? `https://www.youtube-nocookie.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1&start=${startTime}`
+      : `https://www.youtube-nocookie.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1`
   }
 
   const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)
