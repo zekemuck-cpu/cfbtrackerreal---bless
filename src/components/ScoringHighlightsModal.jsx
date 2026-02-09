@@ -13,8 +13,8 @@ function getEmbedUrl(url) {
   if (youtubeShortMatch) {
     const startTime = youtubeShortMatch[2]
     const embedUrl = startTime
-      ? `https://www.youtube.com/embed/${youtubeShortMatch[1]}?start=${startTime}`
-      : `https://www.youtube.com/embed/${youtubeShortMatch[1]}`
+      ? `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1&start=${startTime}`
+      : `https://www.youtube.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1`
     console.log('Generated YouTube embed URL:', embedUrl)
     return embedUrl
   }
@@ -23,8 +23,8 @@ function getEmbedUrl(url) {
   if (youtubeLongMatch) {
     const startTime = youtubeLongMatch[2]
     return startTime
-      ? `https://www.youtube.com/embed/${youtubeLongMatch[1]}?start=${startTime}`
-      : `https://www.youtube.com/embed/${youtubeLongMatch[1]}`
+      ? `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1&start=${startTime}`
+      : `https://www.youtube.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1`
   }
 
   const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)
@@ -244,11 +244,11 @@ export default function ScoringHighlightsModal({
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-700"
+        className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-700"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800 flex-shrink-0">
           <h3 className="text-lg font-bold text-white">Scoring Highlights</h3>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-400">
@@ -266,7 +266,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Video Player */}
-        <div className="relative bg-black aspect-video">
+        <div className="relative bg-black aspect-video flex-shrink overflow-hidden">
           {isDirectVideo ? (
             <video
               key={currentIndex}
@@ -311,7 +311,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Play Info */}
-        <div className="px-4 py-3 bg-gray-800 border-t border-gray-700">
+        <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex-shrink-0">
           <div className="flex items-start gap-3">
             {/* Player image */}
             {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
@@ -369,7 +369,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-center gap-4 px-4 py-4 bg-gray-900 border-t border-gray-700">
+        <div className="flex items-center justify-center gap-4 px-4 py-4 bg-gray-900 border-t border-gray-700 flex-shrink-0">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
@@ -418,7 +418,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 px-4 pb-4 bg-gray-900">
+        <div className="flex justify-center gap-2 px-4 pb-4 bg-gray-900 flex-shrink-0">
           {playsWithVideo.map((_, idx) => (
             <button
               key={idx}
