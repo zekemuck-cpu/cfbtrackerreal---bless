@@ -286,8 +286,8 @@ export default function PlayerEdit() {
   const currentOverall = useMemo(() => {
     const byYear = formData.overallByYear || {}
     const currentYear = dynasty?.currentYear || new Date().getFullYear()
-    // Try current year first
-    if (byYear[currentYear]) return byYear[currentYear]
+    // If current year has an entry (even if null/cleared), respect it
+    if (currentYear in byYear) return byYear[currentYear]
     // Fall back to most recent year with an overall
     const years = Object.keys(byYear).map(Number).filter(y => byYear[y]).sort((a, b) => b - a)
     return years.length > 0 ? byYear[years[0]] : formData.overall
@@ -954,7 +954,7 @@ export default function PlayerEdit() {
                       type="number"
                       min="40"
                       max="99"
-                      value={currentOverall || ''}
+                      value={currentOverall ?? ''}
                       onChange={(e) => {
                         const value = e.target.value ? parseInt(e.target.value) : null
                         const year = dynasty?.currentYear || new Date().getFullYear()
