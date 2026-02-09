@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import PlayerEditModal from '../../components/PlayerEditModal'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
+import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 
 // Load premium fonts
@@ -145,6 +146,13 @@ export default function Player() {
   const { dynasties, currentDynasty, updatePlayer, deletePlayer, syncAllPlayersStats, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Tab state from URL (default to 'stats')
+  const activeTab = searchParams.get('tab') || 'stats'
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab })
+  }
   const [showEditModal, setShowEditModal] = useState(false)
   const [showAccoladeModal, setShowAccoladeModal] = useState(false)
   const [accoladeType, setAccoladeType] = useState(null)
@@ -153,6 +161,8 @@ export default function Player() {
   const [expandedGameLog, setExpandedGameLog] = useState(null) // { year, statType }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [showScoringHighlightsModal, setShowScoringHighlightsModal] = useState(false)
+  const [selectedGameScoringPlays, setSelectedGameScoringPlays] = useState(null)
 
   // Sort preferences for stat tables (persisted in localStorage)
   const [statSortPrefs, setStatSortPrefs] = useState(() => {
@@ -359,7 +369,7 @@ export default function Player() {
       }
 
       if (playerStats) {
-        let playerTeamScore, opponentTeamScore, opponentAbbr
+        let playerTeamScore, opponentTeamScore, opponentAbbr, opponentTid
 
         if (game.team1Tid && game.team2Tid) {
           const team1Info = teams[game.team1Tid] || {}
@@ -369,14 +379,14 @@ export default function Player() {
           if (foundInTeam === 'home') {
             playerTeamScore = isTeam1Home ? game.team1Score : game.team2Score
             opponentTeamScore = isTeam1Home ? game.team2Score : game.team1Score
-            const opponentTeamTid = isTeam1Home ? game.team2Tid : game.team1Tid
-            const opponentInfo = teams[opponentTeamTid] || {}
+            opponentTid = isTeam1Home ? game.team2Tid : game.team1Tid
+            const opponentInfo = teams[opponentTid] || {}
             opponentAbbr = opponentInfo.abbr || (isTeam1Home ? game.team2 : game.team1)
           } else {
             playerTeamScore = isTeam1Home ? game.team2Score : game.team1Score
             opponentTeamScore = isTeam1Home ? game.team1Score : game.team2Score
-            const opponentTeamTid = isTeam1Home ? game.team1Tid : game.team2Tid
-            const opponentInfo = teams[opponentTeamTid] || {}
+            opponentTid = isTeam1Home ? game.team1Tid : game.team2Tid
+            const opponentInfo = teams[opponentTid] || {}
             opponentAbbr = opponentInfo.abbr || (isTeam1Home ? game.team1 : game.team2)
           }
         } else if (game.opponent) {
@@ -390,6 +400,8 @@ export default function Player() {
             opponentTeamScore = isUserHome ? game.teamScore : game.opponentScore
             opponentAbbr = isUserHome ? game.userTeam : game.opponent
           }
+          // Try to get tid from abbr
+          opponentTid = getTidFromAbbr(opponentAbbr)
         } else if (game.team1 && game.team2) {
           if (foundInTeam === 'home') {
             playerTeamScore = game.team1Score
@@ -400,6 +412,8 @@ export default function Player() {
             opponentTeamScore = game.team1Score
             opponentAbbr = game.team1
           }
+          // Try to get tid from abbr
+          opponentTid = getTidFromAbbr(opponentAbbr)
         }
 
         const result = playerTeamScore != null && opponentTeamScore != null
@@ -409,7 +423,7 @@ export default function Player() {
         const playerLocation = isNeutralSite ? 'neutral' : (foundInTeam === 'home' ? 'home' : 'away')
 
         gameLog.push({
-          game: { ...game, teamScore: playerTeamScore, opponentScore: opponentTeamScore, opponent: opponentAbbr || game.opponent, result: result || game.result, location: playerLocation },
+          game: { ...game, teamScore: playerTeamScore, opponentScore: opponentTeamScore, opponent: opponentAbbr || game.opponent, opponentTid, result: result || game.result, location: playerLocation },
           stats: playerStats,
           team: foundInTeam
         })
@@ -894,27 +908,28 @@ export default function Player() {
             <img
               src={player.pictureUrl}
               alt={player.name}
-              className="w-16 h-16 object-cover rounded-lg border-2 flex-shrink-0"
+              className="w-20 h-20 object-cover rounded-lg border-2 flex-shrink-0"
               style={{ borderColor: teamInfo.textColor }}
               onError={(e) => { e.target.style.display = 'none' }}
             />
           )}
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold leading-tight" style={{ color: primaryText }}>
+            <h1 className="text-xl font-black uppercase leading-none tracking-wide" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>
               {player.name}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm font-semibold" style={{ color: primaryText, opacity: 0.9 }}>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.85, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
               </span>
               {player.devTrait && player.devTrait !== 'Normal' && (
                 <span
-                  className="px-1.5 py-0.5 rounded text-xs font-bold"
+                  className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
                   style={{
                     backgroundColor: player.devTrait === 'Elite' ? '#fbbf24' :
                                    player.devTrait === 'Star' ? '#8b5cf6' :
                                    player.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                    color: player.devTrait === 'Elite' ? '#78350f' : '#ffffff'
+                    color: player.devTrait === 'Elite' ? '#78350f' : '#ffffff',
+                    fontFamily: "'Bebas Neue', sans-serif"
                   }}
                 >
                   {player.devTrait}
@@ -930,13 +945,13 @@ export default function Player() {
                 className="hover:opacity-80 transition-opacity"
                 title="View overall progression"
               >
-                <div className="text-3xl font-black" style={{ color: primaryText }}>{player.overall}</div>
-                <div className="text-[10px] font-semibold" style={{ color: primaryText, opacity: 0.6 }}>OVR</div>
+                <div className="text-4xl font-black" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>{player.overall}</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
               </button>
             ) : (
               <div>
-                <div className="text-3xl font-black" style={{ color: primaryText, opacity: 0.3 }}>—</div>
-                <div className="text-[10px] font-semibold" style={{ color: primaryText, opacity: 0.6 }}>OVR</div>
+                <div className="text-4xl font-black" style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}>—</div>
+                <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
               </div>
             )}
           </div>
@@ -948,8 +963,8 @@ export default function Player() {
           <div className="flex items-center justify-between">
             <Link
               to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=roster`}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
-              style={{ color: primaryText, opacity: 0.9 }}
+              className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline"
+              style={{ color: primaryText, opacity: 0.9, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
             >
               {getTeamLogo(playerTeamName) && (
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
@@ -958,7 +973,7 @@ export default function Player() {
               )}
               <span className="truncate max-w-[140px]">{playerTeamName}</span>
             </Link>
-            <span className="text-sm font-medium" style={{ opacity: 0.85 }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
+            <span className="text-sm font-bold uppercase tracking-wider" style={{ opacity: 0.85, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
           </div>
 
           {/* Archetype and Physical */}
@@ -1052,18 +1067,6 @@ export default function Player() {
           className="flex items-center justify-end gap-1 px-3 py-2"
           style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}
         >
-          {playerGameLog.length > 0 && (
-            <button
-              onClick={() => setShowGameLogModal(true)}
-              className="px-3 py-1.5 rounded-lg hover:opacity-80 transition-opacity flex items-center gap-1.5 text-sm font-medium"
-              style={{ backgroundColor: teamInfo.textColor, color: getContrastTextColor(teamInfo.textColor) }}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              Game Log ({playerGameLog.length})
-            </button>
-          )}
           {!isViewOnly && (
             <button
               onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
@@ -1102,29 +1105,17 @@ export default function Player() {
               <img
                 src={player.pictureUrl}
                 alt={player.name}
-                className="w-24 h-24 object-cover rounded-lg border-2 flex-shrink-0"
+                className="w-28 h-28 object-cover rounded-lg border-3 flex-shrink-0 shadow-lg"
                 style={{ borderColor: teamInfo.textColor }}
                 onError={(e) => { e.target.style.display = 'none' }}
               />
             )}
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl md:text-3xl font-bold" style={{ color: primaryText }}>
+              <div className="flex items-center gap-2 mb-2">
+                <h1 className="text-3xl md:text-4xl font-black uppercase tracking-wide" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
                   {player.name}
                 </h1>
-                {playerGameLog.length > 0 && (
-                  <button
-                    onClick={() => setShowGameLogModal(true)}
-                    className="px-2.5 py-1 rounded-lg hover:opacity-80 transition-opacity flex items-center gap-1.5 text-xs font-medium flex-shrink-0"
-                    style={{ backgroundColor: teamInfo.textColor, color: getContrastTextColor(teamInfo.textColor) }}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    Game Log ({playerGameLog.length})
-                  </button>
-                )}
                 {!isViewOnly && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
@@ -1154,8 +1145,8 @@ export default function Player() {
               <div className="flex items-center gap-2 mb-2">
                 <Link
                   to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}`}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline"
-                  style={{ color: primaryText, opacity: 0.9 }}
+                  className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline"
+                  style={{ color: primaryText, opacity: 0.9, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >
                   {getTeamLogo(playerTeamName) && (
                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
@@ -1230,19 +1221,19 @@ export default function Player() {
                 })()}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" style={{ color: primaryText, opacity: 0.85 }}>
-                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="font-bold">#{player.jerseyNumber}</span>}
-                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="opacity-50">|</span>}
-                <span className="font-semibold">{player.position}</span>
-                {player.archetype && <><span className="opacity-50">|</span><span>{player.archetype}</span></>}
-                <span className="opacity-50">|</span>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.85, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
+                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span>#{player.jerseyNumber}</span>}
+                {player.jerseyNumber != null && player.jerseyNumber !== '' && <span className="opacity-40">•</span>}
+                <span>{player.position}</span>
+                {player.archetype && <><span className="opacity-40">•</span><span className="normal-case">{player.archetype}</span></>}
+                <span className="opacity-40">•</span>
                 <span>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
-                {player.devTrait && <><span className="opacity-50">|</span><span>{player.devTrait}</span></>}
+                {player.devTrait && <><span className="opacity-40">•</span><span>{player.devTrait}</span></>}
                 {(player.height || player.weight) && (
-                  <><span className="opacity-50">|</span><span>{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
+                  <><span className="opacity-40">•</span><span className="normal-case">{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
                 )}
                 {(player.hometown || player.state) && (
-                  <><span className="opacity-50">|</span><span>{player.hometown}{player.hometown && player.state && ', '}{player.state}</span></>
+                  <><span className="opacity-40">•</span><span className="normal-case">{player.hometown}{player.hometown && player.state && ', '}{player.state}</span></>
                 )}
               </div>
             </div>
@@ -1251,11 +1242,11 @@ export default function Player() {
           {/* Overall Rating */}
           {player.overall ? (
             <div className="text-center flex-shrink-0">
-              <div className="text-xs mb-1" style={{ color: primaryText, opacity: 0.7 }}>OVR</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
               <button
                 onClick={() => setShowOverallProgressionModal(true)}
-                className="text-5xl md:text-6xl font-bold hover:opacity-80 transition-opacity cursor-pointer"
-                style={{ color: primaryText }}
+                className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer"
+                style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}
                 title="View overall progression"
               >
                 {player.overall}
@@ -1263,10 +1254,10 @@ export default function Player() {
             </div>
           ) : (
             <div className="text-center flex-shrink-0">
-              <div className="text-xs mb-1" style={{ color: primaryText, opacity: 0.7 }}>OVR</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
               <div
-                className="text-5xl md:text-6xl font-bold"
-                style={{ color: primaryText, opacity: 0.3 }}
+                className="text-6xl md:text-7xl font-black"
+                style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}
               >
                 —
               </div>
@@ -1275,8 +1266,35 @@ export default function Player() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="flex gap-1 overflow-x-auto bg-white rounded-lg shadow-lg p-1" style={{ border: `2px solid ${teamColors.primary}20` }}>
+        {[
+          { key: 'stats', label: 'Stats' },
+          { key: 'gamelog', label: 'Game Log' },
+          { key: 'timeline', label: 'Timeline' },
+          { key: 'awards', label: 'Awards' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className="px-6 py-3 font-black uppercase tracking-widest transition-all whitespace-nowrap rounded-md"
+            style={{
+              backgroundColor: activeTab === tab.key ? teamInfo.backgroundColor : 'transparent',
+              color: activeTab === tab.key ? primaryText : teamInfo.backgroundColor,
+              fontFamily: "'Bebas Neue', sans-serif",
+              letterSpacing: '2px',
+              fontSize: '0.95rem',
+              boxShadow: activeTab === tab.key ? `0 2px 8px ${teamInfo.backgroundColor}40` : 'none',
+              transform: activeTab === tab.key ? 'translateY(-1px)' : 'none'
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Career Timeline - Built from teamsByYear (source of truth) with movements for context */}
-      {(() => {
+      {activeTab === 'timeline' && (() => {
         // Build timeline from teamsByYear as source of truth
         const teamsByYear = player.teamsByYear || {}
         const years = Object.keys(teamsByYear).map(Number).sort((a, b) => a - b)
@@ -1562,8 +1580,8 @@ export default function Player() {
         )
       })()}
 
-      {/* Recruitment Information - Show for any player with recruitment data */}
-      {recruitmentInfo && (
+      {/* Recruitment Information - Show on Timeline tab for any player with recruitment data */}
+      {activeTab === 'timeline' && recruitmentInfo && (
         <div
           className="rounded-xl overflow-hidden"
           style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
@@ -1671,14 +1689,14 @@ export default function Player() {
       )}
 
       {/* Career Statistics - Premium Dark Theme */}
-      {hasMeaningfulStats && (() => {
+      {activeTab === 'stats' && hasMeaningfulStats && (() => {
         const primaryStat = getPrimaryStatCategory(player.position)
         return (
         <div className="space-y-6">
           {/* Passing Table */}
           {hasStats.passing && (
             <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
-              <div className="px-5 py-3.5" style={{ background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.secondary} 100%)` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Passing</h3>
               </div>
               {(() => {
@@ -1795,8 +1813,8 @@ export default function Player() {
 
           {/* Rushing Table */}
           {hasStats.rushing && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Rushing</h3>
               </div>
               {(() => {
@@ -1904,8 +1922,8 @@ export default function Player() {
 
           {/* Receiving Table */}
           {hasStats.receiving && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Receiving</h3>
               </div>
               {(() => {
@@ -2088,8 +2106,8 @@ export default function Player() {
 
           {/* Defense Table */}
           {hasStats.defensive && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Defense</h3>
               </div>
               {(() => {
@@ -2200,8 +2218,8 @@ export default function Player() {
 
           {/* Kicking Table */}
           {hasStats.kicking && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kicking</h3>
               </div>
               {(() => {
@@ -2301,8 +2319,8 @@ export default function Player() {
 
           {/* Punting Table */}
           {hasStats.punting && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punting</h3>
               </div>
               {(() => {
@@ -2398,8 +2416,8 @@ export default function Player() {
 
           {/* Kick Returns Table */}
           {hasStats.kickReturn && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kick Returns</h3>
               </div>
               {(() => {
@@ -2484,8 +2502,8 @@ export default function Player() {
 
           {/* Punt Returns Table */}
           {hasStats.puntReturn && (
-            <div className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
-              <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+            <div className="rounded-xl shadow-2xl overflow-hidden" style={{ backgroundColor: 'white', border: `2px solid ${teamColors.primary}20` }}>
+              <div className="px-5 py-3.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punt Returns</h3>
               </div>
               {(() => {
@@ -2572,7 +2590,7 @@ export default function Player() {
       })()}
 
       {/* Awards Section - all honors in one place */}
-      {(() => {
+      {activeTab === 'awards' && (() => {
         // Award display name mapping
         const awardLabels = {
           heisman: 'Heisman Trophy',
@@ -3005,6 +3023,303 @@ export default function Player() {
         </div>
       )}
 
+      {/* Game Log Tab */}
+      {activeTab === 'gamelog' && (() => {
+        if (playerGameLog.length === 0) {
+          return (
+            <div className="text-center py-8" style={{ color: secondaryText }}>
+              <p>No game log data available</p>
+            </div>
+          )
+        }
+
+        // Group games by year
+        const gamesByYear = {}
+        playerGameLog.forEach(entry => {
+          const year = entry.game.year
+          if (!gamesByYear[year]) gamesByYear[year] = []
+          gamesByYear[year].push(entry)
+        })
+
+        // Collect all scoring plays across all games for this player
+        const normalizeName = (name) => name?.toLowerCase().trim() || ''
+        const playerNameNorm = normalizeName(player.name)
+
+        const allPlayerScoringPlays = playerGameLog
+          .flatMap(entry => {
+            const game = entry.game
+            const scoringSummary = game.boxScore?.scoringSummary || []
+
+            // Calculate running score for all plays in this game
+            const getPlayPoints = (play) => {
+              const scoreType = play.scoreType || ''
+              const patResult = play.patResult || ''
+
+              if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
+                let points = 6
+                if (patResult.includes('Made XP')) points += 1
+                else if (patResult.includes('Converted 2PT')) points += 2
+                return points
+              }
+              if (scoreType === 'Field Goal') return 3
+              if (scoreType === 'Safety') return 2
+              return 0
+            }
+
+            // Calculate running scores for all plays
+            let playerTeamScore = 0
+            let opponentScore = 0
+            const playsWithRunningScore = scoringSummary.map(play => {
+              const points = getPlayPoints(play)
+              const isPlayerTeam = play.team?.toUpperCase() === (dynasty.teams?.[player.teamsByYear?.[game.year]]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+
+              if (isPlayerTeam) {
+                playerTeamScore += points
+              } else {
+                opponentScore += points
+              }
+
+              return {
+                ...play,
+                runningPlayerScore: playerTeamScore,
+                runningOpponentScore: opponentScore
+              }
+            })
+
+            // Filter to only player's scoring plays
+            return playsWithRunningScore
+              .filter(play => {
+                if (!play.videoLink) return false
+
+                // Include if player is the scorer
+                if (normalizeName(play.scorer) === playerNameNorm) return true
+
+                // Include passing TDs if player is the passer (QB)
+                if (play.scoreType?.includes('TD') && play.passer && normalizeName(play.passer) === playerNameNorm) return true
+
+                return false
+              })
+              .map(play => ({
+                ...play,
+                gameInfo: {
+                  gameId: game.gameId || game.gid || game.id,
+                  week: game.week,
+                  year: game.year,
+                  opponent: game.opponent,
+                  opponentTid: game.opponentTid,
+                  opponentLogo: game.opponentTid ? getTeamLogoByTid(game.opponentTid, dynasty.teams) : null,
+                  result: game.result
+                }
+              }))
+          })
+
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold" style={{ color: secondaryText }}>Game Log</h2>
+              {allPlayerScoringPlays.length > 0 && (
+                <button
+                  onClick={() => {
+                    setSelectedGameScoringPlays({
+                      plays: allPlayerScoringPlays,
+                      opponent: 'All Games'
+                    })
+                    setShowScoringHighlightsModal(true)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all shadow-lg hover:shadow-xl"
+                  style={{
+                    backgroundColor: teamInfo.backgroundColor,
+                    color: primaryText
+                  }}
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  <span className="font-bold text-sm uppercase tracking-wider" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    Watch All Scores ({allPlayerScoringPlays.length})
+                  </span>
+                </button>
+              )}
+            </div>
+
+            {Object.entries(gamesByYear).sort(([a], [b]) => b - a).map(([year, games]) => (
+              <div key={year} className="rounded-lg shadow-lg overflow-hidden" style={{ backgroundColor: 'white' }}>
+                <div className="px-4 py-3" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                  <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>
+                    {year} Season
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ backgroundColor: teamColors.secondary, borderBottom: `2px solid ${teamColors.primary}` }}>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-left" style={{ color: secondaryText, opacity: 0.8 }}>Week</th>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-left" style={{ color: secondaryText, opacity: 0.8 }}>Opponent</th>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center" style={{ color: secondaryText, opacity: 0.8 }}>Result</th>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center" style={{ color: secondaryText, opacity: 0.8 }}>Score</th>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-left" style={{ color: secondaryText, opacity: 0.8 }}>Stats</th>
+                        <th className="px-2 py-2.5 text-xs font-semibold uppercase text-center" style={{ color: secondaryText, opacity: 0.8 }}>Scoring Plays</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {games.map((entry, idx) => {
+                        const { game, stats } = entry
+                        const location = game.location === 'neutral' ? 'vs' : (game.location === 'home' ? 'vs' : '@')
+                        const resultColor = game.result === 'W' ? '#10b981' : '#ef4444'
+
+                        // Format stats based on category
+                        let statDisplay = ''
+                        if (stats.category === 'passing') {
+                          const completions = stats.comp ?? stats.cmp ?? stats.completions ?? 0
+                          const attempts = stats.att ?? stats.attempts ?? stats.passAttempts ?? 0
+                          const yards = stats.yards ?? stats.yds ?? stats.passYards ?? 0
+                          const touchdowns = stats.tD ?? stats.td ?? stats.passTD ?? 0
+                          const interceptions = stats.iNT ?? stats.int ?? stats.interceptions ?? 0
+                          statDisplay = `${completions}/${attempts}, ${yards} yds, ${touchdowns} TD${interceptions > 0 ? `, ${interceptions} INT` : ''}`
+                        } else if (stats.category === 'rushing') {
+                          const carries = stats.carries ?? stats.car ?? stats.rushAttempts ?? 0
+                          const yards = stats.yards ?? stats.yds ?? stats.rushYards ?? 0
+                          const touchdowns = stats.tD ?? stats.td ?? stats.rushTD ?? 0
+                          statDisplay = `${carries} car, ${yards} yds, ${touchdowns} TD`
+                        } else if (stats.category === 'receiving') {
+                          const receptions = stats.receptions ?? stats.rec ?? stats.catches ?? 0
+                          const yards = stats.yards ?? stats.yds ?? stats.recYards ?? 0
+                          const touchdowns = stats.tD ?? stats.td ?? stats.recTD ?? 0
+                          statDisplay = `${receptions} rec, ${yards} yds, ${touchdowns} TD`
+                        } else if (stats.category === 'defense') {
+                          const tackles = (stats.solo ?? 0) + (stats.assists ?? 0)
+                          const parts = []
+                          if (tackles > 0) parts.push(`${tackles} tkl`)
+                          if ((stats.tFL ?? 0) > 0) parts.push(`${stats.tFL} TFL`)
+                          if ((stats.sack ?? 0) > 0) parts.push(`${stats.sack} sck`)
+                          if ((stats.iNT ?? 0) > 0) parts.push(`${stats.iNT} INT`)
+                          if ((stats.deflections ?? 0) > 0) parts.push(`${stats.deflections} PD`)
+                          if ((stats.fF ?? 0) > 0) parts.push(`${stats.fF} FF`)
+                          statDisplay = parts.join(', ') ?? 'No stats'
+                        } else if (stats.category === 'kicking') {
+                          const fgDisplay = `${stats.fGM ?? 0}/${stats.fGA ?? 0} FG`
+                          const xpDisplay = `${stats.xPM ?? 0}/${stats.xPA ?? 0} XP`
+                          statDisplay = `${fgDisplay}, ${xpDisplay}`
+                        } else if (stats.category === 'punting') {
+                          const punts = stats.punts ?? 0
+                          const yards = stats.yards ?? 0
+                          const avg = punts > 0 ? (yards / punts).toFixed(1) : '0.0'
+                          statDisplay = `${punts} punts, ${yards} yds, ${avg} avg`
+                        } else if (stats.category === 'kickReturn') {
+                          statDisplay = `${stats.kR ?? 0} ret, ${stats.yards ?? 0} yds, ${stats.tD ?? 0} TD`
+                        } else if (stats.category === 'puntReturn') {
+                          statDisplay = `${stats.pR ?? 0} ret, ${stats.yards ?? 0} yds, ${stats.tD ?? 0} TD`
+                        }
+
+                        // Filter scoring plays for this player
+                        const playerScoringPlays = (game.boxScore?.scoringSummary || []).filter(play => {
+                          if (!play.videoLink) return false // Only include plays with video links
+
+                          // Normalize player names for comparison
+                          const normalizeName = (name) => name?.toLowerCase().trim() || ''
+                          const playerNameNorm = normalizeName(player.name)
+
+                          // Include if player is the scorer (rushing TD, receiving TD, return TD, etc.)
+                          if (normalizeName(play.scorer) === playerNameNorm) return true
+
+                          // Include passing TDs if player is the passer (QB)
+                          if (play.scoreType?.includes('TD') && play.passer && normalizeName(play.passer) === playerNameNorm) return true
+
+                          return false
+                        })
+
+                        return (
+                          <tr
+                            key={idx}
+                            onClick={() => navigate(`${pathPrefix}/game/${game.gameId || game.gid || game.id}`)}
+                            className="transition-opacity hover:opacity-80 cursor-pointer"
+                            style={{
+                              backgroundColor: idx % 2 === 1 ? '#f9fafb' : 'white',
+                              borderBottom: `1px solid ${teamInfo.backgroundColor}15`
+                            }}
+                          >
+                            <td className="px-2 py-2 font-medium" style={{ color: '#6b7280' }}>
+                              {game.week ? `Week ${game.week}` :
+                               game.isConferenceChampionship || game.gameType === 'conference_championship' ? 'Conf Champ' :
+                               game.isCFPFirstRound || game.gameType === 'cfp_first_round' ? 'CFP R1' :
+                               game.isCFPQuarterfinal || game.gameType === 'cfp_quarterfinal' ? 'CFP QF' :
+                               game.isCFPSemifinal || game.gameType === 'cfp_semifinal' ? 'CFP SF' :
+                               game.isCFPChampionship || game.gameType === 'cfp_championship' ? 'CFP Champ' :
+                               game.isBowlGame || game.gameType === 'bowl' ? 'Bowl' : 'N/A'}
+                            </td>
+                            <td className="px-2 py-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600 font-medium">{location}</span>
+                                {game.opponentTid ? (
+                                  <>
+                                    <img
+                                      src={getTeamLogoByTid(game.opponentTid, dynasty.teams)}
+                                      alt={game.opponent}
+                                      className="w-6 h-6 object-contain flex-shrink-0"
+                                      onError={(e) => { e.target.style.display = 'none' }}
+                                    />
+                                    <span className="hidden md:inline font-medium" style={{ color: '#1f2937' }}>
+                                      {dynasty.teams?.[game.opponentTid]?.schoolName || game.opponent}
+                                    </span>
+                                    <span className="md:hidden font-medium" style={{ color: '#1f2937' }}>
+                                      {game.opponent}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="font-medium" style={{ color: '#1f2937' }}>{game.opponent}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-2 py-2 text-center font-bold" style={{ color: resultColor }}>
+                              {game.result || '-'}
+                            </td>
+                            <td className="px-2 py-2 text-center tabular-nums" style={{ color: '#1f2937' }}>
+                              {game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : '-'}
+                            </td>
+                            <td className="px-2 py-2 text-sm" style={{ color: '#1f2937' }}>
+                              {statDisplay}
+                            </td>
+                            <td
+                              className="px-2 py-2 text-center"
+                              onClick={(e) => {
+                                if (playerScoringPlays.length > 0) {
+                                  e.stopPropagation() // Prevent row click
+                                  setSelectedGameScoringPlays({
+                                    plays: playerScoringPlays,
+                                    game: game,
+                                    opponent: game.opponent
+                                  })
+                                  setShowScoringHighlightsModal(true)
+                                }
+                              }}
+                            >
+                              {playerScoringPlays.length > 0 && (
+                                <button
+                                  className="flex items-center justify-center w-8 h-8 rounded-full transition-colors mx-auto"
+                                  style={{
+                                    backgroundColor: teamInfo.backgroundColor,
+                                    color: primaryText
+                                  }}
+                                  title={`${playerScoringPlays.length} scoring ${playerScoringPlays.length === 1 ? 'play' : 'plays'}`}
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                  </svg>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Edit Modal */}
       <PlayerEditModal
         isOpen={showEditModal}
@@ -3112,6 +3427,28 @@ export default function Player() {
           await updatePlayer(targetDynastyId, updatedPlayer)
         } : null}
       />
+
+      {/* Scoring Highlights Modal */}
+      {showScoringHighlightsModal && selectedGameScoringPlays && (
+        <ScoringHighlightsModal
+          isOpen={showScoringHighlightsModal}
+          onClose={() => {
+            setShowScoringHighlightsModal(false)
+            setSelectedGameScoringPlays(null)
+          }}
+          scoringPlays={selectedGameScoringPlays.plays}
+          team1Abbr={dynasty.teams?.[player.teamsByYear?.[currentYear]]?.abbr || getCurrentTeamAbbr(dynasty)}
+          team2Abbr={selectedGameScoringPlays.opponent === 'All Games' ? null : selectedGameScoringPlays.opponent}
+          team1Logo={getTeamLogoByTid(player.teamsByYear?.[currentYear], dynasty.teams)}
+          team2Logo={selectedGameScoringPlays.game?.opponentTid ? getTeamLogoByTid(selectedGameScoringPlays.game.opponentTid, dynasty.teams) : null}
+          players={dynasty.players || []}
+          getTeamLogo={getTeamLogo}
+          getMascotName={getMascotName}
+          teamsData={dynasty.teams}
+          customTitle={selectedGameScoringPlays.opponent === 'All Games' ? `${player.name} - All Scoring Plays` : `${player.name} Scores vs ${selectedGameScoringPlays.opponent}`}
+          pathPrefix={pathPrefix}
+        />
+      )}
 
       {/* Game Log Modal */}
       {showGameLogModal && (

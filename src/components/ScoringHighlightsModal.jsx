@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
@@ -119,17 +120,72 @@ export default function ScoringHighlightsModal({
   players,
   getTeamLogo,
   getMascotName,
-  teamsData
+  teamsData,
+  customTitle,
+  pathPrefix
 }) {
+  const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
+  const [showGameDropdown, setShowGameDropdown] = useState(false)
   const timerRef = useRef(null)
+  const gameDropdownRef = useRef(null)
 
   // Filter to only plays with video links
   const playsWithVideo = scoringPlays?.filter(p => p.videoLink) || []
   const currentPlay = playsWithVideo[currentIndex]
   const totalPlays = playsWithVideo.length
+
+  // Extract unique seasons and games for filtering
+  const seasons = useMemo(() => {
+    const uniqueSeasons = [...new Set(playsWithVideo.map(p => p.gameInfo?.year).filter(Boolean))]
+    return uniqueSeasons.sort((a, b) => b - a) // Descending order
+  }, [playsWithVideo])
+
+  const games = useMemo(() => {
+    const uniqueGames = []
+    const seen = new Set()
+    playsWithVideo.forEach(play => {
+      if (play.gameInfo) {
+        const key = `${play.gameInfo.year}-${play.gameInfo.week}-${play.gameInfo.opponent}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          uniqueGames.push({
+            year: play.gameInfo.year,
+            week: play.gameInfo.week,
+            opponent: play.gameInfo.opponent,
+            opponentLogo: play.gameInfo.opponentLogo,
+            label: `${play.gameInfo.year} Week ${play.gameInfo.week} vs ${play.gameInfo.opponent}`
+          })
+        }
+      }
+    })
+    return uniqueGames
+  }, [playsWithVideo])
+
+  // Jump to first play of selected season
+  const jumpToSeason = (year) => {
+    const index = playsWithVideo.findIndex(p => p.gameInfo?.year === parseInt(year))
+    if (index !== -1) {
+      setCurrentIndex(index)
+      setTimeRemaining(PLAY_DURATION)
+    }
+  }
+
+  // Jump to first play of selected game
+  const jumpToGame = (gameKey) => {
+    const [year, week, opponent] = gameKey.split('|||')
+    const index = playsWithVideo.findIndex(p =>
+      p.gameInfo?.year === parseInt(year) &&
+      p.gameInfo?.week === parseInt(week) &&
+      p.gameInfo?.opponent === opponent
+    )
+    if (index !== -1) {
+      setCurrentIndex(index)
+      setTimeRemaining(PLAY_DURATION)
+    }
+  }
 
   // Find player by name
   const findPlayer = useCallback((name) => {
@@ -151,8 +207,20 @@ export default function ScoringHighlightsModal({
     return null
   }, [team1Abbr, team2Abbr, team1Logo, team2Logo, getTeamLogo, getMascotName, teamsData])
 
-  // Calculate running score up to current play
+  // Get running score from the play data (already calculated from full game scoring summary)
   const getRunningScore = useCallback((upToIndex) => {
+    const currentPlay = playsWithVideo[upToIndex]
+    if (!currentPlay) return { score1: 0, score2: 0 }
+
+    // Use pre-calculated running scores if available (includes ALL scoring plays from the game)
+    if (currentPlay.runningPlayerScore !== undefined && currentPlay.runningOpponentScore !== undefined) {
+      return {
+        score1: currentPlay.runningPlayerScore,
+        score2: currentPlay.runningOpponentScore
+      }
+    }
+
+    // Fallback to old calculation for backwards compatibility (single game mode)
     let score1 = 0
     let score2 = 0
 
@@ -163,7 +231,6 @@ export default function ScoringHighlightsModal({
       const isTeam1 = play.team?.toUpperCase() === team1Abbr?.toUpperCase()
       let points = 0
 
-      // Calculate points for this play
       if (play.scoreType?.includes('TD')) {
         points = 6
         if (play.patResult === 'Made XP') points += 1
@@ -186,6 +253,17 @@ export default function ScoringHighlightsModal({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
+  }, [])
+
+  // Close game dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (gameDropdownRef.current && !gameDropdownRef.current.contains(event.target)) {
+        setShowGameDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Handle timer for auto-advance
@@ -265,7 +343,8 @@ export default function ScoringHighlightsModal({
 
   // Get team logos for score display
   const team1LogoUrl = team1Logo
-  const team2LogoUrl = team2Logo
+  // For "All Games" mode, use the opponent logo from the current play's gameInfo
+  const team2LogoUrl = currentPlay?.gameInfo?.opponentLogo || team2Logo
 
   return (
     <div
@@ -279,7 +358,7 @@ export default function ScoringHighlightsModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800 flex-shrink-0">
-          <h3 className="text-lg font-bold text-white">Scoring Highlights</h3>
+          <h3 className="text-lg font-bold text-white">{customTitle || 'Scoring Highlights'}</h3>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-400">
               Play {currentIndex + 1} of {totalPlays}
@@ -380,7 +459,16 @@ export default function ScoringHighlightsModal({
             </div>
 
             {/* Running Score with logos */}
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <div
+              className="flex-shrink-0 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={(e) => {
+                if (currentPlay?.gameInfo?.gameId && pathPrefix) {
+                  e.stopPropagation()
+                  navigate(`${pathPrefix}/game/${currentPlay.gameInfo.gameId}`)
+                }
+              }}
+              title={currentPlay?.gameInfo?.gameId ? "View game details" : undefined}
+            >
               {team1LogoUrl && (
                 <img src={team1LogoUrl} alt={team1Abbr} className="w-6 h-6 object-contain" />
               )}
@@ -392,11 +480,79 @@ export default function ScoringHighlightsModal({
                 {runningScore.score2}
               </span>
               {team2LogoUrl && (
-                <img src={team2LogoUrl} alt={team2Abbr} className="w-6 h-6 object-contain" />
+                <img src={team2LogoUrl} alt={currentPlay?.gameInfo?.opponent || team2Abbr} className="w-6 h-6 object-contain" />
               )}
             </div>
           </div>
         </div>
+
+        {/* Navigation Filters */}
+        {(seasons.length > 1 || games.length > 1) && (
+          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 bg-gray-800 border-t border-gray-700 flex-shrink-0">
+            {seasons.length > 1 && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-400 font-medium">Season:</label>
+                <select
+                  value={currentPlay?.gameInfo?.year || ''}
+                  onChange={(e) => jumpToSeason(e.target.value)}
+                  className="px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  {seasons.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {games.length > 1 && (
+              <div className="flex items-center gap-2 relative" ref={gameDropdownRef}>
+                <label className="text-sm text-gray-400 font-medium">Game:</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowGameDropdown(!showGameDropdown)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm border border-gray-600 hover:border-blue-500 focus:outline-none focus:border-blue-500 min-w-[200px]"
+                  >
+                    {currentPlay?.gameInfo?.opponentLogo && (
+                      <img
+                        src={currentPlay.gameInfo.opponentLogo}
+                        alt={currentPlay.gameInfo.opponent}
+                        className="w-4 h-4 object-contain"
+                      />
+                    )}
+                    <span className="flex-1 text-left truncate">
+                      {currentPlay?.gameInfo ? `${currentPlay.gameInfo.year} Week ${currentPlay.gameInfo.week} vs ${currentPlay.gameInfo.opponent}` : 'Select game'}
+                    </span>
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showGameDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
+                      {games.map(game => (
+                        <button
+                          key={`${game.year}-${game.week}-${game.opponent}`}
+                          onClick={() => {
+                            jumpToGame(`${game.year}|||${game.week}|||${game.opponent}`)
+                            setShowGameDropdown(false)
+                          }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-gray-600 transition-colors text-left"
+                        >
+                          {game.opponentLogo && (
+                            <img
+                              src={game.opponentLogo}
+                              alt={game.opponent}
+                              className="w-4 h-4 object-contain flex-shrink-0"
+                            />
+                          )}
+                          <span className="truncate">{game.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Controls */}
         <div className="flex items-center justify-center gap-4 px-4 py-4 bg-gray-900 border-t border-gray-700 flex-shrink-0">
