@@ -142,7 +142,7 @@ export default function Player() {
   const [accoladeType, setAccoladeType] = useState(null)
   const [showOverallProgressionModal, setShowOverallProgressionModal] = useState(false)
   const [showGameLogModal, setShowGameLogModal] = useState(false)
-  const [expandedGameLogYear, setExpandedGameLogYear] = useState(null)
+  const [expandedGameLog, setExpandedGameLog] = useState(null) // { year, statType }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -526,9 +526,9 @@ export default function Player() {
   }, [player?.statsByYear, player?.classByYear, player?.year])
 
   const gameLog = useMemo(() => {
-    if (!expandedGameLogYear || !player?.name || !dynasty) return []
-    return getPlayerGameLog(dynasty, player.name, expandedGameLogYear, playerTeamAbbr)
-  }, [expandedGameLogYear, dynasty, player?.name, playerTeamAbbr])
+    if (!expandedGameLog?.year || !player?.name || !dynasty) return []
+    return getPlayerGameLog(dynasty, player.name, expandedGameLog.year, playerTeamAbbr)
+  }, [expandedGameLog, dynasty, player?.name, playerTeamAbbr])
 
   // Early returns AFTER all hooks
   if (!dynasty) {
@@ -654,46 +654,52 @@ export default function Player() {
   const careerSnaps = yearByYearStats.reduce((sum, y) => sum + (y.snapsPlayed || 0), 0)
 
   // Get game log for the expanded year
-  // Helper to toggle game log
-  const toggleGameLog = (year) => {
-    setExpandedGameLogYear(expandedGameLogYear === year ? null : year)
+  // Helper to toggle game log - now tracks both year AND stat type
+  const toggleGameLog = (year, statType) => {
+    const isCurrentlyExpanded = expandedGameLog?.year === year && expandedGameLog?.statType === statType
+    setExpandedGameLog(isCurrentlyExpanded ? null : { year, statType })
+  }
+
+  // Check if a specific game log is expanded
+  const isGameLogExpanded = (year, statType) => {
+    return expandedGameLog?.year === year && expandedGameLog?.statType === statType
   }
 
   // Game log row component - renders a table matching the stat type columns
   const renderGameLogRow = (year, colSpan, statType) => {
-    if (expandedGameLogYear !== year) return null
+    if (!isGameLogExpanded(year, statType)) return null
 
     // Define columns for each stat type
+    // Property names match box score headers from boxScoreConstants.js (camelCase converted)
     const getStatColumns = () => {
       switch (statType) {
         case 'passing':
           return [
-            { key: 'completions', label: 'Cmp', getter: g => g.passing?.completions || 0 },
-            { key: 'attempts', label: 'Att', getter: g => g.passing?.attempts || 0 },
-            { key: 'yards', label: 'Yds', getter: g => g.passing?.yards || 0, bold: true },
-            { key: 'avg', label: 'AVG', getter: g => g.passing?.attempts ? (g.passing.yards / g.passing.attempts).toFixed(1) : '0.0' },
-            { key: 'td', label: 'TD', getter: g => g.passing?.touchdowns || 0, bold: true },
-            { key: 'int', label: 'INT', getter: g => g.passing?.interceptions || 0 },
-            { key: 'lng', label: 'Lng', getter: g => g.passing?.longest || 0 },
-            { key: 'sacks', label: 'Sck', getter: g => g.passing?.sacks || 0 },
+            { key: 'cmp', label: 'Cmp', getter: g => g.passing?.comp || 0 },
+            { key: 'att', label: 'Att', getter: g => g.passing?.att || 0 },
+            { key: 'yds', label: 'Yds', getter: g => g.passing?.yards || 0, bold: true },
+            { key: 'avg', label: 'AVG', getter: g => g.passing?.att ? (g.passing.yards / g.passing.att).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.passing?.tD || 0, bold: true },
+            { key: 'int', label: 'INT', getter: g => g.passing?.iNT || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.passing?.long || 0 },
           ]
         case 'rushing':
           return [
             { key: 'car', label: 'Car', getter: g => g.rushing?.carries || 0 },
             { key: 'yds', label: 'Yds', getter: g => g.rushing?.yards || 0, bold: true },
             { key: 'avg', label: 'AVG', getter: g => g.rushing?.carries ? (g.rushing.yards / g.rushing.carries).toFixed(1) : '0.0' },
-            { key: 'td', label: 'TD', getter: g => g.rushing?.touchdowns || 0, bold: true },
-            { key: 'lng', label: 'Lng', getter: g => g.rushing?.longest || 0 },
+            { key: 'td', label: 'TD', getter: g => g.rushing?.tD || 0, bold: true },
+            { key: 'lng', label: 'Lng', getter: g => g.rushing?.long || 0 },
             { key: 'fum', label: 'Fum', getter: g => g.rushing?.fumbles || 0 },
-            { key: 'bt', label: 'BTkl', getter: g => g.rushing?.brokenTackles || 0 },
+            { key: 'bt', label: 'BTkl', getter: g => g.rushing?.bT || 0 },
           ]
         case 'receiving':
           return [
             { key: 'rec', label: 'Rec', getter: g => g.receiving?.receptions || 0 },
             { key: 'yds', label: 'Yds', getter: g => g.receiving?.yards || 0, bold: true },
             { key: 'avg', label: 'AVG', getter: g => g.receiving?.receptions ? (g.receiving.yards / g.receiving.receptions).toFixed(1) : '0.0' },
-            { key: 'td', label: 'TD', getter: g => g.receiving?.touchdowns || 0, bold: true },
-            { key: 'lng', label: 'Lng', getter: g => g.receiving?.longest || 0 },
+            { key: 'td', label: 'TD', getter: g => g.receiving?.tD || 0, bold: true },
+            { key: 'lng', label: 'Lng', getter: g => g.receiving?.long || 0 },
             { key: 'drops', label: 'Drp', getter: g => g.receiving?.drops || 0 },
           ]
         case 'defense':
@@ -701,11 +707,11 @@ export default function Player() {
             { key: 'solo', label: 'Solo', getter: g => g.defense?.solo || 0 },
             { key: 'ast', label: 'Ast', getter: g => g.defense?.assists || 0 },
             { key: 'tot', label: 'Tot', getter: g => (g.defense?.solo || 0) + (g.defense?.assists || 0), bold: true },
-            { key: 'tfl', label: 'TFL', getter: g => g.defense?.tacklesForLoss || 0 },
-            { key: 'sacks', label: 'Sck', getter: g => g.defense?.sacks || 0 },
-            { key: 'int', label: 'INT', getter: g => g.defense?.interceptions || 0 },
-            { key: 'pdef', label: 'PD', getter: g => g.defense?.passDeflections || 0 },
-            { key: 'ff', label: 'FF', getter: g => g.defense?.forcedFumbles || 0 },
+            { key: 'tfl', label: 'TFL', getter: g => g.defense?.tFL || 0 },
+            { key: 'sacks', label: 'Sck', getter: g => g.defense?.sack || 0 },
+            { key: 'int', label: 'INT', getter: g => g.defense?.iNT || 0 },
+            { key: 'pdef', label: 'PD', getter: g => g.defense?.deflections || 0 },
+            { key: 'ff', label: 'FF', getter: g => g.defense?.fF || 0 },
           ]
         case 'kicking':
           return [
@@ -721,25 +727,25 @@ export default function Player() {
             { key: 'punts', label: 'Punts', getter: g => g.punting?.punts || 0 },
             { key: 'yds', label: 'Yds', getter: g => g.punting?.yards || 0 },
             { key: 'avg', label: 'AVG', getter: g => g.punting?.punts ? (g.punting.yards / g.punting.punts).toFixed(1) : '0.0' },
-            { key: 'lng', label: 'Lng', getter: g => g.punting?.longest || 0 },
-            { key: 'in20', label: 'In20', getter: g => g.punting?.inside20 || 0 },
-            { key: 'tb', label: 'TB', getter: g => g.punting?.touchbacks || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.punting?.long || 0 },
+            { key: 'in20', label: 'In20', getter: g => g.punting?.in20 || 0 },
+            { key: 'tb', label: 'TB', getter: g => g.punting?.tB || 0 },
           ]
         case 'kickReturn':
           return [
-            { key: 'ret', label: 'Ret', getter: g => g.kickReturn?.returns || 0 },
+            { key: 'ret', label: 'Ret', getter: g => g.kickReturn?.kR || 0 },
             { key: 'yds', label: 'Yds', getter: g => g.kickReturn?.yards || 0, bold: true },
-            { key: 'avg', label: 'AVG', getter: g => g.kickReturn?.returns ? (g.kickReturn.yards / g.kickReturn.returns).toFixed(1) : '0.0' },
-            { key: 'td', label: 'TD', getter: g => g.kickReturn?.touchdowns || 0 },
-            { key: 'lng', label: 'Lng', getter: g => g.kickReturn?.longest || 0 },
+            { key: 'avg', label: 'AVG', getter: g => g.kickReturn?.kR ? (g.kickReturn.yards / g.kickReturn.kR).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.kickReturn?.tD || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.kickReturn?.long || 0 },
           ]
         case 'puntReturn':
           return [
-            { key: 'ret', label: 'Ret', getter: g => g.puntReturn?.returns || 0 },
+            { key: 'ret', label: 'Ret', getter: g => g.puntReturn?.pR || 0 },
             { key: 'yds', label: 'Yds', getter: g => g.puntReturn?.yards || 0, bold: true },
-            { key: 'avg', label: 'AVG', getter: g => g.puntReturn?.returns ? (g.puntReturn.yards / g.puntReturn.returns).toFixed(1) : '0.0' },
-            { key: 'td', label: 'TD', getter: g => g.puntReturn?.touchdowns || 0 },
-            { key: 'lng', label: 'Lng', getter: g => g.puntReturn?.longest || 0 },
+            { key: 'avg', label: 'AVG', getter: g => g.puntReturn?.pR ? (g.puntReturn.yards / g.puntReturn.pR).toFixed(1) : '0.0' },
+            { key: 'td', label: 'TD', getter: g => g.puntReturn?.tD || 0 },
+            { key: 'lng', label: 'Lng', getter: g => g.puntReturn?.long || 0 },
           ]
         case 'blocking':
           return [
@@ -1715,15 +1721,15 @@ export default function Player() {
                           const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'passing') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-1.5 py-2 font-medium cursor-pointer hover:underline truncate"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'passing')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-0.5 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'passing') && <span className="ml-0.5 text-xs">▼</span>}
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: '#6b7280' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
@@ -1828,15 +1834,15 @@ export default function Player() {
                           const colSpan = 13 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'rushing') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-1.5 py-2 font-medium cursor-pointer hover:underline truncate"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'rushing')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-0.5 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'rushing') && <span className="ml-0.5 text-xs">▼</span>}
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: '#6b7280' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
@@ -1936,15 +1942,15 @@ export default function Player() {
                           const colSpan = 11 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'receiving') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-1.5 py-2 font-medium cursor-pointer hover:underline truncate"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'receiving')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-0.5 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'receiving') && <span className="ml-0.5 text-xs">▼</span>}
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: '#6b7280' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
@@ -2030,15 +2036,15 @@ export default function Player() {
                           const colSpan = 4 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'blocking') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'blocking')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'blocking') && <span className="ml-1 text-xs">▼</span>}
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
@@ -2122,15 +2128,15 @@ export default function Player() {
                           const colSpan = 14 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'defense') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'defense')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'defense') && <span className="ml-1 text-xs">▼</span>}
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
@@ -2231,15 +2237,15 @@ export default function Player() {
                           const colSpan = 10 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'kicking') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'kicking')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'kicking') && <span className="ml-1 text-xs">▼</span>}
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
@@ -2330,15 +2336,15 @@ export default function Player() {
                           const colSpan = 9 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
-                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
+                              <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'punting') ? `${teamInfo.backgroundColor}15` : idx % 2 === 1 ? '#f9fafb' : 'white', borderBottom: `1px solid ${teamInfo.backgroundColor}15` }}>
                                 <td
                                   className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                                  onClick={() => toggleGameLog(y.year)}
+                                  onClick={() => toggleGameLog(y.year, 'punting')}
                                   title="Click to view game log"
                                 >
                                   {y.year}
-                                  {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                                  {isGameLogExpanded(y.year, 'punting') && <span className="ml-1 text-xs">▼</span>}
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
@@ -2422,15 +2428,15 @@ export default function Player() {
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>
-                          <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamColors.primary}20` : idx % 2 === 1 ? `${teamColors.primary}08` : teamColors.secondary, borderBottom: `1px solid ${teamColors.primary}20` }}>
+                          <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'kickReturn') ? `${teamColors.primary}20` : idx % 2 === 1 ? `${teamColors.primary}08` : teamColors.secondary, borderBottom: `1px solid ${teamColors.primary}20` }}>
                             <td
                               className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                              onClick={() => toggleGameLog(y.year)}
+                              onClick={() => toggleGameLog(y.year, 'kickReturn')}
                               title="Click to view game log"
                             >
                               {y.year}
-                              {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                              {isGameLogExpanded(y.year, 'kickReturn') && <span className="ml-1 text-xs">▼</span>}
                             </td>
                             <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
@@ -2508,15 +2514,15 @@ export default function Player() {
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>
-                          <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: expandedGameLogYear === y.year ? `${teamColors.primary}20` : idx % 2 === 1 ? `${teamColors.primary}08` : teamColors.secondary, borderBottom: `1px solid ${teamColors.primary}20` }}>
+                          <tr className="transition-opacity hover:opacity-80" style={{ backgroundColor: isGameLogExpanded(y.year, 'puntReturn') ? `${teamColors.primary}20` : idx % 2 === 1 ? `${teamColors.primary}08` : teamColors.secondary, borderBottom: `1px solid ${teamColors.primary}20` }}>
                             <td
                               className="px-2 py-2.5 font-medium w-14 cursor-pointer hover:underline"
                                   style={{ color: teamInfo.backgroundColor }}
-                              onClick={() => toggleGameLog(y.year)}
+                              onClick={() => toggleGameLog(y.year, 'puntReturn')}
                               title="Click to view game log"
                             >
                               {y.year}
-                              {expandedGameLogYear === y.year && <span className="ml-1 text-xs">▼</span>}
+                              {isGameLogExpanded(y.year, 'puntReturn') && <span className="ml-1 text-xs">▼</span>}
                             </td>
                             <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
@@ -3104,7 +3110,7 @@ export default function Player() {
                   const num = (val) => Number(val) || 0
 
                   if (category === 'passing') {
-                    return `${num(stats.comp)}/${num(stats.attempts)}, ${num(stats.yards)} YDS, ${num(stats.tD)} TD, ${num(stats.iNT)} INT`
+                    return `${num(stats.comp)}/${num(stats.att)}, ${num(stats.yards)} YDS, ${num(stats.tD)} TD, ${num(stats.iNT)} INT`
                   } else if (category === 'rushing') {
                     return `${num(stats.carries)} CAR, ${num(stats.yards)} YDS, ${num(stats.tD)} TD`
                   } else if (category === 'receiving') {

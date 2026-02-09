@@ -295,7 +295,7 @@ export default function ConferenceStandings() {
         {hasData ? (
           <div className="divide-y divide-slate-700/30">
             {teams.sort((a, b) => (a.rank || 0) - (b.rank || 0)).map((team, idx) => (
-              <TeamRow key={team.team || idx} team={team} rank={team.rank || idx + 1} idx={idx} />
+              <TeamRow key={`${team.team}-${idx}`} team={team} rank={team.rank || idx + 1} idx={idx} />
             ))}
           </div>
         ) : (
