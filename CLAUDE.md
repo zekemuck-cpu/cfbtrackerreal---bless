@@ -40,6 +40,28 @@ npm run build    # Build for production
 
 Do NOT commit automatically. Only commit when user explicitly requests it.
 
+## Version Management
+
+**CRITICAL: ALWAYS update the version number with EVERY change pushed to main.**
+
+The app version is displayed at the bottom of every page in the format: `Dynasty Tracker vYYYY.MM.DD.build`
+
+**Location**: `src/components/Layout.jsx` - Update the `APP_VERSION` constant
+
+**Format**: `YYYY.MM.DD.build` (e.g., `2026.02.09.0001`)
+
+**When to update**:
+- Every commit to main
+- Increment the build number (last segment) for each change on the same day
+- Update the date when working on a new day
+
+**Example progression**:
+- `2026.02.09.0001` - First change on Feb 9
+- `2026.02.09.0002` - Second change on Feb 9
+- `2026.02.10.0001` - First change on Feb 10
+
+This helps users verify they're on the latest version when viewing the live site.
+
 ---
 
 ## UI/UX Guidelines
