@@ -50,11 +50,16 @@ function getEmbedUrl(url) {
     return `https://player.twitch.tv/?video=${twitchVodMatch[1]}&time=${time}&parent=${window.location.hostname}&autoplay=true`
   }
 
-  // Vimeo: vimeo.com/VIDEO_ID or vimeo.com/VIDEO_ID#t=TIMEs
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:#t=(\d+)s)?/)
+  // Vimeo: vimeo.com/VIDEO_ID or vimeo.com/VIDEO_ID#t=TIMEs or with ?t= or &t=
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
   if (vimeoMatch) {
-    const startTime = vimeoMatch[2] || '0'
-    return `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1${startTime !== '0' ? `#t=${startTime}s` : ''}`
+    const videoId = vimeoMatch[1]
+    // Extract timestamp from #t=, ?t=, or &t= formats
+    const timeMatch = url.match(/[#?&]t=(\d+)/)
+    const startTime = timeMatch ? timeMatch[1] : null
+    return startTime
+      ? `https://player.vimeo.com/video/${videoId}?autoplay=1#t=${startTime}s`
+      : `https://player.vimeo.com/video/${videoId}?autoplay=1`
   }
 
   // Streamable: streamable.com/CODE
@@ -67,6 +72,31 @@ function getEmbedUrl(url) {
   const dailymotionMatch = url.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/)
   if (dailymotionMatch) {
     return `https://www.dailymotion.com/embed/video/${dailymotionMatch[1]}?autoplay=1`
+  }
+
+  // Hudl: hudl.com/video/ID or hudl.com/embed/video/ID
+  const hudlMatch = url.match(/hudl\.com\/(?:video|embed\/video)\/([a-zA-Z0-9]+)/)
+  if (hudlMatch) {
+    return `https://www.hudl.com/embed/video/${hudlMatch[1]}`
+  }
+
+  // Twitter/X: twitter.com or x.com video URLs
+  const twitterMatch = url.match(/(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/)
+  if (twitterMatch) {
+    // Twitter videos need to be opened in new tab (no embed API)
+    return null
+  }
+
+  // Imgur: i.imgur.com/VIDEO.mp4 or imgur.com/VIDEO
+  const imgurMatch = url.match(/(?:i\.)?imgur\.com\/([a-zA-Z0-9]+)(?:\.mp4)?/)
+  if (imgurMatch) {
+    return `https://i.imgur.com/${imgurMatch[1]}.mp4`
+  }
+
+  // Clippituser: clippituser.tv/c/CODE
+  const clippituserMatch = url.match(/clippituser\.tv\/c\/([a-zA-Z0-9]+)/)
+  if (clippituserMatch) {
+    return `https://clippituser.tv/c/${clippituserMatch[1]}`
   }
 
   // Direct video files (.mp4, .webm, .ogg)
