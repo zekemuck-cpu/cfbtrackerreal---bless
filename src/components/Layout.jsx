@@ -650,8 +650,8 @@ export default function Layout({ children }) {
         )}
       </main>
 
-      {/* Version Footer */}
-      <footer className="py-2 text-center">
+      {/* Version Footer - positioned above ticker */}
+      <footer className="pb-10 pt-2 text-center">
         <p className="text-xs text-gray-500">Dynasty Tracker v{APP_VERSION}</p>
       </footer>
 
