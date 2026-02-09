@@ -244,6 +244,7 @@ export default function PlayerEdit() {
   const [selectedStatsYear, setSelectedStatsYear] = useState(null)
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
   const initializedRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -417,17 +418,18 @@ export default function PlayerEdit() {
   // Compress and normalize an image file via canvas (handles HEIC, reduces size)
   const compressImage = (file, maxDimension = 800) => {
     return new Promise((resolve, reject) => {
+      setUploadStatus('Reading image...')
       const reader = new FileReader()
       reader.onerror = () => reject(new Error('Failed to read file'))
       reader.onload = () => {
+        setUploadStatus('Processing image...')
         const img = new Image()
         img.onerror = () => {
-          // If canvas approach fails, fall back to raw base64
           resolve(reader.result.split(',')[1])
         }
         img.onload = () => {
           try {
-            // Calculate scaled dimensions
+            setUploadStatus('Compressing...')
             let { width, height } = img
             if (width > maxDimension || height > maxDimension) {
               if (width > height) {
@@ -445,12 +447,10 @@ export default function PlayerEdit() {
             const ctx = canvas.getContext('2d')
             ctx.drawImage(img, 0, 0, width, height)
 
-            // Export as JPEG base64
             const dataUrl = canvas.toDataURL('image/jpeg', 0.85)
             const base64 = dataUrl.split(',')[1]
             resolve(base64)
           } catch (e) {
-            // Fall back to raw base64
             resolve(reader.result.split(',')[1])
           }
         }
@@ -467,9 +467,9 @@ export default function PlayerEdit() {
     try {
       setUploading(true)
 
-      // Compress and normalize (handles HEIC, reduces file size for faster upload)
       const base64 = await compressImage(file)
 
+      setUploadStatus('Uploading...')
       const formDataUpload = new FormData()
       formDataUpload.append('image', base64)
       formDataUpload.append('key', apiKey)
@@ -499,6 +499,7 @@ export default function PlayerEdit() {
       }
     } finally {
       setUploading(false)
+      setUploadStatus('')
     }
   }
 
@@ -862,7 +863,10 @@ export default function PlayerEdit() {
                     )}
 
                     {uploading && (
-                      <div className="mt-2 text-xs text-center text-blue-600">Uploading...</div>
+                      <div className="mt-2 flex items-center justify-center gap-2">
+                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs text-blue-600">{uploadStatus || 'Uploading...'}</span>
+                      </div>
                     )}
                   </div>
                 </>
