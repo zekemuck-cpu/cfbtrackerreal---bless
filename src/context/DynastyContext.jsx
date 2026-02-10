@@ -10012,6 +10012,133 @@ export function DynastyProvider({ children }) {
   }
 
   /**
+   * Core import processing logic shared by file and URL import
+   * @param {Object} dynastyData - Parsed JSON dynasty data
+   * @param {Function} reportProgress - Progress reporting callback
+   */
+  const processImportData = async (dynastyData, reportProgress) => {
+    reportProgress('parsing', 'File parsed successfully', 10)
+
+    // Remove fields that would link this to the original dynasty
+    // This ensures the imported dynasty is a completely separate entity
+    const {
+      id: oldId,
+      userId: oldUserId,
+      lastModified: oldLastModified,
+      createdAt: oldCreatedAt,
+      shareCode: oldShareCode,
+      isPublic: oldIsPublic,
+      googleSheetsByTeam: oldGoogleSheets,
+      favorite: oldFavorite, // Don't carry over starred status
+      ...cleanDynastyData
+    } = dynastyData
+
+    // Set timestamps to now (import time, not old export time)
+    const now = Date.now()
+    cleanDynastyData.lastModified = now
+    cleanDynastyData.createdAt = now
+
+    // Ensure the imported dynasty starts as private with no share code
+    cleanDynastyData.isPublic = false
+
+    // IMPORTANT: Set storageType to 'local' for imported dynasties
+    cleanDynastyData.storageType = 'local'
+
+    // CRITICAL: Reset roster migration flag to ensure teamsByYear entries are properly
+    // populated for all players. Without this, players may not appear on the roster
+    // after import because their teamsByYear entries might be missing or incomplete.
+    // This forces the migration to run fresh on the imported data.
+    delete cleanDynastyData._rosterMigratedV3
+
+    // Save the dynasty using createDynasty logic
+    const useLocalStorage = !storageService.isPremium()
+
+    if (useLocalStorage) {
+      // Local storage: IndexedDB - needs an ID
+      reportProgress('creating', 'Creating dynasty...', 20)
+      const newId = Date.now().toString()
+
+      const importedDynasty = {
+        ...cleanDynastyData,
+        id: newId,
+        storageType: 'local'
+      }
+
+      const currentDynasties = await indexedDBStorage.getDynasties() || []
+      const updatedDynasties = [...currentDynasties, importedDynasty]
+
+      // CRITICAL: Apply migrations to all dynasties (including the imported one)
+      // This ensures roster data, movements, and tid structures are properly set up
+      // Without this, players may be missing teamsByYear entries and not appear on roster
+      const migratedDynasties = applyMigrations(updatedDynasties)
+
+      await indexedDBStorage.saveDynasties(migratedDynasties)
+      setDynasties(migratedDynasties)
+
+      reportProgress('complete', 'Import complete!', 100)
+    } else {
+      // Production mode: Firestore - use subcollections for players and games
+      // This avoids the 1MB document size limit
+
+      // Extract players and games for subcollections
+      const { players, games, ...mainDocData } = cleanDynastyData
+      const playerCount = players?.length || 0
+      const gameCount = games?.length || 0
+
+      // Mark as using subcollections
+      mainDocData._subcollectionsMigrated = true
+
+      // Stage 2: Create the main dynasty document (without players/games)
+      reportProgress('creating', 'Creating dynasty record...', 15)
+      const result = await createDynastyInFirestore(user.uid, mainDocData)
+      reportProgress('creating', 'Dynasty record created', 20)
+
+      // Stage 3: Save players to subcollection if there are any
+      if (playerCount > 0) {
+        reportProgress('players', `Importing players (0/${playerCount})...`, 25)
+
+        // Import players in batches and report progress
+        const BATCH_SIZE = 500
+        for (let i = 0; i < playerCount; i += BATCH_SIZE) {
+          const batchPlayers = players.slice(i, i + BATCH_SIZE)
+          const batchEnd = Math.min(i + BATCH_SIZE, playerCount)
+
+          // Save this batch
+          await savePlayersToSubcollection(result.id, players.slice(0, batchEnd))
+
+          // Calculate progress (players are 25-60% of total)
+          const playerProgress = 25 + Math.round((batchEnd / playerCount) * 35)
+          reportProgress('players', `Importing players (${batchEnd}/${playerCount})...`, playerProgress, `${batchEnd} of ${playerCount} players`)
+        }
+      }
+
+      // Stage 4: Save games to subcollection if there are any
+      if (gameCount > 0) {
+        reportProgress('games', `Importing games (0/${gameCount})...`, 65)
+
+        // Import games in batches and report progress
+        const BATCH_SIZE = 500
+        for (let i = 0; i < gameCount; i += BATCH_SIZE) {
+          const batchEnd = Math.min(i + BATCH_SIZE, gameCount)
+
+          // Save this batch
+          await saveGamesToSubcollection(result.id, games.slice(0, batchEnd))
+
+          // Calculate progress (games are 65-95% of total)
+          const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
+          reportProgress('games', `Importing games (${batchEnd}/${gameCount})...`, gameProgress, `${batchEnd} of ${gameCount} games`)
+        }
+      }
+
+      // For local state, include players and games
+      cleanDynastyData._subcollectionsMigrated = true
+      reportProgress('complete', 'Import complete!', 100)
+    }
+
+    return cleanDynastyData
+  }
+
+  /**
    * Import a dynasty from a JSON file
    * @param {File} jsonFile - The JSON file to import
    * @param {Function} onProgress - Optional callback for progress updates
@@ -10030,7 +10157,6 @@ export function DynastyProvider({ children }) {
 
       reader.onload = async (e) => {
         try {
-          // Stage 1: Parse the JSON file
           reportProgress('parsing', 'Reading file...', 5)
           const rawContent = e.target.result
 
@@ -10041,125 +10167,8 @@ export function DynastyProvider({ children }) {
             throw new Error(`JSON parse error: ${parseError.message}`)
           }
 
-          reportProgress('parsing', 'File parsed successfully', 10)
-
-          // Remove fields that would link this to the original dynasty
-          // This ensures the imported dynasty is a completely separate entity
-          const {
-            id: oldId,
-            userId: oldUserId,
-            lastModified: oldLastModified,
-            createdAt: oldCreatedAt,
-            shareCode: oldShareCode,
-            isPublic: oldIsPublic,
-            googleSheetsByTeam: oldGoogleSheets,
-            favorite: oldFavorite, // Don't carry over starred status
-            ...cleanDynastyData
-          } = dynastyData
-
-          // Set timestamps to now (import time, not old export time)
-          const now = Date.now()
-          cleanDynastyData.lastModified = now
-          cleanDynastyData.createdAt = now
-
-          // Ensure the imported dynasty starts as private with no share code
-          cleanDynastyData.isPublic = false
-
-          // IMPORTANT: Set storageType to 'local' for imported dynasties
-          cleanDynastyData.storageType = 'local'
-
-          // CRITICAL: Reset roster migration flag to ensure teamsByYear entries are properly
-          // populated for all players. Without this, players may not appear on the roster
-          // after import because their teamsByYear entries might be missing or incomplete.
-          // This forces the migration to run fresh on the imported data.
-          delete cleanDynastyData._rosterMigratedV3
-
-          // Save the dynasty using createDynasty logic
-          const useLocalStorage = !storageService.isPremium()
-
-          if (useLocalStorage) {
-            // Local storage: IndexedDB - needs an ID
-            reportProgress('creating', 'Creating dynasty...', 20)
-            const newId = Date.now().toString()
-
-            const importedDynasty = {
-              ...cleanDynastyData,
-              id: newId,
-              storageType: 'local'
-            }
-
-            const currentDynasties = await indexedDBStorage.getDynasties() || []
-            const updatedDynasties = [...currentDynasties, importedDynasty]
-
-            // CRITICAL: Apply migrations to all dynasties (including the imported one)
-            // This ensures roster data, movements, and tid structures are properly set up
-            // Without this, players may be missing teamsByYear entries and not appear on roster
-            const migratedDynasties = applyMigrations(updatedDynasties)
-
-            await indexedDBStorage.saveDynasties(migratedDynasties)
-            setDynasties(migratedDynasties)
-
-            reportProgress('complete', 'Import complete!', 100)
-          } else {
-            // Production mode: Firestore - use subcollections for players and games
-            // This avoids the 1MB document size limit
-
-            // Extract players and games for subcollections
-            const { players, games, ...mainDocData } = cleanDynastyData
-            const playerCount = players?.length || 0
-            const gameCount = games?.length || 0
-
-            // Mark as using subcollections
-            mainDocData._subcollectionsMigrated = true
-
-            // Stage 2: Create the main dynasty document (without players/games)
-            reportProgress('creating', 'Creating dynasty record...', 15)
-            const result = await createDynastyInFirestore(user.uid, mainDocData)
-            reportProgress('creating', 'Dynasty record created', 20)
-
-            // Stage 3: Save players to subcollection if there are any
-            if (playerCount > 0) {
-              reportProgress('players', `Importing players (0/${playerCount})...`, 25)
-
-              // Import players in batches and report progress
-              const BATCH_SIZE = 500
-              for (let i = 0; i < playerCount; i += BATCH_SIZE) {
-                const batchPlayers = players.slice(i, i + BATCH_SIZE)
-                const batchEnd = Math.min(i + BATCH_SIZE, playerCount)
-
-                // Save this batch
-                await savePlayersToSubcollection(result.id, players.slice(0, batchEnd))
-
-                // Calculate progress (players are 25-60% of total)
-                const playerProgress = 25 + Math.round((batchEnd / playerCount) * 35)
-                reportProgress('players', `Importing players (${batchEnd}/${playerCount})...`, playerProgress, `${batchEnd} of ${playerCount} players`)
-              }
-            }
-
-            // Stage 4: Save games to subcollection if there are any
-            if (gameCount > 0) {
-              reportProgress('games', `Importing games (0/${gameCount})...`, 65)
-
-              // Import games in batches and report progress
-              const BATCH_SIZE = 500
-              for (let i = 0; i < gameCount; i += BATCH_SIZE) {
-                const batchEnd = Math.min(i + BATCH_SIZE, gameCount)
-
-                // Save this batch
-                await saveGamesToSubcollection(result.id, games.slice(0, batchEnd))
-
-                // Calculate progress (games are 65-95% of total)
-                const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
-                reportProgress('games', `Importing games (${batchEnd}/${gameCount})...`, gameProgress, `${batchEnd} of ${gameCount} games`)
-              }
-            }
-
-            // For local state, include players and games
-            cleanDynastyData._subcollectionsMigrated = true
-            reportProgress('complete', 'Import complete!', 100)
-          }
-
-          resolve(cleanDynastyData)
+          const result = await processImportData(dynastyData, reportProgress)
+          resolve(result)
         } catch (error) {
           console.error('Error importing dynasty:', error)
           reject(new Error(error.message || 'Invalid JSON file or corrupted dynasty data'))
@@ -10172,6 +10181,61 @@ export function DynastyProvider({ children }) {
 
       reader.readAsText(jsonFile)
     })
+  }
+
+  /**
+   * Import a dynasty from a URL (e.g., Dropbox, GitHub raw)
+   * @param {string} url - URL pointing to a JSON file
+   * @param {Function} onProgress - Optional callback for progress updates
+   */
+  const importDynastyFromUrl = async (url, onProgress = null) => {
+    const reportProgress = (stage, message, progress, detail = null) => {
+      if (onProgress) {
+        onProgress({ stage, message, progress, detail })
+      }
+    }
+
+    try {
+      reportProgress('parsing', 'Fetching file from URL...', 2)
+
+      // Convert common sharing URLs to direct download URLs
+      let fetchUrl = url.trim()
+
+      // Dropbox: change dl=0 to dl=1, or add dl=1
+      if (fetchUrl.includes('dropbox.com')) {
+        fetchUrl = fetchUrl.replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+        fetchUrl = fetchUrl.replace('dl=0', 'dl=1')
+        if (!fetchUrl.includes('dl=1') && !fetchUrl.includes('dl.dropboxusercontent.com')) {
+          fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'dl=1'
+        }
+      }
+
+      // GitHub: convert blob URLs to raw
+      if (fetchUrl.includes('github.com') && fetchUrl.includes('/blob/')) {
+        fetchUrl = fetchUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+      }
+
+      const response = await fetch(fetchUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`)
+      }
+
+      reportProgress('parsing', 'Reading response...', 5)
+      const rawContent = await response.text()
+
+      let dynastyData
+      try {
+        dynastyData = JSON.parse(rawContent)
+      } catch (parseError) {
+        throw new Error(`The URL did not return valid JSON. Make sure the link points directly to a .json file.`)
+      }
+
+      const result = await processImportData(dynastyData, reportProgress)
+      return result
+    } catch (error) {
+      console.error('Error importing dynasty from URL:', error)
+      throw new Error(error.message || 'Failed to import from URL')
+    }
   }
 
   /**
@@ -11824,6 +11888,7 @@ export function DynastyProvider({ children }) {
     saveConferences,
     exportDynasty,
     importDynasty,
+    importDynastyFromUrl,
     processHonorPlayers,
     cleanupRosterData,
     removeOrphanedRosterEntries,

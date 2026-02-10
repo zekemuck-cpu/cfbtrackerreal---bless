@@ -83,7 +83,7 @@ function getWeekPhaseDisplay(dynasty) {
 }
 
 export default function Home() {
-  const { dynasties, deleteDynasty, importDynasty, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
+  const { dynasties, deleteDynasty, importDynasty, importDynastyFromUrl, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
   const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -101,6 +101,8 @@ export default function Home() {
   const [confirmText, setConfirmText] = useState('')
   const [importing, setImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(null) // { stage, message, progress, detail }
+  const [showUrlImport, setShowUrlImport] = useState(false)
+  const [importUrl, setImportUrl] = useState('')
   const [showDeleteAllConfirm1, setShowDeleteAllConfirm1] = useState(false)
   const [showDeleteAllConfirm2, setShowDeleteAllConfirm2] = useState(false)
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('')
@@ -262,6 +264,29 @@ export default function Home() {
     }
   }
 
+  const handleUrlImport = async () => {
+    if (!importUrl.trim()) return
+
+    setShowUrlImport(false)
+    setImporting(true)
+    setImportProgress({ stage: 'starting', message: 'Starting import...', progress: 0 })
+
+    try {
+      await importDynastyFromUrl(importUrl.trim(), (progress) => {
+        setImportProgress(progress)
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+      setImportUrl('')
+    } catch (error) {
+      console.error('Error importing dynasty from URL:', error)
+      alert(error.message || 'Failed to import dynasty from URL.')
+    } finally {
+      setImporting(false)
+      setImportProgress(null)
+    }
+  }
+
   // Delete All Non-Starred handlers
   const handleDeleteAllClick = () => {
     if (hasNonStarred) {
@@ -328,7 +353,7 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-white mb-6">
             CFB Dynasty Tracker
           </h1>
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-4 justify-center flex-wrap">
             <Link
               to="/create"
               className="inline-block bg-orange-600 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-orange-500 shadow-lg"
@@ -340,7 +365,14 @@ export default function Home() {
               disabled={importing}
               className="inline-block bg-gray-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
             >
-              {importing ? 'Importing...' : 'Import Dynasty'}
+              {importing ? 'Importing...' : 'Import File'}
+            </button>
+            <button
+              onClick={() => setShowUrlImport(true)}
+              disabled={importing}
+              className="inline-block bg-gray-700 text-white px-8 py-4 rounded-lg font-semibold transition-colors hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-600"
+            >
+              Import from URL
             </button>
           </div>
           <input
@@ -419,11 +451,23 @@ export default function Home() {
                 onClick={handleImportClick}
                 disabled={importing}
                 className="bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm transition-colors hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 sm:gap-2"
+                title="Import from file"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
                 <span className="hidden sm:inline">{importing ? 'Importing...' : 'Import'}</span>
+              </button>
+              <button
+                onClick={() => setShowUrlImport(true)}
+                disabled={importing}
+                className="bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold text-sm transition-colors hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 sm:gap-2"
+                title="Import from URL"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                <span className="hidden sm:inline">URL</span>
               </button>
               {hasNonStarred && (
                 <button
@@ -852,6 +896,65 @@ export default function Home() {
           teamColors={getTeamColors(shareDynasty.teamName, shareDynasty.teams || shareDynasty.customTeams) || { primary: '#1e40af', secondary: '#dbeafe' }}
           dynasty={shareDynasty}
         />
+      )}
+
+      {/* URL Import Modal */}
+      {showUrlImport && (
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => setShowUrlImport(false)}
+        >
+          <div
+            className="rounded-xl max-w-md w-full p-6"
+            style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+              Import from URL
+            </h2>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Paste a direct link to a dynasty JSON file. Supports Dropbox, GitHub, and other direct download links.
+            </p>
+            <input
+              type="url"
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              placeholder="https://dl.dropboxusercontent.com/..."
+              className="w-full px-4 py-2.5 rounded-lg mb-4 focus:outline-none transition-colors"
+              style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-primary)', border: '1px solid var(--surface-5)' }}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && importUrl.trim()) {
+                  handleUrlImport()
+                }
+              }}
+            />
+            <div className="text-xs mb-4 space-y-1" style={{ color: 'var(--text-muted)' }}>
+              <p>Supported link formats:</p>
+              <p>Dropbox - share link or dl.dropboxusercontent.com</p>
+              <p>GitHub - raw file link or blob link</p>
+              <p>Any direct link to a .json file</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={handleUrlImport}
+                disabled={!importUrl.trim()}
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: importUrl.trim() ? '#ea580c' : 'var(--surface-5)' }}
+              >
+                Import
+              </button>
+              <button
+                onClick={() => { setShowUrlImport(false); setImportUrl('') }}
+                className="flex-1 px-4 py-2.5 rounded-lg font-semibold transition-colors hover:bg-surface-4"
+                style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--surface-5)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Import Progress Modal - blocks all interaction until complete */}
