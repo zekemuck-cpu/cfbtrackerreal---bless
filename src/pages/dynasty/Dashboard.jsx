@@ -1086,6 +1086,18 @@ export default function Dashboard() {
           m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure')
         )
 
+        // Build movementByYear entry based on reason
+        const movementByYearEntry = (() => {
+          if (reason === 'Transfer' || reason === 'Encouraged Transfer') {
+            return { type: 'transferred_out', toTeamTid: null }
+          } else if (reason === 'Pro Draft') {
+            return { type: 'declared_for_draft' }
+          } else if (reason === 'Graduating') {
+            return { type: 'graduated' }
+          }
+          return { type: reason.toLowerCase().replace(/\s+/g, '_') }
+        })()
+
         if (existingMovementIndex !== -1) {
           // UPDATE the existing movement with the new reason/type
           const updatedMovements = [...(player.movements || [])]
@@ -1097,28 +1109,13 @@ export default function Dashboard() {
             timestamp: Date.now()
           }
 
-          // Ensure teamHistory stint is closed
-          let updatedTeamHistory = player.teamHistory
-          if (player.teamHistory && player.teamHistory.length > 0) {
-            const lastStint = player.teamHistory[player.teamHistory.length - 1]
-            if (lastStint.toYear === null) {
-              updatedTeamHistory = player.teamHistory.map((stint, idx) => {
-                if (idx === player.teamHistory.length - 1) {
-                  return {
-                    ...stint,
-                    toYear: Number(year),
-                    endReason: isTransfer ? 'portal' : reason.toLowerCase().replace(' ', '_')
-                  }
-                }
-                return stint
-              })
-            }
-          }
-
           return {
             ...player,
             movements: updatedMovements,
-            teamHistory: updatedTeamHistory
+            movementByYear: {
+              ...(player.movementByYear || {}),
+              [Number(year)]: movementByYearEntry
+            }
           }
         }
 
@@ -1144,28 +1141,15 @@ export default function Dashboard() {
           }
         }
 
-        // CRITICAL: Close the player's teamHistory stint when they leave
-        let updatedTeamHistory = player.teamHistory
-        if (newMovement && player.teamHistory && player.teamHistory.length > 0) {
-          updatedTeamHistory = player.teamHistory.map((stint, idx) => {
-            // Close the last stint if it's still open
-            if (idx === player.teamHistory.length - 1 && stint.toYear === null) {
-              return {
-                ...stint,
-                toYear: Number(year),
-                endReason: isTransfer ? 'portal' : reason.toLowerCase().replace(' ', '_')
-              }
-            }
-            return stint
-          })
-        }
-
         return {
           ...player,
           movements: newMovement
             ? [...(player.movements || []), newMovement]
             : player.movements,
-          teamHistory: updatedTeamHistory
+          movementByYear: {
+            ...(player.movementByYear || {}),
+            [Number(year)]: movementByYearEntry
+          }
         }
       } else if (previousLeavingPids.has(player.pid)) {
         // Player was previously marked as leaving this year but is no longer in the list
@@ -1174,26 +1158,15 @@ export default function Dashboard() {
           !(m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure'))
         )
 
-        // CRITICAL: Reopen their teamHistory stint since they're staying
-        let updatedTeamHistory = player.teamHistory
-        if (player.teamHistory && player.teamHistory.length > 0) {
-          const lastStint = player.teamHistory[player.teamHistory.length - 1]
-          // If the last stint was closed this year (when we marked them leaving), reopen it
-          if (lastStint.toYear === Number(year)) {
-            updatedTeamHistory = player.teamHistory.map((stint, idx) => {
-              if (idx === player.teamHistory.length - 1) {
-                const { toYear, endReason, ...restOfStint } = stint
-                return { ...restOfStint, toYear: null }
-              }
-              return stint
-            })
-          }
-        }
+        // Also remove movementByYear entry for this year
+        const updatedMovementByYear = { ...(player.movementByYear || {}) }
+        delete updatedMovementByYear[Number(year)]
+        delete updatedMovementByYear[String(year)]
 
         return {
           ...player,
           movements: filteredMovements,
-          teamHistory: updatedTeamHistory
+          movementByYear: updatedMovementByYear
         }
       }
       return player
@@ -1289,6 +1262,9 @@ export default function Dashboard() {
         // Convert to tid if it's an abbreviation
         const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam) || tid)
 
+        // Build movementByYear entry for draft
+        const draftMovementByYear = { type: 'declared_for_draft', draftRound: entry.draftRound || null }
+
         if (!hasDraftMovement) {
           updatedPlayers[playerIndex] = {
             ...player,
@@ -1306,7 +1282,11 @@ export default function Dashboard() {
                 draftRound: entry.draftRound,
                 timestamp: Date.now()
               }
-            ]
+            ],
+            movementByYear: {
+              ...(player.movementByYear || {}),
+              [year]: draftMovementByYear
+            }
           }
         } else {
           // Update existing draft movement with round info and correct team
@@ -1318,7 +1298,11 @@ export default function Dashboard() {
               (m.year === year && m.type === 'departure' && m.reason === 'Pro Draft')
                 ? { ...m, draftRound: entry.draftRound, from: playerLastTeamTid }
                 : m
-            )
+            ),
+            movementByYear: {
+              ...(player.movementByYear || {}),
+              [year]: draftMovementByYear
+            }
           }
         }
       }
@@ -1413,12 +1397,17 @@ export default function Dashboard() {
             !(m.year === Number(year) && m.type === 'entered_portal')
           )
 
+          // Set movementByYear to 'recommitted' - preserves the history that they entered the portal
+          const updatedMovementByYear = { ...(player.movementByYear || {}) }
+          updatedMovementByYear[Number(year)] = { type: 'recommitted' }
+
           // ALWAYS use tid for teamsByYear storage
           const teamsByYearValue = oldTeamTid
 
           updatedPlayers[playerIndex] = {
             ...player,
             movements: [...filteredMovements, recommitMovement],
+            movementByYear: updatedMovementByYear,
             // Keep them on roster for next year
             teamsByYear: {
               ...(player.teamsByYear || {}),
@@ -1441,6 +1430,10 @@ export default function Dashboard() {
             ...player,
             team: newTeamTid, // Use tid for current team
             movements: [...(player.movements || []), transferMovement],
+            movementByYear: {
+              ...(player.movementByYear || {}),
+              [Number(year)]: { type: 'transferred_out', toTeamTid: newTeamTid }
+            },
             teamsByYear: {
               ...(player.teamsByYear || {}),
               [String(nextYear)]: newTeamTid
@@ -1779,9 +1772,16 @@ export default function Dashboard() {
         normalizePlayerName(p.name) === normalizePlayerName(selection.playerName)
       )
       if (playerIndex !== -1 && selection.selectedClass) {
+        // Fringe case class is for the NEXT year (year player will play)
+        const joiningYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
+        const existingClassByYear = updatedPlayers[playerIndex].classByYear || {}
         updatedPlayers[playerIndex] = {
           ...updatedPlayers[playerIndex],
-          year: selection.selectedClass
+          year: selection.selectedClass,
+          classByYear: {
+            ...existingClassByYear,
+            [joiningYear]: selection.selectedClass
+          }
         }
         updatedCount++
       }
@@ -2124,6 +2124,9 @@ export default function Dashboard() {
         // Entry tracking for the new system
         entryYear: enrollmentYear,
         entryClass: enrollmentClass,
+        entryReason: isPortalPlayer ? 'transfer_in' : 'recruited',
+        // Dev trait tracking
+        devTraitByYear: (recruit.devTrait || 'Normal') ? { [enrollmentYear]: recruit.devTrait || 'Normal' } : {},
         // Recruiting info
         stars: recruit.stars || 0,
         nationalRank: recruit.nationalRank || null,
@@ -2132,17 +2135,8 @@ export default function Dashboard() {
         gemBust: recruit.gemBust || '',
         previousTeam: previousTeam,
         isPortal: isPortalPlayer,
-        // NEW: Add movements array with recruit movement
+        // Add movements array with recruit movement
         movements: [recruitMovement],
-        // Team history (stint-based) - start when they enroll
-        teamHistory: [{
-          teamTid: teamTid,
-          fromYear: enrollmentYear,
-          toYear: null, // Still active
-          reason: isPortalPlayer ? 'portal_in' : 'recruited',
-          // For portal transfers, store where they came from
-          ...(isPortalPlayer && previousTeamTid ? { transferFromTid: previousTeamTid } : {})
-        }],
         pendingDeparture: null
       }
     })
@@ -2199,6 +2193,13 @@ export default function Dashboard() {
             pendingDeparture: null,
             // Add movement
             movements: [...existingMovements, newMovement],
+            // Set movementByYear - preserves history of what happened
+            movementByYear: {
+              ...(p.movementByYear || {}),
+              [Number(year)]: isFromDifferentTeam
+                ? { type: 'transferred_out', toTeamTid: teamTid }
+                : { type: 'recommitted' }
+            },
             // Clear ALL legacy departure flags - they're staying/coming back!
             leftTeam: false,
             leftYear: null,
@@ -2213,6 +2214,8 @@ export default function Dashboard() {
               ...p.teamsByYear,
               [year + 1]: teamsByYearValue // Add them to next year's roster
             },
+            // Entry reason for the new system
+            entryReason: isFromDifferentTeam ? 'transfer_in' : (p.entryReason || 'recruited'),
             // Mark as returning recruit for this year
             isRecruit: true,
             recruitYear: year,
@@ -2223,48 +2226,19 @@ export default function Dashboard() {
             ...(recruitData?.position && recruitData.position !== p.position && { position: recruitData.position })
           }
 
-          // CRITICAL: Update teamHistory for returning players
-          // 1. Close the previous stint (set toYear to the year they left)
-          // 2. Add a new stint for the return
-          const existingTeamHistory = p.teamHistory ? [...p.teamHistory] : []
-          if (existingTeamHistory.length > 0) {
-            // Find the last stint on current team and close it if still open
-            const lastStintIndex = existingTeamHistory.length - 1
-            const lastStint = existingTeamHistory[lastStintIndex]
-            if (lastStint && lastStint.toYear === null) {
-              // Close it at current year (when they departed/entered portal)
-              existingTeamHistory[lastStintIndex] = {
-                ...lastStint,
-                toYear: year,
-                endReason: 'portal'
-              }
-            }
-            // Add new stint for the return (enrolls next year)
-            // Always use portal_in - "recommit" detection happens at display time
-            // (when we detect 2+ stints on the same team)
-            existingTeamHistory.push({
-              teamTid: teamTid,
-              fromYear: year + 1,
-              toYear: null, // Active
-              reason: 'portal_in'
-            })
-            updatedPlayer.teamHistory = existingTeamHistory
-          } else {
-            // No existing teamHistory, create one with a new stint
-            updatedPlayer.teamHistory = [{
-              teamTid: teamTid,
-              fromYear: year + 1,
-              toYear: null,
-              reason: 'portal_in'
-            }]
-          }
-
           // Update ranks from the sheet data (these are new for this recruiting cycle)
           if (recruitData?.stars) updatedPlayer.stars = recruitData.stars
           if (recruitData?.nationalRank) updatedPlayer.nationalRank = recruitData.nationalRank
           if (recruitData?.stateRank) updatedPlayer.stateRank = recruitData.stateRank
           if (recruitData?.positionRank) updatedPlayer.positionRank = recruitData.positionRank
-          if (recruitData?.devTrait) updatedPlayer.devTrait = recruitData.devTrait
+          if (recruitData?.devTrait) {
+            updatedPlayer.devTrait = recruitData.devTrait
+            const enrollYear = year + 1
+            updatedPlayer.devTraitByYear = {
+              ...(updatedPlayer.devTraitByYear || {}),
+              [enrollYear]: recruitData.devTrait
+            }
+          }
           if (recruitData?.gemBust) updatedPlayer.gemBust = recruitData.gemBust
 
           // Explicitly ensure critical data is preserved (defensive)
@@ -9874,9 +9848,14 @@ export default function Dashboard() {
                 ...(player.teamsByYear || {}),
                 [year]: userTid  // Always use tid
               }
+              // Remove movementByYear entry for this year (no longer encouraged)
+              const updatedMovementByYear = { ...(player.movementByYear || {}) }
+              delete updatedMovementByYear[year]
+              delete updatedMovementByYear[String(year)]
               return {
                 ...player,
-                teamsByYear: restoredTeamsByYear
+                teamsByYear: restoredTeamsByYear,
+                movementByYear: updatedMovementByYear
               }
             }
 
@@ -9887,7 +9866,11 @@ export default function Dashboard() {
               delete updatedTeamsByYear[String(year)]
               return {
                 ...player,
-                teamsByYear: updatedTeamsByYear
+                teamsByYear: updatedTeamsByYear,
+                movementByYear: {
+                  ...(player.movementByYear || {}),
+                  [year]: { type: 'encouraged_to_transfer' }
+                }
               }
             }
 

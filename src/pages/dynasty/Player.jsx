@@ -280,24 +280,58 @@ export default function Player() {
     : currentDynasty
   const player = dynasty?.players?.find(p => p.pid === parseInt(pid))
 
-  // Get departure/transfer info from movements[] array
-  // Find the most recent departure or transfer movement
-  const departureMovement = (player?.movements || [])
-    .filter(m => m.type === 'departure' || m.type === 'transfer')
-    .sort((a, b) => (b.year || 0) - (a.year || 0))[0]
+  // Get departure/transfer info - check movementByYear (source of truth from career editor) first,
+  // then fall back to legacy movements[] array
+  const departureMovement = (() => {
+    // Check movementByYear first (set by career editor)
+    const mby = player?.movementByYear
+    if (mby) {
+      const years = Object.keys(mby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
+      for (const y of years) {
+        const m = mby[y] || mby[String(y)]
+        if (!m?.type) continue
+        if (m.type === 'declared_for_draft') {
+          return { type: 'departure', reason: 'Pro Draft', year: y, extra: { draftRound: player.draftRound } }
+        }
+        if (m.type === 'graduated') {
+          return { type: 'departure', reason: 'Graduating', year: y }
+        }
+        if (m.type === 'transferred_out') {
+          return { type: 'transfer', to: m.toTeamTid, from: player?.teamsByYear?.[y], year: y }
+        }
+        if (m.type === 'encouraged_to_transfer') {
+          return { type: 'departure', reason: 'Encouraged Transfer', year: y }
+        }
+        // 'recommitted' means player entered portal but came back - no departure badge
+        if (m.type === 'recommitted') {
+          return null
+        }
+      }
+    }
+    // Fall back to legacy movements[] array
+    return (player?.movements || [])
+      .filter(m => m.type === 'departure' || m.type === 'transfer')
+      .sort((a, b) => (b.year || 0) - (a.year || 0))[0] || null
+  })()
 
   // Determine if player has transferred out (to another team)
   const hasTransferredOut = departureMovement?.type === 'transfer' && departureMovement?.to
 
-  // Determine the player's team - use teamsByYear[currentYear] as source of truth (reflects transfers)
-  // Fall back to player.team if no teamsByYear entry for current year
+  // Determine the player's team - use the most recent year in teamsByYear as source of truth
+  // This correctly reflects transfers (e.g., player who transferred from Wisconsin to Kentucky shows Kentucky)
   const currentYear = dynasty?.currentYear
-  const playerTeamAbbr = (currentYear && player?.teamsByYear?.[currentYear])
-    || (currentYear && player?.teamsByYear?.[String(currentYear)])
-    || player?.team
-    || player?.teams?.[0]
-    || getCurrentTeamAbbr(dynasty)
-    || ''
+  const playerTeamAbbr = (() => {
+    const tby = player?.teamsByYear
+    if (tby) {
+      // First try currentYear
+      const currentYearTeam = tby[currentYear] || tby[String(currentYear)]
+      if (currentYearTeam) return currentYearTeam
+      // Otherwise use the most recent year in teamsByYear
+      const years = Object.keys(tby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
+      if (years.length > 0) return tby[years[0]] || tby[String(years[0])]
+    }
+    return player?.team || player?.teams?.[0] || getCurrentTeamAbbr(dynasty) || ''
+  })()
 
   // For outgoing transfers, get the team they transferred FROM
   const transferredFromTeam = hasTransferredOut
@@ -468,8 +502,11 @@ export default function Player() {
       const kickReturn = ownYearStats?.kickReturn
       const puntReturn = ownYearStats?.puntReturn
       const playerClass = player?.classByYear?.[year] || player?.classByYear?.[yearStr] || player?.year
+      // Use teamsByYear as source of truth for which team the player was on this year
+      const yearTeam = player?.teamsByYear?.[year] || player?.teamsByYear?.[yearStr] || null
       years.push({
         year,
+        team: yearTeam,
         class: playerClass,
         gamesPlayed: ownYearStats?.gamesPlayed || 0,
         snapsPlayed: ownYearStats?.snapsPlayed || 0,
@@ -502,12 +539,14 @@ export default function Player() {
           sacksAllowed: blocking.sacksAllowed ?? 0
         } : null,
         defense: defensive ? {
-          soloTkl: defensive.soloTkl ?? defensive.solo ?? 0,
-          astTkl: defensive.astTkl ?? defensive.assists ?? 0,
+          solo: defensive.soloTkl ?? defensive.solo ?? 0,
+          ast: defensive.astTkl ?? defensive.ast ?? defensive.assists ?? 0,
           tfl: defensive.tfl ?? 0,
           sacks: defensive.sacks ?? 0,
           int: defensive.int ?? 0,
-          pd: defensive.pd ?? defensive.deflections ?? 0,
+          intYds: defensive.intYds ?? 0,
+          intTd: defensive.intTd ?? 0,
+          pdef: defensive.pd ?? defensive.pdef ?? defensive.deflections ?? 0,
           ff: defensive.ff ?? 0,
           fr: defensive.fr ?? 0,
           td: defensive.td ?? 0
@@ -545,7 +584,7 @@ export default function Player() {
       })
     })
     return years
-  }, [player?.statsByYear, player?.classByYear, player?.year])
+  }, [player?.statsByYear, player?.classByYear, player?.year, player?.teamsByYear])
 
   const gameLog = useMemo(() => {
     if (!expandedGameLog?.year || !player?.name || !dynasty) return []
@@ -920,39 +959,45 @@ export default function Player() {
               <span className="text-xs font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.85, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>
                 {player.jerseyNumber != null && player.jerseyNumber !== '' && `#${player.jerseyNumber} • `}{player.position}
               </span>
-              {player.devTrait && player.devTrait !== 'Normal' && (
-                <span
-                  className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                  style={{
-                    backgroundColor: player.devTrait === 'Elite' ? '#fbbf24' :
-                                   player.devTrait === 'Star' ? '#8b5cf6' :
-                                   player.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                    color: player.devTrait === 'Elite' ? '#78350f' : '#ffffff',
-                    fontFamily: "'Bebas Neue', sans-serif"
-                  }}
-                >
-                  {player.devTrait}
-                </span>
-              )}
+              {(() => {
+                const currentDevTrait = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
+                return currentDevTrait && currentDevTrait !== 'Normal' ? (
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: currentDevTrait === 'Elite' ? '#fbbf24' :
+                                     currentDevTrait === 'Star' ? '#8b5cf6' :
+                                     currentDevTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
+                      color: currentDevTrait === 'Elite' ? '#78350f' : '#ffffff',
+                      fontFamily: "'Bebas Neue', sans-serif"
+                    }}
+                  >
+                    {currentDevTrait}
+                  </span>
+                ) : null
+              })()}
             </div>
           </div>
           {/* Overall Rating */}
           <div className="text-center flex-shrink-0">
-            {player.overall ? (
-              <button
-                onClick={() => setShowOverallProgressionModal(true)}
-                className="hover:opacity-80 transition-opacity"
-                title="View overall progression"
-              >
-                <div className="text-4xl font-black" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>{player.overall}</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
-              </button>
-            ) : (
-              <div>
-                <div className="text-4xl font-black" style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}>—</div>
-                <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
-              </div>
-            )}
+            {(() => {
+              const currentOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
+              return currentOvr ? (
+                <button
+                  onClick={() => setShowOverallProgressionModal(true)}
+                  className="hover:opacity-80 transition-opacity"
+                  title="View overall progression"
+                >
+                  <div className="text-4xl font-black" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>{currentOvr}</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                </button>
+              ) : (
+                <div>
+                  <div className="text-4xl font-black" style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}>—</div>
+                  <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}>OVR</div>
+                </div>
+              )
+            })()}
           </div>
         </div>
 
@@ -1232,7 +1277,10 @@ export default function Player() {
                 {player.archetype && <><span className="opacity-40">•</span><span className="normal-case">{player.archetype}</span></>}
                 <span className="opacity-40">•</span>
                 <span>{player.classByYear?.[dynasty?.currentYear] || player.year}</span>
-                {player.devTrait && <><span className="opacity-40">•</span><span>{player.devTrait}</span></>}
+                {(() => {
+                  const dt = player.devTraitByYear?.[currentYear] || player.devTraitByYear?.[String(currentYear)] || player.devTrait
+                  return dt ? <><span className="opacity-40">•</span><span>{dt}</span></> : null
+                })()}
                 {(player.height || player.weight) && (
                   <><span className="opacity-40">•</span><span className="normal-case">{player.height}{player.height && player.weight && ', '}{player.weight ? `${player.weight} lbs` : ''}</span></>
                 )}
@@ -1254,34 +1302,37 @@ export default function Player() {
           </div>
 
           {/* Overall Rating */}
-          {player.overall ? (
-            <div className="text-center flex-shrink-0">
-              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
-              <button
-                onClick={() => setShowOverallProgressionModal(true)}
-                className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer"
-                style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}
-                title="View overall progression"
-              >
-                {player.overall}
-              </button>
-            </div>
-          ) : (
-            <div className="text-center flex-shrink-0">
-              <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
-              <div
-                className="text-6xl md:text-7xl font-black"
-                style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}
-              >
-                —
+          {(() => {
+            const desktopOvr = player.overallByYear?.[currentYear] || player.overallByYear?.[String(currentYear)] || player.overall
+            return desktopOvr ? (
+              <div className="text-center flex-shrink-0">
+                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <button
+                  onClick={() => setShowOverallProgressionModal(true)}
+                  className="text-6xl md:text-7xl font-black hover:opacity-80 transition-opacity cursor-pointer"
+                  style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                  title="View overall progression"
+                >
+                  {desktopOvr}
+                </button>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="text-center flex-shrink-0">
+                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: primaryText, opacity: 0.6, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Overall</div>
+                <div
+                  className="text-6xl md:text-7xl font-black"
+                  style={{ color: primaryText, opacity: 0.3, fontFamily: "'Bebas Neue', sans-serif" }}
+                >
+                  —
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 overflow-x-auto bg-white rounded-lg shadow-lg p-1" style={{ border: `2px solid ${teamColors.primary}20` }}>
+      <div className="flex gap-1 bg-white rounded-lg shadow-lg p-1" style={{ border: `2px solid ${teamColors.primary}20` }}>
         {[
           { key: 'stats', label: 'Stats' },
           { key: 'gamelog', label: 'Game Log' },
@@ -1291,13 +1342,13 @@ export default function Player() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-6 py-3 font-black uppercase tracking-widest transition-all whitespace-nowrap rounded-md"
+            className="flex-1 py-3 font-black uppercase tracking-wider transition-all rounded-md text-center"
             style={{
               backgroundColor: activeTab === tab.key ? teamInfo.backgroundColor : 'transparent',
               color: activeTab === tab.key ? primaryText : teamInfo.backgroundColor,
               fontFamily: "'Bebas Neue', sans-serif",
-              letterSpacing: '2px',
-              fontSize: '0.95rem',
+              letterSpacing: '1px',
+              fontSize: '0.85rem',
               boxShadow: activeTab === tab.key ? `0 2px 8px ${teamInfo.backgroundColor}40` : 'none',
               transform: activeTab === tab.key ? 'translateY(-1px)' : 'none'
             }}
@@ -1314,7 +1365,9 @@ export default function Player() {
         const years = Object.keys(teamsByYear).map(Number).sort((a, b) => a - b)
         if (years.length === 0) return null
 
-        // Get movements for additional context (entered_portal, recommit, departure, etc.)
+        const teamsData = dynasty?.teams || dynasty?.customTeams
+
+        // Get movements for additional context - merge legacy movements[] with movementByYear
         const movements = player.movements || []
         const movementsByYear = {}
         movements.forEach(m => {
@@ -1322,7 +1375,42 @@ export default function Player() {
           movementsByYear[m.year].push(m)
         })
 
-        // Build timeline entries
+        // Also inject events from movementByYear (source of truth) if not already present
+        const mby = player.movementByYear || {}
+        Object.entries(mby).forEach(([y, m]) => {
+          if (!m?.type) return
+          const yr = Number(y)
+          if (isNaN(yr)) return
+          if (!movementsByYear[yr]) movementsByYear[yr] = []
+          // Map movementByYear types to timeline-compatible movement objects
+          if (m.type === 'recommitted') {
+            // Add both entered_portal and recommit events for the timeline
+            if (!movementsByYear[yr].some(e => e.type === 'entered_portal')) {
+              movementsByYear[yr].push({ year: yr, type: 'entered_portal', from: teamsByYear[yr] })
+            }
+            if (!movementsByYear[yr].some(e => e.type === 'recommit')) {
+              movementsByYear[yr].push({ year: yr, type: 'recommit', to: teamsByYear[yr] })
+            }
+          } else if (m.type === 'transferred_out') {
+            if (!movementsByYear[yr].some(e => e.type === 'entered_portal' || e.type === 'transfer' || e.type === 'departure')) {
+              movementsByYear[yr].push({ year: yr, type: 'entered_portal', from: teamsByYear[yr] })
+            }
+          } else if (m.type === 'encouraged_to_transfer') {
+            if (!movementsByYear[yr].some(e => e.type === 'encouraged_transfer')) {
+              movementsByYear[yr].push({ year: yr, type: 'encouraged_transfer', from: teamsByYear[yr] })
+            }
+          } else if (m.type === 'graduated') {
+            if (!movementsByYear[yr].some(e => e.type === 'departure' && e.reason === 'Graduated')) {
+              movementsByYear[yr].push({ year: yr, type: 'departure', reason: 'Graduated' })
+            }
+          } else if (m.type === 'declared_for_draft') {
+            if (!movementsByYear[yr].some(e => e.type === 'departure' && e.reason?.includes('Draft'))) {
+              movementsByYear[yr].push({ year: yr, type: 'departure', reason: 'Pro Draft' })
+            }
+          }
+        })
+
+        // Build timeline entries (same logic as before)
         const timelineEntries = []
         let prevTeam = null
 
@@ -1330,99 +1418,33 @@ export default function Player() {
           const team = teamsByYear[year]
           const yearMovements = movementsByYear[year] || []
 
-          // First year on record - show how they joined
           if (idx === 0) {
-            // Check if there's a recruited/portal_in/added movement for this year
             const joinMovement = yearMovements.find(m =>
               m.type === 'recruited' || m.type === 'portal_in' || m.type === 'added'
             )
             if (joinMovement) {
-              // Check if joinMovement has a from team, or look in teamHistory
-              let fromTeam = joinMovement.from || null
-              if (!fromTeam && player.teamHistory) {
-                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
-                if (stint?.transferFromTid) {
-                  fromTeam = stint.transferFromTid
-                }
-              }
+              const fromTeam = joinMovement.from || null
               timelineEntries.push({ ...joinMovement, team, from: fromTeam })
             } else {
-              // No join movement - determine type from player data
               let joinType = 'started'
               let fromTeam = null
-
-              // First check teamHistory for this year's stint
-              if (player.teamHistory) {
-                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
-                if (stint) {
-                  // Use stint's reason if available
-                  if (stint.reason === 'portal_in' || stint.entryType === 'portal_in') {
-                    joinType = 'portal_in'
-                    fromTeam = stint.transferFromTid || null
-                  } else if (stint.reason === 'juco_in' || stint.entryType === 'juco_in') {
-                    joinType = 'juco_in'
-                    fromTeam = stint.transferFromTid || null
-                  } else if (stint.reason === 'transfer' || stint.entryType === 'transfer') {
-                    joinType = 'transfer'
-                    fromTeam = stint.transferFromTid || null
-                  } else if (stint.reason === 'recruited' || stint.entryType === 'recruited') {
-                    joinType = 'recruited'
-                  } else if (stint.reason === 'added' || stint.entryType === 'added') {
-                    joinType = 'added'
-                  }
-                }
-              }
-
-              // Fall back to player-level flags if no stint info
-              if (joinType === 'started') {
-                // Check if player was a portal transfer
-                if (player.isPortal) {
-                  joinType = 'portal_in'
-                  // previousTeam could be tid (number) or text - handle both
-                  fromTeam = player.previousTeam || null
-                }
-                // Check if player was a JUCO transfer (class starts with JUCO)
-                else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) {
-                  joinType = 'juco_in'
-                }
-                // Check if player has recruit data (was recruited from HS)
-                else if (player.stars || player.nationalRank || player.recruitYear) {
-                  joinType = 'recruited'
-                }
-              }
-
+              if (player.isPortal) { joinType = 'portal_in'; fromTeam = player.previousTeam || null }
+              else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) { joinType = 'juco_in' }
+              else if (player.stars || player.nationalRank || player.recruitYear) { joinType = 'recruited' }
               timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
             }
           } else if (team !== prevTeam && prevTeam) {
-            // Team changed - show transfer
             const transferMovement = yearMovements.find(m => m.type === 'transfer' || m.type === 'portal_in')
             if (transferMovement) {
-              // Check if movement has from, or look in teamHistory
-              let fromTeam = transferMovement.from || prevTeam
-              if (!transferMovement.from && player.teamHistory) {
-                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
-                if (stint?.transferFromTid) {
-                  fromTeam = stint.transferFromTid
-                }
-              }
+              const fromTeam = transferMovement.from || prevTeam
               timelineEntries.push({ ...transferMovement, team, from: fromTeam })
             } else {
-              // Check teamHistory for transferFromTid
-              let fromTeam = prevTeam
-              if (player.teamHistory) {
-                const stint = player.teamHistory.find(s => s.fromYear === year && s.teamTid === team)
-                if (stint?.transferFromTid) {
-                  fromTeam = stint.transferFromTid
-                }
-              }
-              timelineEntries.push({ year, type: 'transfer', from: fromTeam, to: team, team })
+              timelineEntries.push({ year, type: 'transfer', from: prevTeam, to: team, team })
             }
           }
 
-          // Add any special movements for this year (entered_portal, recommit, departure)
           yearMovements.forEach(m => {
             if (m.type === 'entered_portal' || m.type === 'recommit' || m.type === 'departure') {
-              // Only add if not already in timeline
               if (!timelineEntries.some(e => e.year === m.year && e.type === m.type)) {
                 timelineEntries.push({ ...m, team })
               }
@@ -1432,74 +1454,44 @@ export default function Player() {
           prevTeam = team
         })
 
-        // Check for departure movement after last year in teamsByYear
+        // After-last-year movements
         const lastYear = years[years.length - 1]
         const lastTeam = teamsByYear[lastYear]
-        const afterLastYearMovements = movements.filter(m =>
-          m.year > lastYear && (m.type === 'departure' || m.type === 'transfer')
-        )
-        afterLastYearMovements.forEach(m => timelineEntries.push(m))
+        movements.filter(m => m.year > lastYear && (m.type === 'departure' || m.type === 'transfer'))
+          .forEach(m => timelineEntries.push(m))
 
-        // Check if player was an encouraged transfer (check encourageTransfers)
-        // This is the source of truth - not the movements array
-        // Note: Encourage transfers data is stored under the NEW season year (after year flip)
-        // So if player's last year on team was 2026, check 2027 for encouraged transfer data
+        // Check encouraged transfers
         const nextYear = lastYear + 1
-        // lastTeam could be tid (number) or abbr (string) - getter handles both
         const encouragedTransfers = getEncourageTransfers(dynasty, lastTeam, nextYear)
         const wasEncouragedTransfer = encouragedTransfers.some(t =>
           t.name?.toLowerCase().trim() === player.name?.toLowerCase().trim()
         )
-        if (wasEncouragedTransfer) {
-          // Add encouraged transfer entry if not already present
-          const hasEncouragedEntry = timelineEntries.some(e =>
-            e.type === 'encouraged_transfer' && e.year === lastYear
-          )
-          if (!hasEncouragedEntry) {
-            timelineEntries.push({
-              year: lastYear,
-              type: 'encouraged_transfer',
-              from: lastTeam
-            })
-          }
+        if (wasEncouragedTransfer && !timelineEntries.some(e => e.type === 'encouraged_transfer' && e.year === lastYear)) {
+          timelineEntries.push({ year: lastYear, type: 'encouraged_transfer', from: lastTeam })
         }
 
         if (timelineEntries.length === 0) return null
-
-        // Sort by year
         timelineEntries.sort((a, b) => a.year - b.year)
 
-        // Detect recommit scenarios: portal_in to a team the player was previously on
-        // This happens when a player enters portal, then returns to the same team
-        const teamsData = dynasty?.teams || dynasty?.customTeams
+        // Detect recommit scenarios
         const teamsSeenBefore = new Set()
         timelineEntries.forEach((entry, idx) => {
-          // Track teams from previous entries
           if (idx > 0) {
-            const prevEntries = timelineEntries.slice(0, idx)
-            prevEntries.forEach(prev => {
+            timelineEntries.slice(0, idx).forEach(prev => {
               if (prev.team) teamsSeenBefore.add(prev.team)
               if (prev.to) teamsSeenBefore.add(prev.to)
             })
           }
-          // Check if this portal_in is to a team we've seen before (recommit)
           if (entry.type === 'portal_in' && entry.to) {
             const toTid = typeof entry.to === 'number' ? entry.to : getTidFromAbbr(entry.to)
-            const wasOnTeamBefore = Array.from(teamsSeenBefore).some(t => {
-              const tid = typeof t === 'number' ? t : getTidFromAbbr(t)
-              return tid === toTid
-            })
-            if (wasOnTeamBefore) {
+            if (Array.from(teamsSeenBefore).some(t => (typeof t === 'number' ? t : getTidFromAbbr(t)) === toTid)) {
               entry.isRecommit = true
             }
           }
         })
 
         const getMovementLabel = (m) => {
-          // Special case: portal_in that's actually a recommit
-          if (m.type === 'portal_in' && m.isRecommit) {
-            return 'Recommitted'
-          }
+          if (m.type === 'portal_in' && m.isRecommit) return 'Recommitted'
           switch (m.type) {
             case 'recruited': return 'Recruited'
             case 'portal_in': return 'Portal Transfer'
@@ -1516,12 +1508,26 @@ export default function Player() {
           }
         }
 
-        // Build overall history from teamsByYear (years player was on roster)
-        const overallHistory = years.map(year => ({
+        const getMovementColor = (type) => {
+          switch (type) {
+            case 'recruited': case 'added': case 'started': return '#22c55e'
+            case 'portal_in': case 'juco_in': case 'transfer': return '#3b82f6'
+            case 'entered_portal': case 'encouraged_transfer': return '#f59e0b'
+            case 'departure': case 'removed': return '#ef4444'
+            case 'recommit': return '#8b5cf6'
+            default: return '#6b7280'
+          }
+        }
+
+        // Build year-by-year data
+        const yearData = years.map(year => ({
           year,
           team: teamsByYear[year],
-          playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year || '—',
-          overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)] || (year === years[years.length - 1] ? player.overall : null)
+          playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year || null,
+          overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)] || (year === years[years.length - 1] ? player.overall : null),
+          devTrait: player.devTraitByYear?.[year] || player.devTraitByYear?.[String(year)] || player.devTrait || null,
+          stats: player.statsByYear?.[year] || player.statsByYear?.[String(year)] || null,
+          movements: timelineEntries.filter(e => e.year === year)
         }))
 
         const getOverallColor = (ovr) => {
@@ -1532,175 +1538,331 @@ export default function Player() {
           return '#ef4444'
         }
 
+        // Helper: summarize key stats for a year
+        const getStatSummary = (stats) => {
+          if (!stats) return null
+          const parts = []
+          if (stats.passYds || stats.passTd) {
+            parts.push(`${stats.passYds || 0} pass yds, ${stats.passTd || 0} TD`)
+          }
+          if (stats.rushYds || stats.rushTd) {
+            parts.push(`${stats.rushYds || 0} rush yds, ${stats.rushTd || 0} TD`)
+          }
+          if (stats.recYds || stats.recTd) {
+            parts.push(`${stats.recYds || 0} rec yds, ${stats.recTd || 0} TD`)
+          }
+          if (stats.tackles || stats.sacks) {
+            const tackleStr = stats.tackles ? `${stats.tackles} tkl` : ''
+            const sackStr = stats.sacks ? `${stats.sacks} sack${stats.sacks !== 1 ? 's' : ''}` : ''
+            parts.push([tackleStr, sackStr].filter(Boolean).join(', '))
+          }
+          if (stats.interceptions) {
+            parts.push(`${stats.interceptions} INT`)
+          }
+          return parts.length > 0 ? parts : null
+        }
+
         return (
-          <div
-            className="rounded-lg shadow-lg p-4"
-            style={{ backgroundColor: 'white' }}
-          >
-            <h3 className="text-sm font-bold mb-3 uppercase tracking-wide" style={{ color: '#6b7280' }}>
-              Career Timeline
-            </h3>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {timelineEntries.map((entry, idx) => {
-                const teamsData = dynasty?.teams || dynasty?.customTeams
-                // Use school names (without mascot) for cleaner display
-                const toTeamName = entry.to ? getSchoolName(entry.to, teamsData) : null
-                const fromTeamName = entry.from ? getSchoolName(entry.from, teamsData) : null
-                const teamName = entry.team ? getSchoolName(entry.team, teamsData) : null
-                const displayTeamName = toTeamName || fromTeamName || teamName
-                // But use full mascot name for logo lookup
-                const fullTeamName = entry.team ? getMascotName(entry.team, teamsData) : null
-                const logo = fullTeamName ? getTeamLogo(fullTeamName) : null
+          <div className="max-w-lg mx-auto space-y-3">
 
-                // Build team display string based on movement type
-                let teamDisplay = ''
-                if (entry.type === 'portal_in' || entry.type === 'juco_in' || entry.type === 'transfer') {
-                  // Show "From Team -> to New Team" for transfers
-                  if (fromTeamName && toTeamName) {
-                    teamDisplay = ` from ${fromTeamName} to ${toTeamName}`
-                  } else if (fromTeamName) {
-                    teamDisplay = ` from ${fromTeamName}`
-                  } else if (toTeamName) {
-                    teamDisplay = ` to ${toTeamName}`
-                  }
-                } else if (entry.type === 'recruited' || entry.type === 'added') {
-                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
-                } else if (entry.type === 'encouraged_transfer') {
-                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
-                } else if (entry.type === 'entered_portal' || entry.type === 'departure') {
-                  teamDisplay = fromTeamName ? ` from ${fromTeamName}` : ''
-                } else if (entry.type === 'recommit') {
-                  teamDisplay = toTeamName ? ` to ${toTeamName}` : ''
-                }
-
-                return (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded text-xs"
-                    style={{ backgroundColor: teamColors.primary, border: `1px solid ${teamColors.secondary}` }}
-                  >
-                    {logo && <img src={logo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                    <span style={{ color: primaryText }}>
-                      {getMovementLabel(entry)}{teamDisplay}
-                      {entry.draftRound && ` (Rd ${entry.draftRound})`}
+            {/* Recruitment Card */}
+            {recruitmentInfo && (
+              <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.backgroundColor }}>
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span
+                      className="text-sm font-bold uppercase tracking-widest"
+                      style={{ color: primaryText, fontFamily: "'Barlow Condensed', sans-serif" }}
+                    >
+                      {recruitmentInfo.isPortal || player.isPortal ? 'Transfer Portal' : 'Recruitment'}
                     </span>
-                    <span style={{ color: primaryText, opacity: 0.6 }}>·</span>
-                    <span style={{ color: primaryText, opacity: 0.8 }}>{entry.year}</span>
+                    {(player.recruitYear || player.yearStarted) && (
+                      <span className="text-xs font-semibold" style={{ color: primaryText, opacity: 0.75 }}>
+                        Class of {player.recruitYear || player.yearStarted}
+                      </span>
+                    )}
                   </div>
-                )
-              })}
-            </div>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    {Number(recruitmentInfo.stars) > 0 && (
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <svg key={i} className="w-3.5 h-3.5" fill={i < Number(recruitmentInfo.stars) ? '#FFD700' : 'rgba(255,255,255,0.2)'} viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                    )}
+                    {Number(recruitmentInfo.nationalRank) > 0 && (
+                      <span className="text-sm" style={{ color: primaryText }}>
+                        <span className="font-bold">#{recruitmentInfo.nationalRank}</span>
+                        <span className="text-xs ml-0.5 opacity-60">Natl</span>
+                      </span>
+                    )}
+                    {Number(recruitmentInfo.positionRank) > 0 && (
+                      <span className="text-sm" style={{ color: primaryText }}>
+                        <span className="font-bold">#{recruitmentInfo.positionRank}</span>
+                        <span className="text-xs ml-0.5 opacity-60">{player.position}</span>
+                      </span>
+                    )}
+                    {Number(recruitmentInfo.stateRank) > 0 && (
+                      <span className="text-sm" style={{ color: primaryText }}>
+                        <span className="font-bold">#{recruitmentInfo.stateRank}</span>
+                        <span className="text-xs ml-0.5 opacity-60">{recruitmentInfo.state || player.state}</span>
+                      </span>
+                    )}
+                    {recruitmentInfo.previousTeam && (() => {
+                      const prevTeamFullName = getMascotName(recruitmentInfo.previousTeam, teamsData)
+                      const prevTeamLogo = prevTeamFullName ? getTeamLogo(prevTeamFullName, teamsData) : null
+                      const prevSchool = getSchoolName(recruitmentInfo.previousTeam, teamsData)
+                      const prevTeamTid = typeof recruitmentInfo.previousTeam === 'number'
+                        ? recruitmentInfo.previousTeam
+                        : resolveTid(recruitmentInfo.previousTeam, teamsData || TEAMS)
+                      const transferYear = player.recruitYear || player.yearStarted || dynasty?.currentYear
+                      return (
+                        <Link
+                          to={`${pathPrefix}/team/${prevTeamTid}/${transferYear}`}
+                          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity text-sm"
+                          style={{ color: primaryText }}
+                        >
+                          <span className="opacity-60">from</span>
+                          {prevTeamLogo && (
+                            <img src={prevTeamLogo} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                          <span className="font-bold">{prevSchool}</span>
+                        </Link>
+                      )
+                    })()}
+                    {recruitmentInfo.gemBust && (
+                      <span
+                        className="text-xs font-bold px-1.5 py-0.5 rounded"
+                        style={{
+                          backgroundColor: recruitmentInfo.gemBust.toLowerCase() === 'gem' ? '#10B981' : '#EF4444',
+                          color: 'white'
+                        }}
+                      >
+                        {recruitmentInfo.gemBust.toLowerCase() === 'gem' ? 'Gem' : 'Bust'}
+                      </span>
+                    )}
+                  </div>
+
+                  {player.recruitYear && (
+                    <Link
+                      to={`${pathPrefix}/recruiting/${resolveTid(player.teamsByYear?.[player.recruitYear] || playerTeamAbbr, currentDynasty?.teams || TEAMS)}/${player.recruitYear}`}
+                      className="inline-block mt-2 text-xs font-semibold hover:opacity-80 transition-opacity"
+                      style={{ color: primaryText, opacity: 0.8 }}
+                    >
+                      View Recruiting Class
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Season Sections - one per year */}
+            {yearData.map((yd, idx) => {
+              const teamName = getMascotName(yd.team, teamsData)
+              const schoolName = getSchoolName(yd.team, teamsData)
+              const logo = teamName ? getTeamLogo(teamName, teamsData) : null
+              const isCurrentYear = yd.year === currentYear
+              const prevOverall = idx > 0 ? yearData[idx - 1].overall : null
+              const ovrChange = (yd.overall && prevOverall) ? yd.overall - prevOverall : null
+              const statSummary = getStatSummary(yd.stats)
+              const teamTid = resolveTid(yd.team, teamsData || TEAMS)
+
+              // Get team-specific colors for this season (pass team name string, not tid)
+              const ydTeamColors = teamName ? getTeamColors(teamName, teamsData) : null
+              const seasonColor = ydTeamColors?.primary || teamInfo.backgroundColor
+              const seasonTextColor = getContrastTextColor(seasonColor)
+              const seasonSecondary = ydTeamColors?.secondary || '#ffffff'
+              const seasonBodyText = getContrastTextColor(seasonSecondary)
+
+              return (
+                <div
+                  key={yd.year}
+                  className="rounded-lg overflow-hidden"
+                  style={{ border: `1px solid rgba(255,255,255,0.1)` }}
+                >
+                  {/* Season Header Bar */}
+                  <div
+                    className="px-4 py-2.5 flex items-center justify-between"
+                    style={{ backgroundColor: seasonColor }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="text-2xl font-black leading-none"
+                        style={{ color: seasonTextColor, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
+                      >
+                        {yd.year}
+                      </span>
+                      {logo && (
+                        <Link to={`${pathPrefix}/team/${teamTid}/${yd.year}`} className="hover:opacity-80 transition-opacity">
+                          <img src={logo} alt="" className="w-6 h-6 object-contain" />
+                        </Link>
+                      )}
+                      {schoolName && (
+                        <Link
+                          to={`${pathPrefix}/team/${teamTid}/${yd.year}`}
+                          className="text-sm font-bold hover:opacity-80 transition-opacity"
+                          style={{ color: seasonTextColor }}
+                        >
+                          {schoolName}
+                        </Link>
+                      )}
+                    </div>
+                    {isCurrentYear && (
+                      <span
+                        className="text-[10px] font-black px-2 py-0.5 rounded tracking-wider"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: seasonTextColor }}
+                      >
+                        CURRENT
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Season Body */}
+                  <div className="px-4 py-3" style={{ backgroundColor: seasonSecondary }}>
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-3 gap-3 mb-2">
+                      {/* Class */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: seasonBodyText, opacity: 0.45 }}>Class</div>
+                        <div className="text-sm font-bold" style={{ color: seasonBodyText }}>
+                          {yd.playerClass || '—'}
+                        </div>
+                      </div>
+
+                      {/* Overall */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: seasonBodyText, opacity: 0.45 }}>Overall</div>
+                        {yd.overall ? (
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-xl font-black" style={{ color: getOverallColor(yd.overall) }}>
+                              {yd.overall}
+                            </span>
+                            {ovrChange !== null && ovrChange !== 0 && (
+                              <span className="text-xs font-bold" style={{ color: ovrChange > 0 ? '#22c55e' : '#ef4444' }}>
+                                {ovrChange > 0 ? '+' : ''}{ovrChange}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm" style={{ color: seasonBodyText, opacity: 0.35 }}>—</div>
+                        )}
+                      </div>
+
+                      {/* Dev Trait */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: seasonBodyText, opacity: 0.45 }}>Dev Trait</div>
+                        {yd.devTrait && yd.devTrait !== 'Normal' ? (
+                          <span
+                            className="inline-block text-xs font-bold px-2 py-0.5 rounded"
+                            style={{
+                              backgroundColor: yd.devTrait === 'Elite' ? '#fbbf24' : yd.devTrait === 'Star' ? '#8b5cf6' : yd.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
+                              color: yd.devTrait === 'Elite' ? '#78350f' : '#ffffff'
+                            }}
+                          >
+                            {yd.devTrait}
+                          </span>
+                        ) : (
+                          <div className="text-sm" style={{ color: seasonBodyText, opacity: 0.35 }}>
+                            {yd.devTrait || '—'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Movements */}
+                    {yd.movements.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 pt-2" style={{ borderTop: `1px solid ${seasonBodyText}10` }}>
+                        {yd.movements.map((m, mIdx) => {
+                          const fromName = m.from ? getSchoolName(m.from, teamsData) : null
+                          const toName = m.to ? getSchoolName(m.to, teamsData) : null
+                          const fromLogo = m.from ? (() => { const fn = getMascotName(m.from, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
+                          const toLogo = m.to ? (() => { const fn = getMascotName(m.to, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
+                          return (
+                            <div
+                              key={mIdx}
+                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded"
+                              style={{ backgroundColor: `${seasonBodyText}10`, color: getMovementColor(m.type) }}
+                            >
+                              {getMovementLabel(m)}
+                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && toName && (
+                                <span className="flex items-center gap-1" style={{ opacity: 0.8 }}>
+                                  {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                                  <span>{fromName}</span>
+                                  <span style={{ color: seasonBodyText, opacity: 0.4 }}>&rarr;</span>
+                                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                                  <span>{toName}</span>
+                                </span>
+                              )}
+                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && !toName && (
+                                <span className="flex items-center gap-1" style={{ opacity: 0.8 }}>
+                                  from {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {fromName}
+                                </span>
+                              )}
+                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && !fromName && toName && (
+                                <span className="flex items-center gap-1" style={{ opacity: 0.8 }}>
+                                  to {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {toName}
+                                </span>
+                              )}
+                              {(m.type === 'recruited' || m.type === 'added' || m.type === 'recommit') && toName && (
+                                <span className="flex items-center gap-1" style={{ opacity: 0.8 }}>
+                                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {toName}
+                                </span>
+                              )}
+                              {(m.type === 'entered_portal' || m.type === 'departure' || m.type === 'encouraged_transfer') && fromName && (
+                                <span className="flex items-center gap-1" style={{ opacity: 0.8 }}>
+                                  from {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {fromName}
+                                </span>
+                              )}
+                              {m.draftRound && <span style={{ opacity: 0.8 }}>Rd {m.draftRound}</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Stats */}
+                    {statSummary && (
+                      <div className="mt-2 pt-2" style={{ borderTop: `1px solid ${seasonBodyText}10` }}>
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: seasonBodyText, opacity: 0.45 }}>Season Stats</div>
+                        <div className="text-xs font-medium" style={{ color: seasonBodyText, opacity: 0.7 }}>
+                          {statSummary.join(' | ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Post-career events */}
+            {timelineEntries.filter(e => e.year > lastYear).map((entry, idx) => {
+              const fromName = entry.from ? getSchoolName(entry.from, teamsData) : null
+              return (
+                <div
+                  key={`post-${idx}`}
+                  className="rounded-lg overflow-hidden"
+                  style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  <div className="px-4 py-2.5 flex items-center gap-3" style={{ backgroundColor: '#ef4444' }}>
+                    <span
+                      className="text-2xl font-black leading-none"
+                      style={{ color: '#ffffff', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
+                    >
+                      {entry.year}
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: '#ffffff' }}>
+                      {getMovementLabel(entry)}{fromName ? ` from ${fromName}` : ''}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )
       })()}
-
-      {/* Recruitment Information - Show on Timeline tab for any player with recruitment data */}
-      {activeTab === 'timeline' && recruitmentInfo && (
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
-        >
-          <div className="px-4 py-2 flex items-center gap-2" style={{ backgroundColor: teamColors.primary }}>
-            <span className="text-sm font-bold" style={{ color: primaryText }}>
-              {recruitmentInfo.isPortal || player.isPortal ? 'Transfer Portal' : 'Recruitment'}
-            </span>
-            {(player.recruitYear || player.yearStarted) && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: `${primaryText}20`, color: primaryText }}>
-                Class of {player.recruitYear || player.yearStarted}
-              </span>
-            )}
-          </div>
-          <div className="px-4 py-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              {/* Stars */}
-              {Number(recruitmentInfo.stars) > 0 && (
-                <div className="flex items-center gap-1">
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <svg key={i} className="w-4 h-4" fill={i < Number(recruitmentInfo.stars) ? '#FFD700' : `${secondaryText}30`} viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <span className="text-xs font-medium" style={{ color: secondaryText }}>
-                    {recruitmentInfo.stars}-Star
-                  </span>
-                </div>
-              )}
-              {/* Rankings - Use Number() > 0 directly to avoid React rendering 0 */}
-              {Number(recruitmentInfo.nationalRank) > 0 && (
-                <div className="text-sm" style={{ color: secondaryText }}>
-                  <span className="font-bold" style={{ color: secondaryText }}>#{recruitmentInfo.nationalRank}</span>
-                  <span style={{ color: secondaryText, opacity: 0.7 }}> National</span>
-                </div>
-              )}
-              {Number(recruitmentInfo.positionRank) > 0 && (
-                <div className="text-sm" style={{ color: secondaryText }}>
-                  <span className="font-bold" style={{ color: secondaryText }}>#{recruitmentInfo.positionRank}</span>
-                  <span style={{ color: secondaryText, opacity: 0.7 }}> {player.position}</span>
-                </div>
-              )}
-              {Number(recruitmentInfo.stateRank) > 0 && (
-                <div className="text-sm" style={{ color: secondaryText }}>
-                  <span className="font-bold" style={{ color: secondaryText }}>#{recruitmentInfo.stateRank}</span>
-                  <span style={{ color: secondaryText, opacity: 0.7 }}> {recruitmentInfo.state || player.state}</span>
-                </div>
-              )}
-              {/* Previous Team for transfers */}
-              {recruitmentInfo.previousTeam && (() => {
-                const teamsData = dynasty?.teams || dynasty?.customTeams
-                // previousTeam could be a tid (number) or team name/abbr (string)
-                const prevTeamTid = typeof recruitmentInfo.previousTeam === 'number'
-                  ? recruitmentInfo.previousTeam
-                  : resolveTid(recruitmentInfo.previousTeam, teamsData || TEAMS)
-                // The year they transferred is their recruit/start year
-                const transferYear = player.recruitYear || player.yearStarted || dynasty?.currentYear
-                const prevTeamFullName = getMascotName(recruitmentInfo.previousTeam, teamsData)
-                const prevTeamLogo = prevTeamFullName ? getTeamLogo(prevTeamFullName, teamsData) : null
-
-                return (
-                  <div className="text-sm flex items-center gap-1.5" style={{ color: secondaryText }}>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}>from</span>
-                    <Link
-                      to={`${pathPrefix}/team/${prevTeamTid}/${transferYear}`}
-                      className="font-semibold hover:underline flex items-center gap-1.5"
-                      style={{ color: teamColors.primary }}
-                    >
-                      {prevTeamLogo && (
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
-                          <img src={prevTeamLogo} alt="" className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                    </Link>
-                  </div>
-                )
-              })()}
-              {/* Gem/Bust tag */}
-              {recruitmentInfo.gemBust && (
-                <span
-                  className="px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: recruitmentInfo.gemBust.toLowerCase() === 'gem' ? '#10B981' : '#EF4444',
-                    color: 'white'
-                  }}
-                >
-                  {recruitmentInfo.gemBust.toLowerCase() === 'gem' ? '💎 Gem' : '💥 Bust'}
-                </span>
-              )}
-            </div>
-          </div>
-          {/* Link to recruiting class if applicable - use original recruiting team, not current team */}
-          {player.recruitYear && (
-            <Link
-              to={`${pathPrefix}/recruiting/${resolveTid(player.teamsByYear?.[player.recruitYear] || playerTeamAbbr, currentDynasty?.teams || TEAMS)}/${player.recruitYear}`}
-              className="block px-4 py-2 text-sm font-medium hover:opacity-80 transition-opacity text-center"
-              style={{ backgroundColor: teamColors.primary, color: primaryText }}
-            >
-              View Recruiting Class →
-            </Link>
-          )}
-        </div>
-      )}
 
       {/* Career Statistics - Premium Dark Theme */}
       {activeTab === 'stats' && hasMeaningfulStats && (() => {

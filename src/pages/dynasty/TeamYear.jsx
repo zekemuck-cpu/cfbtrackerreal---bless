@@ -5005,9 +5005,6 @@ export default function TeamYear() {
           const wasOnTeam = Object.entries(p.teamsByYear || {}).some(([year, team]) => {
             const playerTid = resolveTid(team, teamsSource)
             return playerTid === tid
-          }) || (p.teamHistory || []).some(stint => {
-            const stintTid = stint.teamTid || resolveTid(stint.team, teamsSource)
-            return stintTid === tid
           }) || resolveTid(p.team, teamsSource) === tid
 
           if (!wasOnTeam) return false
@@ -5392,17 +5389,10 @@ export default function TeamYear() {
 
               // Helper to check if player was on this team in a given year
               const wasOnTeamInYear = (player, year) => {
-                // Check teamsByYear first
+                // Check teamsByYear (source of truth)
                 if (player.teamsByYear?.[year]) {
                   const playerTidForYear = resolveTid(player.teamsByYear[year], teamsSource)
                   return playerTidForYear === tid
-                }
-                // Check teamHistory stints
-                if (player.teamHistory) {
-                  return player.teamHistory.some(stint => {
-                    const stintTid = stint.teamTid || resolveTid(stint.team, teamsSource)
-                    return stintTid === tid && year >= stint.fromYear && (stint.toYear === null || year <= stint.toYear)
-                  })
                 }
                 // Fallback to team field
                 const playerTid = resolveTid(player.team, teamsSource)

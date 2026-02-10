@@ -12587,20 +12587,7 @@ export async function prefillRosterHistorySheet(spreadsheetId, players, years = 
     const accessToken = await getAccessToken()
 
     // Build data rows: Player Name, PID, team for each year
-    // Helper to get team for a year - handles both stint-based and legacy
     const getTeamForYear = (player, year) => {
-      // Stint-based: check teamHistory for active stint
-      if (player.teamHistory && player.teamHistory.length > 0) {
-        const stint = player.teamHistory.find(s =>
-          Number(year) >= Number(s.fromYear) &&
-          (s.toYear === null || Number(year) <= Number(s.toYear))
-        )
-        if (stint) {
-          // Return tid or abbr based on what's stored
-          return stint.teamTid ?? stint.teamAbbr ?? ''
-        }
-      }
-      // Legacy: use teamsByYear
       return player.teamsByYear?.[year] || player.team || ''
     }
 

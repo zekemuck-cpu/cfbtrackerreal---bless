@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, dryRunStintMigration, checkStintMigrationStatus, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -14,7 +14,7 @@ import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from 
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, applyStintMigration, revertStintMigration, syncAllPlayersStats } = useDynasty()
+  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, cleanupStintData, syncAllPlayersStats } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
@@ -65,15 +65,12 @@ export default function DangerZone() {
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
 
-  // Stint-based roster migration state
-  const [stintMigrationStatus, setStintMigrationStatus] = useState(null)
-  const [stintDryRunResult, setStintDryRunResult] = useState(null)
-  const [showStintDetails, setShowStintDetails] = useState(false)
+  // Stint data cleanup state
+  const [stintCleanupStatus, setStintCleanupStatus] = useState(null)
 
   // Class data fix state
   const [classDataFixStatus, setClassDataFixStatus] = useState(null)
   const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
-  const [stintRepairStatus, setStintRepairStatus] = useState(null)
   const [showAdvanceModal, setShowAdvanceModal] = useState(false)
   const [advanceSelections, setAdvanceSelections] = useState({}) // { pid: boolean }
 
@@ -401,116 +398,6 @@ export default function DangerZone() {
     }
   }
 
-  // Fix invalid stint teamTid values by looking up from legacy data
-  const handleFixInvalidStints = async () => {
-    setStintRepairStatus('running')
-    try {
-      const players = currentDynasty.players || []
-      const userTid = currentDynasty?.currentTid
-      let fixedCount = 0
-      let alreadyGoodCount = 0
-      let unableToFixCount = 0
-
-      const updatedPlayers = players.map(player => {
-        // Skip if no teamHistory
-        if (!player.teamHistory || player.teamHistory.length === 0) {
-          return player
-        }
-
-        // Check if any stints have invalid teamTid
-        const hasInvalidStint = player.teamHistory.some(stint => {
-          const tid = stint.teamTid
-          return tid === null || tid === undefined || isNaN(Number(tid)) || Number(tid) <= 0
-        })
-
-        if (!hasInvalidStint) {
-          alreadyGoodCount++
-          return player
-        }
-
-        // Try to fix invalid stints
-        const fixedHistory = player.teamHistory.map(stint => {
-          const tid = stint.teamTid
-          const isValid = tid !== null && tid !== undefined && !isNaN(Number(tid)) && Number(tid) > 0
-
-          if (isValid) return stint
-
-          // Try to find valid tid from legacy data or current team
-          let newTid = null
-
-          // Source 1: Look at _legacy_teamsByYear for this stint's years
-          if (player._legacy_teamsByYear && stint.fromYear) {
-            const legacyTid = player._legacy_teamsByYear[stint.fromYear] || player._legacy_teamsByYear[String(stint.fromYear)]
-            if (legacyTid) {
-              if (typeof legacyTid === 'number' && legacyTid > 0) {
-                newTid = legacyTid
-              } else if (typeof legacyTid === 'string') {
-                const converted = getTidFromAbbr(legacyTid)
-                if (converted) newTid = converted
-              }
-            }
-          }
-
-          // Source 2: Look at teamsByYear
-          if (!newTid && player.teamsByYear && stint.fromYear) {
-            const teamValue = player.teamsByYear[stint.fromYear] || player.teamsByYear[String(stint.fromYear)]
-            if (teamValue) {
-              if (typeof teamValue === 'number' && teamValue > 0) {
-                newTid = teamValue
-              } else if (typeof teamValue === 'string') {
-                const converted = getTidFromAbbr(teamValue)
-                if (converted) newTid = converted
-              }
-            }
-          }
-
-          // Source 3: player.team field
-          if (!newTid && player.team) {
-            if (typeof player.team === 'number' && player.team > 0) {
-              newTid = player.team
-            } else if (typeof player.team === 'string') {
-              const converted = getTidFromAbbr(player.team)
-              if (converted) newTid = converted
-            }
-          }
-
-          // Source 4: Use current dynasty team as fallback
-          if (!newTid && userTid) {
-            newTid = userTid
-          }
-
-          if (newTid) {
-            return { ...stint, teamTid: newTid }
-          }
-
-          // Couldn't fix
-          return stint
-        })
-
-        // Check if we fixed anything
-        const stillHasInvalid = fixedHistory.some(stint => {
-          const tid = stint.teamTid
-          return tid === null || tid === undefined || isNaN(Number(tid)) || Number(tid) <= 0
-        })
-
-        if (stillHasInvalid) {
-          unableToFixCount++
-          return { ...player, teamHistory: fixedHistory }
-        }
-
-        fixedCount++
-        return { ...player, teamHistory: fixedHistory }
-      })
-
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers })
-      setStintRepairStatus({
-        success: true,
-        message: `Fixed ${fixedCount} players, ${alreadyGoodCount} already valid${unableToFixCount > 0 ? `, ${unableToFixCount} could not be fixed` : ''}`
-      })
-    } catch (error) {
-      setStintRepairStatus({ success: false, message: 'Fix failed: ' + error.message })
-    }
-  }
 
   // Get players on user's team for the advance modal
   // Uses isPlayerOnRoster() to match the same filtering as the Roster page
@@ -1904,63 +1791,25 @@ export default function DangerZone() {
   }
 
   // ==========================================================
-  // STINT-BASED ROSTER MIGRATION HANDLERS
+  // STINT DATA CLEANUP HANDLER
   // ==========================================================
 
-  // Check current migration status
-  const stintMigrationInfo = currentDynasty ? checkStintMigrationStatus(currentDynasty) : null
-
-  // Run dry run to preview migration
-  const handleStintDryRun = () => {
-    setStintMigrationStatus('running')
-    setStintDryRunResult(null)
-
-    // Use setTimeout to let UI update
-    setTimeout(() => {
-      try {
-        const result = dryRunStintMigration(currentDynasty)
-        setStintDryRunResult(result)
-        setStintMigrationStatus(result)
-      } catch (error) {
-        setStintMigrationStatus({ success: false, message: 'Dry run failed: ' + error.message })
-      }
-    }, 50)
-  }
-
-  // Apply migration
-  const handleStintApply = async (force = false) => {
-    setStintMigrationStatus('running')
-
-    try {
-      const result = await applyStintMigration(currentDynasty.id, force)
-      setStintMigrationStatus(result)
-      if (result.success) {
-        setStintDryRunResult(null) // Clear dry run after successful apply
-      }
-    } catch (error) {
-      setStintMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
-    }
-  }
-
-  // Revert migration
-  const handleStintRevert = async () => {
-    if (!confirm('Are you sure you want to revert to the legacy roster system? This will restore original teamsByYear/classByYear data.')) {
+  const handleStintCleanup = async () => {
+    if (!confirm('Remove all old stint-based roster data? This will backfill teamsByYear from stint data first, then remove the stint fields.')) {
       return
     }
 
-    setStintMigrationStatus('running')
-
+    setStintCleanupStatus('running')
     try {
-      const result = await revertStintMigration(currentDynasty.id)
-      setStintMigrationStatus(result)
-      setStintDryRunResult(null)
+      const result = await cleanupStintData(currentDynasty.id)
+      setStintCleanupStatus(result)
     } catch (error) {
-      setStintMigrationStatus({ success: false, message: 'Revert failed: ' + error.message })
+      setStintCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
     }
   }
 
   // ==========================================================
-  // END STINT-BASED ROSTER MIGRATION HANDLERS
+  // END STINT DATA CLEANUP HANDLER
   // ==========================================================
 
   // Compact Action Card
@@ -2127,13 +1976,6 @@ export default function DangerZone() {
             buttonText="Fix Classes"
             onClick={handleFixClassData}
             status={classDataFixStatus}
-          />
-          <ActionCard
-            title="Fix Invalid Stints"
-            description="Repairs teamHistory stints with missing or invalid team IDs"
-            buttonText="Fix Stints"
-            onClick={handleFixInvalidStints}
-            status={stintRepairStatus}
           />
           <ActionCard
             title="Advance Classes"
@@ -2715,161 +2557,19 @@ export default function DangerZone() {
         </div>
       </div>
 
-      {/* Stint-Based Roster Migration */}
+      {/* Stint Data Cleanup */}
       <div>
         <SectionHeader
-          title="Roster System Migration"
-          subtitle="Migrate to bulletproof stint-based roster tracking"
+          title="Clean Up Stint Data"
+          subtitle="Remove old stint-based roster fields, backfill teamsByYear"
         />
-        <div className="rounded-lg p-4" style={{ backgroundColor: '#f0f9ff', border: '2px solid #60a5fa' }}>
-          {/* Current Status */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                stintMigrationInfo?.migrated ? 'bg-green-500' :
-                stintMigrationInfo?.partial ? 'bg-yellow-500' :
-                'bg-gray-400'
-              }`} />
-              <span className="text-sm font-medium text-gray-800">
-                Status: <strong>
-                  {stintMigrationInfo?.migrated ? 'Migrated' :
-                   stintMigrationInfo?.partial ? `Partial (${stintMigrationInfo.percentage}%)` :
-                   'Not Migrated'}
-                </strong>
-                {stintMigrationInfo && (
-                  <span className="text-xs text-gray-500 ml-2">
-                    ({stintMigrationInfo.migratedCount}/{stintMigrationInfo.totalCount} players)
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
-
-          {/* Explanation */}
-          <div className="mb-4 p-3 rounded bg-blue-50 text-xs text-blue-800">
-            <p className="font-semibold mb-1">What does this do?</p>
-            <ul className="list-disc ml-4 space-y-0.5">
-              <li>Converts legacy <code>teamsByYear</code> to stint-based <code>teamHistory</code></li>
-              <li>Derives <code>entryYear</code>, <code>entryClass</code>, and <code>redshirtYear</code> from existing data</li>
-              <li>Fixes year-flip bug where players disappear during season advancement</li>
-              <li>Legacy data is preserved for rollback if needed</li>
-            </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={handleStintDryRun}
-              disabled={stintMigrationStatus === 'running' || stintMigrationInfo?.migrated}
-              className="flex-1 px-3 py-2 rounded text-xs font-medium transition-all bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
-            >
-              {stintMigrationStatus === 'running' ? 'Running...' : '1. Preview Migration'}
-            </button>
-            <button
-              onClick={() => handleStintApply(false)}
-              disabled={stintMigrationStatus === 'running' || !stintDryRunResult || stintMigrationInfo?.migrated}
-              className="flex-1 px-3 py-2 rounded text-xs font-medium transition-all bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              2. Apply Migration
-            </button>
-            <button
-              onClick={handleStintRevert}
-              disabled={stintMigrationStatus === 'running' || !stintMigrationInfo?.migrated}
-              className="px-3 py-2 rounded text-xs font-medium transition-all bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-            >
-              Revert
-            </button>
-          </div>
-
-          {/* Status Message */}
-          {stintMigrationStatus && stintMigrationStatus !== 'running' && (
-            <div className={`mb-4 p-2 rounded text-xs ${
-              stintMigrationStatus.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
-              {stintMigrationStatus.success ? '✓' : '✗'} {stintMigrationStatus.message}
-            </div>
-          )}
-
-          {/* Dry Run Results */}
-          {stintDryRunResult && (
-            <div className="border-t border-blue-200 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-sm text-gray-800">Preview Results</h4>
-                <button
-                  onClick={() => setShowStintDetails(!showStintDetails)}
-                  className="text-xs text-blue-600 hover:text-blue-800"
-                >
-                  {showStintDetails ? 'Hide Details' : 'Show Details'}
-                </button>
-              </div>
-
-              {/* Summary Stats */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="text-center p-2 rounded bg-gray-100">
-                  <div className="text-lg font-bold text-gray-800">{stintDryRunResult.stats.total}</div>
-                  <div className="text-xs text-gray-500">Total</div>
-                </div>
-                <div className="text-center p-2 rounded bg-green-100">
-                  <div className="text-lg font-bold text-green-700">{stintDryRunResult.stats.migrated}</div>
-                  <div className="text-xs text-green-600">Will Migrate</div>
-                </div>
-                <div className="text-center p-2 rounded bg-yellow-100">
-                  <div className="text-lg font-bold text-yellow-700">{stintDryRunResult.stats.warnings}</div>
-                  <div className="text-xs text-yellow-600">Warnings</div>
-                </div>
-                <div className="text-center p-2 rounded bg-red-100">
-                  <div className="text-lg font-bold text-red-700">{stintDryRunResult.stats.errors}</div>
-                  <div className="text-xs text-red-600">Errors</div>
-                </div>
-              </div>
-
-              {/* Force Apply Button if warnings */}
-              {stintDryRunResult.stats.warnings > 0 && !stintMigrationInfo?.migrated && (
-                <button
-                  onClick={() => handleStintApply(true)}
-                  disabled={stintMigrationStatus === 'running'}
-                  className="w-full mb-3 px-3 py-2 rounded text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  Apply Anyway (ignore warnings)
-                </button>
-              )}
-
-              {/* Detailed Results */}
-              {showStintDetails && (
-                <div className="max-h-64 overflow-y-auto space-y-1">
-                  {stintDryRunResult.details
-                    .filter(d => d.status !== 'skipped' || d.reason !== 'Already migrated')
-                    .map((detail, idx) => (
-                    <div
-                      key={idx}
-                      className={`text-xs p-2 rounded flex items-start gap-2 ${
-                        detail.status === 'success' ? 'bg-green-50 text-green-800' :
-                        detail.status === 'warning' ? 'bg-yellow-50 text-yellow-800' :
-                        detail.status === 'error' ? 'bg-red-50 text-red-800' :
-                        'bg-gray-50 text-gray-600'
-                      }`}
-                    >
-                      <span className="font-medium min-w-[100px]">{detail.name}</span>
-                      <span className="flex-1">
-                        {detail.status === 'success' ? 'Ready to migrate' :
-                         detail.status === 'skipped' ? detail.reason :
-                         detail.status === 'warning' ? detail.reason :
-                         detail.reason}
-                        {detail.validationErrors && detail.validationErrors.length > 0 && (
-                          <ul className="mt-1 list-disc ml-4">
-                            {detail.validationErrors.map((err, i) => (
-                              <li key={i}>{err}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <ActionCard
+          title="Remove Stint Data"
+          description="Removes teamHistory, entryYear, entryClass, and other stint fields from all players. Backfills teamsByYear from stint data first to prevent data loss."
+          buttonText="Clean Up Stint Data"
+          onClick={handleStintCleanup}
+          status={stintCleanupStatus}
+        />
       </div>
 
       {/* Storage Tier Testing (Dev) */}

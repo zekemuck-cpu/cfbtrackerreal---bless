@@ -277,29 +277,7 @@ export async function getPlayersSubcollection(dynastyId) {
       _firestoreId: doc.id // Keep track of Firestore doc ID for updates
     }))
 
-    // DEBUG: Check if players have teamHistory from Firestore
-    const playersWithTeamHistory = players.filter(p => p.teamHistory && p.teamHistory.length > 0)
-    const playersWithMigrationMarker = players.filter(p => p._teamHistoryMigratedAt)
-    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Loaded ${players.length} players FROM SERVER, ${playersWithTeamHistory.length} have teamHistory, ${playersWithMigrationMarker.length} have migration marker`)
-
-    // Show migration marker timestamps to verify which version of data we're seeing
-    if (playersWithMigrationMarker.length > 0) {
-      const markers = playersWithMigrationMarker.slice(0, 3).map(p => ({
-        name: p.name,
-        _teamHistoryMigratedAt: p._teamHistoryMigratedAt,
-        migratedDate: new Date(p._teamHistoryMigratedAt).toISOString()
-      }))
-      console.log(`[getPlayersSubcollection] Dynasty ${dynastyId} Migration markers:`, markers)
-    }
-
-    if (playersWithTeamHistory.length > 0 && players.length > 500) {
-      const sample = playersWithTeamHistory.slice(0, 3)
-      console.log(`[getPlayersSubcollection] Dynasty ${dynastyId} Sample:`, sample.map(p => ({
-        name: p.name,
-        pid: p.pid,
-        teamHistory: p.teamHistory
-      })))
-    }
+    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Loaded ${players.length} players FROM SERVER`)
 
     return players
   } catch (error) {
@@ -380,18 +358,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       return
     }
 
-    // SIMPLIFIED: Just log and save - no protection checks that can abort
-    const playersWithTeamHistory = playersToSave.filter(p => p.teamHistory && p.teamHistory.length > 0)
-    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players (${playersWithTeamHistory.length} with teamHistory) to dynasty ${dynastyId}`)
-
-    // DEBUG: Show sample of teamHistory data being saved
-    const samplePlayers = playersWithTeamHistory.slice(0, 5)
-    console.log(`[savePlayersToSubcollection] Sample teamHistory data:`, samplePlayers.map(p => ({
-      name: p.name,
-      pid: p.pid,
-      teamHistory: p.teamHistory,
-      teamsByYear: p.teamsByYear
-    })))
+    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}`)
 
     // Handle orphan cleanup if requested
     if (deleteOrphans) {
@@ -453,14 +420,6 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         const { _firestoreId, ...rawPlayerData } = player
         const playerData = sanitizeForFirestore(rawPlayerData)
 
-        // DEBUG: Check if teamHistory survived sanitization
-        if (player.teamHistory && player.teamHistory.length > 0 && (!playerData.teamHistory || playerData.teamHistory.length === 0)) {
-          console.error(`[savePlayersToSubcollection] teamHistory LOST during sanitization for ${player.name}!`, {
-            before: player.teamHistory,
-            after: playerData.teamHistory
-          })
-        }
-
         batch.set(playerRef, playerData)
       }
 
@@ -493,19 +452,11 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
     // Wait a bit for Firestore to fully propagate the writes
     await new Promise(resolve => setTimeout(resolve, 500))
 
-    // DEBUG: Verify the data was actually written by reading back FROM SERVER (not cache)
+    // Verify the data was actually written by reading back FROM SERVER (not cache)
     const verifyRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-    console.log(`[savePlayersToSubcollection] Verifying with SERVER read (not cache)...`)
     const verifySnapshot = await getDocsFromServer(verifyRef)
     const verifyPlayers = verifySnapshot.docs.map(doc => doc.data())
-    const verifyWithTeamHistory = verifyPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0)
-    console.log(`[savePlayersToSubcollection] VERIFY (SERVER): Read back ${verifyPlayers.length} players, ${verifyWithTeamHistory.length} have teamHistory`)
-    if (verifyWithTeamHistory.length !== playersWithTeamHistory.length) {
-      console.error(`[savePlayersToSubcollection] MISMATCH! Wrote ${playersWithTeamHistory.length}, read back ${verifyWithTeamHistory.length}`)
-      console.error(`[savePlayersToSubcollection] DATA LOSS DETECTED - writes may not have persisted!`)
-    } else {
-      console.log(`[savePlayersToSubcollection] ✓ Server verification PASSED - data persisted correctly`)
-    }
+    console.log(`[savePlayersToSubcollection] VERIFY (SERVER): Read back ${verifyPlayers.length} players`)
   } catch (error) {
     console.error('Error saving players to subcollection:', error)
     throw error

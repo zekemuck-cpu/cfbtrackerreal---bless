@@ -6,7 +6,6 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
-import PlayerTimelineEditor from '../../components/PlayerTimelineEditor'
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -215,15 +214,20 @@ export default function PlayerEdit() {
   }, [dynasty?.players, pid])
 
   // Get player's team for colors (not dynasty's current team)
+  // Use the most recent year in teamsByYear to correctly reflect transfers
   const currentYear = dynasty?.currentYear
   const playerTeamTid = useMemo(() => {
     if (!player) return null
-    // Check teamsByYear first, then fall back to player.team
-    return (currentYear && player?.teamsByYear?.[currentYear]) ||
-           (currentYear && player?.teamsByYear?.[String(currentYear)]) ||
-           player?.team ||
-           player?.teams?.[0] ||
-           dynasty?.currentTid
+    const tby = player?.teamsByYear
+    if (tby) {
+      // First try currentYear
+      const currentYearTeam = tby[currentYear] || tby[String(currentYear)]
+      if (currentYearTeam) return currentYearTeam
+      // Otherwise use the most recent year in teamsByYear
+      const years = Object.keys(tby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
+      if (years.length > 0) return tby[years[0]] || tby[String(years[0])]
+    }
+    return player?.team || player?.teams?.[0] || dynasty?.currentTid
   }, [player, currentYear, dynasty?.currentTid])
 
   // Get team info for colors - use player's team, not dynasty's current team
@@ -259,14 +263,6 @@ export default function PlayerEdit() {
 
     // Add current year (for adding new stats)
     if (dynasty?.currentYear) yearsSet.add(dynasty.currentYear)
-
-    // Add years from player's team history (when they were on a roster)
-    if (player?.teamHistory) {
-      player.teamHistory.forEach(stint => {
-        if (stint.fromYear) yearsSet.add(stint.fromYear)
-        if (stint.toYear) yearsSet.add(stint.toYear)
-      })
-    }
 
     // Add years from teamsByYear
     if (player?.teamsByYear) {
@@ -344,38 +340,23 @@ export default function PlayerEdit() {
       height: player.height || '',
       weight: player.weight || '',
 
+      // Draft
+      draftRound: player.draftRound || '',
+
       // Recruiting Info
       stars: player.stars || '',
       nationalRank: player.nationalRank || '',
       stateRank: player.stateRank || '',
       positionRank: player.positionRank || '',
       gemBust: player.gemBust || '',
-      // Derive isPortal from current stint's reason if available
-      isPortal: (() => {
-        const currentStint = (player.teamHistory || []).find(s => s.toYear === null || s.toYear === undefined) ||
-                            (player.teamHistory || [])[player.teamHistory?.length - 1]
-        if (currentStint && isTransferReason(currentStint.reason || currentStint.entryType)) {
-          return true
-        }
-        return player.isPortal || false
-      })(),
-      // Derive previousTeam from current stint's transferFromTid if available
-      previousTeam: (() => {
-        const currentStint = (player.teamHistory || []).find(s => s.toYear === null || s.toYear === undefined) ||
-                            (player.teamHistory || [])[player.teamHistory?.length - 1]
-        if (currentStint?.transferFromTid) {
-          return currentStint.transferFromTid
-        }
-        return player.previousTeam || ''
-      })(),
-
-      // Tenure
-      entryYear: player.entryYear || player.recruitYear || '',
-      entryClass: player.entryClass || '',
-      redshirtYear: player.redshirtYear || '',
-      teamHistory: player.teamHistory || [],
-      // Normalize classByYear keys to numbers
+      isPortal: player.isPortal || false,
+      previousTeam: player.previousTeam || '',
+      // Normalize classByYear and teamsByYear keys to numbers
       classByYear: Object.entries(player.classByYear || {}).reduce((acc, [k, v]) => {
+        acc[parseInt(k)] = v
+        return acc
+      }, {}),
+      teamsByYear: Object.entries(player.teamsByYear || {}).reduce((acc, [k, v]) => {
         acc[parseInt(k)] = v
         return acc
       }, {}),
@@ -385,12 +366,22 @@ export default function PlayerEdit() {
           acc[parseInt(k)] = v
           return acc
         }, {})
-        // If current year has no overall but player.overall exists, use it
-        if (player.overall && currentYear && !normalized[currentYear]) {
+        // Only inject player.overall for currentYear if the player is actually on a roster that year
+        const hasRosterEntry = currentYear && (player.teamsByYear?.[currentYear] || player.teamsByYear?.[String(currentYear)])
+        if (player.overall && currentYear && !normalized[currentYear] && hasRosterEntry) {
           normalized[currentYear] = player.overall
         }
         return normalized
       })(),
+      devTraitByYear: Object.entries(player.devTraitByYear || {}).reduce((acc, [k, v]) => {
+        acc[parseInt(k)] = v
+        return acc
+      }, {}),
+      entryReason: player.entryReason || '',
+      movementByYear: Object.entries(player.movementByYear || {}).reduce((acc, [k, v]) => {
+        acc[parseInt(k)] = v
+        return acc
+      }, {}),
 
       // Awards
       accolades: player.accolades || [],
@@ -638,28 +629,13 @@ export default function PlayerEdit() {
       gemBust: formData.gemBust || null,
       isPortal: formData.isPortal || false,
       previousTeam: formData.previousTeam || null,
-      // Tenure
-      entryYear: num(formData.entryYear),
-      entryClass: formData.entryClass,
-      redshirtYear: formData.redshirtYear ? num(formData.redshirtYear) : null,
-      teamHistory: formData.teamHistory || [],
       classByYear: formData.classByYear || {},
       overallByYear: formData.overallByYear || {},
-      // Generate teamsByYear from teamHistory for legacy compatibility
-      teamsByYear: (() => {
-        const teamsByYear = { ...(player.teamsByYear || {}) }
-        const teamHistory = formData.teamHistory || []
-        teamHistory.forEach(stint => {
-          if (stint.teamTid && stint.fromYear) {
-            // Add entry for each year the player was on this team
-            const toYear = stint.toYear || dynasty?.currentYear || new Date().getFullYear()
-            for (let year = stint.fromYear; year <= toYear; year++) {
-              teamsByYear[year] = stint.teamTid
-            }
-          }
-        })
-        return teamsByYear
-      })(),
+      teamsByYear: formData.teamsByYear || player.teamsByYear || {},
+      devTraitByYear: formData.devTraitByYear || {},
+      entryReason: formData.entryReason || null,
+      movementByYear: formData.movementByYear || {},
+      draftRound: formData.draftRound || null,
       accolades: (formData.accolades || []).filter(a => a.year && a.award),
       notes: formData.notes,
       isHonorOnly: false,
@@ -1171,6 +1147,445 @@ export default function PlayerEdit() {
         {/* Career Tab */}
         {activeTab === 'career' && (
           <div className="space-y-4">
+
+            {/* Season-by-Season History */}
+            {(() => {
+              const teams = dynasty?.teams || TEAMS
+              const dynCurrentYear = dynasty?.currentYear || new Date().getFullYear()
+
+              // Build sorted team list for dropdown
+              const teamOptions = Object.entries(teams)
+                .filter(([, t]) => t && t.name)
+                .map(([tid, t]) => ({ tid: Number(tid), name: t.name }))
+                .sort((a, b) => a.name.localeCompare(b.name))
+
+              // Collect all years from per-year data
+              const yearsSet = new Set()
+              Object.keys(formData.teamsByYear || {}).forEach(y => yearsSet.add(Number(y)))
+              Object.keys(formData.classByYear || {}).forEach(y => yearsSet.add(Number(y)))
+              Object.keys(formData.overallByYear || {}).forEach(y => yearsSet.add(Number(y)))
+              Object.keys(formData.devTraitByYear || {}).forEach(y => yearsSet.add(Number(y)))
+              const activeYears = Array.from(yearsSet).filter(y => !isNaN(y)).sort((a, b) => a - b)
+
+              const updateYearField = (field, year, value) => {
+                setFormData(prev => ({
+                  ...prev,
+                  [field]: { ...(prev[field] || {}), [year]: value }
+                }))
+              }
+
+              const removeYear = (year) => {
+                setFormData(prev => {
+                  const next = { ...prev }
+                  const removeFromObj = (obj) => {
+                    if (!obj) return {}
+                    const copy = { ...obj }
+                    delete copy[year]
+                    delete copy[String(year)]
+                    return copy
+                  }
+                  next.teamsByYear = removeFromObj(prev.teamsByYear)
+                  next.classByYear = removeFromObj(prev.classByYear)
+                  next.overallByYear = removeFromObj(prev.overallByYear)
+                  next.devTraitByYear = removeFromObj(prev.devTraitByYear)
+                  next.movementByYear = removeFromObj(prev.movementByYear)
+                  return next
+                })
+              }
+
+              const addYear = () => {
+                const nextYear = activeYears.length > 0
+                  ? Math.max(...activeYears) + 1
+                  : dynCurrentYear
+                const lastYear = activeYears.length > 0 ? activeYears[activeYears.length - 1] : null
+                setFormData(prev => ({
+                  ...prev,
+                  teamsByYear: {
+                    ...(prev.teamsByYear || {}),
+                    [nextYear]: lastYear ? (prev.teamsByYear?.[lastYear] || '') : (dynasty?.currentTid || '')
+                  },
+                  classByYear: { ...(prev.classByYear || {}), [nextYear]: '' },
+                  overallByYear: { ...(prev.overallByYear || {}), [nextYear]: '' },
+                  devTraitByYear: { ...(prev.devTraitByYear || {}), [nextYear]: '' },
+                }))
+              }
+
+              const changeYear = (oldYear, newYear) => {
+                if (newYear === oldYear || isNaN(newYear)) return
+                // Don't allow duplicate years
+                if (activeYears.includes(newYear)) return
+                setFormData(prev => {
+                  const next = { ...prev }
+                  const fields = ['teamsByYear', 'classByYear', 'overallByYear', 'devTraitByYear', 'movementByYear']
+                  fields.forEach(f => {
+                    if (next[f]) {
+                      const copy = { ...next[f] }
+                      copy[newYear] = copy[oldYear]
+                      delete copy[oldYear]
+                      delete copy[String(oldYear)]
+                      next[f] = copy
+                    }
+                  })
+                  return next
+                })
+              }
+
+              const getOvrChange = (year, idx) => {
+                if (idx === 0) return null
+                const prevYears = activeYears.slice(0, idx).reverse()
+                for (const py of prevYears) {
+                  const prevOvr = formData.overallByYear?.[py]
+                  const curOvr = formData.overallByYear?.[year]
+                  if (prevOvr && curOvr) return parseInt(curOvr) - parseInt(prevOvr)
+                }
+                return null
+              }
+
+              const updateMovement = (year, type, toTeamTid) => {
+                setFormData(prev => {
+                  const next = { ...prev }
+                  const movements = { ...(prev.movementByYear || {}) }
+                  if (!type) {
+                    delete movements[year]
+                    delete movements[String(year)]
+                  } else {
+                    const entry = { type }
+                    if (toTeamTid) entry.toTeamTid = Number(toTeamTid)
+                    movements[year] = entry
+                  }
+                  next.movementByYear = movements
+                  // Auto-populate next season's team if transferred out with a team selected
+                  if ((type === 'transferred_out' || type === 'encouraged_to_transfer') && toTeamTid) {
+                    const yearIdx = activeYears.indexOf(year)
+                    if (yearIdx >= 0 && yearIdx < activeYears.length - 1) {
+                      const nextYear = activeYears[yearIdx + 1]
+                      next.teamsByYear = { ...(prev.teamsByYear || {}), [nextYear]: Number(toTeamTid) }
+                    }
+                  }
+                  return next
+                })
+              }
+
+              // Connector component for entry/movement between seasons
+              const TransitionConnector = ({ year, isEntry }) => {
+                if (isEntry) {
+                  const val = formData.entryReason || ''
+                  return (
+                    <div className="flex items-center gap-1.5 px-4 py-1 group">
+                      <div className="flex-1 border-t border-dashed border-gray-200 group-hover:border-gray-300 transition-colors"></div>
+                      <select
+                        value={val}
+                        onChange={(e) => setFormData(prev => ({ ...prev, entryReason: e.target.value }))}
+                        className={`text-[10px] bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-gray-100 transition-colors ${val ? 'text-gray-600 font-medium' : 'text-gray-300'}`}
+                      >
+                        <option value="">—</option>
+                        <option value="recruited">Recruited</option>
+                        <option value="transfer_in">Transferred In</option>
+                        <option value="walk_on">Walk-On</option>
+                        <option value="juco_in">JUCO Transfer</option>
+                        <option value="created">Created</option>
+                      </select>
+                      {val === 'transfer_in' && (
+                        <>
+                          <span className="text-[10px] text-gray-300">from</span>
+                          <select
+                            value={formData.previousTeam || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, previousTeam: e.target.value ? Number(e.target.value) : '', isPortal: !!e.target.value }))}
+                            className="text-[10px] text-gray-500 bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-gray-100"
+                          >
+                            <option value="">Team...</option>
+                            {teamOptions.map(t => <option key={t.tid} value={t.tid}>{t.name}</option>)}
+                          </select>
+                        </>
+                      )}
+                      <div className="flex-1 border-t border-dashed border-gray-200 group-hover:border-gray-300 transition-colors"></div>
+                    </div>
+                  )
+                }
+
+                // Movement after a season
+                const movement = formData.movementByYear?.[year] || {}
+                const movementType = movement.type || ''
+                const toTeamTid = movement.toTeamTid || ''
+                const needsTeam = movementType === 'transferred_out' || movementType === 'encouraged_to_transfer'
+
+                return (
+                  <div className="flex items-center gap-1.5 px-4 py-1 group">
+                    <div className="flex-1 border-t border-dashed border-gray-200 group-hover:border-gray-300 transition-colors"></div>
+                    <select
+                      value={movementType}
+                      onChange={(e) => updateMovement(year, e.target.value, needsTeam ? toTeamTid : null)}
+                      className={`text-[10px] bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-gray-100 transition-colors ${movementType ? 'text-gray-600 font-medium' : 'text-gray-300'}`}
+                    >
+                      <option value="">—</option>
+                      <option value="transferred_out">Transferred Out</option>
+                      <option value="encouraged_to_transfer">Encouraged to Transfer</option>
+                      <option value="declared_for_draft">Declared for Draft</option>
+                      <option value="graduated">Graduated</option>
+                    </select>
+                    {needsTeam && (
+                      <>
+                        <span className="text-[10px] text-gray-300">to</span>
+                        <select
+                          value={toTeamTid}
+                          onChange={(e) => updateMovement(year, movementType, e.target.value ? Number(e.target.value) : null)}
+                          className="text-[10px] text-gray-500 bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-gray-100"
+                        >
+                          <option value="">Team...</option>
+                          {teamOptions.map(t => <option key={t.tid} value={t.tid}>{t.name}</option>)}
+                        </select>
+                      </>
+                    )}
+                    {movementType === 'declared_for_draft' && (
+                      <>
+                        <span className="text-[10px] text-gray-300">Rd</span>
+                        <select
+                          value={formData.draftRound || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, draftRound: e.target.value }))}
+                          className={`text-[10px] bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-gray-100 ${formData.draftRound ? 'text-gray-600 font-medium' : 'text-gray-400'}`}
+                        >
+                          <option value="">--</option>
+                          <option value="1">1</option>
+                          <option value="2">2</option>
+                          <option value="3">3</option>
+                          <option value="4">4</option>
+                          <option value="5">5</option>
+                          <option value="6">6</option>
+                          <option value="7">7</option>
+                          <option value="UDFA">UDFA</option>
+                        </select>
+                      </>
+                    )}
+                    <div className="flex-1 border-t border-dashed border-gray-200 group-hover:border-gray-300 transition-colors"></div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                    <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                      Season History
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={addYear}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ backgroundColor: teamColors.primary + '20', color: teamColors.primary }}
+                    >
+                      + Add Season
+                    </button>
+                  </div>
+
+                  {activeYears.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <p className="text-gray-400 text-sm mb-3">No seasons recorded yet</p>
+                      <button
+                        type="button"
+                        onClick={addYear}
+                        className="text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        style={{ backgroundColor: teamColors.primary, color: primaryText }}
+                      >
+                        Add First Season
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Entry reason connector */}
+                      <TransitionConnector isEntry />
+
+                      {/* Desktop header */}
+                      <div className="hidden sm:grid grid-cols-[68px_1fr_100px_70px_100px_36px] gap-2 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+                        <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Year</span>
+                        <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Team</span>
+                        <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Class</span>
+                        <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">OVR</span>
+                        <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Dev Trait</span>
+                        <span></span>
+                      </div>
+
+                      {activeYears.map((year, idx) => {
+                        const teamTid = formData.teamsByYear?.[year]
+                        const playerClass = formData.classByYear?.[year] || ''
+                        const ovr = formData.overallByYear?.[year] ?? ''
+                        const devTrait = formData.devTraitByYear?.[year] || ''
+                        const ovrChange = getOvrChange(year, idx)
+                        const teamName = teamTid ? getMascotName(teamTid, teams) : null
+                        const logoUrl = teamTid ? getTeamLogoByTid(teamTid, teams) : null
+
+                        return (
+                          <div key={year} className="border-b border-gray-100 last:border-b-0">
+                            {/* Desktop row */}
+                            <div className="hidden sm:grid grid-cols-[68px_1fr_100px_70px_100px_36px] gap-2 px-4 py-2.5 items-center hover:bg-gray-50/50">
+                              <input
+                                type="number"
+                                value={year}
+                                onChange={(e) => {
+                                  const newYear = parseInt(e.target.value)
+                                  if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
+                                }}
+                                className="w-full px-1 py-1.5 text-sm font-bold rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none text-gray-900 text-center bg-transparent"
+                              />
+                              <select
+                                value={teamTid || ''}
+                                onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                              >
+                                <option value="">--</option>
+                                {teamOptions.map(t => (
+                                  <option key={t.tid} value={t.tid}>{t.name}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={playerClass}
+                                onChange={(e) => updateYearField('classByYear', year, e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                              >
+                                <option value="">--</option>
+                                {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                              <div className="relative flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="99"
+                                  value={ovr}
+                                  onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : '')}
+                                  className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none text-gray-900 text-center"
+                                  placeholder="--"
+                                />
+                                {ovrChange !== null && ovrChange !== 0 && (
+                                  <span
+                                    className="absolute -top-2 -right-1 text-[10px] font-bold px-1 rounded"
+                                    style={{
+                                      backgroundColor: ovrChange > 0 ? '#dcfce7' : '#fee2e2',
+                                      color: ovrChange > 0 ? '#16a34a' : '#dc2626'
+                                    }}
+                                  >
+                                    {ovrChange > 0 ? '+' : ''}{ovrChange}
+                                  </span>
+                                )}
+                              </div>
+                              <select
+                                value={devTrait}
+                                onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                              >
+                                <option value="">--</option>
+                                {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => removeYear(year)}
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {/* Mobile card */}
+                            <div className="sm:hidden px-4 py-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    value={year}
+                                    onChange={(e) => {
+                                      const newYear = parseInt(e.target.value)
+                                      if (newYear && newYear > 1900 && newYear < 2100) changeYear(year, newYear)
+                                    }}
+                                    className="w-16 px-1 py-0.5 font-bold text-gray-900 rounded-lg border border-transparent hover:border-gray-200 focus:border-blue-500 focus:outline-none text-center bg-transparent"
+                                  />
+                                  {logoUrl && (
+                                    <img src={logoUrl} alt="" className="w-5 h-5 object-contain" />
+                                  )}
+                                  {teamName && <span className="text-xs text-gray-500">{teamName}</span>}
+                                  {ovrChange !== null && ovrChange !== 0 && (
+                                    <span
+                                      className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: ovrChange > 0 ? '#dcfce7' : '#fee2e2',
+                                        color: ovrChange > 0 ? '#16a34a' : '#dc2626'
+                                      }}
+                                    >
+                                      {ovrChange > 0 ? '+' : ''}{ovrChange}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeYear(year)}
+                                  className="text-gray-300 hover:text-red-500 p-1"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Team</label>
+                                  <select
+                                    value={teamTid || ''}
+                                    onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                                  >
+                                    <option value="">--</option>
+                                    {teamOptions.map(t => (
+                                      <option key={t.tid} value={t.tid}>{t.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Class</label>
+                                  <select
+                                    value={playerClass}
+                                    onChange={(e) => updateYearField('classByYear', year, e.target.value)}
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                                  >
+                                    <option value="">--</option>
+                                    {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">OVR</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="99"
+                                    value={ovr}
+                                    onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : '')}
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none text-gray-900 text-center"
+                                    placeholder="--"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-0.5">Dev Trait</label>
+                                  <select
+                                    value={devTrait}
+                                    onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
+                                    className="w-full px-2 py-1.5 text-sm rounded-lg border border-gray-200 focus:border-blue-500 focus:outline-none bg-white text-gray-900"
+                                  >
+                                    <option value="">--</option>
+                                    {DEV_TRAITS.map(d => <option key={d} value={d}>{d}</option>)}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Movement connector after this season */}
+                            <TransitionConnector year={year} />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
             {/* Recruiting & Entry Information Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
@@ -1240,47 +1655,8 @@ export default function PlayerEdit() {
                   </div>
                 </div>
 
-                {/* Entry Info Row */}
-                <div className="grid grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Entry Year
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.entryYear || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, entryYear: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
-                      placeholder="2024"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Entry Class
-                    </label>
-                    <select
-                      value={formData.entryClass || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, entryClass: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
-                    >
-                      <option value="">--</option>
-                      {CLASSES.map(cls => (
-                        <option key={cls} value={cls}>{cls}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                      Redshirt Year
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.redshirtYear || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, redshirtYear: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900"
-                      placeholder="None"
-                    />
-                  </div>
+                {/* Gem/Bust */}
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                       Gem/Bust
@@ -1307,30 +1683,11 @@ export default function PlayerEdit() {
                       value={formData.isPortal ? 'yes' : 'no'}
                       onChange={(e) => {
                         const isPortal = e.target.value === 'yes'
-                        setFormData(prev => {
-                          // Also update the current stint's reason to match
-                          const teamHistory = [...(prev.teamHistory || [])]
-                          // Find current stint (active one or last one)
-                          const currentStintIndex = teamHistory.findIndex(s => s.toYear === null || s.toYear === undefined)
-                          const stintIndex = currentStintIndex !== -1 ? currentStintIndex : teamHistory.length - 1
-
-                          if (stintIndex >= 0 && teamHistory[stintIndex]) {
-                            teamHistory[stintIndex] = {
-                              ...teamHistory[stintIndex],
-                              reason: isPortal ? 'portal_in' : 'recruited',
-                              // Clear transferFromTid if not a portal transfer
-                              transferFromTid: isPortal ? teamHistory[stintIndex].transferFromTid : null
-                            }
-                          }
-
-                          return {
-                            ...prev,
-                            isPortal,
-                            // Clear previousTeam if not a portal transfer
-                            previousTeam: isPortal ? prev.previousTeam : '',
-                            teamHistory
-                          }
-                        })
+                        setFormData(prev => ({
+                          ...prev,
+                          isPortal,
+                          previousTeam: isPortal ? prev.previousTeam : ''
+                        }))
                       }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                     >
@@ -1346,21 +1703,7 @@ export default function PlayerEdit() {
                       value={formData.previousTeam || ''}
                       onChange={(e) => {
                         const tid = e.target.value ? Number(e.target.value) : null
-                        setFormData(prev => {
-                          // Also update the current stint's transferFromTid
-                          const teamHistory = [...(prev.teamHistory || [])]
-                          const currentStintIndex = teamHistory.findIndex(s => s.toYear === null || s.toYear === undefined)
-                          const stintIndex = currentStintIndex !== -1 ? currentStintIndex : teamHistory.length - 1
-
-                          if (stintIndex >= 0 && teamHistory[stintIndex]) {
-                            teamHistory[stintIndex] = {
-                              ...teamHistory[stintIndex],
-                              transferFromTid: tid
-                            }
-                          }
-
-                          return { ...prev, previousTeam: tid, teamHistory }
-                        })
+                        setFormData(prev => ({ ...prev, previousTeam: tid }))
                       }}
                       className="w-full px-3 py-2.5 rounded-lg border-2 border-gray-300 focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white"
                       disabled={!formData.isPortal}
@@ -1379,42 +1722,6 @@ export default function PlayerEdit() {
               </div>
             </div>
 
-            {/* Career Timeline Card */}
-            <div
-              className="bg-white rounded-xl shadow-sm border border-gray-200"
-            >
-              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-                <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                  Career Timeline
-                </h2>
-              </div>
-
-              <div className="p-5">
-                <PlayerTimelineEditor
-                  teamHistory={formData.teamHistory || []}
-                  onChange={(newHistory) => {
-                    // Sync stint changes back to Recruiting Info
-                    const currentStint = newHistory.find(s => s.toYear === null || s.toYear === undefined) ||
-                                        newHistory[newHistory.length - 1]
-
-                    setFormData(prev => ({
-                      ...prev,
-                      teamHistory: newHistory,
-                      // Sync isPortal from current stint's reason
-                      isPortal: currentStint ? isTransferReason(currentStint.reason || currentStint.entryType) : prev.isPortal,
-                      // Sync previousTeam from current stint's transferFromTid
-                      previousTeam: currentStint?.transferFromTid || ''
-                    }))
-                  }}
-                  teams={dynasty?.teams || TEAMS}
-                  currentYear={dynasty?.currentYear}
-                  classByYear={formData.classByYear || {}}
-                  overallByYear={formData.overallByYear || {}}
-                  onOverallChange={updateOverallForYear}
-                  playerName={player?.name}
-                />
-              </div>
-            </div>
           </div>
         )}
 

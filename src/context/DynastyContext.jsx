@@ -2108,19 +2108,10 @@ export function getScheduleWithGameData(dynasty) {
  * @returns {boolean} True if player is on the team's roster
  */
 export function isPlayerOnRoster(player, tidOrAbbr, year) {
-  // STINT-BASED SYSTEM (preferred if player has been migrated)
-  // Use stint-based lookup if player has teamHistory AND entryYear is set (even if null)
-  // entryYear !== undefined indicates player was saved through the new system
-  if (player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined) {
-    return isPlayerOnRosterStintBased(player, tidOrAbbr, year)
-  }
+  // Honor-only players are never on active roster
+  if (player.isHonorOnly) return false
 
-  // LEGACY SYSTEM: teamsByYear is the source of truth
-  // IMPORTANT: teamsByYear values may be either:
-  // - tid (number) for new/migrated data
-  // - abbreviation (string) for legacy unmigrated data
-  // This function handles BOTH formats for backwards compatibility
-
+  // teamsByYear is the SINGLE source of truth for roster membership
   const yearNum = Number(year)
   const yearStr = String(year)
   const teamForYear = player.teamsByYear?.[yearNum] ?? player.teamsByYear?.[yearStr]
@@ -2135,30 +2126,24 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
 
   if (typeof tidOrAbbr === 'number') {
     lookupTid = tidOrAbbr
-    // Get abbr from tid for legacy data comparison
     const teamData = TEAMS[tidOrAbbr]
     lookupAbbr = teamData?.abbr
   } else if (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr)) {
-    // String that's a number (tid from URL)
     lookupTid = parseInt(tidOrAbbr, 10)
     const teamData = TEAMS[lookupTid]
     lookupAbbr = teamData?.abbr
   } else if (typeof tidOrAbbr === 'string') {
-    // Abbreviation string
     lookupAbbr = tidOrAbbr
     lookupTid = getTidFromAbbr(tidOrAbbr)
   }
 
   // Compare against the stored value (which could be tid or abbr)
   if (typeof teamForYear === 'number') {
-    // Stored as tid - compare with lookup tid
     return teamForYear === lookupTid
   } else if (typeof teamForYear === 'string') {
-    // Stored as abbr (legacy) - compare with lookup abbr, or convert and compare with tid
     if (teamForYear === lookupAbbr) {
       return true
     }
-    // Also try converting stored abbr to tid
     const storedTid = getTidFromAbbr(teamForYear)
     if (storedTid && storedTid === lookupTid) {
       return true
@@ -2168,611 +2153,19 @@ export function isPlayerOnRoster(player, tidOrAbbr, year) {
   return false
 }
 
-// ============================================================
-// STINT-BASED ROSTER SYSTEM (New - January 2026)
-// These functions use teamHistory[] instead of teamsByYear{}
-// ============================================================
-
-const CLASS_ORDER = ['Fr', 'So', 'Jr', 'Sr']
-const RS_CLASS_ORDER = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
-
 /**
- * Calculate a player's class for a given year using the stint-based system.
- * Class is derived from entryYear, entryClass, and redshirtYear.
- * ALWAYS falls back to legacy classByYear if calculation fails or produces null.
+ * Get a player's class for a given year.
+ * Uses classByYear as the source of truth.
  *
- * @param {Object} player - Player with entryYear, entryClass, redshirtYear fields
+ * @param {Object} player - Player object
  * @param {number} year - The year to get class for
- * @returns {string|null} Class string (Fr, So, Jr, Sr, RS Fr, etc.) or null if graduated AND no legacy data
+ * @returns {string|null} Class string or null
  */
 export function getPlayerClassForYear(player, year) {
   const yearNum = Number(year)
   const yearStr = String(year)
-
-  // Helper to get legacy class
-  const getLegacyClass = () => {
-    return player.classByYear?.[yearNum] ?? player.classByYear?.[yearStr] ??
-           player._legacy_classByYear?.[yearNum] ?? player._legacy_classByYear?.[yearStr] ??
-           player.year ?? null
-  }
-
-  // If player doesn't have new fields, fall back to legacy classByYear
-  if (!player.entryYear || !player.entryClass) {
-    return getLegacyClass()
-  }
-
-  if (yearNum < player.entryYear) {
-    // Year before they joined - check legacy data in case we got entryYear wrong
-    return getLegacyClass()
-  }
-
-  const yearsSinceEntry = yearNum - player.entryYear
-  const entryIsRS = player.entryClass?.startsWith('RS ')
-  const baseEntryClass = (player.entryClass || 'Fr').replace('RS ', '')
-
-  // Find entry position on the BASE class track (Fr/So/Jr/Sr)
-  const entryIndex = CLASS_ORDER.indexOf(baseEntryClass)
-  if (entryIndex === -1) {
-    // Invalid class - fall back to legacy
-    return getLegacyClass()
-  }
-
-  // Handle redshirt progression correctly
-  let track, currentIndex
-
-  if (entryIsRS) {
-    // Player entered as RS (e.g., "RS Fr") - they're already on RS track from day 1
-    track = RS_CLASS_ORDER
-    currentIndex = entryIndex + yearsSinceEntry
-  } else if (player.redshirtYear !== null) {
-    // Player has a redshirt year
-    const yearsBeforeRedshirt = player.redshirtYear - player.entryYear
-    const yearsAfterRedshirt = Math.max(0, yearNum - player.redshirtYear)
-
-    if (yearNum < player.redshirtYear) {
-      // Before redshirt year - normal progression
-      track = CLASS_ORDER
-      currentIndex = entryIndex + yearsSinceEntry
-    } else if (yearNum === player.redshirtYear && player.redshirtYear === player.entryYear) {
-      // Redshirting in entry year - they should be RS Fr immediately
-      track = RS_CLASS_ORDER
-      currentIndex = entryIndex
-    } else if (yearNum === player.redshirtYear) {
-      // During redshirt year (but not entry year)
-      track = CLASS_ORDER
-      currentIndex = entryIndex + yearsSinceEntry
-    } else {
-      // After redshirt year - on RS track
-      track = RS_CLASS_ORDER
-      // Position = years before redshirt + years after redshirt
-      // We don't count the redshirt year itself in progression
-      currentIndex = entryIndex + yearsBeforeRedshirt + yearsAfterRedshirt
-    }
-  } else {
-    // Normal progression on regular track (no redshirt)
-    track = CLASS_ORDER
-    currentIndex = entryIndex + yearsSinceEntry
-  }
-
-  const calculatedClass = track[currentIndex]
-
-  // If calculation says graduated (null), fall back to legacy data
-  // This handles cases where our entry detection was wrong
-  if (calculatedClass === undefined || calculatedClass === null) {
-    return getLegacyClass()
-  }
-
-  return calculatedClass
+  return player.classByYear?.[yearNum] ?? player.classByYear?.[yearStr] ?? player.year ?? null
 }
-
-/**
- * Check if player is on roster using stint-based teamHistory.
- * Falls back to legacy teamsByYear if teamHistory not present.
- * NOTE: This ONLY checks roster membership, NOT graduation status.
- * Class/graduation is handled by getPlayerClassForYear which falls back to legacy data.
- *
- * @param {Object} player - Player object with teamHistory or teamsByYear
- * @param {number} teamTid - Team ID to check
- * @param {number} year - Year to check
- * @returns {boolean} True if player is on the team's roster for that year
- */
-export function isPlayerOnRosterStintBased(player, teamTid, year) {
-  // Honor-only players are never on active roster
-  if (player.isHonorOnly) return false
-
-  const yearNum = Number(year)
-  let tidNum = Number(teamTid)
-
-  // Handle string tid or abbreviation
-  if (isNaN(tidNum) && typeof teamTid === 'string') {
-    tidNum = getTidFromAbbr(teamTid)
-  }
-
-  // Helper to check if stint is "open" (active - no end date)
-  const isStintOpen = (s) => s.toYear === null || s.toYear === undefined
-
-  // If player has new teamHistory, use that for roster membership
-  if (player.teamHistory && player.teamHistory.length > 0) {
-    // Find stint that covers this year on this team
-    const stint = player.teamHistory.find(s =>
-      Number(s.teamTid) === tidNum &&
-      yearNum >= Number(s.fromYear) &&
-      (isStintOpen(s) || yearNum <= Number(s.toYear))
-    )
-
-    if (stint) return true
-
-    // Check if player has ANY stint for this team (even if closed)
-    // If they have a closed stint, they left - don't use legacy fallback
-    const hasClosedStintForTeam = player.teamHistory.some(s =>
-      Number(s.teamTid) === tidNum && !isStintOpen(s) && yearNum > Number(s.toYear)
-    )
-
-    if (hasClosedStintForTeam) {
-      // Player had a stint at this team that ended - they left, don't include
-      return false
-    }
-
-    // Only use legacy fallback if player never had a stint at this team
-    // This handles cases where teamHistory derivation missed something entirely
-    const hasAnyStintForTeam = player.teamHistory.some(s => Number(s.teamTid) === tidNum)
-    if (!hasAnyStintForTeam) {
-      const legacyTeamsByYear = player._legacy_teamsByYear || player.teamsByYear || {}
-      const teamForYear = legacyTeamsByYear[yearNum] ?? legacyTeamsByYear[String(yearNum)]
-      if (teamForYear) {
-        const legacyTid = typeof teamForYear === 'number' ? teamForYear : getTidFromAbbr(teamForYear)
-        if (legacyTid === tidNum) {
-          return true
-        }
-      }
-    }
-
-    return false
-  }
-
-  // Fall back to legacy teamsByYear lookup
-  const teamsByYear = player.teamsByYear || {}
-  const teamForYear = teamsByYear[yearNum] ?? teamsByYear[String(yearNum)]
-  if (!teamForYear) return false
-
-  const storedTid = typeof teamForYear === 'number' ? teamForYear : getTidFromAbbr(teamForYear)
-  return storedTid === tidNum
-}
-
-/**
- * Derive teamHistory array from legacy teamsByYear object.
- * Groups consecutive years on same team into stints.
- *
- * @param {Object} teamsByYear - Legacy { year: tid } mapping
- * @param {Array} movements - Optional movements array for stint reasons
- * @returns {Array} Array of stint objects
- */
-export function deriveTeamHistory(teamsByYear, movements = []) {
-  if (!teamsByYear || Object.keys(teamsByYear).length === 0) return []
-
-  const years = Object.keys(teamsByYear).map(Number).sort((a, b) => a - b)
-  const stints = []
-  let currentStint = null
-
-  for (const year of years) {
-    let teamTid = teamsByYear[year]
-
-    // Skip null/undefined values - they indicate failed conversions
-    if (teamTid === null || teamTid === undefined) {
-      continue
-    }
-
-    // Handle legacy abbr strings
-    if (typeof teamTid === 'string') {
-      const converted = getTidFromAbbr(teamTid)
-      if (converted) {
-        teamTid = converted
-      } else {
-        // Can't convert string to tid - skip this year to avoid NaN
-        console.warn(`[deriveTeamHistory] Cannot convert "${teamTid}" to tid for year ${year}, skipping`)
-        continue
-      }
-    }
-
-    // Ensure it's a valid number
-    const tidNum = Number(teamTid)
-    if (isNaN(tidNum) || tidNum <= 0) {
-      console.warn(`[deriveTeamHistory] Invalid teamTid ${teamTid} for year ${year}, skipping`)
-      continue
-    }
-    teamTid = tidNum
-
-    if (!currentStint || currentStint.teamTid !== teamTid) {
-      // End previous stint
-      if (currentStint) {
-        currentStint.toYear = year - 1
-      }
-
-      // Determine reason from movements
-      let reason = stints.length === 0 ? 'recruited' : 'transfer'
-      const movementForYear = movements.find(m =>
-        Number(m.year) === year &&
-        (m.type === 'portal_in' || m.type === 'transfer' || m.type === 'recruited' || m.type === 'recommit')
-      )
-      if (movementForYear) {
-        reason = movementForYear.type
-      }
-
-      // Start new stint
-      currentStint = {
-        teamTid: Number(teamTid),
-        fromYear: year,
-        toYear: null, // Ongoing until we know otherwise
-        reason
-      }
-      stints.push(currentStint)
-    }
-  }
-
-  return stints
-}
-
-/**
- * Detect when a player redshirted by looking for RS transition in classByYear.
- * E.g., Fr -> RS Fr means they redshirted that freshman year.
- *
- * @param {Object} classByYear - Legacy { year: class } mapping
- * @returns {number|null} Year they redshirted, or null if never
- */
-export function detectRedshirtYear(classByYear) {
-  if (!classByYear) return null
-
-  const years = Object.keys(classByYear).map(Number).sort((a, b) => a - b)
-
-  for (let i = 0; i < years.length - 1; i++) {
-    const thisYear = years[i]
-    const nextYear = years[i + 1]
-    const thisClass = classByYear[thisYear] || classByYear[String(thisYear)]
-    const nextClass = classByYear[nextYear] || classByYear[String(nextYear)]
-
-    // Detect: Fr -> RS Fr, So -> RS So, etc.
-    if (thisClass && nextClass &&
-        !thisClass.startsWith('RS ') &&
-        nextClass === `RS ${thisClass}`) {
-      return thisYear
-    }
-  }
-
-  return null
-}
-
-/**
- * Migrate a single player to the new stint-based system.
- * Preserves legacy fields for rollback.
- *
- * IMPORTANT: This is a conservative migration that:
- * - Derives teamHistory for roster membership only
- * - Keeps legacy classByYear for class lookups (getPlayerClassForYear falls back to it)
- * - Only sets entryYear/entryClass if we can reliably determine them
- *
- * @param {Object} player - Player to migrate
- * @returns {Object} Migrated player with new fields
- */
-export function migratePlayerToStintSystem(player) {
-  // Skip if already migrated
-  if (player.teamHistory && player.entryYear !== undefined) {
-    return player
-  }
-
-  // Skip honor-only players (they don't need roster tracking)
-  if (player.isHonorOnly) {
-    return player
-  }
-
-  // Derive teamHistory from teamsByYear
-  const teamHistory = deriveTeamHistory(player.teamsByYear, player.movements)
-
-  // Get all years we have data for
-  const teamsByYearKeys = Object.keys(player.teamsByYear || {}).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
-  const classByYearKeys = Object.keys(player.classByYear || {}).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
-
-  // CRITICAL: Close stint for graduated players
-  // If their last known class was Sr or RS Sr, they graduated and the stint should end
-  if (teamHistory.length > 0 && classByYearKeys.length > 0) {
-    const lastClassYear = classByYearKeys[classByYearKeys.length - 1]
-    const lastClass = player.classByYear?.[lastClassYear] || player.classByYear?.[String(lastClassYear)]
-    const lastStint = teamHistory[teamHistory.length - 1]
-
-    // DEBUG: Log graduation check
-    if (player.name && (player.name.includes('Underwood') || player.name.includes('Jeremiah Smith'))) {
-      console.log(`[Migration] ${player.name}: lastClassYear=${lastClassYear}, lastClass=${lastClass}, lastStint=`, lastStint)
-    }
-
-    // Check if graduated (Sr or RS Sr)
-    if (lastClass === 'Sr' || lastClass === 'RS Sr') {
-      // Close the stint at the year they graduated
-      if (lastStint && lastStint.toYear === null) {
-        lastStint.toYear = lastClassYear
-        lastStint.endReason = 'graduated'
-        console.log(`[Migration] ${player.name}: CLOSED stint due to graduation in ${lastClassYear}`)
-      }
-    }
-
-    // Also check for departure movements (entered portal, transfer out, etc.)
-    const departureMovement = player.movements?.find(m =>
-      m.type === 'departure' || m.type === 'entered_portal' || m.type === 'encouraged_transfer'
-    )
-    if (departureMovement && lastStint && lastStint.toYear === null) {
-      const departureYear = Number(departureMovement.year)
-      if (!isNaN(departureYear)) {
-        lastStint.toYear = departureYear
-        lastStint.endReason = departureMovement.type
-      }
-    }
-  }
-
-  // Derive entryYear - when they ENROLLED (not recruited)
-  // recruitYear is the year BEFORE they enrolled (when they committed)
-  let entryYear = null
-  if (player.recruitYear) {
-    // recruitYear + 1 = enrollment year for HS players
-    // But for transfers, recruitYear might be the transfer year itself
-    const recruitYearNum = Number(player.recruitYear)
-    if (player.isPortal || player.previousTeam) {
-      // Portal transfer - recruitYear IS the enrollment year
-      entryYear = recruitYearNum
-    } else {
-      // HS recruit - enrolled the year after recruiting
-      entryYear = recruitYearNum + 1
-    }
-  } else if (classByYearKeys.length > 0) {
-    // Use earliest class year as entry year
-    entryYear = classByYearKeys[0]
-  } else if (teamsByYearKeys.length > 0) {
-    // Fall back to earliest team year
-    entryYear = teamsByYearKeys[0]
-  }
-
-  // Derive entryClass - what class they were when they joined
-  let entryClass = null
-  if (entryYear !== null) {
-    // Try to get their class in their entry year
-    entryClass = player.classByYear?.[entryYear] ||
-      player.classByYear?.[String(entryYear)]
-
-    // If no class for entry year, check if we have any class data at all
-    if (!entryClass && classByYearKeys.length > 0) {
-      // Get earliest known class and work backwards
-      const earliestClassYear = classByYearKeys[0]
-      const earliestClass = player.classByYear?.[earliestClassYear] || player.classByYear?.[String(earliestClassYear)]
-
-      if (earliestClass && earliestClassYear > entryYear) {
-        // We need to regress the class back to entry year
-        const yearsToRegress = earliestClassYear - entryYear
-        const baseClass = earliestClass.replace('RS ', '')
-        const isRS = earliestClass.startsWith('RS ')
-        const classIndex = CLASS_ORDER.indexOf(baseClass)
-
-        if (classIndex !== -1 && classIndex >= yearsToRegress) {
-          const regressedIndex = classIndex - yearsToRegress
-          entryClass = isRS ? RS_CLASS_ORDER[regressedIndex] : CLASS_ORDER[regressedIndex]
-        }
-      }
-    }
-
-    // Final fallback
-    if (!entryClass) {
-      entryClass = player.year || 'Fr'
-    }
-  } else {
-    entryClass = player.year || 'Fr'
-  }
-
-  // Derive redshirtYear
-  const redshirtYear = detectRedshirtYear(player.classByYear)
-
-  return {
-    ...player,
-    teamHistory,
-    entryYear,
-    entryClass,
-    redshirtYear,
-    // Keep legacy fields for safety/rollback - CRITICAL for fallback lookups
-    _legacy_teamsByYear: player.teamsByYear,
-    _legacy_classByYear: player.classByYear,
-    // Migration marker - helps track which version of teamHistory we're seeing
-    _teamHistoryMigratedAt: Date.now(),
-  }
-}
-
-/**
- * Validate that migrated player produces same results as legacy system.
- * NOTE: This is now more lenient since we keep legacy data as fallbacks.
- * Class mismatches are just informational - the system uses legacy classByYear anyway.
- *
- * @param {Object} player - Migrated player
- * @returns {Array} Array of error messages (empty if valid)
- */
-export function validatePlayerMigration(player) {
-  const errors = []
-
-  // Check roster membership for every year in legacy data
-  // This is the CRITICAL check - we need roster membership to work
-  const legacyTeamsByYear = player._legacy_teamsByYear || player.teamsByYear || {}
-  for (const [yearStr, tid] of Object.entries(legacyTeamsByYear)) {
-    const year = Number(yearStr)
-    const tidNum = typeof tid === 'number' ? tid : getTidFromAbbr(tid)
-    if (!tidNum) continue
-
-    const newResult = isPlayerOnRosterStintBased(player, tidNum, year)
-    if (!newResult) {
-      errors.push(`Roster mismatch: ${player.name} should be on team ${tid} in ${year}`)
-    }
-  }
-
-  // Check class for every year in legacy data
-  const legacyClassByYear = player._legacy_classByYear || player.classByYear || {}
-  for (const [yearStr, oldClass] of Object.entries(legacyClassByYear)) {
-    const year = Number(yearStr)
-    const newClass = getPlayerClassForYear(player, year)
-    if (oldClass !== newClass) {
-      errors.push(`Class mismatch: ${player.name} in ${year} - legacy="${oldClass}", new="${newClass}"`)
-    }
-  }
-
-  return errors
-}
-
-/**
- * Revert a player from stint-based system back to legacy.
- *
- * @param {Object} player - Migrated player
- * @returns {Object} Player with legacy fields restored
- */
-export function revertPlayerFromStintSystem(player) {
-  const reverted = { ...player }
-
-  // Restore legacy fields if they exist
-  if (player._legacy_teamsByYear) {
-    reverted.teamsByYear = player._legacy_teamsByYear
-  }
-  if (player._legacy_classByYear) {
-    reverted.classByYear = player._legacy_classByYear
-  }
-
-  // Remove new fields
-  delete reverted.teamHistory
-  delete reverted.entryYear
-  delete reverted.entryClass
-  delete reverted.redshirtYear
-  delete reverted._legacy_teamsByYear
-  delete reverted._legacy_classByYear
-
-  return reverted
-}
-
-// ============================================================
-// END STINT-BASED ROSTER SYSTEM - Individual Functions
-// ============================================================
-
-// ============================================================
-// BATCH MIGRATION FUNCTIONS (for DangerZone tool)
-// ============================================================
-
-/**
- * Run migration on all players in dry-run mode (no save).
- * Returns detailed results for user review.
- *
- * @param {Object} dynasty - Dynasty object
- * @returns {Object} Migration results with stats and details
- */
-export function dryRunStintMigration(dynasty) {
-  if (!dynasty?.players?.length) {
-    return {
-      success: false,
-      message: 'No players found in dynasty',
-      stats: { total: 0, migrated: 0, skipped: 0, errors: 0 },
-      details: []
-    }
-  }
-
-  const results = {
-    stats: { total: 0, migrated: 0, skipped: 0, errors: 0, warnings: 0 },
-    details: [],
-    migratedPlayers: []
-  }
-
-  for (const player of dynasty.players) {
-    results.stats.total++
-
-    // Skip honor-only players
-    if (player.isHonorOnly) {
-      results.stats.skipped++
-      results.details.push({
-        name: player.name,
-        status: 'skipped',
-        reason: 'Honor-only player'
-      })
-      continue
-    }
-
-    // Skip already migrated
-    if (player.teamHistory && player.entryYear !== undefined) {
-      results.stats.skipped++
-      results.details.push({
-        name: player.name,
-        status: 'skipped',
-        reason: 'Already migrated'
-      })
-      continue
-    }
-
-    try {
-      // Migrate
-      const migrated = migratePlayerToStintSystem(player)
-      results.migratedPlayers.push(migrated)
-
-      // Validate
-      const validationErrors = validatePlayerMigration(migrated)
-      if (validationErrors.length > 0) {
-        results.stats.warnings++
-        results.details.push({
-          name: player.name,
-          status: 'warning',
-          reason: `Migration has ${validationErrors.length} validation issue(s)`,
-          validationErrors,
-          migrated
-        })
-      } else {
-        results.stats.migrated++
-        results.details.push({
-          name: player.name,
-          status: 'success',
-          migrated
-        })
-      }
-    } catch (err) {
-      results.stats.errors++
-      results.details.push({
-        name: player.name,
-        status: 'error',
-        reason: err.message
-      })
-    }
-  }
-
-  return {
-    success: results.stats.errors === 0,
-    message: `Dry run complete: ${results.stats.migrated} would migrate, ${results.stats.skipped} skipped, ${results.stats.warnings} warnings, ${results.stats.errors} errors`,
-    ...results
-  }
-}
-
-/**
- * Check if a dynasty is already migrated to stint system.
- *
- * @param {Object} dynasty - Dynasty object
- * @returns {Object} Migration status
- */
-export function checkStintMigrationStatus(dynasty) {
-  if (!dynasty?.players?.length) {
-    return { migrated: false, partial: false, playerCount: 0 }
-  }
-
-  const rosterPlayers = dynasty.players.filter(p => !p.isHonorOnly)
-  const migratedCount = rosterPlayers.filter(p =>
-    p.teamHistory && p.entryYear !== undefined
-  ).length
-
-  return {
-    migrated: migratedCount === rosterPlayers.length,
-    partial: migratedCount > 0 && migratedCount < rosterPlayers.length,
-    migratedCount,
-    totalCount: rosterPlayers.length,
-    percentage: rosterPlayers.length > 0
-      ? Math.round((migratedCount / rosterPlayers.length) * 100)
-      : 0
-  }
-}
-
-// ============================================================
-// END STINT-BASED ROSTER SYSTEM
-// ============================================================
 
 /**
  * Get the current team's roster (non-honor-only players for current team)
@@ -3663,17 +3056,9 @@ export function migrateRosterData(dynasty) {
       // Check if they've enrolled (not a future recruit)
       const hasEnrolled = !player.recruitYear || Number(currentYear) > Number(player.recruitYear)
 
-      // CRITICAL: Also check if player has departed via teamHistory or movements
+      // CRITICAL: Also check if player has departed via movements
       // This prevents re-adding players that were fixed by "Fix Roster" button
       const previousYear = currentYear - 1
-
-      // Check if player has a closed teamHistory stint (they left the team)
-      const hasClosedStint = player.teamHistory && player.teamHistory.some(stint => {
-        const stintTeamMatches = Number(stint.teamTid) === teamTid
-        const stintClosed = stint.toYear !== null && stint.toYear !== undefined
-        const stintEndedBeforeCurrentYear = stintClosed && Number(stint.toYear) < currentYear
-        return stintTeamMatches && stintEndedBeforeCurrentYear
-      })
 
       // Check if player has a departure movement from this team
       const hasDepartureMovement = (player.movements || []).some(m => {
@@ -3698,7 +3083,7 @@ export function migrateRosterData(dynasty) {
       )
 
       // Player has departed - don't re-add them
-      const hasActuallyDeparted = hasClosedStint || hasDepartureMovement || isInLeavingList
+      const hasActuallyDeparted = hasDepartureMovement || isInLeavingList
 
       if (isOnCurrentTeam && notLeaving && hasEnrolled && !hasActuallyDeparted) {
         const existingTeamsByYear = modifiedPlayer.teamsByYear || {}
@@ -7352,20 +6737,8 @@ export function DynastyProvider({ children }) {
       console.log('[advanceWeek] Players Leaving count:', playersLeavingList.length)
 
       // Helper to check if player was on THIS team last season
-      // Uses BOTH systems: stint-based (if migrated) or teamsByYear (legacy)
       const wasOnTeamLastSeason = (player) => {
-        // STINT-BASED SYSTEM (preferred if migrated)
-        // Check if player has teamHistory - if so, use stint-based lookup
-        if (player.teamHistory && player.teamHistory.length > 0) {
-          return isPlayerOnRosterStintBased(player, teamTid, previousSeasonYear)
-        }
-
-        // LEGACY SYSTEM: Check teamsByYear directly
-        const teamLastYear = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
-        if (!teamLastYear) return false // No record = not on roster last year
-        // Check if it matches this team
-        if (typeof teamLastYear === 'number') return teamLastYear === teamTid
-        return getTidFromAbbr(teamLastYear) === teamTid
+        return isPlayerOnRoster(player, teamTid, previousSeasonYear)
       }
 
       // Helper to check if player is leaving
@@ -7394,10 +6767,6 @@ export function DynastyProvider({ children }) {
       })
       console.log(`[advanceWeek] Players with teamsByYear[${previousSeasonYear}]: ${playersWithPrevYear.length}`)
 
-      // Debug: Count stint-based players
-      const stintBasedPlayers = allPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0 && p.entryYear !== undefined)
-      console.log(`[advanceWeek] Stint-based players (migrated): ${stintBasedPlayers.length}`)
-
       const processedPlayers = allPlayers.map(player => {
         // Skip honor-only players (historical records)
         if (player.isHonorOnly) {
@@ -7412,19 +6781,7 @@ export function DynastyProvider({ children }) {
         }
 
         // Skip players who already have nextYear set (already processed)
-        // For stint-based players, an ongoing stint (toYear: null) covers future years
-        const isStintBasedPlayer = player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined
-        let hasNextYear = false
-
-        if (isStintBasedPlayer) {
-          // Stint-based: check if they already have an ongoing stint at this team
-          hasNextYear = player.teamHistory.some(stint =>
-            Number(stint.teamTid) === teamTid && stint.toYear === null
-          ) && player.classByYear?.[nextYear] // Only skip if classByYear also has nextYear (fully processed)
-        } else {
-          // Legacy: check teamsByYear directly
-          hasNextYear = player.teamsByYear?.[nextYear] ?? player.teamsByYear?.[String(nextYear)]
-        }
+        const hasNextYear = player.teamsByYear?.[nextYear] ?? player.teamsByYear?.[String(nextYear)]
 
         if (hasNextYear) {
           alreadyHadNextYear++
@@ -7445,95 +6802,58 @@ export function DynastyProvider({ children }) {
 
           // Check if player is graduating (Sr or RS Sr)
           if (otherTeamClass === 'Sr' || otherTeamClass === 'RS Sr') {
-            // Graduate this player - close their stint
-            if (player.teamHistory && player.teamHistory.length > 0) {
-              const updatedHistory = player.teamHistory.map(stint => {
-                // Close any open stints
-                if (stint.toYear === null || stint.toYear === undefined) {
-                  return { ...stint, toYear: previousSeasonYear, endReason: 'graduation' }
-                }
-                return stint
-              })
-              return { ...player, teamHistory: updatedHistory }
-            }
-            // For legacy players without teamHistory, just return unchanged
-            // They won't be added to next year since teamsByYear won't have nextYear
+            // Graduate this player - don't add next year to teamsByYear
             return player
           }
 
           // Not graduating - advance their class
           const newOtherClass = CLASS_PROGRESSION[otherTeamClass] || otherTeamClass
 
-          // Get their current team tid (from most recent stint or teamsByYear)
-          let otherTeamTid = null
-          if (player.teamHistory && player.teamHistory.length > 0) {
-            // Find their active stint
-            const activeStint = player.teamHistory.find(s => s.toYear === null || s.toYear === undefined)
-            otherTeamTid = activeStint?.teamTid
-          }
-          if (!otherTeamTid) {
-            otherTeamTid = player.teamsByYear?.[previousSeasonYear] ||
-                           player.teamsByYear?.[String(previousSeasonYear)] ||
-                           player.team
-          }
+          // Get their current team tid from teamsByYear
+          const otherTeamTid = player.teamsByYear?.[previousSeasonYear] ||
+                         player.teamsByYear?.[String(previousSeasonYear)] ||
+                         player.team
 
-          // Update the player with new class
-          const updatedOtherPlayer = {
+          return {
             ...player,
             year: newOtherClass,
             classByYear: {
               ...(player.classByYear || {}),
               [nextYear]: newOtherClass
-            }
-          }
-
-          // For legacy players (no teamHistory), also update teamsByYear
-          if (!player.teamHistory || player.teamHistory.length === 0) {
-            if (otherTeamTid) {
-              updatedOtherPlayer.teamsByYear = {
+            },
+            ...(otherTeamTid ? {
+              teamsByYear: {
                 ...(player.teamsByYear || {}),
                 [nextYear]: otherTeamTid
               }
-            }
+            } : {}),
+            ...(player.devTrait ? {
+              devTraitByYear: {
+                ...(player.devTraitByYear || {}),
+                [nextYear]: player.devTrait
+              }
+            } : {}),
+            ...(player.overall ? {
+              overallByYear: {
+                ...(player.overallByYear || {}),
+                [nextYear]: player.overall
+              }
+            } : {})
           }
-          // For stint-based players, their open stint already covers the next year
-
-          return updatedOtherPlayer
         }
 
         // Check if player is leaving
         if (isPlayerLeaving(player)) {
           notCarriedOver++
-
-          // STINT-BASED SYSTEM: Close their current stint when they leave
-          if (player.teamHistory && player.teamHistory.length > 0) {
-            const updatedHistory = player.teamHistory.map(stint => {
-              // Find the active stint at this team and close it
-              if (Number(stint.teamTid) === teamTid && stint.toYear === null) {
-                return { ...stint, toYear: previousSeasonYear }
-              }
-              return stint
-            })
-            return { ...player, teamHistory: updatedHistory }
-          }
-
+          // Don't add next year to teamsByYear - player is leaving
           return player
         }
 
         // ========== CARRY OVER THIS PLAYER ==========
         carriedOver++
 
-        // STINT-BASED SYSTEM: Check if player has teamHistory
-        const isStintBased = player.teamHistory && player.teamHistory.length > 0 && player.entryYear !== undefined
-
         // Get their class for progression
-        // For stint-based: use getPlayerClassForYear(); for legacy: use classByYear
-        let currentClass
-        if (isStintBased) {
-          currentClass = getPlayerClassForYear(player, previousSeasonYear) || player.year
-        } else {
-          currentClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
-        }
+        const currentClass = player.classByYear?.[previousSeasonYear] || player.classByYear?.[String(previousSeasonYear)] || player.year
         const isAlreadyRS = currentClass?.startsWith('RS ')
 
         // Get games played to determine redshirt
@@ -7550,10 +6870,6 @@ export function DynastyProvider({ children }) {
         if (gamesPlayed !== null && gamesPlayed !== undefined) {
           if (gamesPlayed <= 4 && !isAlreadyRS) {
             newClass = 'RS ' + currentClass // Redshirt
-            // For stint-based: set redshirtYear if not already set
-            if (isStintBased && player.redshirtYear === null) {
-              player = { ...player, redshirtYear: previousSeasonYear }
-            }
           } else {
             newClass = CLASS_PROGRESSION[currentClass] || currentClass
           }
@@ -7561,22 +6877,7 @@ export function DynastyProvider({ children }) {
           newClass = CLASS_PROGRESSION[currentClass] || currentClass
         }
 
-        // For STINT-BASED players: No need to update teamsByYear - stint continues automatically!
-        // Just update the year field and classByYear for backward compatibility
-        if (isStintBased) {
-          return {
-            ...player,
-            year: newClass,
-            // Still update classByYear for backward compatibility with displays
-            classByYear: {
-              ...(player.classByYear || {}),
-              [nextYear]: newClass
-            }
-            // NOTE: teamsByYear NOT updated - stint system handles roster membership automatically
-          }
-        }
-
-        // For LEGACY players: Add teamsByYear entry as before
+        // Add teamsByYear entry for next year and update class + carry forward dev trait and overall
         return {
           ...player,
           year: newClass,
@@ -7587,7 +6888,19 @@ export function DynastyProvider({ children }) {
           teamsByYear: {
             ...(player.teamsByYear || {}),
             [nextYear]: teamTid
-          }
+          },
+          ...(player.devTrait ? {
+            devTraitByYear: {
+              ...(player.devTraitByYear || {}),
+              [nextYear]: player.devTrait
+            }
+          } : {}),
+          ...(player.overall ? {
+            overallByYear: {
+              ...(player.overallByYear || {}),
+              [nextYear]: player.overall
+            }
+          } : {})
         }
       })
 
@@ -7876,7 +7189,11 @@ export function DynastyProvider({ children }) {
         delete updatedTeamsByYear[String(currentSeasonYear)]
         return {
           ...player,
-          teamsByYear: updatedTeamsByYear
+          teamsByYear: updatedTeamsByYear,
+          movementByYear: {
+            ...(player.movementByYear || {}),
+            [previousSeasonYear]: { type: 'encouraged_to_transfer' }
+          }
         }
       }
 
@@ -7919,9 +7236,15 @@ export function DynastyProvider({ children }) {
           ...(player.movements || []),
           { year: previousSeasonYear, type: 'departure', from: teamTid, reason: 'Graduating' } // ALWAYS use tid
         ]
+        // Also set movementByYear for the new system
+        const updatedMovementByYear = {
+          ...(player.movementByYear || {}),
+          [previousSeasonYear]: { type: 'graduated' }
+        }
         return {
           ...player,
-          movements: updatedMovements
+          movements: updatedMovements,
+          movementByYear: updatedMovementByYear
         }
       }
 
@@ -7993,7 +7316,19 @@ export function DynastyProvider({ children }) {
       return {
         ...player,
         teamsByYear: updatedTeamsByYear,
-        classByYear: updatedClassByYear
+        classByYear: updatedClassByYear,
+        ...(player.devTrait ? {
+          devTraitByYear: {
+            ...(player.devTraitByYear || {}),
+            [currentSeasonYear]: player.devTrait
+          }
+        } : {}),
+        ...(player.overall ? {
+          overallByYear: {
+            ...(player.overallByYear || {}),
+            [currentSeasonYear]: player.overall
+          }
+        } : {})
       }
     })
 
@@ -9007,6 +8342,15 @@ export function DynastyProvider({ children }) {
             }
           : existingPlayer.overallByYear || {}
 
+        // Track dev trait for this season
+        const playerDevTrait = player.devTrait || existingPlayer.devTrait
+        const updatedDevTraitByYear = playerDevTrait
+          ? {
+              ...(existingPlayer.devTraitByYear || {}),
+              [year]: playerDevTrait
+            }
+          : existingPlayer.devTraitByYear || {}
+
         return {
           // Start with ALL existing player data (preserves everything by default)
           ...existingPlayer,
@@ -9035,7 +8379,9 @@ export function DynastyProvider({ children }) {
           // IMMUTABLE class history - records what class player was each year
           classByYear: updatedClassByYear,
           // IMMUTABLE overall history - records what overall player had each year
-          overallByYear: updatedOverallByYear
+          overallByYear: updatedOverallByYear,
+          // IMMUTABLE dev trait history - records what dev trait player had each year
+          devTraitByYear: updatedDevTraitByYear
           // ALL other fields (recruitYear, yearStarted, isRecruit, isPortal, stars, etc.)
           // are automatically preserved from ...existingPlayer and NOT overwritten
         }
@@ -9056,12 +8402,15 @@ export function DynastyProvider({ children }) {
         id,
         team: teamTid,
         yearStarted: player.yearStarted || year,
+        entryReason: 'created',
         // IMMUTABLE roster history - this player is on this team this year (tid)
         teamsByYear: { [year]: teamsByYearValue },
         // IMMUTABLE class history - record this player's class for this year
         classByYear: { [year]: player.year },
         // IMMUTABLE overall history - record this player's overall for this year
         overallByYear: player.overall ? { [year]: player.overall } : {},
+        // IMMUTABLE dev trait history - record this player's dev trait for this year
+        devTraitByYear: player.devTrait ? { [year]: player.devTrait } : {},
         // Movement history for tracking career path
         movements: [addedMovement]
       }
@@ -10613,8 +9962,6 @@ export function DynastyProvider({ children }) {
 
       let modified = false
       let updatedTeamsByYear = { ...(player.teamsByYear || {}) }
-      // Track teamHistory updates for stint-based players
-      let updatedTeamHistory = player.teamHistory ? [...player.teamHistory] : null
 
       // Check for departure movements - player should not have teamsByYear entries AFTER their departure year
       // Handle both tid (number) and legacy abbr (string) in movement.from
@@ -10653,17 +10000,6 @@ export function DynastyProvider({ children }) {
               }
             })
 
-            // CRITICAL: Also close teamHistory stint for stint-based players
-            if (updatedTeamHistory && updatedTeamHistory.length > 0) {
-              updatedTeamHistory = updatedTeamHistory.map(stint => {
-                // Find open stint for this team that should be closed at departure year
-                if (Number(stint.teamTid) === teamTid && (stint.toYear === null || Number(stint.toYear) > earliestDeparture)) {
-                  console.log(`[cleanupRosterData] Closing teamHistory stint for ${player.name} at departure year ${earliestDeparture}`)
-                  return { ...stint, toYear: earliestDeparture }
-                }
-                return stint
-              })
-            }
           }
         }
       }
@@ -10758,7 +10094,6 @@ export function DynastyProvider({ children }) {
 
         // If player should NOT be on roster but IS, remove them
         let wasRemovedFromCurrentYear = false
-        // Note: updatedTeamHistory is already initialized at the top of the map callback
         if (!shouldBeOnRoster && (updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)])) {
           // Only remove if it's this team's entry
           const currentYearTeam = updatedTeamsByYear[currentYear] || updatedTeamsByYear[String(currentYear)]
@@ -10772,18 +10107,6 @@ export function DynastyProvider({ children }) {
             fixedCount++
             console.log(`[cleanupRosterData] Removed ${player.name} from ${currentYear} roster (departed/graduated)`)
 
-            // CRITICAL: Also close teamHistory stint for stint-based players
-            // Without this, isPlayerOnRoster will still show them as on roster
-            if (updatedTeamHistory && updatedTeamHistory.length > 0) {
-              updatedTeamHistory = updatedTeamHistory.map(stint => {
-                // Find open stint for this team and close it
-                if (Number(stint.teamTid) === teamTid && stint.toYear === null) {
-                  console.log(`[cleanupRosterData] Closing teamHistory stint for ${player.name} (toYear=${previousYear})`)
-                  return { ...stint, toYear: previousYear }
-                }
-                return stint
-              })
-            }
           }
         }
 
@@ -10796,7 +10119,6 @@ export function DynastyProvider({ children }) {
               teamsByYear: updatedTeamsByYear,
               classByYear: updatedClassByYear,
               isRecruit: updatedIsRecruit,
-              ...(updatedTeamHistory ? { teamHistory: updatedTeamHistory } : {})
             }
           }
           return player
@@ -10915,9 +10237,7 @@ export function DynastyProvider({ children }) {
           ...player,
           teamsByYear: updatedTeamsByYear,
           classByYear: updatedClassByYear,
-          isRecruit: updatedIsRecruit,
-          // Include teamHistory if it was updated (for stint-based players)
-          ...(updatedTeamHistory ? { teamHistory: updatedTeamHistory } : {})
+          isRecruit: updatedIsRecruit
         }
       }
       return player
@@ -11244,225 +10564,90 @@ export function DynastyProvider({ children }) {
   }
 
   // ==========================================================
-  // STINT-BASED ROSTER MIGRATION (DangerZone tool)
+  // CLEANUP: Remove old stint data from players
   // ==========================================================
 
   /**
-   * Apply stint-based migration to all players and save.
-   * @param {string} dynastyId - Dynasty ID
-   * @param {boolean} force - If true, migrate even players with warnings
-   * @returns {Object} Result with stats
+   * Remove all stint-based fields from players and ensure teamsByYear is complete.
+   * For players that were stint-migrated but missing teamsByYear entries,
+   * backfill from teamHistory before removing it.
    */
-  const applyStintMigration = async (dynastyId, force = false) => {
-    const dynasty = dynasties.find(d => d.id === dynastyId)
-    if (!dynasty) return { success: false, message: 'Dynasty not found' }
-
-    // DEBUG: Log dynasty storage info at migration time
-    console.log(`[applyStintMigration] Dynasty found:`, {
-      id: dynasty.id,
-      storageType: dynasty.storageType,
-      currentDynastyId: currentDynasty?.id,
-      currentDynastyStorageType: currentDynasty?.storageType,
-      hasUser: !!user
-    })
-
-    // First do a dry run
-    const dryRunResult = dryRunStintMigration(dynasty)
-
-    // Check for errors
-    if (dryRunResult.stats.errors > 0) {
-      return {
-        success: false,
-        message: `Cannot migrate: ${dryRunResult.stats.errors} player(s) have errors. Review dry run first.`,
-        dryRunResult
-      }
-    }
-
-    // Check for warnings unless forced
-    if (!force && dryRunResult.stats.warnings > 0) {
-      return {
-        success: false,
-        message: `${dryRunResult.stats.warnings} player(s) have validation warnings. Use force=true to proceed anyway.`,
-        dryRunResult
-      }
-    }
-
-    // Apply migration to all players
-    // With force=true, we re-derive teamHistory for ALL players, ignoring existing data
-    let updatedPlayers = dynasty.players.map(player => {
-      if (player.isHonorOnly) return player
-      // If force is true, always re-migrate (clear existing teamHistory)
-      if (!force && player.teamHistory && player.entryYear !== undefined) return player
-      // Clear existing teamHistory to force re-derivation
-      const playerWithoutHistory = { ...player }
-      if (force) {
-        delete playerWithoutHistory.teamHistory
-        delete playerWithoutHistory.entryYear
-        console.log(`[applyStintMigration] Force re-deriving teamHistory for ${player.name}`)
-      }
-      return migratePlayerToStintSystem(playerWithoutHistory)
-    })
-
-    // CRITICAL: Close stints for players marked as "leaving" in any year
-    // This catches players who left BEFORE this migration was applied
-    const teamTid = getCurrentTeamTid(dynasty)
-    const startYear = dynasty.startYear || 2025
-    const currentYear = dynasty.currentYear || 2032
-
-    console.log(`[applyStintMigration] Checking playersLeaving from ${startYear} to ${currentYear}...`)
-    let stintsClosed = 0
-
-    for (let year = startYear; year < currentYear; year++) {
-      const leavingList = getPlayersLeaving(dynasty, teamTid, year)
-      if (!leavingList || leavingList.length === 0) continue
-
-      const leavingPids = new Set(leavingList.map(p => p.pid).filter(Boolean))
-      const leavingNames = new Set(leavingList.map(p => p.name?.toLowerCase().trim()).filter(Boolean))
-
-      updatedPlayers = updatedPlayers.map(player => {
-        if (!player.teamHistory || player.teamHistory.length === 0) return player
-
-        // Check if this player is in the leaving list
-        const isLeaving = (player.pid && leavingPids.has(player.pid)) ||
-                          (player.name && leavingNames.has(player.name.toLowerCase().trim()))
-
-        if (!isLeaving) return player
-
-        // Close any open stint for this team at this year
-        let closedAny = false
-        const updatedHistory = player.teamHistory.map(stint => {
-          if (Number(stint.teamTid) === teamTid && stint.toYear === null) {
-            // This stint should have ended at 'year' when player left
-            closedAny = true
-            return { ...stint, toYear: year, endReason: 'left_team' }
-          }
-          return stint
-        })
-
-        if (closedAny) {
-          stintsClosed++
-          console.log(`[applyStintMigration] Closed stint for ${player.name} at year ${year}`)
-          return { ...player, teamHistory: updatedHistory }
-        }
-        return player
-      })
-    }
-
-    console.log(`[applyStintMigration] Closed ${stintsClosed} stints based on playersLeaving data`)
-
-    // VALIDATION: Check for players with invalid teamHistory data
-    const playersWithEmptyHistory = updatedPlayers.filter(p =>
-      !p.isHonorOnly && p.teamHistory && p.teamHistory.length === 0
-    )
-    const playersWithInvalidTid = updatedPlayers.filter(p =>
-      !p.isHonorOnly && p.teamHistory && p.teamHistory.some(s =>
-        s.teamTid === null || s.teamTid === undefined || isNaN(Number(s.teamTid)) || Number(s.teamTid) <= 0
-      )
-    )
-    const playersWithMatchingTid = updatedPlayers.filter(p =>
-      !p.isHonorOnly && p.teamHistory && p.teamHistory.some(s =>
-        Number(s.teamTid) === teamTid && (s.toYear === null || Number(s.toYear) >= dynasty.currentYear)
-      )
-    )
-
-    console.log(`[applyStintMigration] Validation:`, {
-      totalPlayers: updatedPlayers.length,
-      honorOnly: updatedPlayers.filter(p => p.isHonorOnly).length,
-      emptyHistory: playersWithEmptyHistory.length,
-      invalidTid: playersWithInvalidTid.length,
-      matchingCurrentTeam: playersWithMatchingTid.length
-    })
-
-    if (playersWithInvalidTid.length > 0) {
-      console.warn(`[applyStintMigration] ${playersWithInvalidTid.length} players have invalid teamTid:`,
-        playersWithInvalidTid.slice(0, 5).map(p => ({
-          name: p.name,
-          teamHistory: p.teamHistory,
-          teamsByYear: p.teamsByYear
-        }))
-      )
-    }
-
-    // DEBUG: Verify migration worked
-    const migratedCount = updatedPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0).length
-    const sampleMigrated = updatedPlayers.filter(p => p.teamHistory && !p.isHonorOnly).slice(0, 3)
-    console.log(`[applyStintMigration] Migration complete: ${migratedCount}/${updatedPlayers.length} players have teamHistory`)
-    console.log(`[applyStintMigration] Sample migrated players:`, sampleMigrated.map(p => ({
-      name: p.name,
-      teamHistory: p.teamHistory,
-      entryYear: p.entryYear,
-      entryClass: p.entryClass
-    })))
-
-    // Save with forceOverwrite to bypass the safety check (this is an explicit user action)
-    // Also set _subcollectionsMigrated to ensure future loads use subcollection data
-    const withTeamHistoryCount = updatedPlayers.filter(p => p.teamHistory && p.teamHistory.length > 0).length
-    console.log(`[applyStintMigration] Saving ${updatedPlayers.length} players (${withTeamHistoryCount} with teamHistory) to dynasty ${dynastyId}...`)
-    await updateDynasty(dynastyId, {
-      players: updatedPlayers,
-      _stintMigrationApplied: Date.now(),
-      _stintMigrationVersion: 1,
-      _subcollectionsMigrated: true
-    }, { forceOverwrite: true })
-
-    // CRITICAL: Add to persisted set to prevent auto-migration from overwriting this data
-    // This protects against race conditions when switching dynasties
-    persistedMigrationDynastiesRef.current.add(dynastyId)
-    console.log(`[applyStintMigration] Save complete! Dynasty ${dynastyId} added to protection list`)
-
-    return {
-      success: true,
-      message: `Successfully migrated ${dryRunResult.stats.migrated} player(s) to stint-based system.`,
-      stats: dryRunResult.stats
-    }
-  }
-
-  /**
-   * Revert stint-based migration back to legacy system.
-   * @param {string} dynastyId - Dynasty ID
-   * @returns {Object} Result
-   */
-  const revertStintMigration = async (dynastyId) => {
+  const cleanupStintData = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
     const players = dynasty.players || []
-    let revertedCount = 0
+    let cleanedCount = 0
+    let backfilledCount = 0
 
     const updatedPlayers = players.map(player => {
-      // Only revert if player has been migrated (has teamHistory)
-      if (!player.teamHistory) return player
+      const hasStintData = player.teamHistory || player.entryYear !== undefined ||
+        player.entryClass !== undefined || player._legacy_teamsByYear ||
+        player._legacy_classByYear || player._teamHistoryMigratedAt !== undefined
 
-      // Only revert if legacy data exists
-      if (!player._legacy_teamsByYear) {
-        console.warn(`[StintRevert] Player ${player.name} has teamHistory but no legacy backup - skipping`)
-        return player
+      if (!hasStintData) return player
+
+      const cleaned = { ...player }
+
+      // Backfill teamsByYear from teamHistory if teamHistory has data that teamsByYear is missing
+      if (player.teamHistory && player.teamHistory.length > 0) {
+        const teamsByYear = { ...(cleaned.teamsByYear || {}) }
+        let didBackfill = false
+        player.teamHistory.forEach(stint => {
+          if (stint.teamTid && stint.fromYear) {
+            const toYear = stint.toYear || dynasty.currentYear || new Date().getFullYear()
+            for (let year = stint.fromYear; year <= toYear; year++) {
+              if (!teamsByYear[year] && !teamsByYear[String(year)]) {
+                teamsByYear[year] = Number(stint.teamTid)
+                didBackfill = true
+              }
+            }
+          }
+        })
+        if (didBackfill) {
+          cleaned.teamsByYear = teamsByYear
+          backfilledCount++
+        }
       }
 
-      revertedCount++
-      return revertPlayerFromStintSystem(player)
+      // Restore legacy data if available
+      if (player._legacy_teamsByYear && !cleaned.teamsByYear) {
+        cleaned.teamsByYear = player._legacy_teamsByYear
+      }
+      if (player._legacy_classByYear && !cleaned.classByYear) {
+        cleaned.classByYear = player._legacy_classByYear
+      }
+
+      // Remove all stint-related fields
+      delete cleaned.teamHistory
+      delete cleaned.entryYear
+      delete cleaned.entryClass
+      delete cleaned.redshirtYear
+      delete cleaned._legacy_teamsByYear
+      delete cleaned._legacy_classByYear
+      delete cleaned._teamHistoryMigratedAt
+
+      cleanedCount++
+      return cleaned
     })
 
-    if (revertedCount === 0) {
-      return { success: true, message: 'No migrated players to revert' }
+    if (cleanedCount === 0) {
+      return { success: true, message: 'No stint data to clean up' }
     }
 
-    // Save
     await updateDynasty(dynastyId, {
       players: updatedPlayers,
       _stintMigrationApplied: null,
       _stintMigrationVersion: null
-    })
+    }, { forceOverwrite: true })
+
+    persistedMigrationDynastiesRef.current.add(dynastyId)
 
     return {
       success: true,
-      message: `Successfully reverted ${revertedCount} player(s) to legacy system.`
+      message: `Cleaned stint data from ${cleanedCount} player(s). Backfilled teamsByYear for ${backfilledCount} player(s).`
     }
   }
-
-  // ==========================================================
-  // END STINT-BASED ROSTER MIGRATION
-  // ==========================================================
 
   // Analyze and optimize dynasty document size
   const analyzeDocumentSize = (dynastyId) => {
@@ -11899,8 +11084,7 @@ export function DynastyProvider({ children }) {
     migrateToSubcollections,
     updateTeambuilderTeam,
     migrateDynastyStorage,
-    applyStintMigration,
-    revertStintMigration
+    cleanupStintData
   }
 
   return (

@@ -17,25 +17,12 @@ export default function OverallProgressionModal({
 
   const primaryText = getContrastTextColor(teamColors.primary)
 
-  // Build progression history - supports both stint-based and legacy systems
+  // Build progression history from teamsByYear (source of truth)
   const buildProgressionHistory = () => {
     const history = []
     const yearsSet = new Set()
 
-    // For stint-based players, generate years from teamHistory
-    if (player.teamHistory && player.teamHistory.length > 0) {
-      player.teamHistory.forEach(stint => {
-        const fromYear = stint.fromYear
-        const toYear = stint.toYear ?? currentYear // null means still active
-        if (fromYear && toYear) {
-          for (let y = fromYear; y <= toYear; y++) {
-            yearsSet.add(y)
-          }
-        }
-      })
-    }
-
-    // Also include years from teamsByYear (legacy support)
+    // Include years from teamsByYear
     const teamsByYear = player.teamsByYear || {}
     Object.keys(teamsByYear).forEach(y => {
       const year = Number(y)

@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
-import { getCurrentTeamAbbr, getTidFromAbbr, getAbbrFromTid, TEAMS } from '../data/teamRegistry'
+import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
-import PlayerTimelineEditor from './PlayerTimelineEditor'
 
 /**
  * PlayerEditModalNew - Completely redesigned player editor
@@ -252,13 +251,10 @@ export default function PlayerEditModalNew({
         draftRound: player.draftRound || '',
 
         // Career
-        teamHistory: player.teamHistory || [],
         teamsByYear: player.teamsByYear || {},
-        entryYear: player.entryYear || '',
-        entryClass: player.entryClass || '',
-        redshirtYear: player.redshirtYear || '',
         classByYear: player.classByYear || {},
         overallByYear: player.overallByYear || {},
+        devTraitByYear: player.devTraitByYear || {},
 
         // Awards
         accolades: player.accolades || [],
@@ -391,13 +387,10 @@ export default function PlayerEditModalNew({
       gemBust: formData.gemBust,
       overallProgression: formData.overallProgression,
       draftRound: formData.draftRound,
-      teamHistory: formData.teamHistory || [],
-      teamsByYear: formData.teamsByYear,
-      entryYear: formData.entryYear ? num(formData.entryYear) : null,
-      entryClass: formData.entryClass || null,
-      redshirtYear: formData.redshirtYear ? num(formData.redshirtYear) : null,
+      teamsByYear: formData.teamsByYear || {},
       classByYear: formData.classByYear || {},
       overallByYear: formData.overallByYear || {},
+      devTraitByYear: formData.devTraitByYear || {},
       accolades: (formData.accolades || []).filter(a => a.year && a.award),
       notes: formData.notes,
       isHonorOnly: false,
@@ -537,249 +530,290 @@ export default function PlayerEditModalNew({
 
   // Career Tab Content
   const CareerTab = () => {
-    const currentYear = dynasty?.currentYear || new Date().getFullYear()
-    const teamHistory = formData.teamHistory || []
-    const hasLegacyData = Object.keys(formData.teamsByYear || {}).length > 0 && teamHistory.length === 0
+    const dynCurrentYear = dynasty?.currentYear || new Date().getFullYear()
+    const teams = dynasty?.teams || {}
 
-    const migrateFromTeamsByYear = () => {
-      const teamsByYear = formData.teamsByYear || {}
-      const years = Object.keys(teamsByYear).map(y => parseInt(y)).filter(y => !isNaN(y)).sort((a, b) => a - b)
-      if (years.length === 0) return
+    // Build sorted team options from dynasty teams
+    const teamOptions = useMemo(() => {
+      const opts = Object.entries(teams)
+        .filter(([, t]) => t && t.abbr)
+        .map(([tid, t]) => ({ tid: Number(tid), abbr: t.abbr, name: t.name || t.abbr }))
+        .sort((a, b) => a.abbr.localeCompare(b.abbr))
+      return opts
+    }, [teams])
 
-      const stints = []
-      let currentStint = null
-
-      for (const year of years) {
-        const teamValue = teamsByYear[String(year)] || teamsByYear[year]
-        const tid = getTidFromAbbr(teamValue) || teamValue
-        const tidNum = Number(tid)
-
-        if (!currentStint || currentStint.teamTid !== tidNum) {
-          if (currentStint) {
-            currentStint.toYear = year - 1
-            currentStint.reason = 'transfer'
-          }
-          currentStint = {
-            teamTid: tidNum,
-            fromYear: year,
-            toYear: null,
-            reason: null,
-            entryType: stints.length === 0 ? (formData.isPortal ? 'portal_in' : 'recruited') : 'transfer'
-          }
-          stints.push(currentStint)
-        }
-      }
-
-      setFormData(prev => ({ ...prev, teamHistory: stints }))
-    }
-
-    // Calculate years the player has been active
-    const getActiveYears = () => {
+    // Collect all years from all per-year data sources
+    const activeYears = useMemo(() => {
       const years = new Set()
-      // From teamHistory
-      teamHistory.forEach(stint => {
-        const from = stint.fromYear
-        const to = stint.toYear || currentYear
-        for (let y = from; y <= to; y++) {
-          years.add(y)
-        }
+      const sources = [formData.teamsByYear, formData.classByYear, formData.overallByYear, formData.devTraitByYear]
+      sources.forEach(src => {
+        Object.keys(src || {}).forEach(y => {
+          const n = parseInt(y)
+          if (!isNaN(n)) years.add(n)
+        })
       })
-      // From classByYear
-      Object.keys(formData.classByYear || {}).forEach(y => years.add(parseInt(y)))
-      // From teamsByYear (legacy)
-      Object.keys(formData.teamsByYear || {}).forEach(y => years.add(parseInt(y)))
       return Array.from(years).sort((a, b) => a - b)
-    }
+    }, [formData.teamsByYear, formData.classByYear, formData.overallByYear, formData.devTraitByYear])
 
-    const activeYears = getActiveYears()
-
-    // Update class for a specific year
-    const updateClassForYear = (year, newClass) => {
+    // Update a per-year field
+    const updateYearField = (field, year, value) => {
       setFormData(prev => ({
         ...prev,
-        classByYear: {
-          ...prev.classByYear,
-          [year]: newClass
+        [field]: {
+          ...(prev[field] || {}),
+          [year]: value
         }
       }))
     }
 
-    // Update overall for a specific year
-    const updateOverallForYear = (year, newOverall) => {
-      setFormData(prev => ({
-        ...prev,
-        overallByYear: {
-          ...prev.overallByYear,
-          [year]: newOverall ? parseInt(newOverall) : null
-        }
-      }))
-    }
-
-    // Auto-fill classes based on entry info
-    const autoFillClasses = () => {
-      if (!formData.entryYear || !formData.entryClass) return
-
-      const newClassByYear = { ...formData.classByYear }
-      const entryYearNum = parseInt(formData.entryYear)
-      const isRS = formData.entryClass.startsWith('RS ')
-      const baseClass = isRS ? formData.entryClass.replace('RS ', '') : formData.entryClass
-
-      const normalOrder = ['Fr', 'So', 'Jr', 'Sr']
-      const rsOrder = ['RS Fr', 'RS So', 'RS Jr', 'RS Sr']
-      const order = isRS ? rsOrder : normalOrder
-
-      let baseIndex = normalOrder.indexOf(baseClass)
-      if (baseIndex === -1) baseIndex = 0
-
-      activeYears.forEach(year => {
-        const yearsSinceEntry = year - entryYearNum
-        if (yearsSinceEntry < 0) return
-
-        // Check if redshirted
-        const redshirtYear = formData.redshirtYear ? parseInt(formData.redshirtYear) : null
-        let useRS = isRS
-        if (redshirtYear && year > redshirtYear && !isRS) {
-          useRS = true
-        }
-
-        const effectiveOrder = useRS ? rsOrder : normalOrder
-        let classIndex = baseIndex + yearsSinceEntry
-        if (redshirtYear && year > redshirtYear && !isRS) {
-          classIndex = baseIndex + yearsSinceEntry - 1
-        }
-
-        if (classIndex >= 0 && classIndex < effectiveOrder.length) {
-          newClassByYear[year] = effectiveOrder[classIndex]
-        }
+    // Remove an entire year from all per-year data
+    const removeYear = (year) => {
+      setFormData(prev => {
+        const next = { ...prev }
+        const fields = ['teamsByYear', 'classByYear', 'overallByYear', 'devTraitByYear']
+        fields.forEach(f => {
+          if (next[f]) {
+            const copy = { ...next[f] }
+            delete copy[year]
+            delete copy[String(year)]
+            next[f] = copy
+          }
+        })
+        return next
       })
+    }
 
-      setFormData(prev => ({ ...prev, classByYear: newClassByYear }))
+    // Add a new year
+    const addYear = () => {
+      const nextYear = activeYears.length > 0 ? activeYears[activeYears.length - 1] + 1 : dynCurrentYear
+      // Get the team from the most recent year, or dynasty's current team
+      const lastYear = activeYears.length > 0 ? activeYears[activeYears.length - 1] : null
+      const lastTeam = lastYear ? (formData.teamsByYear?.[lastYear] || formData.teamsByYear?.[String(lastYear)]) : null
+      const defaultTid = lastTeam || dynasty?.currentTid || ''
+
+      setFormData(prev => ({
+        ...prev,
+        teamsByYear: { ...(prev.teamsByYear || {}), [nextYear]: defaultTid ? Number(defaultTid) : '' },
+        classByYear: { ...(prev.classByYear || {}), [nextYear]: '' },
+        overallByYear: { ...(prev.overallByYear || {}), [nextYear]: null },
+        devTraitByYear: { ...(prev.devTraitByYear || {}), [nextYear]: '' },
+      }))
+    }
+
+    // Get OVR change from previous year
+    const getOvrChange = (year, idx) => {
+      if (idx === 0) return null
+      const prevYear = activeYears[idx - 1]
+      const curr = formData.overallByYear?.[year] || formData.overallByYear?.[String(year)]
+      const prev = formData.overallByYear?.[prevYear] || formData.overallByYear?.[String(prevYear)]
+      if (curr != null && prev != null) return parseInt(curr) - parseInt(prev)
+      return null
     }
 
     return (
-      <div className="space-y-4">
-        {/* Entry Information */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
-          <h4 className="text-sm font-bold text-blue-800 mb-3">Entry Information</h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-blue-700 mb-1">Entry Year</label>
-              <input
-                type="number"
-                value={formData.entryYear || ''}
-                onChange={(e) => handleFieldChange('entryYear', parseInt(e.target.value) || '')}
-                placeholder={String(currentYear - 3)}
-                className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-blue-200 focus:border-blue-400 focus:outline-none text-sm"
-              />
+      <div className="space-y-3">
+        {activeYears.length > 0 ? (
+          <>
+            {/* Column headers - desktop */}
+            <div className="hidden sm:grid sm:grid-cols-[72px_1fr_1fr_72px_1fr_36px] gap-2 px-2 pb-1">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Year</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Team</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Class</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">OVR</span>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Dev Trait</span>
+              <span></span>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-blue-700 mb-1">Entry Class</label>
-              <select
-                value={formData.entryClass || ''}
-                onChange={(e) => handleFieldChange('entryClass', e.target.value)}
-                className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-blue-200 focus:border-blue-400 focus:outline-none text-sm"
-              >
-                <option value="">Select...</option>
-                {CLASSES.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-blue-700 mb-1">Redshirt Year</label>
-              <input
-                type="number"
-                value={formData.redshirtYear || ''}
-                onChange={(e) => handleFieldChange('redshirtYear', parseInt(e.target.value) || '')}
-                placeholder="None"
-                className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-blue-200 focus:border-blue-400 focus:outline-none text-sm"
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={autoFillClasses}
-                disabled={!formData.entryYear || !formData.entryClass}
-                className="w-full px-3 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Auto-Fill Classes
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {/* Class by Year */}
-        {activeYears.length > 0 && (
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
-            <h4 className="text-sm font-bold text-gray-700 mb-3">Class by Season</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {activeYears.map(year => (
-                <div key={year} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-gray-200">
-                  <span className="text-sm font-medium text-gray-600 w-12">{year}</span>
-                  <select
-                    value={formData.classByYear?.[year] || ''}
-                    onChange={(e) => updateClassForYear(year, e.target.value)}
-                    className="flex-1 px-2 py-1 bg-gray-50 text-gray-900 rounded border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
-                  >
-                    <option value="">-</option>
-                    {CLASSES.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+            {/* Year rows */}
+            {activeYears.map((year, idx) => {
+              const ovrChange = getOvrChange(year, idx)
+              const teamTid = formData.teamsByYear?.[year] ?? formData.teamsByYear?.[String(year)] ?? ''
+              const playerClass = formData.classByYear?.[year] ?? formData.classByYear?.[String(year)] ?? ''
+              const ovr = formData.overallByYear?.[year] ?? formData.overallByYear?.[String(year)] ?? ''
+              const devTrait = formData.devTraitByYear?.[year] ?? formData.devTraitByYear?.[String(year)] ?? ''
+
+              return (
+                <div key={year} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                  {/* Desktop: single row */}
+                  <div className="hidden sm:grid sm:grid-cols-[72px_1fr_1fr_72px_1fr_36px] gap-2 items-center p-2">
+                    {/* Year */}
+                    <div className="text-sm font-bold text-gray-800 pl-1">{year}</div>
+
+                    {/* Team */}
+                    <select
+                      value={teamTid !== '' ? Number(teamTid) : ''}
+                      onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm truncate"
+                    >
+                      <option value="">--</option>
+                      {teamOptions.map(t => (
+                        <option key={t.tid} value={t.tid}>{t.abbr}</option>
+                      ))}
+                    </select>
+
+                    {/* Class */}
+                    <select
+                      value={playerClass}
+                      onChange={(e) => updateYearField('classByYear', year, e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                    >
+                      <option value="">--</option>
+                      {CLASSES.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+
+                    {/* OVR + change badge */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="40"
+                        max="99"
+                        value={ovr ?? ''}
+                        onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : null)}
+                        placeholder="--"
+                        className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm text-center font-semibold"
+                      />
+                      {ovrChange != null && ovrChange !== 0 && (
+                        <span
+                          className="absolute -top-2 -right-1 text-[9px] font-bold px-1 rounded"
+                          style={{
+                            backgroundColor: ovrChange > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: ovrChange > 0 ? '#16a34a' : '#dc2626'
+                          }}
+                        >
+                          {ovrChange > 0 ? '+' : ''}{ovrChange}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dev Trait */}
+                    <select
+                      value={devTrait}
+                      onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                    >
+                      <option value="">--</option>
+                      {DEV_TRAITS.map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+
+                    {/* Delete */}
+                    <button
+                      type="button"
+                      onClick={() => removeYear(year)}
+                      className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Mobile: stacked card */}
+                  <div className="sm:hidden p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-bold text-gray-800">{year}</span>
+                      <div className="flex items-center gap-2">
+                        {ovrChange != null && ovrChange !== 0 && (
+                          <span
+                            className="text-xs font-bold px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor: ovrChange > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                              color: ovrChange > 0 ? '#16a34a' : '#dc2626'
+                            }}
+                          >
+                            {ovrChange > 0 ? '+' : ''}{ovrChange}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeYear(year)}
+                          className="p-1 text-gray-300 hover:text-red-500 rounded transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Team</label>
+                        <select
+                          value={teamTid !== '' ? Number(teamTid) : ''}
+                          onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
+                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                        >
+                          <option value="">--</option>
+                          {teamOptions.map(t => (
+                            <option key={t.tid} value={t.tid}>{t.abbr}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Class</label>
+                        <select
+                          value={playerClass}
+                          onChange={(e) => updateYearField('classByYear', year, e.target.value)}
+                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                        >
+                          <option value="">--</option>
+                          {CLASSES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">OVR</label>
+                        <input
+                          type="number"
+                          min="40"
+                          max="99"
+                          value={ovr ?? ''}
+                          onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : null)}
+                          placeholder="--"
+                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Dev Trait</label>
+                        <select
+                          value={devTrait}
+                          onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
+                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                        >
+                          <option value="">--</option>
+                          {DEV_TRAITS.map(d => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
+          </>
+        ) : (
+          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            <p className="text-sm text-gray-500 mb-1">No seasons yet</p>
+            <p className="text-xs text-gray-400">Add a season to start tracking this player's career</p>
           </div>
         )}
 
-        {/* Overall by Season */}
-        {activeYears.length > 0 && (
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-            <h4 className="text-sm font-bold text-blue-800 mb-3">Overall by Season</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {activeYears.map(year => (
-                <div key={year} className="flex items-center gap-2 bg-white rounded-lg p-2 border border-blue-200">
-                  <span className="text-sm font-medium text-gray-600 w-12">{year}</span>
-                  <input
-                    type="number"
-                    min="40"
-                    max="99"
-                    value={formData.overallByYear?.[year] || ''}
-                    onChange={(e) => updateOverallForYear(year, e.target.value)}
-                    placeholder="OVR"
-                    className="flex-1 px-2 py-1 bg-gray-50 text-gray-900 rounded border border-gray-200 focus:border-blue-400 focus:outline-none text-sm w-16"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {hasLegacyData && (
-          <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-            <p className="text-sm text-amber-800 mb-3">
-              This player has legacy career data. Convert it to the new timeline format.
-            </p>
-            <button
-              type="button"
-              onClick={migrateFromTeamsByYear}
-              className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
-            >
-              Convert ({Object.keys(formData.teamsByYear || {}).length} years)
-            </button>
-          </div>
-        )}
-
-        <PlayerTimelineEditor
-          teamHistory={teamHistory}
-          onChange={(newHistory) => setFormData(prev => ({ ...prev, teamHistory: newHistory }))}
-          teams={dynasty?.teams}
-          currentYear={currentYear}
-          primaryColor={teamColors.primary}
-          playerName={`${formData.firstName} ${formData.lastName}`}
-          classByYear={formData.classByYear}
-          overallByYear={formData.overallByYear}
-        />
+        {/* Add Season button */}
+        <button
+          type="button"
+          onClick={addYear}
+          className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Season
+        </button>
       </div>
     )
   }
