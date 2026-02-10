@@ -287,6 +287,27 @@ export default function Home() {
     }
   }
 
+  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/q1pbpmhc12bchz13tbmob/UK_2033_Week0.json?rlkey=6f85wvdl4x4e8wqrekgbkmqne&st=6fb65f5s&dl=0'
+
+  const handleTestImport = async () => {
+    setImporting(true)
+    setImportProgress({ stage: 'starting', message: 'Starting import...', progress: 0 })
+
+    try {
+      await importDynastyFromUrl(TEST_DYNASTY_URL, (progress) => {
+        setImportProgress(progress)
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+    } catch (error) {
+      console.error('Error importing test dynasty:', error)
+      alert(error.message || 'Failed to import test dynasty.')
+    } finally {
+      setImporting(false)
+      setImportProgress(null)
+    }
+  }
+
   // Delete All Non-Starred handlers
   const handleDeleteAllClick = () => {
     if (hasNonStarred) {
@@ -382,6 +403,21 @@ export default function Home() {
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {/* Test Dynasty */}
+          <div className="mt-8 max-w-md mx-auto">
+            <div className="p-4 bg-gray-800/60 rounded-xl border border-gray-700 text-left">
+              <h3 className="text-sm font-bold text-white mb-1">Import test dynasty</h3>
+              <p className="text-xs text-gray-400 mb-3">My own personal dynasty - try the app with real data</p>
+              <button
+                onClick={handleTestImport}
+                disabled={importing}
+                className="w-full px-4 py-2 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-orange-600 hover:bg-orange-500"
+              >
+                {importing ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+          </div>
 
           {/* Subscription Status */}
           <div className="mt-8 max-w-md mx-auto">
@@ -492,6 +528,23 @@ export default function Home() {
           />
 
           <div className="grid grid-cols-1 gap-3 sm:gap-4">
+            {/* Test Dynasty Card */}
+            <div className="rounded-xl p-3 sm:p-5 bg-gray-800/60 border-2 border-dashed border-gray-600">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">Import test dynasty</h3>
+                  <p className="text-[11px] sm:text-xs text-gray-400 mt-0.5">My own personal dynasty - try the app with real data</p>
+                </div>
+                <button
+                  onClick={handleTestImport}
+                  disabled={importing}
+                  className="px-4 py-2 rounded-lg font-semibold text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-orange-600 hover:bg-orange-500 flex-shrink-0"
+                >
+                  {importing ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </div>
+
             {sortedDynasties.map((dynasty) => {
               const teams = dynasty.teams || dynasty.customTeams
               const colors = getTeamColors(dynasty.teamName, teams)
