@@ -79,6 +79,9 @@ export default function DangerZone() {
   const [statsSyncYear, setStatsSyncYear] = useState(currentDynasty?.currentYear || new Date().getFullYear())
   const [statsSyncSkipGamesPlayed, setStatsSyncSkipGamesPlayed] = useState(false) // Option to skip updating games played/snaps
 
+  // Schedule link fix state
+  const [scheduleLinkFixStatus, setScheduleLinkFixStatus] = useState(null)
+
   if (!currentDynasty) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -698,6 +701,82 @@ export default function DangerZone() {
       setDuplicateGameCleanupStatus({ success: true, message: `Removed ${duplicateIds.length} duplicate(s)` })
     } catch (error) {
       setDuplicateGameCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
+    }
+  }
+
+  // Fix schedule links - ensures all schedule entries point to correct games
+  const handleFixScheduleLinks = async () => {
+    setScheduleLinkFixStatus('running')
+    try {
+      const games = currentDynasty.games || []
+      const teams = currentDynasty.teams || {}
+      let fixedCount = 0
+      let gameTypeFixedCount = 0
+
+      // First, fix gameType on all regular season games that are missing it
+      const updatedGames = games.map(game => {
+        if (!game.gameType && !game.isConferenceChampionship && !game.isBowlGame &&
+            !game.isCFPFirstRound && !game.isCFPQuarterfinal &&
+            !game.isCFPSemifinal && !game.isCFPChampionship) {
+          gameTypeFixedCount++
+          return { ...game, gameType: 'regular' }
+        }
+        return game
+      })
+
+      // Update each team's schedule entries
+      const updatedTeams = { ...teams }
+      Object.keys(updatedTeams).forEach(tidKey => {
+        const tid = Number(tidKey)
+        const team = updatedTeams[tid]
+        if (!team.byYear) return
+
+        Object.keys(team.byYear).forEach(yearKey => {
+          const year = Number(yearKey)
+          const yearData = team.byYear[year]
+          if (!yearData.schedule || yearData.schedule.length === 0) return
+
+          const updatedSchedule = yearData.schedule.map(entry => {
+            // Skip bye weeks
+            if (entry.isBye || !entry.opponent) return entry
+
+            // If already has a valid gameId, keep it
+            if (entry.gameId && updatedGames.find(g => g.id === entry.gameId)) {
+              return entry
+            }
+
+            // Find matching game by week/year/teams
+            const opponentTid = getTidFromAbbr(entry.opponent)
+            const matchingGame = updatedGames.find(g =>
+              Number(g.week) === Number(entry.week) &&
+              Number(g.year) === Number(year) &&
+              (g.gameType === 'regular' || !g.gameType) &&
+              ((g.team1Tid === tid && g.team2Tid === opponentTid) ||
+               (g.team2Tid === tid && g.team1Tid === opponentTid))
+            )
+
+            if (matchingGame && matchingGame.id !== entry.gameId) {
+              fixedCount++
+              return { ...entry, gameId: matchingGame.id }
+            }
+
+            return entry
+          })
+
+          updatedTeams[tid].byYear[year].schedule = updatedSchedule
+        })
+      })
+
+      // Save updates
+      await updateDynasty(currentDynasty.id, {
+        games: updatedGames,
+        teams: updatedTeams
+      })
+
+      const message = `Fixed ${fixedCount} schedule link(s)${gameTypeFixedCount > 0 ? ` and ${gameTypeFixedCount} game type(s)` : ''}`
+      setScheduleLinkFixStatus({ success: true, message })
+    } catch (error) {
+      setScheduleLinkFixStatus({ success: false, message: 'Fix failed: ' + error.message })
     }
   }
 
@@ -1948,6 +2027,13 @@ export default function DangerZone() {
             buttonText="Remove"
             onClick={handleDuplicateGameCleanup}
             status={duplicateGameCleanupStatus}
+          />
+          <ActionCard
+            title="Fix Schedule Links"
+            description="Links schedule entries to game records and fixes missing gameType"
+            buttonText="Fix Links"
+            onClick={handleFixScheduleLinks}
+            status={scheduleLinkFixStatus}
           />
           <ActionCard
             title="Repair CFP Games"
