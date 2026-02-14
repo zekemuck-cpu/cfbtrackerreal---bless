@@ -5481,7 +5481,7 @@ const DETAILED_STATS_TABS = {
     'Kickoff Returns', 'KR Yardage', 'KR Touchdowns', 'KR Long'
   ],
   'Punt Return': [
-    'Punt Returns', 'PR Yardage', 'PR Touchdowns', 'PR Long'
+    'Punt Returns', 'PR Yardage', 'PR Long', 'PR Touchdowns'
   ]
 }
 
