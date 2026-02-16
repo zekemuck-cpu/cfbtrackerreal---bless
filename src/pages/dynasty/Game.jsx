@@ -202,8 +202,12 @@ export default function Game() {
   const navigate = useNavigate()
   const routeLocation = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
+  const { currentDynasty, loadingDynastyId, updateDynasty, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+
+  // Check if dynasty data is being lazily loaded from Firebase
+  const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
+
   // Use neutral colors for game recap pages instead of user's team colors
   const teamColors = defaultColors
 
@@ -241,6 +245,7 @@ export default function Game() {
   const [streamingRecap, setStreamingRecap] = useState('')
   const [tokenUsage, setTokenUsage] = useState(null)
   const [showHighlightsModal, setShowHighlightsModal] = useState(false)
+  const [highlightsStartIndex, setHighlightsStartIndex] = useState(0)
 
   // Countdown timer for quota errors
   useEffect(() => {
@@ -581,6 +586,20 @@ export default function Game() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-gray-500">Loading dynasty...</div>
+      </div>
+    )
+  }
+
+  // Show loading state if dynasty data is still being loaded from Firebase
+  // This prevents rendering with incomplete game data
+  if (isLoadingDynastyData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-4" />
+          <p className="text-lg font-medium text-gray-700">Loading game data...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch your game from the cloud.</p>
+        </div>
       </div>
     )
   }
@@ -1634,7 +1653,10 @@ export default function Game() {
                 {hasVideoLinks && (
                   <div className="px-4 py-3 border-b border-gray-800/50">
                     <button
-                      onClick={() => setShowHighlightsModal(true)}
+                      onClick={() => {
+                        setHighlightsStartIndex(0)
+                        setShowHighlightsModal(true)
+                      }}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -1744,10 +1766,14 @@ export default function Game() {
                         </div>
                         {/* Video Link Button */}
                         {play.videoLink && (
-                          <a
-                            href={play.videoLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => {
+                              // Find this play's index in the filtered list (only plays with videoLinks)
+                              const playsWithVideoLinks = playsWithScores.filter(p => p.videoLink)
+                              const videoIndex = playsWithVideoLinks.findIndex(p => p === play)
+                              setHighlightsStartIndex(videoIndex >= 0 ? videoIndex : 0)
+                              setShowHighlightsModal(true)
+                            }}
                             className="flex-shrink-0 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors"
                             title="Watch video clip"
                           >
@@ -1755,7 +1781,7 @@ export default function Game() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -2638,6 +2664,7 @@ export default function Game() {
         getTeamLogo={getTeamLogo}
         getMascotName={getMascotName}
         teamsData={currentDynasty?.teams || currentDynasty?.customTeams}
+        startIndex={highlightsStartIndex}
       />
     </div>
   )

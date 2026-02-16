@@ -122,10 +122,11 @@ export default function ScoringHighlightsModal({
   getMascotName,
   teamsData,
   customTitle,
-  pathPrefix
+  pathPrefix,
+  startIndex = 0
 }) {
   const navigate = useNavigate()
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
   const [showGameDropdown, setShowGameDropdown] = useState(false)
@@ -315,11 +316,11 @@ export default function ScoringHighlightsModal({
   // Reset when modal opens
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(0)
+      setCurrentIndex(startIndex)
       setIsPlaying(true)
       setTimeRemaining(PLAY_DURATION)
     }
-  }, [isOpen])
+  }, [isOpen, startIndex])
 
   // Reset timer when changing plays
   useEffect(() => {

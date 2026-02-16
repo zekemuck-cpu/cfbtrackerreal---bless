@@ -538,7 +538,7 @@ export default function Player() {
           pancakes: blocking.pancakes ?? 0,
           sacksAllowed: blocking.sacksAllowed ?? 0
         } : null,
-        defense: defensive ? {
+        defensive: defensive ? {
           solo: defensive.soloTkl ?? defensive.solo ?? 0,
           ast: defensive.astTkl ?? defensive.ast ?? defensive.assists ?? 0,
           tfl: defensive.tfl ?? 0,

@@ -255,8 +255,12 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  const { currentDynasty, loadingDynastyId, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
   const pathPrefix = usePathPrefix()
+
+  // Check if dynasty data is being lazily loaded from Firebase
+  const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
+
   // Note: We use the viewed team's colors, not the user's team colors
   const selectedYear = parseInt(year)
 
@@ -410,6 +414,20 @@ export default function TeamYear() {
 
   // Get team info from tid - teamsSource now has properly merged data
   const team = teamsSource[tid]
+
+  // Show loading state if dynasty data is still being loaded from Firebase
+  // This prevents rendering with incomplete data (missing games/players)
+  if (isLoadingDynastyData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-4" />
+          <p className="text-lg font-medium text-gray-700">Loading dynasty data...</p>
+          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch your games and roster from the cloud.</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!team) {
     return (
@@ -1501,7 +1519,11 @@ export default function TeamYear() {
       defense: processCategory('defense', s => (s.soloTkl || s.astTkl || s.sacks || s.int) > 0)
         .sort((a, b) => ((b.soloTkl || 0) + (b.astTkl || 0)) - ((a.soloTkl || 0) + (a.astTkl || 0))),
       kicking: processCategory('kicking', s => (s.fga || s.xpa) > 0),
-      punting: processCategory('punting', s => (s.punts || 0) > 0)
+      punting: processCategory('punting', s => (s.punts || 0) > 0),
+      kickReturn: processCategory('kickReturn', s => (s.ret || 0) > 0)
+        .sort((a, b) => (b.yds || 0) - (a.yds || 0)),
+      puntReturn: processCategory('puntReturn', s => (s.ret || 0) > 0)
+        .sort((a, b) => (b.yds || 0) - (a.yds || 0))
     }
   }, [teamPlayers, selectedYear])
 
@@ -3030,49 +3052,109 @@ export default function TeamYear() {
           )}
 
             {/* Next Game */}
-            {nextGame && nextGameInfo && (
-              <Link
-                to={`${pathPrefix}/game/${nextGame.id}`}
-                className={`group rounded-xl transition-all overflow-hidden ${(!lastGame) ? 'md:w-1/2' : 'flex-1'}`}
-              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}
-              >
-                <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: `${teamInfo.backgroundColor}15`, borderBottom: `1px solid ${teamInfo.backgroundColor}30` }}>
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Next Game</span>
-                  <span className="text-xs" style={{ color: accentColorMuted }}>
-                    {nextGame.isCFPChampionship ? 'Natty' : nextGame.isCFPSemifinal ? 'CFP SF' : nextGame.isCFPQuarterfinal ? 'CFP QF' : nextGame.isCFPFirstRound ? 'CFP R1' : nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    {/* Your Team */}
-                    <div className="flex items-center gap-3">
-                      {teamLogo && <img src={teamLogo} alt="" className="w-10 h-10 object-contain" />}
-                      <span className="font-semibold" style={{ color: accentColor }}>{teamAbbr}</span>
-                    </div>
-                    {/* VS */}
-                    <div className="flex flex-col items-center">
-                      <span className="text-xs uppercase" style={{ color: accentColorMuted }}>
-                        {nextGameInfo.location === 'away' ? 'at' : 'vs'}
-                      </span>
-                    </div>
-                    {/* Opponent */}
-                    <div className="flex items-center gap-3">
-                      <span className="font-semibold" style={{ color: accentColor }}>
-                        {nextGame.opponentRank && <span style={{ color: accentColorMuted }}>#{nextGame.opponentRank} </span>}
-                        {nextGameInfo.oppAbbr}
-                      </span>
-                      {nextGameInfo.oppLogo ? (
-                        <img src={nextGameInfo.oppLogo} alt="" className="w-10 h-10 object-contain" />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
-                          <span className="text-sm font-bold" style={{ color: accentColor }}>{nextGameInfo.oppAbbr?.charAt(0)}</span>
-                        </div>
-                      )}
-                    </div>
+            {nextGame && nextGameInfo && (() => {
+              // Find previous meetings with this opponent
+              const allGames = currentDynasty?.games || []
+              const previousMeetings = allGames
+                .filter(g => {
+                  // Check if this game involves our team and the next opponent
+                  const ourTidMatches = g.team1Tid === tid || g.team2Tid === tid
+                  const oppTid = resolveTid(nextGameInfo.oppAbbr, teamsSource)
+                  const oppTidMatches = oppTid && (g.team1Tid === oppTid || g.team2Tid === oppTid)
+                  // Only include completed games (has scores) and before current year or before this game in current year
+                  const hasScore = g.team1Score !== null && g.team1Score !== undefined && g.team2Score !== null && g.team2Score !== undefined
+                  const isBeforeNow = g.year < selectedYear || (g.year === selectedYear && g.week < nextGame.week)
+                  return ourTidMatches && oppTidMatches && hasScore && isBeforeNow
+                })
+                .sort((a, b) => {
+                  // Sort by year desc, then week desc
+                  if (a.year !== b.year) return b.year - a.year
+                  return b.week - a.week
+                })
+                .slice(0, 3) // Last 3 meetings
+                .map(g => {
+                  const isTeam1 = g.team1Tid === tid
+                  const ourScore = isTeam1 ? g.team1Score : g.team2Score
+                  const oppScore = isTeam1 ? g.team2Score : g.team1Score
+                  const won = ourScore > oppScore
+                  return { ...g, ourScore, oppScore, won }
+                })
+
+              return (
+                <Link
+                  to={`${pathPrefix}/game/${nextGame.id}`}
+                  className={`group rounded-xl transition-all overflow-hidden ${(!lastGame) ? 'md:w-1/2' : 'flex-1'}`}
+                  style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}
+                >
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ backgroundColor: `${teamInfo.backgroundColor}15`, borderBottom: `1px solid ${teamInfo.backgroundColor}30` }}>
+                    <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>Next Game</span>
+                    <span className="text-xs" style={{ color: accentColorMuted }}>
+                      {nextGame.isCFPChampionship ? 'Natty' : nextGame.isCFPSemifinal ? 'CFP SF' : nextGame.isCFPQuarterfinal ? 'CFP QF' : nextGame.isCFPFirstRound ? 'CFP R1' : nextGame.isBowlGame ? 'Bowl' : nextGame.isConferenceChampionship ? 'CCG' : `Week ${nextGame.week}`}
+                    </span>
                   </div>
-                </div>
-              </Link>
-            )}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      {/* Your Team */}
+                      <div className="flex items-center gap-3">
+                        {teamLogo && <img src={teamLogo} alt="" className="w-10 h-10 object-contain" />}
+                        <span className="font-semibold" style={{ color: accentColor }}>{teamAbbr}</span>
+                      </div>
+                      {/* VS */}
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs uppercase" style={{ color: accentColorMuted }}>
+                          {nextGameInfo.location === 'away' ? 'at' : 'vs'}
+                        </span>
+                      </div>
+                      {/* Opponent */}
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold" style={{ color: accentColor }}>
+                          {nextGame.opponentRank && <span style={{ color: accentColorMuted }}>#{nextGame.opponentRank} </span>}
+                          {nextGameInfo.oppAbbr}
+                        </span>
+                        {nextGameInfo.oppLogo ? (
+                          <img src={nextGameInfo.oppLogo} alt="" className="w-10 h-10 object-contain" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                            <span className="text-sm font-bold" style={{ color: accentColor }}>{nextGameInfo.oppAbbr?.charAt(0)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Last Meeting(s) */}
+                    {previousMeetings.length > 0 && (
+                      <div className="mt-3 pt-3 border-t" style={{ borderColor: `${accentColor}20` }}>
+                        <div className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: accentColorMuted }}>
+                          Last {previousMeetings.length === 1 ? 'Meeting' : `${previousMeetings.length} Meetings`}
+                        </div>
+                        <div className="space-y-1">
+                          {previousMeetings.map((meeting, idx) => (
+                            <Link
+                              key={meeting.id || idx}
+                              to={`${pathPrefix}/game/${meeting.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center justify-between text-xs py-1.5 px-2 rounded transition-colors hover:bg-white/5"
+                              style={{ backgroundColor: 'transparent' }}
+                            >
+                              <span className="font-medium" style={{ color: accentColorMuted }}>
+                                {meeting.year} Week {meeting.week}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${meeting.won ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
+                                  {meeting.won ? 'W' : 'L'}
+                                </span>
+                                <span className="tabular-nums font-semibold min-w-[3rem] text-right" style={{ color: accentColor }}>
+                                  {meeting.ourScore}-{meeting.oppScore}
+                                </span>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              )
+            })()}
           </div>
           )}
 
@@ -3638,6 +3720,7 @@ export default function TeamYear() {
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>INT</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SCK</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3665,6 +3748,7 @@ export default function TeamYear() {
                               <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
                               <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.int || 0}</td>
                               <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng ?? p.long ?? '-'}</td>
+                              <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.sacks ?? 0}</td>
                             </tr>
                           )
                         })}
@@ -3689,7 +3773,11 @@ export default function TeamYear() {
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>20+</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>BT</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YAC</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FUM</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3711,7 +3799,11 @@ export default function TeamYear() {
                             <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.car > 0 ? (p.yds / p.car).toFixed(1) : '0.0'}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.twentyPlus || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.brokenTackles || p.bt || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.yac || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fum || p.fumbles || 0}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -3736,6 +3828,8 @@ export default function TeamYear() {
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RAC</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>Drops</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3758,6 +3852,8 @@ export default function TeamYear() {
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.rec > 0 ? (p.yds / p.rec).toFixed(1) : '0.0'}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.rac || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.drops || 0}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -3779,9 +3875,15 @@ export default function TeamYear() {
                           <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SOLO</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AST</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TOT</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TFL</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>SACK</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>INT</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>IntYd</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>PD</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FF</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FR</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3801,9 +3903,15 @@ export default function TeamYear() {
                             </td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.soloTkl || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.astTkl || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.soloTkl || 0) + (p.astTkl || 0)}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.tfl || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.sacks || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.int || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.intYds || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.intTd || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.pd || p.pdef || p.deflections || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ff || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fr || 0}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -3826,6 +3934,7 @@ export default function TeamYear() {
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FGM</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FGA</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>FG%</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>XPM</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>XPA</th>
                         </tr>
@@ -3848,6 +3957,7 @@ export default function TeamYear() {
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fgm || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fga || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.fga > 0 ? ((p.fgm / p.fga) * 100).toFixed(0) + '%' : '-'}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.xpm || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.xpa || 0}</td>
                           </tr>
@@ -3872,8 +3982,9 @@ export default function TeamYear() {
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>PUNTS</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
-                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>IN20</th>
                           <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>IN20</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TB</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -3894,7 +4005,100 @@ export default function TeamYear() {
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.punts || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{(p.yds || 0).toLocaleString()}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.punts > 0 ? (p.yds / p.punts).toFixed(1) : '0.0'}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.in20 || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.tb || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Kick Return */}
+              {playerStats.kickReturn && playerStats.kickReturn.length > 0 && (
+                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                  <div className="px-4 py-2.5" style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}>
+                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Kick Return</h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
+                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RET</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {playerStats.kickReturn.map((p, i) => (
+                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
+                            <td className="px-3 py-2">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
+                                {p.pictureUrl ? (
+                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
+                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
+                                  </div>
+                                )}
+                                {p.name}
+                              </Link>
+                            </td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0'}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Punt Return */}
+              {playerStats.puntReturn && playerStats.puntReturn.length > 0 && (
+                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                  <div className="px-4 py-2.5" style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}>
+                    <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Punt Return</h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{ backgroundColor: `${teamInfo.backgroundColor}15` }}>
+                          <th className="text-left px-3 py-2 font-semibold" style={{ color: accentColor }}>Player</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>RET</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>YDS</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>AVG</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>TD</th>
+                          <th className="text-center px-2 py-2 font-semibold" style={{ color: accentColor }}>LNG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {playerStats.puntReturn.map((p, i) => (
+                          <tr key={p.pid || i} className="border-t " style={{ borderColor: `${accentColor}20` }}>
+                            <td className="px-3 py-2">
+                              <Link to={`${pathPrefix}/player/${p.pid}`} className="flex items-center gap-2 font-medium hover:underline" style={{ color: accentColor }}>
+                                {p.pictureUrl ? (
+                                  <img src={p.pictureUrl} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${accentColor}15` }}>
+                                    <span className="text-[10px] font-bold" style={{ color: accentColor }}>{p.name?.charAt(0)}</span>
+                                  </div>
+                                )}
+                                {p.name}
+                              </Link>
+                            </td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret || 0}</td>
+                            <td className="text-center px-2 py-2 tabular-nums font-semibold" style={{ color: accentColor }}>{(p.yds || 0).toLocaleString()}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.ret > 0 ? (p.yds / p.ret).toFixed(1) : '0.0'}</td>
+                            <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.td || 0}</td>
                             <td className="text-center px-2 py-2 tabular-nums" style={{ color: accentColorMuted }}>{p.lng || 0}</td>
                           </tr>
                         ))}
