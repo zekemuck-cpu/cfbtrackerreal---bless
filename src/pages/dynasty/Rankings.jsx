@@ -152,8 +152,8 @@ export default function Rankings() {
   // CFP Playoff Team Card (Top 4)
   const PlayoffTeamCard = ({ rank, teamAbbr, year, isFirst }) => {
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#d97706', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#d97706', secondary: '#fff' }
     const record = teamRecords[teamAbbr]
     const schoolName = getSchoolName(mascotName) || teamAbbr
 
@@ -210,8 +210,8 @@ export default function Rankings() {
   // Standard ranking row
   const RankingRow = ({ rank, teamAbbr, year }) => {
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#666', secondary: '#fff' }
     const record = teamRecords[teamAbbr]
 
     return (

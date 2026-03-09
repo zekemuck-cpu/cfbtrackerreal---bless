@@ -516,11 +516,13 @@ export default function CFPBracket() {
   // Team slot component
   // TeamSlot now accepts isParentClickable to avoid nested anchors
   const TeamSlot = ({ team, seed, score, isWinner, isParentClickable }) => {
+    const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams
+    const customEntry = dynastyTeams && team ? Object.values(dynastyTeams).find(t => t.abbr === team || t.name === team) : null
     const teamData = team ? teamAbbreviations[team] : null
     const bgColor = teamData?.backgroundColor || '#4B5563'
     const txtColor = teamData?.textColor || '#D1D5DB'
-    const mascotName = team ? mascotMap[team] : null
-    const logo = mascotName ? getTeamLogo(mascotName) : null
+    const mascotName = customEntry?.name || (team ? mascotMap[team] : null)
+    const logo = customEntry?.logo || (mascotName ? getTeamLogo(mascotName, dynastyTeams) : null)
     const isLoser = score !== undefined && !isWinner
 
     // When parent is clickable (a Link), use span to avoid nested anchors

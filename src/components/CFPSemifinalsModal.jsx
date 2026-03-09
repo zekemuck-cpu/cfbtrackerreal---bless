@@ -108,7 +108,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
     const abbr = teamData.abbr
     const mascotName = mascotMap[abbr] || teamData.name
-    const logo = mascotName ? getTeamLogo(mascotName) : null
+    const logo = teamData.logo || (mascotName ? getTeamLogo(mascotName, teams) : null)
 
     // Extract just the school name (remove mascot suffix)
     // e.g., "Kentucky Wildcats" -> "Kentucky", "Duke Blue Devils" -> "Duke"

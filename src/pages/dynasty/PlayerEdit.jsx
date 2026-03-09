@@ -227,7 +227,7 @@ export default function PlayerEdit() {
       const years = Object.keys(tby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
       if (years.length > 0) return tby[years[0]] || tby[String(years[0])]
     }
-    return player?.team || player?.teams?.[0] || dynasty?.currentTid
+    return player?.team || dynasty?.currentTid
   }, [player, currentYear, dynasty?.currentTid])
 
   // Get team info for colors - use player's team, not dynasty's current team

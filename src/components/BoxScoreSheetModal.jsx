@@ -283,7 +283,8 @@ export default function BoxScoreSheetModal({
               week,
               homeRoster,
               awayRoster,
-              existingScoringData
+              existingScoringData,
+              currentDynasty?.teams || currentDynasty?.customTeams
             )
           } else if (sheetType === 'teamStats') {
             // Get existing team stats data to pre-fill
@@ -293,7 +294,8 @@ export default function BoxScoreSheetModal({
               awayTeamAbbr,
               year,
               week,
-              existingTeamStats
+              existingTeamStats,
+              currentDynasty?.teams || currentDynasty?.customTeams
             )
           } else {
             // Get existing player stats to pre-fill (homeStats or awayStats)

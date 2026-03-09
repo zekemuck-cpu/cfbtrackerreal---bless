@@ -525,8 +525,8 @@ export default function BowlHistory() {
                     const winner = getWinner(game)
                     const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
                     const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
-                    const team1Logo = team1Mascot ? getTeamLogo(team1Mascot) : null
-                    const team2Logo = team2Mascot ? getTeamLogo(team2Mascot) : null
+                    const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                    const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
 
                     // Generate game ID for navigation
                     const gameBowlName = game.bowlName || bowlName

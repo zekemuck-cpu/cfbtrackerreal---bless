@@ -24,8 +24,7 @@ export function useTeamColors(teamName, customTeamsOrDynastyTeams = null) {
         if (team.name === teamName || team.abbr === teamName) {
           return {
             primary: team.primaryColor || '#374151',
-            secondary: team.secondaryColor || '#FFFFFF',
-            isTeambuilder: team.isTeambuilder || false
+            secondary: team.secondaryColor || '#FFFFFF'
           }
         }
       }
@@ -43,8 +42,7 @@ export function useTeamColors(teamName, customTeamsOrDynastyTeams = null) {
       if (teambuilderByName) {
         result = {
           primary: teambuilderByName.backgroundColor || teambuilderByName.primaryColor,
-          secondary: teambuilderByName.textColor || teambuilderByName.secondaryColor,
-          isTeambuilder: true
+          secondary: teambuilderByName.textColor || teambuilderByName.secondaryColor
         }
       }
 
@@ -53,8 +51,7 @@ export function useTeamColors(teamName, customTeamsOrDynastyTeams = null) {
         const t = customTeams[teamName]
         result = {
           primary: t.backgroundColor || t.primaryColor,
-          secondary: t.textColor || t.secondaryColor,
-          isTeambuilder: true
+          secondary: t.textColor || t.secondaryColor
         }
       }
 

@@ -111,7 +111,7 @@ function ViewDynastyContent() {
             <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 flex-1 justify-center min-w-0">
               {/* Team Logo and Name */}
               <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-shrink-0">
-                {getTeamLogo(currentDynasty.teamName) && (
+                {getTeamLogo(currentDynasty.teamName, currentDynasty?.teams || currentDynasty?.customTeams) && (
                   <div
                     className="w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0"
                     style={{
@@ -121,7 +121,7 @@ function ViewDynastyContent() {
                     }}
                   >
                     <img
-                      src={getTeamLogo(currentDynasty.teamName)}
+                      src={getTeamLogo(currentDynasty.teamName, currentDynasty?.teams || currentDynasty?.customTeams)}
                       alt={`${currentDynasty.teamName} logo`}
                       className="w-full h-full object-contain"
                     />

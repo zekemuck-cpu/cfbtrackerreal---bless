@@ -330,7 +330,7 @@ export default function Player() {
       const years = Object.keys(tby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
       if (years.length > 0) return tby[years[0]] || tby[String(years[0])]
     }
-    return player?.team || player?.teams?.[0] || getCurrentTeamAbbr(dynasty) || ''
+    return player?.team || getCurrentTeamAbbr(dynasty) || ''
   })()
 
   // For outgoing transfers, get the team they transferred FROM
@@ -842,7 +842,7 @@ export default function Player() {
                   <tbody>
                     {gameLog.map((game, idx) => {
                       const oppMascot = getMascotName(game.opponent, dynasty?.teams || dynasty?.customTeams)
-                      const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+                      const oppLogo = oppMascot ? getTeamLogo(oppMascot, dynasty?.teams || dynasty?.customTeams) : null
                       const isWin = game.result === 'win' || game.result === 'W'
                       return (
                         <tr
@@ -1010,9 +1010,9 @@ export default function Player() {
               className="inline-flex items-center gap-1.5 text-sm font-bold uppercase tracking-wider hover:underline"
               style={{ color: primaryText, opacity: 0.9, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
             >
-              {getTeamLogo(playerTeamName) && (
+              {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '2px' }}>
-                  <img src={getTeamLogo(playerTeamName)} alt="" className="w-full h-full object-contain" />
+                  <img src={getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams)} alt="" className="w-full h-full object-contain" />
                 </div>
               )}
               <span className="truncate max-w-[140px]">{playerTeamName}</span>
@@ -1197,9 +1197,9 @@ export default function Player() {
                   className="inline-flex items-center gap-2 text-base font-bold uppercase tracking-wider hover:underline"
                   style={{ color: primaryText, opacity: 0.9, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
                 >
-                  {getTeamLogo(playerTeamName) && (
+                  {getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams) && (
                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.95)', boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
-                      <img src={getTeamLogo(playerTeamName)} alt="" className="w-full h-full object-contain" />
+                      <img src={getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams)} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
                   {playerTeamName}
@@ -1919,7 +1919,7 @@ export default function Player() {
                         {passingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2032,7 +2032,7 @@ export default function Player() {
                         {rushingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 13 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2140,7 +2140,7 @@ export default function Player() {
                         {receivingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 11 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2234,7 +2234,7 @@ export default function Player() {
                         {blockingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 4 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2326,7 +2326,7 @@ export default function Player() {
                         {defenseYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 14 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2435,7 +2435,7 @@ export default function Player() {
                         {kickingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 10 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2534,7 +2534,7 @@ export default function Player() {
                         {puntingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                          const logo = mascot ? getTeamLogo(mascot) : null
+                          const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 9 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
                             <React.Fragment key={y.year}>
@@ -2626,7 +2626,7 @@ export default function Player() {
                     {kickReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                      const logo = mascot ? getTeamLogo(mascot) : null
+                      const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>
@@ -2712,7 +2712,7 @@ export default function Player() {
                     {puntReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
-                      const logo = mascot ? getTeamLogo(mascot) : null
+                      const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                       const colSpan = 8
                       return (
                         <React.Fragment key={y.year}>

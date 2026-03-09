@@ -2735,7 +2735,7 @@ export default function Dashboard() {
       {/* New Job Banner - show when user is taking a new job */}
       {takingNewJob === true && newJobTeam && newJobPosition && (() => {
         // newJobTeam is already the full display name (e.g., "Delaware Fightin' Blue Hens")
-        const newTeamLogo = getTeamLogo(newJobTeam)
+        const newTeamLogo = getTeamLogo(newJobTeam, currentDynasty?.teams || currentDynasty?.customTeams)
         const newTeamColors = getTeamColors(newJobTeam, currentDynasty?.teams || currentDynasty?.customTeams) || { primary: '#333', secondary: '#fff' }
         const newTeamPrimaryText = getContrastTextColor(newTeamColors.primary)
 
@@ -3675,6 +3675,7 @@ export default function Dashboard() {
                             }}
                             placeholder="Select opponent..."
                             teamColors={teamColors}
+                            dynastyTeams={currentDynasty?.teams}
                           />
                         ) : isViewOnly ? (
                           <ViewOnlyBadge />
@@ -4464,6 +4465,7 @@ export default function Dashboard() {
                                   }}
                                   placeholder="Search for opponent..."
                                   teamColors={teamColors}
+                                  dynastyTeams={currentDynasty?.teams}
                                 />
                               </div>
                             </div>
@@ -4703,6 +4705,7 @@ export default function Dashboard() {
                               }}
                               placeholder="Search for team..."
                               teamColors={teamColors}
+                              dynastyTeams={currentDynasty?.teams}
                             />
                           </div>
                         </div>
@@ -5121,6 +5124,7 @@ export default function Dashboard() {
                               }}
                               placeholder="Search for team..."
                               teamColors={teamColors}
+                              dynastyTeams={currentDynasty?.teams}
                             />
                           </div>
                         </div>
@@ -6374,6 +6378,7 @@ export default function Dashboard() {
                             }}
                             placeholder="Search for team..."
                             teamColors={teamColors}
+                            dynastyTeams={currentDynasty?.teams}
                           />
                         </div>
                       </div>
@@ -8033,7 +8038,7 @@ export default function Dashboard() {
                 const opponentColors = getOpponentColors(entry.opponent)
                 const mascotName = getMascotName(entry.opponent)
                 const opponentName = mascotName || getTeamNameFromAbbr(entry.opponent)
-                const opponentLogo = mascotName ? getTeamLogo(mascotName) : null
+                const opponentLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
                 const isCurrentWeek = currentDynasty.currentPhase === 'regular_season' &&
                   weekNum === Number(currentDynasty.currentWeek) && !entry.isPlayed
                 const isWin = entry.perspective?.userWon
@@ -8149,9 +8154,9 @@ export default function Dashboard() {
               const hasOpponent = !!ccOpponentAbbr
               const ccOpponentColors = hasOpponent ? getOpponentColors(ccOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const ccMascotFromAbbr = hasOpponent ? getMascotName(ccOpponentAbbr) : null
-              const ccMascotName = ccMascotFromAbbr || (hasOpponent && getTeamLogo(ccOpponentAbbr) ? ccOpponentAbbr : null)
+              const ccMascotName = ccMascotFromAbbr || (hasOpponent && getTeamLogo(ccOpponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) ? ccOpponentAbbr : null)
               const ccOpponentName = ccMascotName || (hasOpponent ? getTeamNameFromAbbr(ccOpponentAbbr) : 'TBD')
-              const ccOpponentLogo = ccMascotName ? getTeamLogo(ccMascotName) : null
+              const ccOpponentLogo = ccMascotName ? getTeamLogo(ccMascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const isCurrentCCWeek = currentDynasty.currentPhase === 'conference_championship' && !ccGame
               const isWin = ccGame?.perspective?.userWon
               const userScore = ccGame?.perspective?.userScore ?? ccGame?.teamScore
@@ -8216,9 +8221,9 @@ export default function Dashboard() {
               const hasOpponent = !!bowlOpponentAbbr
               const bowlOpponentColors = hasOpponent ? getOpponentColors(bowlOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
               const mascotFromAbbr = hasOpponent ? getMascotName(bowlOpponentAbbr) : null
-              const bowlMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(bowlOpponentAbbr) ? bowlOpponentAbbr : null)
+              const bowlMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(bowlOpponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) ? bowlOpponentAbbr : null)
               const bowlOpponentName = bowlMascotName || (hasOpponent ? getTeamNameFromAbbr(bowlOpponentAbbr) : 'TBD')
-              const bowlOpponentLogo = bowlMascotName ? getTeamLogo(bowlMascotName) : null
+              const bowlOpponentLogo = bowlMascotName ? getTeamLogo(bowlMascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const isWin = userBowlGameData?.perspective?.userWon
               const userScore = userBowlGameData?.perspective?.userScore ?? userBowlGameData?.teamScore
               const opponentScore = userBowlGameData?.perspective?.opponentScore ?? userBowlGameData?.opponentScore
@@ -8270,7 +8275,7 @@ export default function Dashboard() {
               const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
               const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
               const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
               const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
@@ -8311,7 +8316,7 @@ export default function Dashboard() {
               const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
               const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
               const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const bowlName = cfpGame.bowlName || 'CFP Quarterfinal'
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
@@ -8353,7 +8358,7 @@ export default function Dashboard() {
               const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
               const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
               const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const bowlName = cfpGame.bowlName || 'CFP Semifinal'
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
@@ -8395,7 +8400,7 @@ export default function Dashboard() {
               const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
               const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
               const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot) : null
+              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
               const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
@@ -8544,7 +8549,7 @@ export default function Dashboard() {
                       const opponentColors = getOpponentColors(entry.opponent)
                       const mascotFromAbbr = getMascotName(entry.opponent)
                       const opponentName = mascotFromAbbr || getTeamNameFromAbbr(entry.opponent)
-                      const opponentLogo = mascotFromAbbr ? getTeamLogo(mascotFromAbbr) : getTeamLogo(entry.opponent)
+                      const opponentLogo = mascotFromAbbr ? getTeamLogo(mascotFromAbbr, currentDynasty?.teams || currentDynasty?.customTeams) : getTeamLogo(entry.opponent, currentDynasty?.teams || currentDynasty?.customTeams)
                       const playedGame = (currentDynasty.games || []).find(g => {
                         if (!isSameYear(g.year, currentDynasty.currentYear)) return false
                         if (g.week !== entry.week) return false

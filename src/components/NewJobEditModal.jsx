@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getTeamColors } from '../data/teamColors'
+import { useDynasty } from '../context/DynastyContext'
 
-// Get all teams for dropdown
-const allTeams = Object.entries(teamAbbreviations)
+// Get static base teams for dropdown (teambuilder teams added dynamically below)
+const staticTeams = Object.entries(teamAbbreviations)
   .map(([abbr, data]) => ({
     abbr,
     name: data.name,
@@ -14,6 +15,18 @@ const allTeams = Object.entries(teamAbbreviations)
   .sort((a, b) => a.name.localeCompare(b.name))
 
 export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, currentJobData }) {
+  const { currentDynasty } = useDynasty()
+  const dynastyTeams = currentDynasty?.teams || null
+
+  // Build team list from dynasty.teams — it's the single source of truth.
+  // Custom teambuilder teams have already replaced their slot at the correct tid,
+  // so iterating dynasty.teams gives the correct full list with no special-casing needed.
+  const allTeams = useMemo(() => {
+    if (!dynastyTeams) return staticTeams
+    return Object.values(dynastyTeams)
+      .filter(t => !t.isFCS && t.name && t.abbr)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [dynastyTeams])
   const [takingNewJob, setTakingNewJob] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState('')
   const [selectedPosition, setSelectedPosition] = useState('')
@@ -92,8 +105,8 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
   )
 
   // Get colors for the selected new team (for preview)
-  const newTeamColors = selectedTeam ? (getTeamColors(selectedTeam) || { primary: '#333', secondary: '#fff' }) : null
-  const newTeamLogo = selectedTeam ? getTeamLogo(selectedTeam) : null
+  const newTeamColors = selectedTeam ? (getTeamColors(selectedTeam, dynastyTeams) || { primary: '#333', secondary: '#fff' }) : null
+  const newTeamLogo = selectedTeam ? getTeamLogo(selectedTeam, dynastyTeams) : null
 
   if (!isOpen) return null
 
@@ -205,7 +218,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                     <div className="px-4 py-3 text-gray-500">No teams found</div>
                   ) : (
                     filteredTeams.map((team) => {
-                      const logo = getTeamLogo(team.name)
+                      const logo = getTeamLogo(team.name, dynastyTeams)
                       return (
                         <button
                           key={team.abbr}

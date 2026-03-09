@@ -301,8 +301,8 @@ export default function AllAmericans() {
   const FeaturedPlayerCard = ({ player, designation }) => {
     const config = DESIGNATION_CONFIG[designation]
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: config.accentColor, secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: config.accentColor, secondary: '#fff' }
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school)
     const schoolName = getSchoolName(mascotName) || player.school
 
@@ -376,8 +376,8 @@ export default function AllAmericans() {
   // Compact player row - even more compact on mobile
   const PlayerRow = ({ player }) => {
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#64748b', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#64748b', secondary: '#fff' }
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school)
     const schoolName = getSchoolName(mascotName) || player.school
 

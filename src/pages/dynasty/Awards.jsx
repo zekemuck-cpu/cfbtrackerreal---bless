@@ -236,8 +236,8 @@ export default function Awards() {
   // Heisman Trophy - The crown jewel (compact on mobile)
   const HeismanCard = ({ awardData }) => {
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#b8860b', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#b8860b', secondary: '#fff' }
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const schoolName = getSchoolName(mascotName) || awardData.team
 
@@ -386,8 +386,8 @@ export default function Awards() {
   const EliteAwardCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey]
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#6366f1', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#6366f1', secondary: '#fff' }
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const isCoachAward = display.category === 'coach'
     const schoolName = getSchoolName(mascotName) || awardData.team
@@ -511,8 +511,8 @@ export default function Awards() {
   const PositionAwardCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey]
     const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#64748b', secondary: '#fff' }
+    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#64748b', secondary: '#fff' }
     const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
     const isCoachAward = display.category === 'coach'
     const schoolName = getSchoolName(mascotName) || awardData.team

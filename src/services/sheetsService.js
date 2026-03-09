@@ -11745,7 +11745,7 @@ const TEAM_STATS_ROWS = [
 
 // Create a game team stats sheet with a single tab (columns for away and home teams)
 // existingData: optional object { home: {...}, away: {...} } to pre-fill (from game.boxScore.teamStats)
-export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null) {
+export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null, customTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -11787,7 +11787,7 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     const sheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize the tab with headers, stat labels, and formatting
-    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr)
+    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, customTeams)
 
     // Pre-fill with existing team stats data if provided
     if (existingData && (existingData.home || existingData.away)) {

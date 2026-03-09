@@ -76,11 +76,11 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   const opponentTeamInfo = teamAbbreviations[opponentAbbrResolved]
   // First try to get mascot from abbreviation, if that fails check if opponent IS a mascot name
   let opponentMascot = getMascotName(opponentAbbrResolved)
-  let opponentLogo = opponentMascot ? getTeamLogo(opponentMascot) : null
+  let opponentLogo = opponentMascot ? getTeamLogo(opponentMascot, teams) : null
 
   // If no mascot found by abbreviation, try using opponent directly as mascot name
   if (!opponentLogo) {
-    opponentLogo = getTeamLogo(opponentAbbrResolved)
+    opponentLogo = getTeamLogo(opponentAbbrResolved, teams)
     if (opponentLogo) {
       opponentMascot = opponentAbbrResolved
     }
@@ -88,12 +88,12 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Also try getting abbreviation from display name for colors
   const opponentAbbr = opponentMascot ? getAbbrFromTeamName(opponentMascot) : opponentAbbrResolved
-  const opponentColors = opponentMascot ? getTeamColors(opponentMascot) : { primary: '#666', secondary: '#fff' }
+  const opponentColors = opponentMascot ? getTeamColors(opponentMascot, teams) : { primary: '#666', secondary: '#fff' }
 
   // Get display team info (user's team or viewing team for CPU games)
-  const displayTeamLogo = getTeamLogo(displayTeam)
+  const displayTeamLogo = getTeamLogo(displayTeam, teams)
   const displayTeamColors = isCPUGame
-    ? (getMascotName(displayTeamAbbr) ? getTeamColors(getMascotName(displayTeamAbbr)) : teamColors)
+    ? (getMascotName(displayTeamAbbr) ? getTeamColors(getMascotName(displayTeamAbbr), teams) : teamColors)
     : teamColors
 
   // Get user team ratings

@@ -91,7 +91,7 @@ function getTeamLogoRobust(teamInput, teamsData = null) {
     const logo = getTeamLogo(teamInput, teamsData)
     if (logo) return logo
   }
-  let logo = getTeamLogo(teamInput)
+  let logo = getTeamLogo(teamInput, teamsData)
   if (logo) return logo
   const mascotName = getMascotName(teamInput, teamsData)
   if (mascotName) {
@@ -328,9 +328,9 @@ export default function GameEdit() {
   const team2Logo = getTeamLogoRobust(team2Name, teamsSource) || getTeamLogoRobust(team2Abbr, teamsSource)
 
   const team1Colors = team1Data ? { primary: team1Data.primaryColor, secondary: team1Data.secondaryColor } :
-    getTeamColors(team1Name) || defaultColors
+    getTeamColors(team1Name, teamsSource) || defaultColors
   const team2Colors = team2Data ? { primary: team2Data.primaryColor, secondary: team2Data.secondaryColor } :
-    getTeamColors(team2Name) || defaultColors
+    getTeamColors(team2Name, teamsSource) || defaultColors
 
   // Game metadata
   const gameYear = existingGame?.year || (queryYear ? parseInt(queryYear) : currentDynasty?.currentYear)

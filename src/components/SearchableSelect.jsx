@@ -10,7 +10,8 @@ export default function SearchableSelect({
   placeholder = "Select...",
   label,
   required = false,
-  teamColors = { primary: '#ea580c', secondary: '#FFFFFF' }
+  teamColors = { primary: '#ea580c', secondary: '#FFFFFF' },
+  dynastyTeams = null
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -105,10 +106,10 @@ export default function SearchableSelect({
       )}
 
       <div className="relative">
-        {value && getTeamLogo(value) && (
+        {value && getTeamLogo(value, dynastyTeams) && (
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <img
-              src={getTeamLogo(value)}
+              src={getTeamLogo(value, dynastyTeams)}
               alt={`${value} logo`}
               className="w-6 h-6 object-contain"
             />
@@ -125,7 +126,7 @@ export default function SearchableSelect({
           className="w-full py-2 border rounded-lg focus:ring-2 focus:outline-none transition-colors placeholder-gray-500"
           style={{
             borderColor: '#374151',
-            paddingLeft: value && getTeamLogo(value) ? '2.75rem' : '1rem',
+            paddingLeft: value && getTeamLogo(value, dynastyTeams) ? '2.75rem' : '1rem',
             paddingRight: '2.75rem',
             color: '#f3f4f6',
             backgroundColor: '#1f2937'
@@ -153,8 +154,8 @@ export default function SearchableSelect({
           style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
         >
           {filteredOptions.map((option, index) => {
-            const optionColors = getTeamColors(option)
-            const logoUrl = getTeamLogo(option)
+            const optionColors = getTeamColors(option, dynastyTeams)
+            const logoUrl = getTeamLogo(option, dynastyTeams)
             const isHighlighted = index === highlightedIndex
             const isSelected = value === option
 

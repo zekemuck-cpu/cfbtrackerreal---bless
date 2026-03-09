@@ -115,7 +115,7 @@ function getTeamLogoRobust(teamInput, teamsData = null) {
   }
 
   // 2. Try direct lookup (if teamInput is already a full mascot name)
-  let logo = getTeamLogo(teamInput)
+  let logo = getTeamLogo(teamInput, teamsData)
   if (logo) return logo
 
   // 3. Try as abbreviation via getMascotName
@@ -138,7 +138,7 @@ function getTeamLogoRobust(teamInput, teamsData = null) {
   // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
-    logo = getTeamLogo(teamData.name)
+    logo = getTeamLogo(teamData.name, teamsData)
     if (logo) return logo
   }
 
@@ -161,7 +161,7 @@ function getTeamColorsRobust(teamInput, teamsData = null) {
   }
 
   // 2. Try direct lookup (if teamInput is already a full mascot name)
-  let colors = getTeamColors(teamInput)
+  let colors = getTeamColors(teamInput, teamsData)
   if (colors && !isDefaultColors(colors)) return colors
 
   // 3. Try as abbreviation via getMascotName
@@ -184,7 +184,7 @@ function getTeamColorsRobust(teamInput, teamsData = null) {
   // 5. Try looking up in teamAbbreviations map directly
   const teamData = teamAbbreviations[teamInput] || teamAbbreviations[upperInput]
   if (teamData?.name) {
-    colors = getTeamColors(teamData.name)
+    colors = getTeamColors(teamData.name, teamsData)
     if (colors && !isDefaultColors(colors)) return colors
   }
 
@@ -669,10 +669,11 @@ export default function Game() {
     userWon = userScore > opponentScore
 
     // Get team visuals
-    displayTeamLogo = getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
-    displayTeamColors = getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
-    opponentLogo = getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
-    opponentColors = getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
+    const cpuTeamsData = currentDynasty?.teams || currentDynasty?.customTeams
+    displayTeamLogo = getTeamLogoRobust(displayTeam, cpuTeamsData) || getTeamLogoRobust(displayTeamAbbr, cpuTeamsData)
+    displayTeamColors = getTeamColorsRobust(displayTeam, cpuTeamsData) || getTeamColorsRobust(displayTeamAbbr, cpuTeamsData) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = getTeamLogoRobust(opponent, cpuTeamsData) || getTeamLogoRobust(opponentAbbr, cpuTeamsData)
+    opponentColors = getTeamColorsRobust(opponent, cpuTeamsData) || getTeamColorsRobust(opponentAbbr, cpuTeamsData) || { primary: '#666', secondary: '#fff' }
   } else {
     // User game - use perspective
     const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
@@ -689,12 +690,13 @@ export default function Game() {
     userWon = perspective.userWon
 
     // Get team visuals
-    displayTeamLogo = userTeamInfo?.logo || getTeamLogoRobust(displayTeam) || getTeamLogoRobust(displayTeamAbbr)
+    const userTeamsData = currentDynasty?.teams || currentDynasty?.customTeams
+    displayTeamLogo = userTeamInfo?.logo || getTeamLogoRobust(displayTeam, userTeamsData) || getTeamLogoRobust(displayTeamAbbr, userTeamsData)
     displayTeamColors = (userTeamInfo?.primaryColor ? { primary: userTeamInfo.primaryColor, secondary: userTeamInfo.secondaryColor } : null)
-      || getTeamColorsRobust(displayTeam) || getTeamColorsRobust(displayTeamAbbr) || { primary: '#666', secondary: '#fff' }
-    opponentLogo = oppTeamInfo?.logo || getTeamLogoRobust(opponent) || getTeamLogoRobust(opponentAbbr)
+      || getTeamColorsRobust(displayTeam, userTeamsData) || getTeamColorsRobust(displayTeamAbbr, userTeamsData) || { primary: '#666', secondary: '#fff' }
+    opponentLogo = oppTeamInfo?.logo || getTeamLogoRobust(opponent, userTeamsData) || getTeamLogoRobust(opponentAbbr, userTeamsData)
     opponentColors = (oppTeamInfo?.primaryColor ? { primary: oppTeamInfo.primaryColor, secondary: oppTeamInfo.secondaryColor } : null)
-      || getTeamColorsRobust(opponent) || getTeamColorsRobust(opponentAbbr) || { primary: '#666', secondary: '#fff' }
+      || getTeamColorsRobust(opponent, userTeamsData) || getTeamColorsRobust(opponentAbbr, userTeamsData) || { primary: '#666', secondary: '#fff' }
   }
 
   // Helper function to get player PID by name
@@ -2011,7 +2013,8 @@ export default function Game() {
                             // Handle Long columns - show max value
                             if (header === 'Long' || header === 'FG Long') {
                               const key = header === 'FG Long' ? 'fGLong' : 'long'
-                              const maxLong = Math.max(...teamData[statKey].map(row => parseFloat(row[key]) || 0))
+                              const longValues = teamData[statKey].map(row => parseFloat(row[key]) || 0)
+                              const maxLong = longValues.length > 0 ? Math.max(...longValues) : 0
                               return <td key={colIdx} className="py-2 px-2 text-center text-white">{maxLong || 0}</td>
                             }
 

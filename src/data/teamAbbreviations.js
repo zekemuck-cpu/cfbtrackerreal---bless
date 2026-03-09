@@ -249,29 +249,13 @@ function isTidBasedTeams(teamsObj) {
 export function getSelectableTeamsList(customTeams = null) {
   // Check if we're dealing with tid-based teams (new format)
   if (isTidBasedTeams(customTeams)) {
-    // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
-    const replacedTeamAbbrs = new Set()
-    const teambuilderAbbrs = []
-
-    // Find all replaced team abbreviations and teambuilder teams
-    for (const team of Object.values(customTeams)) {
-      if (team.isTeambuilder) {
-        // Only add non-FCS teambuilder teams to selectable list
-        if (!team.isFCS) {
-          teambuilderAbbrs.push(team.abbr)
-        }
-        if (team.replacedTeam?.abbr) {
-          replacedTeamAbbrs.add(team.replacedTeam.abbr)
-        }
-      }
-    }
-
-    // Start with full static FBS team list, exclude replaced teams, add teambuilder teams
-    const fbsTeams = Object.keys(teamAbbreviations)
-      .filter(abbr => !teamAbbreviations[abbr].isFCS)
-      .filter(abbr => !replacedTeamAbbrs.has(abbr))
-
-    return [...fbsTeams, ...teambuilderAbbrs].sort()
+    // dynasty.teams has ALL teams with correct abbrs already applied
+    // (teambuilder teams have replaced original abbrs at their tids)
+    // Just filter out FCS placeholders and return all abbrs
+    return Object.values(customTeams)
+      .filter(team => !team.isFCS && team.abbr)
+      .map(team => team.abbr)
+      .sort()
   }
 
   // Old customTeams format
@@ -297,25 +281,12 @@ export function getSelectableTeamsList(customTeams = null) {
 export function getSchedulableTeamsList(customTeams = null) {
   // Check if we're dealing with tid-based teams (new format)
   if (isTidBasedTeams(customTeams)) {
-    // New tid-based format: { tid: { tid, abbr, name, isFCS, isTeambuilder, replacedTeam } }
-    const replacedTeamAbbrs = new Set()
-    const teambuilderAbbrs = []
-
-    // Find all replaced team abbreviations and teambuilder teams
-    for (const team of Object.values(customTeams)) {
-      if (team.isTeambuilder) {
-        teambuilderAbbrs.push(team.abbr)
-        if (team.replacedTeam?.abbr) {
-          replacedTeamAbbrs.add(team.replacedTeam.abbr)
-        }
-      }
-    }
-
-    // Start with full static team list, exclude replaced teams, add teambuilder teams
-    const allTeams = Object.keys(teamAbbreviations)
-      .filter(abbr => !replacedTeamAbbrs.has(abbr))
-
-    return [...allTeams, ...teambuilderAbbrs].sort()
+    // dynasty.teams has ALL teams with correct abbrs already applied
+    // (teambuilder teams have replaced original abbrs at their tids)
+    return Object.values(customTeams)
+      .filter(team => team.abbr)
+      .map(team => team.abbr)
+      .sort()
   }
 
   // Old customTeams format

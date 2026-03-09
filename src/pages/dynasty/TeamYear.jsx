@@ -2533,7 +2533,7 @@ export default function TeamYear() {
           const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
           const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
           const oppMascot = oppTeam?.name || getMascotName(oppAbbr, teamsSource)
-          const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot) : null)
+          const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot, teamsSource) : null)
           const result = game._isFlippedPerspective ? game._displayResult : game.result
           const location = game._isFlippedPerspective ? game._displayLocation : game.location
           const teamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
@@ -3172,7 +3172,7 @@ export default function TeamYear() {
               const rawOpp = game._isFlippedPerspective ? game._displayOpponent : game.opponent
               const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
               const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
-              const oppLogo = oppTeam?.logo || (oppTeam?.name ? getTeamLogo(oppTeam.name) : null)
+              const oppLogo = oppTeam?.logo || (oppTeam?.name ? getTeamLogo(oppTeam.name, teamsSource) : null)
               const result = game._isFlippedPerspective ? game._displayResult : game.result
               const location = game._isFlippedPerspective ? game._displayLocation : game.location
               const teamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
@@ -4377,7 +4377,7 @@ export default function TeamYear() {
               // Use tid-based lookup for opponent data (supports teambuilder teams)
               const oppTeam = getTeamByAbbr(teamsSource, displayOpponent)
               const oppMascot = oppTeam?.name || getMascotName(displayOpponent, teamsSource)
-              const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot) : null)
+              const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot, teamsSource) : null)
               const oppColors = oppTeam
                 ? { backgroundColor: oppTeam.primaryColor, textColor: oppTeam.secondaryColor }
                 : { backgroundColor: '#6b7280', textColor: '#ffffff' }
@@ -4825,7 +4825,7 @@ export default function TeamYear() {
 
               // Use tid-based lookup for CC opponent data (supports teambuilder teams)
               const ccOppTeam = getTeamByAbbr(teamsSource, ccOpponentAbbr)
-              const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr, teamsSource) ? getTeamLogo(getMascotName(ccOpponentAbbr, teamsSource)) : null)
+              const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr, teamsSource) ? getTeamLogo(getMascotName(ccOpponentAbbr, teamsSource), teamsSource) : null)
               const ccOppColors = ccOppTeam
                 ? { backgroundColor: ccOppTeam.primaryColor, textColor: ccOppTeam.secondaryColor }
                 : { backgroundColor: '#6b7280', textColor: '#ffffff' }
@@ -4926,7 +4926,7 @@ export default function TeamYear() {
               const bowlOpponentValue = bowlData.opponent
               // Use tid-based lookup for bowl opponent data (supports teambuilder teams)
               const bowlOppTeam = getTeamByAbbr(teamsSource, bowlOpponentValue)
-              const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue, teamsSource) ? getTeamLogo(getMascotName(bowlOpponentValue, teamsSource)) : null)
+              const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue, teamsSource) ? getTeamLogo(getMascotName(bowlOpponentValue, teamsSource), teamsSource) : null)
               const oppColors = bowlOppTeam
                 ? { backgroundColor: bowlOppTeam.primaryColor, textColor: bowlOppTeam.secondaryColor }
                 : { backgroundColor: '#6b7280', textColor: '#ffffff' }

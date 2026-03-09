@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
+import { useDynasty } from '../context/DynastyContext'
 
 // Award display names for proper formatting
 const AWARD_DISPLAY = {
@@ -132,6 +133,9 @@ export default function PlayerMatchConfirmModal({
   onConfirm,
   onCancel
 }) {
+  const { currentDynasty } = useDynasty()
+  const teamsData = currentDynasty?.teams || null
+
   if (!isOpen || !confirmation) return null
 
   const { entry, player, existingTeams, existingYears, lastHonor } = confirmation
@@ -144,13 +148,13 @@ export default function PlayerMatchConfirmModal({
   const isValidTeamAbbr = (str) => str && /^[A-Z0-9-]{2,5}$/.test(str) && teamAbbreviations[str]
   const newTeamAbbr = isValidTeamAbbr(entry.team) ? entry.team : (entry.school || entry.team || '')
   const newTeamInfo = teamAbbreviations[newTeamAbbr] || {}
-  const newMascotName = getMascotName(newTeamAbbr)
-  const newTeamLogo = newMascotName ? getTeamLogo(newMascotName) : null
+  const newMascotName = getMascotName(newTeamAbbr, teamsData)
+  const newTeamLogo = newMascotName ? getTeamLogo(newMascotName, teamsData) : null
 
   const oldTeamAbbr = existingTeams[existingTeams.length - 1] // Most recent team
   const oldTeamInfo = teamAbbreviations[oldTeamAbbr] || {}
-  const oldMascotName = getMascotName(oldTeamAbbr)
-  const oldTeamLogo = oldMascotName ? getTeamLogo(oldMascotName) : null
+  const oldMascotName = getMascotName(oldTeamAbbr, teamsData)
+  const oldTeamLogo = oldMascotName ? getTeamLogo(oldMascotName, teamsData) : null
 
   // Get player position from various sources
   const playerPosition = entry.position || player.position || ''

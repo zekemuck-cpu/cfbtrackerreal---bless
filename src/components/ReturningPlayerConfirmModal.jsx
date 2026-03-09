@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
+import { useDynasty } from '../context/DynastyContext'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
@@ -81,6 +82,9 @@ export default function ReturningPlayerConfirmModal({
   onConfirm,
   onCancel
 }) {
+  const { currentDynasty } = useDynasty()
+  const teamsData = currentDynasty?.teams || null
+
   if (!isOpen || !confirmation) return null
 
   const { recruit, existingPlayer, departureReason, departureYear, currentTeamAbbr } = confirmation
@@ -89,13 +93,15 @@ export default function ReturningPlayerConfirmModal({
 
   // Get team info for display
   const teamInfo = teamAbbreviations[currentTeamAbbr] || {}
-  const mascotName = getMascotName(currentTeamAbbr)
-  const teamLogo = mascotName ? getTeamLogo(mascotName) : null
+  const mascotName = getMascotName(currentTeamAbbr, teamsData)
+  const teamLogo = mascotName ? getTeamLogo(mascotName, teamsData) : null
 
   // Get player's last known stats
-  const lastYear = existingPlayer.classByYear ?
-    Math.max(...Object.keys(existingPlayer.classByYear).map(Number).filter(y => !isNaN(y))) : null
-  const lastClass = lastYear ? existingPlayer.classByYear[lastYear] : existingPlayer.year
+  const classByYearKeys = existingPlayer.classByYear
+    ? Object.keys(existingPlayer.classByYear).map(Number).filter(y => !isNaN(y))
+    : []
+  const lastYear = classByYearKeys.length > 0 ? Math.max(...classByYearKeys) : null
+  const lastClass = lastYear !== null ? existingPlayer.classByYear[lastYear] : existingPlayer.year
 
   return (
     <div

@@ -140,7 +140,7 @@ export default function DynastyRecords() {
     const playerTeamRaw = player?.team || currentDynasty?.teamName
     const teamAbbr = getAbbrFromTeamName(playerTeamRaw) || playerTeamRaw
     const teamFullName = getTeamName(teamAbbr) || playerTeamRaw
-    const teamLogo = getTeamLogo(teamFullName)
+    const teamLogo = getTeamLogo(teamFullName, currentDynasty?.teams || currentDynasty?.customTeams)
     return {
       name: player?.name || `Player ${pid}`,
       position: player?.position || '',

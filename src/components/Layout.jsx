@@ -11,7 +11,7 @@ import ClassAdvancementModal from './ClassAdvancementModal'
 import logo from '../assets/logo.png'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.02.12.0001'
+const APP_VERSION = '2026.03.09.0003'
 
 export default function Layout({ children }) {
   const location = useLocation()

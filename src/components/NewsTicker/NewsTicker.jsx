@@ -5,14 +5,19 @@ import { useTickerSections } from './useTickerSections'
 import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 
-function getLogoUrl(teamIdentifier) {
+function getLogoUrl(teamIdentifier, teams = null) {
   if (!teamIdentifier) return null
+  // Check dynasty teams first (handles teambuilder teams by abbr or name)
+  if (teams) {
+    const customEntry = Object.values(teams).find(t => t.abbr === teamIdentifier || t.name === teamIdentifier)
+    if (customEntry?.logo) return customEntry.logo
+  }
   const teamData = teamAbbreviations[teamIdentifier]
   if (teamData) {
     if (teamData.logo) return teamData.logo
-    return getTeamLogo(teamData.name)
+    return getTeamLogo(teamData.name, teams)
   }
-  return getTeamLogo(teamIdentifier)
+  return getTeamLogo(teamIdentifier, teams)
 }
 
 const HOLD_TIME = 4000
@@ -22,6 +27,7 @@ export default function NewsTicker({ dynasty }) {
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
   const sections = useTickerSections(dynasty)
+  const dynastyTeams = dynasty?.teams || null
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
@@ -156,7 +162,7 @@ export default function NewsTicker({ dynasty }) {
               {currentSection.teamLogo && (
                 <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                   <img
-                    src={getLogoUrl(currentSection.teamLogo)}
+                    src={getLogoUrl(currentSection.teamLogo, dynastyTeams)}
                     alt=""
                     className="w-full h-full object-contain"
                     onError={(e) => { e.target.style.display = 'none' }}
@@ -168,7 +174,7 @@ export default function NewsTicker({ dynasty }) {
                   <span className="text-[9px] text-slate-500">vs</span>
                   <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                     <img
-                      src={getLogoUrl(currentSection.opponentLogo)}
+                      src={getLogoUrl(currentSection.opponentLogo, dynastyTeams)}
                       alt=""
                       className="w-full h-full object-contain"
                       onError={(e) => { e.target.style.display = 'none' }}
@@ -206,10 +212,10 @@ export default function NewsTicker({ dynasty }) {
                         </span>
                       )}
 
-                      {item.team && !item.team2 && getLogoUrl(item.team) && (
+                      {item.team && !item.team2 && getLogoUrl(item.team, dynastyTeams) && (
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                           <img
-                            src={getLogoUrl(item.team)}
+                            src={getLogoUrl(item.team, dynastyTeams)}
                             alt=""
                             className="w-full h-full object-contain"
                             onError={(e) => { e.target.style.display = 'none' }}
@@ -221,7 +227,7 @@ export default function NewsTicker({ dynasty }) {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                             <img
-                              src={getLogoUrl(item.team)}
+                              src={getLogoUrl(item.team, dynastyTeams)}
                               alt=""
                               className="w-full h-full object-contain"
                               onError={(e) => { e.target.style.display = 'none' }}
@@ -248,7 +254,7 @@ export default function NewsTicker({ dynasty }) {
                           </span>
                           <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
                             <img
-                              src={getLogoUrl(item.team2)}
+                              src={getLogoUrl(item.team2, dynastyTeams)}
                               alt=""
                               className="w-full h-full object-contain"
                               onError={(e) => { e.target.style.display = 'none' }}

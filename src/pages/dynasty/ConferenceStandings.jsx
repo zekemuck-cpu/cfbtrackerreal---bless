@@ -212,8 +212,8 @@ export default function ConferenceStandings() {
   const TeamRow = ({ team, rank, idx }) => {
     const teamAbbr = team.team
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const logo = mascotName ? getTeamLogo(mascotName) : null
-    const colors = mascotName ? getTeamColors(mascotName) : { primary: '#666', secondary: '#fff' }
+    const logo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#666', secondary: '#fff' }
     const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
 
     return (

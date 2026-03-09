@@ -106,7 +106,8 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
             cfpSeeds,
             firstRoundResults,
             existingQuarterfinals,
-            bowlConfig
+            bowlConfig,
+            currentDynasty?.teams || currentDynasty?.customTeams
           )
           setSheetId(sheetInfo.spreadsheetId)
         } catch (error) {
