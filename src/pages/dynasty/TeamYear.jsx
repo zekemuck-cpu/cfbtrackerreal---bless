@@ -2090,19 +2090,18 @@ export default function TeamYear() {
                         onClick={() => setShowCoachingStaffPopup(false)}
                       />
                       <div
-                        className="fixed z-50 w-72 rounded-xl overflow-hidden"
+                        className="fixed z-50 w-72 card-elevated overflow-hidden border-l-[3px]"
                         style={{
-                          backgroundColor: teamInfo.textColor,
-                          border: `2px solid ${teamInfo.backgroundColor}`,
-                          boxShadow: `0 10px 40px rgba(0,0,0,0.2)`,
+                          borderLeftColor: teamInfo.backgroundColor,
                           top: coachingStaffPopupPosition.top,
                           right: coachingStaffPopupPosition.right
                         }}
                       >
-                        <div className="px-4 py-2.5" style={{ backgroundColor: teamInfo.backgroundColor }}>
-                          <h4 className="font-bold text-sm" style={{ color: teamBgText }}>
-                            {selectedYear} Coaching Staff
-                          </h4>
+                        <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4">
+                          <h4 className="label-xs text-txt-tertiary mb-0.5">Coaching Staff</h4>
+                          <p className="font-bold text-sm text-txt-primary">
+                            {selectedYear}
+                          </p>
                         </div>
                         <div className="p-3 space-y-2">
                           {/* Head Coach */}
@@ -2639,13 +2638,7 @@ export default function TeamYear() {
                 <div className="flex items-center justify-between mb-2">
                   <Link to={`${pathPrefix}/awards/${selectedYear}`} className="text-sm font-bold uppercase tracking-wider hover:underline" style={{ color: accentColorMuted }}>{selectedYear} Awards →</Link>
                 </div>
-                <div
-                  className="rounded-lg p-4 flex flex-wrap gap-x-6 gap-y-2"
-                  style={{
-                    backgroundColor: teamInfo.textColor,
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                  }}
-                >
+                <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2">
                   {teamAwardWinners.map((award) => {
                     // Find matching player
                     let matchingPlayer = null
@@ -3183,7 +3176,7 @@ export default function TeamYear() {
                     Full Schedule →
                   </button>
                 </div>
-                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)', border: `1px solid ${teamInfo.backgroundColor}40` }}>
+                <div className="card overflow-hidden border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                   {/* Mobile: Single column */}
                   <div className="sm:hidden">
                     {teamYearGames.map((game, index) => renderGameItem(game, index))}
@@ -3286,7 +3279,7 @@ export default function TeamYear() {
                             ? ''
                             : 'border'
                         }`}
-                        style={isActive ? { backgroundColor: teamInfo.textColor, color: teamPrimaryText } : { color: `${teamBgText}80`, borderColor: `${teamBgText}30` }}
+                        style={isActive ? { backgroundColor: teamInfo.backgroundColor, color: teamBgText } : { color: 'var(--text-secondary)', borderColor: 'var(--surface-4)' }}
                       >
                         {positionGroups[key].label}
                       </button>
@@ -3299,7 +3292,7 @@ export default function TeamYear() {
 
                 {/* Sort Dropdown-style Buttons */}
                 <div className="flex items-center gap-1 ml-auto">
-                  <span className="text-[10px] uppercase tracking-wider font-semibold mr-1" style={{ color: `${teamBgText}60` }}>
+                  <span className="text-[10px] uppercase tracking-wider font-semibold mr-1 text-txt-tertiary">
                     Sort
                   </span>
                   {[
@@ -3316,7 +3309,7 @@ export default function TeamYear() {
                         key={key}
                         onClick={() => handleRosterSort(key)}
                         className={`px-2 py-1 rounded text-xs font-medium transition-all duration-150 flex items-center gap-0.5`}
-                        style={isActive ? { backgroundColor: teamInfo.textColor, color: teamPrimaryText } : { color: `${teamBgText}80` }}
+                        style={isActive ? { backgroundColor: teamInfo.backgroundColor, color: teamBgText } : { color: 'var(--text-secondary)' }}
                       >
                         {label}
                         {isActive && (
@@ -3379,7 +3372,7 @@ export default function TeamYear() {
                           )}
                           {/* Camera icon overlay - only show when no image */}
                           {!player.pictureUrl && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--surface-3)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)' }}>
                               <svg className="w-2.5 h-2.5" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
@@ -3522,7 +3515,7 @@ export default function TeamYear() {
                               )}
                               {/* Camera icon overlay - only show when no image */}
                               {!player.pictureUrl && (
-                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--surface-3)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)' }}>
                                   <svg className="w-2 h-2" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
@@ -3673,7 +3666,7 @@ export default function TeamYear() {
             <div className="space-y-4">
               {/* Passing */}
               {playerStats.passing.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Passing</h4>
                   </div>
@@ -3728,7 +3721,7 @@ export default function TeamYear() {
 
               {/* Rushing */}
               {playerStats.rushing.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Rushing</h4>
                   </div>
@@ -3782,7 +3775,7 @@ export default function TeamYear() {
 
               {/* Receiving */}
               {playerStats.receiving.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Receiving</h4>
                   </div>
@@ -3832,7 +3825,7 @@ export default function TeamYear() {
 
               {/* Defense */}
               {playerStats.defense.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Defense</h4>
                   </div>
@@ -3890,7 +3883,7 @@ export default function TeamYear() {
 
               {/* Kicking */}
               {playerStats.kicking.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Kicking</h4>
                   </div>
@@ -3938,7 +3931,7 @@ export default function TeamYear() {
 
               {/* Punting */}
               {playerStats.punting.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Punting</h4>
                   </div>
@@ -3986,7 +3979,7 @@ export default function TeamYear() {
 
               {/* Kick Return */}
               {playerStats.kickReturn && playerStats.kickReturn.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Kick Return</h4>
                   </div>
@@ -4032,7 +4025,7 @@ export default function TeamYear() {
 
               {/* Punt Return */}
               {playerStats.puntReturn && playerStats.puntReturn.length > 0 && (
-                <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                <div className="card overflow-hidden">
                   <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                     <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Punt Return</h4>
                   </div>
@@ -4090,13 +4083,13 @@ export default function TeamYear() {
           {statsSubTab === 'team' && (
             <div className="space-y-4">
               {teamStatsData.gamesPlayed === 0 ? (
-                <div className="rounded-lg text-center py-8" style={{ backgroundColor: teamInfo.textColor, color: accentColorMuted }}>
+                <div className="card text-center py-8" style={{ color: accentColorMuted }}>
                   No team statistics available for this season.
                 </div>
               ) : (
                 <>
                   {/* Season Record Card */}
-                  <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                  <div className="card overflow-hidden">
                     <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                       <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Season Record</h4>
                     </div>
@@ -4143,7 +4136,7 @@ export default function TeamYear() {
                   {/* Stats Cards */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Offense Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Offense</h4>
                       </div>
@@ -4168,7 +4161,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Passing Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Passing</h4>
                       </div>
@@ -4193,7 +4186,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Rushing Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Rushing</h4>
                       </div>
@@ -4218,7 +4211,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Efficiency Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Efficiency</h4>
                       </div>
@@ -4247,7 +4240,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Turnovers Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Turnovers</h4>
                       </div>
@@ -4272,7 +4265,7 @@ export default function TeamYear() {
                     </div>
 
                     {/* Special Teams Card */}
-                    <div className="rounded-lg overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+                    <div className="card overflow-hidden">
                       <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                         <h4 className="text-sm font-semibold" style={{ color: teamBgText }}>Special Teams & Misc</h4>
                       </div>
@@ -4316,7 +4309,7 @@ export default function TeamYear() {
         <div className="space-y-4">
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+        <div className="card-elevated overflow-hidden">
           <div>
             {/* Column headers for stat leaders - show at md breakpoint */}
             <div className="hidden md:flex items-center gap-3 py-3 px-4 text-xs font-semibold uppercase tracking-wider" style={{ borderBottom: `1px solid ${accentColor}15`, color: accentColorMuted }}>
@@ -4506,9 +4499,8 @@ export default function TeamYear() {
               const isHomeGame = displayLocation === 'home' || displayLocation === 'Home'
               const gameContent = (
                 <div
-                  className="relative py-2.5 sm:py-3 transition-all duration-200"
+                  className="relative py-2.5 sm:py-3 transition-all duration-200 bg-surface-2"
                   style={{
-                    backgroundColor: teamInfo.textColor,
                     paddingLeft: '1rem',
                     paddingRight: '1rem',
                     borderLeft: isHomeGame ? `4px solid ${teamInfo.backgroundColor}` : '4px solid transparent'
@@ -6015,7 +6007,7 @@ export default function TeamYear() {
             style={{ backgroundColor: viewedTeamColors.secondary }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4" style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <div className="p-4" style={{ backgroundColor: 'var(--surface-3)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)' }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold" style={{ color: teamPrimaryText }}>
                   {quickImagePlayer.pictureUrl ? 'Change Photo' : 'Add Photo'}
@@ -6073,8 +6065,8 @@ export default function TeamYear() {
                 disabled={imageUploading}
                 className="w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-opacity"
                 style={{
-                  backgroundColor: teamInfo.textColor,
-                  color: teamPrimaryText,
+                  backgroundColor: teamInfo.backgroundColor,
+                  color: teamBgText,
                   opacity: imageUploading ? 0.5 : 1
                 }}
               >
@@ -6133,8 +6125,8 @@ export default function TeamYear() {
                 disabled={imageUploading}
                 className="w-full py-3 rounded-lg font-medium text-sm flex items-center justify-center gap-2"
                 style={{
-                  backgroundColor: teamInfo.textColor,
-                  color: teamPrimaryText,
+                  backgroundColor: teamInfo.backgroundColor,
+                  color: teamBgText,
                   opacity: imageUploading ? 0.7 : 1
                 }}
               >
@@ -6179,7 +6171,7 @@ export default function TeamYear() {
             {/* Modal Header */}
             <div
               className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-              style={{ backgroundColor: teamInfo.textColor, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+              style={{ backgroundColor: 'var(--surface-3)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)' }}
             >
               <div>
                 <h3 className="text-xl font-bold" style={{ color: teamBgText }}>
@@ -6274,22 +6266,18 @@ export default function TeamYear() {
           onClick={() => setShowHistoryGamesModal(false)}
         >
           <div
-            className="rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
-            style={{ backgroundColor: teamInfo.textColor }}
+            className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             {/* Modal Header */}
-            <div
-              className="px-6 py-4 flex items-center justify-between flex-shrink-0"
-              style={{ backgroundColor: teamInfo.backgroundColor }}
-            >
-              <h3 className="text-xl font-bold" style={{ color: teamBgText }}>
+            <div className="px-6 py-4 flex items-center justify-between flex-shrink-0 bg-surface-2 border-b border-surface-4">
+              <h3 className="text-xl font-bold text-txt-primary">
                 {historyGamesModalTitle}
               </h3>
               <button
                 onClick={() => setShowHistoryGamesModal(false)}
-                className="p-1 rounded hover:bg-black/10 transition-colors"
-                style={{ color: teamBgText }}
+                className="p-1 rounded hover:bg-surface-3 transition-colors text-txt-tertiary hover:text-txt-primary"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

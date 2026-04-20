@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getContrastTextColor } from '../utils/colorUtils'
 
 /**
  * Modal to confirm class advancement for players with unknown games played.
@@ -43,17 +44,17 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
       style={{ margin: 0 }}
     >
       <div
-        className="rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="card w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border-l-[3px]"
+        style={{ borderLeftColor: teamColors.primary }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-xl font-bold text-txt-primary">
             Confirm Class Advancement
           </h2>
         </div>
 
-        <p className="text-sm mb-4" style={{ color: teamColors.primary, opacity: 0.8 }}>
+        <p className="text-sm mb-4 text-txt-secondary">
           The following players don't have games played data recorded. Please confirm if each player played 5 or more games this season.
           Players who played fewer than 5 games (and aren't already redshirted) will receive a redshirt year.
         </p>
@@ -62,15 +63,13 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => handleSetAll(true)}
-            className="px-3 py-1.5 rounded text-sm font-medium border-2"
-            style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+            className="btn btn-secondary text-sm"
           >
             Set All: Yes (5+ games)
           </button>
           <button
             onClick={() => handleSetAll(false)}
-            className="px-3 py-1.5 rounded text-sm font-medium border-2"
-            style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+            className="btn btn-secondary text-sm"
           >
             Set All: No (Redshirt)
           </button>
@@ -80,12 +79,12 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
         <div className="flex-1 overflow-y-auto mb-4">
           <table className="w-full">
             <thead>
-              <tr style={{ borderBottom: `2px solid ${teamColors.primary}30` }}>
-                <th className="text-left py-2 px-2 text-sm font-semibold" style={{ color: teamColors.primary }}>Player</th>
-                <th className="text-center py-2 px-2 text-sm font-semibold" style={{ color: teamColors.primary }}>Position</th>
-                <th className="text-center py-2 px-2 text-sm font-semibold" style={{ color: teamColors.primary }}>Current Class</th>
-                <th className="text-center py-2 px-2 text-sm font-semibold" style={{ color: teamColors.primary }}>Played 5+ Games?</th>
-                <th className="text-center py-2 px-2 text-sm font-semibold" style={{ color: teamColors.primary }}>Next Class</th>
+              <tr className="border-b border-surface-4">
+                <th className="text-left py-2 px-2 text-sm font-semibold text-txt-secondary">Player</th>
+                <th className="text-center py-2 px-2 text-sm font-semibold text-txt-secondary">Position</th>
+                <th className="text-center py-2 px-2 text-sm font-semibold text-txt-secondary">Current Class</th>
+                <th className="text-center py-2 px-2 text-sm font-semibold text-txt-secondary">Played 5+ Games?</th>
+                <th className="text-center py-2 px-2 text-sm font-semibold text-txt-secondary">Next Class</th>
               </tr>
             </thead>
             <tbody>
@@ -112,19 +111,19 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
                 }
 
                 return (
-                  <tr key={player.pid} style={{ borderBottom: `1px solid ${teamColors.primary}15` }}>
-                    <td className="py-2 px-2 text-sm font-medium" style={{ color: teamColors.primary }}>
+                  <tr key={player.pid} className="border-b border-surface-4/50">
+                    <td className="py-2 px-2 text-sm font-medium text-txt-primary">
                       {player.name}
                     </td>
-                    <td className="py-2 px-2 text-sm text-center" style={{ color: teamColors.primary }}>
+                    <td className="py-2 px-2 text-sm text-center text-txt-secondary">
                       {player.position}
                     </td>
-                    <td className="py-2 px-2 text-sm text-center" style={{ color: teamColors.primary }}>
+                    <td className="py-2 px-2 text-sm text-center text-txt-secondary">
                       {playerClass}
                     </td>
                     <td className="py-2 px-2 text-center">
                       {isAlreadyRS ? (
-                        <span className="text-xs italic" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                        <span className="text-xs italic text-txt-tertiary">
                           Already RS
                         </span>
                       ) : (
@@ -140,7 +139,7 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
                         </button>
                       )}
                     </td>
-                    <td className="py-2 px-2 text-sm text-center font-semibold" style={{ color: teamColors.primary }}>
+                    <td className="py-2 px-2 text-sm text-center font-semibold text-txt-primary">
                       {nextClass}
                     </td>
                   </tr>
@@ -154,15 +153,14 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg font-semibold text-sm border-2"
-            style={{ borderColor: teamColors.primary, color: teamColors.primary }}
+            className="btn btn-secondary text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirm}
-            className="px-4 py-2 rounded-lg font-semibold text-sm"
-            style={{ backgroundColor: teamColors.primary, color: teamColors.secondary }}
+            className="px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: teamColors.primary, color: getContrastTextColor(teamColors.primary) }}
           >
             Confirm & Advance Season
           </button>

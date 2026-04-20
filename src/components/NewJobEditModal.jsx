@@ -117,12 +117,12 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
       onMouseDown={onClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="card w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border-l-[3px]"
+        style={{ borderLeftColor: teamColors.primary }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+          <h2 className="text-2xl font-bold text-txt-primary">
             Edit New Job
           </h2>
           <button
@@ -321,12 +321,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg font-semibold border-2 hover:opacity-90 transition-colors"
-            style={{
-              borderColor: teamColors.primary,
-              color: teamColors.primary,
-              backgroundColor: teamColors.secondary
-            }}
+            className="flex-1 btn btn-secondary"
           >
             Cancel
           </button>

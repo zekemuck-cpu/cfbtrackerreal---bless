@@ -110,29 +110,23 @@ export default function ReturningPlayerConfirmModal({
       onMouseDown={onCancel}
     >
       <div
-        className="rounded-xl shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+        className="card max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
+        style={{ borderLeftColor: teamColors.primary }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          className="p-4 sm:p-5"
-          style={{ backgroundColor: teamColors.primary }}
-        >
+        <div className="p-4 sm:p-5 border-b border-surface-4">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${primaryText}20` }}
-            >
-              <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3">
+              <svg className="w-6 h-6 text-txt-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+              <h2 className="text-lg sm:text-xl font-bold text-txt-primary">
                 Returning Player Detected
               </h2>
-              <p className="text-sm mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>
+              <p className="text-sm mt-0.5 text-txt-secondary">
                 Is <strong>{recruit.name}</strong> the same player?
               </p>
             </div>
@@ -156,8 +150,8 @@ export default function ReturningPlayerConfirmModal({
                 {recruit.name?.charAt(0) || '?'}
               </div>
               <div>
-                <div className="font-bold" style={{ color: secondaryText }}>{recruit.name}</div>
-                <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+                <div className="font-bold text-txt-primary">{recruit.name}</div>
+                <div className="text-sm text-txt-secondary">
                   {recruit.position && <span className="font-semibold">{recruit.position}</span>}
                   {recruit.position && recruit.class && ' • '}
                   {recruit.class && <span>{recruit.class}</span>}
@@ -182,10 +176,10 @@ export default function ReturningPlayerConfirmModal({
                   </div>
                 )}
                 <div>
-                  <div className="font-bold text-base" style={{ color: secondaryText }}>
+                  <div className="font-bold text-base text-txt-primary">
                     {existingPlayer.name}
                   </div>
-                  <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+                  <div className="text-sm text-txt-secondary">
                     {existingPlayer.position && <span className="font-semibold">{existingPlayer.position}</span>}
                     {existingPlayer.position && (lastClass || existingPlayer.year) && ' • '}
                     {(lastClass || existingPlayer.year) && <span>{lastClass || existingPlayer.year}</span>}
@@ -195,8 +189,8 @@ export default function ReturningPlayerConfirmModal({
 
               {/* Departure Info */}
               <div
-                className="flex items-center gap-2 text-sm rounded px-2 py-1.5"
-                style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+                className="flex items-center gap-2 text-sm rounded px-2 py-1.5 text-txt-secondary"
+                style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}20` }}
               >
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -207,7 +201,7 @@ export default function ReturningPlayerConfirmModal({
               </div>
 
               {existingPlayer.overall && (
-                <div className="mt-2 text-sm px-2" style={{ color: secondaryText, opacity: 0.9 }}>
+                <div className="mt-2 text-sm px-2 text-txt-secondary">
                   Last Overall: <strong>{existingPlayer.overall}</strong>
                 </div>
               )}
@@ -223,7 +217,7 @@ export default function ReturningPlayerConfirmModal({
               <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke={teamColors.primary} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm" style={{ color: secondaryText }}>
+              <p className="text-sm text-txt-secondary">
                 If this is the same player returning, their stats and history will be preserved.
                 Otherwise, a new player record will be created.
               </p>

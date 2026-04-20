@@ -829,7 +829,7 @@ export default function Player() {
             {gameLog.length === 0 ? (
               <div className="text-xs italic" style={{ color: secondaryText, opacity: 0.6 }}>No game data available</div>
             ) : (
-              <div className="overflow-x-auto rounded-lg" style={{ backgroundColor: teamInfo.textColor, border: `1px solid ${teamInfo.backgroundColor}40` }}>
+              <div className="overflow-x-auto rounded-lg bg-surface-2" style={{ border: `1px solid ${teamInfo.backgroundColor}40` }}>
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-surface-3 border-b-2" style={{ borderBottomColor: teamInfo.backgroundColor }}>
@@ -2653,15 +2653,15 @@ export default function Player() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{ backgroundColor: teamColors.primary }}>
-                      <td className="px-2 py-2.5 font-bold w-14" style={{ color: primaryText }}>Career</td>
+                    <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamColors.primary }}>
+                      <td className="px-2 py-2.5 font-bold w-14 text-txt-primary">Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
-                      <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerKickReturn.ret}</td>
-                      <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerKickReturn.yds.toLocaleString()}</td>
-                      <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{calcAvg(careerKickReturn.yds, careerKickReturn.ret)}</td>
-                      <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerKickReturn.td}</td>
-                      <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerKickReturn.lng}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-txt-primary">{careerKickReturn.ret}</td>
+                      <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerKickReturn.yds.toLocaleString()}</td>
+                      <td className="px-2 py-2 text-right text-txt-secondary">{calcAvg(careerKickReturn.yds, careerKickReturn.ret)}</td>
+                      <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerKickReturn.td}</td>
+                      <td className="px-2 py-2 text-right text-txt-secondary">{careerKickReturn.lng}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2739,15 +2739,15 @@ export default function Player() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{ backgroundColor: teamColors.primary }}>
-                      <td className="px-2 py-2.5 font-bold w-14" style={{ color: primaryText }}>Career</td>
+                    <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamColors.primary }}>
+                      <td className="px-2 py-2.5 font-bold w-14 text-txt-primary">Career</td>
                       <td className="px-2 py-2 w-16"></td>
                       <td className="px-2 py-2 w-12"></td>
-                      <td className="px-2 py-2 text-right font-semibold" style={{ color: primaryText }}>{careerPuntReturn.ret}</td>
-                      <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerPuntReturn.yds.toLocaleString()}</td>
-                      <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{calcAvg(careerPuntReturn.yds, careerPuntReturn.ret)}</td>
-                      <td className="px-2 py-2 text-right font-bold" style={{ color: primaryText }}>{careerPuntReturn.td}</td>
-                      <td className="px-2 py-2 text-right" style={{ color: primaryText, opacity: 0.9 }}>{careerPuntReturn.lng}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-txt-primary">{careerPuntReturn.ret}</td>
+                      <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerPuntReturn.yds.toLocaleString()}</td>
+                      <td className="px-2 py-2 text-right text-txt-secondary">{calcAvg(careerPuntReturn.yds, careerPuntReturn.ret)}</td>
+                      <td className="px-2 py-2 text-right font-bold text-txt-primary">{careerPuntReturn.td}</td>
+                      <td className="px-2 py-2 text-right text-txt-secondary">{careerPuntReturn.lng}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2928,7 +2928,7 @@ export default function Player() {
           <h2 className="text-xl font-bold mb-4" style={{ color: secondaryText }}>Notes & Media</h2>
           {player.notes && (
             <div className="mb-4">
-              <div className="p-4 rounded-lg whitespace-pre-wrap" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+              <div className="p-4 rounded-lg whitespace-pre-wrap bg-surface-2 text-txt-primary">
                 {player.notes}
               </div>
             </div>
@@ -2990,7 +2990,7 @@ export default function Player() {
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
                       {link.title && (
-                        <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                        <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                           {link.title}
                         </div>
                       )}
@@ -3005,13 +3005,12 @@ export default function Player() {
                         />
                       </div>
                       {/* Fallback link if embed is blocked */}
-                      <div className="px-3 py-2 text-center" style={{ backgroundColor: teamColors.secondary }}>
+                      <div className="px-3 py-2 text-center bg-surface-3">
                         <a
                           href={watchUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-semibold hover:underline"
-                          style={{ color: teamColors.primary }}
+                          className="text-sm font-semibold hover:underline text-txt-primary"
                         >
                           Watch on YouTube →
                         </a>
@@ -3028,7 +3027,7 @@ export default function Player() {
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
                       {link.title && (
-                        <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                        <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                           {link.title}
                         </div>
                       )}
@@ -3056,7 +3055,7 @@ export default function Player() {
                     return (
                       <div key={index} className="rounded-lg overflow-hidden">
                         {link.title && (
-                          <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                          <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                             {link.title}
                           </div>
                         )}
@@ -3087,7 +3086,7 @@ export default function Player() {
                     return (
                       <div key={index} className="rounded-lg overflow-hidden">
                         {link.title && (
-                          <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                          <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                             {link.title}
                           </div>
                         )}
@@ -3115,7 +3114,7 @@ export default function Player() {
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
                       {link.title && (
-                        <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                        <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                           {link.title}
                         </div>
                       )}
@@ -3140,7 +3139,7 @@ export default function Player() {
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
                       {link.title && (
-                        <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                        <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                           {link.title}
                         </div>
                       )}
@@ -3158,7 +3157,7 @@ export default function Player() {
                   return (
                     <div key={index} className="rounded-lg overflow-hidden">
                       {link.title && (
-                        <div className="px-3 py-2 text-sm font-semibold" style={{ backgroundColor: teamColors.primary, color: primaryText }}>
+                        <div className="px-3 py-2 text-sm font-semibold bg-surface-3 text-txt-primary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                           {link.title}
                         </div>
                       )}
@@ -3180,7 +3179,7 @@ export default function Player() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-80 transition-opacity items-center gap-2"
-                    style={{ backgroundColor: teamColors.primary, color: primaryText }}
+                    style={{ backgroundColor: teamColors.primary, color: getContrastTextColor(teamColors.primary) }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -3559,22 +3558,19 @@ export default function Player() {
           onClick={() => setShowAccoladeModal(false)}
         >
           <div
-            className="rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
-            style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+            className="card rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="p-4 border-b sticky top-0"
-              style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}
-            >
+            <div className="h-[3px] w-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+            <div className="p-4 border-b border-surface-4 sticky top-0 bg-surface-2 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+                  <h3 className="text-lg sm:text-xl font-bold text-txt-primary">
                     {accoladeType === 'confPOW' ? 'Conference Player of the Week' : 'National Player of the Week'}
                   </h3>
-                  <p className="text-sm font-semibold mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>{player.name}</p>
+                  <p className="text-sm font-semibold mt-0.5 text-txt-secondary">{player.name}</p>
                 </div>
-                <button onClick={() => setShowAccoladeModal(false)} className="hover:opacity-70" style={{ color: primaryText }}>
+                <button onClick={() => setShowAccoladeModal(false)} className="hover:opacity-70 text-txt-secondary">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -3677,24 +3673,21 @@ export default function Player() {
           onClick={() => setShowGameLogModal(false)}
         >
           <div
-            className="rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
-            style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+            className="card rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="p-4 border-b flex-shrink-0"
-              style={{ backgroundColor: teamColors.primary, borderColor: teamColors.primary }}
-            >
+            <div className="h-[3px] w-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+            <div className="p-4 border-b border-surface-4 flex-shrink-0 bg-surface-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+                  <h3 className="text-lg sm:text-xl font-bold text-txt-primary">
                     Game Log
                   </h3>
-                  <p className="text-sm font-semibold mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>
+                  <p className="text-sm font-semibold mt-0.5 text-txt-secondary">
                     {player.name} - {playerGameLog.length} {playerGameLog.length === 1 ? 'Game' : 'Games'}
                   </p>
                 </div>
-                <button onClick={() => setShowGameLogModal(false)} className="hover:opacity-70" style={{ color: primaryText }}>
+                <button onClick={() => setShowGameLogModal(false)} className="hover:opacity-70 text-txt-secondary">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -3798,10 +3791,11 @@ export default function Player() {
           onClick={() => setShowDeleteConfirm(false)}
         >
           <div
-            className="rounded-xl shadow-xl max-w-md w-full p-6"
-            style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+            className="card rounded-xl shadow-xl max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+            <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)' }}>
                 <svg className="w-6 h-6" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
@@ -3809,20 +3803,19 @@ export default function Player() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold" style={{ color: secondaryText }}>Delete Player?</h3>
-                <p className="text-sm" style={{ color: secondaryText, opacity: 0.7 }}>This action cannot be undone</p>
+                <h3 className="text-lg font-bold text-txt-primary">Delete Player?</h3>
+                <p className="text-sm text-txt-tertiary">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="mb-6" style={{ color: secondaryText, opacity: 0.9 }}>
-              Are you sure you want to delete <strong style={{ color: secondaryText }}>{player.name}</strong>? All stats and data for this player will be permanently removed.
+            <p className="mb-6 text-txt-secondary">
+              Are you sure you want to delete <strong className="text-txt-primary">{player.name}</strong>? All stats and data for this player will be permanently removed.
             </p>
 
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80"
-                style={{ border: `1px solid ${teamColors.primary}`, color: teamColors.primary, backgroundColor: 'transparent' }}
+                className="px-4 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 bg-transparent text-txt-secondary border border-surface-4"
               >
                 Cancel
               </button>
@@ -3846,6 +3839,7 @@ export default function Player() {
               >
                 {isDeleting ? 'Deleting...' : 'Delete Player'}
               </button>
+            </div>
             </div>
           </div>
         </div>

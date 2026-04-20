@@ -7822,16 +7822,13 @@ export default function Dashboard() {
         </div>
       ) : (
         <div
-          className="rounded-lg shadow-lg p-6"
-          style={{
-            backgroundColor: teamColors.secondary,
-            border: `3px solid ${teamColors.primary}`
-          }}
+          className="card p-6 border-l-[3px]"
+          style={{ borderLeftColor: teamColors.primary }}
         >
-          <h3 className="text-lg font-semibold mb-4" style={{ color: secondaryBgText }}>
+          <h3 className="text-lg font-semibold mb-4 text-txt-primary">
             Current Phase: {getPhaseDisplay(currentDynasty.currentPhase, currentDynasty.currentWeek)}
           </h3>
-          <p style={{ color: secondaryBgText, opacity: 0.8 }}>
+          <p className="text-txt-secondary">
             Click "Advance Week" in the header to progress through your dynasty.
           </p>
         </div>

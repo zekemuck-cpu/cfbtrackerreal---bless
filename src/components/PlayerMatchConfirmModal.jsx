@@ -173,29 +173,23 @@ export default function PlayerMatchConfirmModal({
       onMouseDown={onCancel}
     >
       <div
-        className="rounded-xl shadow-xl max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto"
-        style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}` }}
+        className="card max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
+        style={{ borderLeftColor: teamColors.primary }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div
-          className="p-4 sm:p-5"
-          style={{ backgroundColor: teamColors.primary }}
-        >
+        <div className="p-4 sm:p-5 border-b border-surface-4">
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${primaryText}20` }}
-            >
-              <svg className="w-6 h-6" fill="none" stroke={primaryText} viewBox="0 0 24 24">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3">
+              <svg className="w-6 h-6 text-txt-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold" style={{ color: primaryText }}>
+              <h2 className="text-lg sm:text-xl font-bold text-txt-primary">
                 Possible Transfer Detected
               </h2>
-              <p className="text-sm mt-0.5" style={{ color: primaryText, opacity: 0.9 }}>
+              <p className="text-sm mt-0.5 text-txt-secondary">
                 Is this the same <strong>{player.name}</strong>?
               </p>
             </div>
@@ -215,8 +209,8 @@ export default function PlayerMatchConfirmModal({
               {player.name?.charAt(0) || '?'}
             </div>
             <div>
-              <div className="font-bold text-base" style={{ color: secondaryText }}>{player.name}</div>
-              <div className="text-sm" style={{ color: secondaryText, opacity: 0.8 }}>
+              <div className="font-bold text-base text-txt-primary">{player.name}</div>
+              <div className="text-sm text-txt-secondary">
                 {existingPlayerPosition && <span className="font-semibold">{existingPlayerPosition}</span>}
                 {existingPlayerPosition && existingYears?.length > 0 && ' • '}
                 {existingYears?.length > 0 && (
@@ -243,14 +237,14 @@ export default function PlayerMatchConfirmModal({
                       <img src={oldTeamLogo} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
-                  <span className="font-bold text-sm" style={{ color: secondaryText }}>
+                  <span className="font-bold text-sm text-txt-primary">
                     {oldTeamInfo.name || oldMascotName || oldTeamAbbr}
                   </span>
                 </div>
                 {lastHonor && (
                   <div
-                    className="text-xs rounded px-2 py-1.5 mt-2"
-                    style={{ backgroundColor: `${oldTeamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+                    className="text-xs rounded px-2 py-1.5 mt-2 text-txt-secondary"
+                    style={{ backgroundColor: `${oldTeamInfo.backgroundColor || '#6B7280'}20` }}
                   >
                     <div className="font-semibold">{lastHonor.year}</div>
                     <div style={{ opacity: 0.9 }}>{lastHonor.description}</div>
@@ -274,13 +268,13 @@ export default function PlayerMatchConfirmModal({
                       <img src={newTeamLogo} alt="" className="w-full h-full object-contain" />
                     </div>
                   )}
-                  <span className="font-bold text-sm" style={{ color: secondaryText }}>
+                  <span className="font-bold text-sm text-txt-primary">
                     {newTeamInfo.name || newMascotName || newTeamAbbr || 'Unknown Team'}
                   </span>
                 </div>
                 <div
-                  className="text-xs rounded px-2 py-1.5 mt-2"
-                  style={{ backgroundColor: `${newTeamInfo.backgroundColor || '#6B7280'}20`, color: secondaryText }}
+                  className="text-xs rounded px-2 py-1.5 mt-2 text-txt-secondary"
+                  style={{ backgroundColor: `${newTeamInfo.backgroundColor || '#6B7280'}20` }}
                 >
                   <div className="font-semibold">{entry.year}{newEntryClass ? ` (${newEntryClass})` : ''}</div>
                   <div style={{ opacity: 0.9 }}>{formatHonorType(entry.honorType)}</div>
@@ -339,7 +333,7 @@ export default function PlayerMatchConfirmModal({
           </div>
 
           {/* Help text */}
-          <p className="text-xs text-center mt-3" style={{ color: secondaryText, opacity: 0.6 }}>
+          <p className="text-xs text-center mt-3 text-txt-tertiary">
             Choose "Same Player" if this player transferred between schools
           </p>
         </div>

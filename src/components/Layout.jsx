@@ -12,7 +12,7 @@ import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.20.0003'
+const APP_VERSION = '2026.04.20.0004'
 
 export default function Layout({ children }) {
   const location = useLocation()

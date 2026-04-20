@@ -11,7 +11,7 @@ import {
   prefillRosterHistorySheet
 } from '../services/sheetsService'
 import { getTidFromAbbr } from '../data/teamRegistry'
-import { getModalColors } from '../utils/colorUtils'
+import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -452,7 +452,7 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
                     {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
@@ -522,7 +522,7 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >

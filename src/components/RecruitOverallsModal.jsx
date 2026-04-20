@@ -9,6 +9,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getContrastTextColor } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -218,24 +219,25 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
+          <h2 className="text-2xl font-bold text-txt-primary">
             Recruiting Class Overalls
           </h2>
           <button
             onClick={handleClose}
-            className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
+
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
 
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -247,24 +249,22 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold text-txt-primary">
                 Creating Recruiting Class Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2 text-txt-secondary">
                 Loading your incoming recruits and transfers
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
-                Saved & Moved to Trash!
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+              <p className="label-xs text-txt-tertiary mb-2">Status</p>
+              <p className="text-xl font-bold text-txt-primary mb-2">
+                Saved & Moved to Trash
               </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
+              <p className="text-sm text-txt-secondary">
                 Recruiting class overalls have been saved.
               </p>
             </div>
@@ -281,7 +281,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -289,12 +289,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -323,12 +318,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                     setUseEmbedded(newValue)
                     localStorage.setItem('sheetEmbedPreference', newValue.toString())
                   }}
-                  className="text-xs px-3 py-1 rounded-full border transition-colors"
-                  style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
-                    backgroundColor: 'transparent'
-                  }}
+                  className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-txt-tertiary transition-colors"
                 >
                   {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
                 </button>
@@ -342,21 +332,21 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
                   style={{ backgroundColor: teamColors.primary }}
                 >
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
+                  <svg className="w-10 h-10" fill="none" stroke={getContrastTextColor(teamColors.primary)} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>
+                <h3 className="text-xl font-bold mb-3 text-txt-primary">
                   Enter Recruiting Class Overalls
                 </h3>
 
                 {/* Step-by-step instructions */}
                 <div className="text-left mb-6 max-w-xs">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+                  <p className="text-sm font-semibold mb-2 text-txt-primary">
                     Instructions:
                   </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <ol className="text-sm space-y-1.5 text-txt-secondary">
                     <li className="flex gap-2">
                       <span className="font-bold">1.</span>
                       <span>Tap the button below to open Google Sheets</span>
@@ -401,7 +391,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -409,12 +399,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary px-6 py-3 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -433,9 +418,9 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
 
-                <div className="text-xs p-3 rounded-lg max-w-xs" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
-                  <p className="font-semibold mb-1">Note:</p>
-                  <p className="opacity-80">Enter the overall rating for each incoming recruit after they've gone through summer workouts. These overalls will be saved to their player profiles.</p>
+                <div className="text-xs p-3 rounded-lg max-w-xs bg-surface-2 text-txt-secondary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="font-semibold mb-1 text-txt-primary">Note:</p>
+                  <p>Enter the overall rating for each incoming recruit after they've gone through summer workouts. These overalls will be saved to their player profiles.</p>
                 </div>
               </div>
             ) : (
@@ -451,7 +436,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
                   <p><strong>Columns:</strong> Name, Position, Class, Stars, Overall (editable)</p>
                   <p>Enter the overall rating for each recruit after summer workouts.</p>
                 </div>
@@ -461,7 +446,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4 text-txt-primary">
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -482,7 +467,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >
@@ -492,6 +477,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Auth Error Modal */}

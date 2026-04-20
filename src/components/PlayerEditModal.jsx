@@ -1119,15 +1119,14 @@ export default function PlayerEditModalNew({
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
           {/* Header with Player Card */}
           <div
-            className="relative px-5 py-4 flex-shrink-0"
-            style={{ backgroundColor: teamColors.primary }}
+            className="relative px-5 py-4 flex-shrink-0 bg-surface-2 border-b border-surface-4 border-l-[3px]"
+            style={{ borderLeftColor: teamColors.primary }}
           >
             {/* Close button */}
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 transition-colors"
-              style={{ color: primaryText }}
+              className="absolute top-4 right-4 p-2 rounded-full text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{Icons.close}</svg>
             </button>
@@ -1149,33 +1148,32 @@ export default function PlayerEditModalNew({
                   />
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center group-hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: `${teamColors.secondary}40` }}
+                    className="w-16 h-16 rounded-full flex items-center justify-center bg-surface-3 group-hover:opacity-80 transition-opacity"
                   >
-                    <svg className="w-8 h-8" fill="none" stroke={primaryText} viewBox="0 0 24 24" strokeWidth={1.5}>{Icons.user}</svg>
+                    <svg className="w-8 h-8 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>{Icons.user}</svg>
                   </div>
                 )}
                 <div
                   className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: teamColors.secondary }}
+                  style={{ backgroundColor: teamColors.primary }}
                 >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke={secondaryText} viewBox="0 0 24 24" strokeWidth={2}>{Icons.camera}</svg>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke={primaryText} viewBox="0 0 24 24" strokeWidth={2}>{Icons.camera}</svg>
                 </div>
               </button>
 
               {/* Name & Info */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold truncate" style={{ color: primaryText }}>
+                <h2 className="text-xl font-bold truncate text-txt-primary">
                   {formData.firstName || formData.lastName ? `${formData.firstName} ${formData.lastName}` : 'New Player'}
                 </h2>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   {formData.position && (
-                    <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: `${teamColors.secondary}30`, color: primaryText }}>
+                    <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-surface-3 text-txt-secondary">
                       {formData.position}
                     </span>
                   )}
                   {formData.overall && (
-                    <span className="text-sm font-bold" style={{ color: primaryText }}>
+                    <span className="text-sm font-bold text-txt-primary">
                       {formData.overall} OVR
                     </span>
                   )}
@@ -1274,8 +1272,8 @@ export default function PlayerEditModalNew({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl font-semibold text-white transition-colors"
-              style={{ backgroundColor: teamColors.primary }}
+              className="px-6 py-2.5 rounded-xl font-semibold transition-colors"
+              style={{ backgroundColor: teamColors.primary, color: primaryText }}
             >
               Save Player
             </button>
