@@ -9,7 +9,7 @@ import {
 import { useDynasty, getCurrentSchedule, getScheduleForTeam } from '../context/DynastyContext'
 import { getAbbrFromTid } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
-import { getModalColors } from '../utils/colorUtils'
+import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 
 export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors, teamTid, teamName }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -223,18 +223,17 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
-        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
+        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
+          <h2 className="text-2xl font-bold text-txt-primary">
             {teamTid ? `${displayTeamName} ${currentYear} Schedule` : 'Schedule Entry'}
           </h2>
           <button
             onClick={handleClose}
-            className="hover:opacity-70"
-            style={{ color: modalColors.textMuted }}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -242,36 +241,31 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
           </button>
         </div>
 
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: modalColors.accent,
+                  borderColor: teamColors.primary,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
+              <p className="text-lg font-semibold text-txt-primary">
                 Creating Schedule Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
+              <p className="text-sm mt-2 text-txt-secondary">
                 Setting up 12-game schedule
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
-                Saved & Moved to Trash!
-              </p>
-              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
-                Schedule saved to your dynasty.
-              </p>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+              <p className="label-xs text-txt-tertiary mb-2">Status</p>
+              <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
+              <p className="text-sm text-txt-secondary">Schedule saved to your dynasty.</p>
             </div>
           </div>
         ) : sheetId ? (
@@ -285,22 +279,16 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
-                      color: '#ffffff',
-                      ringColor: modalColors.accent
+                      backgroundColor: teamColors.primary,
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.accent
-                    }}
+                    className="btn btn-secondary text-xs sm:text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -333,12 +321,7 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                   setUseEmbedded(newValue)
                   localStorage.setItem('sheetEmbedPreference', newValue.toString())
                 }}
-                className="text-xs px-3 py-1 rounded-full border transition-colors"
-                style={{
-                  borderColor: modalColors.accent,
-                  color: modalColors.accent,
-                  backgroundColor: 'transparent'
-                }}
+                className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
               >
                 {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
               </button>
@@ -376,46 +359,34 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: modalColors.textMuted }}>
-                  <p><strong>Columns:</strong> Week | User Team | CPU Team | Site</p>
+                <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
+                  <p><strong className="text-txt-primary">Columns:</strong> Week | User Team | CPU Team | Site</p>
                   <p>Enter your 12-game regular season schedule. Select opponents and Home/Road/Neutral for each game.</p>
                 </div>
               </>
             ) : (
               /* Open in new tab view */
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: modalColors.accent }}
-                >
-                  <svg className="w-10 h-10" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
+                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
+                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
 
-                <h3 className="text-xl font-bold mb-3" style={{ color: modalColors.text }}>
-                  Edit in Google Sheets
-                </h3>
-
-                <div className="text-left mb-6 max-w-sm">
-                  <p className="text-sm font-semibold mb-2" style={{ color: modalColors.text }}>
-                    Instructions:
-                  </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: modalColors.textMuted }}>
-                    <li className="flex gap-2">
-                      <span className="font-bold">1.</span>
+                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
+                  <ol className="text-sm space-y-2 text-txt-secondary">
+                    <li className="flex gap-3">
+                      <span className="font-bold text-txt-primary tabular-nums">1.</span>
                       <span>Click the button below to open Google Sheets in a new tab</span>
                     </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold">2.</span>
+                    <li className="flex gap-3">
+                      <span className="font-bold text-txt-primary tabular-nums">2.</span>
                       <span>Enter your 12-game schedule (Week, User Team, CPU Team, Site)</span>
                     </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold">3.</span>
+                    <li className="flex gap-3">
+                      <span className="font-bold text-txt-primary tabular-nums">3.</span>
                       <span>Return to this tab when done</span>
                     </li>
-                    <li className="flex gap-2">
-                      <span className="font-bold">4.</span>
+                    <li className="flex gap-3">
+                      <span className="font-bold text-txt-primary tabular-nums">4.</span>
                       <span>Click "Save" below to sync your schedule</span>
                     </li>
                   </ol>
@@ -448,22 +419,16 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                     disabled={syncing || deletingSheet}
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
-                      color: '#ffffff',
-                      ringColor: modalColors.accent
+                      backgroundColor: teamColors.primary,
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: modalColors.accent,
-                      color: modalColors.accent
-                    }}
+                    className="btn btn-secondary px-6 py-3 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -487,8 +452,8 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                   </span>
                 )}
 
-                <div className="text-xs p-3 rounded-lg max-w-sm" style={{ backgroundColor: modalColors.inputBg, color: modalColors.textMuted }}>
-                  <p className="font-semibold mb-1" style={{ color: modalColors.text }}>Columns to fill:</p>
+                <div className="text-xs p-3 rounded-lg max-w-sm bg-surface-3 text-txt-tertiary">
+                  <p className="font-semibold mb-1 text-txt-primary">Columns to fill:</p>
                   <p>Week | User Team | CPU Team | Site (Home/Road/Neutral)</p>
                 </div>
               </div>
@@ -497,7 +462,7 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: modalColors.text }}>
+              <p className="text-lg mb-4 text-txt-primary">
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -517,8 +482,8 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                   disabled={refreshing}
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
-                    backgroundColor: modalColors.accent,
-                    color: '#ffffff',
+                    backgroundColor: teamColors.primary,
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >
@@ -528,6 +493,7 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

@@ -371,21 +371,21 @@ export default function ScoringHighlightsModal({
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-gray-700"
+        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-surface-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-surface-4 bg-surface-2 flex-shrink-0">
           <h3 className="text-lg font-bold text-white">{customTitle || 'Scoring Highlights'}</h3>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-txt-muted">
               Play {currentIndex + 1} of {totalPlays}
             </span>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-1 hover:bg-surface-3 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -413,7 +413,7 @@ export default function ScoringHighlightsModal({
               title={`Scoring play ${currentIndex + 1}`}
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-txt-muted">
               <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
@@ -438,11 +438,11 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Play Info */}
-        <div className="px-4 py-3 bg-gray-800 border-t border-gray-700 flex-shrink-0">
+        <div className="px-4 py-3 bg-surface-2 border-t border-surface-4 flex-shrink-0">
           <div className="flex items-start gap-3">
             {/* Player image */}
             {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
-              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700">
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-surface-3">
                 <img
                   src={scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl}
                   alt=""
@@ -454,7 +454,7 @@ export default function ScoringHighlightsModal({
             {/* Play details */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="text-gray-400">
+                <span className="text-txt-muted">
                   Q{currentPlay?.quarter} | {currentPlay?.timeLeft}
                 </span>
                 <span className="text-white font-semibold">
@@ -462,11 +462,11 @@ export default function ScoringHighlightsModal({
                   {currentPlay?.yards && ` - ${currentPlay.yards} yds`}
                 </span>
                 {currentPlay?.patResult && (
-                  <span className="text-gray-400">({currentPlay.patResult})</span>
+                  <span className="text-txt-muted">({currentPlay.patResult})</span>
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
-                <span className="text-gray-300">
+                <span className="text-txt-muted">
                   {isPassingTD && currentPlay?.passer ? (
                     <>{currentPlay.passer} to {currentPlay.scorer}</>
                   ) : (
@@ -493,7 +493,7 @@ export default function ScoringHighlightsModal({
               <span className="text-white font-bold text-lg">
                 {runningScore.score1}
               </span>
-              <span className="text-gray-500">-</span>
+              <span className="text-txt-muted">-</span>
               <span className="text-white font-bold text-lg">
                 {runningScore.score2}
               </span>
@@ -506,14 +506,14 @@ export default function ScoringHighlightsModal({
 
         {/* Navigation Filters */}
         {(seasons.length > 1 || games.length > 1) && (
-          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 bg-gray-800 border-t border-gray-700 flex-shrink-0">
+          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 bg-surface-2 border-t border-surface-4 flex-shrink-0">
             {seasons.length > 1 && (
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400 font-medium">Season:</label>
+                <label className="text-sm text-txt-muted font-medium">Season:</label>
                 <select
                   value={currentPlay?.gameInfo?.year || ''}
                   onChange={(e) => jumpToSeason(e.target.value)}
-                  className="px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm border border-gray-600 focus:border-blue-500 focus:outline-none"
+                  className="px-3 py-1.5 bg-surface-3 text-white rounded-lg text-sm border border-surface-4 focus:border-blue-500 focus:outline-none"
                 >
                   {seasons.map(year => (
                     <option key={year} value={year}>{year}</option>
@@ -523,11 +523,11 @@ export default function ScoringHighlightsModal({
             )}
             {games.length > 1 && (
               <div className="flex items-center gap-2 relative" ref={gameDropdownRef}>
-                <label className="text-sm text-gray-400 font-medium">Game:</label>
+                <label className="text-sm text-txt-muted font-medium">Game:</label>
                 <div className="relative">
                   <button
                     onClick={() => setShowGameDropdown(!showGameDropdown)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 text-white rounded-lg text-sm border border-gray-600 hover:border-blue-500 focus:outline-none focus:border-blue-500 min-w-[200px]"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-surface-3 text-white rounded-lg text-sm border border-surface-4 hover:border-blue-500 focus:outline-none focus:border-blue-500 min-w-[200px]"
                   >
                     {currentPlay?.gameInfo?.opponentLogo && (
                       <img
@@ -544,7 +544,7 @@ export default function ScoringHighlightsModal({
                     </svg>
                   </button>
                   {showGameDropdown && (
-                    <div className={`absolute left-0 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50 ${
+                    <div className={`absolute left-0 w-full bg-surface-3 border border-surface-4 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50 ${
                       dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
                     }`}>
                       {games.map(game => (
@@ -554,7 +554,7 @@ export default function ScoringHighlightsModal({
                             jumpToGame(`${game.year}|||${game.week}|||${game.opponent}`)
                             setShowGameDropdown(false)
                           }}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-gray-600 transition-colors text-left"
+                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-surface-4 transition-colors text-left"
                         >
                           {game.opponentLogo && (
                             <img
@@ -575,14 +575,14 @@ export default function ScoringHighlightsModal({
         )}
 
         {/* Controls */}
-        <div className="flex items-center justify-center gap-4 px-4 py-4 bg-gray-900 border-t border-gray-700 flex-shrink-0">
+        <div className="flex items-center justify-center gap-4 px-4 py-4 bg-surface-1 border-t border-surface-4 flex-shrink-0">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
               currentIndex === 0
-                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-700 text-white hover:bg-gray-600'
+                ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
+                : 'bg-surface-3 text-white hover:bg-surface-4'
             }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -612,8 +612,8 @@ export default function ScoringHighlightsModal({
             disabled={currentIndex === totalPlays - 1}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
               currentIndex === totalPlays - 1
-                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-700 text-white hover:bg-gray-600'
+                ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
+                : 'bg-surface-3 text-white hover:bg-surface-4'
             }`}
           >
             Next
@@ -624,7 +624,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Progress dots */}
-        <div className="flex justify-center gap-2 px-4 pb-4 bg-gray-900 flex-shrink-0">
+        <div className="flex justify-center gap-2 px-4 pb-4 bg-surface-1 flex-shrink-0">
           {playsWithVideo.map((_, idx) => (
             <button
               key={idx}
@@ -637,7 +637,7 @@ export default function ScoringHighlightsModal({
                   ? 'bg-blue-500'
                   : idx < currentIndex
                   ? 'bg-green-500'
-                  : 'bg-gray-600 hover:bg-gray-500'
+                  : 'bg-surface-4 hover:bg-surface-5'
               }`}
               title={`Play ${idx + 1}`}
             />

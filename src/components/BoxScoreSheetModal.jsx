@@ -13,7 +13,7 @@ import {
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
-import { getModalColors } from '../utils/colorUtils'
+import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -498,25 +498,24 @@ export default function BoxScoreSheetModal({
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6 border"
-        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <div className="flex-1">
-            <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
+            <h2 className="text-2xl font-bold text-txt-primary">
               {config.title}
             </h2>
             {sheetType !== 'scoring' && sheetType !== 'teamStats' && (
-              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
+              <p className="text-xs mt-1 text-txt-secondary">
                 Reminder: This is not mandatory to be entered every game. You will have the option to enter all player season stats at the end of the season.
               </p>
             )}
           </div>
           <button
             onClick={handleClose}
-            className="hover:opacity-70 ml-4"
-            style={{ color: modalColors.textMuted }}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors ml-4"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -524,34 +523,32 @@ export default function BoxScoreSheetModal({
           </button>
         </div>
 
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div
                 className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4"
                 style={{
-                  borderColor: modalColors.accent,
+                  borderColor: teamColors.primary,
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: modalColors.text }}>
+              <p className="text-lg font-semibold text-txt-primary">
                 Creating {config.title} Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
+              <p className="text-sm mt-2 text-txt-secondary">
                 {sheetType === 'scoring' ? 'Setting up scoring summary' : 'Setting up 9 stat category tabs'}
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: modalColors.accent }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="#ffffff" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: '#ffffff' }}>
+            <div className="card p-8 border-l-[3px] max-w-md text-center" style={{ borderLeftColor: teamColors.primary }}>
+              <p className="text-xl font-bold mb-2 text-txt-primary">
                 Saved & Moved to Trash!
               </p>
-              <p className="text-sm" style={{ color: '#ffffff', opacity: 0.9 }}>
+              <p className="text-sm text-txt-secondary">
                 Stats saved to your game.
               </p>
             </div>
@@ -567,22 +564,16 @@ export default function BoxScoreSheetModal({
                     disabled={syncing || deletingSheet}
                     className={`px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-xs sm:text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
-                      backgroundColor: modalColors.accent,
-                      color: '#ffffff',
-                      ringColor: modalColors.accent
+                      backgroundColor: teamColors.primary,
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: modalColors.border,
-                      color: modalColors.text
-                    }}
+                    className="btn btn-secondary text-xs sm:text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -610,14 +601,9 @@ export default function BoxScoreSheetModal({
                   setUseEmbedded(newValue)
                   localStorage.setItem('sheetEmbedPreference', newValue.toString())
                 }}
-                className="text-xs px-3 py-1 rounded-full border transition-colors"
-                style={{
-                  borderColor: modalColors.border,
-                  color: modalColors.textMuted,
-                  backgroundColor: 'transparent'
-                }}
+                className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-tertiary hover:text-txt-primary bg-transparent transition-colors"
               >
-                {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
+                {useEmbedded ? 'Back to default view' : 'Try embedded view (beta)'}
               </button>
             </div>
 
@@ -643,7 +629,7 @@ export default function BoxScoreSheetModal({
             {useEmbedded ? (
               /* Embedded iframe view with toolbar */
               <>
-                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0 border border-surface-4 rounded-lg">
                   <SheetToolbar
                     sheetId={sheetId}
                     embedUrl={embedUrl}
@@ -653,46 +639,38 @@ export default function BoxScoreSheetModal({
                   />
                 </div>
 
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
-                  <p><strong>Tabs:</strong> {config.columns}</p>
+                <div className="text-xs mt-2 space-y-1 text-txt-secondary">
+                  <p><strong className="text-txt-primary">Tabs:</strong> {config.columns}</p>
                   <p>{config.instructions}</p>
                 </div>
               </>
             ) : (
               /* Open in new tab view */
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                  style={{ backgroundColor: teamColors.primary }}
-                >
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>
+                <div className="label-xs mb-2 text-txt-tertiary">Google Sheets</div>
+                <h3 className="text-2xl font-bold mb-4 text-txt-primary">
                   Edit in Google Sheets
                 </h3>
 
-                <div className="text-left mb-6 max-w-sm">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>
+                <div className="card p-4 border-l-[3px] text-left mb-6 max-w-sm w-full" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="text-sm font-semibold mb-2 text-txt-primary">
                     Instructions:
                   </p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
+                  <ol className="text-sm space-y-1.5 text-txt-secondary">
                     <li className="flex gap-2">
-                      <span className="font-bold">1.</span>
+                      <span className="font-bold text-txt-primary">1.</span>
                       <span>Click the button below to open Google Sheets in a new tab</span>
                     </li>
                     <li className="flex gap-2">
-                      <span className="font-bold">2.</span>
+                      <span className="font-bold text-txt-primary">2.</span>
                       <span>{config.instructions}</span>
                     </li>
                     <li className="flex gap-2">
-                      <span className="font-bold">3.</span>
+                      <span className="font-bold text-txt-primary">3.</span>
                       <span>Return to this tab when done</span>
                     </li>
                     <li className="flex gap-2">
-                      <span className="font-bold">4.</span>
+                      <span className="font-bold text-txt-primary">4.</span>
                       <span>Click "Save" below to sync your data</span>
                     </li>
                   </ol>
@@ -726,21 +704,15 @@ export default function BoxScoreSheetModal({
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary,
-                      ringColor: teamColors.primary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary px-6 py-3 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -760,9 +732,9 @@ export default function BoxScoreSheetModal({
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
 
-                <div className="text-xs p-3 rounded-lg max-w-sm" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
-                  <p className="font-semibold mb-1">Tabs:</p>
-                  <p className="opacity-80">{config.columns}</p>
+                <div className="bg-surface-2 text-xs p-3 rounded-lg max-w-sm text-txt-secondary">
+                  <p className="font-semibold mb-1 text-txt-primary">Tabs:</p>
+                  <p>{config.columns}</p>
                 </div>
               </div>
             )}
@@ -770,7 +742,7 @@ export default function BoxScoreSheetModal({
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4 text-txt-primary">
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -796,7 +768,7 @@ export default function BoxScoreSheetModal({
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >
@@ -806,6 +778,7 @@ export default function BoxScoreSheetModal({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

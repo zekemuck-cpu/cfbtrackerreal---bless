@@ -10,6 +10,7 @@ import {
   getSingleSheetEmbedUrl,
   prefillRosterSheet
 } from '../services/sheetsService'
+import { getContrastTextColor } from '../utils/colorUtils'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -238,18 +239,17 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
+          <h2 className="text-2xl font-bold text-txt-primary">
             {currentYear} {teamAbbr ? `${teamAbbr} ` : ''}Roster Edit
           </h2>
           <button
             onClick={handleClose}
-            className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -257,6 +257,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
           </button>
         </div>
 
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -267,26 +268,20 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold text-txt-primary">
                 Creating Roster Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2 text-txt-secondary">
                 Pre-filling current roster data
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
-                Saved & Moved to Trash!
-              </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
-                Roster saved to your dynasty.
-              </p>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+              <p className="label-xs text-txt-tertiary mb-2">Status</p>
+              <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
+              <p className="text-sm text-txt-secondary">Roster saved to your dynasty.</p>
             </div>
           </div>
         ) : sheetId ? (
@@ -301,20 +296,15 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -348,12 +338,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                     setUseEmbedded(newValue)
                     localStorage.setItem('sheetEmbedPreference', newValue.toString())
                   }}
-                  className="text-xs px-3 py-1 rounded-full border transition-colors"
-                  style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
-                    backgroundColor: 'transparent'
-                  }}
+                  className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
                 >
                   {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
                 </button>
@@ -362,19 +347,15 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: teamColors.primary }}>
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>Edit in Google Sheets</h3>
-                <div className="text-left mb-6 max-w-md">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
-                    <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Edit player info (Name, Position, Class, Dev Trait, etc.)</span></li>
-                    <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-2"><span className="font-bold">4.</span><span>Tap "Save" below to sync your roster</span></li>
+                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
+                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
+                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
+                  <ol className="text-sm space-y-2 text-txt-secondary">
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Edit player info (Name, Position, Class, Dev Trait, etc.)</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync your roster</span></li>
                   </ol>
                 </div>
                 <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
@@ -390,20 +371,15 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary px-6 py-3 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -417,8 +393,12 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                 <button
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
-                  className="text-sm underline opacity-70 hover:opacity-100 transition-opacity"
-                  style={{ color: teamColors.primary }}
+                  className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: '#EF4444',
+                    color: '#EF4444'
+                  }}
                 >
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
@@ -434,8 +414,8 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                     onSessionError={() => setShowAuthError(true)}
                   />
                 </div>
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
-                  <p><strong>Columns:</strong> Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State</p>
+                <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
+                  <p><strong className="text-txt-primary">Columns:</strong> Name | Position | Class | Dev Trait | Jersey # | Archetype | Overall | Height | Weight | Hometown | State</p>
                   <p>Edit player information as needed. Add or remove players from the roster.</p>
                 </div>
               </>
@@ -444,7 +424,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4 text-txt-primary">
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -466,7 +446,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >
@@ -476,6 +456,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Auth Error Modal */}

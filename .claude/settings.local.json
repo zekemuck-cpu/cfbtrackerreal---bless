@@ -66,7 +66,8 @@
       "Bash(npx eslint:*)",
       "Skill(commit-commands:commit-push-pr)",
       "Skill(commit-commands:commit-push-pr:*)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "WebFetch(domain:www.dynastycentral.gg)"
     ],
     "deny": [],
     "ask": []

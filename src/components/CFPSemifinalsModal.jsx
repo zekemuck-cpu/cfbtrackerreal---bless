@@ -673,7 +673,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-xl p-2.5 sm:p-4 bg-gray-700 text-gray-400 text-center">
+                        <div className="rounded-xl p-2.5 sm:p-4 bg-surface-3 text-txt-muted text-center">
                           <span className="text-base sm:text-lg font-semibold">TBD</span>
                           <p className="text-[10px] sm:text-xs mt-1">Awaiting {game.qfBowl1} result</p>
                         </div>
@@ -782,7 +782,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
                           </div>
                         </div>
                       ) : (
-                        <div className="rounded-xl p-2.5 sm:p-4 bg-gray-700 text-gray-400 text-center">
+                        <div className="rounded-xl p-2.5 sm:p-4 bg-surface-3 text-txt-muted text-center">
                           <span className="text-base sm:text-lg font-semibold">TBD</span>
                           <p className="text-[10px] sm:text-xs mt-1">Awaiting {game.qfBowl2} result</p>
                         </div>
@@ -861,7 +861,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-colors bg-gray-700 hover:bg-gray-600 text-white"
+              className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-colors bg-surface-3 hover:bg-surface-4 text-white"
             >
               Cancel
             </button>

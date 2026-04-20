@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { DynastyProvider } from './context/DynastyContext'
 import Layout from './components/Layout'
+import { ToastProvider, ConfirmProvider } from './components/ui'
 import ScrollToTop from './components/ScrollToTop'
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -185,7 +186,11 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <ToastProvider>
+        <ConfirmProvider>
+          <AppRoutes />
+        </ConfirmProvider>
+      </ToastProvider>
       <Analytics />
     </AuthProvider>
   )

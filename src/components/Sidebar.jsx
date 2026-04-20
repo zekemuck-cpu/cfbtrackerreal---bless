@@ -3,12 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
 import { getTeamConference } from '../data/conferenceTeams'
-import { TEAMS, resolveTid, getTidFromTeamName, getAbbrFromTid } from '../data/teamRegistry'
+import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import ShareDynastyModal from './ShareDynastyModal'
+import { useToast } from './ui'
 
 export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, currentYear, isViewOnly, shareCode, dynasty: dynastyProp }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { toast } = useToast()
   // Use dynasty from props if provided (view mode), otherwise from context
   let contextDynasty, exportDynasty
   try {
@@ -24,7 +26,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
   const primaryBgText = getContrastTextColor(teamColors.primary)
-  const secondaryBgText = getContrastTextColor(teamColors.secondary)
 
   // Get current team tid - prefer currentTid (new), fallback to lookup (old)
   const teamsSource = currentDynasty?.teams || TEAMS
@@ -35,10 +36,8 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const teamAbbr = team?.abbr || ''
 
   // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
-  // This ensures teambuilder teams inherit the replaced team's conference position
   const originalTeamAbbr = TEAMS[teamTid]?.abbr || teamAbbr
 
-  // Get user's conference for all-conference link (using custom conferences if available)
   const customConferences = getCurrentCustomConferences(currentDynasty)
   const userConference = getTeamConference(originalTeamAbbr, customConferences) || 'SEC'
   const conferenceUrlParam = encodeURIComponent(userConference.replace(/\s+/g, '-'))
@@ -49,7 +48,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       exportDynasty(dynastyId)
     } catch (error) {
       console.error('Error exporting dynasty:', error)
-      alert('Failed to export dynasty. Please try again.')
+      toast.error('Failed to export dynasty. Please try again.')
     }
   }
 
@@ -57,7 +56,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     if (!currentDynasty || copying) return
     setCopying(true)
 
-    // Create a copy of the dynasty data, removing share-specific and ID fields
     const dynastyCopy = { ...currentDynasty }
     delete dynastyCopy.id
     delete dynastyCopy.shareCode
@@ -66,15 +64,11 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     delete dynastyCopy.createdAt
     delete dynastyCopy.lastModified
 
-    // Store the copy in localStorage for the create page to pick up
     localStorage.setItem('dynastyCopyData', JSON.stringify(dynastyCopy))
-
-    // Navigate to home page with a flag indicating we have a copy
     navigate('/?importCopy=true')
     setCopying(false)
   }
 
-  // Build path prefix based on view mode
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
 
   const navItems = [
@@ -92,7 +86,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
-    { name: 'AI Settings', path: '/ai-settings', isAdmin: true, isAI: true },
+    { name: 'AI Settings', path: '/ai-settings', isAdmin: true },
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 
@@ -103,16 +97,31 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     return location.pathname.startsWith(path)
   }
 
-  // Only close sidebar on nav click for mobile/tablet (below lg breakpoint)
   const handleNavClick = () => {
     if (window.innerWidth < 1024) {
       onClose()
     }
   }
 
+  // Nav item styling — active uses 3px left team-accent stripe + subtle tint background.
+  // Inactive uses a flat neutral hover. See docs/DESIGN.md "Team color as accent only".
+  const navItemClass = (active) =>
+    `relative block pl-4 pr-3 py-2 font-medium transition-colors text-sm ${
+      active ? 'text-txt-primary' : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3'
+    }`
+
+  const navItemStyle = (active) =>
+    active
+      ? {
+          backgroundColor: 'var(--team-primary-subtle)',
+          borderLeft: '3px solid var(--team-primary)',
+          paddingLeft: 'calc(1rem - 3px)',
+        }
+      : undefined
+
   return (
     <>
-      {/* Overlay - shown when sidebar is open, but only on mobile/tablet (hidden on lg+) */}
+      {/* Overlay - mobile/tablet only */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
@@ -120,21 +129,18 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
         />
       )}
 
-      {/* Sidebar - Fixed on left edge, below header */}
-      {/* Premium dark theme sidebar with team color accents */}
+      {/* Sidebar — neutral surface with right border, no heavy shadow */}
       <aside
         className={`fixed left-0 z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } w-56 overflow-y-auto top-[64px] h-[calc(100vh-64px)]`}
         style={{
-          backgroundColor: 'var(--surface-2)',
+          backgroundColor: 'var(--surface-1)',
           borderRight: '1px solid var(--surface-4)',
-          boxShadow: '4px 0 24px rgba(0, 0, 0, 0.4)'
         }}
       >
-        {/* Navigation - extra bottom padding for ticker (48px) */}
-        <nav className="px-3 pt-4 pb-24 lg:pb-16">
-          <div className="space-y-0.5">
+        <nav className="px-2 pt-4 pb-24 lg:pb-16">
+          <div className="flex flex-col">
             {navItems.filter(item => !item.isAdmin).map((item) => {
               const active = isActive(item.path)
               return (
@@ -142,22 +148,8 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   key={item.name}
                   to={item.path}
                   onClick={handleNavClick}
-                  className={`block px-3 py-2.5 rounded-lg font-medium transition-all text-sm ${
-                    active
-                      ? 'shadow-lg'
-                      : 'hover:bg-white/10'
-                  }`}
-                  style={
-                    active
-                      ? {
-                          backgroundColor: teamColors.primary,
-                          color: primaryBgText,
-                          boxShadow: `0 4px 12px ${teamColors.primary}40`
-                        }
-                      : {
-                          color: '#e4e4e7' // zinc-200 - much more visible
-                        }
-                  }
+                  className={navItemClass(active)}
+                  style={navItemStyle(active)}
                 >
                   {item.name}
                 </Link>
@@ -165,116 +157,74 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
             })}
           </div>
 
-          {/* Admin Section - separated at bottom */}
+          {/* Admin Section */}
           {!isViewOnly && (
-            <div className="mt-6 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <div className="px-3 mb-2">
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: '#71717a' }}>Settings</span>
+            <div className="mt-6 pt-4" style={{ borderTop: '1px solid var(--surface-4)' }}>
+              <div className="px-4 mb-2">
+                <span className="label-xs text-txt-tertiary">Settings</span>
               </div>
-              {navItems.filter(item => item.isAdmin).map((item) => {
-                const active = isActive(item.path)
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={handleNavClick}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all text-sm ${
-                      active ? 'shadow-lg' : 'hover:bg-white/10'
-                    } ${item.name !== 'AI Settings' ? 'mt-0.5' : ''}`}
-                    style={
-                      active
-                        ? {
-                            backgroundColor: teamColors.primary,
-                            color: primaryBgText
-                          }
-                        : {
-                            color: '#a1a1aa' // zinc-400 - more visible than tertiary
-                          }
-                    }
-                  >
-                    {item.isAI ? (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    )}
-                    {item.name}
-                  </Link>
-                )
-              })}
+              <div className="flex flex-col">
+                {navItems.filter(item => item.isAdmin).map((item) => {
+                  const active = isActive(item.path)
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.path}
+                      onClick={handleNavClick}
+                      className={navItemClass(active)}
+                      style={navItemStyle(active)}
+                    >
+                      {item.name}
+                    </Link>
+                  )
+                })}
+              </div>
             </div>
           )}
 
-          {/* Bottom section - different for view mode vs edit mode */}
-          <div className="mt-6 pt-4 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          {/* Bottom CTA section */}
+          <div className="mt-6 pt-4 px-1 space-y-2" style={{ borderTop: '1px solid var(--surface-4)' }}>
             {isViewOnly ? (
-              /* View mode - show Copy Dynasty button and Create Your Own Dynasty CTA */
               <>
                 <button
                   onClick={handleCopyDynasty}
                   disabled={copying}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-semibold transition-colors disabled:opacity-70"
                   style={{
                     backgroundColor: teamColors.primary,
                     color: primaryBgText,
-                    opacity: copying ? 0.7 : 1,
-                    boxShadow: `0 4px 12px ${teamColors.primary}40`
                   }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  <span>{copying ? 'Copying...' : 'Copy Dynasty'}</span>
+                  {copying ? 'Copying…' : 'Copy Dynasty'}
                 </button>
 
                 <Link
                   to="/"
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:bg-white/10"
-                  style={{
-                    color: '#e4e4e7',
-                    border: '1px solid rgba(255,255,255,0.15)'
-                  }}
+                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-txt-primary hover:bg-surface-3"
+                  style={{ border: '1px solid var(--surface-4)' }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Create My Dynasty</span>
+                  Create My Dynasty
                 </Link>
               </>
             ) : (
-              /* Edit mode - show Share and Download buttons */
               <>
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
                     color: primaryBgText,
-                    boxShadow: `0 4px 12px ${teamColors.primary}40`
                   }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                  </svg>
-                  <span>Share Dynasty</span>
+                  Share Dynasty
                 </button>
 
                 <button
                   onClick={handleExport}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:bg-white/10"
-                  style={{
-                    color: '#e4e4e7',
-                    border: '1px solid rgba(255,255,255,0.15)'
-                  }}
+                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors text-txt-primary hover:bg-surface-3"
+                  style={{ border: '1px solid var(--surface-4)' }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Download Backup</span>
+                  Download Backup
                 </button>
               </>
             )}
@@ -282,7 +232,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
         </nav>
       </aside>
 
-      {/* Share Dynasty Modal - only in edit mode */}
       {!isViewOnly && (
         <ShareDynastyModal
           isOpen={showShareModal}

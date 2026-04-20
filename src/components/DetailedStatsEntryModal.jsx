@@ -9,6 +9,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { getContrastTextColor } from '../utils/colorUtils'
 
 // Mapping from internal stat keys (player.statsByYear) to box score format (used by sheet)
 const INTERNAL_TO_BOXSCORE = {
@@ -324,18 +325,17 @@ export default function DetailedStatsEntryModal({
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-lg shadow-xl w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col p-4 sm:p-6"
-        style={{ backgroundColor: teamColors.secondary }}
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold" style={{ color: teamColors.primary }}>
+        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
+          <h2 className="text-2xl font-bold text-txt-primary">
             {currentYear} Detailed Stats Entry
           </h2>
           <button
             onClick={handleClose}
-            className="hover:opacity-70"
-            style={{ color: teamColors.primary }}
+            className="text-txt-tertiary hover:text-txt-primary transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -343,9 +343,10 @@ export default function DetailedStatsEntryModal({
           </button>
         </div>
 
+        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
         {/* Helper tip */}
-        <div className="mb-4 p-3 rounded-lg text-sm" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
-          <span className="font-semibold">Tip:</span> Make sure you've completed GP/Snaps Entry first. In CFB 26, sort your stats by Snaps Played, then go through each category tab - the order will match and make entry quick!
+        <div className="mb-4 p-3 rounded-lg text-sm bg-surface-2 text-txt-secondary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+          <span className="font-semibold text-txt-primary">Tip:</span> Make sure you've completed GP/Snaps Entry first. In CFB 26, sort your stats by Snaps Played, then go through each category tab - the order will match and make entry quick!
         </div>
 
         {isLoading ? (
@@ -358,26 +359,20 @@ export default function DetailedStatsEntryModal({
                   borderTopColor: 'transparent'
                 }}
               />
-              <p className="text-lg font-semibold" style={{ color: teamColors.primary }}>
+              <p className="text-lg font-semibold text-txt-primary">
                 Creating Detailed Stats Sheet...
               </p>
-              <p className="text-sm mt-2" style={{ color: teamColors.primary, opacity: 0.7 }}>
+              <p className="text-sm mt-2 text-txt-secondary">
                 Setting up 9 stat category tabs
               </p>
             </div>
           </div>
         ) : showDeletedNote ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-8 rounded-lg" style={{ backgroundColor: teamColors.primary }}>
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <p className="text-xl font-bold mb-2" style={{ color: teamColors.secondary }}>
-                Saved & Moved to Trash!
-              </p>
-              <p className="text-sm" style={{ color: teamColors.secondary, opacity: 0.9 }}>
-                Detailed stats saved to your dynasty.
-              </p>
+            <div className="card p-8 border-l-[3px] text-center max-w-sm" style={{ borderLeftColor: teamColors.primary }}>
+              <p className="label-xs text-txt-tertiary mb-2">Status</p>
+              <p className="text-xl font-bold text-txt-primary mb-2">Saved &amp; Moved to Trash</p>
+              <p className="text-sm text-txt-secondary">Detailed stats saved to your dynasty.</p>
             </div>
           </div>
         ) : sheetId ? (
@@ -392,20 +387,15 @@ export default function DetailedStatsEntryModal({
                     className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -439,12 +429,7 @@ export default function DetailedStatsEntryModal({
                     setUseEmbedded(newValue)
                     localStorage.setItem('sheetEmbedPreference', newValue.toString())
                   }}
-                  className="text-xs px-3 py-1 rounded-full border transition-colors"
-                  style={{
-                    borderColor: teamColors.primary,
-                    color: teamColors.primary,
-                    backgroundColor: 'transparent'
-                  }}
+                  className="text-xs px-3 py-1 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
                 >
                   {useEmbedded ? '← Back to default view' : 'Try embedded view (beta)'}
                 </button>
@@ -453,26 +438,22 @@ export default function DetailedStatsEntryModal({
 
             {isMobile || !useEmbedded ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-6" style={{ backgroundColor: teamColors.primary }}>
-                  <svg className="w-10 h-10" fill="none" stroke={teamColors.secondary} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold mb-3" style={{ color: teamColors.primary }}>Edit in Google Sheets</h3>
-                <div className="text-left mb-6 max-w-md">
-                  <p className="text-sm font-semibold mb-2" style={{ color: teamColors.primary }}>Instructions:</p>
-                  <ol className="text-sm space-y-1.5" style={{ color: teamColors.primary, opacity: 0.8 }}>
-                    <li className="flex gap-2"><span className="font-bold">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-2"><span className="font-bold">2.</span><span>Enter stats in each of the 9 tabs (Passing, Rushing, etc.)</span></li>
-                    <li className="flex gap-2"><span className="font-bold">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-2"><span className="font-bold">4.</span><span>Tap "Save" below to sync results</span></li>
+                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
+                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
+                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
+                  <ol className="text-sm space-y-2 text-txt-secondary">
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter stats in each of the 9 tabs (Passing, Rushing, etc.)</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
-                  <p className="text-xs mt-3" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                  <p className="text-xs mt-3 text-txt-tertiary">
                     Tabs: Passing, Rushing, Receiving, Blocking, Defensive, Kicking, Punting, Kick Return, Punt Return
                   </p>
-                  <div className="text-xs mt-3 p-2 rounded-lg" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
-                    <p className="font-semibold">Tip:</p>
-                    <p style={{ opacity: 0.85 }}>Sort by Snaps Played in your EA CFB 25 game stats and each tab will match up perfectly.</p>
+                  <div className="text-xs mt-3 p-2 rounded-lg bg-surface-2 text-txt-secondary">
+                    <p className="font-semibold text-txt-primary">Tip:</p>
+                    <p>Sort by Snaps Played in your EA CFB 25 game stats and each tab will match up perfectly.</p>
                   </div>
                 </div>
                 <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
@@ -488,20 +469,15 @@ export default function DetailedStatsEntryModal({
                     className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
-                      color: teamColors.secondary
+                      color: getContrastTextColor(teamColors.primary)
                     }}
                   >
-                    {deletingSheet ? 'Saving...' : '✓ Save & Move to Trash'}
+                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
                   </button>
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: teamColors.primary,
-                      color: teamColors.primary
-                    }}
+                    className="btn btn-secondary px-6 py-3 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -535,7 +511,7 @@ export default function DetailedStatsEntryModal({
                     onSessionError={() => setShowAuthError(true)}
                   />
                 </div>
-                <div className="text-xs mt-2 space-y-1" style={{ color: teamColors.primary, opacity: 0.6 }}>
+                <div className="text-xs mt-2 space-y-1 text-txt-secondary">
                   <p><strong>Tabs:</strong> Passing, Rushing, Receiving, Blocking, Defensive, Kicking, Punting, Kick Return, Punt Return</p>
                   <p>Name and Snaps columns are protected. Enter stats in each category tab.</p>
                   <p><strong>Tip:</strong> Sort by Snaps Played in your EA CFB 25 game stats and each tab will match up perfectly.</p>
@@ -546,7 +522,7 @@ export default function DetailedStatsEntryModal({
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-lg mb-4" style={{ color: teamColors.primary }}>
+              <p className="text-lg mb-4 text-txt-primary">
                 Your session has expired. Click below to refresh.
               </p>
               <div className="flex gap-3 justify-center">
@@ -571,7 +547,7 @@ export default function DetailedStatsEntryModal({
                   className="px-4 py-2 rounded font-semibold transition-colors"
                   style={{
                     backgroundColor: teamColors.primary,
-                    color: teamColors.primaryText || '#fff',
+                    color: getContrastTextColor(teamColors.primary),
                     opacity: refreshing ? 0.7 : 1
                   }}
                 >
@@ -581,6 +557,7 @@ export default function DetailedStatsEntryModal({
             </div>
           </div>
         )}
+        </div>
       </div>
 
       {/* Auth Error Modal */}

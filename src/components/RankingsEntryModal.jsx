@@ -44,18 +44,18 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
         className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white border-b border-surface-4 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-txt-primary">
               Enter AP Top 25 Rankings
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-txt-tertiary mt-1">
               Optional: Track national rankings throughout the season
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-txt-muted hover:text-txt-tertiary"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -67,7 +67,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
           <div className="grid md:grid-cols-2 gap-4">
             {rankings.map((ranking, index) => (
               <div key={index} className="flex items-center gap-3">
-                <div className="w-10 text-center font-bold text-gray-700 text-sm">
+                <div className="w-10 text-center font-bold text-txt-secondary text-sm">
                   #{ranking.rank}
                 </div>
                 <div className="flex-1">
@@ -92,7 +92,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              className="px-6 py-3 border border-surface-4 rounded-lg font-semibold hover:bg-surface-2 transition-colors"
             >
               Skip
             </button>

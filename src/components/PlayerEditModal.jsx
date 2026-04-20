@@ -407,13 +407,13 @@ export default function PlayerEditModalNew({
   // Styled input component
   const Input = ({ label, name, value, onChange, type = 'text', placeholder, className = '' }) => (
     <div className={className}>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-txt-muted mb-1">{label}</label>
       <input
         type={type}
         value={value ?? ''}
         onChange={(e) => onChange(name, e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2.5 bg-white text-gray-900 rounded-xl border-2 border-gray-200 focus:border-blue-400 focus:outline-none transition-colors text-sm"
+        className="w-full px-3 py-2.5 bg-white text-txt-primary rounded-xl border-2 border-surface-4 focus:border-blue-400 focus:outline-none transition-colors text-sm"
       />
     </div>
   )
@@ -421,11 +421,11 @@ export default function PlayerEditModalNew({
   // Styled select component
   const Select = ({ label, name, value, onChange, options, placeholder = 'Select...', className = '' }) => (
     <div className={className}>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-txt-muted mb-1">{label}</label>
       <select
         value={value ?? ''}
         onChange={(e) => onChange(name, e.target.value)}
-        className="w-full px-3 py-2.5 bg-white text-gray-900 rounded-xl border-2 border-gray-200 focus:border-blue-400 focus:outline-none transition-colors text-sm appearance-none cursor-pointer"
+        className="w-full px-3 py-2.5 bg-white text-txt-primary rounded-xl border-2 border-surface-4 focus:border-blue-400 focus:outline-none transition-colors text-sm appearance-none cursor-pointer"
       >
         <option value="">{placeholder}</option>
         {options.map(opt => (
@@ -446,7 +446,7 @@ export default function PlayerEditModalNew({
     <div className="space-y-6">
       {/* Core Info Card */}
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-5 space-y-4">
-        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Core Info</h3>
+        <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide">Core Info</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Input label="First Name" name="firstName" value={formData.firstName} onChange={handleFieldChange} />
           <Input label="Last Name" name="lastName" value={formData.lastName} onChange={handleFieldChange} />
@@ -463,7 +463,7 @@ export default function PlayerEditModalNew({
 
       {/* Physical & Origin Card */}
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-5 space-y-4">
-        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Physical & Origin</h3>
+        <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide">Physical & Origin</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Input label="Height" name="height" value={formData.height} onChange={handleFieldChange} placeholder="6'2&quot;" />
           <Input label="Weight" name="weight" value={formData.weight} onChange={handleFieldChange} placeholder="220" />
@@ -498,31 +498,31 @@ export default function PlayerEditModalNew({
               type="checkbox"
               checked={formData.isRecruit || false}
               onChange={(e) => handleFieldChange('isRecruit', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+              className="w-4 h-4 rounded border-surface-4 text-blue-500 focus:ring-blue-400"
             />
-            <span className="text-sm text-gray-600">Is Recruit</span>
+            <span className="text-sm text-txt-tertiary">Is Recruit</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={formData.isPortal || false}
               onChange={(e) => handleFieldChange('isPortal', e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
+              className="w-4 h-4 rounded border-surface-4 text-blue-500 focus:ring-blue-400"
             />
-            <span className="text-sm text-gray-600">Portal Transfer</span>
+            <span className="text-sm text-txt-tertiary">Portal Transfer</span>
           </label>
         </div>
       </div>
 
       {/* Notes */}
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-5 space-y-3">
-        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Notes</h3>
+        <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide">Notes</h3>
         <textarea
           value={formData.notes || ''}
           onChange={(e) => handleFieldChange('notes', e.target.value)}
           placeholder="Add any notes about this player..."
           rows={3}
-          className="w-full px-4 py-3 bg-white text-gray-900 rounded-xl border-2 border-gray-200 focus:border-blue-400 focus:outline-none transition-colors text-sm resize-none"
+          className="w-full px-4 py-3 bg-white text-txt-primary rounded-xl border-2 border-surface-4 focus:border-blue-400 focus:outline-none transition-colors text-sm resize-none"
         />
       </div>
     </div>
@@ -616,11 +616,11 @@ export default function PlayerEditModalNew({
           <>
             {/* Column headers - desktop */}
             <div className="hidden sm:grid sm:grid-cols-[72px_1fr_1fr_72px_1fr_36px] gap-2 px-2 pb-1">
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Year</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Team</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Class</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">OVR</span>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Dev Trait</span>
+              <span className="text-[10px] font-semibold text-txt-muted uppercase tracking-wider">Year</span>
+              <span className="text-[10px] font-semibold text-txt-muted uppercase tracking-wider">Team</span>
+              <span className="text-[10px] font-semibold text-txt-muted uppercase tracking-wider">Class</span>
+              <span className="text-[10px] font-semibold text-txt-muted uppercase tracking-wider">OVR</span>
+              <span className="text-[10px] font-semibold text-txt-muted uppercase tracking-wider">Dev Trait</span>
               <span></span>
             </div>
 
@@ -633,17 +633,17 @@ export default function PlayerEditModalNew({
               const devTrait = formData.devTraitByYear?.[year] ?? formData.devTraitByYear?.[String(year)] ?? ''
 
               return (
-                <div key={year} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div key={year} className="bg-white rounded-xl border border-surface-4 overflow-hidden">
                   {/* Desktop: single row */}
                   <div className="hidden sm:grid sm:grid-cols-[72px_1fr_1fr_72px_1fr_36px] gap-2 items-center p-2">
                     {/* Year */}
-                    <div className="text-sm font-bold text-gray-800 pl-1">{year}</div>
+                    <div className="text-sm font-bold text-txt-primary pl-1">{year}</div>
 
                     {/* Team */}
                     <select
                       value={teamTid !== '' ? Number(teamTid) : ''}
                       onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
-                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm truncate"
+                      className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm truncate"
                     >
                       <option value="">--</option>
                       {teamOptions.map(t => (
@@ -655,7 +655,7 @@ export default function PlayerEditModalNew({
                     <select
                       value={playerClass}
                       onChange={(e) => updateYearField('classByYear', year, e.target.value)}
-                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                      className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
                     >
                       <option value="">--</option>
                       {CLASSES.map(c => (
@@ -672,7 +672,7 @@ export default function PlayerEditModalNew({
                         value={ovr ?? ''}
                         onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : null)}
                         placeholder="--"
-                        className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm text-center font-semibold"
+                        className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm text-center font-semibold"
                       />
                       {ovrChange != null && ovrChange !== 0 && (
                         <span
@@ -691,7 +691,7 @@ export default function PlayerEditModalNew({
                     <select
                       value={devTrait}
                       onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
-                      className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                      className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
                     >
                       <option value="">--</option>
                       {DEV_TRAITS.map(d => (
@@ -703,7 +703,7 @@ export default function PlayerEditModalNew({
                     <button
                       type="button"
                       onClick={() => removeYear(year)}
-                      className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1 text-txt-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -714,7 +714,7 @@ export default function PlayerEditModalNew({
                   {/* Mobile: stacked card */}
                   <div className="sm:hidden p-3 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-base font-bold text-gray-800">{year}</span>
+                      <span className="text-base font-bold text-txt-primary">{year}</span>
                       <div className="flex items-center gap-2">
                         {ovrChange != null && ovrChange !== 0 && (
                           <span
@@ -730,7 +730,7 @@ export default function PlayerEditModalNew({
                         <button
                           type="button"
                           onClick={() => removeYear(year)}
-                          className="p-1 text-gray-300 hover:text-red-500 rounded transition-colors"
+                          className="p-1 text-txt-muted hover:text-red-500 rounded transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -740,11 +740,11 @@ export default function PlayerEditModalNew({
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Team</label>
+                        <label className="block text-[10px] font-medium text-txt-muted uppercase mb-0.5">Team</label>
                         <select
                           value={teamTid !== '' ? Number(teamTid) : ''}
                           onChange={(e) => updateYearField('teamsByYear', year, e.target.value ? Number(e.target.value) : '')}
-                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                          className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
                         >
                           <option value="">--</option>
                           {teamOptions.map(t => (
@@ -753,11 +753,11 @@ export default function PlayerEditModalNew({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Class</label>
+                        <label className="block text-[10px] font-medium text-txt-muted uppercase mb-0.5">Class</label>
                         <select
                           value={playerClass}
                           onChange={(e) => updateYearField('classByYear', year, e.target.value)}
-                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                          className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
                         >
                           <option value="">--</option>
                           {CLASSES.map(c => (
@@ -766,7 +766,7 @@ export default function PlayerEditModalNew({
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">OVR</label>
+                        <label className="block text-[10px] font-medium text-txt-muted uppercase mb-0.5">OVR</label>
                         <input
                           type="number"
                           min="40"
@@ -774,15 +774,15 @@ export default function PlayerEditModalNew({
                           value={ovr ?? ''}
                           onChange={(e) => updateYearField('overallByYear', year, e.target.value ? parseInt(e.target.value) : null)}
                           placeholder="--"
-                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm font-semibold"
+                          className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm font-semibold"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-medium text-gray-400 uppercase mb-0.5">Dev Trait</label>
+                        <label className="block text-[10px] font-medium text-txt-muted uppercase mb-0.5">Dev Trait</label>
                         <select
                           value={devTrait}
                           onChange={(e) => updateYearField('devTraitByYear', year, e.target.value)}
-                          className="w-full px-2 py-1.5 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                          className="w-full px-2 py-1.5 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
                         >
                           <option value="">--</option>
                           {DEV_TRAITS.map(d => (
@@ -797,9 +797,9 @@ export default function PlayerEditModalNew({
             })}
           </>
         ) : (
-          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-            <p className="text-sm text-gray-500 mb-1">No seasons yet</p>
-            <p className="text-xs text-gray-400">Add a season to start tracking this player's career</p>
+          <div className="text-center py-6 bg-surface-2 rounded-xl border border-dashed border-surface-4">
+            <p className="text-sm text-txt-muted mb-1">No seasons yet</p>
+            <p className="text-xs text-txt-muted">Add a season to start tracking this player's career</p>
           </div>
         )}
 
@@ -807,7 +807,7 @@ export default function PlayerEditModalNew({
         <button
           type="button"
           onClick={addYear}
-          className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-sm font-medium"
+          className="w-full py-2.5 border-2 border-dashed border-surface-4 rounded-xl text-txt-muted hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 text-sm font-medium"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -841,12 +841,12 @@ export default function PlayerEditModalNew({
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {fields.map(({ key, label }) => (
             <div key={key}>
-              <label className="block text-xs text-gray-500 mb-1">{label}</label>
+              <label className="block text-xs text-txt-muted mb-1">{label}</label>
               <input
                 type="number"
                 value={stats[category]?.[key] || ''}
                 onChange={(e) => updateStat(category, key, e.target.value)}
-                className="w-full px-2.5 py-2 bg-white text-gray-900 rounded-lg border border-gray-200 focus:border-blue-400 focus:outline-none text-sm"
+                className="w-full px-2.5 py-2 bg-white text-txt-primary rounded-lg border border-surface-4 focus:border-blue-400 focus:outline-none text-sm"
               />
             </div>
           ))}
@@ -857,13 +857,13 @@ export default function PlayerEditModalNew({
     return (
       <div className="space-y-4">
         {/* Year Selector & Sync */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-gray-100 rounded-xl p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-3 rounded-xl p-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">Season:</span>
+            <span className="text-sm font-medium text-txt-secondary">Season:</span>
             <select
               value={selectedStatsYear || ''}
               onChange={(e) => handleYearChange(parseInt(e.target.value))}
-              className="px-3 py-1.5 bg-white text-gray-900 rounded-lg border border-gray-300 text-sm font-medium"
+              className="px-3 py-1.5 bg-white text-txt-primary rounded-lg border border-surface-4 text-sm font-medium"
             >
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
@@ -892,9 +892,9 @@ export default function PlayerEditModalNew({
         </div>
 
         {/* Games Played */}
-        <div className="bg-gray-100 rounded-xl p-4 flex items-center gap-4">
+        <div className="bg-surface-3 rounded-xl p-4 flex items-center gap-4">
           <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">Games Played</label>
+            <label className="block text-xs text-txt-muted mb-1">Games Played</label>
             <input
               type="number"
               value={stats.gamesPlayed || ''}
@@ -902,7 +902,7 @@ export default function PlayerEditModalNew({
                 ...prev,
                 stats: { ...prev.stats, gamesPlayed: parseInt(e.target.value) || 0 }
               }))}
-              className="w-full px-3 py-2 bg-white text-gray-900 rounded-lg border border-gray-200 text-sm"
+              className="w-full px-3 py-2 bg-white text-txt-primary rounded-lg border border-surface-4 text-sm"
             />
           </div>
         </div>
@@ -1013,8 +1013,8 @@ export default function PlayerEditModalNew({
         case 'elite': return 'from-yellow-100 to-amber-100 border-yellow-300'
         case 'major': return 'from-purple-100 to-indigo-100 border-purple-300'
         case 'conf': return 'from-blue-100 to-cyan-100 border-blue-300'
-        case 'weekly': return 'from-gray-100 to-slate-100 border-gray-300'
-        default: return 'from-gray-50 to-gray-100 border-gray-200'
+        case 'weekly': return 'from-gray-100 to-slate-100 border-surface-4'
+        default: return 'from-gray-50 to-gray-100 border-surface-4'
       }
     }
 
@@ -1041,7 +1041,7 @@ export default function PlayerEditModalNew({
                   <select
                     value={accolade.year || ''}
                     onChange={(e) => handleUpdate(index, 'year', parseInt(e.target.value))}
-                    className="px-3 py-2 bg-white text-gray-900 rounded-lg border border-gray-200 text-sm font-medium"
+                    className="px-3 py-2 bg-white text-txt-primary rounded-lg border border-surface-4 text-sm font-medium"
                   >
                     {yearOptions.map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -1050,7 +1050,7 @@ export default function PlayerEditModalNew({
                   <select
                     value={accolade.award || ''}
                     onChange={(e) => handleUpdate(index, 'award', e.target.value)}
-                    className="flex-1 px-3 py-2 bg-white text-gray-900 rounded-lg border border-gray-200 text-sm"
+                    className="flex-1 px-3 py-2 bg-white text-txt-primary rounded-lg border border-surface-4 text-sm"
                   >
                     <option value="">Select Award...</option>
                     <optgroup label="Elite">
@@ -1086,9 +1086,9 @@ export default function PlayerEditModalNew({
             })}
           </div>
         ) : (
-          <div className="text-center py-8 bg-gray-50 rounded-xl">
-            <svg className="w-12 h-12 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">{Icons.trophy}</svg>
-            <p className="text-sm text-gray-500">No awards yet</p>
+          <div className="text-center py-8 bg-surface-2 rounded-xl">
+            <svg className="w-12 h-12 mx-auto text-txt-muted mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">{Icons.trophy}</svg>
+            <p className="text-sm text-txt-muted">No awards yet</p>
           </div>
         )}
 
@@ -1096,7 +1096,7 @@ export default function PlayerEditModalNew({
         <button
           type="button"
           onClick={handleAdd}
-          className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 border-2 border-dashed border-surface-4 rounded-xl text-txt-muted hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">{Icons.plus}</svg>
           <span className="font-medium">Add Award</span>
@@ -1203,7 +1203,7 @@ export default function PlayerEditModalNew({
                   onChange={(e) => handleFieldChange('pictureUrl', e.target.value)}
                   onPaste={handlePaste}
                   placeholder="Paste image URL or Ctrl+V to paste image..."
-                  className="w-full px-3 py-2 bg-gray-50 text-gray-900 rounded-lg border border-gray-200 text-sm mb-2"
+                  className="w-full px-3 py-2 bg-surface-2 text-txt-primary rounded-lg border border-surface-4 text-sm mb-2"
                 />
                 <div className="flex gap-2">
                   <input
@@ -1224,7 +1224,7 @@ export default function PlayerEditModalNew({
                   <button
                     type="button"
                     onClick={() => setShowImageUpload(false)}
-                    className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm"
+                    className="px-3 py-2 bg-surface-3 text-txt-tertiary rounded-lg text-sm"
                   >
                     Done
                   </button>
@@ -1234,7 +1234,7 @@ export default function PlayerEditModalNew({
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex border-b border-gray-200 px-2 flex-shrink-0 bg-gray-50">
+          <div className="flex border-b border-surface-4 px-2 flex-shrink-0 bg-surface-2">
             {TABS.map(tab => (
               <button
                 key={tab.id}
@@ -1243,7 +1243,7 @@ export default function PlayerEditModalNew({
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
                   activeTab === tab.id
                     ? 'text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    : 'text-txt-muted hover:text-txt-secondary'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">{Icons[tab.icon]}</svg>
@@ -1264,11 +1264,11 @@ export default function PlayerEditModalNew({
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-5 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-3">
+          <div className="flex-shrink-0 px-5 py-4 bg-surface-2 border-t border-surface-4 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+              className="px-5 py-2.5 text-txt-tertiary hover:text-txt-primary font-medium transition-colors"
             >
               Cancel
             </button>

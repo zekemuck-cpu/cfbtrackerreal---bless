@@ -16,6 +16,21 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
+import {
+  PageHero,
+  Card,
+  Button,
+  Badge,
+  Tabs,
+  ScoreRow,
+  Stat,
+  EmptyState,
+  LoadingState,
+  SectionHeader,
+  DataTable,
+  Modal,
+  Skeleton,
+} from '../../components/ui'
 
 // Map abbreviations to mascot names for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -583,44 +598,23 @@ export default function Game() {
   const game = findGame()
 
   if (!currentDynasty) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-gray-500">Loading dynasty...</div>
-      </div>
-    )
+    return <LoadingState message="Loading dynasty..." />
   }
 
-  // Show loading state if dynasty data is still being loaded from Firebase
-  // This prevents rendering with incomplete game data
   if (isLoadingDynastyData) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-4" />
-          <p className="text-lg font-medium text-gray-700">Loading game data...</p>
-          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch your game from the cloud.</p>
-        </div>
-      </div>
-    )
+    return <LoadingState message="Loading game data…" />
   }
 
   if (!game) {
     return (
-      <div className="space-y-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: teamColors.primary, color: getContrastTextColor(teamColors.primary) }}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
           Back
-        </button>
-        <div className="text-center py-12">
-          <div className="text-xl font-bold text-gray-600">Game not found</div>
-          <div className="text-gray-500 mt-2">Game ID: {gameId}</div>
-        </div>
+        </Button>
+        <EmptyState
+          title="Game not found"
+          message={<>Game ID: <span className="tabular">{gameId}</span></>}
+        />
       </div>
     )
   }
@@ -1092,7 +1086,7 @@ export default function Game() {
   return (
     <div className="space-y-4 overflow-x-hidden">
       {/* Hero Scoreboard */}
-      <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="bg-surface-1 rounded-2xl overflow-hidden shadow-2xl">
         {/* Top bar with game info and navigation */}
         <div
           className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between"
@@ -1176,7 +1170,7 @@ export default function Game() {
                 <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
                   <div className="relative flex-shrink-0">
                     <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2  shadow-xl bg-white"
                       style={{
                         boxShadow: leftData.isWinner
                           ? `0 0 20px ${leftData.colors.primary}60, 0 4px 16px rgba(0,0,0,0.4)`
@@ -1188,25 +1182,25 @@ export default function Game() {
                       )}
                     </div>
                     {isCFPGame && (leftTeam === 'user' ? userSeed : oppSeed) && (
-                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border-2 border-gray-900">
-                        <span className="text-[10px] font-black text-gray-900">{leftTeam === 'user' ? userSeed : oppSeed}</span>
+                      <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500/90 flex items-center justify-center shadow-lg border-2 border-surface-1">
+                        <span className="text-[10px] font-black text-txt-primary">{leftTeam === 'user' ? userSeed : oppSeed}</span>
                       </div>
                     )}
                   </div>
                   <div className="text-left">
                     {leftData.rank && !isCFPGame && (
-                      <div className="text-yellow-500 text-xs font-bold">#{leftData.rank}</div>
+                      <div className="text-amber-400 text-xs font-bold">#{leftData.rank}</div>
                     )}
                     <div className="text-white font-bold text-lg group-hover:underline">{leftData.name}</div>
                     {leftData.record && (
-                      <div className="text-gray-400 text-sm">{leftData.record}</div>
+                      <div className="text-txt-tertiary text-sm">{leftData.record}</div>
                     )}
                   </div>
                 </Link>
                 {/* Score with winner triangle */}
                 <div className="flex items-center gap-2 ml-auto">
                   <div
-                    className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                    className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}
                     style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                   >
                     {leftData.score}
@@ -1234,7 +1228,7 @@ export default function Game() {
                   return (
                     <table className="text-center">
                       <thead>
-                        <tr className="text-xs text-gray-500 uppercase">
+                        <tr className="text-xs text-txt-muted uppercase">
                           <th className="px-2 py-1"></th>
                           <th className="px-3 py-1">1</th>
                           <th className="px-3 py-1">2</th>
@@ -1243,35 +1237,35 @@ export default function Game() {
                           {game.overtimes?.map((_, i) => (
                             <th key={i} className="px-3 py-1">OT{i > 0 ? i + 1 : ''}</th>
                           ))}
-                          <th className="px-3 py-1 pl-4 border-l border-gray-700">T</th>
+                          <th className="px-3 py-1 pl-4 border-l border-surface-4">T</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${leftData.isWinner ? 'text-white' : 'text-gray-400'}`}>{leftData.abbr}</td>
+                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${leftData.isWinner ? 'text-white' : 'text-txt-tertiary'}`}>{leftData.abbr}</td>
                           {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                            <td key={q} className="px-3 py-1.5 text-gray-300 text-sm">
+                            <td key={q} className="px-3 py-1.5 text-txt-secondary text-sm">
                               {leftQuarters[q] === '' || leftQuarters[q] === null || leftQuarters[q] === undefined ? 0 : leftQuarters[q]}
                             </td>
                           ))}
                           {game.overtimes?.map((ot, i) => (
-                            <td key={i} className="px-3 py-1.5 text-gray-300 text-sm">{ot[leftQuarterKey] ?? '-'}</td>
+                            <td key={i} className="px-3 py-1.5 text-txt-secondary text-sm">{ot[leftQuarterKey] ?? '-'}</td>
                           ))}
-                          <td className={`px-3 py-1.5 pl-4 border-l border-gray-700 text-xl font-black ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}>
                             {leftData.score}
                           </td>
                         </tr>
                         <tr>
-                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${rightData.isWinner ? 'text-white' : 'text-gray-400'}`}>{rightData.abbr}</td>
+                          <td className={`pr-3 py-1.5 text-left text-sm font-bold ${rightData.isWinner ? 'text-white' : 'text-txt-tertiary'}`}>{rightData.abbr}</td>
                           {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
-                            <td key={q} className="px-3 py-1.5 text-gray-300 text-sm">
+                            <td key={q} className="px-3 py-1.5 text-txt-secondary text-sm">
                               {rightQuarters[q] === '' || rightQuarters[q] === null || rightQuarters[q] === undefined ? 0 : rightQuarters[q]}
                             </td>
                           ))}
                           {game.overtimes?.map((ot, i) => (
-                            <td key={i} className="px-3 py-1.5 text-gray-300 text-sm">{ot[rightQuarterKey] ?? '-'}</td>
+                            <td key={i} className="px-3 py-1.5 text-txt-secondary text-sm">{ot[rightQuarterKey] ?? '-'}</td>
                           ))}
-                          <td className={`px-3 py-1.5 pl-4 border-l border-gray-700 text-xl font-black ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                          <td className={`px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}>
                             {rightData.score}
                           </td>
                         </tr>
@@ -1284,7 +1278,7 @@ export default function Game() {
                     Final
                   </span>
                   {game.overtimes && game.overtimes.length > 0 && (
-                    <span className="ml-2 text-yellow-500 text-xs font-bold">
+                    <span className="ml-2 text-amber-400 text-xs font-bold">
                       {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
                     </span>
                   )}
@@ -1301,7 +1295,7 @@ export default function Game() {
                     </svg>
                   )}
                   <div
-                    className={`text-6xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                    className={`text-6xl font-black tabular-nums ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}
                     style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                   >
                     {rightData.score}
@@ -1310,16 +1304,16 @@ export default function Game() {
                 <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
                   <div className="text-right">
                     {rightData.rank && !isCFPGame && (
-                      <div className="text-yellow-500 text-xs font-bold">#{rightData.rank}</div>
+                      <div className="text-amber-400 text-xs font-bold">#{rightData.rank}</div>
                     )}
                     <div className="text-white font-bold text-lg group-hover:underline">{rightData.name}</div>
                     {rightData.record && (
-                      <div className="text-gray-400 text-sm">{rightData.record}</div>
+                      <div className="text-txt-tertiary text-sm">{rightData.record}</div>
                     )}
                   </div>
                   <div className="relative flex-shrink-0">
                     <div
-                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2  shadow-xl bg-white"
                       style={{
                         boxShadow: rightData.isWinner
                           ? `0 0 20px ${rightData.colors.primary}60, 0 4px 16px rgba(0,0,0,0.4)`
@@ -1331,8 +1325,8 @@ export default function Game() {
                       )}
                     </div>
                     {isCFPGame && (rightTeam === 'user' ? userSeed : oppSeed) && (
-                      <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border-2 border-gray-900">
-                        <span className="text-[10px] font-black text-gray-900">{rightTeam === 'user' ? userSeed : oppSeed}</span>
+                      <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full bg-amber-500/90 flex items-center justify-center shadow-lg border-2 border-surface-1">
+                        <span className="text-[10px] font-black text-txt-primary">{rightTeam === 'user' ? userSeed : oppSeed}</span>
                       </div>
                     )}
                   </div>
@@ -1353,7 +1347,7 @@ export default function Game() {
                 {/* Logo - larger for hero effect */}
                 <div className="relative flex-shrink-0">
                   <div
-                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5  shadow-xl bg-white"
                     style={{
                       boxShadow: leftData.isWinner && gameIsPlayed
                         ? `0 0 30px ${leftData.colors.primary}60, 0 8px 32px rgba(0,0,0,0.4)`
@@ -1366,21 +1360,21 @@ export default function Game() {
                   </div>
                   {/* CFP Seed Badge */}
                   {isCFPGame && (leftTeam === 'user' ? userSeed : oppSeed) && (
-                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border sm:border-2 border-gray-900">
-                      <span className="text-[8px] sm:text-xs font-black text-gray-900">{leftTeam === 'user' ? userSeed : oppSeed}</span>
+                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-amber-500/90 flex items-center justify-center shadow-lg border sm:border-2 border-surface-1">
+                      <span className="text-[8px] sm:text-xs font-black text-txt-primary">{leftTeam === 'user' ? userSeed : oppSeed}</span>
                     </div>
                   )}
                 </div>
                 <div className="text-center sm:text-left min-w-0">
                   {/* Rank badge */}
                   {leftData.rank && !isCFPGame && (
-                    <div className="text-yellow-500 text-[9px] sm:text-xs font-bold mb-0.5">#{leftData.rank}</div>
+                    <div className="text-amber-400 text-[9px] sm:text-xs font-bold mb-0.5">#{leftData.rank}</div>
                   )}
                   <div className="text-white font-bold text-[8px] sm:text-xs md:text-sm lg:text-xl group-hover:underline leading-tight">
                     {leftData.name}
                   </div>
                   {leftData.record && (
-                    <div className="text-gray-400 text-[9px] sm:text-xs mt-0.5">{leftData.record}</div>
+                    <div className="text-txt-tertiary text-[9px] sm:text-xs mt-0.5">{leftData.record}</div>
                   )}
                 </div>
               </div>
@@ -1392,7 +1386,7 @@ export default function Game() {
                 <div className="flex items-center gap-1.5 sm:gap-6">
                   <div className="text-center">
                     <div
-                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${leftData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}
                       style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                     >
                       {leftData.score}
@@ -1410,7 +1404,7 @@ export default function Game() {
                       Final
                     </div>
                     {game.overtimes && game.overtimes.length > 0 && (
-                      <span className="text-yellow-500 text-[8px] sm:text-xs font-bold">
+                      <span className="text-amber-400 text-[8px] sm:text-xs font-bold">
                         {game.overtimes.length > 1 ? `${game.overtimes.length}OT` : 'OT'}
                       </span>
                     )}
@@ -1418,7 +1412,7 @@ export default function Game() {
 
                   <div className="text-center">
                     <div
-                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${rightData.isWinner ? 'text-white' : 'text-gray-500'}`}
+                      className={`text-2xl sm:text-5xl md:text-6xl font-black tabular-nums transition-all ${rightData.isWinner ? 'text-white' : 'text-txt-muted'}`}
                       style={rightData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
                     >
                       {rightData.score}
@@ -1440,7 +1434,7 @@ export default function Game() {
                 {/* Logo - larger for hero effect */}
                 <div className="relative flex-shrink-0">
                   <div
-                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5 group-hover:scale-105 transition-transform shadow-xl bg-white"
+                    className="w-10 h-10 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center p-1 sm:p-2.5  shadow-xl bg-white"
                     style={{
                       boxShadow: rightData.isWinner && gameIsPlayed
                         ? `0 0 30px ${rightData.colors.primary}60, 0 8px 32px rgba(0,0,0,0.4)`
@@ -1453,21 +1447,21 @@ export default function Game() {
                   </div>
                   {/* CFP Seed Badge */}
                   {isCFPGame && (rightTeam === 'user' ? userSeed : oppSeed) && (
-                    <div className="absolute -top-0.5 -left-0.5 sm:-top-1 sm:-left-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-lg border sm:border-2 border-gray-900">
-                      <span className="text-[8px] sm:text-xs font-black text-gray-900">{rightTeam === 'user' ? userSeed : oppSeed}</span>
+                    <div className="absolute -top-0.5 -left-0.5 sm:-top-1 sm:-left-1 w-4 h-4 sm:w-7 sm:h-7 rounded-full bg-amber-500/90 flex items-center justify-center shadow-lg border sm:border-2 border-surface-1">
+                      <span className="text-[8px] sm:text-xs font-black text-txt-primary">{rightTeam === 'user' ? userSeed : oppSeed}</span>
                     </div>
                   )}
                 </div>
                 <div className="text-center sm:text-right min-w-0">
                   {/* Rank badge */}
                   {rightData.rank && !isCFPGame && (
-                    <div className="text-yellow-500 text-[9px] sm:text-xs font-bold mb-0.5">#{rightData.rank}</div>
+                    <div className="text-amber-400 text-[9px] sm:text-xs font-bold mb-0.5">#{rightData.rank}</div>
                   )}
                   <div className="text-white font-bold text-[8px] sm:text-xs md:text-sm lg:text-xl group-hover:underline leading-tight">
                     {rightData.name}
                   </div>
                   {rightData.record && (
-                    <div className="text-gray-400 text-[9px] sm:text-xs mt-0.5">{rightData.record}</div>
+                    <div className="text-txt-tertiary text-[9px] sm:text-xs mt-0.5">{rightData.record}</div>
                   )}
                 </div>
               </div>
@@ -1488,11 +1482,11 @@ export default function Game() {
         )
         return hasData
       })() && (
-        <div className="lg:hidden bg-gray-800 rounded-xl overflow-hidden shadow-lg">
+        <div className="lg:hidden bg-surface-2 rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="text-[10px] sm:text-xs text-gray-400 uppercase tracking-wider border-b border-gray-700">
+                <tr className="text-[10px] sm:text-xs text-txt-tertiary uppercase tracking-wider border-b border-surface-4">
                   <th className="text-left py-3 px-3 sm:px-4 font-semibold">Team</th>
                   <th className="text-center py-3 px-2 sm:px-3 font-semibold">1st</th>
                   <th className="text-center py-3 px-2 sm:px-3 font-semibold">2nd</th>
@@ -1513,16 +1507,16 @@ export default function Game() {
                     ? (idx === 0 ? (isLeftTeam1 ? 'team1' : 'team2') : (isLeftTeam1 ? 'team2' : 'team1'))
                     : ((idx === 0 ? leftTeam : rightTeam) === 'user' ? 'team' : 'opponent')
                   return (
-                    <tr key={idx} className={idx === 0 ? 'border-b border-gray-700' : ''}>
+                    <tr key={idx} className={idx === 0 ? 'border-b border-surface-4' : ''}>
                       <td className="py-3 px-3 sm:px-4">
                         <Link to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group">
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center p-1 flex-shrink-0 bg-white group-hover:scale-105 transition-transform"
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center p-1 flex-shrink-0 bg-white "
                             >
                               {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                             </div>
-                            <span className={`font-bold group-hover:underline ${team.isWinner ? 'text-white' : 'text-gray-400'}`}>
+                            <span className={`font-bold group-hover:underline ${team.isWinner ? 'text-white' : 'text-txt-tertiary'}`}>
                               <span className="sm:hidden">{team.abbr}</span>
                               <span className="hidden sm:inline">{team.name}</span>
                             </span>
@@ -1532,15 +1526,15 @@ export default function Game() {
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => {
                         const val = game.quarters[quarterKey]?.[q]
                         return (
-                          <td key={q} className="text-center py-3 px-2 sm:px-3 text-gray-300 font-medium">
+                          <td key={q} className="text-center py-3 px-2 sm:px-3 text-txt-secondary font-medium">
                             {val === '' || val === null || val === undefined ? 0 : val}
                           </td>
                         )
                       })}
                       {game.overtimes?.map((ot, i) => (
-                        <td key={i} className="text-center py-3 px-2 sm:px-3 text-gray-300 font-medium">{ot[quarterKey] ?? '-'}</td>
+                        <td key={i} className="text-center py-3 px-2 sm:px-3 text-txt-secondary font-medium">{ot[quarterKey] ?? '-'}</td>
                       ))}
-                      <td className={`text-center py-3 px-3 sm:px-4 font-black text-lg sm:text-xl ${team.isWinner ? 'text-white' : 'text-gray-500'}`}>
+                      <td className={`text-center py-3 px-3 sm:px-4 font-black text-lg sm:text-xl ${team.isWinner ? 'text-white' : 'text-txt-muted'}`}>
                         {team.score}
                       </td>
                     </tr>
@@ -1554,7 +1548,7 @@ export default function Game() {
 
       {/* ESPN-Style Tab Navigation and Content */}
       {gameIsPlayed && (
-        <div className="bg-gray-900 rounded-xl overflow-hidden shadow-lg">
+        <div className="bg-surface-1 rounded-xl overflow-hidden shadow-lg">
           {/* Tab Bar - always fits screen width */}
           {(() => {
             // Check if box score has any actual player data
@@ -1566,7 +1560,7 @@ export default function Game() {
             const hasRecapOrCanGenerate = game.aiRecap || !isViewOnly
 
             return (
-          <div className="flex border-b border-gray-700">
+          <div className="flex border-b border-surface-4">
             {[
               { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxScoreData },
               { key: 'scoring', label: 'Scoring', shortLabel: 'Plays', show: game.boxScore?.scoringSummary?.length > 0 },
@@ -1580,8 +1574,8 @@ export default function Game() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex-1 sm:flex-none px-1 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium transition-colors ${
                   activeTab === tab.key
-                    ? 'text-white border-b-2 border-white bg-gray-800'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                    ? 'text-white border-b-2 border-white bg-surface-2'
+                    : 'text-txt-tertiary hover:text-white hover:bg-surface-2/50'
                 }`}
               >
                 <span className="sm:hidden">{tab.shortLabel}</span>
@@ -1653,7 +1647,7 @@ export default function Game() {
               <div>
                 {/* Watch All Scores button - only show if there are video links */}
                 {hasVideoLinks && (
-                  <div className="px-4 py-3 border-b border-gray-800/50">
+                  <div className="px-4 py-3 border-b border-surface-3/50">
                     <button
                       onClick={() => {
                         setHighlightsStartIndex(0)
@@ -1668,7 +1662,7 @@ export default function Game() {
                     </button>
                   </div>
                 )}
-                <div className="divide-y divide-gray-800/50">
+                <div className="divide-y divide-surface-3/50">
                 {playsWithScores.map((play, idx) => {
                   const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
                   const scorerPID = getPlayerPID(play.scorer)
@@ -1696,20 +1690,20 @@ export default function Game() {
                           >
                             {['1', '2', '3', '4', 1, 2, 3, 4].includes(play.quarter) ? `Q${play.quarter}` : 'OT'}
                           </div>
-                          <div className="text-gray-500 text-[10px] sm:text-xs mt-0.5 font-mono">{play.timeLeft}</div>
+                          <div className="text-txt-muted text-[10px] sm:text-xs mt-0.5 font-mono">{play.timeLeft}</div>
                         </div>
                         {/* Running Score */}
                         <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 min-w-[50px] sm:min-w-[60px] justify-center">
-                          <span className={`text-sm sm:text-base font-bold tabular-nums ${isLeftTeam ? 'text-white' : 'text-gray-500'}`}>
+                          <span className={`text-sm sm:text-base font-bold tabular-nums ${isLeftTeam ? 'text-white' : 'text-txt-muted'}`}>
                             {play.runningLeftScore}
                           </span>
-                          <span className="text-gray-600 text-xs">-</span>
-                          <span className={`text-sm sm:text-base font-bold tabular-nums ${!isLeftTeam ? 'text-white' : 'text-gray-500'}`}>
+                          <span className="text-txt-tertiary text-xs">-</span>
+                          <span className={`text-sm sm:text-base font-bold tabular-nums ${!isLeftTeam ? 'text-white' : 'text-txt-muted'}`}>
                             {play.runningRightScore}
                           </span>
                         </div>
                         {/* Team logo */}
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-800/50 p-1">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-2/50 p-1">
                           <img
                             src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
                             alt={play.team}
@@ -1719,9 +1713,9 @@ export default function Game() {
                         {/* Play details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                            <span className="text-gray-300 text-xs sm:text-sm">
+                            <span className="text-txt-secondary text-xs sm:text-sm">
                               {is2PTAttempt(play) ? '2PT Conversion' : play.scoreType}
-                              {play.yards && <span className="text-gray-500"> ({play.yards} yds)</span>}
+                              {play.yards && <span className="text-txt-muted"> ({play.yards} yds)</span>}
                             </span>
                             {play.patResult && !is2PTAttempt(play) && (
                               <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded ${
@@ -1742,7 +1736,7 @@ export default function Game() {
                               </span>
                             )}
                           </div>
-                          <div className="text-gray-400 text-[10px] sm:text-xs mt-0.5 truncate">
+                          <div className="text-txt-tertiary text-[10px] sm:text-xs mt-0.5 truncate">
                             {is2PTAttempt(play) ? (
                               <span>{is2PTConverted(play) ? 'Successful conversion' : 'Conversion failed'}</span>
                             ) : (
@@ -1800,20 +1794,20 @@ export default function Game() {
             {/* Show loading state while waiting for stream to start */}
             {isGeneratingRecap && !streamingRecap ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <svg className="w-8 h-8 animate-spin text-yellow-500 mb-3" fill="none" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 animate-spin text-amber-400 mb-3" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p className="text-yellow-500 text-sm font-medium">Generating recap...</p>
-                <p className="text-gray-500 text-xs mt-1">This may take a few seconds</p>
+                <p className="text-amber-400 text-sm font-medium">Generating recap...</p>
+                <p className="text-txt-muted text-xs mt-1">This may take a few seconds</p>
               </div>
             ) : isGeneratingRecap && streamingRecap ? (
               <div className="space-y-4">
-                <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
+                <div className="text-txt-secondary text-sm leading-relaxed whitespace-pre-line">
                   {streamingRecap}
                   <span className="inline-block w-2 h-4 bg-yellow-500 ml-1 animate-pulse" />
                 </div>
-                <div className="text-xs text-yellow-500 flex items-center gap-2">
+                <div className="text-xs text-amber-400 flex items-center gap-2">
                   <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1823,7 +1817,7 @@ export default function Game() {
               </div>
             ) : game.aiRecap ? (
               <div className="space-y-4">
-                <div className="text-gray-200 text-sm leading-relaxed whitespace-pre-line">
+                <div className="text-txt-secondary text-sm leading-relaxed whitespace-pre-line">
                   {game.aiRecap}
                 </div>
                 {recapError && (
@@ -1839,10 +1833,10 @@ export default function Game() {
                         <p className="text-red-400/80 text-sm mt-1">{recapError}</p>
                         {quotaRetrySeconds && quotaRetrySeconds > 0 && (
                           <div className="mt-2 flex items-center gap-2">
-                            <svg className="w-4 h-4 text-yellow-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="text-yellow-500 text-sm font-medium">
+                            <span className="text-amber-400 text-sm font-medium">
                               Ready in {quotaRetrySeconds} second{quotaRetrySeconds !== 1 ? 's' : ''}
                             </span>
                           </div>
@@ -1855,28 +1849,14 @@ export default function Game() {
             ) : (
               <div className={recapError ? 'space-y-3' : ''}>
                 <div className="flex items-center justify-center">
-                  <button
+                  <Button
+                    variant="primary"
+                    size="md"
                     onClick={handleGenerateRecap}
                     disabled={isGeneratingRecap || quotaRetrySeconds > 0}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all disabled:opacity-50 bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400"
                   >
-                    {isGeneratingRecap ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Starting...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                        </svg>
-                        AI Generate
-                      </>
-                    )}
-                  </button>
+                    {isGeneratingRecap ? 'Starting…' : 'Generate Recap'}
+                  </Button>
                 </div>
                 {recapError && (
                   <div className="p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
@@ -1888,10 +1868,10 @@ export default function Game() {
                         <p className="text-red-400/80 text-sm">{recapError}</p>
                         {quotaRetrySeconds && quotaRetrySeconds > 0 && (
                           <div className="mt-1 flex items-center gap-2">
-                            <svg className="w-3.5 h-3.5 text-yellow-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 text-amber-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="text-yellow-500 text-xs font-medium">
+                            <span className="text-amber-400 text-xs font-medium">
                               Ready in {quotaRetrySeconds}s
                             </span>
                           </div>
@@ -1920,9 +1900,9 @@ export default function Game() {
                 return (
                   <div className="py-2 px-2">
                     {showTeamHeader && (
-                      <div className="text-gray-400 text-sm font-medium mb-2">{tab.title}</div>
+                      <div className="text-txt-tertiary text-sm font-medium mb-2">{tab.title}</div>
                     )}
-                    <div className="text-gray-500 text-sm py-2">No {tab.title.toLowerCase()} stats</div>
+                    <div className="text-txt-muted text-sm py-2">No {tab.title.toLowerCase()} stats</div>
                   </div>
                 )
               }
@@ -1930,12 +1910,12 @@ export default function Game() {
               return (
                 <div className="py-2">
                   {showTeamHeader && (
-                    <div className="text-gray-400 text-sm font-medium mb-2 px-2">{tab.title}</div>
+                    <div className="text-txt-tertiary text-sm font-medium mb-2 px-2">{tab.title}</div>
                   )}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-gray-400 text-left border-b border-gray-700">
+                        <tr className="text-txt-tertiary text-left border-b border-surface-4">
                           {getDisplayHeaders(statKey).map((header, idx) => (
                             <th
                               key={idx}
@@ -1981,11 +1961,11 @@ export default function Game() {
                           const playerPID = getPlayerPID(values[0].value)
 
                           return (
-                            <tr key={rowIdx} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                            <tr key={rowIdx} className="border-b border-surface-3/50 hover:bg-surface-2/30">
                               {values.map((cell, colIdx) => (
                                 <td
                                   key={colIdx}
-                                  className={`py-1.5 px-2 whitespace-nowrap ${colIdx === 0 ? 'text-left' : 'text-center text-gray-300'}`}
+                                  className={`py-1.5 px-2 whitespace-nowrap ${colIdx === 0 ? 'text-left' : 'text-center text-txt-secondary'}`}
                                 >
                                   {colIdx === 0 && playerPID ? (
                                     <Link to={`${pathPrefix}/player/${playerPID}`} className="text-white hover:underline hover:text-blue-300">
@@ -2000,7 +1980,7 @@ export default function Game() {
                           )
                         })}
                         {/* Totals Row */}
-                        <tr className="border-t border-gray-600 bg-gray-800/50 font-semibold">
+                        <tr className="border-t border-surface-4 bg-surface-2/50 font-semibold">
                           {getDisplayHeaders(statKey).map((header, colIdx) => {
                             if (colIdx === 0) {
                               return (
@@ -2070,7 +2050,7 @@ export default function Game() {
             return (
               <div>
                 {/* Mobile: Team tabs */}
-                <div className="lg:hidden border-b border-gray-700">
+                <div className="lg:hidden border-b border-surface-4">
                   <div className="flex">
                     {[
                       { key: 'left', teamData: leftTeamData_bs },
@@ -2081,8 +2061,8 @@ export default function Game() {
                         onClick={() => setBoxScoreTeamTab(key)}
                         className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2.5 text-xs sm:text-sm font-medium transition-colors min-w-0 ${
                           boxScoreTeamTab === key
-                            ? 'text-white border-b-2 border-white bg-gray-800'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                            ? 'text-white border-b-2 border-white bg-surface-2'
+                            : 'text-txt-tertiary hover:text-white hover:bg-surface-2/50'
                         }`}
                       >
                         <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5">
@@ -2099,7 +2079,7 @@ export default function Game() {
                 </div>
 
                 {/* Mobile: Show selected team's stats */}
-                <div className="lg:hidden divide-y divide-gray-700">
+                <div className="lg:hidden divide-y divide-surface-4">
                   {STAT_TAB_ORDER.map(statKey => {
                     const teamData = boxScoreTeamTab === 'left' ? leftData_bs : rightData_bs
                     const teamInfo = boxScoreTeamTab === 'left' ? leftTeamData_bs : rightTeamData_bs
@@ -2114,7 +2094,7 @@ export default function Game() {
                 </div>
 
                 {/* Desktop: Side-by-side layout */}
-                <div className="hidden lg:block divide-y divide-gray-700">
+                <div className="hidden lg:block divide-y divide-surface-4">
                   {STAT_TAB_ORDER.map(statKey => {
                     const tab = STAT_TABS[statKey]
                     const hasLeftData = leftData_bs?.[statKey]?.length > 0
@@ -2129,7 +2109,7 @@ export default function Game() {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-2 px-2">
                               <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 group-hover:scale-105 transition-transform">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 ">
                                   <img
                                     src={getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
                                     alt={leftTeamData_bs.name}
@@ -2138,17 +2118,17 @@ export default function Game() {
                                 </div>
                                 <span className="text-white font-semibold text-sm group-hover:underline">{leftTeamData_bs.name}</span>
                               </Link>
-                              <span className="text-gray-400 text-sm">{tab.title}</span>
+                              <span className="text-txt-tertiary text-sm">{tab.title}</span>
                             </div>
                             {hasLeftData ? renderTeamStatTable(leftData_bs, leftTeamData_bs, statKey, false) : (
-                              <div className="text-gray-500 text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
+                              <div className="text-txt-muted text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
                             )}
                           </div>
                           {/* Right Team */}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-2 px-2">
                               <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 group-hover:scale-105 transition-transform">
+                                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 ">
                                   <img
                                     src={getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
                                     alt={rightTeamData_bs.name}
@@ -2157,10 +2137,10 @@ export default function Game() {
                                 </div>
                                 <span className="text-white font-semibold text-sm group-hover:underline">{rightTeamData_bs.name}</span>
                               </Link>
-                              <span className="text-gray-400 text-sm">{tab.title}</span>
+                              <span className="text-txt-tertiary text-sm">{tab.title}</span>
                             </div>
                             {hasRightData ? renderTeamStatTable(rightData_bs, rightTeamData_bs, statKey, false) : (
-                              <div className="text-gray-500 text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
+                              <div className="text-txt-muted text-sm px-2 py-4">No {tab.title.toLowerCase()} stats</div>
                             )}
                           </div>
                         </div>
@@ -2256,31 +2236,31 @@ export default function Game() {
           const tie = leftNum === rightNum
 
           return (
-            <div key={idx} className={`px-3 sm:px-4 py-2 flex items-center ${stat.key ? 'bg-gray-800/40' : ''}`}>
+            <div key={idx} className={`px-3 sm:px-4 py-2 flex items-center ${stat.key ? 'bg-surface-2/40' : ''}`}>
               {/* Left value with team color indicator */}
               <div className="flex-1 flex items-center gap-2">
                 <div
                   className="w-1 h-5 rounded-full"
                   style={{ backgroundColor: leftWins && !tie ? leftTeamColors.primary : 'transparent' }}
                 />
-                <span className={`text-xs sm:text-sm font-bold tabular-nums ${leftWins && !tie ? 'text-white' : 'text-gray-400'} ${stat.calculated ? 'italic' : ''}`}>
+                <span className={`text-xs sm:text-sm font-bold tabular-nums ${leftWins && !tie ? 'text-white' : 'text-txt-tertiary'} ${stat.calculated ? 'italic' : ''}`}>
                   {leftVal}
                 </span>
               </div>
 
               {/* Stat label */}
               <div className="text-center flex-shrink-0 px-1 sm:px-2">
-                <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide ${stat.key ? 'text-white' : 'text-gray-500'}`}>
+                <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide ${stat.key ? 'text-white' : 'text-txt-muted'}`}>
                   {stat.label}
                 </span>
                 {stat.subLabel && (
-                  <div className="text-[8px] sm:text-[10px] text-gray-600 mt-0.5">{stat.subLabel}</div>
+                  <div className="text-[8px] sm:text-[10px] text-txt-tertiary mt-0.5">{stat.subLabel}</div>
                 )}
               </div>
 
               {/* Right value with team color indicator */}
               <div className="flex-1 flex items-center justify-end gap-2">
-                <span className={`text-xs sm:text-sm font-bold tabular-nums ${rightWins && !tie ? 'text-white' : 'text-gray-400'} ${stat.calculated ? 'italic' : ''}`}>
+                <span className={`text-xs sm:text-sm font-bold tabular-nums ${rightWins && !tie ? 'text-white' : 'text-txt-tertiary'} ${stat.calculated ? 'italic' : ''}`}>
                   {rightVal}
                 </span>
                 <div
@@ -2295,7 +2275,7 @@ export default function Game() {
         return (
           <>
             {/* Team header with logos */}
-            <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-surface-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-white p-1">
                   <img src={getTeamLogoRobust(leftTeamAbbr)} alt="" className="w-full h-full object-contain" />
@@ -2315,7 +2295,7 @@ export default function Game() {
             </div>
 
             {/* All stats in display order */}
-            <div className="divide-y divide-gray-800/30">
+            <div className="divide-y divide-surface-3/30">
               {allStats.map((stat, idx) => renderStatRow(stat, idx))}
             </div>
           </>
@@ -2351,8 +2331,8 @@ export default function Game() {
                   const defBetter = (ratings.def || 0) > ((idx === 0 ? rightRatings : leftRatings).def || 0)
 
                   return (
-                    <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 transition-colors">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white group-hover:scale-105 transition-transform">
+                    <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-surface-2/50 hover:bg-surface-2 transition-colors">
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white ">
                         {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -2360,20 +2340,20 @@ export default function Game() {
                         <div className="flex gap-4 mt-1.5">
                           {ratings.ovr && (
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-gray-500 font-medium uppercase">OVR</span>
-                              <span className={`text-lg ${ovrBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.ovr}</span>
+                              <span className="text-[10px] text-txt-muted font-medium uppercase">OVR</span>
+                              <span className={`text-lg ${ovrBetter ? 'text-green-400 font-bold' : 'text-txt-secondary'}`}>{ratings.ovr}</span>
                             </div>
                           )}
                           {ratings.off && (
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-gray-500 font-medium uppercase">OFF</span>
-                              <span className={`text-lg ${offBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.off}</span>
+                              <span className="text-[10px] text-txt-muted font-medium uppercase">OFF</span>
+                              <span className={`text-lg ${offBetter ? 'text-green-400 font-bold' : 'text-txt-secondary'}`}>{ratings.off}</span>
                             </div>
                           )}
                           {ratings.def && (
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-gray-500 font-medium uppercase">DEF</span>
-                              <span className={`text-lg ${defBetter ? 'text-green-400 font-bold' : 'text-gray-300'}`}>{ratings.def}</span>
+                              <span className="text-[10px] text-txt-muted font-medium uppercase">DEF</span>
+                              <span className={`text-lg ${defBetter ? 'text-green-400 font-bold' : 'text-txt-secondary'}`}>{ratings.def}</span>
                             </div>
                           )}
                         </div>
@@ -2390,8 +2370,8 @@ export default function Game() {
             <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Conference Player of the Week */}
               {(game.conferencePOW || game.confDefensePOW) && (
-                <div className="p-4 rounded-xl bg-gray-800/50">
-                  <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-4">Conference Player of the Week</div>
+                <div className="p-4 rounded-xl bg-surface-2/50">
+                  <div className="text-[10px] text-txt-tertiary uppercase font-bold tracking-wider mb-4">Conference Player of the Week</div>
                   <div className="space-y-4">
                     {game.conferencePOW && (() => {
                       const player = getPlayerByName(game.conferencePOW)
@@ -2418,7 +2398,7 @@ export default function Game() {
                             ) : (
                               <div className="font-bold text-white text-sm">{game.conferencePOW}</div>
                             )}
-                            {stats && <div className="text-xs text-gray-400 mt-1">{stats}</div>}
+                            {stats && <div className="text-xs text-txt-tertiary mt-1">{stats}</div>}
                           </div>
                         </div>
                       )
@@ -2448,7 +2428,7 @@ export default function Game() {
                             ) : (
                               <div className="font-bold text-white text-sm">{game.confDefensePOW}</div>
                             )}
-                            {stats && <div className="text-xs text-gray-400 mt-1">{stats}</div>}
+                            {stats && <div className="text-xs text-txt-tertiary mt-1">{stats}</div>}
                           </div>
                         </div>
                       )
@@ -2459,7 +2439,7 @@ export default function Game() {
 
               {/* National Player of the Week */}
               {(game.nationalPOW || game.natlDefensePOW) && (
-                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-500/20">
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
                   <div className="text-[10px] text-yellow-400 uppercase font-bold tracking-wider mb-4">National Player of the Week</div>
                   <div className="space-y-4">
                     {game.nationalPOW && (() => {
@@ -2479,7 +2459,7 @@ export default function Game() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-yellow-500 uppercase font-semibold">Offensive</div>
+                            <div className="text-[9px] text-amber-400 uppercase font-semibold">Offensive</div>
                             {getPlayerPID(game.nationalPOW) ? (
                               <Link to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
                                 {game.nationalPOW}
@@ -2509,7 +2489,7 @@ export default function Game() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-yellow-500 uppercase font-semibold">Defensive</div>
+                            <div className="text-[9px] text-amber-400 uppercase font-semibold">Defensive</div>
                             {getPlayerPID(game.natlDefensePOW) ? (
                               <Link to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
                                 {game.natlDefensePOW}
@@ -2533,8 +2513,8 @@ export default function Game() {
 
       {/* Media Section */}
       {links.length > 0 && (
-        <div className="rounded-xl overflow-hidden shadow-lg bg-gray-900">
-          <div className="px-4 py-3 border-b border-gray-700">
+        <div className="rounded-xl overflow-hidden shadow-lg bg-surface-1">
+          <div className="px-4 py-3 border-b border-surface-4">
             <h3 className="font-bold text-white text-sm uppercase tracking-wide">
               Media
             </h3>
@@ -2545,7 +2525,7 @@ export default function Game() {
 
               if (youtubeEmbedUrl) {
                 return (
-                  <div key={index} className="rounded-xl overflow-hidden shadow-lg aspect-video ring-1 ring-gray-700">
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg aspect-video ring-1 ring-surface-4">
                     <iframe
                       width="100%"
                       height="100%"
@@ -2561,9 +2541,9 @@ export default function Game() {
                 // Imgur album/gallery - embed using iframe
                 const albumId = getImgurAlbumId(link)
                 return (
-                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-700 bg-gray-800">
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4 bg-surface-2">
                     {/* Header with link to open in new tab */}
-                    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
+                    <div className="flex items-center justify-between px-4 py-2 border-b border-surface-4">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded bg-[#1BB76E] flex items-center justify-center flex-shrink-0">
                           <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -2576,7 +2556,7 @@ export default function Game() {
                         href={link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-gray-400 hover:text-green-400 transition-colors flex items-center gap-1"
+                        className="text-xs text-txt-tertiary hover:text-green-400 transition-colors flex items-center gap-1"
                       >
                         Open in Imgur
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2603,7 +2583,7 @@ export default function Game() {
                 // Imgur single post - convert to direct image and embed
                 const directUrl = getImgurDirectUrl(link)
                 return (
-                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-700">
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4">
                     <a href={link} target="_blank" rel="noopener noreferrer">
                       <img
                         src={directUrl}
@@ -2621,7 +2601,7 @@ export default function Game() {
                 )
               } else if (isImageLink(link)) {
                 return (
-                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-gray-700">
+                  <div key={index} className="rounded-xl overflow-hidden shadow-lg ring-1 ring-surface-4">
                     <img src={link} alt={`Game media ${index + 1}`} className="w-full h-auto" />
                   </div>
                 )
@@ -2632,7 +2612,7 @@ export default function Game() {
                     href={link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 bg-gray-800 rounded-xl hover:bg-gray-750 transition-colors group ring-1 ring-gray-700"
+                    className="flex items-center gap-3 p-3 bg-surface-2 rounded-xl hover:bg-surface-3 transition-colors group ring-1 ring-surface-4"
                   >
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -2642,8 +2622,8 @@ export default function Game() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                       </svg>
                     </div>
-                    <span className="text-sm text-gray-300 group-hover:text-white break-all flex-1 transition-colors">{link}</span>
-                    <svg className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span className="text-sm text-txt-secondary group-hover:text-white break-all flex-1 transition-colors">{link}</span>
+                    <svg className="w-5 h-5 text-txt-muted group-hover:text-white transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </a>

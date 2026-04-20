@@ -121,3 +121,27 @@ export function useCurrentTeamColors(dynasty) {
 
   return colors
 }
+
+/**
+ * Returns an inline style object containing scoped team-color CSS vars.
+ * Apply to a wrapper element with `data-team-theme` attribute to scope
+ * team colors to a subtree — safe to use even when multiple teams render
+ * on the same page (e.g. cross-dynasty player view inside a dynasty page).
+ *
+ * Usage:
+ *   const themeStyle = useTeamThemeStyle(teamColors)
+ *   <div data-team-theme style={themeStyle}>...</div>
+ *
+ * @param {Object} colors - { primary, secondary, tertiary? }
+ * @returns {Object} Inline style object with --team-primary etc.
+ */
+export function useTeamThemeStyle(colors) {
+  return useMemo(() => {
+    if (!colors) return {}
+    const style = {}
+    if (colors.primary) style['--team-primary'] = colors.primary
+    if (colors.secondary) style['--team-secondary'] = colors.secondary
+    if (colors.tertiary) style['--team-tertiary'] = colors.tertiary
+    return style
+  }, [colors])
+}

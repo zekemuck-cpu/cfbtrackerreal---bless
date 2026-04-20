@@ -2,11 +2,9 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { useCurrentTeamColors } from '../../hooks/useTeamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamLogoByTid, getMascotName } from '../../data/teams'
+import { getTeamLogoByTid } from '../../data/teams'
+import { PageHero, Card, EmptyState, Select, Badge, Stat, Tabs } from '../../components/ui'
 
-// US States
 const US_STATES = [
   { code: 'AL', name: 'Alabama' },
   { code: 'AK', name: 'Alaska' },
@@ -61,25 +59,35 @@ const US_STATES = [
   { code: 'DC', name: 'District of Columbia' }
 ]
 
+const DEV_TRAIT_VARIANT = {
+  'Elite': 'warning',
+  'Star': 'accent',
+  'Impact': 'default',
+  'Normal': 'outline'
+}
+
+const GROUP_OPTIONS = [
+  { value: 'hometown', label: 'City' },
+  { value: 'position', label: 'Position' }
+]
+
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name' },
+  { value: 'overall', label: 'Rating' },
+  { value: 'class', label: 'Class' }
+]
+
 export default function PlayersByState() {
   const { state } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
   const { currentDynasty } = useDynasty()
-  const teamColors = useCurrentTeamColors()
 
-  const [groupBy, setGroupBy] = useState('hometown') // 'hometown' or 'position'
-  const [sortBy, setSortBy] = useState('name') // 'name', 'overall', 'class'
+  const [groupBy, setGroupBy] = useState('hometown')
+  const [sortBy, setSortBy] = useState('name')
 
-  const primaryColor = teamColors?.primary || '#1f2937'
-  const secondaryColor = teamColors?.secondary || '#f3f4f6'
-  const primaryText = getContrastTextColor(primaryColor)
-  const secondaryText = getContrastTextColor(secondaryColor)
-
-  // Get state name from code
   const stateName = US_STATES.find(s => s.code === state?.toUpperCase())?.name || state
 
-  // Filter and sort players from this state
   const playersFromState = useMemo(() => {
     if (!currentDynasty?.players || !state) return []
 
@@ -89,7 +97,6 @@ export default function PlayersByState() {
         return playerState === state.toUpperCase()
       })
 
-    // Sort based on selected option
     return filtered.sort((a, b) => {
       if (sortBy === 'overall') {
         return (b.overall || 0) - (a.overall || 0)
@@ -97,13 +104,11 @@ export default function PlayersByState() {
         const classOrder = { 'Senior': 4, 'Junior': 3, 'Sophomore': 2, 'Freshman': 1 }
         return (classOrder[b.class] || 0) - (classOrder[a.class] || 0)
       } else {
-        // Sort by name
         return (a.name || '').localeCompare(b.name || '')
       }
     })
   }, [currentDynasty?.players, state, sortBy])
 
-  // Calculate player counts for each state
   const statePlayerCounts = useMemo(() => {
     if (!currentDynasty?.players) return {}
 
@@ -117,7 +122,6 @@ export default function PlayersByState() {
     return counts
   }, [currentDynasty?.players])
 
-  // Calculate statistics for current state
   const stateStats = useMemo(() => {
     if (!playersFromState.length) return null
 
@@ -128,14 +132,11 @@ export default function PlayersByState() {
     let topPlayer = null
 
     playersFromState.forEach(player => {
-      // Position distribution
       const pos = player.position || 'Unknown'
       positions[pos] = (positions[pos] || 0) + 1
 
-      // Hometown count
       if (player.hometown) hometowns.add(player.hometown)
 
-      // Overall ratings
       if (player.overall) {
         totalOverall += player.overall
         if (player.overall >= 85) starPlayers++
@@ -157,7 +158,6 @@ export default function PlayersByState() {
     }
   }, [playersFromState])
 
-  // Group players by hometown or position
   const groupedPlayers = useMemo(() => {
     const groups = {}
 
@@ -172,11 +172,9 @@ export default function PlayersByState() {
       groups[key].push(player)
     })
 
-    // Sort groups by player count (descending)
     return Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
   }, [playersFromState, groupBy])
 
-  // Get current team for each player
   const getCurrentTeam = (player) => {
     const currentYear = currentDynasty?.currentYear
     const teamTid = player.teamsByYear?.[currentYear] || player.team
@@ -188,312 +186,173 @@ export default function PlayersByState() {
   }
 
   if (!currentDynasty) {
-    return <div className="text-center py-12"><p style={{ color: secondaryText }}>Dynasty not found</p></div>
+    return (
+      <Card>
+        <EmptyState title="Dynasty not found" />
+      </Card>
+    )
   }
 
   return (
     <div className="space-y-4">
-      {/* Compact Header */}
-      <div
-        className="rounded-lg shadow-lg overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}
-      >
-        <div className="p-4">
-          {/* Title and State Selector */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-2xl font-bold mb-1" style={{ color: primaryText }}>
-                {stateName}
-              </h1>
-              <p className="text-sm opacity-90" style={{ color: primaryText }}>
-                {playersFromState.length} {playersFromState.length === 1 ? 'Player' : 'Players'}
-              </p>
-            </div>
+      <PageHero
+        eyebrow="Players by State"
+        title={stateName}
+        meta={
+          <>
+            <span className="tabular">{playersFromState.length}</span>
+            <span>{playersFromState.length === 1 ? 'player' : 'players'}</span>
+          </>
+        }
+        actions={
+          <Select
+            size="sm"
+            value={state?.toUpperCase() || ''}
+            onChange={(e) => handleStateChange(e.target.value)}
+          >
+            {US_STATES.map(s => {
+              const playerCount = statePlayerCounts[s.code] || 0
+              return (
+                <option key={s.code} value={s.code}>
+                  {s.name} {playerCount > 0 ? `(${playerCount})` : ''}
+                </option>
+              )
+            })}
+          </Select>
+        }
+      />
 
-            {/* State Selector */}
-            <select
-              value={state?.toUpperCase() || ''}
-              onChange={(e) => handleStateChange(e.target.value)}
-              className="px-3 py-2 rounded border-0 focus:outline-none focus:ring-2 focus:ring-white/50 text-gray-900 text-sm font-medium"
-              style={{ backgroundColor: 'white' }}
-            >
-              {US_STATES.map(s => {
-                const playerCount = statePlayerCounts[s.code] || 0
-                return (
-                  <option key={s.code} value={s.code}>
-                    {s.name} {playerCount > 0 ? `(${playerCount})` : ''}
-                  </option>
-                )
-              })}
-            </select>
+      {stateStats && (
+        <Card>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+            <Stat label="Avg OVR" value={stateStats.avgOverall} size="lg" align="left" />
+            <Stat label="85+ OVR" value={stateStats.starPlayers} size="lg" align="left" />
+            <Stat label="Top Pos" value={stateStats.topPosition?.[0] || '—'} size="lg" align="left" />
+            <Stat label="Cities" value={stateStats.hometownCount} size="lg" align="left" />
+            {stateStats.topPlayer && (
+              <Link
+                to={`${pathPrefix}/player/${stateStats.topPlayer.pid}`}
+                className="flex flex-col items-start hover:opacity-80 transition-opacity"
+              >
+                <span className="label-xs text-txt-tertiary">Top Player</span>
+                <span className="stat-lg text-txt-primary leading-none truncate max-w-full">
+                  {stateStats.topPlayer.name}
+                </span>
+                <span className="text-xs text-txt-tertiary mt-1 tabular">
+                  OVR {stateStats.topPlayer.overall}
+                </span>
+              </Link>
+            )}
           </div>
+        </Card>
+      )}
 
-          {/* Compact Statistics */}
-          {stateStats && (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              <div className="rounded p-2 backdrop-blur-sm text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-                <div className="text-xl font-bold" style={{ color: primaryText }}>{stateStats.avgOverall}</div>
-                <div className="text-xs opacity-90" style={{ color: primaryText }}>Avg OVR</div>
-              </div>
-              <div className="rounded p-2 backdrop-blur-sm text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-                <div className="text-xl font-bold" style={{ color: primaryText }}>{stateStats.starPlayers}</div>
-                <div className="text-xs opacity-90" style={{ color: primaryText }}>85+ OVR</div>
-              </div>
-              <div className="rounded p-2 backdrop-blur-sm text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-                <div className="text-xl font-bold" style={{ color: primaryText }}>{stateStats.topPosition?.[0] || '-'}</div>
-                <div className="text-xs opacity-90" style={{ color: primaryText }}>Top Pos</div>
-              </div>
-              <div className="rounded p-2 backdrop-blur-sm text-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}>
-                <div className="text-xl font-bold" style={{ color: primaryText }}>{stateStats.hometownCount}</div>
-                <div className="text-xs opacity-90" style={{ color: primaryText }}>Cities</div>
-              </div>
-              {stateStats.topPlayer && (
-                <Link
-                  to={`${pathPrefix}/player/${stateStats.topPlayer.pid}`}
-                  className="rounded p-2 backdrop-blur-sm hover:backdrop-blur-md transition-all text-center"
-                  style={{ backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
-                >
-                  <div className="text-lg font-bold truncate" style={{ color: primaryText }}>
-                    {stateStats.topPlayer.name.split(' ').pop()}
-                  </div>
-                  <div className="text-xs opacity-90" style={{ color: primaryText }}>
-                    Top ({stateStats.topPlayer.overall})
-                  </div>
-                </Link>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Compact Controls Bar */}
-      <div className="rounded-lg shadow p-3" style={{ backgroundColor: secondaryColor }}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          {/* Group By */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold" style={{ color: secondaryText }}>GROUP:</span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setGroupBy('hometown')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                  groupBy === 'hometown' ? 'shadow' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: groupBy === 'hometown' ? primaryColor : 'transparent',
-                  color: groupBy === 'hometown' ? primaryText : secondaryText,
-                  border: groupBy === 'hometown' ? 'none' : `1px solid ${secondaryText}30`
-                }}
-              >
-                City
-              </button>
-              <button
-                onClick={() => setGroupBy('position')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                  groupBy === 'position' ? 'shadow' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: groupBy === 'position' ? primaryColor : 'transparent',
-                  color: groupBy === 'position' ? primaryText : secondaryText,
-                  border: groupBy === 'position' ? 'none' : `1px solid ${secondaryText}30`
-                }}
-              >
-                Position
-              </button>
-            </div>
+      <Card>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="label-xs text-txt-tertiary">Group</span>
+            <Tabs
+              variant="pill"
+              value={groupBy}
+              onChange={setGroupBy}
+              options={GROUP_OPTIONS}
+            />
           </div>
-
-          {/* Sort By */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold" style={{ color: secondaryText }}>SORT:</span>
-            <div className="flex gap-1">
-              <button
-                onClick={() => setSortBy('name')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                  sortBy === 'name' ? 'shadow' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: sortBy === 'name' ? primaryColor : 'transparent',
-                  color: sortBy === 'name' ? primaryText : secondaryText,
-                  border: sortBy === 'name' ? 'none' : `1px solid ${secondaryText}30`
-                }}
-              >
-                Name
-              </button>
-              <button
-                onClick={() => setSortBy('overall')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                  sortBy === 'overall' ? 'shadow' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: sortBy === 'overall' ? primaryColor : 'transparent',
-                  color: sortBy === 'overall' ? primaryText : secondaryText,
-                  border: sortBy === 'overall' ? 'none' : `1px solid ${secondaryText}30`
-                }}
-              >
-                Rating
-              </button>
-              <button
-                onClick={() => setSortBy('class')}
-                className={`px-3 py-1 rounded text-sm font-medium transition-all ${
-                  sortBy === 'class' ? 'shadow' : 'opacity-60 hover:opacity-100'
-                }`}
-                style={{
-                  backgroundColor: sortBy === 'class' ? primaryColor : 'transparent',
-                  color: sortBy === 'class' ? primaryText : secondaryText,
-                  border: sortBy === 'class' ? 'none' : `1px solid ${secondaryText}30`
-                }}
-              >
-                Class
-              </button>
-            </div>
+          <div className="flex items-center gap-3">
+            <span className="label-xs text-txt-tertiary">Sort</span>
+            <Tabs
+              variant="pill"
+              value={sortBy}
+              onChange={setSortBy}
+              options={SORT_OPTIONS}
+            />
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Players - Grouped List Display */}
       {playersFromState.length === 0 ? (
-        <div
-          className="rounded-lg shadow p-8 text-center"
-          style={{ backgroundColor: secondaryColor }}
-        >
-          <p className="text-lg font-semibold" style={{ color: secondaryText }}>
-            No players from {stateName} are currently in your dynasty.
-          </p>
-        </div>
+        <Card>
+          <EmptyState
+            title="No players from this state"
+            message={`No players from ${stateName} are currently in your dynasty.`}
+          />
+        </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {groupedPlayers.map(([groupName, groupPlayers]) => (
-            <div key={groupName} className="space-y-2">
-              {/* Group Header */}
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="px-3 py-1.5 rounded inline-block"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <h2 className="text-base font-bold" style={{ color: primaryText }}>
-                    {groupName}
-                  </h2>
-                </div>
-                <div
-                  className="px-2 py-0.5 rounded-full text-xs font-bold"
-                  style={{
-                    backgroundColor: `${primaryColor}20`,
-                    color: secondaryText
-                  }}
-                >
-                  {groupPlayers.length}
-                </div>
+            <div key={groupName}>
+              <div className="flex items-baseline gap-2 mb-2">
+                <h2 className="text-lg font-semibold text-txt-primary">{groupName}</h2>
+                <span className="label-xs text-txt-tertiary tabular">
+                  {groupPlayers.length} {groupPlayers.length === 1 ? 'player' : 'players'}
+                </span>
               </div>
 
-              {/* Compact Player List */}
-              <div
-                className="rounded-lg overflow-hidden shadow"
-                style={{ backgroundColor: secondaryColor }}
-              >
-                <div className="divide-y" style={{ borderColor: `${secondaryText}15` }}>
-                  {groupPlayers.map(player => {
-                    const teamTid = getCurrentTeam(player)
-                    const teamLogo = teamTid ? getTeamLogoByTid(teamTid, currentDynasty.teams) : null
+              <Card padding="none">
+                {groupPlayers.map((player, idx) => {
+                  const teamTid = getCurrentTeam(player)
+                  const teamLogo = teamTid ? getTeamLogoByTid(teamTid, currentDynasty.teams) : null
 
-                    return (
-                      <Link
-                        key={player.pid}
-                        to={`${pathPrefix}/player/${player.pid}`}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:opacity-80 transition-opacity"
+                  return (
+                    <Link
+                      key={player.pid}
+                      to={`${pathPrefix}/player/${player.pid}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-surface-3 transition-colors"
+                      style={{
+                        borderBottom: idx < groupPlayers.length - 1 ? '1px solid var(--surface-4)' : 'none'
+                      }}
+                    >
+                      <div
+                        className="flex-shrink-0 w-10 h-10 rounded flex items-center justify-center font-bold text-sm tabular"
                         style={{
-                          backgroundColor: secondaryColor
+                          backgroundColor: 'var(--team-primary-faded)',
+                          color: 'var(--team-primary)'
                         }}
                       >
-                        {/* Photo thumbnail */}
-                        <div className="flex-shrink-0">
-                          {player.pictureUrl ? (
+                        {player.overall || '—'}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-txt-primary truncate">
+                          {player.name}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-txt-tertiary mt-0.5">
+                          {teamLogo && (
                             <img
-                              src={player.pictureUrl}
-                              alt={player.name}
-                              className="w-12 h-12 object-cover rounded"
-                              onError={(e) => {
-                                e.target.style.display = 'none'
-                                e.target.nextSibling.style.display = 'flex'
-                              }}
+                              src={teamLogo}
+                              alt=""
+                              className="w-4 h-4 object-contain"
+                              onError={(e) => { e.target.style.display = 'none' }}
                             />
-                          ) : (
-                            <div
-                              className="w-12 h-12 rounded flex items-center justify-center text-lg"
-                              style={{ backgroundColor: `${primaryColor}15` }}
-                            >
-                              <span style={{ color: `${secondaryText}40` }}>🏈</span>
-                            </div>
                           )}
+                          <span className="font-medium">
+                            {player.position}
+                            {player.jerseyNumber ? ` · #${player.jerseyNumber}` : ''}
+                          </span>
                         </div>
+                      </div>
 
-                        {/* Overall badge */}
-                        <div
-                          className="flex-shrink-0 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"
-                          style={{
-                            backgroundColor: primaryColor,
-                            color: primaryText
-                          }}
-                        >
-                          {player.overall || '??'}
+                      <div className="hidden sm:block flex-shrink-0 text-sm text-txt-secondary">
+                        {player.hometown || '—'}
+                      </div>
+
+                      {player.class && (
+                        <div className="hidden md:block flex-shrink-0">
+                          <Badge variant="outline" size="sm">{player.class}</Badge>
                         </div>
+                      )}
 
-                        {/* Player name and position */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-base truncate" style={{ color: secondaryText }}>
-                            {player.name}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs opacity-75" style={{ color: secondaryText }}>
-                            {teamLogo && (
-                              <img
-                                src={teamLogo}
-                                alt=""
-                                className="w-4 h-4 object-contain"
-                                onError={(e) => { e.target.style.display = 'none' }}
-                              />
-                            )}
-                            <span className="font-semibold">
-                              {player.position} {player.jerseyNumber ? `#${player.jerseyNumber}` : ''}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Hometown */}
-                        <div className="hidden sm:block flex-shrink-0 text-sm opacity-60" style={{ color: secondaryText }}>
-                          {player.hometown || 'Unknown'}
-                        </div>
-
-                        {/* Class */}
-                        {player.class && (
-                          <div
-                            className="hidden md:block flex-shrink-0 px-2 py-1 rounded text-xs font-bold"
-                            style={{
-                              backgroundColor: `${primaryColor}20`,
-                              color: secondaryText
-                            }}
-                          >
-                            {player.class}
-                          </div>
-                        )}
-
-                        {/* Dev Trait */}
-                        {player.devTrait && player.devTrait !== 'Normal' && (
-                          <div
-                            className="flex-shrink-0 px-2 py-1 rounded text-xs font-bold"
-                            style={{
-                              backgroundColor: player.devTrait === 'Elite' ? '#fbbf24' :
-                                             player.devTrait === 'Star' ? '#8b5cf6' :
-                                             player.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                              color: player.devTrait === 'Elite' ? '#78350f' : '#ffffff'
-                            }}
-                          >
+                      {player.devTrait && player.devTrait !== 'Normal' && (
+                        <div className="flex-shrink-0">
+                          <Badge variant={DEV_TRAIT_VARIANT[player.devTrait] || 'outline'} size="sm">
                             {player.devTrait}
-                          </div>
-                        )}
-                      </Link>
-                    )
-                  })}
-                </div>
-              </div>
+                          </Badge>
+                        </div>
+                      )}
+                    </Link>
+                  )
+                })}
+              </Card>
             </div>
           ))}
         </div>

@@ -3,31 +3,39 @@
 @tailwind utilities;
 
 /* ============================================
-   DYNASTY TRACKER - Modern Sports Dashboard
-   Premium dark theme with team color accents
+   DYNASTY TRACKER - Design System
+   Broadcast scorebug × sports almanac aesthetic
+   See docs/DESIGN.md for the full spec.
    ============================================ */
 
 :root {
-  /* Team colors - dynamically set per team */
+  /* Team colors - dynamically set per team.
+     Scoped here as a safe fallback; pages should scope to [data-team-theme] wrappers. */
   --team-primary: #ea580c;
   --team-secondary: #FFFFFF;
   --team-tertiary: #666666;
 
-  /* Core dark theme palette */
-  --surface-0: #0a0a0b;      /* Deepest background */
-  --surface-1: #111113;      /* Main background */
-  --surface-2: #18181b;      /* Card backgrounds */
-  --surface-3: #1f1f23;      /* Elevated cards */
-  --surface-4: #27272a;      /* Hover states */
-  --surface-5: #3f3f46;      /* Borders, dividers */
+  /* Team color derivatives (computed via color-mix, dark theme).
+     These give us subtle tints without committing to a fill. */
+  --team-primary-faded: color-mix(in srgb, var(--team-primary) 15%, #16171c);
+  --team-primary-muted: color-mix(in srgb, var(--team-primary) 40%, #16171c);
+  --team-primary-subtle: color-mix(in srgb, var(--team-primary) 8%, #16171c);
+
+  /* Core dark palette — slight blue-black warmth (≈230° hue) so we escape pure neutral zinc */
+  --surface-0: #09090d;      /* Deepest background */
+  --surface-1: #0f1013;      /* Chrome: header, sidebar */
+  --surface-2: #16171c;      /* Card backgrounds */
+  --surface-3: #1e1f25;      /* Elevated cards, hover */
+  --surface-4: #2a2b32;      /* Inputs, subtle borders */
+  --surface-5: #3a3b44;      /* Strong borders, dividers */
 
   /* Text hierarchy */
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
-  --text-muted: #52525b;
+  --text-primary: #f5f5f7;
+  --text-secondary: #a8a8b0;
+  --text-tertiary: #6e6e78;
+  --text-muted: #4a4a52;
 
-  /* Accent colors */
+  /* Semantic accents */
   --accent-success: #22c55e;
   --accent-warning: #f59e0b;
   --accent-error: #ef4444;
@@ -37,6 +45,14 @@
   --font-display: 'Outfit', system-ui, sans-serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
 
+  /* Typography scale (see docs/DESIGN.md) */
+  --text-display-xl: 3.5rem;   /* Team name in hero */
+  --text-display-lg: 2.5rem;   /* Page titles */
+  --text-display-md: 1.75rem;  /* Section titles */
+  --text-stat-hero: 4.5rem;    /* The single biggest number (OVR, final score) */
+  --text-stat-lg: 2.5rem;      /* Card stat values */
+  --text-stat-md: 1rem;        /* Table stat cells */
+
   /* Spacing scale */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -45,19 +61,47 @@
   --space-xl: 2rem;
   --space-2xl: 3rem;
 
-  /* Border radius */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  /* Border radius — prefer md. Reserve lg/xl for major containers. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 
-  /* Shadows for dark theme */
+  /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
   --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 20px rgba(var(--team-primary-rgb, 234, 88, 12), 0.3);
+  --shadow-glow: 0 0 20px var(--team-primary-muted);
+
+  /* Elevation tiers (see docs/DESIGN.md §Elevation) */
+  --elevation-flat-bg: var(--surface-2);
+  --elevation-bordered-bg: var(--surface-2);
+  --elevation-bordered-border: var(--surface-4);
+  --elevation-elevated-bg: var(--surface-3);
+  --elevation-elevated-border: var(--surface-5);
+
+  /* Motion curves — avoid linear/ease-in-out. These simulate real mass. */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring-soft: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Duration scale — short for affordance, longer for presence */
+  --dur-instant: 80ms;
+  --dur-fast: 160ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --dur-slower: 560ms;
+}
+
+/* Pages scoped to a team theme re-declare team-color derivatives relative to their own primary.
+   This prevents cross-team contamination when two team contexts render on one page. */
+[data-team-theme] {
+  --team-primary-faded: color-mix(in srgb, var(--team-primary) 15%, var(--surface-2));
+  --team-primary-muted: color-mix(in srgb, var(--team-primary) 40%, var(--surface-2));
+  --team-primary-subtle: color-mix(in srgb, var(--team-primary) 8%, var(--surface-2));
 }
 
 /* Base styles - use clip instead of hidden to not break sticky positioning */
@@ -125,16 +169,48 @@ h1, h2, h3, h4, h5, h6 {
 .surface-3 { background-color: var(--surface-3); }
 .surface-4 { background-color: var(--surface-4); }
 
-/* Premium card style */
-.card-dark {
-  background-color: var(--surface-2);
-  border: 1px solid var(--surface-4);
+/* ============================================
+   TEAM COLOR ACCENTS
+   Use derivatives (faded/muted/subtle) for tinting.
+   Reserve raw --team-primary for stripes, borders, CTAs.
+   ============================================ */
+
+.bg-team-faded { background-color: var(--team-primary-faded); }
+.bg-team-muted { background-color: var(--team-primary-muted); }
+.bg-team-subtle { background-color: var(--team-primary-subtle); }
+
+/* ============================================
+   CARDS / ELEVATION
+   Three tiers. See docs/DESIGN.md §Elevation.
+   ============================================ */
+
+.card {
+  background-color: var(--elevation-flat-bg);
   border-radius: var(--radius-xl);
 }
 
+.card-bordered {
+  background-color: var(--elevation-bordered-bg);
+  border: 1px solid var(--elevation-bordered-border);
+  border-radius: var(--radius-xl);
+}
+
+.card-elevated {
+  background-color: var(--elevation-elevated-bg);
+  border: 1px solid var(--elevation-elevated-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Legacy aliases — kept for compatibility while pages migrate. */
+.card-dark {
+  background-color: var(--elevation-bordered-bg);
+  border: 1px solid var(--elevation-bordered-border);
+  border-radius: var(--radius-xl);
+}
 .card-dark-elevated {
-  background-color: var(--surface-3);
-  border: 1px solid var(--surface-5);
+  background-color: var(--elevation-elevated-bg);
+  border: 1px solid var(--elevation-elevated-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
 }
@@ -275,14 +351,150 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Transition utilities */
 .transition-all-fast {
-  transition: all 0.15s ease;
+  transition: all var(--dur-fast) var(--ease-out-quint);
 }
 
 .transition-all-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--dur-base) var(--ease-out-expo);
 }
 
-/* Stat card number styling */
+/* Haptic press — scale down on active state to fake physical pressure */
+.press {
+  transition: transform var(--dur-fast) var(--ease-out-quint);
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* Subtle lift on hover — use on interactive cards */
+.lift {
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo);
+}
+.lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Scroll reveal — opt-in via .reveal; pair with IntersectionObserver */
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal {
+  animation: reveal-up var(--dur-slower) var(--ease-out-expo) both;
+}
+
+/* Modal entry animations — crisp fade-in backdrop, lifted panel */
+@keyframes modal-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-backdrop-in {
+  animation: modal-backdrop-fade-in var(--dur-base) var(--ease-out-expo);
+}
+
+.modal-panel-in {
+  animation: modal-panel-enter var(--dur-slow) var(--ease-out-expo) both;
+}
+
+/* Respect reduced-motion — kill the animations entirely. */
+@media (prefers-reduced-motion: reduce) {
+  .press, .lift, .reveal, .animate-pulse-subtle, .animate-glow,
+  .modal-backdrop-in, .modal-panel-in {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+/* ============================================
+   TYPOGRAPHY TOKENS
+   See docs/DESIGN.md §Typography scale.
+   ============================================ */
+
+/* Display aliases — shorthand (display-*) === long (text-display-*). */
+.display-xl,
+.text-display-xl {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-display-xl);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.display-lg,
+.text-display-lg {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-display-lg);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.display-md,
+.text-display-md {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-display-md);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* Stat numerals — always tabular */
+.stat-hero {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-stat-hero);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: var(--text-primary);
+}
+
+.stat-lg {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-stat-lg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.stat-md {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-stat-md);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+/* Legacy — kept for compatibility; equivalent to .stat-lg */
 .stat-number {
   font-family: var(--font-display);
   font-weight: 800;
@@ -290,7 +502,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.03em;
 }
 
-/* Label styling */
+/* Labels — all-caps, tracked */
 .label-xs {
   font-family: var(--font-display);
   font-size: 0.625rem;
@@ -307,4 +519,25 @@ h1, h2, h3, h4, h5, h6 {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
+}
+
+.label-md {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Tabular-nums helper — any number in a column should get this */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Data tables inherit tabular-nums by default on numeric cells */
+table.data-table td[data-numeric],
+table.data-table th[data-numeric] {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }

@@ -3,8 +3,6 @@ import { Link, useParams, useNavigate, useSearchParams, useLocation } from 'reac
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
-import { getTeamColors } from '../../data/teamColors'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -14,6 +12,7 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
+import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
 
 // Map abbreviations to mascot names for logo lookup
 function getMascotName(abbr, teamsData = null) {
@@ -101,12 +100,6 @@ function getTeamLogoRobust(teamInput, teamsData = null) {
   return null
 }
 
-// Default neutral colors
-const defaultColors = {
-  primary: '#1f2937',
-  secondary: '#f3f4f6'
-}
-
 // Helper to get ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
 const getOrdinalSuffix = (num) => {
   if (!num || isNaN(num)) return ''
@@ -128,7 +121,6 @@ export default function GameEdit() {
   const { currentDynasty, updateDynasty, updateGame, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const { user } = useAuth()
-  const teamColors = defaultColors
 
   // Check if this is a new game from URL
   const isNewGameFromUrl = !gameId || gameId === 'new'
@@ -327,11 +319,6 @@ export default function GameEdit() {
   const team1Logo = getTeamLogoRobust(team1Name, teamsSource) || getTeamLogoRobust(team1Abbr, teamsSource)
   const team2Logo = getTeamLogoRobust(team2Name, teamsSource) || getTeamLogoRobust(team2Abbr, teamsSource)
 
-  const team1Colors = team1Data ? { primary: team1Data.primaryColor, secondary: team1Data.secondaryColor } :
-    getTeamColors(team1Name, teamsSource) || defaultColors
-  const team2Colors = team2Data ? { primary: team2Data.primaryColor, secondary: team2Data.secondaryColor } :
-    getTeamColors(team2Name, teamsSource) || defaultColors
-
   // Game metadata
   const gameYear = existingGame?.year || (queryYear ? parseInt(queryYear) : currentDynasty?.currentYear)
   const gameWeek = existingGame?.week || queryWeek || ''
@@ -447,8 +434,6 @@ export default function GameEdit() {
   const rightTeamAbbr = displayRightTeam === 'team1' ? team1Abbr : team2Abbr
   const leftTeamLogo = displayLeftTeam === 'team1' ? team1Logo : team2Logo
   const rightTeamLogo = displayRightTeam === 'team1' ? team1Logo : team2Logo
-  const leftTeamColors = displayLeftTeam === 'team1' ? team1Colors : team2Colors
-  const rightTeamColors = displayRightTeam === 'team1' ? team1Colors : team2Colors
 
   // For Team Details section: determine which team to show first (left/top) and second (right/bottom)
   const isLeftTeam1 = displayLeftTeam === 'team1'
@@ -1280,158 +1265,148 @@ export default function GameEdit() {
     }
   }
 
-  // View-only check
   if (isViewOnly) {
     return (
-      <div className="p-4 text-center">
-        <p className="text-gray-600">Editing is not available in view-only mode.</p>
-        <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg">
-          Go Back
-        </button>
-      </div>
+      <Card>
+        <EmptyState
+          title="View-only mode"
+          message="Editing is not available in view-only mode."
+          action={<Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>}
+        />
+      </Card>
     )
   }
 
-  // Loading state
   if (!isNewGame && !existingGame) {
     return (
-      <div className="p-4 text-center">
-        <p className="text-gray-600">Game not found.</p>
-        <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg">
-          Go Back
-        </button>
-      </div>
+      <Card>
+        <EmptyState
+          title="Game not found"
+          action={<Button variant="outline" onClick={() => navigate(-1)}>Go Back</Button>}
+        />
+      </Card>
     )
   }
-
-  // Header gradient - uses display order (away on left, home on right)
-  const headerGradient = `linear-gradient(135deg, ${leftTeamColors.primary} 0%, ${leftTeamColors.primary} 50%, ${rightTeamColors.primary} 50%, ${rightTeamColors.primary} 100%)`
 
   return (
     <div className="space-y-4">
-      {/* Toast notification */}
       {showToast && (
-        <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg">
+        <div
+          className="fixed top-4 right-4 z-50 px-4 py-2 rounded-sm label-sm text-white"
+          style={{ backgroundColor: 'var(--accent-success)' }}
+        >
           {toastMessage}
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-lg">
-        <div className="px-3 py-2 sm:px-4 sm:py-2.5 flex items-center justify-between" style={{ background: headerGradient }}>
-          <button
-            onClick={handleCancel}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs sm:text-sm bg-black/20 text-white hover:bg-black/30 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline">Cancel</span>
-          </button>
+      <PageHero
+        eyebrow={gameSubtitle}
+        title={isNewGame ? 'New Game' : (gameTitle || 'Edit Game')}
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={handleCancel}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+          </>
+        }
+      />
 
-          <div className="text-white text-center">
-            <div className="text-sm sm:text-base font-bold">{isNewGame ? 'New Game' : `Edit: ${gameTitle}`}</div>
-            <div className="text-[10px] sm:text-xs opacity-80">{gameSubtitle}</div>
+      <Card>
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          <div className="flex-1 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
+              >
+                {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
+              </div>
+              <div className="text-sm font-medium truncate max-w-[160px] text-txt-primary">
+                {leftTeamName}
+              </div>
+              {formData[`${displayLeftTeam}Rank`] && (
+                <div className="text-xs tabular" style={{ color: 'var(--accent-warning)' }}>
+                  #{formData[`${displayLeftTeam}Rank`]}
+                </div>
+              )}
+            </div>
           </div>
 
-          <button
-            onClick={handleSave}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs sm:text-sm bg-green-600 text-white hover:bg-green-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="hidden sm:inline">Save</span>
-          </button>
-        </div>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <input
+              type="number"
+              value={formData[`${displayLeftTeam}Score`]}
+              onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
+              className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+              style={{
+                backgroundColor: 'var(--surface-3)',
+                border: '2px solid var(--team-primary)',
+                color: 'var(--text-primary)'
+              }}
+              disabled={hasQuarterScores()}
+              min="0"
+            />
+            <span className="text-xl sm:text-2xl font-bold text-txt-tertiary">–</span>
+            <input
+              type="number"
+              value={formData[`${displayRightTeam}Score`]}
+              onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
+              className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+              style={{
+                backgroundColor: 'var(--surface-3)',
+                border: '2px solid var(--team-primary)',
+                color: 'var(--text-primary)'
+              }}
+              disabled={hasQuarterScores()}
+              min="0"
+            />
+          </div>
 
-        {/* Scoreboard - Away team on left, Home team on right */}
-        <div className="px-4 py-4 sm:px-6 sm:py-5">
-          <div className="flex items-center justify-center gap-4 sm:gap-8">
-            {/* Left Team (Away) */}
-            <div className="flex-1 text-center">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-2 shadow-lg">
-                  {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
-                </div>
-                <div className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[160px]">
-                  {leftTeamName}
-                </div>
-                {formData[`${displayLeftTeam}Rank`] && (
-                  <div className="text-yellow-400 text-xs">#{formData[`${displayLeftTeam}Rank`]}</div>
-                )}
+          <div className="flex-1 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <div
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
+              >
+                {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
               </div>
-            </div>
-
-            {/* Score */}
-            <div className="flex items-center gap-3 sm:gap-4">
-              <input
-                type="number"
-                value={formData[`${displayLeftTeam}Score`]}
-                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
-                className={`w-16 sm:w-20 text-2xl sm:text-4xl font-bold text-center bg-gray-800 border-2 rounded-lg py-2 ${hasQuarterScores() ? 'text-gray-400 cursor-not-allowed' : 'text-white'}`}
-                style={{ borderColor: leftTeamColors.primary }}
-                disabled={hasQuarterScores()}
-                min="0"
-              />
-              <span className="text-white text-xl sm:text-2xl font-bold">-</span>
-              <input
-                type="number"
-                value={formData[`${displayRightTeam}Score`]}
-                onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
-                className={`w-16 sm:w-20 text-2xl sm:text-4xl font-bold text-center bg-gray-800 border-2 rounded-lg py-2 ${hasQuarterScores() ? 'text-gray-400 cursor-not-allowed' : 'text-white'}`}
-                style={{ borderColor: rightTeamColors.primary }}
-                disabled={hasQuarterScores()}
-                min="0"
-              />
-            </div>
-
-            {/* Right Team (Home) */}
-            <div className="flex-1 text-center">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white p-2 shadow-lg">
-                  {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
-                </div>
-                <div className="text-white text-xs sm:text-sm font-medium truncate max-w-[120px] sm:max-w-[160px]">
-                  {rightTeamName}
-                </div>
-                {formData[`${displayRightTeam}Rank`] && (
-                  <div className="text-yellow-400 text-xs">#{formData[`${displayRightTeam}Rank`]}</div>
-                )}
+              <div className="text-sm font-medium truncate max-w-[160px] text-txt-primary">
+                {rightTeamName}
               </div>
+              {formData[`${displayRightTeam}Rank`] && (
+                <div className="text-xs tabular" style={{ color: 'var(--accent-warning)' }}>
+                  #{formData[`${displayRightTeam}Rank`]}
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Quarter-by-Quarter Scoring */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-4">Quarter-by-Quarter Scoring</h3>
-        <p className="text-xs text-gray-400 mb-4">Enter quarter scores to auto-calculate total, or enter total directly above.</p>
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-2">Quarter-by-Quarter Scoring</h3>
+        <p className="text-xs text-txt-tertiary mb-4">Enter quarter scores to auto-calculate total, or enter total directly above.</p>
 
         <div className="overflow-x-auto">
           <div className="min-w-[400px]">
-            {/* Headers - dynamic columns for Q1-Q4 + OT columns + Total */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
-              <div className="text-xs font-semibold text-gray-400">Team</div>
-              <div className="text-xs font-semibold text-gray-400 text-center">Q1</div>
-              <div className="text-xs font-semibold text-gray-400 text-center">Q2</div>
-              <div className="text-xs font-semibold text-gray-400 text-center">Q3</div>
-              <div className="text-xs font-semibold text-gray-400 text-center">Q4</div>
+              <div className="label-xs text-txt-tertiary">Team</div>
+              <div className="label-xs text-txt-tertiary text-center">Q1</div>
+              <div className="label-xs text-txt-tertiary text-center">Q2</div>
+              <div className="label-xs text-txt-tertiary text-center">Q3</div>
+              <div className="label-xs text-txt-tertiary text-center">Q4</div>
               {formData.overtimes.map((_, idx) => (
-                <div key={`ot-header-${idx}`} className="text-xs font-semibold text-gray-400 text-center">OT{idx + 1}</div>
+                <div key={`ot-header-${idx}`} className="label-xs text-txt-tertiary text-center">OT{idx + 1}</div>
               ))}
-              <div className="text-xs font-semibold text-gray-400 text-center">Total</div>
+              <div className="label-xs text-txt-tertiary text-center">Total</div>
             </div>
 
-            {/* Away Team Row (left/top) */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate text-white">{leftTeamAbbr}</span>
+                <span className="text-sm font-medium truncate text-txt-primary">{leftTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-                <input
+                <Input
                   key={q}
                   type="number"
                   value={formData.quarters?.[displayLeftTeam]?.[q] ?? ''}
@@ -1439,14 +1414,14 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleQuarterChange(displayLeftTeam, q, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
-                  style={{ borderColor: leftTeamColors.primary }}
+                  size="sm"
+                  className="text-center tabular"
                   min="0"
                   placeholder="0"
                 />
               ))}
               {formData.overtimes.map((ot, idx) => (
-                <input
+                <Input
                   key={`ot-left-${idx}`}
                   type="number"
                   value={ot[displayLeftTeam] ?? ''}
@@ -1454,25 +1429,24 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleOvertimeChange(idx, displayLeftTeam, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
-                  style={{ borderColor: leftTeamColors.primary }}
+                  size="sm"
+                  className="text-center tabular"
                   min="0"
                   placeholder="0"
                 />
               ))}
-              <div className="text-center font-bold text-lg" style={{ color: leftTeamColors.primary }}>
+              <div className="text-center stat-md tabular" style={{ color: 'var(--team-primary)' }}>
                 {formData[`${displayLeftTeam}Score`] || '0'}
               </div>
             </div>
 
-            {/* Home Team Row (right/bottom) */}
             <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
               <div className="flex items-center gap-2">
                 {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate text-white">{rightTeamAbbr}</span>
+                <span className="text-sm font-medium truncate text-txt-primary">{rightTeamAbbr}</span>
               </div>
               {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-                <input
+                <Input
                   key={q}
                   type="number"
                   value={formData.quarters?.[displayRightTeam]?.[q] ?? ''}
@@ -1480,14 +1454,14 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleQuarterChange(displayRightTeam, q, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
-                  style={{ borderColor: rightTeamColors.primary }}
+                  size="sm"
+                  className="text-center tabular"
                   min="0"
                   placeholder="0"
                 />
               ))}
               {formData.overtimes.map((ot, idx) => (
-                <input
+                <Input
                   key={`ot-right-${idx}`}
                   type="number"
                   value={ot[displayRightTeam] ?? ''}
@@ -1495,556 +1469,364 @@ export default function GameEdit() {
                   onBlur={(e) => {
                     if (e.target.value === '') handleOvertimeChange(idx, displayRightTeam, '0')
                   }}
-                  className="w-full px-2 py-1 border-2 rounded text-center text-sm bg-gray-700 text-white"
-                  style={{ borderColor: rightTeamColors.primary }}
+                  size="sm"
+                  className="text-center tabular"
                   min="0"
                   placeholder="0"
                 />
               ))}
-              <div className="text-center font-bold text-lg" style={{ color: rightTeamColors.primary }}>
+              <div className="text-center stat-md tabular" style={{ color: 'var(--team-primary)' }}>
                 {formData[`${displayRightTeam}Score`] || '0'}
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Team Details - Side by Side (display-ordered: left team first, right team second) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Left Team Details (higher seed number/worse team for CFP, away for regular) */}
-        <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700" style={{ borderTop: `4px solid ${leftTeamColors.primary}` }}>
-          <div className="flex items-center gap-3 mb-4">
-            {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-10 h-10 object-contain" />}
-            <h3 className="text-lg font-bold" style={{ color: leftTeamColors.primary }}>{leftTeamName}</h3>
-          </div>
-
-          {/* Rankings */}
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-300 mb-1">National Rank</label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={formData[`${displayLeftTeam}Rank`]}
-                onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Rank`]: e.target.value })}
-                className="w-16 px-2 py-2 border-2 rounded-lg text-center bg-gray-700 text-white"
-                style={{ borderColor: `${leftTeamColors.primary}40` }}
-                min="1" max="133" placeholder="#"
-              />
-              {formData[`${displayLeftTeam}Rank`] && (
-                <span className="text-lg font-semibold text-gray-400">{getOrdinalSuffix(formData[`${displayLeftTeam}Rank`])}</span>
-              )}
-              {!formData[`${displayLeftTeam}Rank`] && (
-                <span className="text-sm text-gray-500">Unranked</span>
-              )}
+        {[
+          { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
+          { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
+        ].map(({ prefix, name, logo, isUser }) => (
+          <Card key={prefix} accent="top">
+            <div className="flex items-center gap-3 mb-4">
+              {logo && <img src={logo} alt="" className="w-10 h-10 object-contain" />}
+              <h3 className="text-lg font-bold text-txt-primary">{name}</h3>
             </div>
-          </div>
 
-          {/* Ratings - show for all teams, auto-filled from preseason for user team */}
-          <div className="mb-4">
-            <label className="text-sm font-semibold text-gray-300 block mb-2">
-              Team Ratings
-              {isLeftUserTeam && formData[`${displayLeftTeam}Overall`] && (
-                <span className="font-normal text-xs text-green-400 ml-2">(auto-filled)</span>
-              )}
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Overall</label>
-                <input
+            <div className="mb-4">
+              <label className="label-sm text-txt-secondary block mb-1">National Rank</label>
+              <div className="flex items-center gap-2">
+                <Input
                   type="number"
-                  value={formData[`${displayLeftTeam}Overall`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Overall`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
+                  value={formData[`${prefix}Rank`]}
+                  onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
+                  size="md"
+                  className="w-20 text-center tabular"
+                  min="1" max="133" placeholder="#"
                 />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Offense</label>
-                <input
-                  type="number"
-                  value={formData[`${displayLeftTeam}Offense`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Offense`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Defense</label>
-                <input
-                  type="number"
-                  value={formData[`${displayLeftTeam}Defense`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Defense`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
-                />
+                {formData[`${prefix}Rank`] ? (
+                  <span className="text-lg font-semibold text-txt-secondary">{getOrdinalSuffix(formData[`${prefix}Rank`])}</span>
+                ) : (
+                  <span className="text-sm text-txt-tertiary">Unranked</span>
+                )}
               </div>
             </div>
-          </div>
 
-          {/* Record - hidden for user team */}
-          {!isLeftUserTeam && (
-            <div>
-              <label className="text-sm font-semibold text-gray-300 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Overall</label>
-                  <input
-                    type="text"
-                    value={formData[`${displayLeftTeam}Record`]}
-                    onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}Record`]: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                    placeholder="0-0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Conference</label>
-                  <input
-                    type="text"
-                    value={formData[`${displayLeftTeam}ConfRecord`]}
-                    onChange={(e) => setFormData({ ...formData, [`${displayLeftTeam}ConfRecord`]: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                    placeholder="0-0"
-                  />
+            <div className="mb-4">
+              <label className="label-sm text-txt-secondary block mb-2">
+                Team Ratings
+                {isUser && formData[`${prefix}Overall`] && (
+                  <span className="font-normal text-xs ml-2" style={{ color: 'var(--accent-success)' }}>(auto-filled)</span>
+                )}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {['Overall', 'Offense', 'Defense'].map(field => (
+                  <div key={field}>
+                    <label className="label-xs text-txt-tertiary block mb-1">{field}</label>
+                    <Input
+                      type="number"
+                      value={formData[`${prefix}${field}`]}
+                      onChange={(e) => setFormData({ ...formData, [`${prefix}${field}`]: e.target.value })}
+                      size="sm"
+                      className="text-center tabular"
+                      min="0" max="99"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {!isUser && (
+              <div>
+                <label className="label-sm text-txt-secondary block mb-2">
+                  Season Record <span className="font-normal text-txt-tertiary">(after game)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="label-xs text-txt-tertiary block mb-1">Overall</label>
+                    <Input
+                      type="text"
+                      value={formData[`${prefix}Record`]}
+                      onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
+                      size="sm"
+                      className="text-center tabular"
+                      placeholder="0-0"
+                    />
+                  </div>
+                  <div>
+                    <label className="label-xs text-txt-tertiary block mb-1">Conference</label>
+                    <Input
+                      type="text"
+                      value={formData[`${prefix}ConfRecord`]}
+                      onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
+                      size="sm"
+                      className="text-center tabular"
+                      placeholder="0-0"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right Team Details (lower seed number/better team for CFP, home for regular) */}
-        <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700" style={{ borderTop: `4px solid ${rightTeamColors.primary}` }}>
-          <div className="flex items-center gap-3 mb-4">
-            {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-10 h-10 object-contain" />}
-            <h3 className="text-lg font-bold" style={{ color: rightTeamColors.primary }}>{rightTeamName}</h3>
-          </div>
-
-          {/* Rankings */}
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-300 mb-1">National Rank</label>
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={formData[`${displayRightTeam}Rank`]}
-                onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Rank`]: e.target.value })}
-                className="w-16 px-2 py-2 border-2 rounded-lg text-center bg-gray-700 text-white"
-                style={{ borderColor: `${rightTeamColors.primary}40` }}
-                min="1" max="133" placeholder="#"
-              />
-              {formData[`${displayRightTeam}Rank`] && (
-                <span className="text-lg font-semibold text-gray-400">{getOrdinalSuffix(formData[`${displayRightTeam}Rank`])}</span>
-              )}
-              {!formData[`${displayRightTeam}Rank`] && (
-                <span className="text-sm text-gray-500">Unranked</span>
-              )}
-            </div>
-          </div>
-
-          {/* Ratings - show for all teams, auto-filled from preseason for user team */}
-          <div className="mb-4">
-            <label className="text-sm font-semibold text-gray-300 block mb-2">
-              Team Ratings
-              {isRightUserTeam && formData[`${displayRightTeam}Overall`] && (
-                <span className="font-normal text-xs text-green-400 ml-2">(auto-filled)</span>
-              )}
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Overall</label>
-                <input
-                  type="number"
-                  value={formData[`${displayRightTeam}Overall`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Overall`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Offense</label>
-                <input
-                  type="number"
-                  value={formData[`${displayRightTeam}Offense`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Offense`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Defense</label>
-                <input
-                  type="number"
-                  value={formData[`${displayRightTeam}Defense`]}
-                  onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Defense`]: e.target.value })}
-                  className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                  min="0" max="99"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Record - hidden for user team */}
-          {!isRightUserTeam && (
-            <div>
-              <label className="text-sm font-semibold text-gray-300 block mb-2">Season Record <span className="font-normal text-gray-500">(after game)</span></label>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Overall</label>
-                  <input
-                    type="text"
-                    value={formData[`${displayRightTeam}Record`]}
-                    onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}Record`]: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                    placeholder="0-0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Conference</label>
-                  <input
-                    type="text"
-                    value={formData[`${displayRightTeam}ConfRecord`]}
-                    onChange={(e) => setFormData({ ...formData, [`${displayRightTeam}ConfRecord`]: e.target.value })}
-                    className="w-full px-2 py-1 border border-gray-600 rounded text-center bg-gray-700 text-white"
-                    placeholder="0-0"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </Card>
+        ))}
       </div>
 
-      {/* Box Score / Stats Sections */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-4">Box Score & Stats</h3>
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-2">Box Score &amp; Stats</h3>
         {isNewGame ? (
-          <p className="text-sm text-gray-400">Save the game first to connect Google Sheets for detailed stats.</p>
+          <p className="text-sm text-txt-tertiary">Save the game first to connect Google Sheets for detailed stats.</p>
         ) : (
           <>
-            <p className="text-sm text-gray-400 mb-4">Connect Google Sheets to track detailed stats for this game.</p>
+            <p className="text-sm text-txt-tertiary mb-4">Connect Google Sheets to track detailed stats for this game.</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <button
-                onClick={() => openBoxScoreModal('teamStats')}
-                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-green-500 hover:bg-green-900/20 transition-all text-center"
-              >
-                <div className="text-2xl mb-2">📊</div>
-                <div className="text-sm font-medium text-gray-300">Team Stats</div>
-                {existingGame?.teamStatsSheetId && (
-                  <div className="text-xs text-green-400 mt-1">Connected</div>
-                )}
-              </button>
-
-              <button
-                onClick={() => openBoxScoreModal(
-                  gameHomeTeamTid === null
-                    ? (displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')
-                    : (leftTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
-                )}
-                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
-              >
-                <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
-                  {leftTeamLogo ? (
-                    <img src={leftTeamLogo} alt={leftTeamAbbr} className="h-8 w-8 object-contain" />
-                  ) : (
-                    <span className="text-2xl">👥</span>
+              {[
+                {
+                  key: 'team-stats',
+                  label: 'Team Stats',
+                  onClick: () => openBoxScoreModal('teamStats'),
+                  connected: !!existingGame?.teamStatsSheetId,
+                  logo: null
+                },
+                {
+                  key: 'left-stats',
+                  label: `${leftTeamAbbr} Stats`,
+                  onClick: () => openBoxScoreModal(
+                    gameHomeTeamTid === null
+                      ? (displayLeftTeam === 'team1' ? 'homeStats' : 'awayStats')
+                      : (leftTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
+                  ),
+                  connected: !!(gameHomeTeamTid === null
+                    ? (displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                    : (leftTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)),
+                  logo: leftTeamLogo
+                },
+                {
+                  key: 'right-stats',
+                  label: `${rightTeamAbbr} Stats`,
+                  onClick: () => openBoxScoreModal(
+                    gameHomeTeamTid === null
+                      ? (displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')
+                      : (rightTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
+                  ),
+                  connected: !!(gameHomeTeamTid === null
+                    ? (displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
+                    : (rightTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)),
+                  logo: rightTeamLogo
+                },
+                {
+                  key: 'scoring-summary',
+                  label: 'Scoring Summary',
+                  onClick: () => openBoxScoreModal('scoring'),
+                  connected: !!existingGame?.scoringSummarySheetId,
+                  logo: null
+                }
+              ].map(tile => (
+                <button
+                  key={tile.key}
+                  onClick={tile.onClick}
+                  className="p-4 rounded-sm text-center transition-colors hover:bg-surface-3"
+                  style={{
+                    backgroundColor: 'var(--surface-2)',
+                    border: tile.connected
+                      ? '1px solid var(--team-primary)'
+                      : '1px dashed var(--surface-5)'
+                  }}
+                >
+                  {tile.logo && (
+                    <img src={tile.logo} alt="" className="h-8 w-8 object-contain mx-auto mb-2" />
                   )}
-                </div>
-                <div className="text-sm font-medium text-gray-300">{leftTeamAbbr} Stats</div>
-                {(gameHomeTeamTid === null
-                  ? (displayLeftTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                  : (leftTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                ) && (
-                  <div className="text-xs text-green-400 mt-1">Connected</div>
-                )}
-              </button>
-
-              <button
-                onClick={() => openBoxScoreModal(
-                  gameHomeTeamTid === null
-                    ? (displayRightTeam === 'team1' ? 'homeStats' : 'awayStats')
-                    : (rightTeamTid === gameHomeTeamTid ? 'homeStats' : 'awayStats')
-                )}
-                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-blue-500 hover:bg-blue-900/20 transition-all text-center"
-              >
-                <div className="h-8 w-8 mx-auto mb-2 flex items-center justify-center">
-                  {rightTeamLogo ? (
-                    <img src={rightTeamLogo} alt={rightTeamAbbr} className="h-8 w-8 object-contain" />
-                  ) : (
-                    <span className="text-2xl">👥</span>
+                  <div className="text-sm font-semibold text-txt-primary">{tile.label}</div>
+                  {tile.connected && (
+                    <div className="label-xs mt-1" style={{ color: 'var(--accent-success)' }}>Connected</div>
                   )}
-                </div>
-                <div className="text-sm font-medium text-gray-300">{rightTeamAbbr} Stats</div>
-                {(gameHomeTeamTid === null
-                  ? (displayRightTeam === 'team1' ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                  : (rightTeamTid === gameHomeTeamTid ? existingGame?.homeStatsSheetId : existingGame?.awayStatsSheetId)
-                ) && (
-                  <div className="text-xs text-green-400 mt-1">Connected</div>
-                )}
-              </button>
-
-              <button
-                onClick={() => openBoxScoreModal('scoring')}
-                className="p-4 border-2 border-dashed border-gray-600 rounded-xl hover:border-purple-500 hover:bg-purple-900/20 transition-all text-center"
-              >
-                <div className="text-2xl mb-2">🏈</div>
-                <div className="text-sm font-medium text-gray-300">Scoring Summary</div>
-                {existingGame?.scoringSummarySheetId && (
-                  <div className="text-xs text-green-400 mt-1">Connected</div>
-                )}
-              </button>
+                </button>
+              ))}
             </div>
           </>
         )}
-      </div>
+      </Card>
 
-      {/* Game Recap */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-lg font-bold text-white">Game Recap</h3>
+      <Card>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <h3 className="label-sm text-txt-primary">Game Recap</h3>
           <div className="flex items-center gap-2">
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleCopyPrompt}
               disabled={!formData.team1Score || !formData.team2Score}
-              className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
               {promptCopied ? 'Copied!' : 'Copy Prompt'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleGenerateRecap}
               disabled={isGeneratingRecap || !formData.team1Score || !formData.team2Score}
-              className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
               {isGeneratingRecap ? 'Generating...' : 'Generate with AI'}
-            </button>
+            </Button>
           </div>
         </div>
-        <p className="text-xs text-gray-400 mb-3">Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap. Use "Copy Prompt" to paste into ChatGPT or another AI.</p>
+        <p className="text-xs text-txt-tertiary mb-3">
+          Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap.
+        </p>
         {recapError && (
-          <p className="text-sm text-red-400 mb-2">{recapError}</p>
+          <p className="text-sm mb-2" style={{ color: 'var(--accent-error)' }}>{recapError}</p>
         )}
-        <textarea
+        <Textarea
           value={formData.aiRecap}
           onChange={(e) => setFormData({ ...formData, aiRecap: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-600 rounded-lg resize-none bg-gray-700 text-white placeholder-gray-500"
           rows={8}
           placeholder="Write a game recap or use AI to generate one..."
         />
-      </div>
+      </Card>
 
       {/* Media Links */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-white">Media Links</h3>
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            <span>YouTube videos will embed automatically</span>
-          </div>
+      <Card>
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+          <h3 className="label-sm text-txt-primary">Media Links</h3>
+          <span className="label-xs text-txt-tertiary">YouTube videos will embed automatically</span>
         </div>
-        <p className="text-xs text-gray-400 mb-3">Add links to highlight videos, images, or related content.</p>
+        <p className="text-xs text-txt-tertiary mb-3">Add links to highlight videos, images, or related content.</p>
         <div className="space-y-2">
           {formData.links.map((link, index) => (
             <div key={index} className="flex gap-2">
-              <input
+              <Input
                 type="url"
                 value={link}
                 onChange={(e) => {
                   const newLinks = [...formData.links]
                   newLinks[index] = e.target.value
-                  // Add new empty input if typing in last box and it now has content
                   if (index === formData.links.length - 1 && e.target.value.trim()) {
                     newLinks.push('')
                   }
                   setFormData({ ...formData, links: newLinks })
                 }}
-                className="flex-1 px-3 py-2 border border-gray-600 rounded-lg font-mono text-sm bg-gray-700 text-white placeholder-gray-500"
+                className="flex-1 font-mono"
                 placeholder="https://youtube.com/watch?v=..."
               />
-              {/* Show remove button only for filled entries (not the empty input box) */}
               {link.trim() && (
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     const newLinks = formData.links.filter((_, i) => i !== index)
-                    // Ensure there's always at least one empty input
                     if (newLinks.length === 0 || newLinks.every(l => l.trim())) {
                       newLinks.push('')
                     }
                     setFormData({ ...formData, links: newLinks })
                   }}
-                  className="px-3 py-2 text-red-400 hover:bg-red-900/30 rounded-lg transition-colors"
-                  title="Remove link"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                  Remove
+                </Button>
               )}
             </div>
           ))}
         </div>
         {formData.links.filter(l => l.trim()).length > 0 && (
-          <div className="mt-3 text-xs text-gray-400">
-            {formData.links.filter(l => l.trim()).length} link(s) added
+          <div className="mt-3 label-xs text-txt-tertiary">
+            <span className="tabular">{formData.links.filter(l => l.trim()).length}</span> link(s) added
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Game Settings */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-4">Game Settings</h3>
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-4">Game Settings</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Location */}
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Game Location</label>
-            <select
+            <label className="label-xs text-txt-tertiary block mb-2">Game Location</label>
+            <Select
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white"
             >
               <option value="home">{team1Name} Home</option>
               <option value="away">{team2Name} Home</option>
               <option value="neutral">Neutral Site</option>
-            </select>
+            </Select>
           </div>
 
-          {/* Conference Game */}
           <div>
-            <label className="block text-sm font-semibold text-gray-300 mb-2">Conference Game</label>
+            <label className="label-xs text-txt-tertiary block mb-2">Conference Game</label>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.isConferenceGame}
                   onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
-                  className="w-4 h-4 text-blue-600 rounded bg-gray-700 border-gray-600"
+                  className="w-4 h-4 rounded"
+                  style={{ accentColor: 'var(--team-primary)' }}
                 />
-                <span className="text-sm text-gray-300">Yes</span>
+                <span className="text-sm text-txt-secondary">Yes</span>
               </label>
               {isConferenceGame && (
-                <span className="text-xs text-green-400">(Auto-detected: {team1Conference})</span>
+                <span className="label-xs" style={{ color: 'var(--accent-success)' }}>
+                  Auto-detected: {team1Conference}
+                </span>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Player of the Week */}
-      <div className="bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 border border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-4">Player of the Week</h3>
-        <p className="text-xs text-gray-400 mb-4">Select players who earned conference or national Player of the Week honors for this game.</p>
+      <Card>
+        <h3 className="label-sm text-txt-primary mb-2">Player of the Week</h3>
+        <p className="text-xs text-txt-tertiary mb-4">Select players who earned conference or national Player of the Week honors for this game.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Conference POW */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-gray-300">Conference</h4>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Offensive POW</label>
-              <select
-                value={formData.conferencePOW}
-                onChange={(e) => setFormData({ ...formData, conferencePOW: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
-              >
-                <option value="">None</option>
-                {availablePlayers.map(player => (
-                  <option key={player.pid} value={player.name}>
-                    {player.name} ({player.position || 'N/A'}) - {
-                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
-                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
-                    }
-                  </option>
-                ))}
-              </select>
+          {[
+            { heading: 'Conference', fields: [
+              { label: 'Offensive POW', key: 'conferencePOW' },
+              { label: 'Defensive POW', key: 'confDefensePOW' },
+            ]},
+            { heading: 'National', fields: [
+              { label: 'Offensive POW', key: 'nationalPOW' },
+              { label: 'Defensive POW', key: 'natlDefensePOW' },
+            ]},
+          ].map(group => (
+            <div key={group.heading} className="space-y-3">
+              <h4 className="label-xs text-txt-tertiary">{group.heading}</h4>
+              {group.fields.map(field => (
+                <div key={field.key}>
+                  <label className="block text-xs text-txt-tertiary mb-1">{field.label}</label>
+                  <Select
+                    size="sm"
+                    value={formData[field.key]}
+                    onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                  >
+                    <option value="">None</option>
+                    {availablePlayers.map(player => (
+                      <option key={player.pid} value={player.name}>
+                        {player.name} ({player.position || 'N/A'}) - {
+                          team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
+                          team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
+                        }
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Defensive POW</label>
-              <select
-                value={formData.confDefensePOW}
-                onChange={(e) => setFormData({ ...formData, confDefensePOW: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
-              >
-                <option value="">None</option>
-                {availablePlayers.map(player => (
-                  <option key={player.pid} value={player.name}>
-                    {player.name} ({player.position || 'N/A'}) - {
-                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
-                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
-                    }
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* National POW */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-gray-300">National</h4>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Offensive POW</label>
-              <select
-                value={formData.nationalPOW}
-                onChange={(e) => setFormData({ ...formData, nationalPOW: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
-              >
-                <option value="">None</option>
-                {availablePlayers.map(player => (
-                  <option key={player.pid} value={player.name}>
-                    {player.name} ({player.position || 'N/A'}) - {
-                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
-                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
-                    }
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Defensive POW</label>
-              <select
-                value={formData.natlDefensePOW}
-                onChange={(e) => setFormData({ ...formData, natlDefensePOW: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-600 rounded-lg bg-gray-700 text-white text-sm"
-              >
-                <option value="">None</option>
-                {availablePlayers.map(player => (
-                  <option key={player.pid} value={player.name}>
-                    {player.name} ({player.position || 'N/A'}) - {
-                      team1Tid && isPlayerOnRoster(player, team1Tid, gameYear) ? team1Abbr :
-                      team2Tid && isPlayerOnRoster(player, team2Tid, gameYear) ? team2Abbr : '?'
-                    }
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          ))}
         </div>
 
         {availablePlayers.length === 0 && (
-          <p className="text-xs text-yellow-400 mt-3">No players found on either team's roster for this year. Add players to see them here.</p>
+          <p className="label-xs mt-3" style={{ color: 'var(--accent-warning)' }}>
+            No players found on either team's roster for this year. Add players to see them here.
+          </p>
         )}
-      </div>
+      </Card>
 
       {/* Bottom Save/Cancel Buttons */}
       <div className="flex justify-end gap-3 pb-8">
-        <button
-          onClick={handleCancel}
-          className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-        >
-          Save
-        </button>
+        <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+        <Button variant="primary" onClick={handleSave}>Save</Button>
       </div>
 
       {/* Box Score Sheet Modal */}
@@ -2073,7 +1855,7 @@ export default function GameEdit() {
             homeTeamTid: formData.location === 'home' ? team1Tid :
                          formData.location === 'away' ? team2Tid : null
           }}
-          teamColors={team1Colors}
+          teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
         />
       )}
     </div>

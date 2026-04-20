@@ -53,7 +53,7 @@ export const STAT_TABS = {
   puntReturn: {
     key: 'puntReturn',
     title: 'Punt Return',
-    headers: ['Player Name', 'PR', 'Yards', 'TD', 'Long'],
+    headers: ['Player Name', 'PR', 'Yards', 'Long', 'TD'],
     rowCount: 6
   }
 }

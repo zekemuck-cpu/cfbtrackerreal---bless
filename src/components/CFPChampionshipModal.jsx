@@ -332,12 +332,12 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl p-5 bg-gray-700 h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-20 h-20 bg-gray-600 rounded-full flex items-center justify-center mb-3">
-                    <span className="text-3xl text-gray-400">?</span>
+                <div className="rounded-xl p-5 bg-surface-3 h-full flex flex-col items-center justify-center text-center">
+                  <div className="w-20 h-20 bg-surface-4 rounded-full flex items-center justify-center mb-3">
+                    <span className="text-3xl text-txt-muted">?</span>
                   </div>
-                  <span className="text-lg font-semibold text-gray-400">TBD</span>
-                  <p className="text-xs text-gray-500 mt-1">Awaiting semifinal result</p>
+                  <span className="text-lg font-semibold text-txt-muted">TBD</span>
+                  <p className="text-xs text-txt-muted mt-1">Awaiting semifinal result</p>
                 </div>
               )}
             </div>
@@ -402,12 +402,12 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl p-5 bg-gray-700 h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-20 h-20 bg-gray-600 rounded-full flex items-center justify-center mb-3">
-                    <span className="text-3xl text-gray-400">?</span>
+                <div className="rounded-xl p-5 bg-surface-3 h-full flex flex-col items-center justify-center text-center">
+                  <div className="w-20 h-20 bg-surface-4 rounded-full flex items-center justify-center mb-3">
+                    <span className="text-3xl text-txt-muted">?</span>
                   </div>
-                  <span className="text-lg font-semibold text-gray-400">TBD</span>
-                  <p className="text-xs text-gray-500 mt-1">Awaiting semifinal result</p>
+                  <span className="text-lg font-semibold text-txt-muted">TBD</span>
+                  <p className="text-xs text-txt-muted mt-1">Awaiting semifinal result</p>
                 </div>
               )}
             </div>
@@ -429,7 +429,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
             </button>
             <button
               onClick={onClose}
-              className="px-6 py-4 rounded-xl font-bold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              className="px-6 py-4 rounded-xl font-bold bg-surface-3 hover:bg-surface-4 text-white transition-colors"
             >
               Cancel
             </button>

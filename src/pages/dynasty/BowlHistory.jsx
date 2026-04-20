@@ -4,17 +4,14 @@ import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyCon
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { bowlLogos, getAllBowlNames } from '../../data/bowlLogos'
-import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
-import { getTeamColors } from '../../data/teamColors'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, getGameTeamInfo } from '../../data/teamRegistry'
 import BowlHistoryEditModal from '../../components/BowlHistoryEditModal'
+import { PageHero, Card, Button, EmptyState, Input } from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
-  // Try tid-based lookup first if teams data provided
   if (teamsData) {
     const result = getMascotNameFromTeams(abbr, teamsData)
     if (result) return result
@@ -91,7 +88,6 @@ const getMascotName = (abbr, teamsData = null) => {
     'MIZ': 'Missouri Tigers', 'OU': 'Oklahoma Sooners',
     'GSU': 'Georgia State Panthers',
     'USM': 'Southern Mississippi Golden Eagles',
-    // FCS teams
     'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
     'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
   }
@@ -109,12 +105,10 @@ export default function BowlHistory() {
   const [showEditModal, setShowEditModal] = useState(false)
   const bowlRefs = useRef({})
 
-  // Auto-expand and scroll to bowl from URL parameter
   useEffect(() => {
     const bowlFromUrl = searchParams.get('bowl')
     if (bowlFromUrl) {
       setExpandedBowl(bowlFromUrl)
-      // Wait for render then scroll
       setTimeout(() => {
         const element = bowlRefs.current[bowlFromUrl]
         if (element) {
@@ -126,25 +120,18 @@ export default function BowlHistory() {
 
   if (!currentDynasty) return null
 
-  const primaryText = getContrastTextColor(teamColors?.primary || '#1f2937')
-
-  // Get all bowl names sorted alphabetically
   const allBowls = getAllBowlNames()
 
-  // Filter bowls by search
   const filteredBowls = allBowls.filter(bowl => {
     if (searchQuery === '') return true
     return bowl.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  // Get all bowl game results from the dynasty
   // UNIFIED: Read from games[] array using gameType
   const getBowlResults = (bowlName) => {
     const results = []
     const games = currentDynasty.games || []
 
-    // Find bowl games from the unified games[] array using gameType
-    // Only include played games (not UPCOMING) - use isPlayed flag or non-zero scores
     const bowlGamesFromArray = games.filter(g => {
       const gameType = detectGameType(g)
       const isBowlType = gameType === GAME_TYPES.BOWL ||
@@ -161,7 +148,6 @@ export default function BowlHistory() {
       const isCFP = gameType === GAME_TYPES.CFP_QUARTERFINAL ||
                     gameType === GAME_TYPES.CFP_SEMIFINAL ||
                     gameType === GAME_TYPES.CFP_CHAMPIONSHIP
-      // Get team abbreviations - prefer tid-based lookup for unified format
       let team1, team2
       if (game.team1Tid) {
         const team1Info = getGameTeamInfo(teams, game.team1Tid)
@@ -188,47 +174,32 @@ export default function BowlHistory() {
         links: game.links,
         isCFP,
         gameType,
-        // Include the full game reference for editing
         gameRef: game
       })
     })
 
-    // Fallback: Also check bowlGamesByYear for backward compatibility
+    // Legacy fallback sources
     const bowlGamesByYear = currentDynasty.bowlGamesByYear || {}
     Object.entries(bowlGamesByYear).forEach(([year, yearData]) => {
-      // Skip if we already have this bowl for this year from games[]
       if (results.some(r => r.year === parseInt(year) && r.bowlName === bowlName)) return
 
-      // Check week 1 bowls
       const week1Games = yearData?.week1 || []
       const week1Match = week1Games.find(g => g && g.bowlName === bowlName)
       if (week1Match && week1Match.team1 && week1Match.team2 && week1Match.team1Score != null) {
-        results.push({
-          year: parseInt(year),
-          ...week1Match,
-          week: 'week1'
-        })
+        results.push({ year: parseInt(year), ...week1Match, week: 'week1' })
       }
 
-      // Check week 2 bowls
       const week2Games = yearData?.week2 || []
       const week2Match = week2Games.find(g => g && g.bowlName === bowlName)
       if (week2Match && week2Match.team1 && week2Match.team2 && week2Match.team1Score != null) {
-        results.push({
-          year: parseInt(year),
-          ...week2Match,
-          week: 'week2'
-        })
+        results.push({ year: parseInt(year), ...week2Match, week: 'week2' })
       }
     })
 
-    // Check CFP results (quarterfinals, semifinals, championship)
     const cfpResultsByYear = currentDynasty.cfpResultsByYear || {}
     Object.entries(cfpResultsByYear).forEach(([year, yearData]) => {
-      // Skip if we already have this bowl for this year
       if (results.some(r => r.year === parseInt(year) && r.bowlName === bowlName)) return
 
-      // CFP Quarterfinals (Rose, Sugar, Orange, Cotton bowls)
       const quarterfinals = yearData?.quarterfinals || []
       const qfMatch = quarterfinals.find(g => g && g.bowlName === bowlName)
       if (qfMatch && qfMatch.team1 && qfMatch.team2 && qfMatch.team1Score != null) {
@@ -244,7 +215,6 @@ export default function BowlHistory() {
         })
       }
 
-      // CFP Semifinals (Peach Bowl, Fiesta Bowl)
       const semifinals = yearData?.semifinals || []
       const sfMatch = semifinals.find(g => g && g.bowlName === bowlName)
       if (sfMatch && sfMatch.team1 && sfMatch.team2 && sfMatch.team1Score != null) {
@@ -260,7 +230,6 @@ export default function BowlHistory() {
         })
       }
 
-      // CFP Championship (National Championship)
       const championship = yearData?.championship
       if (championship && championship.team1 && championship.team2 && championship.team1Score != null) {
         if (bowlName === 'National Championship') {
@@ -278,17 +247,12 @@ export default function BowlHistory() {
       }
     })
 
-    // Sort by year descending (most recent first)
     return results.sort((a, b) => b.year - a.year)
   }
 
-  // Count total bowl games played (including CFP bowls)
   const getTotalBowlGames = () => {
     const games = currentDynasty.games || []
-
-    // Count bowl games from games[] array using gameType
-    // Only include played games (not UPCOMING) - use isPlayed flag or non-zero scores
-    const bowlGamesInArray = games.filter(g => {
+    return games.filter(g => {
       const gameType = detectGameType(g)
       const isBowlType = gameType === GAME_TYPES.BOWL ||
                          gameType === GAME_TYPES.CFP_QUARTERFINAL ||
@@ -297,78 +261,8 @@ export default function BowlHistory() {
       const isPlayed = g.isPlayed || g.team1Score > 0 || g.team2Score > 0
       return isBowlType && isPlayed
     }).length
-
-    // With unified migration, all bowl games are in games[] array
-    // No need for legacy fallback counting
-    return bowlGamesInArray
   }
 
-  // Legacy counting function (kept for reference, no longer used)
-  const getTotalBowlGamesLegacy = () => {
-    let total = 0
-    const games = currentDynasty.games || []
-
-    // Count bowl games from games[] array
-    const bowlGamesInArray = games.filter(g =>
-      (g.isBowlGame || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship) &&
-      g.team1Score !== null && g.team1Score !== undefined
-    ).length
-    total += bowlGamesInArray
-
-    // Also count from bowlGamesByYear (for backward compatibility, avoid double-counting)
-    const bowlGamesByYear = currentDynasty.bowlGamesByYear || {}
-    Object.entries(bowlGamesByYear).forEach(([year, yearData]) => {
-      const week1 = (yearData?.week1 || []).filter(g => {
-        // Only count if not already in games[]
-        const inGamesArray = games.some(
-          ga => ga.bowlName === g.bowlName && ga.year === parseInt(year)
-        )
-        return g.team1 && g.team2 && g.team1Score != null && !inGamesArray
-      }).length
-      const week2 = (yearData?.week2 || []).filter(g => {
-        const inGamesArray = games.some(
-          ga => ga.bowlName === g.bowlName && ga.year === parseInt(year)
-        )
-        return g.team1 && g.team2 && g.team1Score != null && !inGamesArray
-      }).length
-      total += week1 + week2
-    })
-
-    // Also count CFP games from cfpResultsByYear (avoid double-counting)
-    const cfpResultsByYear = currentDynasty.cfpResultsByYear || {}
-    Object.entries(cfpResultsByYear).forEach(([year, yearData]) => {
-      // Count quarterfinals
-      const qf = (yearData?.quarterfinals || []).filter(g => {
-        const inGamesArray = games.some(
-          ga => ga.bowlName === g.bowlName && ga.year === parseInt(year)
-        )
-        return g.team1 && g.team2 && g.team1Score != null && !inGamesArray
-      }).length
-      total += qf
-
-      // Count semifinals
-      const sf = (yearData?.semifinals || []).filter(g => {
-        const inGamesArray = games.some(
-          ga => ga.bowlName === g.bowlName && ga.year === parseInt(year)
-        )
-        return g.team1 && g.team2 && g.team1Score != null && !inGamesArray
-      }).length
-      total += sf
-
-      // Count championship
-      const champ = yearData?.championship
-      if (champ && champ.team1 && champ.team2 && champ.team1Score != null) {
-        const inGamesArray = games.some(
-          ga => ga.bowlName === 'National Championship' && ga.year === parseInt(year)
-        )
-        if (!inGamesArray) total += 1
-      }
-    })
-
-    return total
-  }
-
-  // Get winner of a bowl game
   const getWinner = (game) => {
     if (!game.team1Score && game.team1Score !== 0) return null
     if (!game.team2Score && game.team2Score !== 0) return null
@@ -379,86 +273,38 @@ export default function BowlHistory() {
 
   return (
     <div className="space-y-4">
-      {/* Hero Header */}
-      <div
-        className="relative rounded-xl overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)'
-        }}
+      <PageHero
+        title="Bowl History"
+        meta={
+          <>
+            <span className="tabular">{totalBowlGames}</span>
+            <span>bowl game{totalBowlGames !== 1 ? 's' : ''} played</span>
+          </>
+        }
+        actions={
+          !isViewOnly && (
+            <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
+              Edit
+            </Button>
+          )
+        }
       >
-        {/* Subtle pattern overlay */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-          }}
-        />
-
-        <div className="relative px-4 sm:px-6 py-6">
-          {/* Title row with edit button */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-1.5 h-10 rounded-full"
-                style={{ background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)' }}
-              />
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  Bowl History
-                </h1>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  {totalBowlGames} bowl game{totalBowlGames !== 1 ? 's' : ''} played
-                </p>
-              </div>
-            </div>
-
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-700/50 text-slate-300 hover:bg-slate-600/50 transition-colors border border-slate-600/50"
-              >
-                Edit
-              </button>
-            )}
-          </div>
-
-          {/* Search bar */}
-          <div className="relative max-w-md">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search bowl games..."
-              className="w-full pl-9 pr-8 py-2 rounded-lg text-sm bg-slate-800/60 border border-slate-700/50 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
+        <div className="max-w-md">
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search bowl games..."
+          />
           {searchQuery && (
-            <p className="mt-2 text-xs text-slate-500">
+            <div className="mt-2 label-xs text-txt-tertiary">
               {filteredBowls.length} bowl{filteredBowls.length !== 1 ? 's' : ''} found
-            </p>
+            </div>
           )}
         </div>
-      </div>
+      </PageHero>
 
-      {/* Bowl Games List */}
+      {/* Bowl list */}
       <div className="space-y-2">
         {filteredBowls.map(bowlName => {
           const logo = bowlLogos[bowlName]
@@ -468,46 +314,34 @@ export default function BowlHistory() {
           return (
             <div
               key={bowlName}
-              ref={el => bowlRefs.current[bowlName] = el}
-              className="rounded-lg overflow-hidden"
-              style={{
-                scrollMarginTop: '100px',
-                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-                boxShadow: '0 0 0 1px rgba(71, 85, 105, 0.3)'
-              }}
+              ref={el => (bowlRefs.current[bowlName] = el)}
+              style={{ scrollMarginTop: '100px' }}
             >
-              {/* Bowl Header */}
+            <Card padding="none">
               <button
                 onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
-                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-3 transition-colors text-left"
               >
-                {/* Bowl Logo */}
-                <div className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center bg-white p-1">
-                  {logo ? (
-                    <img
-                      src={logo}
-                      alt=""
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <span className="text-lg">🏈</span>
+                <div className="w-10 h-10 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1">
+                  {logo && (
+                    <img src={logo} alt="" className="w-full h-full object-contain" />
                   )}
                 </div>
 
-                {/* Bowl Name and Stats */}
-                <div className="flex-1 text-left min-w-0">
-                  <div className="font-semibold text-white truncate">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-txt-primary truncate">
                     {bowlName}
                   </div>
-                  <div className="text-xs text-slate-500">
-                    {results.length === 0 ? 'No games played' : `${results.length} game${results.length !== 1 ? 's' : ''}`}
+                  <div className="label-xs text-txt-tertiary mt-0.5">
+                    {results.length === 0
+                      ? 'No games played'
+                      : `${results.length} game${results.length !== 1 ? 's' : ''}`}
                   </div>
                 </div>
 
-                {/* Expand Icon */}
-                <div className="text-slate-500 flex-shrink-0">
+                <div className="text-txt-tertiary flex-shrink-0">
                   <svg
-                    className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -517,10 +351,11 @@ export default function BowlHistory() {
                 </div>
               </button>
 
-              {/* Expanded Results */}
               {isExpanded && results.length > 0 && (
-                <div className="px-3 pb-3 space-y-1.5 border-t border-slate-700/50">
-                  <div className="pt-2" />
+                <div
+                  className="px-3 pb-3 pt-2 space-y-1"
+                  style={{ borderTop: '1px solid var(--surface-4)' }}
+                >
                   {results.map((game, idx) => {
                     const winner = getWinner(game)
                     const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -528,7 +363,6 @@ export default function BowlHistory() {
                     const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
                     const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
 
-                    // Generate game ID for navigation
                     const gameBowlName = game.bowlName || bowlName
                     const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
                     let gameId
@@ -547,14 +381,15 @@ export default function BowlHistory() {
                       <Link
                         key={`${game.year}-${idx}`}
                         to={`${pathPrefix}/game/${gameId}`}
-                        className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors"
+                        className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 hover:bg-surface-3 transition-colors"
                       >
-                        {/* Year */}
-                        <div className="w-10 sm:w-12 text-center font-bold text-sm text-amber-500 flex-shrink-0">
+                        <div
+                          className="w-10 sm:w-12 text-center tabular text-sm font-bold flex-shrink-0"
+                          style={{ color: 'var(--team-primary)' }}
+                        >
                           {game.year}
                         </div>
 
-                        {/* Team 1 */}
                         <div className="flex items-center gap-1.5 flex-1 min-w-0">
                           {team1Logo && (
                             <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
@@ -562,27 +397,29 @@ export default function BowlHistory() {
                             </div>
                           )}
                           <span
-                            className={`text-xs sm:text-sm font-medium truncate ${winner === game.team1 ? 'text-white' : 'text-slate-500'}`}
+                            className={`text-xs sm:text-sm font-medium truncate ${
+                              winner === game.team1 ? 'text-txt-primary' : 'text-txt-tertiary'
+                            }`}
                           >
                             {getSchoolName(game.team1, currentDynasty?.teams) || game.team1}
                           </span>
                         </div>
 
-                        {/* Score */}
-                        <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm flex-shrink-0">
-                          <span className={winner === game.team1 ? 'text-green-400' : 'text-slate-500'}>
+                        <div className="flex items-center gap-1.5 tabular text-xs sm:text-sm font-bold flex-shrink-0">
+                          <span style={winner === game.team1 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
                             {game.team1Score}
                           </span>
-                          <span className="text-slate-600">-</span>
-                          <span className={winner === game.team2 ? 'text-green-400' : 'text-slate-500'}>
+                          <span className="text-txt-tertiary">-</span>
+                          <span style={winner === game.team2 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
                             {game.team2Score}
                           </span>
                         </div>
 
-                        {/* Team 2 */}
                         <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
                           <span
-                            className={`text-xs sm:text-sm font-medium truncate ${winner === game.team2 ? 'text-white' : 'text-slate-500'}`}
+                            className={`text-xs sm:text-sm font-medium truncate ${
+                              winner === game.team2 ? 'text-txt-primary' : 'text-txt-tertiary'
+                            }`}
                           >
                             {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
                           </span>
@@ -598,34 +435,31 @@ export default function BowlHistory() {
                 </div>
               )}
 
-              {/* No results message */}
               {isExpanded && results.length === 0 && (
-                <div className="px-3 pb-4 pt-2 text-center border-t border-slate-700/50">
-                  <p className="text-sm text-slate-500">
+                <div
+                  className="px-3 pb-4 pt-3 text-center"
+                  style={{ borderTop: '1px solid var(--surface-4)' }}
+                >
+                  <p className="label-xs text-txt-tertiary">
                     No games have been played in this bowl yet.
                   </p>
                 </div>
               )}
+            </Card>
             </div>
           )
         })}
       </div>
 
       {filteredBowls.length === 0 && (
-        <div
-          className="rounded-lg p-8 text-center"
-          style={{
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            boxShadow: '0 0 0 1px rgba(71, 85, 105, 0.3)'
-          }}
-        >
-          <p className="text-slate-500">
-            No bowls found matching "{searchQuery}"
-          </p>
-        </div>
+        <Card>
+          <EmptyState
+            title="No bowls found"
+            message={searchQuery ? `No bowls match "${searchQuery}"` : 'No bowls available.'}
+          />
+        </Card>
       )}
 
-      {/* Edit Modal */}
       <BowlHistoryEditModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}

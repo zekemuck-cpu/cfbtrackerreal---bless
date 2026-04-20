@@ -3123,7 +3123,7 @@ export default function GameEntryModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-all text-sm sm:text-base"
+              className="flex-1 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold bg-surface-3 hover:bg-surface-4 text-white transition-all text-sm sm:text-base"
             >
               Cancel
             </button>

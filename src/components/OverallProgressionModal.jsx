@@ -170,14 +170,14 @@ export default function OverallProgressionModal({
               </div>
               <div>
                 <h2 className="text-white font-semibold">{player.name}</h2>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-txt-muted">
                   {player.position} • {player.year}
                 </div>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-txt-muted hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -189,10 +189,10 @@ export default function OverallProgressionModal({
         {/* Career Change Summary - only show if multiple years */}
         {overallChange !== null && (
           <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-            <span className="text-sm text-gray-400">Career Change</span>
+            <span className="text-sm text-txt-muted">Career Change</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500">{startOverall}</span>
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="text-txt-muted">{startOverall}</span>
+              <svg className="w-4 h-4 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
               <span className="text-white font-medium">{currentOverall}</span>
@@ -231,7 +231,7 @@ export default function OverallProgressionModal({
                     <div className="w-12 text-center">
                       <div className="text-white font-medium">{entry.year}</div>
                     </div>
-                    <div className="text-sm text-gray-400">{entry.playerClass}</div>
+                    <div className="text-sm text-txt-muted">{entry.playerClass}</div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -259,7 +259,7 @@ export default function OverallProgressionModal({
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleCancel() }}
-                          className="p-1.5 rounded bg-white/10 text-gray-400 hover:bg-white/20"
+                          className="p-1.5 rounded bg-white/10 text-txt-muted hover:bg-white/20"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -292,7 +292,7 @@ export default function OverallProgressionModal({
               )
             })
           ) : (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-txt-muted">
               No roster history available
             </div>
           )}
@@ -301,7 +301,7 @@ export default function OverallProgressionModal({
         {/* Footer hint */}
         {onSave && progression.length > 0 && !editingYear && (
           <div className="px-4 py-2 border-t border-white/10 text-center">
-            <span className="text-xs text-gray-500">Click any year to edit</span>
+            <span className="text-xs text-txt-muted">Click any year to edit</span>
           </div>
         )}
       </div>

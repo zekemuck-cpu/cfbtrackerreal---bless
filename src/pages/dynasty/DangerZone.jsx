@@ -4,7 +4,6 @@ import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster } from '..
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamName } from '../../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -12,15 +11,24 @@ import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/s
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
+import {
+  PageHero,
+  Card,
+  Button,
+  Badge,
+  Modal,
+  Input,
+  Select,
+  SectionHeader,
+  LoadingState,
+} from '../../components/ui'
 
 export default function DangerZone() {
   const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, cleanupStintData, syncAllPlayersStats } = useDynasty()
   const { user } = useAuth()
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
-  const primaryBgText = getContrastTextColor(teamColors.primary)
-  const secondaryBgText = getContrastTextColor(teamColors.secondary)
+  useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   // Status states
   const [rosterCleanupStatus, setRosterCleanupStatus] = useState(null)
@@ -83,20 +91,16 @@ export default function DangerZone() {
   const [scheduleLinkFixStatus, setScheduleLinkFixStatus] = useState(null)
 
   if (!currentDynasty) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: teamColors.primary }}></div>
-      </div>
-    )
+    return <LoadingState message="Loading..." />
   }
 
   if (isViewOnly) {
     return (
-      <div className="p-6">
-        <div className="rounded-lg p-6 text-center" style={{ backgroundColor: teamColors.secondary }}>
-          <h2 className="text-xl font-bold mb-2" style={{ color: secondaryBgText }}>Danger Zone</h2>
-          <p style={{ color: secondaryBgText, opacity: 0.7 }}>Danger Zone is not available in view-only mode.</p>
-        </div>
+      <div className="p-6 max-w-4xl mx-auto">
+        <Card>
+          <h2 className="text-display-md text-txt-primary m-0 mb-2">Danger Zone</h2>
+          <p className="text-txt-secondary text-sm m-0">Danger Zone is not available in view-only mode.</p>
+        </Card>
       </div>
     )
   }
@@ -1891,58 +1895,44 @@ export default function DangerZone() {
   // END STINT DATA CLEANUP HANDLER
   // ==========================================================
 
-  // Compact Action Card
-  const ActionCard = ({ icon, title, description, buttonText, onClick, status, variant = 'normal' }) => {
-    const isRunning = status === 'running'
-    const isDone = status && status !== 'running'
-    const isDanger = variant === 'danger'
-
+  // Status line (success/error/running)
+  const StatusLine = ({ status }) => {
+    if (!status || status === 'running') return null
+    const color = status.success ? 'var(--accent-success)' : 'var(--accent-error)'
     return (
-      <div
-        className="rounded-lg p-4 flex flex-col h-full"
-        style={{
-          backgroundColor: isDanger ? '#fef2f2' : teamColors.secondary,
-          border: isDanger ? '2px solid #fca5a5' : `2px solid ${teamColors.primary}20`
-        }}
-      >
-        <div className="mb-3">
-          <h3 className="font-semibold text-sm" style={{ color: isDanger ? '#b91c1c' : secondaryBgText }}>
-            {title}
-          </h3>
-          <p className="text-xs mt-0.5 leading-relaxed" style={{ color: isDanger ? '#991b1b' : secondaryBgText, opacity: 0.7 }}>
-            {description}
-          </p>
-        </div>
-
-        <div className="mt-auto">
-          <button
-            onClick={onClick}
-            disabled={isRunning}
-            className="w-full px-3 py-1.5 rounded-md font-medium text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{
-              backgroundColor: isDanger ? '#dc2626' : teamColors.primary,
-              color: isDanger ? '#fff' : primaryBgText
-            }}
-          >
-            {isRunning ? 'Running...' : buttonText}
-          </button>
-          {isDone && (
-            <p className={`text-xs mt-2 ${status.success ? 'text-green-600' : 'text-red-600'}`}>
-              {status.success ? '✓' : '✗'} {status.message}
-            </p>
-          )}
-        </div>
-      </div>
+      <p className="label-xs mt-2 m-0" style={{ color }}>
+        {status.message}
+      </p>
     )
   }
 
-  // Section Header
-  const SectionHeader = ({ title, subtitle }) => (
-    <div className="mb-3">
-      <h2 className="text-base font-bold" style={{ color: secondaryBgText }}>{title}</h2>
-      {subtitle && <p className="text-xs" style={{ color: secondaryBgText, opacity: 0.6 }}>{subtitle}</p>}
-    </div>
-  )
+  // Compact Action Card
+  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary' }) => {
+    const isRunning = status === 'running'
+
+    return (
+      <Card className="flex flex-col h-full">
+        <div className="mb-3">
+          <h3 className="label-sm text-txt-primary m-0">{title}</h3>
+          <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+            {description}
+          </p>
+        </div>
+        <div className="mt-auto">
+          <Button
+            variant={variant}
+            size="sm"
+            onClick={onClick}
+            disabled={isRunning}
+            className="w-full"
+          >
+            {isRunning ? 'Running...' : buttonText}
+          </Button>
+          <StatusLine status={status} />
+        </div>
+      </Card>
+    )
+  }
 
   // Find teambuilder teams
   const teams = currentDynasty?.teams || {}
@@ -1950,59 +1940,54 @@ export default function DangerZone() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div
-        className="rounded-xl p-4 sm:p-5"
-        style={{ backgroundColor: teamColors.primary, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold" style={{ color: primaryBgText }}>Danger Zone</h1>
-            <p className="text-xs" style={{ color: primaryBgText, opacity: 0.8 }}>Data repair & maintenance</p>
-          </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ backgroundColor: `${primaryBgText}20`, color: primaryBgText }}
-          >
+      <PageHero
+        eyebrow="Admin"
+        title="Danger Zone"
+        meta={<span>Data repair and maintenance</span>}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => setShowHelp(!showHelp)}>
             {showHelp ? 'Hide Help' : 'Help'}
-          </button>
-        </div>
-      </div>
+          </Button>
+        }
+      />
 
       {/* Help Section (Collapsible) */}
       {showHelp && (
-        <div className="rounded-lg p-4 text-sm" style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd' }}>
-          <h3 className="font-semibold text-blue-800 mb-2">When to use these tools:</h3>
-          <div className="grid sm:grid-cols-2 gap-2 text-xs text-blue-700">
-            <div><strong>Fix Roster:</strong> Departed players still showing on roster</div>
-            <div><strong>Sync Recruiting:</strong> Missing data on recruiting pages</div>
-            <div><strong>Remove Duplicates:</strong> Wrong win/loss record</div>
-            <div><strong>Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
-            <div><strong>Repair CCG:</strong> Conference championship games not showing in history</div>
-            <div><strong>Merge Players:</strong> Transfer created duplicate player instead of updating</div>
-            <div><strong>Clear Cache:</strong> Google Sheets errors or stale data</div>
-            <div><strong>Migrate Career:</strong> Gaps in player year-by-year data</div>
+        <Card style={{ borderLeft: '3px solid var(--accent-info)' }}>
+          <h3 className="label-sm text-txt-primary m-0 mb-2">When to use these tools</h3>
+          <div className="grid sm:grid-cols-2 gap-2 text-xs text-txt-secondary">
+            <div><strong className="text-txt-primary">Fix Roster:</strong> Departed players still showing on roster</div>
+            <div><strong className="text-txt-primary">Sync Recruiting:</strong> Missing data on recruiting pages</div>
+            <div><strong className="text-txt-primary">Remove Duplicates:</strong> Wrong win/loss record</div>
+            <div><strong className="text-txt-primary">Repair CFP:</strong> CFP games open wrong page or show wrong bowl names</div>
+            <div><strong className="text-txt-primary">Repair CCG:</strong> Conference championship games not showing in history</div>
+            <div><strong className="text-txt-primary">Merge Players:</strong> Transfer created duplicate player instead of updating</div>
+            <div><strong className="text-txt-primary">Clear Cache:</strong> Google Sheets errors or stale data</div>
+            <div><strong className="text-txt-primary">Migrate Career:</strong> Gaps in player year-by-year data</div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Warning Banner */}
-      <div className="rounded-lg p-3 flex items-center justify-between gap-3" style={{ backgroundColor: '#fef3c7', border: '2px solid #f59e0b' }}>
-        <p className="text-xs text-amber-800">
-          <strong>Back up first!</strong> Download a backup before making changes.
-        </p>
-        <button
-          onClick={() => exportDynasty && exportDynasty(dynastyId)}
-          className="px-3 py-1.5 rounded-md text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition-colors flex-shrink-0"
-        >
-          Download Backup
-        </button>
-      </div>
+      <Card style={{ borderLeft: '3px solid var(--accent-warning)' }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-txt-secondary m-0">
+            <strong style={{ color: 'var(--accent-warning)' }}>Back up first.</strong> Download a backup before making changes.
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => exportDynasty && exportDynasty(dynastyId)}
+          >
+            Download Backup
+          </Button>
+        </div>
+      </Card>
 
       {/* Quick Fixes Section */}
       <div>
         <SectionHeader
+          size="sm"
           title="Quick Fixes"
           subtitle="Common issues, safe to run"
         />
@@ -2071,91 +2056,73 @@ export default function DangerZone() {
             status={advanceClassesStatus}
           />
           {/* Custom card for Stats Sync with year selector */}
-          <div
-            className="rounded-lg p-4 flex flex-col h-full"
-            style={{
-              backgroundColor: teamColors.secondary,
-              border: `2px solid ${teamColors.primary}20`
-            }}
-          >
+          <Card className="flex flex-col h-full">
             <div className="mb-3">
-              <h3 className="font-semibold text-sm" style={{ color: secondaryBgText }}>
-                Sync Player Stats
-              </h3>
-              <p className="text-xs mt-0.5 leading-relaxed" style={{ color: secondaryBgText, opacity: 0.7 }}>
+              <h3 className="label-sm text-txt-primary m-0">Sync Player Stats</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
                 Recalculates all player stats from box scores for selected season
               </p>
             </div>
             <div className="mt-auto space-y-2">
-              <select
+              <Select
+                size="sm"
                 value={statsSyncYear}
                 onChange={(e) => setStatsSyncYear(parseInt(e.target.value))}
-                className="w-full px-2 py-1.5 rounded-md text-xs border bg-white text-gray-900"
-                style={{ borderColor: `${teamColors.primary}40` }}
               >
                 {Array.from({ length: 10 }, (_, i) => currentDynasty.currentYear - i)
                   .filter(y => y >= (currentDynasty.startYear || 2024))
                   .map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
-              </select>
+              </Select>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={statsSyncSkipGamesPlayed}
                   onChange={(e) => setStatsSyncSkipGamesPlayed(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="w-3.5 h-3.5 rounded"
+                  style={{ accentColor: 'var(--team-primary)' }}
                 />
-                <span className="text-xs" style={{ color: secondaryBgText, opacity: 0.8 }}>
-                  Keep existing games played
-                </span>
+                <span className="text-xs text-txt-secondary">Keep existing games played</span>
               </label>
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSyncAllStats}
                 disabled={statsSyncStatus === 'running'}
-                className="w-full px-3 py-1.5 rounded-md font-medium text-xs hover:opacity-90 transition-opacity disabled:opacity-50"
-                style={{
-                  backgroundColor: teamColors.primary,
-                  color: primaryBgText
-                }}
+                className="w-full"
               >
                 {statsSyncStatus === 'running' ? 'Syncing...' : 'Sync Stats'}
-              </button>
-              {statsSyncStatus && statsSyncStatus !== 'running' && (
-                <div className={`text-xs mt-1 ${statsSyncStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {statsSyncStatus.message}
-                </div>
-              )}
+              </Button>
+              <StatusLine status={statsSyncStatus} />
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* Duplicate Players Confirmation UI */}
       {duplicateGroups && duplicateGroups.length > 0 && (
-        <div className="rounded-lg p-4" style={{ backgroundColor: '#fef9c3', border: '2px solid #facc15' }}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-amber-800">
-              Found {duplicateGroups.length} possible duplicate{duplicateGroups.length > 1 ? ' groups' : ''}
+        <Card style={{ borderLeft: '3px solid var(--accent-warning)' }}>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h3 className="label-sm text-txt-primary m-0">
+              Found <span className="tabular">{duplicateGroups.length}</span> possible duplicate{duplicateGroups.length > 1 ? ' groups' : ''}
             </h3>
             <div className="flex gap-2">
-              <button
-                onClick={handleCancelMerge}
-                className="px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
-              >
+              <Button variant="ghost" size="sm" onClick={handleCancelMerge}>
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleConfirmMerge}
                 disabled={selectedMergeGroups.size === 0}
-                className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
               >
-                Merge {selectedMergeGroups.size} Selected
-              </button>
+                Merge <span className="tabular">{selectedMergeGroups.size}</span> Selected
+              </Button>
             </div>
           </div>
 
-          <p className="text-xs text-amber-700 mb-3">
+          <p className="text-xs text-txt-tertiary mb-3 m-0">
             Review each group below. Uncheck any groups that are actually different players with the same name.
           </p>
 
@@ -2163,18 +2130,20 @@ export default function DangerZone() {
             {duplicateGroups.map((group, idx) => (
               <div
                 key={group.name}
-                className="rounded-lg p-3 bg-white border border-amber-200"
+                className="rounded-md p-3"
+                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
               >
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedMergeGroups.has(idx)}
                     onChange={() => toggleGroupSelection(idx)}
-                    className="w-4 h-4 mt-0.5 rounded border-amber-400"
+                    className="w-4 h-4 mt-0.5 rounded"
+                    style={{ accentColor: 'var(--team-primary)' }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-gray-900 capitalize">
-                      {group.name} <span className="text-xs font-normal text-gray-500">({group.players.length} entries)</span>
+                    <div className="label-sm text-txt-primary capitalize">
+                      {group.name} <span className="text-xs font-normal text-txt-tertiary tabular">({group.players.length} entries)</span>
                     </div>
                     <div className="mt-1 space-y-1">
                       {group.players.map((player, pIdx) => {
@@ -2183,13 +2152,13 @@ export default function DangerZone() {
                         const uniqueTeams = [...new Set(teams)]
 
                         return (
-                          <div key={player.pid} className="text-xs text-gray-600 flex items-center gap-2">
-                            <span className={`px-1.5 py-0.5 rounded ${pIdx === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          <div key={player.pid} className="text-xs text-txt-secondary flex items-center gap-2">
+                            <Badge variant={pIdx === 0 ? 'success' : 'default'} size="sm">
                               {pIdx === 0 ? 'Keep' : 'Merge'}
-                            </span>
+                            </Badge>
                             <span>
                               {player.position || '??'} •
-                              PID {player.pid} •
+                              PID <span className="tabular">{player.pid}</span> •
                               {uniqueTeams.length > 0 ? ` ${uniqueTeams.join(' → ')}` : ' No team'} •
                               {years.length > 0 ? ` Years: ${years[0]}${years.length > 1 ? `-${years[years.length - 1]}` : ''}` : ' No years'}
                             </span>
@@ -2203,206 +2172,176 @@ export default function DangerZone() {
             ))}
           </div>
 
-          <div className="mt-3 pt-3 border-t border-amber-200 flex items-center justify-between">
+          <div className="mt-3 pt-3 flex items-center justify-between flex-wrap gap-2" style={{ borderTop: '1px solid var(--surface-4)' }}>
             <div className="flex gap-2">
               <button
                 onClick={() => setSelectedMergeGroups(new Set(duplicateGroups.map((_, i) => i)))}
-                className="text-xs text-amber-700 hover:text-amber-900 underline"
+                className="text-xs text-txt-secondary hover:text-txt-primary underline"
               >
                 Select All
               </button>
               <button
                 onClick={() => setSelectedMergeGroups(new Set())}
-                className="text-xs text-amber-700 hover:text-amber-900 underline"
+                className="text-xs text-txt-secondary hover:text-txt-primary underline"
               >
                 Deselect All
               </button>
             </div>
-            <span className="text-xs text-amber-600">
+            <span className="text-xs text-txt-tertiary tabular">
               {selectedMergeGroups.size} of {duplicateGroups.length} selected
             </span>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Advance Classes Modal */}
-      {showAdvanceModal && (
-        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" style={{ margin: 0 }}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Advance Player Classes</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Select players to advance. Players with ≤4 games will be redshirted.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowAdvanceModal(false)}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Modal
+        isOpen={showAdvanceModal}
+        onClose={() => setShowAdvanceModal(false)}
+        title="Advance Player Classes"
+        size="lg"
+        footer={
+          <>
+            <div className="mr-auto text-sm text-txt-tertiary">
+              Advancing <span className="tabular">{Object.values(advanceSelections).filter(Boolean).length}</span> players
             </div>
+            <Button variant="ghost" onClick={() => setShowAdvanceModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleConfirmAdvance}
+              disabled={Object.values(advanceSelections).filter(Boolean).length === 0}
+            >
+              Advance Selected
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-txt-secondary m-0 mb-3">
+          Select players to advance. Players with 4 or fewer games will be redshirted.
+        </p>
 
-            {/* Legend */}
-            <div className="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-amber-400"></span>
-                <span className="text-gray-600">≤4 games (will redshirt)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-green-400"></span>
-                <span className="text-gray-600">5+ games (normal advance)</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded bg-gray-300"></span>
-                <span className="text-gray-600">No data (normal advance)</span>
-              </div>
-            </div>
-
-            {/* Select All / Deselect All */}
-            <div className="px-6 py-2 border-b border-gray-200 flex items-center justify-between bg-white">
-              <div className="flex gap-3">
-                <button
-                  onClick={() => selectAllAdvance(true)}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={() => selectAllAdvance(false)}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  Deselect All
-                </button>
-              </div>
-              <span className="text-sm text-gray-500">
-                {Object.values(advanceSelections).filter(Boolean).length} of {getPlayersOnUserTeam().length} selected
-              </span>
-            </div>
-
-            {/* Player List */}
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              <div className="space-y-1">
-                {getPlayersOnUserTeam().map(player => {
-                  const CLASS_PROGRESSION = {
-                    'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
-                    'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
-                  }
-                  const currentClass = player.year || '?'
-                  const isAlreadyRS = currentClass.startsWith('RS ')
-                  const gamesPlayed = player.gamesPlayedLastYear
-                  const willRedshirt = gamesPlayed !== null && gamesPlayed !== undefined && gamesPlayed <= 4 && !isAlreadyRS
-
-                  let newClass
-                  if (willRedshirt) {
-                    newClass = 'RS ' + currentClass
-                  } else {
-                    newClass = CLASS_PROGRESSION[currentClass] || currentClass
-                  }
-
-                  // Determine row color based on games played
-                  let rowBg = 'bg-white hover:bg-gray-50' // default/no data
-                  let indicator = 'bg-gray-300'
-                  if (gamesPlayed !== null && gamesPlayed !== undefined) {
-                    if (gamesPlayed <= 4) {
-                      rowBg = 'bg-amber-50 hover:bg-amber-100'
-                      indicator = 'bg-amber-400'
-                    } else {
-                      rowBg = 'bg-green-50 hover:bg-green-100'
-                      indicator = 'bg-green-400'
-                    }
-                  }
-
-                  return (
-                    <label
-                      key={player.pid}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${rowBg}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={advanceSelections[player.pid] || false}
-                        onChange={() => toggleAdvanceSelection(player.pid)}
-                        className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-400"
-                      />
-                      <span className={`w-2 h-8 rounded-full ${indicator}`}></span>
-                      <div className="flex-1 min-w-0 flex items-center gap-3">
-                        <span className="w-12 text-xs font-medium text-gray-500">{player.position}</span>
-                        <span className="font-medium text-gray-900 truncate">{player.name}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm">
-                        <span className="text-gray-500 w-16 text-right">
-                          {gamesPlayed !== null && gamesPlayed !== undefined ? `${gamesPlayed} GP` : 'No GP'}
-                        </span>
-                        <span className="text-gray-400 w-20 text-center">{currentClass}</span>
-                        <span className="text-gray-400">→</span>
-                        <span className={`w-20 text-center font-medium ${willRedshirt ? 'text-amber-600' : 'text-green-600'}`}>
-                          {newClass}
-                        </span>
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50">
-              <div className="text-sm text-gray-500">
-                Advancing {Object.values(advanceSelections).filter(Boolean).length} players
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowAdvanceModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmAdvance}
-                  disabled={Object.values(advanceSelections).filter(Boolean).length === 0}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Advance Selected
-                </button>
-              </div>
-            </div>
+        {/* Legend */}
+        <div className="mb-3 p-3 rounded-md flex flex-wrap items-center gap-4 text-xs" style={{ backgroundColor: 'var(--surface-3)' }}>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-warning)' }}></span>
+            <span className="text-txt-secondary">4 or fewer games (will redshirt)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--accent-success)' }}></span>
+            <span className="text-txt-secondary">5+ games (normal advance)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'var(--surface-5)' }}></span>
+            <span className="text-txt-secondary">No data (normal advance)</span>
           </div>
         </div>
-      )}
+
+        {/* Select All / Deselect All */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex gap-3">
+            <button
+              onClick={() => selectAllAdvance(true)}
+              className="text-sm text-txt-secondary hover:text-txt-primary font-medium underline"
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => selectAllAdvance(false)}
+              className="text-sm text-txt-secondary hover:text-txt-primary font-medium underline"
+            >
+              Deselect All
+            </button>
+          </div>
+          <span className="text-sm text-txt-tertiary tabular">
+            {Object.values(advanceSelections).filter(Boolean).length} of {getPlayersOnUserTeam().length} selected
+          </span>
+        </div>
+
+        {/* Player List */}
+        <div className="space-y-1">
+          {getPlayersOnUserTeam().map(player => {
+            const CLASS_PROGRESSION = {
+              'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr',
+              'Jr': 'Sr', 'RS Jr': 'RS Sr', 'Sr': 'RS Sr', 'RS Sr': 'RS Sr'
+            }
+            const currentClass = player.year || '?'
+            const isAlreadyRS = currentClass.startsWith('RS ')
+            const gamesPlayed = player.gamesPlayedLastYear
+            const willRedshirt = gamesPlayed !== null && gamesPlayed !== undefined && gamesPlayed <= 4 && !isAlreadyRS
+
+            let newClass
+            if (willRedshirt) {
+              newClass = 'RS ' + currentClass
+            } else {
+              newClass = CLASS_PROGRESSION[currentClass] || currentClass
+            }
+
+            // Indicator color based on games played
+            let indicatorColor = 'var(--surface-5)'
+            if (gamesPlayed !== null && gamesPlayed !== undefined) {
+              indicatorColor = gamesPlayed <= 4 ? 'var(--accent-warning)' : 'var(--accent-success)'
+            }
+
+            return (
+              <label
+                key={player.pid}
+                className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer hover:bg-surface-3 transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={advanceSelections[player.pid] || false}
+                  onChange={() => toggleAdvanceSelection(player.pid)}
+                  className="w-4 h-4 rounded"
+                  style={{ accentColor: 'var(--team-primary)' }}
+                />
+                <span className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: indicatorColor }}></span>
+                <div className="flex-1 min-w-0 flex items-center gap-3">
+                  <span className="w-12 label-xs text-txt-tertiary">{player.position}</span>
+                  <span className="text-sm text-txt-primary truncate">{player.name}</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-txt-tertiary w-16 text-right tabular">
+                    {gamesPlayed !== null && gamesPlayed !== undefined ? `${gamesPlayed} GP` : 'No GP'}
+                  </span>
+                  <span className="text-txt-tertiary w-20 text-center">{currentClass}</span>
+                  <span className="text-txt-tertiary">-&gt;</span>
+                  <span
+                    className="w-20 text-center font-medium"
+                    style={{ color: willRedshirt ? 'var(--accent-warning)' : 'var(--accent-success)' }}
+                  >
+                    {newClass}
+                  </span>
+                </div>
+              </label>
+            )
+          })}
+        </div>
+      </Modal>
 
       {/* Delete Specific Game Section */}
       <div>
         <SectionHeader
+          size="sm"
           title="Delete Specific Game"
           subtitle="Manually remove a game that shouldn't exist"
         />
-        <div className="rounded-lg p-4" style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}>
+        <Card>
           {!showGameDeletion ? (
-            <button
-              onClick={() => setShowGameDeletion(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-            >
+            <Button variant="danger" onClick={() => setShowGameDeletion(true)}>
               Show Games for Deletion
-            </button>
+            </Button>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-300">Select a game to delete:</p>
-                <button
-                  onClick={() => { setShowGameDeletion(false); setSelectedGameToDelete(null); }}
-                  className="text-xs text-gray-400 hover:text-white"
-                >
+                <p className="text-sm text-txt-secondary m-0">Select a game to delete:</p>
+                <Button variant="ghost" size="sm" onClick={() => { setShowGameDeletion(false); setSelectedGameToDelete(null); }}>
                   Hide
-                </button>
+                </Button>
               </div>
 
-              {/* Filter by year */}
-              <select
-                className="w-full px-3 py-2 rounded-lg text-sm bg-gray-700 text-white border border-gray-600"
+              <Select
                 value={selectedGameToDelete || ''}
                 onChange={(e) => setSelectedGameToDelete(e.target.value)}
               >
@@ -2423,18 +2362,18 @@ export default function DangerZone() {
                       </option>
                     )
                   })}
-              </select>
+              </Select>
 
               {selectedGameToDelete && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => handleDeleteGame(selectedGameToDelete)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-                  >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Button variant="danger" onClick={() => handleDeleteGame(selectedGameToDelete)}>
                     Delete Selected Game
-                  </button>
+                  </Button>
                   {gameDeletionStatus && (
-                    <span className={`text-sm ${gameDeletionStatus.success ? 'text-green-400' : 'text-red-400'}`}>
+                    <span
+                      className="text-sm"
+                      style={{ color: gameDeletionStatus.success ? 'var(--accent-success)' : 'var(--accent-error)' }}
+                    >
                       {gameDeletionStatus.message}
                     </span>
                   )}
@@ -2442,12 +2381,13 @@ export default function DangerZone() {
               )}
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Advanced Player Fixes */}
       <div>
         <SectionHeader
+          size="sm"
           title="Player Data Repair"
           subtitle="Advanced fixes for player records"
         />
@@ -2482,7 +2422,7 @@ export default function DangerZone() {
           />
           <ActionCard
             title="Fix Departure Reasons"
-            description="Fixes graduated→drafted players"
+            description="Fixes graduated to drafted players"
             buttonText="Fix"
             onClick={handleFixDepartureReasons}
             status={departureFixStatus}
@@ -2492,27 +2432,23 @@ export default function DangerZone() {
 
       {/* Storage & Database Section */}
       <div>
-        <SectionHeader
-          title="Storage & Database"
-        />
-
-        <div className="rounded-lg p-4" style={{ backgroundColor: teamColors.secondary, border: `2px solid ${teamColors.primary}20` }}>
+        <SectionHeader size="sm" title="Storage & Database" />
+        <Card>
           {/* Migration Status Badge */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${currentDynasty._subcollectionsMigrated ? 'bg-green-500' : 'bg-yellow-500'}`} />
-              <span className="text-sm font-medium" style={{ color: secondaryBgText }}>
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: currentDynasty._subcollectionsMigrated ? 'var(--accent-success)' : 'var(--accent-warning)' }}
+              />
+              <span className="text-sm font-medium text-txt-primary">
                 {currentDynasty._subcollectionsMigrated ? 'Subcollection Storage (Unlimited)' : 'Legacy Storage (1MB Limit)'}
               </span>
             </div>
             {!sizeAnalysis && (
-              <button
-                onClick={handleAnalyzeSize}
-                className="px-3 py-1 rounded text-xs font-medium"
-                style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-              >
+              <Button variant="primary" size="sm" onClick={handleAnalyzeSize}>
                 Analyze
-              </button>
+              </Button>
             )}
           </div>
 
@@ -2520,17 +2456,20 @@ export default function DangerZone() {
             <div className="space-y-4">
               {/* Size Bar */}
               <div>
-                <div className="flex justify-between text-xs mb-1" style={{ color: secondaryBgText }}>
+                <div className="flex justify-between text-xs mb-1 text-txt-secondary tabular">
                   <span>{sizeAnalysis.isMigrated ? sizeAnalysis.mainDocTotalKB : sizeAnalysis.totalKB} KB</span>
                   <span>{sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed}% of 1MB</span>
                 </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-3)' }}>
                   <div
-                    className={`h-full rounded-full ${
-                      parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed) > 90 ? 'bg-red-500' :
-                      parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed) > 70 ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${Math.min(100, parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed))}%` }}
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(100, parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed))}%`,
+                      backgroundColor:
+                        parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed) > 90 ? 'var(--accent-error)' :
+                        parseFloat(sizeAnalysis.isMigrated ? sizeAnalysis.mainDocPercentUsed : sizeAnalysis.percentUsed) > 70 ? 'var(--accent-warning)' :
+                        'var(--accent-success)'
+                    }}
                   />
                 </div>
               </div>
@@ -2538,114 +2477,96 @@ export default function DangerZone() {
               {/* Subcollection Stats (if migrated) */}
               {sizeAnalysis.isMigrated && (
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-2 rounded bg-blue-50 text-center">
-                    <div className="text-lg font-bold text-blue-800">{sizeAnalysis.subcollections.players.count}</div>
-                    <div className="text-xs text-blue-600">Players ({sizeAnalysis.subcollections.players.sizeKB} KB)</div>
+                  <div className="p-3 rounded-md text-center" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-2xl font-bold tabular text-txt-primary">{sizeAnalysis.subcollections.players.count}</div>
+                    <div className="label-xs text-txt-tertiary mt-1">Players <span className="tabular">({sizeAnalysis.subcollections.players.sizeKB} KB)</span></div>
                   </div>
-                  <div className="p-2 rounded bg-purple-50 text-center">
-                    <div className="text-lg font-bold text-purple-800">{sizeAnalysis.subcollections.games.count}</div>
-                    <div className="text-xs text-purple-600">Games ({sizeAnalysis.subcollections.games.sizeKB} KB)</div>
+                  <div className="p-3 rounded-md text-center" style={{ backgroundColor: 'var(--surface-3)' }}>
+                    <div className="text-2xl font-bold tabular text-txt-primary">{sizeAnalysis.subcollections.games.count}</div>
+                    <div className="label-xs text-txt-tertiary mt-1">Games <span className="tabular">({sizeAnalysis.subcollections.games.sizeKB} KB)</span></div>
                   </div>
                 </div>
               )}
 
               {/* Actions */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-200">
-                <button
-                  onClick={handleAnalyzeSize}
-                  className="px-3 py-1.5 rounded text-xs font-medium border"
-                  style={{ borderColor: teamColors.primary, color: teamColors.primary }}
-                >
+              <div className="flex flex-wrap items-center gap-2 pt-2" style={{ borderTop: '1px solid var(--surface-4)' }}>
+                <Button variant="outline" size="sm" onClick={handleAnalyzeSize}>
                   Refresh
-                </button>
+                </Button>
 
                 {!currentDynasty._subcollectionsMigrated && (
                   <>
-                    <button
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={handleSubcollectionMigration}
                       disabled={subcollectionMigrationStatus === 'running'}
-                      className="px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
-                      style={{ backgroundColor: '#059669' }}
                     >
                       {subcollectionMigrationStatus === 'running' ? 'Migrating...' : 'Migrate to Subcollections'}
-                    </button>
+                    </Button>
 
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: secondaryBgText }}>
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer text-txt-secondary">
                       <input
                         type="checkbox"
                         checked={removeOldBoxScores}
                         onChange={(e) => setRemoveOldBoxScores(e.target.checked)}
                         className="w-3 h-3 rounded"
+                        style={{ accentColor: 'var(--team-primary)' }}
                       />
                       Remove old box scores
                     </label>
 
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={handleOptimize}
                       disabled={optimizeStatus === 'running'}
-                      className="px-3 py-1.5 rounded text-xs font-medium text-white disabled:opacity-50"
-                      style={{ backgroundColor: '#dc2626' }}
                     >
                       {optimizeStatus === 'running' ? 'Optimizing...' : 'Optimize'}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
 
               {/* Status Messages */}
-              {(subcollectionMigrationStatus && subcollectionMigrationStatus !== 'running') && (
-                <p className={`text-xs ${subcollectionMigrationStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {subcollectionMigrationStatus.success ? '✓' : '✗'} {subcollectionMigrationStatus.message}
-                </p>
-              )}
-              {(optimizeStatus && optimizeStatus !== 'running') && (
-                <p className={`text-xs ${optimizeStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {optimizeStatus.success ? '✓' : '✗'} {optimizeStatus.message}
-                </p>
-              )}
+              <StatusLine status={subcollectionMigrationStatus} />
+              <StatusLine status={optimizeStatus} />
             </div>
           )}
-        </div>
+        </Card>
       </div>
 
       {/* Cache Section */}
       <div>
-        <SectionHeader title="Cache" />
+        <SectionHeader size="sm" title="Cache" />
         <div className="grid sm:grid-cols-2 gap-3">
-          <div
-            className="rounded-lg p-4 flex flex-col h-full"
-            style={{ backgroundColor: '#fef2f2', border: '2px solid #fca5a5' }}
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <svg className="w-5 h-5 flex-shrink-0 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              <div>
-                <h3 className="font-semibold text-sm text-red-700">Clear Local Cache</h3>
-                <p className="text-xs mt-0.5 leading-relaxed text-red-800 opacity-70">Clears Google Sheets tokens and temp data</p>
-              </div>
+          <Card className="flex flex-col h-full" style={{ borderLeft: '3px solid var(--accent-error)' }}>
+            <div className="mb-3">
+              <h3 className="label-sm text-txt-primary m-0">Clear Local Cache</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+                Clears Google Sheets tokens and temp data
+              </p>
             </div>
             <div className="mt-auto">
-              <button
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleClearCache}
                 disabled={clearCacheStatus === 'running'}
-                className="w-full px-3 py-1.5 rounded-md font-medium text-xs hover:opacity-90 transition-opacity disabled:opacity-50 bg-red-600 text-white"
+                className="w-full"
               >
                 {clearCacheStatus === 'running' ? 'Running...' : 'Clear Cache'}
-              </button>
-              {clearCacheStatus && clearCacheStatus !== 'running' && (
-                <p className={`text-xs mt-2 ${clearCacheStatus.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {clearCacheStatus.success ? '✓' : '✗'} {clearCacheStatus.message}
-                </p>
-              )}
+              </Button>
+              <StatusLine status={clearCacheStatus} />
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* Stint Data Cleanup */}
       <div>
         <SectionHeader
+          size="sm"
           title="Clean Up Stint Data"
           subtitle="Remove old stint-based roster fields, backfill teamsByYear"
         />
@@ -2655,57 +2576,61 @@ export default function DangerZone() {
           buttonText="Clean Up Stint Data"
           onClick={handleStintCleanup}
           status={stintCleanupStatus}
+          variant="danger"
         />
       </div>
 
       {/* Storage Tier Testing (Dev) */}
       <div>
         <SectionHeader
+          size="sm"
           title="Storage Tier Testing"
           subtitle="Dev tool - switch between IndexedDB and Firebase"
         />
-        <div className="rounded-lg p-4" style={{ backgroundColor: '#f0fdf4', border: '2px solid #86efac' }}>
+        <Card>
           {/* Current Status */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${currentStorageTier === STORAGE_TIER.FREE ? 'bg-blue-500' : 'bg-purple-500'}`} />
-              <span className="text-sm font-medium text-gray-800">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: currentStorageTier === STORAGE_TIER.FREE ? 'var(--accent-info)' : 'var(--team-primary)' }}
+              />
+              <span className="text-sm font-medium text-txt-primary">
                 Current: <strong>{currentStorageTier === STORAGE_TIER.FREE ? 'IndexedDB (Free)' : 'Firebase (Premium)'}</strong>
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs cursor-pointer text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={debugEnabled}
-                  onChange={(e) => {
-                    setDebugEnabled(e.target.checked)
-                    storageService.setDebug(e.target.checked)
-                  }}
-                  className="w-3 h-3 rounded"
-                />
-                Debug logs
-              </label>
-            </div>
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer text-txt-secondary">
+              <input
+                type="checkbox"
+                checked={debugEnabled}
+                onChange={(e) => {
+                  setDebugEnabled(e.target.checked)
+                  storageService.setDebug(e.target.checked)
+                }}
+                className="w-3 h-3 rounded"
+                style={{ accentColor: 'var(--team-primary)' }}
+              />
+              Debug logs
+            </label>
           </div>
 
           {/* Tier Toggle Buttons */}
           <div className="flex gap-2 mb-4">
-            <button
+            <Button
+              variant={currentStorageTier === STORAGE_TIER.FREE ? 'primary' : 'outline'}
+              size="sm"
               onClick={() => {
                 storageService.setTier(STORAGE_TIER.FREE)
                 console.log('[StorageTierTest] Switched to IndexedDB (Free tier) - reloading page...')
                 window.location.reload()
               }}
-              className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
-                currentStorageTier === STORAGE_TIER.FREE
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className="flex-1"
             >
               IndexedDB (Free)
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={currentStorageTier === STORAGE_TIER.PREMIUM ? 'primary' : 'outline'}
+              size="sm"
               onClick={() => {
                 if (!user) {
                   alert('You must be logged in to test Firebase storage')
@@ -2715,45 +2640,45 @@ export default function DangerZone() {
                 console.log('[StorageTierTest] Switched to Firebase (Premium tier) - reloading page...')
                 window.location.reload()
               }}
-              className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-all ${
-                currentStorageTier === STORAGE_TIER.PREMIUM
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className="flex-1"
             >
               Firebase (Premium)
-            </button>
+            </Button>
           </div>
 
           {/* Reset Button */}
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               storageService.clearPersistedTier()
               console.log('[StorageTierTest] Cleared persisted tier - reloading page...')
               window.location.reload()
             }}
-            className="w-full px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 mb-4"
+            className="w-full mb-4"
           >
             Reset to Default (use user's actual tier)
-          </button>
+          </Button>
 
           {/* IndexedDB Info */}
-          <div className="space-y-2 text-xs text-gray-600">
+          <div className="space-y-2 text-xs text-txt-secondary">
             <div className="flex justify-between">
               <span>User ID:</span>
-              <span className="font-mono">{user?.uid || 'Not logged in'}</span>
+              <span className="font-mono text-txt-primary">{user?.uid || 'Not logged in'}</span>
             </div>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={async () => {
                 const info = await indexedDBStorage.getStorageInfo()
                 setStorageInfo(info)
               }}
-              className="w-full px-3 py-1.5 rounded text-xs font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+              className="w-full"
             >
               Check IndexedDB Storage Usage
-            </button>
+            </Button>
             {storageInfo && (
-              <div className="p-2 rounded bg-white border text-xs">
+              <div className="p-2 rounded-md text-xs tabular" style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}>
                 <div>Used: {(storageInfo.used / 1024 / 1024).toFixed(2)} MB</div>
                 <div>Quota: {(storageInfo.quota / 1024 / 1024).toFixed(0)} MB</div>
                 <div>Usage: {storageInfo.percent}%</div>
@@ -2762,22 +2687,23 @@ export default function DangerZone() {
           </div>
 
           {/* Instructions */}
-          <div className="mt-4 p-2 rounded bg-yellow-50 border border-yellow-200 text-xs text-yellow-800">
-            <strong>Testing instructions:</strong>
-            <ol className="list-decimal ml-4 mt-1 space-y-1">
+          <div className="mt-4 p-3 rounded-md text-xs" style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--accent-warning)' }}>
+            <strong className="text-txt-primary">Testing instructions:</strong>
+            <ol className="list-decimal ml-4 mt-1 space-y-1 text-txt-secondary">
               <li>Open browser console (F12) to see debug logs</li>
               <li>Switch between tiers (page will reload)</li>
               <li>Perform actions (save game, update roster, etc.)</li>
               <li>Watch console for [IndexedDB] or [Firebase] logs</li>
             </ol>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Teambuilder Section */}
       {teambuilderTeams.length > 0 && (
         <div>
           <SectionHeader
+            size="sm"
             title="Teambuilder Teams"
             subtitle={`${teambuilderTeams.length} custom team${teambuilderTeams.length > 1 ? 's' : ''}`}
           />
@@ -2788,16 +2714,17 @@ export default function DangerZone() {
               const originalName = originalAbbr ? getTeamName(originalAbbr) : TEAMS[team.tid]?.name || 'Unknown'
 
               return (
-                <div
-                  key={team.tid}
-                  className="rounded-lg p-4 flex items-center gap-4"
-                  style={{ backgroundColor: team.secondaryColor || teamColors.secondary, border: `3px solid ${team.primaryColor || teamColors.primary}` }}
-                >
+                <Card key={team.tid} accent="left" className="flex items-center gap-4">
                   {team.logo ? (
-                    <img src={team.logo} alt={team.name} className="w-12 h-12 object-contain rounded bg-white p-1" />
+                    <img
+                      src={team.logo}
+                      alt={team.name}
+                      className="w-12 h-12 object-contain rounded-md"
+                      style={{ backgroundColor: 'var(--surface-3)', padding: '4px' }}
+                    />
                   ) : (
                     <div
-                      className="w-12 h-12 rounded flex items-center justify-center font-bold text-sm"
+                      className="w-12 h-12 rounded-md flex items-center justify-center font-bold text-sm"
                       style={{ backgroundColor: team.primaryColor, color: team.secondaryColor }}
                     >
                       {team.abbr}
@@ -2805,31 +2732,28 @@ export default function DangerZone() {
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-sm truncate" style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary) }}>
-                      {team.name}
-                    </h3>
-                    <p className="text-xs" style={{ color: getContrastTextColor(team.secondaryColor || teamColors.secondary), opacity: 0.7 }}>
+                    <h3 className="label-sm text-txt-primary truncate m-0">{team.name}</h3>
+                    <p className="text-xs text-txt-tertiary m-0 mt-0.5">
                       {team.abbr} • Replaces {originalName}
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="primary"
+                      size="sm"
                       onClick={() => { setSelectedTeambuilderTid(team.tid); setShowTeambuilderEditModal(true) }}
-                      className="px-3 py-1.5 rounded text-xs font-medium"
-                      style={{ backgroundColor: team.primaryColor, color: getContrastTextColor(team.primaryColor) }}
                     >
                       Edit
-                    </button>
+                    </Button>
                     <Link
                       to={`${pathPrefix}/team/${team.tid}`}
-                      className="px-3 py-1.5 rounded text-xs font-medium border-2"
-                      style={{ borderColor: team.primaryColor, color: team.primaryColor }}
+                      className="inline-flex items-center justify-center h-8 px-3 text-sm font-semibold rounded-md bg-transparent border border-surface-5 text-txt-primary hover:bg-surface-3 transition-colors"
                     >
                       View
                     </Link>
                   </div>
-                </div>
+                </Card>
               )
             })}
           </div>
@@ -2843,6 +2767,7 @@ export default function DangerZone() {
           onClose={() => { setShowTeambuilderEditModal(false); setSelectedTeambuilderTid(null) }}
           team={currentDynasty?.teams?.[selectedTeambuilderTid]}
           tid={selectedTeambuilderTid}
+          teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
           onSave={async (updates) => {
             const result = await updateTeambuilderTeam(currentDynasty.id, selectedTeambuilderTid, updates)
             if (!result.success) throw new Error(result.message)

@@ -53,7 +53,7 @@ export default function StorageSwitchModal({
       onClick={onClose}
     >
       <div
-        className="bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6 border border-gray-700"
+        className="bg-surface-2 rounded-xl shadow-xl max-w-md w-full p-6 border border-surface-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold text-white mb-4">
@@ -75,14 +75,14 @@ export default function StorageSwitchModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                 </svg>
               )}
-              <span className="text-sm font-medium text-gray-300">
+              <span className="text-sm font-medium text-txt-muted">
                 {currentStorage === 'local' ? 'Local' : 'Cloud'}
               </span>
-              <span className="text-xs text-gray-500">Current</span>
+              <span className="text-xs text-txt-muted">Current</span>
             </div>
 
             {/* Arrow */}
-            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
 
@@ -99,16 +99,16 @@ export default function StorageSwitchModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
                 </svg>
               )}
-              <span className="text-sm font-medium text-gray-400">
+              <span className="text-sm font-medium text-txt-muted">
                 {targetStorage === 'local' ? 'Local' : 'Cloud'}
               </span>
-              <span className="text-xs text-gray-500">Target</span>
+              <span className="text-xs text-txt-muted">Target</span>
             </div>
           </div>
 
           {/* Description */}
           {targetStorage === 'cloud' ? (
-            <div className="text-sm text-gray-400 space-y-2">
+            <div className="text-sm text-txt-muted space-y-2">
               <p><strong className="text-purple-400">Cloud storage</strong> enables:</p>
               <ul className="list-disc list-inside ml-2 space-y-1">
                 <li>Access from any device</li>
@@ -118,7 +118,7 @@ export default function StorageSwitchModal({
               </ul>
             </div>
           ) : (
-            <div className="text-sm text-gray-400 space-y-2">
+            <div className="text-sm text-txt-muted space-y-2">
               <p><strong className="text-blue-400">Local storage</strong> means:</p>
               <ul className="list-disc list-inside ml-2 space-y-1">
                 <li>Data stays on this device only</li>
@@ -172,7 +172,7 @@ export default function StorageSwitchModal({
           <button
             onClick={onClose}
             disabled={migrating}
-            className={`${isCloudReadOnly ? 'w-full' : 'flex-1'} px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-50`}
+            className={`${isCloudReadOnly ? 'w-full' : 'flex-1'} px-4 py-2 bg-surface-3 hover:bg-surface-4 text-white rounded-lg transition-colors disabled:opacity-50`}
           >
             {isCloudReadOnly ? 'Close' : 'Cancel'}
           </button>

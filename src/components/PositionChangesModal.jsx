@@ -158,7 +158,7 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
     return createPortal(
       <div
         id="player-search-dropdown"
-        className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-xl overflow-y-auto"
+        className="fixed z-[10000] bg-white border border-surface-4 rounded-lg shadow-xl overflow-y-auto"
         style={dropdownPos}
       >
         {filteredPlayers.length > 0 ? (
@@ -168,10 +168,10 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
               data-index={idx}
               onClick={() => handleSelectPlayer(player)}
               className={`px-3 py-3 cursor-pointer flex justify-between items-center transition-colors ${
-                idx === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
+                idx === highlightedIndex ? 'bg-blue-50' : 'hover:bg-surface-2'
               }`}
             >
-              <span className="font-medium text-gray-900">{player.name}</span>
+              <span className="font-medium text-txt-primary">{player.name}</span>
               <span
                 className="text-xs px-2.5 py-1 rounded font-bold text-white"
                 style={{ backgroundColor: primaryColor }}
@@ -181,7 +181,7 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
             </div>
           ))
         ) : (
-          <div className="px-3 py-4 text-gray-500 text-sm text-center">No players found</div>
+          <div className="px-3 py-4 text-txt-muted text-sm text-center">No players found</div>
         )}
       </div>,
       document.body
@@ -191,16 +191,16 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
   return (
     <div className="relative" ref={containerRef}>
       {selectedPlayer ? (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-lg border border-gray-300 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-lg border border-surface-4 shadow-sm">
           <div className="flex-1 min-w-0">
-            <span className="font-semibold text-gray-900">{selectedPlayer.name}</span>
+            <span className="font-semibold text-txt-primary">{selectedPlayer.name}</span>
           </div>
           <button
             onClick={handleClear}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 hover:bg-surface-3 rounded transition-colors"
             type="button"
           >
-            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -215,9 +215,9 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
             onFocus={() => setIsOpen(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full px-3 py-2.5 bg-white rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none text-gray-900 placeholder-gray-400 shadow-sm"
+            className="w-full px-3 py-2.5 bg-white rounded-lg border border-surface-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none text-txt-primary placeholder-gray-400 shadow-sm"
           />
-          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
@@ -353,7 +353,7 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
     return createPortal(
       <div
         id={dropdownId}
-        className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-xl overflow-y-auto"
+        className="fixed z-[10000] bg-white border border-surface-4 rounded-lg shadow-xl overflow-y-auto"
         style={dropdownPos}
       >
         {availablePositions.map((pos, idx) => (
@@ -362,7 +362,7 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
             data-index={idx}
             onClick={() => handleSelect(pos)}
             className={`px-3 py-2.5 cursor-pointer text-center font-semibold transition-colors ${
-              idx === highlightedIndex ? 'bg-blue-50 text-blue-700' : 'text-gray-900 hover:bg-gray-50'
+              idx === highlightedIndex ? 'bg-blue-50 text-blue-700' : 'text-txt-primary hover:bg-surface-2'
             } ${pos === value ? 'bg-blue-100' : ''}`}
           >
             {pos}
@@ -380,8 +380,8 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        className={`w-full px-3 py-2.5 bg-white rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none font-semibold text-center shadow-sm flex items-center justify-center gap-1 ${
-          disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'text-gray-900'
+        className={`w-full px-3 py-2.5 bg-white rounded-lg border border-surface-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none font-semibold text-center shadow-sm flex items-center justify-center gap-1 ${
+          disabled ? 'bg-surface-3 text-txt-muted cursor-not-allowed' : 'text-txt-primary'
         }`}
       >
         <span>{value || 'Select...'}</span>
@@ -533,7 +533,7 @@ export default function PositionChangesModal({
       onMouseDown={onClose}
     >
       <div
-        className="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col"
+        className="bg-surface-2 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col"
         style={{ maxHeight: '85vh' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -562,20 +562,20 @@ export default function PositionChangesModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-surface-2">
           {positionChanges.map((change, index) => (
             <div
               key={index}
               className={`rounded-xl p-4 transition-all ${
                 change.playerId
-                  ? 'bg-white border border-gray-200 shadow-sm'
-                  : 'bg-gray-100 border-2 border-dashed border-gray-300'
+                  ? 'bg-white border border-surface-4 shadow-sm'
+                  : 'bg-surface-3 border-2 border-dashed border-surface-4'
               }`}
             >
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                 {/* Player Search */}
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Player</label>
+                  <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 uppercase tracking-wide">Player</label>
                   <PlayerSearchInput
                     value={change.playerId}
                     players={getAvailablePlayers(index)}
@@ -589,12 +589,12 @@ export default function PositionChangesModal({
                 <div className="flex items-end gap-2 sm:gap-3">
                   {/* Old Position */}
                   <div className="w-20">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 text-center uppercase tracking-wide">From</label>
+                    <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wide">From</label>
                     <div
                       className={`px-3 py-2.5 rounded-lg font-bold text-center text-sm ${
                         change.oldPosition
-                          ? 'bg-gray-200 text-gray-700'
-                          : 'bg-gray-100 text-gray-400 border-2 border-dashed border-gray-300'
+                          ? 'bg-surface-4 text-txt-secondary'
+                          : 'bg-surface-3 text-txt-muted border-2 border-dashed border-surface-4'
                       }`}
                     >
                       {change.oldPosition || '—'}
@@ -604,7 +604,7 @@ export default function PositionChangesModal({
                   {/* Arrow */}
                   <div className="flex items-center justify-center pb-1">
                     <svg
-                      className={`w-5 h-5 ${change.playerId ? 'text-gray-500' : 'text-gray-300'}`}
+                      className={`w-5 h-5 ${change.playerId ? 'text-txt-muted' : 'text-txt-muted'}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -615,7 +615,7 @@ export default function PositionChangesModal({
 
                   {/* New Position */}
                   <div className="w-28">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 text-center uppercase tracking-wide">To</label>
+                    <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wide">To</label>
                     <PositionSelector
                       value={change.newPosition}
                       onChange={(pos) => handleNewPositionSelect(index, pos)}
@@ -630,7 +630,7 @@ export default function PositionChangesModal({
                     {(positionChanges.length > 1 || change.playerId) && (
                       <button
                         onClick={() => handleRemoveEntry(index)}
-                        className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors"
+                        className="p-2 hover:bg-red-50 rounded-lg text-txt-muted hover:text-red-500 transition-colors"
                         title="Remove"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -644,13 +644,13 @@ export default function PositionChangesModal({
 
               {/* Success indicator when change is complete */}
               {change.playerId && change.newPosition && change.newPosition !== change.oldPosition && (
-                <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2">
+                <div className="mt-3 pt-3 border-t border-surface-4 flex items-center gap-2">
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="text-sm text-gray-600">
-                    <span className="text-gray-900 font-semibold">{change.playerName}</span> will change from{' '}
-                    <span className="font-bold text-gray-700">{change.oldPosition}</span> to{' '}
+                  <span className="text-sm text-txt-tertiary">
+                    <span className="text-txt-primary font-semibold">{change.playerName}</span> will change from{' '}
+                    <span className="font-bold text-txt-secondary">{change.oldPosition}</span> to{' '}
                     <span className="font-bold" style={{ color: primaryColor }}>{change.newPosition}</span>
                   </span>
                 </div>
@@ -661,7 +661,7 @@ export default function PositionChangesModal({
           {/* Add Another Button */}
           <button
             onClick={handleAddEntry}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-600 hover:bg-white transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl border-2 border-dashed border-surface-4 text-txt-muted hover:border-surface-5 hover:text-txt-tertiary hover:bg-white transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -671,7 +671,7 @@ export default function PositionChangesModal({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-gray-200 flex-shrink-0 bg-white rounded-b-2xl">
+        <div className="p-5 border-t border-surface-4 flex-shrink-0 bg-white rounded-b-2xl">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <div className="flex items-center gap-2">
               {validChangesCount > 0 ? (
@@ -680,18 +680,18 @@ export default function PositionChangesModal({
                     className="w-2.5 h-2.5 rounded-full animate-pulse"
                     style={{ backgroundColor: primaryColor }}
                   />
-                  <span className="text-sm text-gray-600">
-                    <span className="font-bold text-gray-900">{validChangesCount}</span> position change{validChangesCount !== 1 ? 's' : ''} ready
+                  <span className="text-sm text-txt-tertiary">
+                    <span className="font-bold text-txt-primary">{validChangesCount}</span> position change{validChangesCount !== 1 ? 's' : ''} ready
                   </span>
                 </>
               ) : (
-                <span className="text-sm text-gray-500">No changes to save</span>
+                <span className="text-sm text-txt-muted">No changes to save</span>
               )}
             </div>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-lg font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+                className="px-5 py-2.5 rounded-lg font-semibold bg-surface-4 text-txt-secondary hover:bg-surface-4 transition-colors"
               >
                 Cancel
               </button>

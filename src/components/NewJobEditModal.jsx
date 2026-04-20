@@ -199,7 +199,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                   if (!e.target.value) setSelectedTeam('')
                 }}
                 onFocus={() => setShowTeamDropdown(true)}
-                className="w-full px-4 py-3 rounded-lg border-2 text-gray-900 placeholder-gray-400"
+                className="w-full px-4 py-3 rounded-lg border-2 text-txt-primary placeholder-gray-400"
                 style={{
                   borderColor: teamColors.primary,
                   backgroundColor: '#ffffff'
@@ -215,7 +215,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                   }}
                 >
                   {filteredTeams.length === 0 ? (
-                    <div className="px-4 py-3 text-gray-500">No teams found</div>
+                    <div className="px-4 py-3 text-txt-muted">No teams found</div>
                   ) : (
                     filteredTeams.map((team) => {
                       const logo = getTeamLogo(team.name, dynastyTeams)
@@ -223,7 +223,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                         <button
                           key={team.abbr}
                           onClick={() => handleTeamSelect(team.name)}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left hover:bg-surface-3 flex items-center gap-2"
                         >
                           {logo && (
                             <img src={logo} alt="" className="w-6 h-6 object-contain" />

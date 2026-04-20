@@ -171,7 +171,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+            className="flex-1 px-4 py-2 rounded-lg font-semibold bg-surface-3 hover:bg-surface-4 text-white transition-colors"
           >
             Cancel
           </button>

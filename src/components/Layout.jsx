@@ -8,16 +8,19 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
+import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.03.09.0003'
+const APP_VERSION = '2026.04.20.0003'
 
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek } = useDynasty()
   const { user, signOut } = useAuth()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [showWeekDropdown, setShowWeekDropdown] = useState(false)
   const [showClassAdvancementModal, setShowClassAdvancementModal] = useState(false)
   const [playersNeedingConfirmation, setPlayersNeedingConfirmation] = useState([])
@@ -105,10 +108,10 @@ export default function Layout({ children }) {
     location.pathname.includes('/teams') ||
     location.pathname.includes('/players')
 
-  const headerBg = useTeamTheme ? teamColors.primary : '#1f2937'
-  const headerText = useTeamTheme ? getContrastTextColor(teamColors.primary) : '#f9fafb'
-  const buttonBg = useTeamTheme ? teamColors.secondary : '#f9fafb'
-  const buttonText = useTeamTheme ? getContrastTextColor(teamColors.secondary) : '#1f2937'
+  // Header is ALWAYS neutral (surface-1). Team color shows only as a thin
+  // top stripe + accents on dynasty pages. See docs/DESIGN.md.
+  const headerText = 'var(--text-primary)'
+  const headerMetaText = 'var(--text-secondary)'
 
   const getPhaseDisplay = (phase, week) => {
     if (phase === 'postseason') {
@@ -155,7 +158,7 @@ export default function Layout({ children }) {
 
     if (currentDynasty.currentPhase === 'preseason' && !canAdvanceFromPreseason()) {
       console.log('[Layout:handleAdvanceWeek] Blocked: preseason not complete')
-      alert('Please complete schedule, roster, and team ratings before advancing to the regular season.')
+      toast.warning('Complete schedule, roster, and team ratings before advancing to the regular season.')
       return
     }
 
@@ -182,7 +185,7 @@ export default function Layout({ children }) {
         })
 
         if (!currentWeekGame) {
-          alert(`Please enter the Week ${currentDynasty.currentWeek} game before advancing.`)
+          toast.warning(`Enter the Week ${currentDynasty.currentWeek} game before advancing.`)
           return
         }
       }
@@ -196,7 +199,7 @@ export default function Layout({ children }) {
 
       // If they haven't answered whether they made the championship yet
       if (ccData?.madeChampionship === undefined || ccData?.madeChampionship === null) {
-        alert('Please answer whether you made the conference championship before advancing.')
+        toast.warning('Answer whether you made the conference championship before advancing.')
         return
       }
       // If they made the championship, check if they entered the game
@@ -205,7 +208,7 @@ export default function Layout({ children }) {
           g => g.isConferenceChampionship && Number(g.year) === Number(currentDynasty.currentYear)
         )
         if (!ccGame) {
-          alert('Please enter your conference championship game before advancing.')
+          toast.warning('Enter your conference championship game before advancing.')
           return
         }
       }
@@ -224,9 +227,11 @@ export default function Layout({ children }) {
       const expectedCount = userMadeCC ? 9 : 10
 
       if (enteredCount < expectedCount) {
-        const confirmAdvance = window.confirm(
-          `You have only entered ${enteredCount}/${expectedCount} Conference Championship results. Are you sure you want to advance?`
-        )
+        const confirmAdvance = await confirm({
+          title: 'Advance With Incomplete CC Results?',
+          message: `You have only entered ${enteredCount}/${expectedCount} Conference Championship results. Are you sure you want to advance?`,
+          confirmLabel: 'Advance anyway',
+        })
         if (!confirmAdvance) {
           return
         }
@@ -300,9 +305,11 @@ export default function Layout({ children }) {
 
       // Only warn if CFP games are missing
       if (missingCFPGames.length > 0) {
-        const confirmAdvance = window.confirm(
-          `The following CFP games have not been fully entered:\n\n${missingCFPGames.join('\n')}\n\nAre you sure you want to advance?`
-        )
+        const confirmAdvance = await confirm({
+          title: 'Advance With Missing CFP Games?',
+          message: `The following CFP games have not been fully entered:\n\n${missingCFPGames.join('\n')}\n\nAre you sure you want to advance?`,
+          confirmLabel: 'Advance anyway',
+        })
         if (!confirmAdvance) {
           return
         }
@@ -314,7 +321,7 @@ export default function Layout({ children }) {
     if (currentDynasty.currentPhase === 'postseason') {
       const newJobData = currentDynasty.newJobData
       if (newJobData?.takingNewJob === true && (!newJobData.team || !newJobData.position)) {
-        alert('Please complete your new job selection (team and position) before advancing to the offseason.')
+        toast.warning('Complete your new job selection (team and position) before advancing to the offseason.')
         return
       }
     }
@@ -366,21 +373,23 @@ export default function Layout({ children }) {
     await advanceWeek(currentDynasty.id, confirmations)
   }
 
-  const handleRevertWeek = () => {
+  const handleRevertWeek = async () => {
     if (!currentDynasty) return
 
-    // Confirm before reverting
     const confirmMessage = currentDynasty.currentPhase === 'preseason' && currentDynasty.currentWeek === 0
       ? 'This will revert to the previous year\'s offseason. Any data from this preseason will be lost. Continue?'
       : 'This will go back one week and remove any game data from the current week. Continue?'
 
-    if (!window.confirm(confirmMessage)) {
-      setShowWeekDropdown(false)
-      return
-    }
+    setShowWeekDropdown(false)
+    const ok = await confirm({
+      title: 'Revert Week',
+      message: confirmMessage,
+      confirmLabel: 'Revert',
+      variant: 'danger',
+    })
+    if (!ok) return
 
     revertWeek(currentDynasty.id)
-    setShowWeekDropdown(false)
   }
 
 
@@ -397,12 +406,20 @@ export default function Layout({ children }) {
       style={{ backgroundColor: pageBg }}
     >
       <header
-        className="sticky top-0 z-50 shadow-sm"
+        className="sticky top-0 z-50"
         style={{
-          backgroundColor: headerBg,
-          borderBottom: useTeamTheme ? `3px solid ${teamColors.secondary}` : '3px solid #374151'
+          backgroundColor: 'var(--surface-1)',
+          borderBottom: '1px solid var(--surface-4)',
         }}
       >
+        {/* Thin team-color accent stripe (only on dynasty pages) */}
+        {useTeamTheme && (
+          <div
+            className="h-[3px] w-full"
+            style={{ backgroundColor: 'var(--team-primary)' }}
+            aria-hidden="true"
+          />
+        )}
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3">
             {/* Left: Burger menu + Home button (dynasty) OR AI Settings (home page) */}
@@ -436,8 +453,7 @@ export default function Layout({ children }) {
                 user && (
                   <Link
                     to="/ai-settings"
-                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-white/20 whitespace-nowrap"
-                    style={{ color: headerText }}
+                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-surface-3 text-txt-primary whitespace-nowrap"
                   >
                     AI Settings
                   </Link>
@@ -540,19 +556,16 @@ export default function Layout({ children }) {
                   {/* Dropdown Menu */}
                   {showWeekDropdown && (
                     <>
-                      {/* Backdrop to close dropdown */}
                       <div
                         className="fixed inset-0 z-40"
                         onClick={() => setShowWeekDropdown(false)}
                       />
-                      <div
-                        className="absolute right-0 top-full mt-1 w-36 rounded-lg shadow-lg z-50 overflow-hidden bg-gray-800"
-                      >
+                      <div className="absolute right-0 top-full mt-1 w-40 card-elevated z-50 overflow-hidden">
                         <button
                           onClick={handleRevertWeek}
-                          className="w-full px-4 py-2 text-left text-sm font-medium hover:bg-gray-700 transition-colors flex items-center gap-2 text-gray-100"
+                          className="w-full px-4 py-2.5 text-left text-sm font-medium text-txt-primary hover:bg-surface-4 transition-colors flex items-center gap-2"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                           </svg>
                           Revert Week
@@ -569,40 +582,41 @@ export default function Layout({ children }) {
                   <div className="relative" ref={userMenuRef}>
                     <button
                       onClick={() => setShowUserMenu(!showUserMenu)}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-surface-3 transition-colors"
                     >
                       {user.photoURL ? (
                         <img
                           src={user.photoURL}
                           alt={user.displayName || 'User'}
-                          className="w-8 h-8 rounded-full border-2 border-white/30"
+                          className="w-8 h-8 rounded-full"
+                          style={{ border: '2px solid var(--surface-4)' }}
                         />
                       ) : (
-                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-medium" style={{ color: headerText }}>
+                        <div className="w-8 h-8 rounded-full bg-surface-3 flex items-center justify-center text-sm font-medium text-txt-primary">
                           {(user.displayName || user.email || 'U')[0].toUpperCase()}
                         </div>
                       )}
                       <div className="hidden sm:block text-left">
-                        <p className="text-sm font-medium truncate max-w-[120px]" style={{ color: headerText }}>
+                        <p className="text-sm font-medium truncate max-w-[120px] text-txt-primary">
                           {user.displayName || 'User'}
                         </p>
                       </div>
-                      <svg className={`w-4 h-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} style={{ color: headerText }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className={`w-4 h-4 transition-transform text-txt-secondary ${showUserMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </button>
 
                     {/* User dropdown menu */}
                     {showUserMenu && (
-                      <div className="absolute right-0 mt-2 w-64 bg-gray-800 rounded-lg shadow-xl border border-gray-700 py-2 z-50">
-                        <div className="px-4 py-2 border-b border-gray-700">
-                          <p className="text-sm font-medium text-white">{user.displayName || 'User'}</p>
-                          <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                      <div className="absolute right-0 mt-2 w-64 card-elevated py-2 z-50 overflow-hidden">
+                        <div className="px-4 py-2" style={{ borderBottom: '1px solid var(--surface-4)' }}>
+                          <p className="text-sm font-medium text-txt-primary">{user.displayName || 'User'}</p>
+                          <p className="text-xs text-txt-tertiary truncate">{user.email}</p>
                         </div>
                         <Link
                           to="/account"
                           onClick={() => setShowUserMenu(false)}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-txt-secondary hover:bg-surface-4 hover:text-txt-primary flex items-center gap-2 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -611,7 +625,7 @@ export default function Layout({ children }) {
                         </Link>
                         <button
                           onClick={handleSignOut}
-                          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+                          className="w-full px-4 py-2 text-left text-sm text-txt-secondary hover:bg-surface-4 hover:text-txt-primary flex items-center gap-2 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -624,8 +638,7 @@ export default function Layout({ children }) {
                 ) : (
                   <Link
                     to="/login"
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/20 text-sm transition-colors"
-                    style={{ color: headerText }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-3 text-sm text-txt-primary transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -640,9 +653,8 @@ export default function Layout({ children }) {
       </header>
 
       <main className={`flex-1 ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
-        {/* Dynasty pages get a max-width container for better desktop experience */}
         {isDynastyPage ? (
-          <div className="max-w-[1400px] mx-auto w-full">
+          <div className="max-w-[1280px] mx-auto w-full">
             {children}
           </div>
         ) : (
@@ -652,7 +664,7 @@ export default function Layout({ children }) {
 
       {/* Version Footer - positioned above ticker */}
       <footer className="pb-10 pt-2 px-4 text-right">
-        <p className="text-[10px] sm:text-xs text-gray-500">v{APP_VERSION}</p>
+        <p className="text-[10px] sm:text-xs text-txt-tertiary">v{APP_VERSION}</p>
       </footer>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}

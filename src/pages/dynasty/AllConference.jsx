@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty, getCustomConferencesForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
@@ -10,6 +9,15 @@ import { conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import {
+  PageHero,
+  Card,
+  Button,
+  Badge,
+  EmptyState,
+  Select,
+  Tabs,
+} from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
@@ -75,7 +83,6 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Extract school name from mascot
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
   const specialMascots = [
@@ -97,48 +104,15 @@ const getSchoolName = (mascotName) => {
   return mascotName
 }
 
-// Helper function to clean player names
 const cleanPlayerName = (name) => {
   if (!name) return ''
   return name.replace(/^[\s★⭐✦•*·●◆♦▪■\-–—]+/, '').trim()
 }
 
-// Conference-specific color themes
-const CONFERENCE_THEMES = {
-  'SEC': { primary: '#ffc72c', secondary: '#1c3761', accent: '#ffc72c' },
-  'Big Ten': { primary: '#0088ce', secondary: '#fff', accent: '#0088ce' },
-  'Big 12': { primary: '#ef4135', secondary: '#002a5c', accent: '#ef4135' },
-  'ACC': { primary: '#013ca6', secondary: '#a0b3d6', accent: '#013ca6' },
-  'Pac-12': { primary: '#004c91', secondary: '#b6985a', accent: '#004c91' },
-  'Big East': { primary: '#e41c38', secondary: '#0c2340', accent: '#e41c38' },
-  'AAC': { primary: '#e31837', secondary: '#fff', accent: '#e31837' },
-  'Mountain West': { primary: '#003da5', secondary: '#b3a369', accent: '#003da5' },
-  'Sun Belt': { primary: '#00205b', secondary: '#9d2235', accent: '#9d2235' },
-  'MAC': { primary: '#6a3a78', secondary: '#fff', accent: '#6a3a78' },
-  'C-USA': { primary: '#002f6c', secondary: '#a5a5a5', accent: '#002f6c' },
-  'Independent': { primary: '#0c2340', secondary: '#c5b358', accent: '#c5b358' }
-}
-
-// Designation config
-const DESIGNATION_CONFIG = {
-  first: {
-    label: 'First Team',
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-    textColor: '#fff',
-    accentColor: '#3b82f6'
-  },
-  second: {
-    label: 'Second Team',
-    gradient: 'linear-gradient(135deg, #64748b 0%, #475569 100%)',
-    textColor: '#fff',
-    accentColor: '#64748b'
-  },
-  freshman: {
-    label: 'Freshman',
-    gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-    textColor: '#fff',
-    accentColor: '#8b5cf6'
-  }
+const DESIGNATION_LABEL = {
+  first: 'First Team',
+  second: 'Second Team',
+  freshman: 'Freshman',
 }
 
 export default function AllConference() {
@@ -203,7 +177,6 @@ export default function AllConference() {
   }
 
   const displayConference = decodeConference(urlConference) || userConference
-  const confTheme = CONFERENCE_THEMES[displayConference] || { primary: '#3b82f6', secondary: '#fff', accent: '#3b82f6' }
 
   const allConference = useMemo(() => {
     if (yearData.allConferenceByConference && yearData.allConferenceByConference[displayConference]) {
@@ -333,79 +306,6 @@ export default function AllConference() {
     return nameMatches[0]
   }
 
-  // Featured player card - compact on mobile
-  const FeaturedPlayerCard = ({ player, designation }) => {
-    const config = DESIGNATION_CONFIG[designation]
-    const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: confTheme.primary, secondary: '#fff' }
-    const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school)
-    const schoolName = getSchoolName(mascotName) || player.school
-
-    return (
-      <div
-        className="group relative overflow-hidden rounded-lg sm:rounded-xl transition-all duration-300 hover:scale-[1.02]"
-        style={{
-          background: `linear-gradient(135deg, ${colors.primary}20 0%, rgba(15,23,42,0.95) 100%)`,
-          border: `1px solid ${colors.primary}40`
-        }}
-      >
-        <div
-          className="absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl opacity-20 group-hover:opacity-40 transition-opacity hidden sm:block"
-          style={{ backgroundColor: colors.primary }}
-        />
-
-        <div className="relative p-2 sm:p-4">
-          <div className="flex items-center gap-2 sm:gap-4">
-            {teamLogo && (
-              <Link
-                to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-                className="w-8 h-8 sm:w-14 sm:h-14 rounded-full bg-white p-0.5 sm:p-1 shadow-lg flex-shrink-0 hover:scale-110 transition-transform"
-              >
-                <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-              </Link>
-            )}
-
-            <div className="flex-1 min-w-0">
-              {matchingPlayer ? (
-                <Link
-                  to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                  className="font-bold text-white text-sm sm:text-lg hover:text-slate-200 transition-colors truncate block"
-                >
-                  {cleanPlayerName(player.player)}
-                </Link>
-              ) : (
-                <span className="font-bold text-white text-sm sm:text-lg truncate block">
-                  {cleanPlayerName(player.player)}
-                </span>
-              )}
-              <div className="flex items-center gap-1 sm:gap-x-2 mt-0.5">
-                <span
-                  className="px-1 sm:px-2 py-0.5 rounded text-[8px] sm:text-xs font-bold"
-                  style={{ backgroundColor: `${colors.primary}30`, color: colors.primary }}
-                >
-                  {player.position}
-                </span>
-                <span className="text-slate-400 text-[10px] sm:text-sm">{player.class}</span>
-                <span className="text-slate-600 hidden sm:inline">|</span>
-                <span className="text-slate-500 text-[10px] sm:hidden truncate">{schoolName}</span>
-                <Link
-                  to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-                  className="text-slate-400 text-sm hover:text-slate-300 transition-colors truncate hidden sm:inline"
-                >
-                  {schoolName}
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-0.5" style={{ backgroundColor: colors.primary }} />
-      </div>
-    )
-  }
-
-  // Compact player row - even more compact on mobile
   const PlayerRow = ({ player }) => {
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
@@ -414,273 +314,141 @@ export default function AllConference() {
     const schoolName = getSchoolName(mascotName) || player.school
 
     return (
-      <div className="group flex items-center gap-1.5 sm:gap-3 py-1.5 sm:py-2.5 px-2 sm:px-3 hover:bg-white/5 rounded-lg transition-all">
-        {teamLogo && (
+      <div
+        className="group flex items-center gap-3 px-3 py-2 hover:bg-surface-3 transition-colors"
+        style={{ borderBottom: '1px solid var(--surface-4)' }}
+      >
+        <span
+          className="w-8 text-center label-xs flex-shrink-0"
+          style={{ color: colors.primary }}
+        >
+          {player.position}
+        </span>
+
+        {teamLogo ? (
           <Link
             to={`${pathPrefix}/team/${resolveTid(player.school, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-            className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white p-0.5 flex-shrink-0 shadow-sm hover:scale-110 transition-transform"
+            className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0"
           >
             <img src={teamLogo} alt="" className="w-full h-full object-contain" />
           </Link>
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
         )}
 
         <div className="flex-1 min-w-0">
           {matchingPlayer ? (
             <Link
               to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-              className="font-medium text-white text-[11px] sm:text-sm hover:text-slate-300 transition-colors truncate block"
+              className="font-medium text-sm text-txt-primary hover:text-[color:var(--team-primary)] transition-colors truncate block"
             >
               {cleanPlayerName(player.player)}
             </Link>
           ) : (
-            <span className="font-medium text-white text-[11px] sm:text-sm truncate block">
+            <span className="font-medium text-sm text-txt-primary truncate block">
               {cleanPlayerName(player.player)}
             </span>
           )}
-          <span className="text-[9px] sm:text-xs text-slate-500 truncate block">{schoolName}</span>
-        </div>
-
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          <span className="text-[10px] sm:text-xs text-slate-500 hidden sm:inline">{player.class}</span>
-          <span
-            className="px-1 py-0.5 rounded text-[8px] sm:text-[10px] font-bold"
-            style={{ backgroundColor: `${colors.primary}25`, color: colors.primary }}
-          >
-            {player.position}
-          </span>
+          <div className="text-xs text-txt-tertiary truncate">
+            {player.class && <>{player.class} · </>}{schoolName}
+          </div>
         </div>
       </div>
     )
   }
 
-  // Team section - compact on mobile
   const TeamSection = ({ designation, players }) => {
     if (players.length === 0) return null
-    const config = DESIGNATION_CONFIG[designation]
-
-    const featured = players.slice(0, 3)
-    const rest = players.slice(3)
 
     return (
-      <div className="space-y-2 sm:space-y-4">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div
-            className="px-2 sm:px-4 py-1 sm:py-2 rounded-md sm:rounded-lg font-bold text-[10px] sm:text-sm whitespace-nowrap"
-            style={{ background: config.gradient, color: config.textColor }}
-          >
-            {config.label} All-{displayConference}
-          </div>
-          <div className="flex-1 h-px bg-gradient-to-r from-slate-700 to-transparent" />
-          <span className="text-[9px] sm:text-xs text-slate-500 whitespace-nowrap">
-            {players.length}
-          </span>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <h2 className="label-xs text-txt-secondary">
+            {DESIGNATION_LABEL[designation]} All-{displayConference}
+          </h2>
+          <div className="flex-1 h-px bg-surface-4" />
+          <Badge variant="outline" size="sm">{players.length}</Badge>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-3">
-          {featured.map((player, idx) => (
-            <FeaturedPlayerCard
-              key={`featured-${player.position}-${player.player}-${idx}`}
+        <Card padding="none">
+          {players.map((player, idx) => (
+            <PlayerRow
+              key={`${designation}-${player.position}-${player.player}-${idx}`}
               player={player}
-              designation={designation}
             />
           ))}
-        </div>
-
-        {rest.length > 0 && (
-          <div className="rounded-lg sm:rounded-xl overflow-hidden bg-slate-800/30 border border-slate-700/50">
-            {rest.map((player, idx) => (
-              <PlayerRow
-                key={`row-${player.position}-${player.player}-${idx}`}
-                player={player}
-              />
-            ))}
-          </div>
-        )}
+        </Card>
       </div>
     )
   }
 
   const hasAnyPlayers = allConference.length > 0
 
+  const heroActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Select
+        value={displayConference}
+        onChange={(e) => handleConferenceChange(e.target.value)}
+        size="sm"
+      >
+        {availableConferences.map((conf) => (
+          <option key={conf} value={conf}>{conf}</option>
+        ))}
+      </Select>
+      <Select
+        value={displayYear}
+        onChange={(e) => handleYearChange(parseInt(e.target.value))}
+        size="sm"
+      >
+        {availableYears.map((year) => (
+          <option key={year} value={year}>{year}</option>
+        ))}
+      </Select>
+      {!isViewOnly && (
+        <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
+          Edit
+        </Button>
+      )}
+    </div>
+  )
+
   return (
-    <div className="space-y-3 sm:space-y-6">
-      {/* Compact Hero Header with conference branding */}
-      <div className="relative overflow-hidden rounded-xl sm:rounded-2xl">
-        {/* Background */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(135deg, ${confTheme.primary}15 0%, #0f172a 40%, #020617 100%)`
-          }}
+    <div className="space-y-6">
+      <PageHero
+        eyebrow={`${displayYear} Season`}
+        title={`All-${displayConference}`}
+        meta={<span>Conference team honors</span>}
+        actions={heroActions}
+      />
+
+      {hasAnyPlayers && (
+        <Tabs
+          variant="pill"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: 'all', label: `All (${allConference.length})` },
+            { value: 'first', label: `1st Team (${groupedByDesignation.first.length})` },
+            { value: 'second', label: `2nd Team (${groupedByDesignation.second.length})` },
+            { value: 'freshman', label: `Freshman (${groupedByDesignation.freshman.length})` },
+          ]}
         />
+      )}
 
-        {/* Conference accent pattern - hidden on mobile */}
-        <div
-          className="absolute inset-0 opacity-[0.03] hidden sm:block"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              45deg,
-              ${confTheme.primary} 0px,
-              ${confTheme.primary} 1px,
-              transparent 1px,
-              transparent 20px
-            )`
-          }}
-        />
-
-        {/* Conference color glow - hidden on mobile */}
-        <div
-          className="absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl opacity-20 hidden sm:block"
-          style={{ backgroundColor: confTheme.primary }}
-        />
-
-        <div className="relative px-3 py-3 sm:px-8 sm:py-8">
-          <div className="flex flex-col gap-2 sm:gap-6">
-            {/* Title row - compact on mobile */}
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-2">
-                  <div
-                    className="w-1 sm:w-1.5 h-4 sm:h-6 rounded-full"
-                    style={{ background: `linear-gradient(to bottom, ${confTheme.primary}, ${confTheme.accent})` }}
-                  />
-                  <span
-                    className="text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em]"
-                    style={{ color: `${confTheme.primary}cc` }}
-                  >
-                    {displayYear} Season
-                  </span>
-                </div>
-                <h1 className="text-lg sm:text-3xl md:text-4xl font-black text-white tracking-tight">
-                  All-{displayConference}
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-3">
-                {/* Conference selector */}
-                <div className="relative">
-                  <select
-                    value={displayConference}
-                    onChange={(e) => handleConferenceChange(e.target.value)}
-                    className="appearance-none pl-2 sm:pl-4 pr-6 sm:pr-10 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-base font-semibold bg-slate-800/80 text-white border border-slate-600/50 focus:outline-none focus:ring-2 cursor-pointer hover:bg-slate-700/80 transition-colors"
-                    style={{ borderColor: `${confTheme.primary}40`, '--tw-ring-color': `${confTheme.primary}80` }}
-                  >
-                    {availableConferences.map((conf) => (
-                      <option key={conf} value={conf}>{conf}</option>
-                    ))}
-                  </select>
-                  <svg className="absolute right-1.5 sm:right-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-5 sm:h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
-                {/* Year selector */}
-                <div className="relative">
-                  <select
-                    value={displayYear}
-                    onChange={(e) => handleYearChange(parseInt(e.target.value))}
-                    className="appearance-none pl-2.5 pr-7 py-1.5 sm:pl-4 sm:pr-10 sm:py-2.5 rounded-lg sm:rounded-xl font-bold text-sm sm:text-xl bg-slate-800/80 text-white border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer hover:bg-slate-700/80 transition-colors"
-                  >
-                    {availableYears.map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                  <svg className="absolute right-1.5 sm:right-3 top-1/2 -translate-y-1/2 w-4 sm:w-5 h-4 sm:h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-
-                {!isViewOnly && (
-                  <button
-                    onClick={() => setShowEditModal(true)}
-                    className="p-1.5 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold hover:opacity-90 transition-all flex items-center gap-2 shadow-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.primary}dd 100%)`,
-                      color: getContrastTextColor(teamColors.primary)
-                    }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    <span className="hidden sm:inline">Edit</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Filter tabs - compact scrollable on mobile */}
-            {hasAnyPlayers && (
-              <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-                <div className="flex items-center gap-1.5 sm:gap-2 min-w-max sm:min-w-0 sm:flex-wrap">
-                  {[
-                    { key: 'all', label: 'All', mobileLabel: 'All', count: allConference.length },
-                    { key: 'first', label: '1st Team', mobileLabel: '1st', count: groupedByDesignation.first.length },
-                    { key: 'second', label: '2nd Team', mobileLabel: '2nd', count: groupedByDesignation.second.length },
-                    { key: 'freshman', label: 'Freshman', mobileLabel: 'Fr', count: groupedByDesignation.freshman.length }
-                  ].map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setFilter(tab.key)}
-                      className="px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap"
-                      style={{
-                        backgroundColor: filter === tab.key ? `${confTheme.primary}20` : 'rgba(51, 65, 85, 0.3)',
-                        color: filter === tab.key ? confTheme.primary : '#94a3b8',
-                        border: filter === tab.key ? `1px solid ${confTheme.primary}40` : '1px solid transparent'
-                      }}
-                    >
-                      <span className="sm:hidden">{tab.mobileLabel}</span>
-                      <span className="hidden sm:inline">{tab.label}</span>
-                      {tab.count > 0 && (
-                        <span className="ml-1 text-[9px] sm:text-xs opacity-70">({tab.count})</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
       {!hasAnyPlayers ? (
-        /* Empty State */
-        <div className="min-h-[40vh] flex items-center justify-center">
-          <div className="text-center max-w-md mx-auto px-6">
-            <div
-              className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${confTheme.primary}30 0%, ${confTheme.primary}10 100%)` }}
-            >
-              <svg
-                className="w-10 h-10"
-                style={{ color: `${confTheme.primary}80` }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold text-white mb-3">No All-{displayConference} Yet</h2>
-            <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              All-Conference selections for the {displayYear} {displayConference} season haven't been recorded yet.
-            </p>
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="px-5 py-2.5 rounded-xl font-semibold transition-all"
-                style={{
-                  background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.primary}dd 100%)`,
-                  color: getContrastTextColor(teamColors.primary)
-                }}
-              >
+        <Card>
+          <EmptyState
+            title={`No All-${displayConference} Yet`}
+            message={`All-Conference selections for the ${displayYear} ${displayConference} season haven't been recorded yet.`}
+            action={!isViewOnly && (
+              <Button variant="primary" onClick={() => setShowEditModal(true)}>
                 Add All-Conference
-              </button>
+              </Button>
             )}
-          </div>
-        </div>
+          />
+        </Card>
       ) : filter === 'all' ? (
-        <div className="space-y-4 sm:space-y-8">
+        <div className="space-y-6">
           <TeamSection designation="first" players={groupedByDesignation.first} />
           <TeamSection designation="second" players={groupedByDesignation.second} />
           <TeamSection designation="freshman" players={groupedByDesignation.freshman} />
@@ -692,7 +460,6 @@ export default function AllConference() {
         />
       )}
 
-      {/* All-Conference Modal */}
       <AllConferenceModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}

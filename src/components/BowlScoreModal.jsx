@@ -257,7 +257,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
           </button>
           <button
             onClick={handleClose}
-            className="px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors bg-gray-700 hover:bg-gray-600 text-white"
+            className="px-4 py-3 rounded-lg font-semibold hover:opacity-90 transition-colors bg-surface-3 hover:bg-surface-4 text-white"
           >
             Cancel
           </button>

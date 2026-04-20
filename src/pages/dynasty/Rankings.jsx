@@ -5,8 +5,8 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { PageHero, Card, EmptyState, Tabs, Select } from '../../components/ui'
 
-// Extract school name from full mascot name
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
   const specialMascots = [
@@ -28,7 +28,6 @@ const getSchoolName = (mascotName) => {
   return mascotName
 }
 
-// Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
   if (teamsData) {
     const result = getMascotNameFromTeams(abbr, teamsData)
@@ -93,7 +92,7 @@ const getMascotName = (abbr, teamsData = null) => {
 }
 
 export default function Rankings() {
-  const { id, year: urlYear } = useParams()
+  const { year: urlYear } = useParams()
   const navigate = useNavigate()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
@@ -114,7 +113,6 @@ export default function Rankings() {
   const mediaPoll = yearPolls.media || []
   const coachesPoll = yearPolls.coaches || []
 
-  // Build team records lookup
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
   const yearStandings = standingsByYear[displayYear] || {}
   const teamRecords = {}
@@ -130,125 +128,92 @@ export default function Rankings() {
 
   const handleYearChange = (year) => navigate(`${pathPrefix}/rankings/${year}`)
 
-  // Empty state
   if (availableYears.length === 0) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-6">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
-            <svg className="w-10 h-10 text-amber-500/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-3">Final Top 25</h1>
-          <p className="text-gray-400 text-sm leading-relaxed">
-            No final polls recorded yet. Complete a season and enter final rankings to see the championship standings.
-          </p>
-        </div>
+      <div className="space-y-6">
+        <PageHero eyebrow="Final Rankings" title="Top 25" />
+        <Card>
+          <EmptyState
+            title="No Rankings Yet"
+            message="Complete a season and enter final rankings to see the championship standings."
+          />
+        </Card>
       </div>
     )
   }
 
-  // CFP Playoff Team Card (Top 4)
-  const PlayoffTeamCard = ({ rank, teamAbbr, year, isFirst }) => {
+  const PlayoffTeamCard = ({ rank, teamAbbr, year }) => {
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#d97706', secondary: '#fff' }
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#6e6e78', secondary: '#fff' }
     const record = teamRecords[teamAbbr]
     const schoolName = getSchoolName(mascotName) || teamAbbr
 
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
-        className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-xl"
-        style={{
-          background: `linear-gradient(135deg, ${colors.primary}15 0%, ${colors.primary}05 100%)`,
-          border: `1px solid ${colors.primary}30`
-        }}
+        className="card-bordered relative flex flex-col items-center text-center px-3 pt-4 pb-3 hover:bg-surface-3 transition-colors overflow-hidden"
       >
-        {/* Rank Badge */}
-        <div
-          className="absolute top-3 left-3 w-9 h-9 rounded-lg flex items-center justify-center font-black text-lg shadow-lg"
-          style={{
-            background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primary}dd 100%)`,
-            color: colors.secondary
-          }}
-        >
-          {rank}
-        </div>
-
-        {/* Content */}
-        <div className="pt-14 pb-4 px-4 text-center">
-          {/* Logo */}
-          <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-white p-1 shadow-lg group-hover:shadow-xl transition-shadow">
-            {teamLogo ? (
-              <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-            ) : (
-              <div className="w-full h-full rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-                <span className="text-xl font-bold" style={{ color: colors.secondary }}>{teamAbbr.charAt(0)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Team Name */}
-          <h3 className="font-bold text-white text-sm mb-1 truncate">{schoolName}</h3>
-
-          {/* Record */}
-          {record && (
-            <span className="text-xs font-semibold tabular-nums" style={{ color: colors.primary }}>
-              {record.wins}-{record.losses}
-            </span>
+        <span
+          aria-hidden="true"
+          className="absolute top-0 left-0 right-0 h-[3px]"
+          style={{ backgroundColor: colors.primary }}
+        />
+        <span className="stat-lg tabular text-txt-primary mb-1">#{rank}</span>
+        <div className="logo-container logo-container-xl mb-2">
+          {teamLogo ? (
+            <img src={teamLogo} alt="" />
+          ) : (
+            <div
+              className="w-full h-full rounded-full flex items-center justify-center font-bold"
+              style={{ backgroundColor: colors.primary, color: colors.secondary }}
+            >
+              {teamAbbr.charAt(0)}
+            </div>
           )}
         </div>
-
-        {/* Bottom accent */}
-        <div className="h-1" style={{ background: `linear-gradient(90deg, ${colors.primary} 0%, ${colors.primary}60 100%)` }} />
+        <div className="font-semibold text-sm text-txt-primary truncate w-full">{schoolName}</div>
+        {record && (
+          <div className="text-xs text-txt-tertiary tabular mt-0.5">
+            {record.wins}-{record.losses}
+          </div>
+        )}
       </Link>
     )
   }
 
-  // Standard ranking row
   const RankingRow = ({ rank, teamAbbr, year }) => {
     const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#666', secondary: '#fff' }
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#6e6e78', secondary: '#fff' }
     const record = teamRecords[teamAbbr]
 
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
-        className="group flex items-center gap-3 py-2.5 px-3 transition-all duration-200 hover:bg-white/5 rounded-lg mx-1"
+        className="flex items-center gap-3 px-3 py-2 hover:bg-surface-3 transition-colors"
+        style={{ borderBottom: '1px solid var(--surface-4)' }}
       >
-        {/* Rank Badge */}
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs flex-shrink-0 transition-transform group-hover:scale-110"
-          style={{
-            backgroundColor: 'rgba(71, 85, 105, 0.3)',
-            color: '#94a3b8'
-          }}
-        >
+        <span className="w-7 text-right font-semibold tabular text-sm text-txt-tertiary">
           {rank}
-        </div>
-
-        {/* Logo */}
-        <div className="w-7 h-7 rounded-full bg-white p-0.5 flex-shrink-0 shadow-sm group-hover:shadow transition-shadow">
+        </span>
+        <div className="logo-container logo-container-md flex-shrink-0">
           {teamLogo ? (
-            <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+            <img src={teamLogo} alt="" />
           ) : (
-            <div className="w-full h-full rounded-full flex items-center justify-center" style={{ backgroundColor: colors.primary }}>
-              <span className="text-xs font-bold" style={{ color: colors.secondary }}>{teamAbbr.charAt(0)}</span>
+            <div
+              className="w-full h-full rounded-full flex items-center justify-center text-xs font-bold"
+              style={{ backgroundColor: colors.primary, color: colors.secondary }}
+            >
+              {teamAbbr.charAt(0)}
             </div>
           )}
         </div>
-
-        {/* Team Name */}
-        <span className="flex-1 font-medium text-sm text-gray-200 truncate group-hover:text-white transition-colors">
+        <span className="flex-1 font-medium text-sm text-txt-primary truncate">
           {getSchoolName(mascotName) || teamAbbr}
         </span>
-
-        {/* Record */}
         {record && (
-          <span className="text-xs font-medium text-gray-500 tabular-nums flex-shrink-0">
+          <span className="text-xs text-txt-tertiary tabular flex-shrink-0">
             {record.wins}-{record.losses}
           </span>
         )}
@@ -256,41 +221,34 @@ export default function Rankings() {
     )
   }
 
-  // Poll column
   const PollColumn = ({ title, data, pollType }) => {
     const top4 = data.filter(e => e.rank <= 4).sort((a, b) => a.rank - b.rank)
     const rest = data.filter(e => e.rank > 4).sort((a, b) => a.rank - b.rank)
 
     return (
-      <div className="space-y-4">
-        {/* Poll Header */}
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-lg font-bold text-white tracking-tight">{title}</h2>
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            {data.length} teams
-          </span>
-        </div>
+      <section className="space-y-4">
+        <header className="flex items-end justify-between">
+          <h2 className="text-display-md text-txt-primary m-0">{title}</h2>
+          <span className="label-xs text-txt-tertiary">{data.length} teams</span>
+        </header>
 
         {data.length > 0 ? (
           <>
-            {/* Top 4 Featured Cards */}
             {top4.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-                {top4.map((entry, idx) => (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {top4.map((entry) => (
                   <PlayoffTeamCard
                     key={`${pollType}-top-${entry.rank}`}
                     rank={entry.rank}
                     teamAbbr={entry.team}
                     year={displayYear}
-                    isFirst={idx === 0}
                   />
                 ))}
               </div>
             )}
 
-            {/* Rest of Rankings (5-25) */}
             {rest.length > 0 && (
-              <div className="rounded-xl overflow-hidden bg-slate-800/30 border border-slate-700/50">
+              <Card padding="none">
                 {rest.map((entry) => (
                   <RankingRow
                     key={`${pollType}-${entry.rank}`}
@@ -299,106 +257,59 @@ export default function Rankings() {
                     year={displayYear}
                   />
                 ))}
-              </div>
+              </Card>
             )}
           </>
         ) : (
-          <div className="rounded-xl bg-slate-800/30 border border-slate-700/30 p-12 text-center">
-            <p className="text-gray-500 text-sm">No {title.toLowerCase()} data for {displayYear}</p>
-          </div>
+          <Card>
+            <EmptyState
+              variant="compact"
+              title="No data"
+              message={`No ${title.toLowerCase()} data for ${displayYear}.`}
+            />
+          </Card>
         )}
-      </div>
+      </section>
     )
   }
 
   return (
-    <div className="space-y-8">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl">
-        {/* Background gradient */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #020617 100%)'
-          }}
-        />
-        {/* Subtle pattern overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-        {/* Accent glow */}
-        <div
-          className="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl opacity-20"
-          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
-        />
-
-        <div className="relative px-6 py-8 sm:px-8 sm:py-10">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
-            {/* Title Section */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-amber-400 to-amber-600" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-500/80">
-                  Final Rankings
-                </span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                Top 25
-              </h1>
-              <p className="text-sm text-slate-400 mt-1">
-                End of season poll standings
-              </p>
-            </div>
-
-            {/* Year Selector */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Season</span>
-              <div className="relative">
-                <select
-                  value={displayYear}
-                  onChange={(e) => handleYearChange(parseInt(e.target.value))}
-                  className="appearance-none pl-4 pr-10 py-2.5 rounded-xl font-bold text-xl bg-slate-800/80 text-white border border-slate-600/50 focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer hover:bg-slate-700/80 transition-colors"
-                >
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Tab Switcher */}
-          <div className="mt-6 lg:hidden">
-            <div className="inline-flex rounded-lg p-1 bg-slate-800/60 border border-slate-700/50">
-              {[
-                { key: 'both', label: 'Both Polls' },
-                { key: 'media', label: 'AP Poll' },
-                { key: 'coaches', label: 'Coaches' }
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className="px-4 py-2 text-xs font-semibold rounded-md transition-all"
-                  style={{
-                    backgroundColor: activeTab === tab.key ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
-                    color: activeTab === tab.key ? '#f59e0b' : '#64748b'
-                  }}
-                >
-                  {tab.label}
-                </button>
+    <div className="space-y-6">
+      <PageHero
+        eyebrow="Final Rankings"
+        title="Top 25"
+        meta={<span>End of season poll standings</span>}
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="label-xs text-txt-tertiary hidden sm:block">Season</span>
+            <Select
+              value={displayYear}
+              onChange={(e) => handleYearChange(parseInt(e.target.value))}
+              size="sm"
+              className="min-w-[5.5rem] font-semibold"
+            >
+              {availableYears.map((year) => (
+                <option key={year} value={year}>{year}</option>
               ))}
-            </div>
+            </Select>
           </div>
-        </div>
+        }
+      />
+
+      {/* Mobile poll switcher */}
+      <div className="lg:hidden">
+        <Tabs
+          variant="pill"
+          value={activeTab}
+          onChange={setActiveTab}
+          options={[
+            { value: 'both', label: 'Both' },
+            { value: 'media', label: 'AP Poll' },
+            { value: 'coaches', label: 'Coaches' },
+          ]}
+        />
       </div>
 
-      {/* Polls Grid */}
       <div className={`grid gap-8 ${activeTab === 'both' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-2xl mx-auto'}`}>
         {(activeTab === 'both' || activeTab === 'media') && (
           <PollColumn title="Media Poll" data={mediaPoll} pollType="media" />

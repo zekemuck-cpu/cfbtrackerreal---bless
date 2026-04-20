@@ -2801,17 +2801,12 @@ export default function Dashboard() {
         const currentRank = rankingData?.rank
 
         return (
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{
-              background: `linear-gradient(135deg, ${teamColors.primary} 0%, ${teamColors.primary}dd 50%, ${teamColors.primary}bb 100%)`,
-              boxShadow: `0 4px 20px ${teamColors.primary}40, 0 0 40px ${teamColors.primary}20`
-            }}
-          >
+          <div className="card overflow-hidden mb-6">
+            <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
             <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <Link
                 to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}`}
-                className="flex items-center gap-4 hover:opacity-90 transition-all min-w-0 group"
+                className="flex items-center gap-4 hover:opacity-90 transition-opacity min-w-0 group"
               >
                 {(() => {
                   // Get logo from user's current team (using userId as source of truth)
@@ -2821,10 +2816,7 @@ export default function Dashboard() {
                   }
                   if (!logoUrl) logoUrl = getTeamLogo(userTeamName, currentDynasty.teams)
                   return logoUrl ? (
-                    <div
-                      className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl p-2 group-hover:scale-105 transition-transform"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.95)' }}
-                    >
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl p-2 bg-surface-3">
                       <img
                         src={logoUrl}
                         alt={`${userTeamName} logo`}
@@ -2834,26 +2826,23 @@ export default function Dashboard() {
                   ) : null
                 })()}
                 <div className="min-w-0">
-                  <h2 className="font-display text-base xs:text-lg sm:text-2xl md:text-3xl font-extrabold tracking-tight leading-tight" style={{ color: primaryBgText }}>
-                    {currentRank && <span className="mr-2 opacity-70">#{currentRank}</span>}
+                  <h2 className="font-display text-base xs:text-lg sm:text-2xl md:text-3xl font-extrabold tracking-tight leading-tight text-txt-primary">
+                    {currentRank && <span className="mr-2 text-txt-tertiary">#{currentRank}</span>}
                     {userTeamName}
                   </h2>
-                  <div className="text-sm sm:text-base mt-1 flex items-center gap-2" style={{ color: primaryBgText, opacity: 0.85 }}>
-                    <span className="font-display font-bold text-lg">
+                  <div className="text-sm sm:text-base mt-1 flex items-center gap-2 text-txt-secondary">
+                    <span className="font-display font-bold text-lg tabular">
                       {headerWins}-{headerLosses}
                       {(headerConfWins > 0 || headerConfLosses > 0) && (
-                        <span style={{ opacity: 0.7 }}> ({headerConfWins}-{headerConfLosses})</span>
+                        <span className="text-txt-tertiary"> ({headerConfWins}-{headerConfLosses})</span>
                       )}
                     </span>
                     {currentDynasty.currentPhase !== 'preseason' && userTeamConference && (
                       <>
-                        <span style={{ opacity: 0.4 }}>•</span>
+                        <span className="text-txt-tertiary">•</span>
                         <span className="font-medium">{userTeamConference}</span>
                         {getConferenceLogo(userTeamConference) && (
-                          <div
-                            className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.9)', padding: '3px' }}
-                          >
+                          <div className="h-6 w-6 sm:h-7 sm:w-7 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3" style={{ padding: '3px' }}>
                             <img
                               src={getConferenceLogo(userTeamConference)}
                               alt={userTeamConference}
@@ -2869,31 +2858,24 @@ export default function Dashboard() {
               {teamRatings && (
                 <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
                   <div
-                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    className="text-center px-4 py-2.5 rounded-xl bg-surface-3"
+                    style={{ borderTop: `2px solid ${teamColors.primary}` }}
                   >
-                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>OVR</div>
-                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.overall}</div>
+                    <div className="label-xs text-txt-tertiary">OVR</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.overall}</div>
                   </div>
-                  <div
-                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >
-                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>OFF</div>
-                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.offense}</div>
+                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
+                    <div className="label-xs text-txt-tertiary">OFF</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.offense}</div>
                   </div>
-                  <div
-                    className="text-center px-4 py-2.5 rounded-xl backdrop-blur-sm"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >
-                    <div className="font-display text-[10px] sm:text-xs font-semibold uppercase tracking-wider" style={{ color: primaryBgText, opacity: 0.6 }}>DEF</div>
-                    <div className="font-display text-xl sm:text-2xl font-extrabold" style={{ color: primaryBgText }}>{teamRatings.defense}</div>
+                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
+                    <div className="label-xs text-txt-tertiary">DEF</div>
+                    <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.defense}</div>
                   </div>
                   {!isViewOnly && (
                     <button
                       onClick={() => setShowTeamRatingsModal(true)}
-                      className="p-2.5 rounded-xl hover:bg-white/20 transition-colors"
-                      style={{ color: primaryBgText }}
+                      className="p-2.5 rounded-xl hover:bg-surface-4 transition-colors text-txt-secondary"
                       title="Edit Team Ratings"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2917,8 +2899,7 @@ export default function Dashboard() {
                           }
                           setShowCoachingStaffPopup(!showCoachingStaffPopup)
                         }}
-                        className="p-2.5 rounded-xl hover:bg-white/20 transition-colors"
-                        style={{ color: primaryBgText }}
+                        className="p-2.5 rounded-xl hover:bg-surface-4 transition-colors text-txt-secondary"
                         title="Coaching Staff"
                       >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2934,18 +2915,15 @@ export default function Dashboard() {
                           onClick={() => setShowCoachingStaffPopup(false)}
                         />
                         <div
-                          className="fixed z-50 w-72 rounded-2xl overflow-hidden"
+                          className="fixed z-50 w-72 rounded-2xl overflow-hidden card-elevated"
                           style={{
-                            backgroundColor: '#18181b',
-                            border: `1px solid ${teamColors.primary}40`,
-                            boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 20px ${teamColors.primary}30`,
                             top: coachingStaffPopupPosition.top,
                             right: coachingStaffPopupPosition.right
                           }}
                         >
-                          <div className="px-4 py-3" style={{ backgroundColor: teamColors.primary }}>
+                          <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
                             <div className="flex items-center justify-between">
-                              <h4 className="font-display font-bold text-sm uppercase tracking-wide" style={{ color: primaryBgText }}>
+                              <h4 className="font-display font-bold text-sm uppercase tracking-wide text-txt-primary">
                                 Coaching Staff
                               </h4>
                               <button
@@ -2954,8 +2932,7 @@ export default function Dashboard() {
                                   setShowCoachingStaffPopup(false)
                                   setShowCoachingStaffModal(true)
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
-                                style={{ color: primaryBgText }}
+                                className="p-1.5 rounded-lg hover:bg-surface-3 transition-colors text-txt-tertiary hover:text-txt-primary"
                                 title="Edit Coaching Staff"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3064,7 +3041,7 @@ export default function Dashboard() {
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
             Pre-Season Setup
@@ -3302,7 +3279,7 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-6">
           <h3 className="font-display text-lg font-bold mb-4 text-zinc-100">
             {currentDynasty.currentYear} Regular Season - Week {currentDynasty.currentWeek}
@@ -3521,7 +3498,7 @@ export default function Dashboard() {
           className="rounded-2xl overflow-hidden"
           style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
         >
-          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
             Conference Championship Week
@@ -3857,7 +3834,7 @@ export default function Dashboard() {
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           {(() => {
             const week = currentDynasty.currentWeek
@@ -6759,7 +6736,7 @@ export default function Dashboard() {
             border: '1px solid #27272a'
           }}
         >
-          <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           {(() => {
             const week = currentDynasty.currentWeek
@@ -7863,7 +7840,7 @@ export default function Dashboard() {
           {/* Roster Section - Desktop Only (below tasks) */}
           <div className="hidden lg:block">
             <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-              <div className="h-1" style={{ backgroundColor: teamColors.primary }} />
+              <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
               <div className="px-4 sm:px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
                 <div className="flex items-center gap-2">
                   <div>
@@ -8047,7 +8024,7 @@ export default function Dashboard() {
 
                 const renderGameRow = (isLink) => (
                   <div
-                    className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
+                    className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
                     style={{
                       background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
@@ -8066,7 +8043,7 @@ export default function Dashboard() {
 
                     {/* Team Logo - White background for contrast */}
                     <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-110 transition-transform bg-white shadow-sm"
+                      className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white shadow-sm"
                       style={{ padding: '5px' }}
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
                     >
@@ -8164,7 +8141,7 @@ export default function Dashboard() {
 
               const ccRow = (isLink) => (
                 <div
-                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentCCWeek ? 'ring-1 ring-inset' : ''}`}
+                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''} ${isCurrentCCWeek ? 'ring-1 ring-inset' : ''}`}
                   style={{
                     background: `linear-gradient(to right, transparent 0%, ${ccOpponentColors.backgroundColor}99 100%)`,
                     paddingLeft: '1rem',
@@ -8230,7 +8207,7 @@ export default function Dashboard() {
 
               const bowlRow = (isLink) => (
                 <div
-                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''}`}
+                  className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''}`}
                   style={{
                     background: `linear-gradient(to right, transparent 0%, ${bowlOpponentColors.backgroundColor}99 100%)`,
                     paddingLeft: '1rem',
@@ -8283,7 +8260,7 @@ export default function Dashboard() {
               return (
                 <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
                   <div
-                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    className="relative flex items-center py-2.5 gap-3 hover:bg-surface-3 hover:z-10 transition-all duration-200"
                     style={{
                       background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
@@ -8325,7 +8302,7 @@ export default function Dashboard() {
               return (
                 <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
                   <div
-                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    className="relative flex items-center py-2.5 gap-3 hover:bg-surface-3 hover:z-10 transition-all duration-200"
                     style={{
                       background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
@@ -8367,7 +8344,7 @@ export default function Dashboard() {
               return (
                 <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
                   <div
-                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    className="relative flex items-center py-2.5 gap-3 hover:bg-surface-3 hover:z-10 transition-all duration-200"
                     style={{
                       background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
@@ -8408,7 +8385,7 @@ export default function Dashboard() {
               return (
                 <Link to={`${pathPrefix}/game/${cfpGame.id}`} className="block">
                   <div
-                    className="relative flex items-center py-2.5 gap-3 hover:scale-[1.01] hover:shadow-xl hover:z-10 transition-all duration-200"
+                    className="relative flex items-center py-2.5 gap-3 hover:bg-surface-3 hover:z-10 transition-all duration-200"
                     style={{
                       background: `linear-gradient(to right, transparent 0%, ${oppColors.backgroundColor}99 100%)`,
                       paddingLeft: '1rem',
@@ -8562,7 +8539,7 @@ export default function Dashboard() {
 
                       const renderMobileGameRow = (isLink) => (
                         <div
-                          className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:scale-[1.01] hover:shadow-xl hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
+                          className={`relative flex items-center py-2.5 gap-3 transition-all duration-200 ${isLink ? 'hover:bg-surface-3 hover:z-10' : ''} ${isCurrentWeek ? 'ring-1 ring-inset' : ''}`}
                           style={{
                             background: `linear-gradient(to right, transparent 0%, ${opponentColors.backgroundColor}99 100%)`,
                             paddingLeft: '1rem',
@@ -8578,7 +8555,7 @@ export default function Dashboard() {
                             ) : weekNum}
                           </span>
                           <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:scale-110 transition-transform bg-white shadow-sm"
+                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity bg-white shadow-sm"
                             style={{ padding: '5px' }}
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(teamPageUrl) }}
                           >
