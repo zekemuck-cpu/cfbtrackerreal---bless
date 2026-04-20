@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 export default function CoachingStaffModal({ isOpen, onClose, onSave, teamColors, currentStaff }) {
   const { currentDynasty } = useDynasty()
+  const { toast } = useToast()
   const userPosition = currentDynasty?.coachPosition || 'HC'
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
@@ -37,15 +39,15 @@ export default function CoachingStaffModal({ isOpen, onClose, onSave, teamColors
 
   const handleSave = () => {
     if (showHC && !hcName.trim()) {
-      alert('Please enter the Head Coach name')
+      toast.error('Please enter the Head Coach name')
       return
     }
     if (showOC && !ocName.trim()) {
-      alert('Please enter the Offensive Coordinator name')
+      toast.error('Please enter the Offensive Coordinator name')
       return
     }
     if (showDC && !dcName.trim()) {
-      alert('Please enter the Defensive Coordinator name')
+      toast.error('Please enter the Defensive Coordinator name')
       return
     }
 
@@ -80,7 +82,7 @@ export default function CoachingStaffModal({ isOpen, onClose, onSave, teamColors
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl border shadow-xl w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6"
+        className="rounded-xl border shadow-xl w-full max-w-md max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto p-4 sm:p-6"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -88,7 +90,7 @@ export default function CoachingStaffModal({ isOpen, onClose, onSave, teamColors
           <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Coaching Staff
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="hover:opacity-70"
             style={{ color: modalColors.text }}

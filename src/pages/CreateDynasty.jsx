@@ -8,11 +8,13 @@ import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { PageHero, Card, Button, Tabs, Input } from '../components/ui'
+import { useToast } from '../components/ui/Toast'
 
 export default function CreateDynasty() {
   const navigate = useNavigate()
   const { createDynasty } = useDynasty()
   const { user } = useAuth()
+  const { toast } = useToast()
 
   const [mode, setMode] = useState('fbs')
 
@@ -115,7 +117,7 @@ export default function CreateDynasty() {
       navigate(`/dynasty/${newDynasty.id}`)
     } catch (error) {
       console.error('Failed to create dynasty:', error)
-      alert(`Failed to create dynasty: ${error.message}`)
+      toast.error(`Failed to create dynasty: ${error.message}`)
       setCreating(false)
     }
   }

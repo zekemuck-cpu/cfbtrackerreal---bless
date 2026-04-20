@@ -6,6 +6,7 @@ import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
+import { preloadByNavName } from '../routes/lazyPages'
 
 export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, currentYear, isViewOnly, shareCode, dynasty: dynastyProp }) {
   const location = useLocation()
@@ -103,6 +104,11 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     }
   }
 
+  // Warm the chunk on hover/focus so navigation feels instant.
+  const handleNavPrefetch = (name) => {
+    try { preloadByNavName[name]?.() } catch {}
+  }
+
   // Nav item styling — active uses 3px left team-accent stripe + subtle tint background.
   // Inactive uses a flat neutral hover. See docs/DESIGN.md "Team color as accent only".
   const navItemClass = (active) =>
@@ -133,7 +139,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       <aside
         className={`fixed left-0 z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } w-56 overflow-y-auto top-[64px] h-[calc(100vh-64px)]`}
+        } w-56 overflow-y-auto top-[64px] h-[calc(100dvh-64px)]`}
         style={{
           backgroundColor: 'var(--surface-1)',
           borderRight: '1px solid var(--surface-4)',
@@ -148,6 +154,9 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   key={item.name}
                   to={item.path}
                   onClick={handleNavClick}
+                  onMouseEnter={() => handleNavPrefetch(item.name)}
+                  onFocus={() => handleNavPrefetch(item.name)}
+                  onTouchStart={() => handleNavPrefetch(item.name)}
                   className={navItemClass(active)}
                   style={navItemStyle(active)}
                 >

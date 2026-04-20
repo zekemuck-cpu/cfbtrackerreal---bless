@@ -5,6 +5,7 @@ import { getTeamLogo } from '../data/teams'
 import { getBowlLogo } from '../data/bowlGames'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -87,6 +88,7 @@ const SEMIFINAL_STRUCTURE = [
 
 export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYear, teamColors, userTeamAbbr }) {
   const { currentDynasty } = useDynasty()
+  const { toast } = useToast()
   const [games, setGames] = useState([])
   const [saving, setSaving] = useState(false)
   const [userGameIndex, setUserGameIndex] = useState(-1) // Index of user's game (if any)
@@ -495,7 +497,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
     // Check if user's game is pending (not yet played)
     const userPendingGame = games.find(g => g.userGame && g.userGamePending)
     if (userPendingGame) {
-      alert('Please play and enter your semifinal game first before saving results.')
+      toast.error('Please play and enter your semifinal game first before saving results.')
       return
     }
 
@@ -505,7 +507,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
     )
 
     if (!allComplete) {
-      alert('Please enter scores for all games')
+      toast.error('Please enter scores for all games')
       return
     }
 
@@ -525,7 +527,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
       onClose()
     } catch (error) {
       console.error('Error saving CFP Semifinals results:', error)
-      alert('Failed to save. Please try again.')
+      toast.error('Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -540,7 +542,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl shadow-2xl w-full max-w-3xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto border"
+        className="rounded-xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-auto border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -567,7 +569,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
                 </p>
               </div>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="hover:bg-white/20 rounded-full p-2 transition-colors"
               style={{ color: modalColors.textMuted }}

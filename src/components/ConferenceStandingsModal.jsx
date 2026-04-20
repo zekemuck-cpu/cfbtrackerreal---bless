@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
 import {
@@ -20,6 +22,8 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
   const { currentDynasty } = useDynasty()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { user, signOut, refreshSession } = useAuth()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
@@ -123,7 +127,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to sync from Google Sheets.')
+        toast.error('Failed to sync from Google Sheets.')
       }
     } finally {
       setSyncing(false)
@@ -146,7 +150,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
+        toast.error(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
       }
     } finally {
       setDeletingSheet(false)
@@ -155,7 +159,12 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
 
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
-    const confirmed = window.confirm('This will delete your current sheet and create a fresh one. Any unsaved data will be lost. Continue?')
+    const confirmed = await confirm({
+      title: 'Regenerate sheet?',
+      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
+      confirmLabel: 'Regenerate',
+      variant: 'danger',
+    })
     if (!confirmed) return
     setRegenerating(true)
     try {
@@ -167,7 +176,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to regenerate sheet. Please try again.')
+        toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
       setRegenerating(false)
@@ -188,7 +197,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
@@ -196,7 +205,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
           <h2 className="text-2xl font-bold text-txt-primary">
             {currentYear} Conference Standings
           </h2>
-          <button onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
+          <button aria-label="Close" onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>

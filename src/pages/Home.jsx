@@ -10,6 +10,7 @@ import ShareDynastyModal from '../components/ShareDynastyModal'
 import StorageSwitchModal from '../components/StorageSwitchModal'
 import BouncingLogos from '../components/BouncingLogos'
 import { PageHero, Card, Button, Badge, Modal, Input, LoadingState } from '../components/ui'
+import { useToast } from '../components/ui/Toast'
 
 function getDynastyTeamConference(dynasty) {
   if (!dynasty.teamName) return null
@@ -71,6 +72,7 @@ function getWeekPhaseDisplay(dynasty) {
 export default function Home() {
   const { dynasties, deleteDynasty, importDynasty, importDynastyFromUrl, exportDynasty, updateDynasty, createDynasty, migrateDynastyStorage, loading } = useDynasty()
   const { user, isPremium, upgradeToPremium, manageSubscription } = useAuth()
+  const { toast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [upgrading, setUpgrading] = useState(false)
@@ -116,7 +118,7 @@ export default function Home() {
             }
           }).catch((error) => {
             console.error('Error creating copied dynasty:', error)
-            alert('Failed to copy dynasty. Please try again.')
+            toast.error('Failed to copy dynasty. Please try again.')
             localStorage.removeItem('dynastyCopyData')
             setSearchParams({})
           })
@@ -232,7 +234,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error importing dynasty:', error)
-      alert(error.message || 'Failed to import dynasty. Please check the file and try again.')
+      toast.error(error.message || 'Failed to import dynasty. Please check the file and try again.')
     } finally {
       setImporting(false)
       setImportProgress(null)
@@ -255,7 +257,7 @@ export default function Home() {
       setImportUrl('')
     } catch (error) {
       console.error('Error importing dynasty from URL:', error)
-      alert(error.message || 'Failed to import dynasty from URL.')
+      toast.error(error.message || 'Failed to import dynasty from URL.')
     } finally {
       setImporting(false)
       setImportProgress(null)
@@ -276,7 +278,7 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 500))
     } catch (error) {
       console.error('Error importing test dynasty:', error)
-      alert(error.message || 'Failed to import test dynasty.')
+      toast.error(error.message || 'Failed to import test dynasty.')
     } finally {
       setImporting(false)
       setImportProgress(null)
@@ -308,7 +310,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error deleting dynasties:', error)
-      alert('Failed to delete some dynasties. Please try again.')
+      toast.error('Failed to delete some dynasties. Please try again.')
     } finally {
       setDeletingAll(false)
       setShowDeleteAllConfirm2(false)
@@ -324,14 +326,14 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
+      <div className="min-h-[calc(100dvh-4rem)] flex items-center justify-center">
         <LoadingState message="Loading dynasties..." />
       </div>
     )
   }
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="relative min-h-[calc(100dvh-4rem)] overflow-hidden">
       <BouncingLogos />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-6">
@@ -402,7 +404,7 @@ export default function Home() {
                               await upgradeToPremium()
                             } catch (error) {
                               console.error('Upgrade error:', error)
-                              alert('Failed to start upgrade. Please try again.')
+                              toast.error('Failed to start upgrade. Please try again.')
                             } finally {
                               setUpgrading(false)
                             }
@@ -783,22 +785,31 @@ export default function Home() {
         size="sm"
         hideClose
       >
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-txt-secondary font-medium">{importProgress?.message || 'Starting...'}</span>
-            <span className="tabular font-bold" style={{ color: 'var(--team-primary)' }}>
-              {importProgress?.progress || 0}%
+        {/* Hero progress — big tabular numeral, hairline rule */}
+        <div className="mb-6">
+          <div className="flex items-end justify-between mb-3 gap-4">
+            <span className="label-xs text-txt-tertiary truncate">
+              {importProgress?.message || 'Preparing…'}
+            </span>
+            <span
+              className="font-outfit font-black tabular-nums text-4xl leading-none"
+              style={{ color: 'var(--team-primary)', letterSpacing: '-0.02em' }}
+            >
+              {importProgress?.progress || 0}
+              <span className="text-txt-tertiary text-base font-normal ml-0.5">%</span>
             </span>
           </div>
-          <div className="w-full rounded-full h-2 overflow-hidden" style={{ backgroundColor: 'var(--surface-4)' }}>
+          {/* Hairline progress — 2px, no rounding, team-color fill */}
+          <div className="h-[2px] w-full" style={{ backgroundColor: 'var(--surface-4)' }}>
             <div
-              className="h-full rounded-full transition-all duration-300 ease-out"
+              className="h-full transition-[width] duration-500 ease-out"
               style={{ width: `${importProgress?.progress || 0}%`, backgroundColor: 'var(--team-primary)' }}
             />
           </div>
         </div>
 
-        <div className="space-y-2">
+        {/* Stage list — editorial numbered rows */}
+        <div>
           {['parsing', 'creating', 'players', 'games', 'complete'].map((stage, index) => {
             const stageLabels = {
               parsing: 'Reading file',
@@ -807,61 +818,71 @@ export default function Home() {
               games: 'Importing games',
               complete: 'Complete',
             }
-            const currentStageIndex = ['parsing', 'creating', 'players', 'games', 'complete'].indexOf(importProgress?.stage || 'starting')
+            const order = ['parsing', 'creating', 'players', 'games', 'complete']
+            const currentStageIndex = order.indexOf(importProgress?.stage || 'starting')
             const isComplete = index < currentStageIndex
             const isCurrent = importProgress?.stage === stage
-            const isPending = index > currentStageIndex
+
+            const numberColor = isCurrent
+              ? 'var(--team-primary)'
+              : isComplete
+              ? 'var(--txt-secondary)'
+              : 'var(--txt-tertiary)'
+
+            const labelColor = isCurrent
+              ? 'var(--txt-primary)'
+              : isComplete
+              ? 'var(--txt-secondary)'
+              : 'var(--txt-tertiary)'
+
+            const statusLabel = isComplete ? 'Done' : isCurrent ? 'Active' : '—'
+            const statusColor = isComplete
+              ? 'var(--txt-tertiary)'
+              : isCurrent
+              ? 'var(--team-primary)'
+              : 'var(--txt-tertiary)'
 
             return (
-              <div key={stage} className={`flex items-center gap-3 ${isPending ? 'opacity-40' : ''}`}>
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{
-                    backgroundColor: isComplete
-                      ? 'var(--accent-success)'
-                      : isCurrent
-                      ? 'var(--team-primary)'
-                      : 'var(--surface-4)',
-                  }}
-                >
-                  {isComplete ? (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : isCurrent ? (
-                    <svg className="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--text-tertiary)' }} />
-                  )}
-                </div>
+              <div
+                key={stage}
+                className="flex items-baseline gap-4 py-2.5"
+                style={{
+                  borderTop: index === 0 ? 'none' : '1px solid var(--rule-soft)',
+                  borderLeft: isCurrent ? '2px solid var(--team-primary)' : '2px solid transparent',
+                  paddingLeft: '0.75rem',
+                  transition: 'border-color 200ms ease',
+                }}
+              >
                 <span
-                  className={`text-sm ${isCurrent ? 'font-medium text-txt-primary' : ''}`}
-                  style={
-                    isComplete
-                      ? { color: 'var(--accent-success)' }
-                      : isCurrent
-                      ? {}
-                      : { color: 'var(--text-tertiary)' }
-                  }
+                  className="font-outfit font-black tabular-nums text-sm w-6 flex-shrink-0"
+                  style={{ color: numberColor, letterSpacing: '-0.01em' }}
+                >
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span
+                  className={`text-sm flex-1 min-w-0 truncate ${isCurrent ? 'font-semibold' : 'font-normal'}`}
+                  style={{ color: labelColor }}
                 >
                   {stageLabels[stage]}
                   {isCurrent && importProgress?.detail && (
-                    <span className="text-txt-tertiary ml-2">({importProgress.detail})</span>
+                    <span className="text-txt-tertiary ml-2 font-normal">· {importProgress.detail}</span>
                   )}
+                </span>
+                <span
+                  className="label-xs flex-shrink-0"
+                  style={{ color: statusColor, letterSpacing: '0.12em' }}
+                >
+                  {statusLabel}
                 </span>
               </div>
             )
           })}
         </div>
 
-        <div className="mt-4 p-3 rounded-lg" style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--accent-warning)' }}>
-          <p className="text-xs text-txt-secondary">
-            Please wait until import completes. Do not close this page.
-          </p>
-        </div>
+        {/* Footnote — tracked all-caps, no colored pill */}
+        <p className="label-xs text-txt-tertiary mt-5 text-center m-0">
+          Keep this window open while the import completes
+        </p>
       </Modal>
 
       <StorageSwitchModal

@@ -324,7 +324,10 @@ export async function savePlayerToSubcollection(dynastyId, player) {
     const { _firestoreId, ...rawPlayerData } = player
     const playerData = sanitizeForFirestore(rawPlayerData)
 
-    await setDoc(playerRef, playerData)
+    // merge: true prevents a partial write from wiping top-level fields the
+    // caller omitted. Our callers always spread the full player object today,
+    // but this is a defensive safety net against future regressions.
+    await setDoc(playerRef, playerData, { merge: true })
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -420,7 +423,15 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         const { _firestoreId, ...rawPlayerData } = player
         const playerData = sanitizeForFirestore(rawPlayerData)
 
-        batch.set(playerRef, playerData)
+        // Default: merge so partial writes don't wipe top-level fields.
+        // forceOverwrite: full replace — required when migrations trim nested
+        // object keys (e.g. stale teamsByYear years), because Firestore's merge
+        // mode recursively merges nested objects and preserves removed keys.
+        if (forceOverwrite) {
+          batch.set(playerRef, playerData)
+        } else {
+          batch.set(playerRef, playerData, { merge: true })
+        }
       }
 
       await batch.commit()

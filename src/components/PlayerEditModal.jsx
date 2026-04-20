@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
+import { useToast } from './ui/Toast'
 
 /**
  * PlayerEditModalNew - Completely redesigned player editor
@@ -122,6 +123,7 @@ export default function PlayerEditModalNew({
   defaultSchool,
   dynasty
 }) {
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('profile')
   const [formData, setFormData] = useState({})
   const [selectedStatsYear, setSelectedStatsYear] = useState(null)
@@ -298,10 +300,10 @@ export default function PlayerEditModalNew({
         setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
         setShowImageUpload(false)
       } else {
-        alert('Upload failed: ' + (data.error?.message || 'Unknown error'))
+        toast.error('Upload failed: ' + (data.error?.message || 'Unknown error'))
       }
     } catch (error) {
-      alert('Upload failed: ' + error.message)
+      toast.error('Upload failed: ' + error.message)
     } finally {
       setUploading(false)
     }
@@ -700,7 +702,7 @@ export default function PlayerEditModalNew({
                     </select>
 
                     {/* Delete */}
-                    <button
+                    <button aria-label="Close"
                       type="button"
                       onClick={() => removeYear(year)}
                       className="p-1 text-txt-muted hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -727,7 +729,7 @@ export default function PlayerEditModalNew({
                             {ovrChange > 0 ? '+' : ''}{ovrChange}
                           </span>
                         )}
-                        <button
+                        <button aria-label="Close"
                           type="button"
                           onClick={() => removeYear(year)}
                           className="p-1 text-txt-muted hover:text-red-500 rounded transition-colors"
@@ -1113,7 +1115,7 @@ export default function PlayerEditModalNew({
     >
       <div
         className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col"
-        style={{ maxHeight: 'calc(100vh - 2rem)', height: 'auto' }}
+        style={{ maxHeight: 'calc(100dvh - 2rem)', height: 'auto' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <form onSubmit={handleSubmit} className="flex flex-col h-full">

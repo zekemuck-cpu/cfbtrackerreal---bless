@@ -1305,7 +1305,7 @@ export default function GameEdit() {
         actions={
           <>
             <Button variant="outline" size="sm" onClick={handleCancel}>Cancel</Button>
-            <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+            <Button variant="primary" size="sm" accentColor="#ffffff" onClick={handleSave}>Save</Button>
           </>
         }
       />
@@ -1339,7 +1339,7 @@ export default function GameEdit() {
               className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
               style={{
                 backgroundColor: 'var(--surface-3)',
-                border: '2px solid var(--team-primary)',
+                border: '2px solid var(--surface-5)',
                 color: 'var(--text-primary)'
               }}
               disabled={hasQuarterScores()}
@@ -1353,7 +1353,7 @@ export default function GameEdit() {
               className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
               style={{
                 backgroundColor: 'var(--surface-3)',
-                border: '2px solid var(--team-primary)',
+                border: '2px solid var(--surface-5)',
                 color: 'var(--text-primary)'
               }}
               disabled={hasQuarterScores()}
@@ -1435,7 +1435,7 @@ export default function GameEdit() {
                   placeholder="0"
                 />
               ))}
-              <div className="text-center stat-md tabular" style={{ color: 'var(--team-primary)' }}>
+              <div className="text-center stat-md tabular" style={{ color: 'var(--text-primary)' }}>
                 {formData[`${displayLeftTeam}Score`] || '0'}
               </div>
             </div>
@@ -1475,7 +1475,7 @@ export default function GameEdit() {
                   placeholder="0"
                 />
               ))}
-              <div className="text-center stat-md tabular" style={{ color: 'var(--team-primary)' }}>
+              <div className="text-center stat-md tabular" style={{ color: 'var(--text-primary)' }}>
                 {formData[`${displayRightTeam}Score`] || '0'}
               </div>
             </div>
@@ -1630,7 +1630,7 @@ export default function GameEdit() {
                   style={{
                     backgroundColor: 'var(--surface-2)',
                     border: tile.connected
-                      ? '1px solid var(--team-primary)'
+                      ? '1px solid var(--accent-success)'
                       : '1px dashed var(--surface-5)'
                   }}
                 >
@@ -1760,7 +1760,7 @@ export default function GameEdit() {
                   checked={formData.isConferenceGame}
                   onChange={(e) => setFormData({ ...formData, isConferenceGame: e.target.checked })}
                   className="w-4 h-4 rounded"
-                  style={{ accentColor: 'var(--team-primary)' }}
+                  style={{ accentColor: 'var(--text-primary)' }}
                 />
                 <span className="text-sm text-txt-secondary">Yes</span>
               </label>
@@ -1826,7 +1826,7 @@ export default function GameEdit() {
       {/* Bottom Save/Cancel Buttons */}
       <div className="flex justify-end gap-3 pb-8">
         <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-        <Button variant="primary" onClick={handleSave}>Save</Button>
+        <Button variant="primary" accentColor="#ffffff" onClick={handleSave}>Save</Button>
       </div>
 
       {/* Box Score Sheet Modal */}
@@ -1855,7 +1855,7 @@ export default function GameEdit() {
             homeTeamTid: formData.location === 'home' ? team1Tid :
                          formData.location === 'away' ? team2Tid : null
           }}
-          teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
+          teamColors={{ primary: 'var(--text-primary)', secondary: 'var(--text-secondary)' }}
         />
       )}
     </div>

@@ -9,7 +9,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed } from '../../data/cfpConstants'
-import { PageHero, Select } from '../../components/ui'
+import { PageHero } from '../../components/ui'
 import GameEntryModal from '../../components/GameEntryModal'
 
 // Map abbreviations to mascot names for logo lookup
@@ -961,29 +961,47 @@ export default function CFPBracket() {
     }
   }
 
+  const titleNode = (
+    <h1 className="display-lg text-txt-primary leading-none m-0 flex items-baseline gap-3 flex-wrap">
+      {availableYears.length > 1 ? (
+        <span className="relative inline-flex items-baseline">
+          <span
+            className="inline-flex items-baseline gap-2 border-b-2 border-surface-5 hover:border-txt-primary transition-colors pr-1"
+            aria-hidden="true"
+          >
+            <span className="tabular-nums">{displayYear}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-txt-tertiary translate-y-[-2px]">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+          <select
+            value={displayYear}
+            onChange={(e) => handleYearChange(parseInt(e.target.value))}
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            aria-label="Select bracket year"
+          >
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </span>
+      ) : (
+        <span className="tabular-nums">{displayYear}</span>
+      )}
+      <span>Bracket</span>
+    </h1>
+  )
+
   return (
     <div className="space-y-4">
       <PageHero
         eyebrow={
           <span className="inline-flex items-center gap-2">
-            <img src="https://i.imgur.com/ZKD9dQJ.png" alt="" className="h-5" />
+            <img src="https://i.imgur.com/ZKD9dQJ.png" alt="" className="h-4 opacity-80" />
             College Football Playoff
           </span>
         }
-        title={`${displayYear} Bracket`}
-        actions={
-          availableYears.length > 1 && (
-            <Select
-              size="sm"
-              value={displayYear}
-              onChange={(e) => handleYearChange(parseInt(e.target.value))}
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </Select>
-          )
-        }
+        title={titleNode}
       />
 
       {/* Mobile scroll hint */}
@@ -1021,11 +1039,11 @@ export default function CFPBracket() {
             }}
           >
           {/* Round Labels */}
-          <div className="flex mb-6 label-xs text-txt-secondary" style={{ fontSize: '18px', letterSpacing: '0.15em' }}>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px` }} className="text-center">FIRST ROUND</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center">QUARTERFINALS</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center">SEMIFINALS</div>
-            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center">CHAMPIONSHIP</div>
+          <div className="flex mb-6 label-xs text-txt-tertiary" style={{ fontSize: '16px', letterSpacing: '0.22em', fontWeight: 600 }}>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${COL1}px` }} className="text-center pb-2 border-b border-surface-4">FIRST ROUND</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">QUARTERFINALS</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">SEMIFINALS</div>
+            <div style={{ width: `${SLOT_WIDTH}px`, marginLeft: `${CONNECTOR_GAP}px` }} className="text-center pb-2 border-b border-surface-4">CHAMPIONSHIP</div>
           </div>
 
           {/* Bracket Area */}
@@ -1173,7 +1191,7 @@ export default function CFPBracket() {
             {/* Trophy */}
             <div className="absolute text-center" style={{ top: CHAMP + MATCHUP_HEIGHT + 30, left: COL4, width: `${SLOT_WIDTH}px` }}>
               <img src="https://i.imgur.com/3goz1NK.png" alt="CFP Trophy" className="h-32 mx-auto mb-3" />
-              <div className="label-xs" style={{ color: 'var(--team-primary)', fontSize: '16px', letterSpacing: '0.2em' }}>NATIONAL CHAMPION</div>
+              <div className="label-xs text-txt-secondary" style={{ fontSize: '16px', letterSpacing: '0.2em' }}>NATIONAL CHAMPION</div>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import logo from '../assets/logo.png'
 import BouncingLogos from '../components/BouncingLogos'
 import { Card } from '../components/ui'
+import { useToast } from '../components/ui/Toast'
 
 const SCREENSHOTS = [
   { url: 'https://i.imgur.com/RflYzae.png', caption: 'Dashboard' },
@@ -82,6 +83,7 @@ function FeaturesAndSignin({ onSignIn }) {
 
 export default function Login() {
   const { user, signInWithGoogle } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
 
@@ -106,12 +108,12 @@ export default function Login() {
       }
     } catch (error) {
       console.error('Sign in failed:', error)
-      alert(error.message || 'Failed to sign in. Please try again.')
+      toast.error(error.message || 'Failed to sign in. Please try again.')
     }
   }
 
   return (
-    <div className="min-h-screen bg-surface-1 flex flex-col overflow-hidden relative">
+    <div className="min-h-dvh bg-surface-1 flex flex-col overflow-hidden relative">
       <BouncingLogos />
 
       <div className="flex-1 flex items-center justify-center px-4 py-8 relative z-10">

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { getTeamAbbreviationsList } from '../data/teamAbbreviations'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 // CFP game structure by week (updated for 5-week postseason)
 const CFP_GAMES_BY_WEEK = {
@@ -22,6 +23,7 @@ const CFP_GAMES_BY_WEEK = {
 
 export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, currentWeek, teamColors }) {
   const { currentDynasty } = useDynasty()
+  const { toast } = useToast()
   const [games, setGames] = useState([])
   const [saving, setSaving] = useState(false)
 
@@ -102,7 +104,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
       onClose()
     } catch (error) {
       console.error('Error saving CFP results:', error)
-      alert('Failed to save. Please try again.')
+      toast.error('Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -121,7 +123,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
       onMouseDown={handleClose}
     >
       <div
-        className="rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto flex flex-col p-4 sm:p-6 border"
+        className="rounded-xl shadow-xl w-full max-w-2xl max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-auto flex flex-col p-4 sm:p-6 border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -129,7 +131,7 @@ export default function BowlScoreModal({ isOpen, onClose, onSave, currentYear, c
           <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             {getWeekTitle()}
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={handleClose}
             className="hover:opacity-70"
             style={{ color: modalColors.text }}

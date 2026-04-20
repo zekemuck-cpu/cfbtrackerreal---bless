@@ -173,7 +173,7 @@ export default function PlayerMatchConfirmModal({
       onMouseDown={onCancel}
     >
       <div
-        className="card max-w-lg w-full max-h-[calc(100vh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
+        className="card max-w-lg w-full max-h-[calc(100dvh-4rem)] sm:max-h-none overflow-y-auto border-l-[3px]"
         style={{ borderLeftColor: teamColors.primary }}
         onMouseDown={(e) => e.stopPropagation()}
       >

@@ -37,7 +37,7 @@ function ViewDynastyContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface-1 flex items-center justify-center">
+      <div className="min-h-dvh bg-surface-1 flex items-center justify-center">
         <LoadingState message="Loading dynasty..." />
       </div>
     )
@@ -45,7 +45,7 @@ function ViewDynastyContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-surface-1 flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-surface-1 flex items-center justify-center p-4">
         <Card className="max-w-md text-center">
           <h1 className="display-md text-txt-primary mb-2">Dynasty Not Available</h1>
           <p className="text-txt-secondary mb-6">{error}</p>
@@ -81,7 +81,7 @@ function ViewDynastyContent() {
     currentDynasty.currentPhase === 'offseason' ? (currentDynasty.currentWeek === 1 ? 'Leaving' : `Rec ${currentDynasty.currentWeek - 1}`) : ''
 
   return (
-    <div className="min-h-screen bg-surface-1">
+    <div className="min-h-dvh bg-surface-1">
       <header
         className="sticky top-0 z-50"
         style={{

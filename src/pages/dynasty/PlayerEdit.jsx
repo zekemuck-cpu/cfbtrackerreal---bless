@@ -6,6 +6,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
+import { useToast } from '../../components/ui/Toast'
 
 // Helper to check if a stint reason indicates a transfer
 const isTransferReason = (reason) => ['portal_in', 'transfer', 'juco_in'].includes(reason)
@@ -23,6 +24,26 @@ const CLASSES = ['Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr', 'Sr', 'RS Sr']
 
 // Dev trait options
 const DEV_TRAITS = ['Elite', 'Star', 'Impact', 'Normal']
+
+// Transfer portal reasons — the 16 in-game reasons a player can enter the portal.
+// Used for both "entered portal, transferred out" and "entered portal, returned (recommit)"
+// as well as "encouraged to transfer". Kept in sync with LEAVING_REASONS in sheetsService.js.
+const TRANSFER_REASONS = [
+  'Playing Time',
+  'Playing Style',
+  'Proximity to Home',
+  'Championship Contender',
+  'Program Tradition',
+  'Campus Lifestyle',
+  'Stadium Atmosphere',
+  'Pro Potential',
+  'Brand Exposure',
+  'Academic Prestige',
+  'Conference Prestige',
+  'Coach Stability',
+  'Coach Prestige',
+  'Athletic Facilities'
+]
 
 // States
 const STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC']
@@ -118,8 +139,11 @@ const nestedStatsToFlat = (yearStats) => {
   }
 }
 
-// Convert flat form fields back to nested stats structure
-const flatStatsToNested = (flatStats) => {
+// Convert flat form fields back to nested stats structure.
+// existingYearStats lets us preserve the solo/ast tackle breakdown when the
+// combined tackle input is unchanged — the form only exposes a single combined
+// number, so a blind write would zero out astTkl on every defender save.
+const flatStatsToNested = (flatStats, existingYearStats = {}) => {
   if (!flatStats) return {}
 
   const num = (v) => (v !== '' && v !== null && v !== undefined) ? parseInt(v) : undefined
@@ -154,10 +178,19 @@ const flatStatsToNested = (flatStats) => {
   if (Object.keys(receiving).length > 0) result.receiving = receiving
 
   const defense = {}
-  // Store tackles as soloTkl (Player.jsx expects soloTkl + astTkl)
+  const existingDefense = existingYearStats.defense || {}
   if (flatStats.tackles !== '') {
-    defense.soloTkl = num(flatStats.tackles)
-    defense.astTkl = 0 // Form doesn't track solo/assisted breakdown
+    const newTotal = num(flatStats.tackles)
+    const existingSolo = existingDefense.soloTkl || 0
+    const existingAst = existingDefense.astTkl || 0
+    const existingTotal = existingSolo + existingAst
+    if (newTotal === existingTotal && existingTotal > 0) {
+      defense.soloTkl = existingSolo
+      defense.astTkl = existingAst
+    } else {
+      defense.soloTkl = newTotal
+      defense.astTkl = 0
+    }
   }
   if (flatStats.tfl !== '') defense.tfl = num(flatStats.tfl)
   if (flatStats.sacks !== '') defense.sacks = num(flatStats.sacks)
@@ -195,7 +228,8 @@ export default function PlayerEdit() {
   const { id: dynastyId, pid } = useParams()
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
-  const { dynasties, currentDynasty, updatePlayer, isViewOnly } = useDynasty()
+  const { dynasties, currentDynasty, updatePlayer, deletePlayer, isViewOnly } = useDynasty()
+  const { toast } = useToast()
 
   // Get the correct dynasty (handle both direct access and view mode)
   const dynasty = useMemo(() => {
@@ -245,6 +279,8 @@ export default function PlayerEdit() {
   const [activeTab, setActiveTab] = useState('profile')
   const [formData, setFormData] = useState({})
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [selectedStatsYear, setSelectedStatsYear] = useState(null)
   const [showImageUpload, setShowImageUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -480,13 +516,13 @@ export default function PlayerEdit() {
         setFormData(prev => ({ ...prev, pictureUrl: data.data.url }))
         setShowImageUpload(false)
       } else {
-        alert('Upload failed: ' + (data.error?.message || 'Unknown error'))
+        toast.error('Upload failed: ' + (data.error?.message || 'Unknown error'))
       }
     } catch (error) {
       if (error.name === 'AbortError') {
-        alert('Upload timed out. Please try again or use a smaller image.')
+        toast.error('Upload timed out. Please try again or use a smaller image.')
       } else {
-        alert('Upload failed: ' + error.message)
+        toast.error('Upload failed: ' + error.message)
       }
     } finally {
       setUploading(false)
@@ -548,7 +584,7 @@ export default function PlayerEdit() {
       // readText also failed
     }
 
-    alert('No image found in clipboard. On iOS, tap the URL field above and use Paste from the keyboard instead.')
+    toast.error('No image found in clipboard. On iOS, tap the URL field above and use Paste from the keyboard instead.')
   }
 
   // Update overall for a specific year
@@ -589,6 +625,9 @@ export default function PlayerEdit() {
   // Handle save
   const handleSave = async () => {
     if (!player || saving) return
+    // Block saves before the form has been seeded for this player — otherwise
+    // empty default formData would clobber player fields on an immediate save.
+    if (initializedRef.current !== player.pid) return
     setSaving(true)
 
     const num = (v) => v ? parseInt(v) : null
@@ -641,12 +680,20 @@ export default function PlayerEdit() {
       isHonorOnly: false,
     }
 
-    // Update stats for selected year (convert flat form fields back to nested structure)
+    // Update stats for selected year (convert flat form fields back to nested structure).
+    // Category-level merge: replace categories the form emitted, preserve ones it didn't.
+    // flatStatsToNested only emits a category if the user has values for it, so a QB save
+    // won't blow away an existing kicking/punting category on the same player-year.
     const statsYear = selectedStatsYear || dynasty?.currentYear
     if (statsYear) {
+      const existingYearStats = player.statsByYear?.[statsYear] || {}
+      const emittedCategories = flatStatsToNested(formData.stats, existingYearStats)
       updatedPlayer.statsByYear = {
         ...player.statsByYear,
-        [statsYear]: flatStatsToNested(formData.stats)
+        [statsYear]: {
+          ...existingYearStats,
+          ...emittedCategories,
+        }
       }
     }
 
@@ -665,6 +712,19 @@ export default function PlayerEdit() {
   // Handle cancel
   const handleCancel = () => {
     navigate(`${pathPrefix}/player/${pid}`)
+  }
+
+  // Handle delete — permanent, no recovery
+  const handleDelete = async () => {
+    if (!player || deleting) return
+    setDeleting(true)
+    try {
+      await deletePlayer(dynasty.id, player.pid)
+      navigate(`${pathPrefix}/players`)
+    } catch (err) {
+      console.error('Failed to delete player:', err)
+      setDeleting(false)
+    }
   }
 
   // Loading state
@@ -721,20 +781,20 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-screen pb-24 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 bg-surface-1">
+    <div className="min-h-dvh pb-24 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 bg-surface-1">
       {/* Header */}
       <div
         className="sticky top-0 z-30 bg-surface-2 border-b border-surface-4 shadow-lg"
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-        <div className="max-w-5xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
+        <div className="max-w-5xl mx-auto px-4 py-5">
+          <div className="flex items-center gap-5">
             {/* Player Image or Placeholder - Clickable to edit */}
             <div className="relative flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setShowImageUpload(!showImageUpload)}
-                className="w-16 h-16 rounded-xl flex items-center justify-center overflow-hidden group"
+                className="w-20 h-20 rounded-xl flex items-center justify-center overflow-hidden group"
                 style={{
                   backgroundColor: 'var(--surface-3)',
                   border: `2px solid ${teamColors.primary}`
@@ -769,7 +829,7 @@ export default function PlayerEdit() {
                   <div className="absolute top-full left-0 mt-2 w-72 card-elevated z-50 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-txt-primary">Player Photo</h4>
-                      <button
+                      <button aria-label="Close"
                         type="button"
                         onClick={() => setShowImageUpload(false)}
                         className="text-txt-muted hover:text-txt-tertiary"
@@ -831,7 +891,7 @@ export default function PlayerEdit() {
                           setFormData(prev => ({ ...prev, pictureUrl: '' }))
                           setShowImageUpload(false)
                         }}
-                        className="w-full px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 flex items-center justify-center gap-1"
+                        className="w-full px-3 py-2 text-xs font-medium text-red-400 bg-surface-3 border border-surface-4 rounded-lg hover:bg-surface-4 hover:text-red-300 transition-colors flex items-center justify-center gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -853,10 +913,11 @@ export default function PlayerEdit() {
 
             {/* Player Info */}
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold truncate text-txt-primary">
+              <div className="label-xs text-txt-tertiary mb-1">Edit Player</div>
+              <h1 className="display-md text-txt-primary truncate m-0 leading-tight">
                 {formData.firstName} {formData.lastName}
               </h1>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-1.5">
                 {teamLogo && (
                   <div
                     className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3"
@@ -865,12 +926,12 @@ export default function PlayerEdit() {
                     <img src={teamLogo} alt="" className="w-full h-full object-contain" />
                   </div>
                 )}
-                <span className="text-sm font-medium text-txt-secondary">
-                  #{formData.jerseyNumber || '?'} {formData.position || 'N/A'} | {formData.year || 'N/A'}
+                <span className="text-sm font-medium text-txt-secondary tabular-nums">
+                  #{formData.jerseyNumber || '?'} · {formData.position || 'N/A'} · {formData.year || 'N/A'}
                 </span>
                 {currentOverall && (
                   <span
-                    className="px-2 py-0.5 rounded-full text-xs font-bold tabular"
+                    className="px-2 py-0.5 rounded-md text-xs font-bold tabular-nums"
                     style={{
                       backgroundColor: `${teamColors.primary}22`,
                       color: 'var(--text-primary)',
@@ -882,6 +943,37 @@ export default function PlayerEdit() {
                 )}
               </div>
             </div>
+
+            {/* Header Actions */}
+            {!isViewOnly && (
+              <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={deleting || saving}
+                  className="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-3 border border-surface-4 text-red-400 hover:bg-surface-4 hover:text-red-300 disabled:opacity-50 transition-colors"
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={saving || deleting}
+                  className="btn btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving || deleting}
+                  className="px-4 py-2 rounded-lg text-xs font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: teamColors.primary, color: primaryText }}
+                >
+                  {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Tabs - editorial underline */}
@@ -1237,29 +1329,43 @@ export default function PlayerEdit() {
                 return null
               }
 
-              const updateMovement = (year, type, toTeamTid) => {
+              const updateMovement = (year, patch) => {
                 setFormData(prev => {
                   const next = { ...prev }
                   const movements = { ...(prev.movementByYear || {}) }
-                  if (!type) {
+                  const current = movements[year] || movements[String(year)] || {}
+                  const merged = { ...current, ...patch }
+                  if (!merged.type) {
                     delete movements[year]
                     delete movements[String(year)]
                   } else {
-                    const entry = { type }
-                    if (toTeamTid) entry.toTeamTid = Number(toTeamTid)
-                    movements[year] = entry
+                    // Drop fields that don't apply to the current type
+                    if (merged.type !== 'encouraged_to_transfer') {
+                      delete merged.toTeamTid
+                    }
+                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer']
+                    if (!reasonTypes.includes(merged.type)) {
+                      delete merged.reason
+                    }
+                    movements[year] = merged
                   }
                   next.movementByYear = movements
-                  // Auto-populate next season's team if transferred out with a team selected
-                  if ((type === 'transferred_out' || type === 'encouraged_to_transfer') && toTeamTid) {
+                  // Auto-populate next season's team if forced out to a specific school
+                  if (merged.type === 'encouraged_to_transfer' && merged.toTeamTid) {
                     const yearIdx = activeYears.indexOf(year)
                     if (yearIdx >= 0 && yearIdx < activeYears.length - 1) {
                       const nextYear = activeYears[yearIdx + 1]
-                      next.teamsByYear = { ...(prev.teamsByYear || {}), [nextYear]: Number(toTeamTid) }
+                      next.teamsByYear = { ...(prev.teamsByYear || {}), [nextYear]: Number(merged.toTeamTid) }
                     }
                   }
                   return next
                 })
+              }
+
+              // Map legacy types to unified type so editing is straightforward
+              const normalizeMovementType = (t) => {
+                if (t === 'transferred_out' || t === 'recommitted') return 'entered_portal'
+                return t
               }
 
               // Connector component for entry/movement between seasons
@@ -1286,7 +1392,29 @@ export default function PlayerEdit() {
                           <span className="text-[10px] text-txt-muted">from</span>
                           <select
                             value={formData.previousTeam || ''}
-                            onChange={(e) => setFormData(prev => ({ ...prev, previousTeam: e.target.value ? Number(e.target.value) : '', isPortal: !!e.target.value }))}
+                            onChange={(e) => {
+                              const prevTid = e.target.value ? Number(e.target.value) : ''
+                              setFormData(prev => {
+                                const next = { ...prev, previousTeam: prevTid, isPortal: !!prevTid }
+                                // Auto-backfill a prior-year row so the player's career shows A → B
+                                if (prevTid && activeYears.length > 0) {
+                                  const firstYear = activeYears[0]
+                                  const priorYear = firstYear - 1
+                                  if (!activeYears.includes(priorYear)) {
+                                    next.teamsByYear = { ...(prev.teamsByYear || {}), [priorYear]: prevTid }
+                                    next.classByYear = { ...(prev.classByYear || {}), [priorYear]: '' }
+                                    next.overallByYear = { ...(prev.overallByYear || {}), [priorYear]: '' }
+                                    next.devTraitByYear = { ...(prev.devTraitByYear || {}), [priorYear]: '' }
+                                    const curTeamTid = prev.teamsByYear?.[firstYear] || dynasty?.currentTid
+                                    next.movementByYear = {
+                                      ...(prev.movementByYear || {}),
+                                      [priorYear]: { type: 'transferred_out', toTeamTid: curTeamTid ? Number(curTeamTid) : null }
+                                    }
+                                  }
+                                }
+                                return next
+                              })
+                            }}
                             className="text-[10px] text-txt-muted bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-surface-3"
                           >
                             <option value="">Team...</option>
@@ -1300,21 +1428,24 @@ export default function PlayerEdit() {
                 }
 
                 // Movement after a season
-                const movement = formData.movementByYear?.[year] || {}
-                const movementType = movement.type || ''
+                const movement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                const rawType = movement.type || ''
+                const movementType = normalizeMovementType(rawType)
                 const toTeamTid = movement.toTeamTid || ''
-                const needsTeam = movementType === 'transferred_out' || movementType === 'encouraged_to_transfer'
+                const reason = movement.reason || ''
+                const needsTeam = movementType === 'encouraged_to_transfer'
+                const showsPortalReason = ['entered_portal', 'encouraged_to_transfer'].includes(movementType)
 
                 return (
-                  <div className="flex items-center gap-1.5 px-4 py-1 group">
-                    <div className="flex-1 border-t border-dashed border-surface-4 group-hover:border-surface-4 transition-colors"></div>
+                  <div className="flex flex-wrap items-center gap-1.5 px-4 py-1 group">
+                    <div className="flex-1 min-w-[20px] border-t border-dashed border-surface-4 group-hover:border-surface-4 transition-colors"></div>
                     <select
                       value={movementType}
-                      onChange={(e) => updateMovement(year, e.target.value, needsTeam ? toTeamTid : null)}
+                      onChange={(e) => updateMovement(year, { type: e.target.value })}
                       className={`text-[10px] bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-surface-3 transition-colors ${movementType ? 'text-txt-tertiary font-medium' : 'text-txt-muted'}`}
                     >
                       <option value="">—</option>
-                      <option value="transferred_out">Transferred Out</option>
+                      <option value="entered_portal">Entered Portal</option>
                       <option value="encouraged_to_transfer">Encouraged to Transfer</option>
                       <option value="declared_for_draft">Declared for Draft</option>
                       <option value="graduated">Graduated</option>
@@ -1324,11 +1455,24 @@ export default function PlayerEdit() {
                         <span className="text-[10px] text-txt-muted">to</span>
                         <select
                           value={toTeamTid}
-                          onChange={(e) => updateMovement(year, movementType, e.target.value ? Number(e.target.value) : null)}
+                          onChange={(e) => updateMovement(year, { toTeamTid: e.target.value ? Number(e.target.value) : null })}
                           className="text-[10px] text-txt-muted bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-surface-3"
                         >
                           <option value="">Team...</option>
                           {teamOptions.map(t => <option key={t.tid} value={t.tid}>{t.name}</option>)}
+                        </select>
+                      </>
+                    )}
+                    {showsPortalReason && (
+                      <>
+                        <span className="text-[10px] text-txt-muted">·</span>
+                        <select
+                          value={reason}
+                          onChange={(e) => updateMovement(year, { reason: e.target.value })}
+                          className={`text-[10px] bg-transparent border-none focus:outline-none cursor-pointer px-1 py-0 rounded hover:bg-surface-3 ${reason ? 'text-txt-tertiary' : 'text-txt-muted'}`}
+                        >
+                          <option value="">Reason...</option>
+                          {TRANSFER_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                       </>
                     )}
@@ -1409,6 +1553,64 @@ export default function PlayerEdit() {
                         const teamName = teamTid ? getMascotName(teamTid, teams) : null
                         const logoUrl = teamTid ? getTeamLogoByTid(teamTid, teams) : null
 
+                        // Derive a "how did they get here this year" status chip
+                        const prevYear = idx > 0 ? activeYears[idx - 1] : null
+                        const prevMovement = prevYear ? (formData.movementByYear?.[prevYear] || formData.movementByYear?.[String(prevYear)] || {}) : null
+                        const prevType = normalizeMovementType(prevMovement?.type)
+                        const prevTeamTid = prevYear ? formData.teamsByYear?.[prevYear] : null
+                        const sameTeamAsPrev = prevTeamTid && teamTid && Number(prevTeamTid) === Number(teamTid)
+                        const statusChip = (() => {
+                          if (idx === 0) {
+                            const er = formData.entryReason
+                            if (er === 'recruited') return { text: 'Recruited', color: '#22c55e' }
+                            if (er === 'transfer_in') {
+                              const prevTid = formData.previousTeam
+                              const prevName = prevTid ? getMascotName(prevTid, teams) : null
+                              return { text: prevName ? `Portal from ${prevName}` : 'Portal Transfer', color: '#3b82f6' }
+                            }
+                            if (er === 'juco_in') return { text: 'JUCO Transfer', color: '#3b82f6' }
+                            if (er === 'walk_on') return { text: 'Walk-On', color: '#a78bfa' }
+                            if (er === 'created') return { text: 'Created', color: '#6b7280' }
+                            return null
+                          }
+                          if (prevType === 'entered_portal') {
+                            if (sameTeamAsPrev) return { text: 'Returned from Portal', color: '#8b5cf6' }
+                            const prevName = prevTeamTid ? getMascotName(prevTeamTid, teams) : null
+                            return { text: prevName ? `Portal from ${prevName}` : 'Portal Transfer In', color: '#3b82f6' }
+                          }
+                          if (prevType === 'encouraged_to_transfer' && prevTeamTid) {
+                            const prevName = getMascotName(prevTeamTid, teams)
+                            return { text: prevName ? `Transferred from ${prevName}` : 'Transferred In', color: '#3b82f6' }
+                          }
+                          return { text: 'Returning', color: '#22c55e' }
+                        })()
+
+                        // Post-season exit chip — for portal, infer outcome from next year's team
+                        const curMovement = formData.movementByYear?.[year] || formData.movementByYear?.[String(year)] || {}
+                        const curType = normalizeMovementType(curMovement.type)
+                        const nextYear = idx < activeYears.length - 1 ? activeYears[idx + 1] : null
+                        const nextTeamTid = nextYear ? formData.teamsByYear?.[nextYear] : null
+                        const sameTeamAsNext = teamTid && nextTeamTid && Number(teamTid) === Number(nextTeamTid)
+                        const exitChip = (() => {
+                          if (curType === 'entered_portal') {
+                            if (!nextYear) return { text: 'Entered Portal', color: '#f59e0b', reason: curMovement.reason }
+                            if (sameTeamAsNext) return { text: 'Entered Portal · Returned', color: '#8b5cf6', reason: curMovement.reason }
+                            const toName = nextTeamTid ? getMascotName(nextTeamTid, teams) : null
+                            return { text: toName ? `Entered Portal → ${toName}` : 'Entered Portal · Transferred', color: '#f59e0b', reason: curMovement.reason }
+                          }
+                          if (curType === 'encouraged_to_transfer') {
+                            const toName = curMovement.toTeamTid ? getMascotName(curMovement.toTeamTid, teams) : null
+                            return { text: toName ? `Encouraged Out → ${toName}` : 'Encouraged Out', color: '#f59e0b', reason: curMovement.reason }
+                          }
+                          if (curType === 'declared_for_draft') {
+                            return { text: curMovement.draftRound ? `Draft · Rd ${curMovement.draftRound}` : 'Declared for Draft', color: '#ef4444' }
+                          }
+                          if (curType === 'graduated') {
+                            return { text: 'Graduated', color: '#ef4444' }
+                          }
+                          return null
+                        })()
+
                         return (
                           <div key={year} className="border-b border-surface-4 last:border-b-0">
                             {/* Desktop row */}
@@ -1481,6 +1683,32 @@ export default function PlayerEdit() {
                               </button>
                             </div>
 
+                            {/* Desktop chip strip */}
+                            {(statusChip || exitChip) && (
+                              <div className="hidden sm:flex items-center gap-2 px-4 pb-2 -mt-1 flex-wrap">
+                                {statusChip && (
+                                  <span
+                                    className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded"
+                                    style={{ backgroundColor: `${statusChip.color}22`, color: statusChip.color, border: `1px solid ${statusChip.color}44` }}
+                                  >
+                                    {statusChip.text}
+                                  </span>
+                                )}
+                                {exitChip && (
+                                  <>
+                                    <span className="text-txt-muted text-[10px]">→ end of season</span>
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
+                                      style={{ backgroundColor: `${exitChip.color}22`, color: exitChip.color, border: `1px solid ${exitChip.color}44` }}
+                                    >
+                                      {exitChip.text}
+                                      {exitChip.reason && <span className="italic font-normal opacity-80">· {exitChip.reason}</span>}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+
                             {/* Mobile card */}
                             <div className="sm:hidden px-4 py-3">
                               <div className="flex items-center justify-between mb-2">
@@ -1510,7 +1738,7 @@ export default function PlayerEdit() {
                                     </span>
                                   )}
                                 </div>
-                                <button
+                                <button aria-label="Close"
                                   type="button"
                                   onClick={() => removeYear(year)}
                                   className="text-txt-muted hover:text-red-500 p-1"
@@ -1569,6 +1797,27 @@ export default function PlayerEdit() {
                                   </select>
                                 </div>
                               </div>
+                              {(statusChip || exitChip) && (
+                                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                  {statusChip && (
+                                    <span
+                                      className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded"
+                                      style={{ backgroundColor: `${statusChip.color}22`, color: statusChip.color, border: `1px solid ${statusChip.color}44` }}
+                                    >
+                                      {statusChip.text}
+                                    </span>
+                                  )}
+                                  {exitChip && (
+                                    <span
+                                      className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
+                                      style={{ backgroundColor: `${exitChip.color}22`, color: exitChip.color, border: `1px solid ${exitChip.color}44` }}
+                                    >
+                                      {exitChip.text}
+                                      {exitChip.reason && <span className="italic font-normal opacity-80">· {exitChip.reason}</span>}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
                             {/* Movement connector after this season */}
@@ -1742,7 +1991,7 @@ export default function PlayerEdit() {
                       const totals = getPlayerBoxScoreTotals(player.name, dynasty?.games || [], yearToSync)
 
                       if (!totals) {
-                        alert('No box score data found for this player in ' + yearToSync)
+                        toast.error('No box score data found for this player in ' + yearToSync)
                         return
                       }
 
@@ -1793,7 +2042,7 @@ export default function PlayerEdit() {
                       }
 
                       setFormData(prev => ({ ...prev, stats: newStats }))
-                      alert(`Synced stats from ${totals.gamesPlayed} games for ${yearToSync}`)
+                      toast.error(`Synced stats from ${totals.gamesPlayed} games for ${yearToSync}`)
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm font-medium border border-blue-500 text-blue-600 hover:bg-blue-50 flex items-center gap-1.5"
                   >
@@ -1808,7 +2057,7 @@ export default function PlayerEdit() {
                       const year = parseInt(e.target.value)
                       setSelectedStatsYear(year)
                       const yearStats = player.statsByYear?.[year] || {}
-                      setFormData(prev => ({ ...prev, stats: { ...yearStats } }))
+                      setFormData(prev => ({ ...prev, stats: nestedStatsToFlat(yearStats) }))
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm font-semibold border border-surface-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-surface-2 text-txt-primary"
                   >
@@ -2119,35 +2368,85 @@ export default function PlayerEdit() {
         )}
       </div>
 
-      {/* Fixed Footer - positioned above ticker */}
-      <div
-        className="fixed bottom-[36px] left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
-        style={{
-          paddingBottom: 'env(safe-area-inset-bottom)'
-        }}
-      >
-        <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-        <div className="max-w-4xl mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-          <button
-            onClick={handleCancel}
-            className="btn btn-secondary w-full sm:w-auto press"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full sm:w-auto px-8 py-2.5 rounded-lg text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50 press"
-            style={{
-              backgroundColor: teamColors.primary,
-              color: primaryText
-            }}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+      {/* Mobile action bar */}
+      {!isViewOnly && (
+        <div
+          className="sm:hidden fixed bottom-[36px] left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+          <div className="px-4 py-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={deleting || saving}
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-surface-3 border border-surface-4 text-red-400 disabled:opacity-50"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={saving || deleting}
+              className="btn btn-secondary flex-1 text-xs"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || deleting}
+              className="flex-1 px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: teamColors.primary, color: primaryText }}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => !deleting && setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-surface-1 border border-surface-4 rounded-xl max-w-md w-full shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="h-[3px] w-full bg-red-500" aria-hidden="true" />
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-txt-primary mb-2">Delete Player</h3>
+              <p className="text-sm text-txt-secondary mb-2">
+                Are you sure you want to delete <span className="font-semibold text-txt-primary">{player?.name}</span>?
+              </p>
+              <p className="text-sm text-red-400 font-medium mb-6">
+                This action cannot be undone. The player will be permanently deleted and cannot be recovered.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="btn btn-secondary text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="px-4 py-2 rounded-lg text-xs font-bold bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? 'Deleting…' : 'Delete Permanently'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

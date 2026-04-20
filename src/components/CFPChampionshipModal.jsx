@@ -4,6 +4,7 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -65,6 +66,7 @@ const TROPHY_URL = 'https://i.imgur.com/3goz1NK.png'
 
 export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty } = useDynasty()
+  const { toast } = useToast()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const [game, setGame] = useState({
     id: 'championship',
@@ -209,7 +211,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
     const hasTeam1 = game.team1 || game.team1Tid
     const hasTeam2 = game.team2 || game.team2Tid
     if (!hasTeam1 || !hasTeam2 || game.team1Score === '' || game.team2Score === '') {
-      alert('Please enter scores for the game')
+      toast.error('Please enter scores for the game')
       return
     }
 
@@ -237,7 +239,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       onClose()
     } catch (error) {
       console.error('Error saving National Championship result:', error)
-      alert('Failed to save. Please try again.')
+      toast.error('Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -255,7 +257,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       onMouseDown={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-auto border"
+        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-auto border"
         style={{
           backgroundColor: modalColors.background,
           borderColor: modalColors.border
@@ -276,7 +278,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
           </div>
 
           {/* Close button */}
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="absolute top-4 right-4 text-black/60 hover:text-black hover:bg-black/10 rounded-full p-2 transition-colors"
           >

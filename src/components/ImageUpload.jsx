@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 /**
  * Reusable image upload component with ImgBB integration
@@ -23,6 +24,7 @@ export default function ImageUpload({
   compact = false,
   disabled = false
 }) {
+  const { toast } = useToast()
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef(null)
@@ -34,7 +36,7 @@ export default function ImageUpload({
   const uploadToImgBB = async (file) => {
     const apiKey = import.meta.env.VITE_IMGBB_API_KEY || '1369fa0365731b13c5330a26fedf569c'
     if (!apiKey) {
-      alert('Image upload not configured. Please add VITE_IMGBB_API_KEY to environment variables.')
+      toast.error('Image upload not configured. Please add VITE_IMGBB_API_KEY to environment variables.')
       return null
     }
 
@@ -53,11 +55,11 @@ export default function ImageUpload({
       if (data.success) {
         return data.data.url
       } else {
-        alert('Failed to upload image: ' + (data.error?.message || 'Unknown error'))
+        toast.error('Failed to upload image: ' + (data.error?.message || 'Unknown error'))
         return null
       }
     } catch (error) {
-      alert('Failed to upload image: ' + error.message)
+      toast.error('Failed to upload image: ' + error.message)
       return null
     } finally {
       setUploading(false)
@@ -70,13 +72,13 @@ export default function ImageUpload({
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file')
+      toast.error('Please select an image file')
       return
     }
 
     // Validate file size (max 32MB for ImgBB)
     if (file.size > 32 * 1024 * 1024) {
-      alert('Image must be less than 32MB')
+      toast.error('Image must be less than 32MB')
       return
     }
 
@@ -149,9 +151,9 @@ export default function ImageUpload({
           return
         }
       }
-      alert('No image found in clipboard')
+      toast.error('No image found in clipboard')
     } catch (error) {
-      alert('Could not access clipboard. Try using Ctrl+V instead.')
+      toast.error('Could not access clipboard. Try using Ctrl+V instead.')
     }
   }
 

@@ -6,6 +6,7 @@ import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsMo
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
+import { calculateRecruitingClassScore, formatRecruitingClassScore } from '../../utils/recruitingScore'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -642,6 +643,11 @@ export default function Recruiting() {
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
 
+  const classScore = useMemo(() => {
+    if (isAllSeasons) return 0
+    return calculateRecruitingClassScore(allCommitmentsUnfiltered)
+  }, [allCommitmentsUnfiltered, isAllSeasons])
+
   if (!currentDynasty) return null
 
   const findPlayerByName = (name, recruitYear) => {
@@ -760,154 +766,235 @@ export default function Recruiting() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {!isAllSeasons ? (
+          <div className="flex flex-col sm:flex-row items-stretch gap-3">
+            {/* Featured headline tiles: class rank + class score */}
+            <div className="flex flex-row gap-3 flex-shrink-0">
               <div
-                className="px-3 py-2 rounded-sm text-center"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px]"
+                style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
               >
-                <div className="stat-md tabular" style={{ color: 'var(--team-primary)' }}>
-                  {nationalRank ? `#${nationalRank}` : '—'}
+                <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  {isAllSeasons
+                    ? classStats.total
+                    : (nationalRank ? `#${nationalRank}` : '—')}
                 </div>
-                <div className="label-xs text-txt-tertiary mt-0.5">Rank</div>
-              </div>
-            ) : (
-              <div
-                className="px-3 py-2 rounded-sm text-center"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
-              >
-                <div className="stat-md tabular" style={{ color: 'var(--team-primary)' }}>
-                  {classStats.total}
+                <div className="flex flex-col">
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                    {isAllSeasons ? 'Total' : 'National'}
+                  </span>
+                  <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>
+                    {isAllSeasons ? 'Commits' : 'Rank'}
+                  </span>
                 </div>
-                <div className="label-xs text-txt-tertiary mt-0.5">Total</div>
               </div>
-            )}
 
-            {starTiles.map(tile => {
-              const selected = selectedStars.includes(tile.count)
-              return (
-                <button
-                  key={tile.count}
-                  onClick={() => toggleStarFilter(tile.count)}
-                  className="px-3 py-2 rounded-sm text-center transition-colors hover:bg-surface-4"
-                  style={{
-                    backgroundColor: selected ? 'var(--team-primary-faded)' : 'var(--surface-3)',
-                    border: selected ? '1px solid var(--team-primary)' : '1px solid var(--surface-4)'
-                  }}
+              {!isAllSeasons && (
+                <div
+                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px]"
+                  style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
+                  title="NCAA Football 25 class score formula"
                 >
-                  <div className="stat-md tabular text-txt-primary">{tile.label}</div>
-                  <div className="flex justify-center mt-0.5">
-                    {[...Array(tile.count)].map((_, i) => (
-                      <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
+                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {formatRecruitingClassScore(classScore)}
                   </div>
-                </button>
-              )
-            })}
+                  <div className="flex flex-col">
+                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Class</span>
+                    <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>Score</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Star filter grid */}
+            <div className="grid grid-cols-5 gap-2 flex-1">
+              {starTiles.map(tile => {
+                const selected = selectedStars.includes(tile.count)
+                return (
+                  <button
+                    key={tile.count}
+                    onClick={() => toggleStarFilter(tile.count)}
+                    className="px-2 py-2 rounded-sm text-center transition-all hover:bg-surface-4"
+                    style={{
+                      backgroundColor: selected ? 'var(--team-primary-faded)' : 'var(--surface-3)',
+                      border: selected ? '1px solid var(--team-primary)' : '1px solid var(--surface-4)'
+                    }}
+                    aria-pressed={selected}
+                  >
+                    <div className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{tile.label}</div>
+                    <div className="flex justify-center mt-1 gap-0.5">
+                      {[...Array(tile.count)].map((_, i) => (
+                        <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </Card>
 
       {allCommitments.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 stagger-reveal">
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
             const transferTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam) : null
             const transferLogo = transferTid ? getTeamLogoByTid(transferTid, teamsData) : null
 
+            const hometownText = recruit.hometown
+              ? `${recruit.hometown}${recruit.state ? `, ${recruit.state}` : ''}`
+              : (recruit.state ? (stateFullNames[recruit.state] || recruit.state) : null)
+            const sizeText = (recruit.height || recruit.weight)
+              ? `${recruit.height || ''}${recruit.height && recruit.weight ? ', ' : ''}${recruit.weight ? `${recruit.weight} lbs` : ''}`
+              : null
+            const previousTeamTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam) : null
+            const previousTeamName = previousTeamTid && teamsSource[previousTeamTid]?.name
+              ? teamsSource[previousTeamTid].name
+              : recruit.previousTeam
+            const devTraitKey = recruit.devTrait?.toLowerCase()
+            const showBottomChips = recruit.devTrait || recruit.gemBust || recruit.previousTeam
+
+            const starCount = Number(recruit.stars) || 0
             const cardContent = (
-              <Card padding="md" accent="left" className="h-full hover:bg-surface-3 transition-colors">
-                <div className="flex items-start gap-3 mb-3">
-                  {player?.pictureUrl && (
-                    <img
-                      src={player.pictureUrl}
-                      alt={recruit.name}
-                      className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-sm flex-shrink-0"
-                      style={{ border: '1px solid var(--surface-5)' }}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3
-                      className="font-bold text-sm sm:text-base leading-tight"
-                      style={{ color: player ? 'var(--team-primary)' : 'var(--text-primary)' }}
-                    >
-                      {recruit.name || 'Unknown'}
-                    </h3>
-                    <div className="flex items-center flex-wrap gap-1.5 mt-1">
-                      <Badge variant="accent" size="sm">{recruit.position || 'ATH'}</Badge>
-                      {isAllSeasons && recruit.recruitYear && (
-                        <Badge variant="outline" size="sm">{recruit.recruitYear}</Badge>
-                      )}
-                      <span className="text-xs text-txt-tertiary">{recruit.class || 'HS'}</span>
-                      <div className="ml-auto">
-                        <StarRating stars={recruit.stars} size="sm" />
-                      </div>
-                    </div>
-                    {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-xs text-txt-tertiary tabular">
-                        {recruit.nationalRank && <span>#{recruit.nationalRank} Nat'l</span>}
-                        {recruit.stateRank && <span>#{recruit.stateRank} in State</span>}
-                        {recruit.positionRank && <span>#{recruit.positionRank} {recruit.position}</span>}
+              <Card
+                padding="none"
+                variant="bordered"
+                interactive={!!player}
+                className="h-full overflow-hidden group"
+              >
+                <div className="p-4 flex flex-col h-full">
+                  {/* Top row — photo, name, position, stars */}
+                  <div className="flex items-start gap-3">
+                    {player?.pictureUrl ? (
+                      <img
+                        src={player.pictureUrl}
+                        alt={recruit.name}
+                        className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-sm flex-shrink-0"
+                        style={{ border: '1px solid var(--surface-4)' }}
+                      />
+                    ) : (
+                      <div
+                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-sm flex-shrink-0 flex items-center justify-center"
+                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
+                      >
+                        <span
+                          className="text-xl font-black uppercase tracking-wide text-txt-muted"
+                          style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                        >
+                          {(recruit.position || 'ATH').slice(0, 3)}
+                        </span>
                       </div>
                     )}
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className="text-base sm:text-lg font-black uppercase tracking-wide text-txt-primary leading-tight truncate"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
+                      >
+                        {recruit.name || 'Unknown'}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="accent" size="sm">{recruit.position || 'ATH'}</Badge>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                          {recruit.class || 'HS'}
+                          {isAllSeasons && recruit.recruitYear ? ` · ${recruit.recruitYear}` : ''}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-0.5 mt-1.5">
+                        {[...Array(5)].map((_, i) => (
+                          <svg
+                            key={i}
+                            className="w-3.5 h-3.5"
+                            fill={i < starCount ? 'var(--accent-warning)' : 'var(--surface-4)'}
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                  {recruit.archetype && (
-                    <div>
-                      <span className="text-txt-muted">Archetype: </span>
-                      <span className="font-medium text-txt-secondary">{recruit.archetype}</span>
+                  {/* Rank strip — editorial, tabular */}
+                  {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
+                    <div
+                      className="mt-3 grid grid-cols-3 text-center rounded-sm overflow-hidden"
+                      style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)' }}
+                    >
+                      <div className="py-1.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl</div>
+                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                          {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
+                        </div>
+                      </div>
+                      <div className="py-1.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.position || 'Pos'}</div>
+                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                          {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
+                        </div>
+                      </div>
+                      <div className="py-1.5 px-1">
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.state || 'St'}</div>
+                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                          {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
+                        </div>
+                      </div>
                     </div>
                   )}
-                  {(recruit.height || recruit.weight) && (
-                    <div>
-                      <span className="text-txt-muted">Size: </span>
-                      <span className="font-medium text-txt-secondary tabular">
-                        {recruit.height}{recruit.weight ? `, ${recruit.weight} lbs` : ''}
-                      </span>
-                    </div>
-                  )}
-                  {(recruit.hometown || recruit.state) && (
-                    <div className="col-span-2">
-                      <span className="text-txt-muted">From: </span>
-                      <span className="font-medium text-txt-secondary">
-                        {recruit.hometown
-                          ? `${recruit.hometown}${recruit.state ? `, ${recruit.state}` : ''}`
-                          : stateFullNames[recruit.state] || recruit.state}
-                      </span>
-                    </div>
-                  )}
-                </div>
 
-                <div className="flex items-center flex-wrap gap-1.5">
-                  {recruit.devTrait && (
-                    <Badge variant={DEV_TRAIT_VARIANT[recruit.devTrait?.toLowerCase()] || 'default'} size="sm">
-                      {recruit.devTrait}
-                    </Badge>
+                  {/* Meta info grid — editorial label/value pairs */}
+                  {(recruit.archetype || sizeText || hometownText) && (
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                      {recruit.archetype && (
+                        <div className="col-span-2">
+                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Archetype</div>
+                          <div className="text-sm font-semibold text-txt-primary">{recruit.archetype}</div>
+                        </div>
+                      )}
+                      {sizeText && (
+                        <div>
+                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Size</div>
+                          <div className="text-sm font-semibold text-txt-primary tabular">{sizeText}</div>
+                        </div>
+                      )}
+                      {hometownText && (
+                        <div>
+                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Hometown</div>
+                          <div className="text-sm font-semibold text-txt-primary truncate">{hometownText}</div>
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {recruit.gemBust && (
-                    <Badge
-                      variant={recruit.gemBust.toLowerCase() === 'gem' ? 'success' : 'danger'}
-                      size="sm"
-                    >
-                      {recruit.gemBust}
-                    </Badge>
-                  )}
-                  {recruit.previousTeam && (
-                    <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold uppercase tracking-wider"
-                      style={{
-                        border: '1px solid var(--surface-5)',
-                        color: 'var(--text-secondary)'
-                      }}
-                    >
-                      {transferLogo && <img src={transferLogo} alt="" className="w-3 h-3 object-contain" />}
-                      From {recruit.previousTeam}
-                    </span>
+
+                  {/* Bottom chips */}
+                  {showBottomChips && (
+                    <div className="flex items-center flex-wrap gap-1.5 mt-auto pt-3">
+                      {recruit.devTrait && recruit.devTrait.toLowerCase() !== 'normal' && (
+                        <Badge variant={DEV_TRAIT_VARIANT[devTraitKey] || 'default'} size="sm">
+                          {recruit.devTrait}
+                        </Badge>
+                      )}
+                      {recruit.gemBust && (
+                        <Badge
+                          variant={recruit.gemBust.toLowerCase() === 'gem' ? 'success' : 'danger'}
+                          size="sm"
+                        >
+                          {recruit.gemBust}
+                        </Badge>
+                      )}
+                      {recruit.previousTeam && (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest bg-surface-3 text-txt-secondary"
+                          style={{ letterSpacing: '1.5px' }}
+                        >
+                          <span className="text-txt-tertiary">From</span>
+                          {transferLogo && <img src={transferLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                          <span>{previousTeamName}</span>
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </Card>

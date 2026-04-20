@@ -44,7 +44,7 @@ export default function ClassAdvancementModal({ isOpen, onClose, onConfirm, play
       style={{ margin: 0 }}
     >
       <div
-        className="card w-full max-w-2xl max-h-[90vh] flex flex-col p-6 border-l-[3px]"
+        className="card w-full max-w-2xl max-h-[90dvh] flex flex-col p-6 border-l-[3px]"
         style={{ borderLeftColor: teamColors.primary }}
         onClick={(e) => e.stopPropagation()}
       >

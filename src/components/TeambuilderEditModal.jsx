@@ -3,6 +3,7 @@ import ImageUpload from './ImageUpload'
 import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr } from '../data/teamRegistry'
+import { useToast } from './ui/Toast'
 
 /**
  * Modal for editing a teambuilder team's data.
@@ -16,6 +17,7 @@ export default function TeambuilderEditModal({
   tid,
   onSave
 }) {
+  const { toast } = useToast()
   const [formData, setFormData] = useState({
     name: '',
     abbreviation: '',
@@ -108,7 +110,7 @@ export default function TeambuilderEditModal({
       onClose()
     } catch (error) {
       console.error('Failed to save team:', error)
-      alert('Failed to save team: ' + (error.message || 'Unknown error'))
+      toast.error('Failed to save team: ' + (error.message || 'Unknown error'))
     } finally {
       setSaving(false)
     }
@@ -131,7 +133,7 @@ export default function TeambuilderEditModal({
       onClick={onClose}
     >
       <div
-        className="rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border"
+        className="rounded-lg shadow-xl max-w-lg w-full max-h-[90dvh] overflow-y-auto border"
         style={{
           backgroundColor: modalColors.background,
           borderColor: modalColors.border

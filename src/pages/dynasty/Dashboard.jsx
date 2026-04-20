@@ -42,6 +42,7 @@ import PlayersLeavingModal from '../../components/PlayersLeavingModal'
 import DraftResultsModal from '../../components/DraftResultsModal'
 import TransferDestinationsModal from '../../components/TransferDestinationsModal'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
+import SellVsSendCalculator, { SellVsSendButton } from '../../components/SellVsSendCalculator'
 import PositionChangesModal from '../../components/PositionChangesModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
@@ -51,6 +52,7 @@ import PortalTransferClassModal from '../../components/PortalTransferClassModal'
 import FringeCaseClassModal from '../../components/FringeCaseClassModal'
 import { getAllBowlGamesList, isBowlInWeek1, isBowlInWeek2 } from '../../services/sheetsService'
 import { isSameYear } from '../../utils/compareUtils'
+import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 
 // Helper function to normalize player names for consistent lookup
 const normalizePlayerName = (name) => {
@@ -291,6 +293,7 @@ export default function Dashboard() {
   const [showDraftResultsModal, setShowDraftResultsModal] = useState(false)
   const [showTransferDestinationsModal, setShowTransferDestinationsModal] = useState(false)
   const [showRecruitingModal, setShowRecruitingModal] = useState(false)
+  const [showSellCalc, setShowSellCalc] = useState(false)
   const [showPositionChangesModal, setShowPositionChangesModal] = useState(false)
   const [showRecruitingClassRankModal, setShowRecruitingClassRankModal] = useState(false)
   const [showTrainingResultsModal, setShowTrainingResultsModal] = useState(false)
@@ -2689,7 +2692,7 @@ export default function Dashboard() {
   }, [currentDynasty?.games, currentDynasty?.currentYear, currentDynasty?.coachTeamByYear])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Cloud Read-Only Banner - show when user has cloud dynasty but no premium */}
       {isViewOnly && currentDynasty?.storageType === 'cloud' && !shareCode && (
         <div className="rounded-lg shadow-lg p-4 bg-amber-50 border-2 border-amber-300">
@@ -2857,10 +2860,7 @@ export default function Dashboard() {
               </Link>
               {teamRatings && (
                 <div className="flex items-center gap-2 sm:gap-3 justify-end sm:justify-start">
-                  <div
-                    className="text-center px-4 py-2.5 rounded-xl bg-surface-3"
-                    style={{ borderTop: `2px solid ${teamColors.primary}` }}
-                  >
+                  <div className="text-center px-4 py-2.5 rounded-xl bg-surface-3">
                     <div className="label-xs text-txt-tertiary">OVR</div>
                     <div className="font-display text-xl sm:text-2xl font-extrabold text-txt-primary tabular">{teamRatings.overall}</div>
                   </div>
@@ -3040,7 +3040,7 @@ export default function Dashboard() {
         <div className="space-y-6">
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
           <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
@@ -3106,12 +3106,16 @@ export default function Dashboard() {
                 num++ // After team ratings
                 // Only add coordinator increment if coordinators task is shown (HC + first year on team)
                 if (currentDynasty.coachPosition === 'HC' && isNewTeam) num++ // After coordinators
+                const classScore = calculateRecruitingClassScore(flattenClassCommitments(recruitingCommits))
                 return {
                   num,
                   title: 'Any commitments this week?',
                   isRecruiting: true,
                   done: preseasonCommitments !== undefined,
                   commitmentsCount: preseasonCommitments?.length || 0,
+                  classScore,
+                  recruitingTid: userTid,
+                  recruitingYear: currentDynasty.currentYear,
                   action: () => setShowRecruitingModal(true),
                   actionText: preseasonCommitments !== undefined ? 'Edit' : 'Yes',
                   optional: true
@@ -3128,8 +3132,8 @@ export default function Dashboard() {
                   backgroundColor: 'rgba(34, 197, 94, 0.1)',
                   border: '1px solid rgba(34, 197, 94, 0.3)'
                 } : {
-                  backgroundColor: '#1f1f23',
-                  border: '1px solid #27272a'
+                  backgroundColor: 'var(--surface-3)',
+                  border: '1px solid var(--rule-soft)'
                 }}
               >
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -3208,24 +3212,37 @@ export default function Dashboard() {
                       </div>
                     )}
                     {item.isRecruiting && (
-                      <div
-                        className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
-                        style={{
-                          color: item.done ? '#22c55e' : '#a1a1aa'
-                        }}
-                      >
-                        {item.done
-                          ? item.commitmentsCount > 0
-                            ? `✓ ${item.commitmentsCount} commitment${item.commitmentsCount !== 1 ? 's' : ''} recorded`
-                            : '✓ No commitments this week'
-                          : 'Record any early recruiting commitments'}
-                      </div>
+                      <>
+                        <div
+                          className="text-xs sm:text-sm mt-0.5 sm:mt-1 font-medium"
+                          style={{
+                            color: item.done ? '#22c55e' : '#a1a1aa'
+                          }}
+                        >
+                          {item.done
+                            ? item.commitmentsCount > 0
+                              ? `✓ ${item.commitmentsCount} commitment${item.commitmentsCount !== 1 ? 's' : ''} recorded`
+                              : '✓ No commitments this week'
+                            : 'Record any early recruiting commitments'}
+                        </div>
+                        {item.classScore > 0 && (
+                          <Link
+                            to={`${pathPrefix}/recruiting/${item.recruitingTid}/${item.recruitingYear}`}
+                            className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                            style={{ letterSpacing: '1.5px' }}
+                            title="View recruiting class"
+                          >
+                            Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(item.classScore)}</span>
+                          </Link>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
                 {isViewOnly ? <ViewOnlyBadge /> : (
                   item.isRecruiting && !item.done ? (
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto items-center">
+                      <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                       <button
                         onClick={handleNoCommitments}
                         className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
@@ -3252,7 +3269,7 @@ export default function Dashboard() {
                       onClick={item.action}
                       className="w-full sm:w-auto px-4 py-2 rounded-xl font-display font-semibold hover:opacity-90 transition-colors text-sm"
                       style={item.optional && !item.done ? {
-                        backgroundColor: '#27272a',
+                        backgroundColor: 'var(--surface-4)',
                         color: '#a1a1aa'
                       } : {
                         backgroundColor: teamColors.primary,
@@ -3278,12 +3295,30 @@ export default function Dashboard() {
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-          <div className="p-6">
-          <h3 className="font-display text-lg font-bold mb-4 text-zinc-100">
-            {currentDynasty.currentYear} Regular Season - Week {currentDynasty.currentWeek}
-          </h3>
+        <div>
+          <div className="py-3 flex items-center gap-3" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+            <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
+            <div>
+              <div
+                className="font-bold uppercase text-txt-tertiary"
+                style={{ letterSpacing: '2px', fontSize: '10px' }}
+              >
+                Current Week
+              </div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span
+                  className="font-display font-black tabular-nums leading-none"
+                  style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}
+                >
+                  W{currentDynasty.currentWeek}
+                </span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  {currentDynasty.currentYear} Regular Season
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="pt-4">
           <div className="space-y-3">
             {(() => {
               const scheduledGame = teamSchedule?.find(g => Number(g.week) === Number(currentDynasty.currentWeek))
@@ -3308,185 +3343,176 @@ export default function Dashboard() {
               const commitmentsForWeek = commitmentsForTeamYear[commitmentKey]
               const hasCommitmentsData = commitmentsForWeek !== undefined
               const commitmentsCount = commitmentsForWeek?.length || 0
+              const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForTeamYear))
+
+              // Logo + mascot lookups for scorebug
+              const userLogoUrl = getTeamLogo(userTeamName, currentDynasty?.teams || currentDynasty?.customTeams)
+              const userAbbr = getCurrentTeamAbbr(currentDynasty) || ''
+              const oppAbbr = scheduledGame?.opponent || ''
+              const oppLogoUrl = mascotName
+                ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams)
+                : null
+              const gameLocation = scheduledGame?.location?.toLowerCase() || 'home'
+              const isNeutral = gameLocation === 'neutral'
+              const userIsAway = gameLocation === 'away'
+              const atSymbol = isNeutral ? 'vs' : (userIsAway ? '@' : 'vs')
+              const userScore = playedGame?.perspective?.userScore ?? null
+              const oppScore = playedGame?.perspective?.opponentScore ?? null
+              const userWon = playedGame?.perspective?.userWon
+
+              const handleEnterGame = () => {
+                if (gameRecord) {
+                  navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
+                } else {
+                  const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
+                  const team1 = userTeamTid
+                  const team2 = opponentTid
+                  const params = new URLSearchParams({
+                    week: currentDynasty.currentWeek?.toString() || '',
+                    year: currentDynasty.currentYear?.toString() || '',
+                    gameType: 'regular',
+                    ...(team1 && { team1Tid: team1.toString() }),
+                    ...(team2 && { team2Tid: team2.toString() }),
+                    location: isNeutral ? 'neutral' : gameLocation
+                  })
+                  navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
+                }
+              }
 
               return (
                 <>
-                  {/* Task 1: Game Entry or Bye Week */}
                   {isByeWeek ? (
-                    // Bye Week - Half height tile, already marked as complete
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: '#1f1f23', border: '1px solid #27272a' }}>
-                      <div className="w-5 h-5 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#27272a' }}>
-                        <svg className="w-3 h-3 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center justify-between px-4 py-5 rounded-xl" style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}>
+                      <div>
+                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>Week {currentDynasty.currentWeek}</div>
+                        <div className="font-display font-black text-2xl text-zinc-300 mt-1">BYE WEEK</div>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--surface-4)' }}>
+                        <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
-                      <span className="text-xs font-medium text-zinc-500">
-                        Week {currentDynasty.currentWeek} — BYE
-                      </span>
                     </div>
                   ) : (
-                    // Regular Game Entry
-                    <div
-                      className="flex items-center justify-between p-4 rounded-xl transition-all"
-                      style={playedGame ? {
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        border: '1px solid rgba(34, 197, 94, 0.3)'
-                      } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center font-display"
-                          style={playedGame ? {
-                            backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                            color: '#22c55e'
-                          } : {
-                            backgroundColor: `${teamColors.primary}25`,
-                            color: teamColors.primary
-                          }}
-                        >
-                          {playedGame ? (
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <span className="font-bold text-lg">1</span>
-                          )}
-                        </div>
-                        <div>
-                          <div
-                            className="font-semibold"
-                            style={{ color: playedGame ? '#22c55e' : '#fafafa' }}
-                          >
-                            Week {currentDynasty.currentWeek} {scheduledGame ? (scheduledGame.location === 'away' ? '@' : 'vs') : ''} {opponentName}
-                          </div>
-                          {playedGame && (
-                            <div
-                              className="text-sm mt-1 font-medium"
-                              style={{ color: '#22c55e' }}
-                            >
-                              {playedGame.perspective?.userWon ? 'W' : 'L'} {Math.max(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}-{Math.min(playedGame.perspective?.userScore || 0, playedGame.perspective?.opponentScore || 0)}
-                              <span className="ml-2">✓ Complete</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {isViewOnly ? <ViewOnlyBadge /> : (
-                        <button
-                          onClick={() => {
-                            // Use gameRecord (not playedGame) for navigation - game might exist but not yet played
-                            if (gameRecord) {
-                              navigate(`${pathPrefix}/game/${gameRecord.id}/edit`, { state: { from: location.pathname } })
-                            } else {
-                              // New game - navigate with query params
-                              // UNIFIED CONVENTION:
-                              // - team1 = user's team (always)
-                              // - team2 = opponent
-                              // - location tells us which team is HOME:
-                              //   'home' = team1 is home, 'away' = team2 is home, 'neutral' = no home team
-                              const opponentTid = scheduledGame?.opponent ? getTidFromAbbr(scheduledGame.opponent) : null
-                              const scheduleLocation = scheduledGame?.location?.toLowerCase() || 'home'
-                              const isNeutral = scheduleLocation === 'neutral'
-                              // User is always team1, opponent is always team2
-                              const team1 = userTeamTid
-                              const team2 = opponentTid
-                              // location from schedule: 'home' = user is home = team1 is home
-                              //                        'away' = user is away = team2 is home
-                              const params = new URLSearchParams({
-                                week: currentDynasty.currentWeek?.toString() || '',
-                                year: currentDynasty.currentYear?.toString() || '',
-                                gameType: 'regular',
-                                ...(team1 && { team1Tid: team1.toString() }),
-                                ...(team2 && { team2Tid: team2.toString() }),
-                                location: isNeutral ? 'neutral' : scheduleLocation
-                              })
-                              navigate(`${pathPrefix}/game/new?${params.toString()}`, { state: { from: location.pathname } })
-                            }
-                          }}
-                          className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm"
-                          style={{
-                            backgroundColor: teamColors.primary,
-                            color: primaryBgText
-                          }}
-                        >
-                          {playedGame ? 'Edit' : 'Enter Game'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Task 2: Recruiting Commitments */}
-                  <div
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
-                    style={hasCommitmentsData ? {
-                      backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                      border: '1px solid rgba(34, 197, 94, 0.3)'
-                    } : {
-                      backgroundColor: '#1f1f23',
-                      border: '1px solid #27272a'
-                    }}
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
+                      {/* Scorebug */}
                       <div
-                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-display"
-                        style={hasCommitmentsData ? {
-                          backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                          color: '#22c55e'
+                        className="rounded-xl p-5 flex flex-col justify-between"
+                        style={playedGame ? {
+                          backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
+                          border: '1px solid rgba(34, 197, 94, 0.35)'
                         } : {
-                          backgroundColor: `${teamColors.primary}25`,
-                          color: teamColors.primary
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
-                        {hasCommitmentsData ? (
-                          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : <span className="font-bold text-sm sm:text-base">2</span>}
+                        {/* Matchup row */}
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                          {/* Our team */}
+                          <div className="flex flex-col items-center gap-2 min-w-0">
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                              {userLogoUrl
+                                ? <img src={userLogoUrl} alt="" className="w-full h-full object-contain" />
+                                : <div className="w-full h-full rounded-full" style={{ backgroundColor: teamColors.primary }} />}
+                            </div>
+                            <div className="font-display font-black tabular-nums text-lg sm:text-xl text-zinc-100 leading-none">{userAbbr}</div>
+                          </div>
+                          {/* Middle: VS/score */}
+                          <div className="flex flex-col items-center gap-1 px-1">
+                            {playedGame && userScore != null && oppScore != null ? (
+                              <>
+                                <div className="flex items-baseline gap-2 font-display font-black tabular-nums leading-none" style={{ fontSize: '2rem', color: 'var(--text-primary)' }}>
+                                  <span>{userScore}</span>
+                                  <span className="text-zinc-600 text-xl">–</span>
+                                  <span>{oppScore}</span>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${userWon ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
+                                  {userWon ? 'W' : 'L'} · Final
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Week {currentDynasty.currentWeek}</span>
+                                <span className="font-display font-black text-xl leading-none" style={{ color: teamColors.primary }}>{atSymbol.toUpperCase()}</span>
+                              </>
+                            )}
+                          </div>
+                          {/* Opponent */}
+                          <div className="flex flex-col items-center gap-2 min-w-0">
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                              {oppLogoUrl
+                                ? <img src={oppLogoUrl} alt="" className="w-full h-full object-contain" />
+                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700" />}
+                            </div>
+                            <div className="font-display font-black tabular-nums text-lg sm:text-xl text-zinc-100 leading-none truncate max-w-full">{oppAbbr || 'TBD'}</div>
+                          </div>
+                        </div>
+                        {/* CTA */}
+                        {!isViewOnly && (
+                          <button
+                            onClick={handleEnterGame}
+                            className="mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-3 transition-all hover:opacity-90 active:translate-y-px"
+                            style={{
+                              backgroundColor: teamColors.primary,
+                              color: primaryBgText,
+                              letterSpacing: '2px',
+                              fontSize: '13px',
+                              boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
+                            }}
+                          >
+                            {playedGame ? 'Edit Game' : 'Enter Game'}
+                          </button>
+                        )}
+                        {isViewOnly && <div className="mt-4 flex justify-center"><ViewOnlyBadge /></div>}
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-sm sm:text-base font-semibold" style={{ color: hasCommitmentsData ? '#22c55e' : '#fafafa' }}>
-                          {hasCommitmentsData ? 'Recruiting Commitments' : 'Any commitments this week?'}
+
+                      {/* Recruiting sidebar */}
+                      <div
+                        className="rounded-xl p-4 flex flex-col"
+                        style={hasCommitmentsData ? {
+                          backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
+                          border: '1px solid rgba(34, 197, 94, 0.35)'
+                        } : {
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
+                        }}
+                      >
+                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                          Recruiting
                         </div>
-                        <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: hasCommitmentsData ? '#22c55e' : '#a1a1aa' }}>
+                        <div className={`font-display font-black text-lg mt-1 leading-tight ${hasCommitmentsData ? 'text-green-400' : 'text-zinc-100'}`}>
                           {hasCommitmentsData
-                            ? commitmentsCount > 0
-                              ? `✓ ${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                              : '✓ No commitments this week'
-                            : 'Record any recruiting commitments for this week'}
+                            ? (commitmentsCount > 0 ? `${commitmentsCount} Commit${commitmentsCount !== 1 ? 's' : ''}` : 'No Commits')
+                            : 'This Week'}
                         </div>
+                        {classScore > 0 ? (
+                          <Link
+                            to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
+                            className="mt-1 text-[10px] font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                            style={{ letterSpacing: '1.5px' }}
+                            title="View recruiting class"
+                          >
+                            Class <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                          </Link>
+                        ) : (
+                          <div className="text-xs text-zinc-500 mt-1">Log this week's commits</div>
+                        )}
+
+                        {!isViewOnly && (
+                          <div className="mt-auto pt-3 flex flex-col gap-2">
+                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                            <button
+                              onClick={() => setShowRecruitingModal(true)}
+                              className="w-full py-2 rounded-lg font-bold uppercase tracking-wider text-xs transition-all hover:opacity-90 active:translate-y-px"
+                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            >
+                              {hasCommitmentsData ? 'Edit Commits' : 'Enter Commits'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    {isViewOnly ? <ViewOnlyBadge /> : (
-                      !hasCommitmentsData ? (
-                        <div className="flex gap-2 self-end sm:self-auto">
-                          <button
-                            onClick={handleNoCommitments}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                          >
-                            No
-                          </button>
-                          <button
-                            onClick={() => setShowRecruitingModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                          >
-                            Yes
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setShowRecruitingModal(true)}
-                          className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                          style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                        >
-                          Edit
-                        </button>
-                      )
-                    )}
-                  </div>
+                  )}
                 </>
               )
             })()}
@@ -3496,7 +3522,7 @@ export default function Dashboard() {
       ) : currentDynasty.currentPhase === 'conference_championship' ? (
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}
+          style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}
         >
           <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
@@ -3528,8 +3554,8 @@ export default function Dashboard() {
                     backgroundColor: 'rgba(34, 197, 94, 0.1)',
                     border: '1px solid rgba(34, 197, 94, 0.3)'
                   } : {
-                    backgroundColor: '#1f1f23',
-                    border: '1px solid #27272a'
+                    backgroundColor: 'var(--surface-3)',
+                    border: '1px solid var(--rule-soft)'
                   }}
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
@@ -3614,8 +3640,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -3695,8 +3721,8 @@ export default function Dashboard() {
                       backgroundColor: 'rgba(34, 197, 94, 0.1)',
                       border: '1px solid rgba(34, 197, 94, 0.3)'
                     } : {
-                      backgroundColor: '#1f1f23',
-                      border: '1px solid #27272a'
+                      backgroundColor: 'var(--surface-3)',
+                      border: '1px solid var(--rule-soft)'
                     }}
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -3757,6 +3783,7 @@ export default function Dashboard() {
                   const ccCommitments = ccCommitmentsForYear?.[commitmentKey]
                   const hasCommitmentsData = ccCommitments !== undefined
                   const commitmentsCount = ccCommitments?.length || 0
+                  const classScore = calculateRecruitingClassScore(flattenClassCommitments(ccCommitmentsForYear))
 
                   return (
                     <div
@@ -3765,8 +3792,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -3793,11 +3820,22 @@ export default function Dashboard() {
                                 : '✓ No commitments this week'
                               : 'Record any recruiting commitments'}
                           </div>
+                          {classScore > 0 && (
+                            <Link
+                              to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
+                              className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                              style={{ letterSpacing: '1.5px' }}
+                              title="View recruiting class"
+                            >
+                              Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                            </Link>
+                          )}
                         </div>
                       </div>
                       {isViewOnly ? <ViewOnlyBadge /> : (
                         !hasCommitmentsData ? (
-                          <div className="flex gap-2 self-end sm:self-auto">
+                          <div className="flex gap-2 self-end sm:self-auto items-center">
+                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
@@ -3833,7 +3871,7 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
           <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
           <div className="p-4 sm:p-6">
           {(() => {
@@ -4187,8 +4225,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4229,8 +4267,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -4277,8 +4315,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${!bowlTaskComplete || (!hasCFPSeedsData || bowlEligible === null || (!userCFPSeed && bowlEligible && (!selectedBowl || !bowlOpponent))) ? 'mb-3' : ''}`}>
@@ -4459,8 +4497,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -4520,8 +4558,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -4579,8 +4617,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -4730,6 +4768,7 @@ export default function Dashboard() {
                       const weekCommitments = commitmentsForYear?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
+                      const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
                       // Task number: after Taking a New Job (which is task 5)
                       const taskNum = 6
 
@@ -4740,8 +4779,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
@@ -4768,10 +4807,21 @@ export default function Dashboard() {
                                     : '✓ No commitments this week'
                                   : 'Record any recruiting commitments'}
                               </div>
+                              {classScore > 0 && (
+                                <Link
+                                  to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
+                                  className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                                  style={{ letterSpacing: '1.5px' }}
+                                  title="View recruiting class"
+                                >
+                                  Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                                </Link>
+                              )}
                             </div>
                           </div>
                           {!hasCommitmentsData ? (
-                            <div className="flex gap-2 self-end sm:self-auto">
+                            <div className="flex gap-2 self-end sm:self-auto items-center">
+                              <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                               <button
                                 onClick={handleNoCommitments}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
@@ -4820,8 +4870,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
@@ -4865,8 +4915,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
@@ -4931,8 +4981,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
@@ -5000,8 +5050,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -5172,8 +5222,8 @@ export default function Dashboard() {
                         <div
                           className="p-3 sm:p-4 rounded-xl transition-all"
                           style={{
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
@@ -5396,6 +5446,7 @@ export default function Dashboard() {
                       const weekCommitments = commitmentsForYear?.[commitmentKey]
                       const hasCommitmentsData = weekCommitments !== undefined
                       const commitmentsCount = weekCommitments?.length || 0
+                      const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
                       // Task number: starts at base, increments based on visible tasks
                       let taskNum = 2
                       if (bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) taskNum++
@@ -5411,8 +5462,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
@@ -5439,10 +5490,21 @@ export default function Dashboard() {
                                     : '✓ No commitments this week'
                                   : 'Record any recruiting commitments'}
                               </div>
+                              {classScore > 0 && (
+                                <Link
+                                  to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
+                                  className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                                  style={{ letterSpacing: '1.5px' }}
+                                  title="View recruiting class"
+                                >
+                                  Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                                </Link>
+                              )}
                             </div>
                           </div>
                           {!hasCommitmentsData ? (
-                            <div className="flex gap-2 self-end sm:self-auto">
+                            <div className="flex gap-2 self-end sm:self-auto items-center">
+                              <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                               <button
                                 onClick={handleNoCommitments}
                                 className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg font-semibold text-sm transition-all hover:shadow-md active:scale-[0.98]"
@@ -5499,8 +5561,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -5557,8 +5619,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5618,8 +5680,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5677,8 +5739,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5730,8 +5792,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5782,8 +5844,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5834,8 +5896,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5885,8 +5947,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5936,8 +5998,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -5998,8 +6060,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6042,8 +6104,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6124,8 +6186,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6184,8 +6246,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6254,8 +6316,8 @@ export default function Dashboard() {
                       backgroundColor: 'rgba(34, 197, 94, 0.1)',
                       border: '1px solid rgba(34, 197, 94, 0.3)'
                     } : {
-                      backgroundColor: '#1f1f23',
-                      border: '1px solid #27272a'
+                      backgroundColor: 'var(--surface-3)',
+                      border: '1px solid var(--rule-soft)'
                     }}
                   >
                     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
@@ -6420,8 +6482,8 @@ export default function Dashboard() {
                       <div
                         className="p-3 sm:p-4 rounded-xl transition-all"
                         style={{
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
@@ -6644,6 +6706,7 @@ export default function Dashboard() {
                     const weekCommitments = commitmentsForYear?.[commitmentKey]
                     const hasCommitmentsData = weekCommitments !== undefined
                     const commitmentsCount = weekCommitments?.length || 0
+                    const classScore = calculateRecruitingClassScore(flattenClassCommitments(commitmentsForYear))
                     // Task number depends on week and other visible tasks
                     let taskNum = week === 3 ? 2 : 2
                     if (week === 3 && userInCFPSemifinal && hasBowlWeek2Data) taskNum++ // After user SF game
@@ -6663,8 +6726,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -6691,10 +6754,21 @@ export default function Dashboard() {
                                   : '✓ No commitments this week'
                                 : 'Record any recruiting commitments'}
                             </div>
+                            {classScore > 0 && (
+                              <Link
+                                to={`${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}`}
+                                className="block w-fit text-[10px] sm:text-xs mt-1 font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                                style={{ letterSpacing: '1.5px' }}
+                                title="View recruiting class"
+                              >
+                                Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                              </Link>
+                            )}
                           </div>
                         </div>
                         {!hasCommitmentsData ? (
-                          <div className="flex gap-2 self-end sm:self-auto">
+                          <div className="flex gap-2 self-end sm:self-auto items-center">
+                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
@@ -6732,8 +6806,8 @@ export default function Dashboard() {
         <div
           className="rounded-2xl overflow-hidden"
           style={{
-            backgroundColor: '#18181b',
-            border: '1px solid #27272a'
+            backgroundColor: 'var(--surface-2)',
+            border: '1px solid var(--rule-soft)'
           }}
         >
           <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
@@ -6803,8 +6877,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6894,8 +6968,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -6932,15 +7006,19 @@ export default function Dashboard() {
                       </div>
                       {!hasCommitmentsData ? (
                         recruitingWeekNum === 5 ? (
-                          <button
-                            onClick={() => setShowRecruitingModal(true)}
-                            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm self-end sm:self-auto"
-                            style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                          >
-                            Open
-                          </button>
+                          <div className="flex gap-2 self-end sm:self-auto items-center">
+                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                            <button
+                              onClick={() => setShowRecruitingModal(true)}
+                              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
+                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
+                            >
+                              Open
+                            </button>
+                          </div>
                         ) : (
-                          <div className="flex gap-2 self-end sm:self-auto">
+                          <div className="flex gap-2 self-end sm:self-auto items-center">
+                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
                             <button
                               onClick={handleNoCommitments}
                               className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-semibold hover:opacity-90 text-sm"
@@ -6976,8 +7054,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -7066,8 +7144,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7130,8 +7208,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7189,8 +7267,8 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7274,12 +7352,12 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : isBlocked ? {
-                            backgroundColor: '#18181b',
-                            border: '1px solid #27272a',
+                            backgroundColor: 'var(--surface-2)',
+                            border: '1px solid var(--rule-soft)',
                             opacity: 0.5
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7289,7 +7367,7 @@ export default function Dashboard() {
                                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
                                 color: '#22c55e'
                               } : isBlocked ? {
-                                backgroundColor: '#27272a',
+                                backgroundColor: 'var(--surface-4)',
                                 color: '#6b7280'
                               } : {
                                 backgroundColor: `${teamColors.primary}25`,
@@ -7387,12 +7465,12 @@ export default function Dashboard() {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
                           } : isBlocked ? {
-                            backgroundColor: '#18181b',
-                            border: '1px solid #27272a',
+                            backgroundColor: 'var(--surface-2)',
+                            border: '1px solid var(--rule-soft)',
                             opacity: 0.5
                           } : {
-                            backgroundColor: '#1f1f23',
-                            border: '1px solid #27272a'
+                            backgroundColor: 'var(--surface-3)',
+                            border: '1px solid var(--rule-soft)'
                           }}
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -7402,7 +7480,7 @@ export default function Dashboard() {
                                 backgroundColor: 'rgba(34, 197, 94, 0.2)',
                                 color: '#22c55e'
                               } : isBlocked ? {
-                                backgroundColor: '#27272a',
+                                backgroundColor: 'var(--surface-4)',
                                 color: '#6b7280'
                               } : {
                                 backgroundColor: `${teamColors.primary}25`,
@@ -7575,8 +7653,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -7628,8 +7706,8 @@ export default function Dashboard() {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
                         } : {
-                          backgroundColor: '#1f1f23',
-                          border: '1px solid #27272a'
+                          backgroundColor: 'var(--surface-3)',
+                          border: '1px solid var(--rule-soft)'
                         }}
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
@@ -7705,8 +7783,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -7757,8 +7835,8 @@ export default function Dashboard() {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
                       } : {
-                        backgroundColor: '#1f1f23',
-                        border: '1px solid #27272a'
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
                       }}
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -7836,17 +7914,17 @@ export default function Dashboard() {
 
           {/* Roster Section - Desktop Only (below tasks) */}
           <div className="hidden lg:block">
-            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
-              <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-              <div className="px-4 sm:px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
-                <div className="flex items-center gap-2">
+            <div>
+              <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-10 rounded-full" style={{ backgroundColor: teamColors.primary }} />
                   <div>
-                    <h2 className="font-display text-base sm:text-lg font-bold text-zinc-100">
+                    <div
+                      className="font-bold uppercase text-txt-tertiary"
+                      style={{ letterSpacing: '2px', fontSize: '10px' }}
+                    >
                       {currentDynasty.currentYear} Roster
-                    </h2>
-                    <p className="text-sm text-zinc-500">
-                      {teamRoster.length} Players
-                    </p>
+                    </div>
                   </div>
                   <Link
                     to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
@@ -7894,7 +7972,7 @@ export default function Dashboard() {
                         <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                         {/* Player Image */}
-                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600 transition-all" style={{ backgroundColor: '#27272a' }}>
+                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700 group-hover:ring-zinc-600 transition-all" style={{ backgroundColor: 'var(--surface-4)' }}>
                           {player.pictureUrl ? (
                             <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
                           ) : (
@@ -7942,22 +8020,32 @@ export default function Dashboard() {
         {/* Right Column: Schedule - Desktop Only */}
         <div className="hidden lg:block">
           {/* Schedule Section - Clean Redesign */}
-      <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
+      <div>
         {/* Schedule Header */}
-        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+        <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
           <div className="flex items-center gap-3">
             <div
-              className="w-1 h-10 rounded-full"
+              className="w-1 h-12 rounded-full"
               style={{ backgroundColor: teamColors.primary }}
             />
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
+              <div
+                className="font-bold uppercase text-txt-tertiary"
+                style={{ letterSpacing: '2px', fontSize: '10px' }}
+              >
                 {currentDynasty.currentYear} Schedule
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-sm font-semibold text-white">{wins}-{losses}</span>
+              </div>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span
+                  className="font-display font-black tabular-nums leading-none"
+                  style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}
+                >
+                  {wins}-{losses}
+                </span>
                 {(confWins > 0 || confLosses > 0) && (
-                  <span className="text-sm text-zinc-500">({confWins}-{confLosses} conf)</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 tabular-nums">
+                    {confWins}-{confLosses} conf
+                  </span>
                 )}
               </div>
             </div>
@@ -7985,7 +8073,7 @@ export default function Dashboard() {
         </div>
 
         {/* Schedule Body */}
-        <div className="divide-y divide-zinc-800/50">
+        <div className="divide-y divide-zinc-800/50 stagger-reveal">
           {teamSchedule && teamSchedule.length > 0 ? (
             <>
               {/* Render all weeks 0-15, showing bye weeks for missing entries */}
@@ -8436,7 +8524,7 @@ export default function Dashboard() {
         {/* Mobile Tabbed Section - Schedule/Roster Tabs */}
         <div className="lg:hidden">
           {/* Tab Buttons */}
-          <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: '#18181b', border: '1px solid #27272a' }}>
+          <div className="flex mb-4 rounded-xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
             <button
               onClick={() => setMobileTab('schedule')}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
@@ -8463,9 +8551,9 @@ export default function Dashboard() {
 
           {/* Schedule Tab Content */}
           {mobileTab === 'schedule' && (
-            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--rule-soft)' }}>
               {/* Schedule Header */}
-              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+              <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
                 <div className="flex items-center gap-3">
                   <div
                     className="w-1 h-10 rounded-full"
@@ -8624,8 +8712,8 @@ export default function Dashboard() {
 
           {/* Roster Tab Content */}
           {mobileTab === 'roster' && (
-          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #27272a' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--rule-soft)' }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
               <div className="flex items-center gap-3">
                 <div
                   className="w-1 h-10 rounded-full"
@@ -8685,7 +8773,7 @@ export default function Dashboard() {
                       <span className="text-sm font-bold text-zinc-400 w-6 text-right">{player.jerseyNumber || '--'}</span>
 
                       {/* Player Image */}
-                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700" style={{ backgroundColor: '#27272a' }}>
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-zinc-700" style={{ backgroundColor: 'var(--surface-4)' }}>
                         {player.pictureUrl ? (
                           <img src={player.pictureUrl} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
@@ -9376,9 +9464,10 @@ export default function Dashboard() {
             }
 
             const existingStatsByYear = player.statsByYear || {}
+            // Read under either key shape, but write only the string form so we
+            // don't leave stale numeric-keyed entries behind.
             const existingYearStats = existingStatsByYear[year] || existingStatsByYear[Number(year)] || {}
 
-            // Deep merge: preserve gamesPlayed, snapsPlayed, and merge each category
             const mergedYearStats = { ...existingYearStats }
             Object.entries(detailedPlayerStats).forEach(([category, newCategoryStats]) => {
               const existingCategoryStats = existingYearStats[category] || {}
@@ -9388,12 +9477,19 @@ export default function Dashboard() {
               }
             })
 
+            const nextStatsByYear = { ...existingStatsByYear }
+            // Remove any numeric-keyed duplicate for this season before writing the string key
+            if (Number(year) !== year && nextStatsByYear[Number(year)] !== undefined) {
+              delete nextStatsByYear[Number(year)]
+            }
+            if (String(year) !== year && nextStatsByYear[String(year)] !== undefined) {
+              delete nextStatsByYear[String(year)]
+            }
+            nextStatsByYear[year] = mergedYearStats
+
             return {
               ...player,
-              statsByYear: {
-                ...existingStatsByYear,
-                [year]: mergedYearStats
-              }
+              statsByYear: nextStatsByYear
             }
           })
 
@@ -9613,6 +9709,13 @@ export default function Dashboard() {
         recruitingLabel={getRecruitingLabel()}
         existingCommitments={getAllPreviousCommitments()}
         teamColors={teamColors}
+      />
+
+      {/* Sell vs Send Calculator */}
+      <SellVsSendCalculator
+        isOpen={showSellCalc}
+        onClose={() => setShowSellCalc(false)}
+        accentColor={teamColors.primary}
       />
 
       {/* Position Changes Modal (National Signing Day) */}

@@ -175,7 +175,7 @@ export default function OverallProgressionModal({
                 </div>
               </div>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-txt-muted hover:text-white transition-colors"
             >
@@ -257,7 +257,7 @@ export default function OverallProgressionModal({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
                         </button>
-                        <button
+                        <button aria-label="Close"
                           onClick={(e) => { e.stopPropagation(); handleCancel() }}
                           className="p-1.5 rounded bg-white/10 text-txt-muted hover:bg-white/20"
                         >

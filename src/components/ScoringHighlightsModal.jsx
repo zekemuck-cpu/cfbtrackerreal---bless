@@ -371,7 +371,7 @@ export default function ScoringHighlightsModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-surface-4"
+        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90dvh] flex flex-col border border-surface-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -381,7 +381,7 @@ export default function ScoringHighlightsModal({
             <span className="text-sm text-txt-muted">
               Play {currentIndex + 1} of {totalPlays}
             </span>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="p-1 hover:bg-surface-3 rounded-lg transition-colors"
             >

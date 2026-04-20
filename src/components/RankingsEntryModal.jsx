@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { teams } from '../data/teams'
 import SearchableSelect from './SearchableSelect'
+import { useToast } from './ui/Toast'
 
 export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYear, currentWeek }) {
+  const { toast } = useToast()
   const [rankings, setRankings] = useState(
     Array.from({ length: 25 }, (_, i) => ({
       rank: i + 1,
@@ -21,7 +23,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
     // Filter out empty rankings
     const filledRankings = rankings.filter(r => r.team)
     if (filledRankings.length === 0) {
-      alert('Please add at least one ranked team')
+      toast.error('Please add at least one ranked team')
       return
     }
     onSave({
@@ -41,7 +43,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
       onMouseDown={onClose}
     >
       <div
-        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-white border-b border-surface-4 px-6 py-4 flex items-center justify-between">
@@ -53,7 +55,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
               Optional: Track national rankings throughout the season
             </p>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="text-txt-muted hover:text-txt-tertiary"
           >

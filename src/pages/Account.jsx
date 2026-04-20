@@ -5,6 +5,7 @@ import BouncingLogos from '../components/BouncingLogos'
 import { doc, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { PageHero, Card, Button, Badge } from '../components/ui'
+import { useToast } from '../components/ui/Toast'
 
 const PLAN_FEATURES = [
   { name: 'Dynasty Tracking', free: true, premium: true },
@@ -28,6 +29,7 @@ function PlanCell({ value }) {
 
 export default function Account() {
   const { user, isPremium, upgradeToPremium, manageSubscription, subscription } = useAuth()
+  const { toast } = useToast()
   const [upgrading, setUpgrading] = useState(false)
   const [devStatus, setDevStatus] = useState(null)
   const [showDevTools, setShowDevTools] = useState(false)
@@ -96,7 +98,7 @@ export default function Account() {
       await upgradeToPremium()
     } catch (error) {
       console.error('Upgrade error:', error)
-      alert('Failed to start upgrade. Please try again.')
+      toast.error('Failed to start upgrade. Please try again.')
     } finally {
       setUpgrading(false)
     }
@@ -109,7 +111,7 @@ export default function Account() {
 
   if (!user) {
     return (
-      <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="relative min-h-[calc(100dvh-4rem)] overflow-hidden">
         <BouncingLogos />
         <div className="relative z-10 flex items-center justify-center p-8">
           <Card>
@@ -124,7 +126,7 @@ export default function Account() {
   }
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
+    <div className="relative min-h-[calc(100dvh-4rem)] overflow-hidden">
       <BouncingLogos />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 space-y-4">

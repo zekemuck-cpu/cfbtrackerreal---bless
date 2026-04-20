@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, currentRatings }) {
+  const { toast } = useToast()
   const [overall, setOverall] = useState('')
   const [offense, setOffense] = useState('')
   const [defense, setDefense] = useState('')
@@ -48,7 +50,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
 
   const handleSave = () => {
     if (!overall || !offense || !defense) {
-      alert('Please enter all three ratings (Overall, Offense, Defense)')
+      toast.error('Please enter all three ratings (Overall, Offense, Defense)')
       return
     }
 
@@ -57,12 +59,12 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
     const defenseNum = parseInt(defense)
 
     if (isNaN(overallNum) || isNaN(offenseNum) || isNaN(defenseNum)) {
-      alert('Ratings must be numbers')
+      toast.error('Ratings must be numbers')
       return
     }
 
     if (overallNum < 40 || overallNum > 99 || offenseNum < 40 || offenseNum > 99 || defenseNum < 40 || defenseNum > 99) {
-      alert('Ratings must be between 40 and 99')
+      toast.error('Ratings must be between 40 and 99')
       return
     }
 
@@ -84,7 +86,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl shadow-xl w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border"
+        className="rounded-xl shadow-xl w-full max-w-md max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto p-4 sm:p-6 border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -92,7 +94,7 @@ export default function TeamRatingsModal({ isOpen, onClose, onSave, teamColors, 
           <h2 className="text-2xl font-bold" style={{ color: modalColors.text }}>
             Team Ratings
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="hover:opacity-70"
             style={{ color: modalColors.text }}

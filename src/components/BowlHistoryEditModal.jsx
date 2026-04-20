@@ -3,9 +3,11 @@ import { useDynasty, GAME_TYPES, detectGameType } from '../context/DynastyContex
 import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { bowlLogos, getAllBowlNames } from '../data/bowlLogos'
 import { getTidFromAbbr, getOriginalTeamAbbr } from '../data/teamRegistry'
+import { useToast } from './ui/Toast'
 
 export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
+  const { toast } = useToast()
   const [selectedYear, setSelectedYear] = useState(null)
   const [bowlGames, setBowlGames] = useState({}) // { year: { bowlName: gameData } }
   const [saving, setSaving] = useState(false)
@@ -189,7 +191,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
       onClose()
     } catch (error) {
       console.error('Error saving bowl games:', error)
-      alert('Failed to save bowl games. Please try again.')
+      toast.error('Failed to save bowl games. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -222,7 +224,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border"
+        className="rounded-xl w-full max-w-4xl max-h-[90dvh] overflow-hidden shadow-2xl flex flex-col border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -231,7 +233,7 @@ export default function BowlHistoryEditModal({ isOpen, onClose, teamColors }) {
           <h2 className="text-xl font-bold" style={{ color: modalColors.text }}>
             Edit Bowl History
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-white/10 transition-colors"
             style={{ color: modalColors.text }}

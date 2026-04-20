@@ -71,7 +71,7 @@ export default function Modal({
       }}
     >
       <div
-        className={`w-full ${sizeClass} card-elevated flex flex-col max-h-[90vh] overflow-hidden modal-panel-in`}
+        className={`w-full ${sizeClass} card-elevated flex flex-col max-h-[90dvh] overflow-hidden modal-panel-in`}
         role="dialog"
         aria-modal="true"
         aria-label={title || undefined}

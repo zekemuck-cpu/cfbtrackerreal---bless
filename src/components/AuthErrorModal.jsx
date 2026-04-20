@@ -36,7 +36,7 @@ export default function AuthErrorModal({ isOpen, onClose, onRefresh, teamColors 
 
       {/* Modal */}
       <div
-        className="relative rounded-xl shadow-2xl max-w-md w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border"
+        className="relative rounded-xl shadow-2xl max-w-md w-full max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto p-4 sm:p-6 border"
         style={{
           backgroundColor: modalColors.background,
           borderColor: modalColors.border

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 export default function RecruitingClassRankModal({
   isOpen,
@@ -8,6 +9,7 @@ export default function RecruitingClassRankModal({
   currentRank,
   teamColors
 }) {
+  const { toast } = useToast()
   const [rank, setRank] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -36,7 +38,7 @@ export default function RecruitingClassRankModal({
   const handleSave = async () => {
     const rankNum = parseInt(rank, 10)
     if (!rank || isNaN(rankNum) || rankNum < 1 || rankNum > 134) {
-      alert('Please enter a valid rank between 1 and 134')
+      toast.error('Please enter a valid rank between 1 and 134')
       return
     }
 
@@ -46,7 +48,7 @@ export default function RecruitingClassRankModal({
       onClose()
     } catch (error) {
       console.error('Failed to save recruiting class rank:', error)
-      alert('Failed to save. Please try again.')
+      toast.error('Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }

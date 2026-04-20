@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from './AuthContext'
+import { useToast } from '../components/ui/Toast'
 import {
   getUserDynasties,
   subscribeToDynasties,
@@ -1633,16 +1634,74 @@ function applyBoxScoreDelta(players, newContribution, oldContribution, year) {
 }
 
 /**
- * Process box score save - extracts contribution, applies delta, returns updated players and contribution
- * @param {Array} players - Current players array
- * @param {Object} newBoxScore - The new box score being saved
- * @param {Object} oldContribution - Previous statsContributed from the game (null for new games)
- * @param {number} year - The year
- * @returns {Object} { updatedPlayers, statsContributed }
+ * Recompute "max" (long) fields only, by scanning all games for the year.
+ * Needed because the delta path uses Math.max against current — it never
+ * decreases a season long even if the game that originally set it was edited
+ * down. Sum/count fields remain delta-tracked (cheap, correct).
  */
-export function processBoxScoreSave(players, newBoxScore, oldContribution, year) {
+function recomputeMaxFieldsFromGames(players, allGames, year) {
+  const yearNum = Number(year)
+  const gamesWithBox = (allGames || []).filter(g =>
+    Number(g.year) === yearNum && g.boxScore
+  )
+
+  // Collect: playerName -> category -> maxField -> max value across games
+  const maxByPlayer = {}
+  gamesWithBox.forEach(game => {
+    const contribution = extractBoxScoreContribution(game.boxScore)
+    Object.entries(contribution).forEach(([normalizedName, catStats]) => {
+      if (!maxByPlayer[normalizedName]) maxByPlayer[normalizedName] = {}
+      Object.keys(BOX_SCORE_STATS).forEach(category => {
+        const stats = catStats[category]
+        if (!stats) return
+        const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+        const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+        if (maxFields.length === 0) return
+        if (!maxByPlayer[normalizedName][category]) maxByPlayer[normalizedName][category] = {}
+        maxFields.forEach(field => {
+          const v = stats[field] || 0
+          const cur = maxByPlayer[normalizedName][category][field] || 0
+          if (v > cur) maxByPlayer[normalizedName][category][field] = v
+        })
+      })
+    })
+  })
+
+  return players.map(player => {
+    const normalized = normalizePlayerName(player.name)
+    const playerMax = maxByPlayer[normalized]
+    if (!playerMax) return player
+    const existingStatsByYear = player.statsByYear || {}
+    const existingYearStats = { ...(existingStatsByYear[yearNum] || {}) }
+    Object.entries(playerMax).forEach(([category, fields]) => {
+      if (!existingYearStats[category]) existingYearStats[category] = {}
+      else existingYearStats[category] = { ...existingYearStats[category] }
+      Object.entries(fields).forEach(([field, value]) => {
+        existingYearStats[category][field] = value
+      })
+    })
+    return {
+      ...player,
+      statsByYear: { ...existingStatsByYear, [yearNum]: existingYearStats }
+    }
+  })
+}
+
+/**
+ * Process box score save - extracts contribution, applies delta, returns updated players and contribution.
+ * When editing an existing box score (oldContribution non-null), also recomputes max/long fields
+ * from all games — the delta path can only ever increase max fields, so an edit that lowers a long
+ * rush/reception/etc. would otherwise leave season totals inflated.
+ */
+export function processBoxScoreSave(players, newBoxScore, oldContribution, year, allGames = null) {
   const newContribution = extractBoxScoreContribution(newBoxScore)
-  const updatedPlayers = applyBoxScoreDelta(players, newContribution, oldContribution, year)
+  let updatedPlayers = applyBoxScoreDelta(players, newContribution, oldContribution, year)
+
+  // Max-field correction only needed when editing (oldContribution present).
+  // For fresh adds, Math.max against the new game is already correct.
+  if (oldContribution && allGames) {
+    updatedPlayers = recomputeMaxFieldsFromGames(updatedPlayers, allGames, year)
+  }
 
   return {
     updatedPlayers,
@@ -1655,11 +1714,16 @@ export function processBoxScoreSave(players, newBoxScore, oldContribution, year)
  * @param {Array} players - Current players array
  * @param {Object} oldContribution - The statsContributed from the deleted game
  * @param {number} year - The year
+ * @param {Array} [allGames] - Optional remaining games for max-field recompute
  * @returns {Array} Updated players array
  */
-export function processBoxScoreDelete(players, oldContribution, year) {
+export function processBoxScoreDelete(players, oldContribution, year, allGames = null) {
   // Deleting is like applying a delta where new contribution is empty
-  return applyBoxScoreDelta(players, {}, oldContribution, year)
+  let updatedPlayers = applyBoxScoreDelta(players, {}, oldContribution, year)
+  if (allGames) {
+    updatedPlayers = recomputeMaxFieldsFromGames(updatedPlayers, allGames, year)
+  }
+  return updatedPlayers
 }
 
 /**
@@ -1747,20 +1811,16 @@ export function recalculateStatsFromBoxScores(players, games, year, options = {}
     const existingYearStats = existingStatsByYear[yearNum] || {}
     const boxScoreGamesPlayed = gamesPlayedCount[playerNameNormalized]
 
-    // Build new year stats - sync box score stat categories (passing, rushing, etc.)
-    // but preserve manually entered gamesPlayed and snapsPlayed if requested
+    // Start from existing year stats so non-box-score categories (manual entry,
+    // sheet import) survive. Box-score categories from playerAggregated will
+    // overlay the existing same-named categories as the recomputed truth.
     const newYearStats = {
-      // If skipGamesPlayed is true, always preserve existing gamesPlayed value
-      // Otherwise: preserve gamesPlayed if manually entered and player not found in box scores
-      // Only overwrite if player was actually found in box score data
+      ...existingYearStats,
       gamesPlayed: skipGamesPlayed
         ? (existingYearStats.gamesPlayed ?? 0)
         : (boxScoreGamesPlayed !== undefined
           ? boxScoreGamesPlayed
           : (existingYearStats.gamesPlayed ?? 0)),
-      // Preserve snapsPlayed if it exists (manually entered)
-      ...(existingYearStats.snapsPlayed !== undefined ? { snapsPlayed: existingYearStats.snapsPlayed } : {}),
-      // Add all aggregated category stats from box scores
       ...playerAggregated
     }
 
@@ -4046,6 +4106,7 @@ export function useDynasty() {
 
 export function DynastyProvider({ children }) {
   const { user, isPremium, subscription } = useAuth()
+  const { toast } = useToast()
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -5592,11 +5653,14 @@ export function DynastyProvider({ children }) {
         : null
       const oldContribution = existingGame?.statsContributed || null
 
+      // Pass the updated games list so max/long fields can be recomputed accurately
+      // when editing an existing box score (delta can't lower a season long on its own).
       const { updatedPlayers, statsContributed } = processBoxScoreSave(
         dynasty.players || [],
         cleanGameData.boxScore,
         oldContribution,
-        cleanGameData.year
+        cleanGameData.year,
+        updatedGames
       )
 
       // Store the stats contribution on the game for future delta calculations
@@ -9299,7 +9363,7 @@ export function DynastyProvider({ children }) {
     let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
 
     if (!dynasty) {
-      alert('Dynasty not found')
+      toast.error('Dynasty not found')
       return
     }
 

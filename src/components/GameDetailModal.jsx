@@ -345,7 +345,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
       onMouseDown={onClose}
     >
       <div
-        className="rounded-xl shadow-2xl max-w-4xl w-full max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto relative border"
+        className="rounded-xl shadow-2xl max-w-4xl w-full max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto relative border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -417,7 +417,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                   </svg>
                 </button>
               )}
-              <button
+              <button aria-label="Close"
                 onClick={onClose}
                 className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-1.5 sm:p-2 transition-colors"
                 title="Close"

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 const POSITIONS = [
   'QB', 'HB', 'FB', 'WR', 'TE',
@@ -195,7 +196,7 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
           <div className="flex-1 min-w-0">
             <span className="font-semibold text-txt-primary">{selectedPlayer.name}</span>
           </div>
-          <button
+          <button aria-label="Close"
             onClick={handleClear}
             className="p-1 hover:bg-surface-3 rounded transition-colors"
             type="button"
@@ -402,6 +403,7 @@ export default function PositionChangesModal({
   existingChanges = [],
   teamColors
 }) {
+  const { toast } = useToast()
   const [positionChanges, setPositionChanges] = useState([{ playerId: '', oldPosition: '', newPosition: '' }])
   const [saving, setSaving] = useState(false)
 
@@ -508,7 +510,7 @@ export default function PositionChangesModal({
       onClose()
     } catch (error) {
       console.error('Failed to save position changes:', error)
-      alert('Failed to save position changes. Please try again.')
+      toast.error('Failed to save position changes. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -549,7 +551,7 @@ export default function PositionChangesModal({
                 Update player positions for your roster
               </p>
             </div>
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="p-2 rounded-lg transition-colors hover:bg-black/10"
               style={{ color: primaryBgText }}

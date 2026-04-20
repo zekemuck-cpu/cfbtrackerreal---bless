@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
+import SheetEntryPanel from './ui/SheetEntryPanel'
 import {
   createAllAmericansOnlySheet,
   readAllAmericansOnlyFromSheet,
@@ -19,6 +22,8 @@ const isMobileDevice = () => {
 export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -129,7 +134,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to sync from Google Sheets.')
+        toast.error('Failed to sync from Google Sheets.')
       }
     } finally {
       setSyncing(false)
@@ -153,7 +158,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
+        toast.error(`Failed to sync/delete: ${error.message || 'Unknown error'}`)
       }
     } finally {
       setDeletingSheet(false)
@@ -162,7 +167,12 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
 
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
-    const confirmed = window.confirm('This will delete your current sheet and create a fresh one. Any unsaved data will be lost. Continue?')
+    const confirmed = await confirm({
+      title: 'Regenerate sheet?',
+      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
+      confirmLabel: 'Regenerate',
+      variant: 'danger',
+    })
     if (!confirmed) return
     setRegenerating(true)
     try {
@@ -178,7 +188,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to regenerate sheet. Please try again.')
+        toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
       setRegenerating(false)
@@ -194,11 +204,11 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
 
   return (
     <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4" style={{ margin: 0 }} onMouseDown={handleClose}>
-      <div className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
         <div className="h-[3px] w-full" style={{ backgroundColor: modalColors.accent }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
           <h2 className="text-2xl font-bold text-txt-primary">{currentYear} All-Americans</h2>
-          <button onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
+          <button aria-label="Close" onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -236,28 +246,18 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
               </div>
             )}
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
-                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: modalColors.accent }}>
-                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
-                  <ol className="text-sm space-y-2 text-txt-secondary">
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter Player, Team, Class for each position</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
-                  </ol>
-                </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
-                  <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: modalColors.accent, color: getContrastTextColor(modalColors.accent) }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
-                  <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary px-6 py-3 text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
-                </div>
-                <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}</button>
-              </div>
+              <SheetEntryPanel
+                sheetId={sheetId}
+                accentColor={modalColors.accent}
+                whatToDo="Enter Player, Team, and Class for each position."
+                syncing={syncing}
+                deletingSheet={deletingSheet}
+                regenerating={regenerating}
+                highlightSave={highlightSave}
+                onSaveAndDelete={handleSyncAndDelete}
+                onSaveAndKeep={handleSyncFromSheet}
+                onRegenerate={handleRegenerateSheet}
+              />
             ) : (
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                 <SheetToolbar sheetId={sheetId} embedUrl={embedUrl} teamColors={teamColors} title="All-Americans" onSessionError={() => setShowAuthError(true)} />

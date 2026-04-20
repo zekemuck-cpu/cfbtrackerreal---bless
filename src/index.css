@@ -21,13 +21,19 @@
   --team-primary-muted: color-mix(in srgb, var(--team-primary) 40%, #16171c);
   --team-primary-subtle: color-mix(in srgb, var(--team-primary) 8%, #16171c);
 
-  /* Core dark palette — slight blue-black warmth (≈230° hue) so we escape pure neutral zinc */
-  --surface-0: #09090d;      /* Deepest background */
-  --surface-1: #0f1013;      /* Chrome: header, sidebar */
-  --surface-2: #16171c;      /* Card backgrounds */
-  --surface-3: #1e1f25;      /* Elevated cards, hover */
-  --surface-4: #2a2b32;      /* Inputs, subtle borders */
-  --surface-5: #3a3b44;      /* Strong borders, dividers */
+  /* Core dark palette — deeper blue-black warmth (≈225° hue). Widened contrast
+     between page-bg (surface-1) and cards (surface-2+) so cards read as lifted,
+     not fused into the background. */
+  --surface-0: #06070b;      /* Deepest background */
+  --surface-1: #0b0c11;      /* Chrome: header, sidebar, page background */
+  --surface-2: #191b22;      /* Card backgrounds — ~9pt lift from surface-1 */
+  --surface-3: #23252e;      /* Elevated cards, hover states */
+  --surface-4: #2f313b;      /* Inputs, subtle borders */
+  --surface-5: #42454f;      /* Strong borders, dividers */
+
+  /* Hairline rules for section dividers — thinner, cooler than surface-4 */
+  --rule-soft: color-mix(in srgb, var(--surface-5) 50%, transparent);
+  --rule-strong: color-mix(in srgb, var(--surface-5) 85%, transparent);
 
   /* Text hierarchy */
   --text-primary: #f5f5f7;
@@ -68,12 +74,15 @@
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.6);
+  /* Shadows — tinted toward the palette hue (blue-black) instead of pure black.
+     Subtle cool cast reads more premium on dark UIs than flat rgba-black. */
+  --shadow-sm: 0 1px 2px rgba(4, 6, 16, 0.45);
+  --shadow-md: 0 6px 14px rgba(4, 6, 16, 0.45), 0 2px 4px rgba(4, 6, 16, 0.35);
+  --shadow-lg: 0 14px 28px rgba(4, 6, 16, 0.55), 0 4px 8px rgba(4, 6, 16, 0.35);
+  --shadow-xl: 0 24px 40px rgba(4, 6, 16, 0.6), 0 8px 16px rgba(4, 6, 16, 0.4);
   --shadow-glow: 0 0 20px var(--team-primary-muted);
+  --shadow-accent: 0 10px 22px rgba(4, 6, 16, 0.5),
+                   0 0 0 1px color-mix(in srgb, var(--team-primary) 35%, transparent);
 
   /* Elevation tiers (see docs/DESIGN.md §Elevation) */
   --elevation-flat-bg: var(--surface-2);
@@ -127,6 +136,27 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
+}
+
+/* Form controls default to dark surface so placeholder + value are legible app-wide.
+   Tailwind utility classes still override these. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea,
+select {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+select option {
+  background-color: var(--surface-2);
+  color: var(--text-primary);
 }
 
 /* Team color utilities */
@@ -186,20 +216,66 @@ h1, h2, h3, h4, h5, h6 {
 
 .card {
   background-color: var(--elevation-flat-bg);
+  border: 1px solid color-mix(in srgb, var(--surface-4) 55%, transparent);
   border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo);
 }
 
 .card-bordered {
   background-color: var(--elevation-bordered-bg);
   border: 1px solid var(--elevation-bordered-border);
   border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo);
 }
 
 .card-elevated {
   background-color: var(--elevation-elevated-bg);
   border: 1px solid var(--elevation-elevated-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo);
+}
+
+/* Hover lift applies only to interactive cards — opt in with .card-hover. */
+.card-hover:hover,
+.card-bordered.card-hover:hover,
+.card-elevated.card-hover:hover,
+a.card:hover,
+a.card-bordered:hover,
+a.card-elevated:hover,
+button.card:hover,
+button.card-bordered:hover,
+button.card-elevated:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--team-primary) 55%, var(--surface-4));
+  box-shadow: var(--shadow-accent);
+}
+
+/* Accent card — thin team-color rule across the top. Use for hero-ish items. */
+.card-accent {
+  position: relative;
+}
+.card-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--team-primary);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  pointer-events: none;
 }
 
 /* Legacy aliases — kept for compatibility while pages migrate. */
@@ -207,12 +283,21 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--elevation-bordered-bg);
   border: 1px solid var(--elevation-bordered-border);
   border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo);
 }
 .card-dark-elevated {
   background-color: var(--elevation-elevated-bg);
   border: 1px solid var(--elevation-elevated-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
+  transition:
+    transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) var(--ease-out-expo),
+    box-shadow var(--dur-base) var(--ease-out-expo);
 }
 
 /* Gradient backgrounds */
@@ -393,6 +478,109 @@ h1, h2, h3, h4, h5, h6 {
   animation: reveal-up var(--dur-slower) var(--ease-out-expo) both;
 }
 
+/* Page-level entry — opacity-only fade when a route mounts.
+   IMPORTANT: must NOT use transform. `.page-enter` wraps route content which
+   can include `position: fixed` children (e.g. the Sidebar); a transform on
+   this wrapper would turn it into the containing block and break fixed
+   positioning. Opacity is safe. */
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.page-enter {
+  animation: page-enter var(--dur-slow) var(--ease-out-expo) both;
+}
+
+/* Stagger children — apply to a parent, children animate in 60ms apart.
+   Use on card grids so they cascade instead of popping in all at once. */
+.stagger-reveal > * {
+  animation: reveal-up var(--dur-slower) var(--ease-out-expo) both;
+  opacity: 0;
+}
+.stagger-reveal > *:nth-child(1) { animation-delay: 20ms; }
+.stagger-reveal > *:nth-child(2) { animation-delay: 80ms; }
+.stagger-reveal > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-reveal > *:nth-child(4) { animation-delay: 200ms; }
+.stagger-reveal > *:nth-child(5) { animation-delay: 260ms; }
+.stagger-reveal > *:nth-child(6) { animation-delay: 320ms; }
+.stagger-reveal > *:nth-child(7) { animation-delay: 380ms; }
+.stagger-reveal > *:nth-child(8) { animation-delay: 440ms; }
+.stagger-reveal > *:nth-child(n+9) { animation-delay: 500ms; }
+
+/* Section rule — tracked all-caps header with a hairline underline.
+   Use as <h3 class="section-rule">...</h3> or <div class="section-rule">...</div>
+   for vertical rhythm between page regions. */
+.section-rule {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  margin-bottom: 0.875rem;
+}
+.section-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rule-soft);
+}
+
+/* Suspense fallback delay — spinner only appears after 150ms so cached
+   chunks don't flash a loader. See RouteFallback in App.jsx. */
+@keyframes suspense-delay {
+  to { opacity: 1; }
+}
+
+/* Thin team-accent rule — use at top of a hero/section where team color is on stage. */
+.accent-rule {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--team-primary) 0%,
+    color-mix(in srgb, var(--team-primary) 40%, transparent) 60%,
+    transparent 100%
+  );
+  border-radius: 2px;
+}
+
+/* Hairline divider — drop in between sections as <hr class="hairline"> or div. */
+.hairline {
+  height: 1px;
+  border: 0;
+  background: var(--rule-soft);
+  margin: 1.25rem 0;
+}
+
+/* Panel — a richer card with a subtle inner glow at the top. Reads "broadcast". */
+.panel {
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface-3) 100%, transparent) 0%,
+    var(--surface-2) 80%
+  );
+  border: 1px solid var(--surface-4);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* Interactive-state press feedback on anything tappable */
+.tappable {
+  transition:
+    transform var(--dur-fast) var(--ease-out-quint),
+    background-color var(--dur-fast) var(--ease-out-quint),
+    color var(--dur-fast) var(--ease-out-quint);
+}
+.tappable:active {
+  transform: scale(0.98);
+}
+
 /* Modal entry animations — crisp fade-in backdrop, lifted panel */
 @keyframes modal-backdrop-fade-in {
   from { opacity: 0; }
@@ -421,11 +609,36 @@ h1, h2, h3, h4, h5, h6 {
 /* Respect reduced-motion — kill the animations entirely. */
 @media (prefers-reduced-motion: reduce) {
   .press, .lift, .reveal, .animate-pulse-subtle, .animate-glow,
-  .modal-backdrop-in, .modal-panel-in {
+  .modal-backdrop-in, .modal-panel-in,
+  .page-enter, .stagger-reveal > *, .tappable,
+  .card, .card-bordered, .card-elevated, .card-hover, .card-dark, .card-dark-elevated {
     animation: none !important;
     transition: none !important;
     transform: none !important;
+    opacity: 1 !important;
   }
+}
+
+/* ============================================
+   FOCUS — global fallback for keyboard users
+   Any element that removes its outline via Tailwind's
+   `focus:outline-none` still gets a visible ring on
+   keyboard tab via :focus-visible. Pointer clicks
+   stay clean. !important beats the utility's specificity.
+   ============================================ */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--team-primary, #ea580c) !important;
+  outline-offset: 2px !important;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--team-primary, #ea580c) !important;
+  outline-offset: 2px !important;
 }
 
 /* ============================================

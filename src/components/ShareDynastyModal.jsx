@@ -2,9 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { generateShareCode } from '../services/dynastyService'
 import { getModalColors } from '../utils/colorUtils'
+import { useToast } from './ui/Toast'
 
 export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty: dynastyProp }) {
   const { currentDynasty: contextDynasty, updateDynasty } = useDynasty()
+  const { toast } = useToast()
   // Use prop dynasty if provided (from Home page), otherwise use context dynasty (from Sidebar)
   const dynasty = dynastyProp || contextDynasty
   const [isPublic, setIsPublic] = useState(false)
@@ -43,7 +45,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
       setShareCode(newShareCode)
     } catch (error) {
       console.error('Error toggling sharing:', error)
-      alert('Failed to update sharing settings')
+      toast.error('Failed to update sharing settings')
     } finally {
       setLoading(false)
     }
@@ -78,7 +80,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
           <h2 className="text-xl font-bold" style={{ color: modalColors.text }}>
             Share Dynasty
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-white/10"
             style={{ color: modalColors.text }}

@@ -4,6 +4,7 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getTeamColors } from '../data/teamColors'
 import { useDynasty } from '../context/DynastyContext'
+import { useToast } from './ui/Toast'
 
 // Get static base teams for dropdown (teambuilder teams added dynamically below)
 const staticTeams = Object.entries(teamAbbreviations)
@@ -16,6 +17,7 @@ const staticTeams = Object.entries(teamAbbreviations)
 
 export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, currentJobData }) {
   const { currentDynasty } = useDynasty()
+  const { toast } = useToast()
   const dynastyTeams = currentDynasty?.teams || null
 
   // Build team list from dynasty.teams — it's the single source of truth.
@@ -77,11 +79,11 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
 
   const handleSave = () => {
     if (takingNewJob === true && !selectedTeam) {
-      alert('Please select a team')
+      toast.error('Please select a team')
       return
     }
     if (takingNewJob === true && !selectedPosition) {
-      alert('Please select a position')
+      toast.error('Please select a position')
       return
     }
 
@@ -117,7 +119,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
       onMouseDown={onClose}
     >
       <div
-        className="card w-full max-w-md max-h-[calc(100vh-4rem)] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 border-l-[3px]"
+        className="card w-full max-w-md max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-y-auto p-4 sm:p-6 border-l-[3px]"
         style={{ borderLeftColor: teamColors.primary }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -125,7 +127,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
           <h2 className="text-2xl font-bold text-txt-primary">
             Edit New Job
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={onClose}
             className="hover:opacity-70"
             style={{ color: teamColors.primary }}

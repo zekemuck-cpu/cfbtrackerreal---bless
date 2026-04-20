@@ -10,6 +10,8 @@ import { generateRandomBoxScore } from '../data/boxScoreConstants'
 import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../services/geminiService'
 import { isSameWeek } from '../utils/compareUtils'
 import BoxScoreSheetModal from './BoxScoreSheetModal'
+import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 
 export default function GameEntryModal({
   isOpen,
@@ -36,6 +38,8 @@ export default function GameEntryModal({
 }) {
   const { currentDynasty, addGame } = useDynasty()
   const { user } = useAuth()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   // Get team-centric team ratings
   const teamRatings = getCurrentTeamRatings(currentDynasty)
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
@@ -1094,7 +1098,7 @@ export default function GameEntryModal({
 
     // Validate required fields
     if (!gameData.teamScore || !gameData.opponentScore) {
-      alert('Please enter both team scores')
+      toast.error('Please enter both team scores')
       return
     }
 
@@ -1103,17 +1107,17 @@ export default function GameEntryModal({
     const opponentScore = parseInt(gameData.opponentScore)
 
     if (isNaN(teamScore) || isNaN(opponentScore)) {
-      alert('Please enter valid numeric scores')
+      toast.error('Please enter valid numeric scores')
       return
     }
 
     // Validate opponent records format
     if (!isValidRecordFormat(gameData.overallRecord)) {
-      alert('Invalid overall record format. Use format like "10-2" or "5-3"')
+      toast.error('Invalid overall record format. Use format like "10-2" or "5-3"')
       return
     }
     if (!isValidRecordFormat(gameData.conferenceRecord)) {
-      alert('Invalid conference record format. Use format like "5-3" or "8-1"')
+      toast.error('Invalid conference record format. Use format like "5-3" or "8-1"')
       return
     }
 
@@ -1132,7 +1136,7 @@ export default function GameEntryModal({
         const confGames = confWins + confLosses
 
         if (confGames > totalGames) {
-          alert('Invalid record: Conference games (' + confGames + ') cannot exceed overall games (' + totalGames + ')')
+          toast.error('Invalid record: Conference games (' + confGames + ') cannot exceed overall games (' + totalGames + ')')
           return
         }
       }
@@ -1452,7 +1456,7 @@ export default function GameEntryModal({
       // Note: onClose() is called by parent's handleGameSave, don't call here to avoid race conditions
     } catch (error) {
       console.error('Error saving game:', error)
-      alert('Error saving game. Please try again.')
+      toast.error('Error saving game. Please try again.')
       return
     }
   }
@@ -1567,7 +1571,7 @@ export default function GameEntryModal({
       onMouseDown={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100vh-4rem)] sm:max-h-[95vh] flex flex-col overflow-hidden border"
+        className="rounded-2xl shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-4rem)] sm:max-h-[95dvh] flex flex-col overflow-hidden border"
         style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
         onMouseDown={(e) => e.stopPropagation()}
       >
@@ -1633,7 +1637,7 @@ export default function GameEntryModal({
                 <span className="sm:hidden">Fill</span>
               </button>
             )}
-            <button
+            <button aria-label="Close"
               onClick={onClose}
               className="hover:opacity-70 p-1.5 rounded-full transition-colors"
               style={{ color: modalColors.text, backgroundColor: `${modalColors.text}15` }}
@@ -2889,9 +2893,14 @@ export default function GameEntryModal({
                 <button
                   onClick={async () => {
                     if (!user?.uid || isGeneratingRecap) return
-                    // Confirm before overwriting existing recap
-                    if (gameData.aiRecap && !window.confirm('This will erase the existing recap. Continue?')) {
-                      return
+                    if (gameData.aiRecap) {
+                      const ok = await confirm({
+                        title: 'Overwrite recap?',
+                        message: 'This will erase the existing recap.',
+                        confirmLabel: 'Overwrite',
+                        variant: 'danger',
+                      })
+                      if (!ok) return
                     }
                     setIsGeneratingRecap(true)
                     setRecapError(null)

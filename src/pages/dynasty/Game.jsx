@@ -7,6 +7,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
+import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { generateGameRecap, getCustomRecapInstructions, getAiConfig } from '../../services/geminiService'
 // useTeamColors not needed - using neutral colors for game recap
@@ -254,6 +255,7 @@ export default function Game() {
 
   // AI Recap state
   const { user } = useAuth()
+  const { confirm } = useConfirm()
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
   const [recapError, setRecapError] = useState(null)
   const [quotaRetrySeconds, setQuotaRetrySeconds] = useState(null) // Countdown for quota errors
@@ -879,9 +881,14 @@ export default function Game() {
   const handleGenerateRecap = async () => {
     if (!user?.uid || isGeneratingRecap) return
 
-    // Confirm before overwriting existing recap
-    if (game.aiRecap && !window.confirm('This will erase the existing recap. Continue?')) {
-      return
+    if (game.aiRecap) {
+      const ok = await confirm({
+        title: 'Overwrite recap?',
+        message: 'This will erase the existing recap.',
+        confirmLabel: 'Overwrite',
+        variant: 'danger',
+      })
+      if (!ok) return
     }
 
     setIsGeneratingRecap(true)
@@ -1066,6 +1073,22 @@ export default function Game() {
   // Check if game has been played (has scores)
   const gameIsPlayed = game.isPlayed || (game.team1Score > 0 || game.team2Score > 0)
 
+  // Quarter scores are only "entered" if at least one quarter has a positive value.
+  // An all-zero quarters object means the user never filled out the breakdown.
+  const hasQuarterScores = (() => {
+    if (!game.quarters) return false
+    const t = game.quarters.team1 || game.quarters.team || {}
+    const o = game.quarters.team2 || game.quarters.opponent || {}
+    const keys = ['Q1', 'Q2', 'Q3', 'Q4', 'OT', 'OT2', 'OT3', 'OT4']
+    const vals = []
+    keys.forEach(k => { vals.push(t[k], o[k]) })
+    return vals.some(v => {
+      if (v === undefined || v === null || v === '') return false
+      const n = Number(v)
+      return Number.isFinite(n) && n > 0
+    })
+  })()
+
   // Determine which team is "home" in the boxScore sense (matching BoxScoreSheetModal logic)
   // For home/neutral games: user is home in boxScore, opponent is away
   // For away games: opponent is home in boxScore, user is away
@@ -1162,7 +1185,7 @@ export default function Game() {
         </div>
 
         {/* Desktop: ESPN-style integrated layout with quarter table in center */}
-        {gameIsPlayed && game.quarters && (
+        {gameIsPlayed && hasQuarterScores && (
           <div className="hidden lg:block px-8 py-6">
             <div className="flex items-center justify-between">
               {/* Left Team */}
@@ -1337,7 +1360,7 @@ export default function Game() {
         )}
 
         {/* Mobile/Tablet: Stacked layout (also shows for upcoming games on all screens) */}
-        <div className={gameIsPlayed && game.quarters ? 'lg:hidden' : ''}>
+        <div className={gameIsPlayed && hasQuarterScores ? 'lg:hidden' : ''}>
         {/* Hero Scoreboard Content */}
         <div className="px-1 py-3 sm:px-8 sm:py-8 md:py-10">
           <div className="flex items-center justify-between gap-1 sm:gap-6 md:gap-10 max-w-full">
@@ -1473,15 +1496,7 @@ export default function Game() {
       </div>
 
       {/* Scoring Summary - Dark theme continuation (hidden on desktop when integrated) */}
-      {game.quarters && (() => {
-        // Support both new format (team1/team2) and legacy format (team/opponent)
-        const t = game.quarters.team1 || game.quarters.team || {}
-        const o = game.quarters.team2 || game.quarters.opponent || {}
-        const hasData = [t.Q1, t.Q2, t.Q3, t.Q4, o.Q1, o.Q2, o.Q3, o.Q4].some(
-          v => v !== undefined && v !== '' && v !== null
-        )
-        return hasData
-      })() && (
+      {hasQuarterScores && (
         <div className="lg:hidden bg-surface-2 rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">

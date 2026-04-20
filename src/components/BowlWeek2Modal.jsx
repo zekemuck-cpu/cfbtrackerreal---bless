@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty, getUserGamePerspective } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from './ui/Toast'
+import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import SheetToolbar from './SheetToolbar'
 import {
@@ -23,6 +25,8 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   const { currentDynasty } = useDynasty()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { user, signOut, refreshSession } = useAuth()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [refreshing, setRefreshing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
@@ -355,7 +359,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to sync from Google Sheets. Make sure data is properly formatted.')
+        toast.error('Failed to sync from Google Sheets. Make sure data is properly formatted.')
       }
     } finally {
       setSyncing(false)
@@ -383,7 +387,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to sync from Google Sheets.')
+        toast.error('Failed to sync from Google Sheets.')
       }
     } finally {
       setDeletingSheet(false)
@@ -393,7 +397,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
 
-    const confirmed = window.confirm('This will delete your current sheet and create a fresh one. Any unsaved data will be lost. Continue?')
+    const confirmed = await confirm({
+      title: 'Regenerate sheet?',
+      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
+      confirmLabel: 'Regenerate',
+      variant: 'danger',
+    })
     if (!confirmed) return
 
     setRegenerating(true)
@@ -406,7 +415,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
       } else {
-        alert('Failed to regenerate sheet. Please try again.')
+        toast.error('Failed to regenerate sheet. Please try again.')
       }
     } finally {
       setRegenerating(false)
@@ -429,7 +438,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100vh-4rem)] sm:h-[95vh] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: modalColors.accent }} aria-hidden="true" />
@@ -437,7 +446,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
           <h2 className="text-2xl font-bold text-txt-primary">
             Bowl Week 2 Results
           </h2>
-          <button
+          <button aria-label="Close"
             onClick={handleClose}
             className="text-txt-tertiary hover:text-txt-primary transition-colors"
           >

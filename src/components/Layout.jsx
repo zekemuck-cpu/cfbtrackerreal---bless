@@ -10,9 +10,10 @@ import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from
 import ClassAdvancementModal from './ClassAdvancementModal'
 import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
+import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.20.0004'
+const APP_VERSION = '2026.04.20.0062'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -49,6 +50,12 @@ export default function Layout({ children }) {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showUserMenu])
+
+  // Warm up the most common route chunks during browser idle time so
+  // navigating between pages feels instant (not a click → spinner → render).
+  useEffect(() => {
+    preloadCommonDynastyPages()
+  }, [])
 
   // Use tid-based team colors lookup - this is THE source of truth
   const teamColors = useCurrentTeamColors(currentDynasty)
@@ -402,9 +409,20 @@ export default function Layout({ children }) {
 
   return (
     <div
-      className="min-h-screen flex flex-col [overflow-x:clip]"
+      className="min-h-dvh flex flex-col [overflow-x:clip]"
       style={{ backgroundColor: pageBg }}
     >
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10002] focus:px-4 focus:py-2 focus:rounded-md focus:font-semibold focus:outline-none focus:ring-2"
+        style={{
+          backgroundColor: 'var(--surface-3)',
+          color: 'var(--text-primary)',
+          borderColor: 'var(--team-primary)',
+        }}
+      >
+        Skip to main content
+      </a>
       <header
         className="sticky top-0 z-50"
         style={{
@@ -442,6 +460,7 @@ export default function Layout({ children }) {
                     className="p-2 rounded-lg hover:opacity-70 transition-opacity"
                     style={{ color: headerText }}
                     title="Dashboard"
+                    aria-label="Dashboard"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -537,6 +556,7 @@ export default function Layout({ children }) {
                       className="p-2 rounded-lg hover:opacity-70 transition-opacity"
                       style={{ color: headerText }}
                       title="Advance Week"
+                      aria-label="Advance week"
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -546,6 +566,8 @@ export default function Layout({ children }) {
                       onClick={() => setShowWeekDropdown(!showWeekDropdown)}
                       className="p-1 rounded-lg hover:opacity-70 transition-opacity -ml-1"
                       style={{ color: headerText }}
+                      aria-label="Week menu"
+                      aria-expanded={showWeekDropdown}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -652,13 +674,15 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main className={`flex-1 ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
+      <main id="main" tabIndex={-1} className={`flex-1 ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
         {isDynastyPage ? (
-          <div className="max-w-[1280px] mx-auto w-full">
+          <div key={location.pathname} className="max-w-[1280px] mx-auto w-full page-enter">
             {children}
           </div>
         ) : (
-          children
+          <div key={location.pathname} className="page-enter">
+            {children}
+          </div>
         )}
       </main>
 

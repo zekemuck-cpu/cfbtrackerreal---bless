@@ -38,7 +38,7 @@ export default function TeamLogo({
 
   return (
     <div className={`logo-container ${sizeClass} ${className}`.trim()} {...rest}>
-      <img src={src} alt={resolvedAlt} />
+      <img src={src} alt={resolvedAlt} loading="lazy" decoding="async" />
     </div>
   )
 }
