@@ -3037,7 +3037,7 @@ export default function Dashboard() {
       {/* Main Content Grid - Two columns on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Phase-Specific Tasks */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:flex lg:flex-col lg:h-full">
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
@@ -3361,15 +3361,26 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
                     {isByeWeek ? (
                       /* Bye-week card occupies the left (game) column; recruiting sidebar still renders on the right so commits can be logged. */
-                      <div className="flex items-center justify-between px-4 py-5 rounded-xl" style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}>
-                        <div>
-                          <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>Week {currentDynasty.currentWeek}</div>
-                          <div className="font-display font-black text-2xl text-zinc-300 mt-1">BYE WEEK</div>
+                      <div
+                        className="relative rounded-xl overflow-hidden flex flex-col justify-center items-center text-center px-6 py-8"
+                        style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}
+                      >
+                        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
+                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '3px', fontSize: '10px' }}>
+                          Week {currentDynasty.currentWeek} · Off
                         </div>
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--surface-4)' }}>
-                          <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <div
+                          className="font-display font-black leading-none mt-2"
+                          style={{
+                            fontSize: 'clamp(2.5rem, 7vw, 3.5rem)',
+                            color: 'var(--text-primary)',
+                            letterSpacing: '-0.02em'
+                          }}
+                        >
+                          BYE WEEK
+                        </div>
+                        <div className="mt-3 text-[11px] uppercase text-txt-tertiary" style={{ letterSpacing: '2px' }}>
+                          No game scheduled
                         </div>
                       </div>
                     ) : (
@@ -3444,28 +3455,35 @@ export default function Dashboard() {
 
                     {/* Recruiting sidebar — always rendered, works on bye weeks too */}
                     <div
-                      className="rounded-xl p-3 sm:p-4 flex flex-col gap-3"
-                        style={hasCommitmentsData ? {
-                          backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
-                          border: '1px solid rgba(34, 197, 94, 0.35)'
-                        } : {
-                          backgroundColor: 'var(--surface-3)',
-                          border: '1px solid var(--rule-soft)'
-                        }}
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                              Recruiting · Week {currentDynasty.currentWeek}
-                            </div>
-                            {!isViewOnly && (
+                      className="relative rounded-xl overflow-hidden flex flex-col"
+                      style={hasCommitmentsData ? {
+                        backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
+                        border: '1px solid rgba(34, 197, 94, 0.3)'
+                      } : {
+                        backgroundColor: 'var(--surface-3)',
+                        border: '1px solid var(--rule-soft)'
+                      }}
+                    >
+                      <div
+                        className="absolute top-0 left-0 right-0 h-[2px]"
+                        style={{ backgroundColor: hasCommitmentsData ? '#22c55e' : teamColors.primary }}
+                        aria-hidden="true"
+                      />
+                      <div className="p-4 flex flex-col flex-1 gap-3">
+                        {/* Eyebrow row with inline tool icons */}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                            Recruiting · Wk {currentDynasty.currentWeek}
+                          </div>
+                          {!isViewOnly && (
+                            <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setShowSellCalc(true)}
-                                className="sm:hidden flex-shrink-0 -mt-0.5 -mr-0.5 w-7 h-7 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-1 hover:text-txt-primary transition-colors flex items-center justify-center"
+                                className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
                                 title="Sell vs Send Calculator"
                                 aria-label="Open Sell vs Send Calculator"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                   <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
                                   <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
                                   <circle cx="9" cy="13" r="0.5" fill="currentColor" />
@@ -3476,57 +3494,79 @@ export default function Dashboard() {
                                   <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
                                 </svg>
                               </button>
-                            )}
-                          </div>
-                          {hasCommitmentsData && (
-                            <div className="font-display font-black text-lg sm:text-xl mt-1 leading-tight text-green-400">
-                              {commitmentsCount > 0
-                                ? `${commitmentsCount} Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
-                                : 'Week Complete'}
+                              <a
+                                href="https://collegefootball.gg/recruiting-insight-engine/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-7 h-7 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-2 transition-colors flex items-center justify-center"
+                                title="Recruiting Insight Engine (external)"
+                                aria-label="Open Recruiting Insight Engine"
+                              >
+                                <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
+                                  <circle cx="12" cy="12" r="9" />
+                                  <circle cx="12" cy="12" r="3" />
+                                  <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
+                                </svg>
+                              </a>
                             </div>
-                          )}
-                          {classScore > 0 && (
-                            <Link
-                              to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
-                              className="inline-block mt-1 text-[10px] font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                              style={{ letterSpacing: '1.5px' }}
-                              title="View recruiting class"
-                            >
-                              {currentDynasty.currentYear} Class <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                            </Link>
                           )}
                         </div>
 
+                        {/* Primary display: commits logged OR class score */}
+                        <div className="flex-1 flex flex-col justify-center">
+                          {hasCommitmentsData ? (
+                            <>
+                              <div className="font-display font-black leading-none text-green-400 tabular-nums" style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
+                                {commitmentsCount > 0 ? commitmentsCount : '✓'}
+                              </div>
+                              <div className="mt-1.5 text-[11px] uppercase font-bold text-green-400/80" style={{ letterSpacing: '1.5px' }}>
+                                {commitmentsCount > 0
+                                  ? `Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
+                                  : 'Week Complete'}
+                              </div>
+                            </>
+                          ) : classScore > 0 ? (
+                            <Link
+                              to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
+                              className="block group"
+                              title="View recruiting class"
+                            >
+                              <div className="font-display font-black leading-none tabular-nums text-txt-primary group-hover:opacity-80 transition-opacity" style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}>
+                                {formatRecruitingClassScore(classScore)}
+                              </div>
+                              <div className="mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                                {currentDynasty.currentYear} Class Score
+                              </div>
+                            </Link>
+                          ) : (
+                            <>
+                              <div className="font-display font-black leading-none text-txt-primary" style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', letterSpacing: '-0.01em' }}>
+                                Log This Week
+                              </div>
+                              <div className="mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
+                                {currentDynasty.currentYear} Class
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Primary CTA */}
                         {!isViewOnly && (
-                          <div className="mt-auto flex flex-col gap-2">
-                            <button
-                              onClick={() => setShowSellCalc(true)}
-                              className="hidden sm:flex w-full py-2 rounded-lg font-semibold uppercase tracking-wider text-[11px] bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-1 hover:text-txt-primary transition-colors items-center justify-center gap-1.5"
-                              style={{ letterSpacing: '1.2px' }}
-                              title="Open Sell vs Send Calculator"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
-                                <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
-                                <circle cx="9" cy="13" r="0.5" fill="currentColor" />
-                                <circle cx="12" cy="13" r="0.5" fill="currentColor" />
-                                <circle cx="15" cy="13" r="0.5" fill="currentColor" />
-                                <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
-                                <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
-                                <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
-                              </svg>
-                              Sell vs Send Calc
-                            </button>
-                            <button
-                              onClick={() => setShowRecruitingModal(true)}
-                              className="w-full py-2 rounded-lg font-bold uppercase tracking-wider text-xs transition-all hover:opacity-90 active:translate-y-px"
-                              style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
-                            >
-                              {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => setShowRecruitingModal(true)}
+                            className="w-full py-2.5 rounded-lg font-display font-black uppercase text-xs transition-all hover:opacity-90 active:translate-y-px"
+                            style={{
+                              backgroundColor: teamColors.primary,
+                              color: primaryBgText,
+                              letterSpacing: '2px',
+                              boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
+                            }}
+                          >
+                            {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
+                          </button>
                         )}
                       </div>
+                    </div>
                   </div>
                 </>
               )
@@ -7927,19 +7967,27 @@ export default function Dashboard() {
       )}
 
           {/* Roster Section - Desktop Only (below tasks) */}
-          <div className="hidden lg:block">
-            <div>
-              <div className="py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+          <div className="hidden lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+            <div className="flex flex-col flex-1 min-h-0">
+              <div className="py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
                 <div className="flex items-center gap-3">
-                  <div className="w-1 h-10 rounded-full" style={{ backgroundColor: teamColors.primary }} />
-                  <div>
-                    <div
-                      className="font-bold uppercase text-txt-tertiary"
-                      style={{ letterSpacing: '2px', fontSize: '10px' }}
-                    >
-                      {currentDynasty.currentYear} Roster
-                    </div>
+                  <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
+                  <div
+                    className="font-display font-black leading-none"
+                    style={{
+                      fontSize: 'clamp(1.75rem, 2.2vw, 2.25rem)',
+                      color: 'var(--text-primary)',
+                      letterSpacing: '-0.01em'
+                    }}
+                  >
+                    <span className="tabular-nums">{currentDynasty.currentYear}</span>
+                    <span className="ml-2 uppercase">Roster</span>
                   </div>
+                  {teamRoster.length > 0 && (
+                    <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 tabular-nums">
+                      {teamRoster.length} Players
+                    </span>
+                  )}
                   <Link
                     to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=roster`}
                     className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
@@ -7973,7 +8021,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
-              <div className="max-h-[420px] overflow-y-auto">
+              <div className="flex-1 min-h-[420px] overflow-y-auto">
                 {teamRoster.length > 0 ? (
                   <div className="divide-y divide-zinc-800/50">
                     {sortRoster(teamRoster).map((player) => (
@@ -8042,26 +8090,16 @@ export default function Dashboard() {
               className="w-1 h-12 rounded-full"
               style={{ backgroundColor: teamColors.primary }}
             />
-            <div>
-              <div
-                className="font-bold uppercase text-txt-tertiary"
-                style={{ letterSpacing: '2px', fontSize: '10px' }}
-              >
-                {currentDynasty.currentYear} Schedule
-              </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span
-                  className="font-display font-black tabular-nums leading-none"
-                  style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}
-                >
-                  {wins}-{losses}
-                </span>
-                {(confWins > 0 || confLosses > 0) && (
-                  <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 tabular-nums">
-                    {confWins}-{confLosses} conf
-                  </span>
-                )}
-              </div>
+            <div
+              className="font-display font-black leading-none"
+              style={{
+                fontSize: 'clamp(1.75rem, 2.2vw, 2.25rem)',
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.01em'
+              }}
+            >
+              <span className="tabular-nums">{currentDynasty.currentYear}</span>
+              <span className="ml-2 uppercase">Schedule</span>
             </div>
             <Link
               to={`${pathPrefix}/team/${userTeamTid}/${currentDynasty.currentYear}?tab=schedule`}
