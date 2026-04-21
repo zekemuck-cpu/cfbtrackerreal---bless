@@ -22,7 +22,6 @@ const POSITION_GROUPS = {
   'K/P': ['K', 'P']
 }
 
-// Keep dev-trait flavor but draw from our palette where possible
 const DEV_TRAIT_VARIANT = {
   'Elite': 'warning',
   'Star': 'accent',
@@ -164,14 +163,27 @@ export default function Players() {
   }
 
   const SortIndicator = ({ column }) => {
-    if (sortBy !== column) return null
-    return <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+    if (sortBy !== column) {
+      return <span className="ml-1 opacity-0 group-hover:opacity-40 transition-opacity">↕</span>
+    }
+    return (
+      <span
+        className="ml-1 inline-block transition-transform duration-200"
+        style={{
+          color: 'var(--team-primary)',
+          transform: sortOrder === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
+        }}
+      >
+        ▾
+      </span>
+    )
   }
 
   const SortableTh = ({ column, children, align = 'left', hidden }) => (
     <th
       onClick={() => handleSort(column)}
-      className={`px-4 py-3 label-xs text-txt-tertiary text-${align} cursor-pointer hover:text-txt-primary transition-colors whitespace-nowrap ${hidden || ''}`}
+      className={`group px-4 py-3 label-xs text-txt-tertiary text-${align} cursor-pointer hover:text-txt-primary transition-colors whitespace-nowrap select-none ${hidden || ''}`}
+      style={{ letterSpacing: '2px', fontSize: '10px' }}
     >
       {children}
       <SortIndicator column={column} />
@@ -179,13 +191,21 @@ export default function Players() {
   )
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 page-enter">
       <PageHero
+        eyebrow="Roster Directory"
         title="All Players"
         meta={
           <>
             <span className="tabular">{filteredPlayers.length}</span>
             <span>{filteredPlayers.length === 1 ? 'player' : 'players'}</span>
+            {(searchQuery || positionFilter !== 'All') && (
+              <>
+                <span className="text-txt-tertiary">·</span>
+                <span className="tabular">{allPlayers.length}</span>
+                <span>total</span>
+              </>
+            )}
           </>
         }
         actions={
@@ -210,45 +230,64 @@ export default function Players() {
       />
 
       {filteredPlayers.length > 0 ? (
-        <Card padding="none">
+        <Card padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--surface-4)' }}>
+                <tr
+                  style={{
+                    borderBottom: '1px solid var(--rule-soft, var(--surface-4))',
+                    backgroundColor: 'var(--surface-1)',
+                  }}
+                >
                   <SortableTh column="name">Player</SortableTh>
                   <SortableTh column="position" align="center">Pos</SortableTh>
                   <SortableTh column="year" align="center">Year</SortableTh>
                   <SortableTh column="overall" align="center">OVR</SortableTh>
                   <SortableTh column="devTrait" align="center">Dev</SortableTh>
-                  <th className="px-4 py-3 label-xs text-txt-tertiary text-left hidden md:table-cell">Archetype</th>
-                  <th className="px-4 py-3 label-xs text-txt-tertiary text-left hidden lg:table-cell">Hometown</th>
+                  <th
+                    className="px-4 py-3 label-xs text-txt-tertiary text-left hidden md:table-cell"
+                    style={{ letterSpacing: '2px', fontSize: '10px' }}
+                  >
+                    Archetype
+                  </th>
+                  <th
+                    className="px-4 py-3 label-xs text-txt-tertiary text-left hidden lg:table-cell"
+                    style={{ letterSpacing: '2px', fontSize: '10px' }}
+                  >
+                    Hometown
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredPlayers.map((player, idx) => (
                   <tr
                     key={player.pid || player.id || idx}
-                    className="transition-colors hover:bg-surface-3"
-                    style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--surface-4)' : 'none' }}
+                    className="player-row transition-colors"
+                    style={{ borderBottom: idx < filteredPlayers.length - 1 ? '1px solid var(--rule-soft, var(--surface-4))' : 'none' }}
                   >
                     <td className="px-4 py-3">
                       <Link
                         to={`${pathPrefix}/player/${player.pid}`}
-                        className="font-semibold hover:underline flex items-center gap-2"
+                        className="font-semibold hover:underline flex items-center gap-2 group"
                         style={{ color: 'var(--team-primary)' }}
                       >
                         {player.jerseyNumber && (
                           <span
-                            className="label-xs tabular px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-secondary)' }}
+                            className="label-xs tabular px-1.5 py-0.5 rounded flex-shrink-0"
+                            style={{
+                              fontSize: '10px',
+                              backgroundColor: 'var(--surface-3)',
+                              color: 'var(--text-secondary)',
+                            }}
                           >
                             #{player.jerseyNumber}
                           </span>
                         )}
-                        <span>{player.name}</span>
+                        <span className="transition-transform duration-200 group-hover:translate-x-0.5">{player.name}</span>
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-center text-sm font-medium text-txt-primary">
+                    <td className="px-4 py-3 text-center text-sm font-medium text-txt-primary tabular">
                       {player.position}
                     </td>
                     <td className="px-4 py-3 text-center text-sm text-txt-secondary">
@@ -256,7 +295,9 @@ export default function Players() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {player.overall ? (
-                        <span className="tabular font-bold text-sm text-txt-primary">{player.overall}</span>
+                        <span className="tabular font-display font-black text-base text-txt-primary">
+                          {player.overall}
+                        </span>
                       ) : (
                         <span className="text-txt-tertiary">-</span>
                       )}
@@ -310,6 +351,13 @@ export default function Players() {
         onClose={() => setShowRosterHistoryModal(false)}
         teamColors={teamColors}
       />
+
+      <style>{`
+        .player-row:hover {
+          background-color: var(--surface-3);
+          box-shadow: inset 3px 0 0 var(--team-primary);
+        }
+      `}</style>
     </div>
   )
 }

@@ -272,8 +272,9 @@ export default function BowlHistory() {
   const totalBowlGames = getTotalBowlGames()
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 page-enter">
       <PageHero
+        eyebrow="Postseason"
         title="Bowl History"
         meta={
           <>
@@ -297,19 +298,22 @@ export default function BowlHistory() {
             placeholder="Search bowl games..."
           />
           {searchQuery && (
-            <div className="mt-2 label-xs text-txt-tertiary">
-              {filteredBowls.length} bowl{filteredBowls.length !== 1 ? 's' : ''} found
+            <div
+              className="mt-2 label-xs text-txt-tertiary"
+              style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+            >
+              {filteredBowls.length} BOWL{filteredBowls.length !== 1 ? 'S' : ''} FOUND
             </div>
           )}
         </div>
       </PageHero>
 
-      {/* Bowl list */}
       <div className="space-y-2">
         {filteredBowls.map(bowlName => {
           const logo = bowlLogos[bowlName]
           const results = getBowlResults(bowlName)
           const isExpanded = expandedBowl === bowlName
+          const hasGames = results.length > 0
 
           return (
             <div
@@ -317,135 +321,186 @@ export default function BowlHistory() {
               ref={el => (bowlRefs.current[bowlName] = el)}
               style={{ scrollMarginTop: '100px' }}
             >
-            <Card padding="none">
-              <button
-                onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
-                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-3 transition-colors text-left"
+              <Card
+                padding="none"
+                className={`bowl-card relative overflow-hidden transition-all duration-200 ${
+                  isExpanded ? 'bowl-card-expanded' : ''
+                }`}
               >
-                <div className="w-10 h-10 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1">
-                  {logo && (
-                    <img src={logo} alt="" className="w-full h-full object-contain" />
-                  )}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-txt-primary truncate">
-                    {bowlName}
-                  </div>
-                  <div className="label-xs text-txt-tertiary mt-0.5">
-                    {results.length === 0
-                      ? 'No games played'
-                      : `${results.length} game${results.length !== 1 ? 's' : ''}`}
-                  </div>
-                </div>
-
-                <div className="text-txt-tertiary flex-shrink-0">
-                  <svg
-                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                {isExpanded && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-0 left-0 right-0 h-[2px] z-10"
+                    style={{ backgroundColor: 'var(--team-primary)' }}
+                  />
+                )}
+                <button
+                  onClick={() => setExpandedBowl(isExpanded ? null : bowlName)}
+                  className="group w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-3 transition-colors text-left"
+                >
+                  <div
+                    className="w-11 h-11 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1 transition-transform duration-200 group-hover:scale-105"
+                    style={{
+                      boxShadow: isExpanded
+                        ? '0 0 0 2px color-mix(in srgb, var(--team-primary) 40%, transparent)'
+                        : 'none',
+                    }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
+                    {logo && (
+                      <img src={logo} alt="" className="w-full h-full object-contain" />
+                    )}
+                  </div>
 
-              {isExpanded && results.length > 0 && (
-                <div
-                  className="px-3 pb-3 pt-2 space-y-1"
-                  style={{ borderTop: '1px solid var(--surface-4)' }}
-                >
-                  {results.map((game, idx) => {
-                    const winner = getWinner(game)
-                    const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
-                    const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
-                    const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
-                    const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="label-xs text-txt-tertiary mb-0.5"
+                      style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                    >
+                      BOWL GAME
+                    </div>
+                    <div className="font-display font-bold text-txt-primary truncate text-base leading-tight">
+                      {bowlName}
+                    </div>
+                  </div>
 
-                    const gameBowlName = game.bowlName || bowlName
-                    const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
-                    let gameId
-                    if (game.gameRef?.id) {
-                      gameId = game.gameRef.id
-                    } else if (game.cfpSlot) {
-                      gameId = getCFPGameId(game.cfpSlot, game.year)
-                    } else if (game.isCFP) {
-                      const slotId = getSlotIdFromBowlName(gameBowlName)
-                      gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
-                    } else {
-                      gameId = `bowl-${game.year}-${bowlSlug}`
-                    }
-
-                    return (
-                      <Link
-                        key={`${game.year}-${idx}`}
-                        to={`${pathPrefix}/game/${gameId}`}
-                        className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 hover:bg-surface-3 transition-colors"
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div
+                      className="flex items-baseline gap-1.5 px-2.5 py-1 rounded"
+                      style={{
+                        backgroundColor: hasGames ? 'var(--surface-3)' : 'transparent',
+                        border: hasGames ? 'none' : '1px dashed var(--surface-4)',
+                      }}
+                    >
+                      <span
+                        className="font-display font-black tabular text-sm leading-none"
+                        style={{
+                          color: hasGames ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        }}
                       >
-                        <div
-                          className="w-10 sm:w-12 text-center tabular text-sm font-bold flex-shrink-0"
-                          style={{ color: 'var(--team-primary)' }}
+                        {results.length}
+                      </span>
+                      <span
+                        className="label-xs text-txt-tertiary"
+                        style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                      >
+                        {results.length === 1 ? 'GAME' : 'GAMES'}
+                      </span>
+                    </div>
+
+                    <svg
+                      className="w-4 h-4 transition-transform duration-300"
+                      style={{
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        color: isExpanded ? 'var(--team-primary)' : 'var(--text-tertiary)',
+                      }}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+
+                {isExpanded && hasGames && (
+                  <div
+                    className="px-3 pb-3 pt-2 space-y-1 expand-body"
+                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                  >
+                    {results.map((game, idx) => {
+                      const winner = getWinner(game)
+                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
+                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
+                      const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                      const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+
+                      const gameBowlName = game.bowlName || bowlName
+                      const bowlSlug = gameBowlName.toLowerCase().replace(/\s+/g, '-')
+                      let gameId
+                      if (game.gameRef?.id) {
+                        gameId = game.gameRef.id
+                      } else if (game.cfpSlot) {
+                        gameId = getCFPGameId(game.cfpSlot, game.year)
+                      } else if (game.isCFP) {
+                        const slotId = getSlotIdFromBowlName(gameBowlName)
+                        gameId = slotId ? getCFPGameId(slotId, game.year) : `bowl-${game.year}-${bowlSlug}`
+                      } else {
+                        gameId = `bowl-${game.year}-${bowlSlug}`
+                      }
+
+                      return (
+                        <Link
+                          key={`${game.year}-${idx}`}
+                          to={`${pathPrefix}/game/${gameId}`}
+                          className="score-row group flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 transition-all duration-150"
+                          style={{ border: '1px solid transparent' }}
                         >
-                          {game.year}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                          {team1Logo && (
-                            <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
-                              <img src={team1Logo} alt="" className="w-full h-full object-contain" />
-                            </div>
-                          )}
-                          <span
-                            className={`text-xs sm:text-sm font-medium truncate ${
-                              winner === game.team1 ? 'text-txt-primary' : 'text-txt-tertiary'
-                            }`}
+                          <div
+                            className="w-11 sm:w-14 text-center tabular font-display font-black text-sm leading-none flex-shrink-0"
+                            style={{ color: 'var(--team-primary)' }}
                           >
-                            {getSchoolName(game.team1, currentDynasty?.teams) || game.team1}
-                          </span>
-                        </div>
+                            {game.year}
+                          </div>
 
-                        <div className="flex items-center gap-1.5 tabular text-xs sm:text-sm font-bold flex-shrink-0">
-                          <span style={winner === game.team1 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
-                            {game.team1Score}
-                          </span>
-                          <span className="text-txt-tertiary">-</span>
-                          <span style={winner === game.team2 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
-                            {game.team2Score}
-                          </span>
-                        </div>
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            {team1Logo && (
+                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
+                                <img src={team1Logo} alt="" className="w-full h-full object-contain" />
+                              </div>
+                            )}
+                            <span
+                              className={`text-xs sm:text-sm font-semibold truncate ${
+                                winner === game.team1 ? 'text-txt-primary' : 'text-txt-tertiary'
+                              }`}
+                            >
+                              {getSchoolName(game.team1, currentDynasty?.teams) || game.team1}
+                            </span>
+                          </div>
 
-                        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-                          <span
-                            className={`text-xs sm:text-sm font-medium truncate ${
-                              winner === game.team2 ? 'text-txt-primary' : 'text-txt-tertiary'
-                            }`}
-                          >
-                            {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
-                          </span>
-                          {team2Logo && (
-                            <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
-                              <img src={team2Logo} alt="" className="w-full h-full object-contain" />
-                            </div>
-                          )}
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
+                          <div className="flex items-center gap-1.5 tabular font-display font-black text-sm sm:text-base flex-shrink-0">
+                            <span style={winner === game.team1 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
+                              {game.team1Score}
+                            </span>
+                            <span className="text-txt-tertiary font-normal text-xs">–</span>
+                            <span style={winner === game.team2 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
+                              {game.team2Score}
+                            </span>
+                          </div>
 
-              {isExpanded && results.length === 0 && (
-                <div
-                  className="px-3 pb-4 pt-3 text-center"
-                  style={{ borderTop: '1px solid var(--surface-4)' }}
-                >
-                  <p className="label-xs text-txt-tertiary">
-                    No games have been played in this bowl yet.
-                  </p>
-                </div>
-              )}
-            </Card>
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                            <span
+                              className={`text-xs sm:text-sm font-semibold truncate ${
+                                winner === game.team2 ? 'text-txt-primary' : 'text-txt-tertiary'
+                              }`}
+                            >
+                              {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
+                            </span>
+                            {team2Logo && (
+                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
+                                <img src={team2Logo} alt="" className="w-full h-full object-contain" />
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {isExpanded && !hasGames && (
+                  <div
+                    className="px-3 py-6 text-center expand-body"
+                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
+                  >
+                    <p
+                      className="label-xs text-txt-tertiary"
+                      style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                    >
+                      NO GAMES HAVE BEEN PLAYED IN THIS BOWL
+                    </p>
+                  </div>
+                )}
+              </Card>
             </div>
           )
         })}
@@ -465,6 +520,27 @@ export default function BowlHistory() {
         onClose={() => setShowEditModal(false)}
         teamColors={teamColors}
       />
+
+      <style>{`
+        @keyframes expand-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .expand-body {
+          animation: expand-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .score-row:hover {
+          background-color: var(--surface-3);
+          border-color: color-mix(in srgb, var(--team-primary) 35%, transparent);
+          transform: translateX(2px);
+        }
+        .bowl-card-expanded {
+          border-color: color-mix(in srgb, var(--team-primary) 30%, var(--surface-4));
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .expand-body { animation: none; }
+        }
+      `}</style>
     </div>
   )
 }

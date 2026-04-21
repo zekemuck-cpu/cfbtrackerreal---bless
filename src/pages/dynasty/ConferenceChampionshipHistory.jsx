@@ -210,8 +210,9 @@ export default function ConferenceChampionshipHistory() {
   const seasonCount = getSeasonCount()
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 page-enter">
       <PageHero
+        eyebrow="Postseason"
         title="Conference Championships"
         meta={
           <>
@@ -230,8 +231,11 @@ export default function ConferenceChampionshipHistory() {
             placeholder="Search conferences..."
           />
           {searchQuery && (
-            <div className="mt-2 label-xs text-txt-tertiary">
-              {filteredConferences.length} conference{filteredConferences.length !== 1 ? 's' : ''} found
+            <div
+              className="mt-2 label-xs text-txt-tertiary"
+              style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+            >
+              {filteredConferences.length} CONFERENCE{filteredConferences.length !== 1 ? 'S' : ''} FOUND
             </div>
           )}
         </div>
@@ -242,6 +246,7 @@ export default function ConferenceChampionshipHistory() {
           const results = getConferenceResults(conferenceName)
           const isExpanded = expandedConference === conferenceName
           const confLogo = getConferenceLogo(conferenceName)
+          const hasGames = results.length > 0
 
           return (
             <div
@@ -249,12 +254,31 @@ export default function ConferenceChampionshipHistory() {
               ref={el => (conferenceRefs.current[conferenceName] = el)}
               style={{ scrollMarginTop: '100px' }}
             >
-              <Card padding="none">
+              <Card
+                padding="none"
+                className={`cc-card relative overflow-hidden transition-all duration-200 ${
+                  isExpanded ? 'cc-card-expanded' : ''
+                }`}
+              >
+                {isExpanded && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-0 left-0 right-0 h-[2px] z-10"
+                    style={{ backgroundColor: 'var(--team-primary)' }}
+                  />
+                )}
                 <button
                   onClick={() => setExpandedConference(isExpanded ? null : conferenceName)}
-                  className="w-full flex items-center gap-3 px-3 py-3 hover:bg-surface-3 transition-colors text-left"
+                  className="group w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-3 transition-colors text-left"
                 >
-                  <div className="w-10 h-10 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1">
+                  <div
+                    className="w-11 h-11 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1 transition-transform duration-200 group-hover:scale-105"
+                    style={{
+                      boxShadow: isExpanded
+                        ? '0 0 0 2px color-mix(in srgb, var(--team-primary) 40%, transparent)'
+                        : 'none',
+                    }}
+                  >
                     {confLogo ? (
                       <img src={confLogo} alt="" className="w-full h-full object-contain" />
                     ) : (
@@ -265,32 +289,60 @@ export default function ConferenceChampionshipHistory() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-txt-primary truncate">
-                      {conferenceName} Championship
+                    <div
+                      className="label-xs text-txt-tertiary mb-0.5"
+                      style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                    >
+                      {conferenceName.toUpperCase()}
                     </div>
-                    <div className="label-xs text-txt-tertiary mt-0.5">
-                      {results.length === 0
-                        ? 'No games played'
-                        : `${results.length} game${results.length !== 1 ? 's' : ''}`}
+                    <div className="font-display font-bold text-txt-primary truncate text-base leading-tight">
+                      Championship
                     </div>
                   </div>
 
-                  <div className="text-txt-tertiary flex-shrink-0">
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div
+                      className="flex items-baseline gap-1.5 px-2.5 py-1 rounded"
+                      style={{
+                        backgroundColor: hasGames ? 'var(--surface-3)' : 'transparent',
+                        border: hasGames ? 'none' : '1px dashed var(--surface-4)',
+                      }}
+                    >
+                      <span
+                        className="font-display font-black tabular text-sm leading-none"
+                        style={{
+                          color: hasGames ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        }}
+                      >
+                        {results.length}
+                      </span>
+                      <span
+                        className="label-xs text-txt-tertiary"
+                        style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+                      >
+                        {results.length === 1 ? 'GAME' : 'GAMES'}
+                      </span>
+                    </div>
+
                     <svg
-                      className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      className="w-4 h-4 transition-transform duration-300"
+                      style={{
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        color: isExpanded ? 'var(--team-primary)' : 'var(--text-tertiary)',
+                      }}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                 </button>
 
-                {isExpanded && results.length > 0 && (
+                {isExpanded && hasGames && (
                   <div
-                    className="px-3 pb-3 pt-2 space-y-1"
-                    style={{ borderTop: '1px solid var(--surface-4)' }}
+                    className="px-3 pb-3 pt-2 space-y-1 expand-body"
+                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                   >
                     {results.map((game, idx) => {
                       const winner = getWinner(game)
@@ -310,10 +362,11 @@ export default function ConferenceChampionshipHistory() {
                         <Link
                           key={`${game.year}-${idx}`}
                           to={`${pathPrefix}/game/${gameId}`}
-                          className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 hover:bg-surface-3 transition-colors"
+                          className="score-row group flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md bg-surface-2 transition-all duration-150"
+                          style={{ border: '1px solid transparent' }}
                         >
                           <div
-                            className="w-10 sm:w-12 text-center tabular text-sm font-bold flex-shrink-0"
+                            className="w-11 sm:w-14 text-center tabular font-display font-black text-sm leading-none flex-shrink-0"
                             style={{ color: 'var(--team-primary)' }}
                           >
                             {game.year}
@@ -321,12 +374,12 @@ export default function ConferenceChampionshipHistory() {
 
                           <div className="flex items-center gap-1.5 flex-1 min-w-0">
                             {team1Logo && (
-                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
                                 <img src={team1Logo} alt="" className="w-full h-full object-contain" />
                               </div>
                             )}
                             <span
-                              className={`text-xs sm:text-sm font-medium truncate ${
+                              className={`text-xs sm:text-sm font-semibold truncate ${
                                 winner === game.team1 ? 'text-txt-primary' : 'text-txt-tertiary'
                               }`}
                             >
@@ -334,11 +387,11 @@ export default function ConferenceChampionshipHistory() {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5 tabular text-xs sm:text-sm font-bold flex-shrink-0">
+                          <div className="flex items-center gap-1.5 tabular font-display font-black text-sm sm:text-base flex-shrink-0">
                             <span style={winner === game.team1 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
                               {game.team1Score}
                             </span>
-                            <span className="text-txt-tertiary">-</span>
+                            <span className="text-txt-tertiary font-normal text-xs">–</span>
                             <span style={winner === game.team2 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
                               {game.team2Score}
                             </span>
@@ -346,14 +399,14 @@ export default function ConferenceChampionshipHistory() {
 
                           <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
                             <span
-                              className={`text-xs sm:text-sm font-medium truncate ${
+                              className={`text-xs sm:text-sm font-semibold truncate ${
                                 winner === game.team2 ? 'text-txt-primary' : 'text-txt-tertiary'
                               }`}
                             >
                               {getSchoolName(game.team2, currentDynasty?.teams) || game.team2}
                             </span>
                             {team2Logo && (
-                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
+                              <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
                                 <img src={team2Logo} alt="" className="w-full h-full object-contain" />
                               </div>
                             )}
@@ -364,13 +417,16 @@ export default function ConferenceChampionshipHistory() {
                   </div>
                 )}
 
-                {isExpanded && results.length === 0 && (
+                {isExpanded && !hasGames && (
                   <div
-                    className="px-3 pb-4 pt-3 text-center"
-                    style={{ borderTop: '1px solid var(--surface-4)' }}
+                    className="px-3 py-6 text-center expand-body"
+                    style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
                   >
-                    <p className="label-xs text-txt-tertiary">
-                      No championship games have been played in this conference yet.
+                    <p
+                      className="label-xs text-txt-tertiary"
+                      style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+                    >
+                      NO CHAMPIONSHIP GAMES PLAYED IN THIS CONFERENCE
                     </p>
                   </div>
                 )}
@@ -388,6 +444,27 @@ export default function ConferenceChampionshipHistory() {
           />
         </Card>
       )}
+
+      <style>{`
+        @keyframes expand-in {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .expand-body {
+          animation: expand-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .score-row:hover {
+          background-color: var(--surface-3);
+          border-color: color-mix(in srgb, var(--team-primary) 35%, transparent);
+          transform: translateX(2px);
+        }
+        .cc-card-expanded {
+          border-color: color-mix(in srgb, var(--team-primary) 30%, var(--surface-4));
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .expand-body { animation: none; }
+        }
+      `}</style>
     </div>
   )
 }

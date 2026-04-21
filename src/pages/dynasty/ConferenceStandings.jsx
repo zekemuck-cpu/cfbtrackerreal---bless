@@ -213,10 +213,12 @@ export default function ConferenceStandings() {
     />
   )
 
+  const pageWrapperClass = "space-y-6 page-enter"
+
   // Empty state
   if (availableYears.length === 0 || Object.keys(yearStandings).length === 0) {
     return (
-      <div className="space-y-6">
+      <div className={pageWrapperClass}>
         {hero}
         <Card>
           <EmptyState
@@ -262,17 +264,22 @@ export default function ConferenceStandings() {
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
-        className="group flex items-center gap-3 py-2 px-3 transition-colors hover:bg-surface-3"
-        style={{ borderTop: '1px solid var(--surface-4)' }}
+        className="standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150"
+        style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
+          style={{ backgroundColor: colors.primary }}
+        />
         <div
-          className="w-6 text-right label-xs tabular flex-shrink-0"
-          style={{ color: 'var(--text-muted)' }}
+          className="w-6 text-right font-display font-black tabular text-sm leading-none flex-shrink-0"
+          style={{ color: 'var(--text-tertiary)' }}
         >
           {rank}
         </div>
 
-        <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0">
+        <div className="w-6 h-6 rounded-full bg-white p-0.5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110">
           {logo ? (
             <img src={logo} alt="" className="w-full h-full object-contain" />
           ) : (
@@ -282,12 +289,12 @@ export default function ConferenceStandings() {
           )}
         </div>
 
-        <span className="flex-1 text-sm text-txt-primary truncate group-hover:text-[color:var(--team-primary)] transition-colors">
+        <span className="flex-1 text-sm font-medium text-txt-primary truncate group-hover:text-[color:var(--team-primary)] transition-colors">
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
-        <span className="text-sm font-semibold text-txt-primary tabular flex-shrink-0">
-          {team.wins || 0}-{team.losses || 0}
+        <span className="text-sm font-display font-black text-txt-primary tabular flex-shrink-0">
+          {team.wins || 0}<span className="text-txt-tertiary font-normal">–</span>{team.losses || 0}
         </span>
 
         <div className="relative flex-shrink-0 group/diff">
@@ -319,25 +326,53 @@ export default function ConferenceStandings() {
     if (!hasData && searchQuery) return null
 
     return (
-      <Card padding="none">
+      <Card padding="none" className="standings-card relative overflow-hidden transition-all duration-200">
+        <span
+          aria-hidden="true"
+          className="absolute top-0 left-0 right-0 h-[2px]"
+          style={{ backgroundColor: 'var(--team-primary)', opacity: hasData ? 1 : 0.25 }}
+        />
         <div
           className="flex items-center gap-3 px-4 py-3"
-          style={{ borderBottom: '1px solid var(--surface-4)' }}
+          style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
         >
           <div
-            className="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-white/10 p-1"
-            style={{ borderRadius: '4px' }}
+            className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-white p-1 rounded-md"
           >
             {confLogo ? (
               <img src={confLogo} alt="" className="w-full h-full object-contain" />
             ) : (
-              <span className="text-sm font-bold text-txt-tertiary">{conferenceName.charAt(0)}</span>
+              <span className="text-base font-bold text-txt-tertiary">{conferenceName.charAt(0)}</span>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-txt-primary text-sm truncate">{conferenceName}</h3>
+            <div
+              className="label-xs text-txt-tertiary"
+              style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+            >
+              CONFERENCE
+            </div>
+            <h3 className="font-display font-bold text-txt-primary text-base truncate leading-tight">
+              {conferenceName}
+            </h3>
           </div>
-          <span className="label-xs text-txt-tertiary">{teams.length} teams</span>
+          <div
+            className="flex items-baseline gap-1.5 px-2.5 py-1 rounded flex-shrink-0"
+            style={{ backgroundColor: hasData ? 'var(--surface-3)' : 'transparent' }}
+          >
+            <span
+              className="font-display font-black tabular text-sm leading-none"
+              style={{ color: hasData ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+            >
+              {teams.length}
+            </span>
+            <span
+              className="label-xs text-txt-tertiary"
+              style={{ letterSpacing: '1.5px', fontSize: '9px' }}
+            >
+              {teams.length === 1 ? 'TEAM' : 'TEAMS'}
+            </span>
+          </div>
         </div>
 
         {hasData ? (
@@ -348,7 +383,12 @@ export default function ConferenceStandings() {
           </div>
         ) : (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-txt-tertiary">No standings data for {displayYear}</p>
+            <p
+              className="label-xs text-txt-tertiary"
+              style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+            >
+              NO STANDINGS DATA FOR {displayYear}
+            </p>
           </div>
         )}
       </Card>
@@ -356,7 +396,7 @@ export default function ConferenceStandings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={pageWrapperClass}>
       {hero}
 
       <div className="max-w-md">
@@ -369,7 +409,7 @@ export default function ConferenceStandings() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 stagger-reveal">
         {filteredConferences.map(conferenceName => (
           <ConferenceCard key={conferenceName} conferenceName={conferenceName} />
         ))}
@@ -383,6 +423,15 @@ export default function ConferenceStandings() {
           />
         </Card>
       )}
+
+      <style>{`
+        .standings-row:hover {
+          background-color: var(--surface-3);
+        }
+        .standings-card:hover {
+          border-color: color-mix(in srgb, var(--surface-5) 50%, transparent);
+        }
+      `}</style>
 
       <ConferencesModal
         isOpen={showConferencesModal}

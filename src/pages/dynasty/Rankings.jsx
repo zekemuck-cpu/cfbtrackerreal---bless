@@ -152,15 +152,30 @@ export default function Rankings() {
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
-        className="card-bordered relative flex flex-col items-center text-center px-3 pt-4 pb-3 hover:bg-surface-3 transition-colors overflow-hidden"
+        className="playoff-card group relative flex flex-col items-center text-center px-3 pt-5 pb-4 rounded-lg bg-surface-2 transition-all duration-200 overflow-hidden"
+        style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
         <span
           aria-hidden="true"
-          className="absolute top-0 left-0 right-0 h-[3px]"
+          className="absolute top-0 left-0 right-0 h-[3px] transition-all duration-200 group-hover:h-[5px]"
           style={{ backgroundColor: colors.primary }}
         />
-        <span className="stat-lg tabular text-txt-primary mb-1">#{rank}</span>
-        <div className="logo-container logo-container-xl mb-2">
+        <span
+          aria-hidden="true"
+          className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl pointer-events-none"
+          style={{ backgroundColor: colors.primary }}
+        />
+        <span
+          className="font-display font-black tabular leading-none mb-2"
+          style={{
+            fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          <span className="text-txt-tertiary">#</span>{rank}
+        </span>
+        <div className="logo-container logo-container-xl mb-2 transition-transform duration-200 group-hover:scale-110">
           {teamLogo ? (
             <img src={teamLogo} alt="" />
           ) : (
@@ -172,7 +187,9 @@ export default function Rankings() {
             </div>
           )}
         </div>
-        <div className="font-semibold text-sm text-txt-primary truncate w-full">{schoolName}</div>
+        <div className="font-semibold text-sm text-txt-primary truncate w-full transition-colors group-hover:text-[color:var(--team-primary)]">
+          {schoolName}
+        </div>
         {record && (
           <div className="text-xs text-txt-tertiary tabular mt-0.5">
             {record.wins}-{record.losses}
@@ -191,13 +208,21 @@ export default function Rankings() {
     return (
       <Link
         to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
-        className="flex items-center gap-3 px-3 py-2 hover:bg-surface-3 transition-colors"
-        style={{ borderBottom: '1px solid var(--surface-4)' }}
+        className="ranking-row group relative flex items-center gap-3 px-3 py-2.5 transition-all duration-150"
+        style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
-        <span className="w-7 text-right font-semibold tabular text-sm text-txt-tertiary">
+        <span
+          aria-hidden="true"
+          className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
+          style={{ backgroundColor: colors.primary }}
+        />
+        <span
+          className="w-8 text-right font-display font-black tabular text-sm"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
           {rank}
         </span>
-        <div className="logo-container logo-container-md flex-shrink-0">
+        <div className="logo-container logo-container-md flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
           {teamLogo ? (
             <img src={teamLogo} alt="" />
           ) : (
@@ -209,7 +234,7 @@ export default function Rankings() {
             </div>
           )}
         </div>
-        <span className="flex-1 font-medium text-sm text-txt-primary truncate">
+        <span className="flex-1 font-medium text-sm text-txt-primary truncate transition-colors group-hover:text-[color:var(--team-primary)]">
           {getSchoolName(mascotName) || teamAbbr}
         </span>
         {record && (
@@ -226,16 +251,29 @@ export default function Rankings() {
     const rest = data.filter(e => e.rank > 4).sort((a, b) => a.rank - b.rank)
 
     return (
-      <section className="space-y-4">
+      <section className="space-y-4 reveal">
         <header className="flex items-end justify-between">
-          <h2 className="text-display-md text-txt-primary m-0">{title}</h2>
-          <span className="label-xs text-txt-tertiary">{data.length} teams</span>
+          <div>
+            <div
+              className="label-xs text-txt-tertiary mb-1"
+              style={{ letterSpacing: '2px', fontSize: '10px' }}
+            >
+              Final Poll
+            </div>
+            <h2 className="text-display-md text-txt-primary m-0 leading-none">{title}</h2>
+          </div>
+          <span
+            className="label-xs text-txt-tertiary tabular"
+            style={{ letterSpacing: '1.5px', fontSize: '10px' }}
+          >
+            {data.length} TEAMS
+          </span>
         </header>
 
         {data.length > 0 ? (
           <>
             {top4.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 stagger-reveal">
                 {top4.map((entry) => (
                   <PlayoffTeamCard
                     key={`${pollType}-top-${entry.rank}`}
@@ -248,7 +286,7 @@ export default function Rankings() {
             )}
 
             {rest.length > 0 && (
-              <Card padding="none">
+              <Card padding="none" className="overflow-hidden">
                 {rest.map((entry) => (
                   <RankingRow
                     key={`${pollType}-${entry.rank}`}
@@ -274,7 +312,7 @@ export default function Rankings() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       <PageHero
         eyebrow="Final Rankings"
         title="Top 25"
@@ -318,6 +356,17 @@ export default function Rankings() {
           <PollColumn title="Coaches Poll" data={coachesPoll} pollType="coaches" />
         )}
       </div>
+
+      <style>{`
+        .playoff-card:hover {
+          background-color: var(--surface-3);
+          transform: translateY(-2px);
+          border-color: color-mix(in srgb, var(--surface-5) 60%, transparent);
+        }
+        .ranking-row:hover {
+          background-color: var(--surface-3);
+        }
+      `}</style>
     </div>
   )
 }
