@@ -308,6 +308,32 @@ export default function Dashboard() {
   const [rosterSortDir, setRosterSortDir] = useState('asc')
   const [mobileTab, setMobileTab] = useState('schedule') // 'schedule' or 'roster' - for mobile view
 
+  // Sync roster scroll-body height to match the schedule column so the roster
+  // doesn't extend past the schedule on desktop.
+  const scheduleColumnRef = useRef(null)
+  const rosterBodyRef = useRef(null)
+  const [rosterMaxHeight, setRosterMaxHeight] = useState(null)
+  useEffect(() => {
+    const schedEl = scheduleColumnRef.current
+    const rosterEl = rosterBodyRef.current
+    if (!schedEl || !rosterEl) return
+    const update = () => {
+      const schedBottom = schedEl.getBoundingClientRect().bottom
+      const rosterTop = rosterEl.getBoundingClientRect().top
+      const available = schedBottom - rosterTop
+      if (available > 0) setRosterMaxHeight(available)
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(schedEl)
+    ro.observe(rosterEl)
+    window.addEventListener('resize', update)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [teamRoster?.length, teamSchedule?.length])
+
   // Roster sort handler
   const handleRosterSort = (column) => {
     if (rosterSort === column) {
@@ -8021,7 +8047,11 @@ export default function Dashboard() {
                   ))}
                 </div>
               </div>
-              <div className="flex-1 min-h-[420px] overflow-y-auto">
+              <div
+                ref={rosterBodyRef}
+                className="flex-1 min-h-[420px] overflow-y-auto"
+                style={rosterMaxHeight ? { maxHeight: `${rosterMaxHeight}px` } : undefined}
+              >
                 {teamRoster.length > 0 ? (
                   <div className="divide-y divide-zinc-800/50">
                     {sortRoster(teamRoster).map((player) => (
@@ -8080,7 +8110,7 @@ export default function Dashboard() {
         {/* End Left Column */}
 
         {/* Right Column: Schedule - Desktop Only */}
-        <div className="hidden lg:block">
+        <div ref={scheduleColumnRef} className="hidden lg:block">
           {/* Schedule Section - Clean Redesign */}
       <div>
         {/* Schedule Header */}
@@ -9452,11 +9482,17 @@ export default function Dashboard() {
             },
             kicking: {
               'FG Made': 'fgm', 'FG Attempted': 'fga', 'FG Long': 'lng',
-              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks'
+              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks',
+              'FG Blocked': 'fgb', 'XP Blocked': 'xpb',
+              'FG Made (0-29)': 'fgm29', 'FG Att (0-29)': 'fga29',
+              'FG Made (30-39)': 'fgm39', 'FG Att (30-39)': 'fga39',
+              'FG Made (40-49)': 'fgm49', 'FG Att (40-49)': 'fga49',
+              'FG Made (50+)': 'fgm50', 'FG Att (50+)': 'fga50'
             },
             punting: {
               Punts: 'punts', 'Punting Yards': 'yds', 'Net Punting Yards': 'netYds',
-              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb'
+              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb',
+              'Punts Blocked': 'block'
             },
             kickReturn: {
               'Kickoff Returns': 'ret', 'KR Yardage': 'yds', 'KR Touchdowns': 'td', 'KR Long': 'lng'

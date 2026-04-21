@@ -6,6 +6,7 @@ import { DynastyProvider } from './context/DynastyContext'
 import Layout from './components/Layout'
 import { ToastProvider, ConfirmProvider } from './components/ui'
 import ScrollToTop from './components/ScrollToTop'
+import RouteFallback from './components/RouteFallback'
 
 // Eager: entry points, auth, and page wrappers (small + always-on-first-paint)
 import Login from './pages/Login'
@@ -25,27 +26,6 @@ import {
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, Game,
   GameEdit, DangerZone, AISettings,
 } from './routes/lazyPages'
-
-// Suspense fallback. Prefetching warms most chunks before click so this
-// rarely renders; when it does, a spinner only appears after 150ms to
-// avoid a flash on fast/cached loads.
-function RouteFallback() {
-  return (
-    <div
-      className="flex items-center justify-center py-16"
-      style={{ animation: 'suspense-delay 0.001s linear 150ms forwards', opacity: 0 }}
-    >
-      <div
-        className="w-8 h-8 rounded-full border-2 animate-spin"
-        style={{
-          borderColor: 'var(--surface-4)',
-          borderTopColor: 'var(--team-primary, #ea580c)',
-        }}
-        aria-label="Loading page"
-      />
-    </div>
-  )
-}
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {

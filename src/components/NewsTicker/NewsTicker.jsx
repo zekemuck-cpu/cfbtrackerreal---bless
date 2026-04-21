@@ -137,30 +137,45 @@ export default function NewsTicker({ dynasty }) {
           .ticker-wrapper { padding-bottom: env(safe-area-inset-bottom); }
         }
         @media (max-width: 639px) {
-          .ticker-header { max-width: 90px; min-width: 70px; }
+          .ticker-header { max-width: 104px; min-width: 80px; }
           .ticker-content-area { min-width: 0; flex: 1 1 0%; }
         }
+        .ticker-divider {
+          width: 1px;
+          height: 14px;
+          background: rgba(148, 163, 184, 0.18);
+          flex-shrink: 0;
+        }
+        .ticker-logo {
+          background: #f1f5f9;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+        }
+        .ticker-header-cell:hover { background: rgba(255, 255, 255, 0.03); }
+        .ticker-item-link { transition: opacity 180ms ease; }
+        .ticker-item-link:hover { opacity: 0.7; }
       `}</style>
 
       <div
         className="ticker-wrapper fixed bottom-0 left-0 right-0 z-50"
         style={{
-          background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
-          borderTop: '1px solid rgba(71, 85, 105, 0.3)',
-          height: '36px'
+          background: '#0a0c12',
+          borderTop: '1px solid rgba(148, 163, 184, 0.14)',
+          boxShadow: '0 -8px 20px rgba(0, 0, 0, 0.35)',
+          height: '40px',
+          fontFamily: "'Outfit', system-ui, sans-serif"
         }}
       >
         <div className="flex items-center h-full">
-          <div className={`flex items-center h-full overflow-hidden transition-opacity duration-250 w-full ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
+          <div className={`flex items-center h-full overflow-hidden transition-opacity duration-300 w-full ${isTransitioning ? 'opacity-0' : 'opacity-100'}`}>
 
             {/* Header */}
             <div
-              className={`h-full flex items-center gap-1.5 px-2 sm:px-3 flex-shrink-0 ticker-header ${currentSection.headerLink ? 'cursor-pointer hover:bg-white/5' : ''}`}
-              style={{ borderRight: '1px solid rgba(71, 85, 105, 0.3)' }}
+              className={`h-full flex items-center gap-2 px-3 sm:px-4 flex-shrink-0 ticker-header ticker-header-cell ${currentSection.headerLink ? 'cursor-pointer' : ''}`}
+              style={{ borderRight: '1px solid rgba(148, 163, 184, 0.12)' }}
               onClick={() => handleHeaderClick(currentSection)}
             >
               {currentSection.teamLogo && (
-                <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                <div className="w-5 h-5 rounded-full ticker-logo p-0.5 flex-shrink-0">
                   <img
                     src={getLogoUrl(currentSection.teamLogo, dynastyTeams)}
                     alt=""
@@ -171,8 +186,13 @@ export default function NewsTicker({ dynasty }) {
               )}
               {currentSection.opponentLogo ? (
                 <>
-                  <span className="text-[9px] text-slate-500">vs</span>
-                  <div className="w-5 h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                  <span
+                    className="text-[9px] uppercase"
+                    style={{ color: '#64748b', letterSpacing: '0.14em', fontWeight: 600 }}
+                  >
+                    vs
+                  </span>
+                  <div className="w-5 h-5 rounded-full ticker-logo p-0.5 flex-shrink-0">
                     <img
                       src={getLogoUrl(currentSection.opponentLogo, dynastyTeams)}
                       alt=""
@@ -182,7 +202,14 @@ export default function NewsTicker({ dynasty }) {
                   </div>
                 </>
               ) : (
-                <span className="text-[10px] sm:text-xs font-semibold text-slate-300 uppercase tracking-wide truncate">
+                <span
+                  className="text-[10px] sm:text-[11px] truncate uppercase"
+                  style={{
+                    color: '#e2e8f0',
+                    fontWeight: 600,
+                    letterSpacing: '0.14em'
+                  }}
+                >
                   {currentSection.label}
                 </span>
               )}
@@ -192,28 +219,32 @@ export default function NewsTicker({ dynasty }) {
             <div ref={containerRef} className="ticker-container ticker-content-area flex-1 overflow-hidden min-w-0">
               <div
                 ref={contentRef}
-                className="flex items-center gap-3 sm:gap-4 px-2 sm:px-3 whitespace-nowrap h-full"
+                className="flex items-center gap-4 sm:gap-5 px-3 sm:px-4 whitespace-nowrap h-full"
                 style={{ willChange: 'transform' }}
               >
                 {currentSection.items.map((item, idx) => (
-                  <div key={item.id || idx} className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                    {idx > 0 && <span className="text-slate-700">|</span>}
+                  <div key={item.id || idx} className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+                    {idx > 0 && <span className="ticker-divider" />}
 
                     <div
-                      className={`flex items-center gap-1 sm:gap-1.5 whitespace-nowrap ${item.link ? 'cursor-pointer hover:opacity-70' : ''}`}
+                      className={`flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${item.link ? 'cursor-pointer ticker-item-link' : ''}`}
                       onClick={() => handleItemClick(item)}
                     >
                       {item.label && (
                         <span
-                          className={`font-medium text-[10px] sm:text-xs ${item.team2 ? 'hidden sm:inline' : ''}`}
-                          style={{ color: item.labelColor || '#94a3b8' }}
+                          className={`text-[10px] uppercase ${item.team2 ? 'hidden sm:inline' : ''}`}
+                          style={{
+                            color: '#94a3b8',
+                            fontWeight: 600,
+                            letterSpacing: '0.12em'
+                          }}
                         >
                           {item.label}
                         </span>
                       )}
 
                       {item.team && !item.team2 && getLogoUrl(item.team, dynastyTeams) && (
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                        <div className="w-[18px] h-[18px] sm:w-5 sm:h-5 rounded-full ticker-logo p-0.5 flex-shrink-0">
                           <img
                             src={getLogoUrl(item.team, dynastyTeams)}
                             alt=""
@@ -224,8 +255,8 @@ export default function NewsTicker({ dynasty }) {
                       )}
 
                       {item.team && item.team2 && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="w-[18px] h-[18px] sm:w-5 sm:h-5 rounded-full ticker-logo p-0.5 flex-shrink-0">
                             <img
                               src={getLogoUrl(item.team, dynastyTeams)}
                               alt=""
@@ -234,25 +265,25 @@ export default function NewsTicker({ dynasty }) {
                             />
                           </div>
                           <span
-                            className="text-[10px] sm:text-xs tabular-nums"
+                            className="text-[11px] sm:text-xs tabular-nums"
                             style={{
-                              color: item.winner === item.team ? '#4ade80' : '#e2e8f0',
-                              fontWeight: item.winner === item.team ? '600' : '400'
+                              color: item.winner === item.team ? '#f8fafc' : '#64748b',
+                              fontWeight: item.winner === item.team ? 700 : 500
                             }}
                           >
                             {item.score1}
                           </span>
-                          <span className="text-[10px] text-slate-600">-</span>
+                          <span className="text-[10px]" style={{ color: '#475569' }}>–</span>
                           <span
-                            className="text-[10px] sm:text-xs tabular-nums"
+                            className="text-[11px] sm:text-xs tabular-nums"
                             style={{
-                              color: item.winner === item.team2 ? '#4ade80' : '#e2e8f0',
-                              fontWeight: item.winner === item.team2 ? '600' : '400'
+                              color: item.winner === item.team2 ? '#f8fafc' : '#64748b',
+                              fontWeight: item.winner === item.team2 ? 700 : 500
                             }}
                           >
                             {item.score2}
                           </span>
-                          <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white p-0.5 flex-shrink-0">
+                          <div className="w-[18px] h-[18px] sm:w-5 sm:h-5 rounded-full ticker-logo p-0.5 flex-shrink-0">
                             <img
                               src={getLogoUrl(item.team2, dynastyTeams)}
                               alt=""
@@ -264,7 +295,12 @@ export default function NewsTicker({ dynasty }) {
                       )}
 
                       {item.text && !item.team2 && (
-                        <span className="text-[10px] sm:text-xs text-slate-300">{item.text}</span>
+                        <span
+                          className="text-[11px] sm:text-xs tabular-nums"
+                          style={{ color: '#e2e8f0', fontWeight: 500 }}
+                        >
+                          {item.text}
+                        </span>
                       )}
                     </div>
                   </div>

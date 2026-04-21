@@ -21,8 +21,19 @@ const INTERNAL_TO_BOXSCORE = {
   receiving: { rec: 'receptions', yds: 'yards', td: 'tD', lng: 'long', drops: 'drops', rac: 'rAC' },
   blocking: { sacksAllowed: 'sacksAllowed', pancakes: 'pancakes' },
   defense: { soloTkl: 'solo', solo: 'solo', astTkl: 'assists', assists: 'assists', tfl: 'tFL', sacks: 'sack', sack: 'sack', int: 'iNT', intYds: 'iNTYards', pd: 'deflections', deflections: 'deflections', ff: 'fF', fr: 'fR', td: 'tD' },
-  kicking: { fgm: 'fGM', fga: 'fGA', xpm: 'xPM', xpa: 'xPA', lng: 'fGLong', kickoffs: 'kickoffs', touchbacks: 'touchbacks' },
-  punting: { punts: 'punts', yds: 'yards', netYds: 'netYards', in20: 'in20', lng: 'long' },
+  kicking: {
+    fgm: 'fGM', fga: 'fGA', xpm: 'xPM', xpa: 'xPA', lng: 'fGLong',
+    kickoffs: 'kickoffs', touchbacks: 'touchbacks',
+    fgb: 'fGBlock', xpb: 'xPB',
+    fgm29: 'fGM29', fga29: 'fGA29',
+    fgm39: 'fGM39', fga39: 'fGA39',
+    fgm49: 'fGM49', fga49: 'fGA49',
+    fgm50: 'fGM50+', fga50: 'fGA50+'
+  },
+  punting: {
+    punts: 'punts', yds: 'yards', netYds: 'netYards', in20: 'in20', lng: 'long',
+    tb: 'tB', block: 'block'
+  },
   kickReturn: { ret: 'kR', kR: 'kR', yds: 'yards', td: 'tD', lng: 'long' },
   puntReturn: { ret: 'pR', pR: 'pR', yds: 'yards', td: 'tD', lng: 'long' }
 }

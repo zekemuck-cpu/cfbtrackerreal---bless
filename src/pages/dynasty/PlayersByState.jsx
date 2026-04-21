@@ -305,8 +305,8 @@ export default function PlayersByState() {
                       <div
                         className="flex-shrink-0 w-10 h-10 rounded flex items-center justify-center font-bold text-sm tabular"
                         style={{
-                          backgroundColor: 'var(--team-primary-faded)',
-                          color: 'var(--team-primary)'
+                          backgroundColor: 'var(--surface-3)',
+                          color: 'var(--text-primary)'
                         }}
                       >
                         {player.overall || '—'}

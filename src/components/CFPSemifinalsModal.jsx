@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
@@ -535,54 +536,56 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
   if (!isOpen) return null
 
-  return (
+  // Neutral CFP gold — this modal isn't about any one team, so we don't tint
+  // it with the user's primary color. Team cards below still use real team
+  // colors for their left rails (those ARE about the teams).
+  const accent = '#c9a227'
+
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-3 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
-      onMouseDown={onClose}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}
     >
       <div
-        className="rounded-xl shadow-2xl w-full max-w-3xl max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-auto border"
-        style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}
-        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-3xl card-elevated flex flex-col max-h-[90dvh] overflow-hidden modal-panel-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="CFP Semifinals"
       >
-        {/* Header */}
+        {/* Thin team-primary accent stripe */}
         <div
-          className="sticky top-0 z-10 px-4 py-3 sm:px-6 sm:py-5 rounded-t-xl"
-          style={{
-            backgroundColor: modalColors.headerBg
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: modalColors.accent }}>
-                <svg className="w-5 h-5 sm:w-8 sm:h-8" style={{ color: modalColors.text }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-2xl font-bold" style={{ color: modalColors.text }}>
-                  CFP Semifinals
-                </h2>
-                <p className="text-xs sm:text-sm mt-0.5" style={{ color: modalColors.textMuted }}>
-                  {currentYear} College Football Playoff
-                </p>
-              </div>
-            </div>
-            <button aria-label="Close"
-              onClick={onClose}
-              className="hover:bg-white/20 rounded-full p-2 transition-colors"
-              style={{ color: modalColors.textMuted }}
+          className="h-[3px] w-full flex-shrink-0"
+          style={{ backgroundColor: accent }}
+          aria-hidden="true"
+        />
+
+        {/* Header */}
+        <header className="px-5 sm:px-6 py-4 sm:py-5 border-b border-surface-4 flex items-start justify-between flex-shrink-0">
+          <div>
+            <div
+              className="text-txt-tertiary"
+              style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
             >
-              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+              {currentYear} · College Football Playoff
+            </div>
+            <h2 className="font-display text-txt-primary m-0 mt-1" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.75rem)', fontWeight: 900, letterSpacing: '-0.02em' }}>
+              Semifinals
+            </h2>
           </div>
-        </div>
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="p-1.5 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </header>
 
         {/* Games */}
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 stagger-reveal">
           {games.map((game, index) => {
             const team1Info = getTeamInfoByTid(game.team1Tid)
             const team2Info = getTeamInfoByTid(game.team2Tid)
@@ -591,253 +594,127 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
             return (
               <div
                 key={game.id}
-                className="rounded-xl overflow-hidden"
-                style={{
-                  background: 'linear-gradient(145deg, #16213e 0%, #1a1a2e 100%)',
-                  boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
-                }}
+                className="rounded-lg overflow-hidden border border-surface-4 bg-surface-2"
               >
-                {/* Bowl Header */}
-                <div
-                  className="px-3 py-3 sm:px-5 sm:py-4 flex items-center gap-2 sm:gap-4"
-                  style={{
-                    background: game.userGame
-                      ? 'linear-gradient(90deg, rgba(34,197,94,0.2) 0%, rgba(22,163,74,0.2) 100%)'
-                      : 'linear-gradient(90deg, rgba(30,58,95,0.3) 0%, rgba(15,39,68,0.3) 100%)',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)'
-                  }}
-                >
+                {/* Bowl row */}
+                <div className="px-4 py-3 flex items-center gap-3 border-b border-surface-4 bg-surface-3">
                   {bowlLogo && (
-                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-white rounded-lg p-1 sm:p-1.5 flex items-center justify-center flex-shrink-0">
-                      <img
-                        src={bowlLogo}
-                        alt={game.bowlName}
-                        className="w-full h-full object-contain"
-                      />
+                    <div className="w-8 h-8 bg-white rounded p-1 flex items-center justify-center flex-shrink-0">
+                      <img src={bowlLogo} alt={game.bowlName} className="w-full h-full object-contain" />
                     </div>
                   )}
-                  <h3 className="text-sm sm:text-lg font-bold text-white flex-1">
-                    {game.bowlName}
-                  </h3>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-txt-tertiary"
+                      style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
+                    >
+                      Semifinal
+                    </div>
+                    <h3 className="text-sm sm:text-base font-semibold text-txt-primary truncate">
+                      {game.bowlName}
+                    </h3>
+                  </div>
                   {game.userGame && (
-                    <span className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center gap-1 ${
-                      game.userGamePending ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
-                    }`}>
-                      {game.userGamePending ? (
-                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                      <span className="hidden sm:inline">{game.userGamePending ? 'PENDING' : 'YOUR GAME'}</span>
-                      <span className="sm:hidden">{game.userGamePending ? 'PEND' : 'YOU'}</span>
+                    <span
+                      className="px-2.5 py-1 rounded border"
+                      style={{
+                        fontSize: '9px',
+                        letterSpacing: '2px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: game.userGamePending ? '#fbbf24' : accent,
+                        borderColor: game.userGamePending ? 'rgba(251, 191, 36, 0.4)' : accent,
+                        backgroundColor: game.userGamePending ? 'rgba(251, 191, 36, 0.08)' : 'transparent',
+                      }}
+                    >
+                      {game.userGamePending ? 'Pending' : 'Your Game'}
                     </span>
                   )}
                 </div>
 
-                {/* Teams */}
-                <div className="p-3 sm:p-5">
-                  {/* Mobile: stacked layout, Desktop: horizontal */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                {/* Teams + Scores */}
+                <div className="p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 sm:gap-4">
                     {/* Team 1 */}
-                    <div className="sm:flex-1">
-                      {team1Info ? (
-                        <div
-                          className="rounded-xl p-2.5 sm:p-4 flex items-center gap-2 sm:gap-3"
-                          style={{
-                            backgroundColor: team1Info.backgroundColor,
-                            boxShadow: `0 4px 20px ${team1Info.backgroundColor}40`
-                          }}
-                        >
-                          {team1Info.logo && (
-                            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white rounded-full p-1 sm:p-1.5 flex items-center justify-center flex-shrink-0">
-                              <img
-                                src={team1Info.logo}
-                                alt={team1Info.fullMascot}
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[10px] sm:text-xs font-semibold opacity-70" style={{ color: team1Info.textColor }}>
-                              #{team1Info.seed} Seed
-                            </div>
-                            <div className="text-sm sm:text-lg font-bold truncate" style={{ color: team1Info.textColor }}>
-                              {team1Info.name}
-                            </div>
-                          </div>
-                          {/* Mobile inline score for Team 1 */}
-                          <div className="sm:hidden text-xl font-bold px-2" style={{ color: team1Info.textColor }}>
-                            {game.team1Score !== '' ? game.team1Score : '-'}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl p-2.5 sm:p-4 bg-surface-3 text-txt-muted text-center">
-                          <span className="text-base sm:text-lg font-semibold">TBD</span>
-                          <p className="text-[10px] sm:text-xs mt-1">Awaiting {game.qfBowl1} result</p>
-                        </div>
-                      )}
-                    </div>
+                    <TeamCard info={team1Info} side="left" qfLabel={game.qfBowl1} />
 
-                    {/* Scores - Hidden on mobile (shown inline with teams), visible on desktop */}
-                    <div className="hidden sm:flex items-center gap-2">
+                    {/* Scores (desktop) */}
+                    <div className="hidden sm:flex items-center justify-center gap-3 px-1 min-w-[180px]">
                       {game.userGame && game.userGamePending ? (
-                        /* User game not yet entered - show pending message */
-                        <div className="px-4 py-3 rounded-xl bg-amber-500/20 border-2 border-amber-500/50 text-center">
-                          <div className="text-amber-400 text-sm font-semibold">Enter via Game Entry</div>
-                          <div className="text-amber-400/70 text-xs mt-0.5">Play this game first</div>
+                        <div className="text-center px-3 py-2 rounded border border-amber-500/40 bg-amber-500/5">
+                          <div
+                            className="text-amber-400"
+                            style={{ fontSize: '9px', letterSpacing: '2px', fontWeight: 700, textTransform: 'uppercase' }}
+                          >
+                            Enter via Game Entry
+                          </div>
+                          <div className="text-xs text-txt-tertiary mt-1">Play this game first</div>
                         </div>
                       ) : game.userGame ? (
-                        /* User game entered - display scores as text (read-only from games array) */
                         <>
-                          <div
-                            className="w-16 h-16 flex items-center justify-center text-2xl font-bold rounded-xl border-2"
-                            style={{
-                              backgroundColor: team1Info?.backgroundColor || '#374151',
-                              color: team1Info?.textColor || '#fff',
-                              borderColor: 'rgba(34,197,94,0.6)'
-                            }}
-                          >
-                            {game.team1Score}
-                          </div>
-                          <div className="text-white/40 text-xl font-bold px-2">-</div>
-                          <div
-                            className="w-16 h-16 flex items-center justify-center text-2xl font-bold rounded-xl border-2"
-                            style={{
-                              backgroundColor: team2Info?.backgroundColor || '#374151',
-                              color: team2Info?.textColor || '#fff',
-                              borderColor: 'rgba(34,197,94,0.6)'
-                            }}
-                          >
-                            {game.team2Score}
-                          </div>
+                          <ScoreDisplay value={game.team1Score} />
+                          <Dash />
+                          <ScoreDisplay value={game.team2Score} />
                         </>
                       ) : (
-                        /* CPU game - editable inputs */
                         <>
-                          <input
-                            type="number"
-                            min="0"
+                          <ScoreInput
                             value={game.team1Score}
-                            onChange={(e) => handleScoreChange(index, 'team1Score', e.target.value)}
-                            className="w-16 h-16 text-center text-2xl font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                            style={{
-                              backgroundColor: team1Info?.backgroundColor || '#374151',
-                              color: team1Info?.textColor || '#fff',
-                              borderColor: 'rgba(255,255,255,0.2)'
-                            }}
-                            placeholder="0"
+                            onChange={(v) => handleScoreChange(index, 'team1Score', v)}
                             disabled={!game.team1}
+                            accent={accent}
                           />
-                          <div className="text-white/40 text-xl font-bold px-2">-</div>
-                          <input
-                            type="number"
-                            min="0"
+                          <Dash />
+                          <ScoreInput
                             value={game.team2Score}
-                            onChange={(e) => handleScoreChange(index, 'team2Score', e.target.value)}
-                            className="w-16 h-16 text-center text-2xl font-bold rounded-xl border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                            style={{
-                              backgroundColor: team2Info?.backgroundColor || '#374151',
-                              color: team2Info?.textColor || '#fff',
-                              borderColor: 'rgba(255,255,255,0.2)'
-                            }}
-                            placeholder="0"
+                            onChange={(v) => handleScoreChange(index, 'team2Score', v)}
                             disabled={!game.team2}
+                            accent={accent}
                           />
                         </>
                       )}
                     </div>
 
                     {/* Team 2 */}
-                    <div className="sm:flex-1">
-                      {team2Info ? (
-                        <div
-                          className="rounded-xl p-2.5 sm:p-4 flex items-center gap-2 sm:gap-3 sm:flex-row-reverse"
-                          style={{
-                            backgroundColor: team2Info.backgroundColor,
-                            boxShadow: `0 4px 20px ${team2Info.backgroundColor}40`
-                          }}
-                        >
-                          {team2Info.logo && (
-                            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-white rounded-full p-1 sm:p-1.5 flex items-center justify-center flex-shrink-0">
-                              <img
-                                src={team2Info.logo}
-                                alt={team2Info.fullMascot}
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0 sm:text-right">
-                            <div className="text-[10px] sm:text-xs font-semibold opacity-70" style={{ color: team2Info.textColor }}>
-                              #{team2Info.seed} Seed
-                            </div>
-                            <div className="text-sm sm:text-lg font-bold truncate" style={{ color: team2Info.textColor }}>
-                              {team2Info.name}
-                            </div>
-                          </div>
-                          {/* Mobile inline score for Team 2 */}
-                          <div className="sm:hidden text-xl font-bold px-2" style={{ color: team2Info.textColor }}>
-                            {game.team2Score !== '' ? game.team2Score : '-'}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl p-2.5 sm:p-4 bg-surface-3 text-txt-muted text-center">
-                          <span className="text-base sm:text-lg font-semibold">TBD</span>
-                          <p className="text-[10px] sm:text-xs mt-1">Awaiting {game.qfBowl2} result</p>
-                        </div>
-                      )}
-                    </div>
+                    <TeamCard info={team2Info} side="right" qfLabel={game.qfBowl2} />
                   </div>
 
-                  {/* Mobile: Score input row for CPU games */}
+                  {/* Mobile score entry */}
                   {!game.userGame && (
-                    <div className="flex sm:hidden items-center justify-center gap-3 mt-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white/60 text-xs">{team1Info?.abbr || 'TBD'}</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={game.team1Score}
-                          onChange={(e) => handleScoreChange(index, 'team1Score', e.target.value)}
-                          className="w-14 h-10 text-center text-lg font-bold rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                          style={{
-                            backgroundColor: team1Info?.backgroundColor || '#374151',
-                            color: team1Info?.textColor || '#fff',
-                            borderColor: 'rgba(255,255,255,0.2)'
-                          }}
-                          placeholder="0"
-                          disabled={!game.team1}
-                        />
-                      </div>
-                      <div className="text-white/40 text-lg font-bold">-</div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="0"
-                          value={game.team2Score}
-                          onChange={(e) => handleScoreChange(index, 'team2Score', e.target.value)}
-                          className="w-14 h-10 text-center text-lg font-bold rounded-lg border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-                          style={{
-                            backgroundColor: team2Info?.backgroundColor || '#374151',
-                            color: team2Info?.textColor || '#fff',
-                            borderColor: 'rgba(255,255,255,0.2)'
-                          }}
-                          placeholder="0"
-                          disabled={!game.team2}
-                        />
-                        <span className="text-white/60 text-xs">{team2Info?.abbr || 'TBD'}</span>
-                      </div>
+                    <div className="flex sm:hidden items-center justify-center gap-3 mt-4">
+                      <ScoreInput
+                        value={game.team1Score}
+                        onChange={(v) => handleScoreChange(index, 'team1Score', v)}
+                        disabled={!game.team1}
+                        accent={accent}
+                        small
+                      />
+                      <Dash />
+                      <ScoreInput
+                        value={game.team2Score}
+                        onChange={(v) => handleScoreChange(index, 'team2Score', v)}
+                        disabled={!game.team2}
+                        accent={accent}
+                        small
+                      />
                     </div>
                   )}
-
-                  {/* Mobile: Pending message for user games */}
+                  {game.userGame && !game.userGamePending && (
+                    <div className="flex sm:hidden items-center justify-center gap-3 mt-4">
+                      <ScoreDisplay value={game.team1Score} small />
+                      <Dash />
+                      <ScoreDisplay value={game.team2Score} small />
+                    </div>
+                  )}
                   {game.userGame && game.userGamePending && (
                     <div className="flex sm:hidden justify-center mt-3">
-                      <div className="px-3 py-2 rounded-lg bg-amber-500/20 border border-amber-500/50 text-center">
-                        <div className="text-amber-400 text-xs font-semibold">Enter via Game Entry</div>
+                      <div className="px-3 py-2 rounded border border-amber-500/40 bg-amber-500/5">
+                        <div
+                          className="text-amber-400"
+                          style={{ fontSize: '9px', letterSpacing: '2px', fontWeight: 700, textTransform: 'uppercase' }}
+                        >
+                          Enter via Game Entry
+                        </div>
                       </div>
                     </div>
                   )}
@@ -848,28 +725,110 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 px-3 py-3 sm:px-6 sm:py-4 border-t" style={{ backgroundColor: modalColors.background, borderColor: modalColors.border }}>
-          <div className="flex gap-2 sm:gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving || games.some(g => !g.team1 || !g.team2)}
-              className="flex-1 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
-              style={{
-                backgroundColor: modalColors.accent,
-                color: '#ffffff'
-              }}
-            >
-              {saving ? 'Saving...' : 'Save Results'}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-bold text-sm sm:text-base transition-colors bg-surface-3 hover:bg-surface-4 text-white"
-            >
-              Cancel
-            </button>
-          </div>
+        <footer className="px-5 sm:px-6 py-4 border-t border-surface-4 flex items-center justify-end gap-3 flex-shrink-0 bg-surface-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-sm font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || games.some(g => !g.team1 || !g.team2)}
+            className="px-5 py-2 rounded-md text-sm font-semibold transition-all disabled:opacity-40"
+            style={{
+              backgroundColor: accent,
+              color: '#0b0b10',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save Results'}
+          </button>
+        </footer>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// --- Local presentational helpers ---
+
+function TeamCard({ info, side, qfLabel }) {
+  const accent = info?.backgroundColor || 'var(--team-primary)'
+  const reverse = side === 'right'
+  if (!info) {
+    return (
+      <div className="sm:flex-1 rounded-md border border-dashed border-surface-4 bg-surface-3 px-3 py-4 flex flex-col items-center justify-center text-center">
+        <span className="font-display text-base font-bold text-txt-tertiary tracking-tight">TBD</span>
+        <p
+          className="mt-1 text-txt-muted"
+          style={{ fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
+        >
+          Awaiting {qfLabel || 'QF'} result
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div
+      className={`sm:flex-1 relative rounded-md bg-surface-3 border border-surface-4 overflow-hidden flex items-center gap-3 px-3 py-3 ${reverse ? 'sm:flex-row-reverse sm:text-right' : ''}`}
+    >
+      <div
+        className={`absolute top-0 ${reverse ? 'right-0' : 'left-0'} bottom-0 w-[3px]`}
+        style={{ backgroundColor: accent }}
+        aria-hidden="true"
+      />
+      {info.logo && (
+        <div className="w-11 h-11 sm:w-12 sm:h-12 bg-white rounded-full p-1 flex items-center justify-center flex-shrink-0">
+          <img src={info.logo} alt={info.fullMascot} className="w-full h-full object-contain" />
+        </div>
+      )}
+      <div className={`flex-1 min-w-0 ${reverse ? 'sm:text-right' : ''}`}>
+        <div
+          className="text-txt-tertiary"
+          style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}
+        >
+          #{info.seed || '–'} Seed
+        </div>
+        <div className="font-display font-bold text-txt-primary text-base sm:text-lg truncate leading-tight">
+          {info.name}
         </div>
       </div>
     </div>
   )
+}
+
+function ScoreInput({ value, onChange, disabled, accent, small }) {
+  const size = small ? 'w-14 h-12 text-xl' : 'w-16 h-16 text-2xl'
+  return (
+    <input
+      type="number"
+      min="0"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      placeholder="0"
+      className={`${size} text-center font-display font-black rounded-md bg-surface-3 border border-surface-4 text-txt-primary focus:outline-none focus:ring-2 transition-all disabled:opacity-30`}
+      style={{
+        fontVariantNumeric: 'tabular-nums',
+        letterSpacing: '-0.02em',
+        '--tw-ring-color': accent,
+      }}
+    />
+  )
+}
+
+function ScoreDisplay({ value, small }) {
+  const size = small ? 'w-14 h-12 text-xl' : 'w-16 h-16 text-2xl'
+  return (
+    <div
+      className={`${size} flex items-center justify-center font-display font-black rounded-md bg-surface-3 border border-surface-4 text-txt-primary`}
+      style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}
+    >
+      {value !== '' && value !== null && value !== undefined ? value : '–'}
+    </div>
+  )
+}
+
+function Dash() {
+  return <div className="text-txt-tertiary text-lg font-light px-1 select-none">–</div>
 }

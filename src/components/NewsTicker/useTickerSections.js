@@ -205,85 +205,119 @@ export function useTickerSections(dynasty) {
       })
     }
 
-    // === 4. LAST GAME RECAP (most recent with box score) ===
-    const lastGameWithStats = [...seasonGames]
-      .sort((a, b) => getGameOrder(b) - getGameOrder(a))
-      .find(g => {
-        const info = getGameInfo(g)
-        const loc = info?.location || g.location
-        const stats = loc === 'away' ? g.boxScore?.away : g.boxScore?.home
-        return stats?.passing?.length > 0 || stats?.rushing?.length > 0
-      })
+    // === 4. PER-GAME RECAPS (one section per game with box-score stats) ===
+    // ESPN-style: every played game with box score data gets its own section
+    // showing the final score + top QB/RB/WR/defender/kicker.
+    const findPlayerPidByName = (playerName) => {
+      if (!playerName || !dynasty.players) return null
+      const player = dynasty.players.find(p => p.name === playerName)
+      return player?.pid || null
+    }
 
-    if (lastGameWithStats) {
-      const info = getGameInfo(lastGameWithStats)
-      const opp = info?.opponentAbbr || getTeamAbbr(lastGameWithStats.opponent, teams)
-      const isWin = info?.isWin ?? (lastGameWithStats.result === 'win')
-      const loc = info?.location || lastGameWithStats.location
-      const stats = loc === 'away'
-        ? lastGameWithStats.boxScore?.away
-        : lastGameWithStats.boxScore?.home
+    const buildGameRecapSection = (game, ownTeamAbbr) => {
+      const info = getGameInfo(game)
+      const opp = info?.opponentAbbr || getTeamAbbr(game.opponent, teams)
+      const isWin = info?.isWin ?? (game.result === 'win')
+      const loc = info?.location || game.location
+      const stats = loc === 'away' ? game.boxScore?.away : game.boxScore?.home
 
-      // Helper to find player pid by name
-      const findPlayerPid = (playerName) => {
-        if (!playerName || !dynasty.players) return null
-        const player = dynasty.players.find(p => p.name === playerName)
-        return player?.pid || null
-      }
+      const hasStats = (stats?.passing?.length > 0)
+        || (stats?.rushing?.length > 0)
+        || (stats?.receiving?.length > 0)
+        || (stats?.defense?.length > 0)
+        || (stats?.kicking?.length > 0)
+      if (!hasStats) return null
+
+      const userScore = info?.userScore ?? game.teamScore
+      const oppScore = info?.opponentScore ?? game.opponentScore
+      const gameLink = game.id ? `/game/${game.id}` : null
 
       const items = [{
         id: 'score',
         label: isWin ? 'W' : 'L',
-        labelColor: isWin ? '#22c55e' : '#ef4444',
-        text: `${info?.userScore ?? lastGameWithStats.teamScore}-${info?.opponentScore ?? lastGameWithStats.opponentScore}`
+        text: `${userScore}-${oppScore}`,
+        link: gameLink
       }]
 
-      // Top passer - field names: cmp, att, yds, td, int, playerName
-      const passer = stats?.passing?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      const passer = stats?.passing?.slice().sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
       if (passer?.yds > 0) {
-        const pid = findPlayerPid(passer.playerName)
         items.push({
           id: 'qb',
           label: passer.playerName || 'QB',
           text: `${passer.cmp || 0}/${passer.att || 0}, ${passer.yds} yds, ${passer.td || 0} TD`,
-          link: pid ? `/player/${pid}` : null
+          link: findPlayerPidByName(passer.playerName)
+            ? `/player/${findPlayerPidByName(passer.playerName)}`
+            : gameLink
         })
       }
 
-      // Top rusher - field names: car, yds, td, playerName
-      const rusher = stats?.rushing?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      const rusher = stats?.rushing?.slice().sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
       if (rusher?.yds > 0) {
-        const pid = findPlayerPid(rusher.playerName)
         items.push({
           id: 'rb',
           label: rusher.playerName || 'RB',
           text: `${rusher.car || 0} car, ${rusher.yds} yds${rusher.td > 0 ? `, ${rusher.td} TD` : ''}`,
-          link: pid ? `/player/${pid}` : null
+          link: findPlayerPidByName(rusher.playerName)
+            ? `/player/${findPlayerPidByName(rusher.playerName)}`
+            : gameLink
         })
       }
 
-      // Top receiver - field names: rec, yds, td, playerName
-      const receiver = stats?.receiving?.sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
+      const receiver = stats?.receiving?.slice().sort((a, b) => (b.yds || 0) - (a.yds || 0))[0]
       if (receiver?.yds > 0) {
-        const pid = findPlayerPid(receiver.playerName)
         items.push({
           id: 'wr',
           label: receiver.playerName || 'WR',
           text: `${receiver.rec || 0} rec, ${receiver.yds} yds${receiver.td > 0 ? `, ${receiver.td} TD` : ''}`,
-          link: pid ? `/player/${pid}` : null
+          link: findPlayerPidByName(receiver.playerName)
+            ? `/player/${findPlayerPidByName(receiver.playerName)}`
+            : gameLink
         })
       }
 
-      if (items.length > 1) {
-        sections.push({
-          type: 'recap',
-          label: 'LAST GAME',
-          teamLogo: teamAbbr,
-          opponentLogo: opp,
-          items
-        })
+      // Top defender by combined impact: sacks + INTs + tackles
+      const defender = stats?.defense?.slice().sort((a, b) => {
+        const impactA = (a.sacks || 0) * 3 + (a.int || 0) * 3 + ((a.soloTkl || 0) + (a.astTkl || 0)) * 0.5
+        const impactB = (b.sacks || 0) * 3 + (b.int || 0) * 3 + ((b.soloTkl || 0) + (b.astTkl || 0)) * 0.5
+        return impactB - impactA
+      })[0]
+      if (defender) {
+        const tackles = (defender.soloTkl || 0) + (defender.astTkl || 0)
+        const parts = []
+        if (tackles > 0) parts.push(`${tackles} tkl`)
+        if (defender.sacks > 0) parts.push(`${defender.sacks} sack${defender.sacks > 1 ? 's' : ''}`)
+        if (defender.int > 0) parts.push(`${defender.int} INT`)
+        if (parts.length > 0) {
+          items.push({
+            id: 'def',
+            label: defender.playerName || 'DEF',
+            text: parts.join(', '),
+            link: findPlayerPidByName(defender.playerName)
+              ? `/player/${findPlayerPidByName(defender.playerName)}`
+              : gameLink
+          })
+        }
+      }
+
+      // Only emit if we got at least one player line beyond the score
+      if (items.length < 2) return null
+
+      return {
+        type: 'gamerecap',
+        label: `WK ${game.week || '?'}`,
+        teamLogo: ownTeamAbbr,
+        opponentLogo: opp,
+        items
       }
     }
+
+    // Build recaps for current season — most recent first.
+    const currentSeasonRecaps = [...seasonGames]
+      .sort((a, b) => getGameOrder(b) - getGameOrder(a))
+      .map(g => buildGameRecapSection(g, teamAbbr))
+      .filter(Boolean)
+
+    currentSeasonRecaps.forEach(s => sections.push(s))
 
     // === 5. SEASON LEADERS ===
     if (dynasty.players?.length > 0) {
@@ -389,61 +423,7 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    // === 6. SEASON HIGHLIGHTS ===
-    if (seasonGames.length >= 3) {
-      const gamesWithMargins = seasonGames.map(g => {
-        const info = getGameInfo(g)
-        const userScore = Number(info?.userScore) || 0
-        const oppScore = Number(info?.opponentScore) || 0
-        const margin = userScore - oppScore
-        const totalPoints = userScore + oppScore
-        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
-        const isWin = info?.isWin ?? (g.result === 'win')
-        return { game: g, userScore, oppScore, margin, totalPoints, oppAbbr, isWin }
-      })
-
-      const highlightItems = []
-
-      // Biggest win (largest positive margin)
-      const biggestWin = gamesWithMargins
-        .filter(x => x.isWin && x.margin > 0)
-        .sort((a, b) => b.margin - a.margin)[0]
-      if (biggestWin) {
-        highlightItems.push({
-          id: 'bigwin',
-          team: biggestWin.oppAbbr,
-          label: 'BIG W',
-          labelColor: '#22c55e',
-          text: `${biggestWin.userScore}-${biggestWin.oppScore}`,
-          link: biggestWin.game.id ? `/game/${biggestWin.game.id}` : null
-        })
-      }
-
-      // Highest scoring game (most combined points)
-      const highestScoring = [...gamesWithMargins].sort((a, b) => b.totalPoints - a.totalPoints)[0]
-      if (highestScoring && highestScoring.totalPoints > 0) {
-        highlightItems.push({
-          id: 'highscore',
-          team: highestScoring.oppAbbr,
-          label: highestScoring.isWin ? 'W' : 'L',
-          labelColor: highestScoring.isWin ? '#22c55e' : '#ef4444',
-          text: `${highestScoring.userScore}-${highestScoring.oppScore} (${highestScoring.totalPoints} pts)`,
-          link: highestScoring.game.id ? `/game/${highestScoring.game.id}` : null
-        })
-      }
-
-      if (highlightItems.length >= 1) {
-        sections.push({
-          type: 'highlights',
-          label: 'HIGHLIGHTS',
-          teamLogo: teamAbbr,
-          teamRecord: record,
-          items: highlightItems
-        })
-      }
-    }
-
-    // === 7. MILESTONE WATCH ===
+    // === 6. MILESTONE WATCH ===
     // Players approaching season milestones
     if (dynasty.players?.length > 0) {
       const teamPlayers = dynasty.players.filter(p => {
@@ -588,14 +568,19 @@ export function useTickerSections(dynasty) {
       const currentWeekNum = Number(dynasty.currentWeek)
       const historyItems = []
 
-      // Get all user games from previous years in the same week
+      // Get games from previous years in the same week — restricted to the
+      // current team so switching teams mid-dynasty doesn't leak old games.
       const allUserGamesForHistory = (dynasty.games || [])
         .filter(g => isGamePlayed(g) && Number(g.year) !== currentYear)
         .map(g => {
           const perspective = getUserGamePerspective(g, dynasty)
           return perspective ? { ...g, perspective } : null
         })
-        .filter(g => g !== null && isSameWeek(g.week, currentWeekNum))
+        .filter(g => {
+          if (!g || !isSameWeek(g.week, currentWeekNum)) return false
+          const info = getGameInfo(g)
+          return info?.userTeamAbbr === teamAbbr
+        })
         .sort((a, b) => Number(b.year) - Number(a.year))
         .slice(0, 5)
 
@@ -627,10 +612,10 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    // === 10. RIVALRY RECORDS ===
-    // Head-to-head records against opponents played 2+ times
-    if ((dynasty.games || []).length > 0) {
-      const allUserGamesForRivalries = (dynasty.games || [])
+    // === 10. PAST SEASON GAME LOGS (previous 2 seasons, each game as its own score) ===
+    // ESPN-style: instead of aggregating, scroll through each game individually.
+    if (currentYear && (dynasty.games || []).length > 0) {
+      const allUserGamesForRecap = (dynasty.games || [])
         .filter(g => isGamePlayed(g))
         .map(g => {
           const perspective = getUserGamePerspective(g, dynasty)
@@ -638,39 +623,58 @@ export function useTickerSections(dynasty) {
         })
         .filter(g => g !== null)
 
-      // Group by opponent
-      const rivalryMap = {}
-      allUserGamesForRivalries.forEach(g => {
-        const info = getGameInfo(g)
-        const oppAbbr = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
-        if (!oppAbbr) return
-        if (!rivalryMap[oppAbbr]) rivalryMap[oppAbbr] = { wins: 0, losses: 0 }
-        if (g.perspective?.userWon === true) rivalryMap[oppAbbr].wins++
-        else if (g.perspective?.userWon === false) rivalryMap[oppAbbr].losses++
-      })
+      const pastYears = [currentYear - 1, currentYear - 2].filter(y => y > 0)
 
-      // Filter to 2+ meetings, sort by total games
-      const rivalries = Object.entries(rivalryMap)
-        .map(([opp, rec]) => ({ opp, wins: rec.wins, losses: rec.losses, total: rec.wins + rec.losses }))
-        .filter(r => r.total >= 2)
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 6)
+      pastYears.forEach(pastYear => {
+        const yearGames = allUserGamesForRecap
+          .filter(g => Number(g.year) === pastYear)
+          .sort((a, b) => getGameOrder(a) - getGameOrder(b))
+        if (yearGames.length === 0) return
 
-      if (rivalries.length > 0) {
-        const rivalryItems = rivalries.map((r, i) => ({
-          id: `rival${i}`,
-          team: r.opp,
-          label: `vs ${r.opp}`,
-          text: `${r.wins}-${r.losses}`
-        }))
+        const firstInfo = getGameInfo(yearGames[0])
+        const pastTeamAbbr = firstInfo?.userTeamAbbr
+        if (!pastTeamAbbr) return
+        const pastTid = yearGames[0].perspective?.userTid || getTidFromAbbr(pastTeamAbbr)
+
+        const pastRecord = getTeamRecord(dynasty, pastTid, pastYear)
+        const wins = pastRecord?.wins || 0
+        const losses = pastRecord?.losses || 0
+        if (wins + losses === 0) return
+
+        // Quick scroll: all results compressed into a single section
+        const items = yearGames.map((g, i) => {
+          const info = getGameInfo(g)
+          const opp = info?.opponentAbbr || getTeamAbbr(g.opponent, teams)
+          const loc = info?.location === 'away' ? '@' : 'vs'
+          const isWin = info?.isWin ?? (g.result === 'win')
+          return {
+            id: `g${i}`,
+            team: opp,
+            label: isWin ? 'W' : 'L',
+            text: `${loc} ${info?.userScore ?? g.teamScore}-${info?.opponentScore ?? g.opponentScore}`,
+            link: g.id ? `/game/${g.id}` : null
+          }
+        })
 
         sections.push({
-          type: 'rivalries',
-          label: 'RIVALRIES',
-          teamLogo: teamAbbr,
-          items: rivalryItems
+          type: 'pastseason',
+          label: `${pastYear} SEASON`,
+          teamLogo: pastTeamAbbr,
+          teamRecord: `${wins}-${losses}`,
+          headerLink: `/team/${pastTid}/${pastYear}`,
+          items
         })
-      }
+
+        // Deep dive: top 5 games with box scores from that season get their
+        // own full recap section (QB/RB/WR/DEF stat lines).
+        const pastGameRecaps = [...yearGames]
+          .sort((a, b) => getGameOrder(b) - getGameOrder(a))
+          .map(g => buildGameRecapSection(g, pastTeamAbbr))
+          .filter(Boolean)
+          .slice(0, 5)
+
+        pastGameRecaps.forEach(s => sections.push(s))
+      })
     }
 
     // === 11. DYNASTY ACHIEVEMENTS ===
@@ -892,7 +896,9 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    // === 13. POSTSEASON HISTORY (user's bowls + CFP games with scores) ===
+    // === 13. POSTSEASON HISTORY (current team's bowls + CFP games with scores) ===
+    // Filtered to the current team only — prevents leaks from earlier coaching
+    // stints with a different team.
     const postseasonTypes = ['bowl', 'cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const postseasonGames = (dynasty.games || [])
       .filter(g => postseasonTypes.includes(g.gameType) && isGamePlayed(g))
@@ -900,7 +906,11 @@ export function useTickerSections(dynasty) {
         const perspective = getUserGamePerspective(g, dynasty)
         return perspective ? { ...g, perspective } : null
       })
-      .filter(g => g !== null)
+      .filter(g => {
+        if (!g) return false
+        const info = getGameInfo(g)
+        return info?.userTeamAbbr === teamAbbr
+      })
       .sort((a, b) => Number(b.year) - Number(a.year))
       .slice(0, 8)
 
@@ -958,10 +968,13 @@ export function useTickerSections(dynasty) {
       })
     }
 
-    // === 14. CFP BRACKETS BY YEAR (from games[] array) ===
+    // === 14. CFP BRACKET (previous dynasty year only, capped to avoid ticker domination) ===
     const cfpGameTypes = ['cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
     const allCfpGames = (dynasty.games || []).filter(g => cfpGameTypes.includes(g.gameType) && isGamePlayed(g))
-    const cfpYears = [...new Set(allCfpGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
+    const previousDynastyYear = currentYear ? currentYear - 1 : null
+    const cfpYears = previousDynastyYear != null && allCfpGames.some(g => isSameYear(g.year, previousDynastyYear))
+      ? [previousDynastyYear]
+      : []
 
     // Helper to determine winner from scores
     const getCfpWinner = (game) => {
@@ -1074,10 +1087,10 @@ export function useTickerSections(dynasty) {
       }
     })
 
-    // === 15. LEAGUE BOWL GAMES BY YEAR ===
-    // Get all bowl games (including CPU vs CPU) grouped by year - only played games
+    // === 15. LEAGUE BOWL GAMES (most recent year only, capped to avoid ticker domination) ===
     const allBowlGames = (dynasty.games || []).filter(g => g.gameType === 'bowl' && isGamePlayed(g))
-    const bowlYears = [...new Set(allBowlGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
+    const allBowlYearsSorted = [...new Set(allBowlGames.map(g => g.year))].sort((a, b) => Number(b) - Number(a))
+    const bowlYears = allBowlYearsSorted.slice(0, 1)
 
     bowlYears.forEach(bowlYear => {
       const yearBowls = allBowlGames
@@ -1218,27 +1231,36 @@ export function useTickerSections(dynasty) {
         ['FG MADE', p => p.kicking.fgm, 1, '']
       ]
 
-      leaderboards.forEach(([label, getter, minValue, unit]) => {
-        const leaders = allStats
-          .filter(p => getter(p) >= minValue)
-          .sort((a, b) => getter(b) - getter(a))
-          .slice(0, 5)
+      // Build all viable leaderboards, then pick ONE that rotates each render.
+      // Rotation seed uses currentWeek + currentYear so ticker content varies
+      // as the user advances through the dynasty.
+      const viableLeaderboards = leaderboards
+        .map(([label, getter, minValue, unit]) => {
+          const leaders = allStats
+            .filter(p => getter(p) >= minValue)
+            .sort((a, b) => getter(b) - getter(a))
+            .slice(0, 5)
+          return leaders.length >= 3 ? { label, getter, unit, leaders } : null
+        })
+        .filter(Boolean)
 
-        if (leaders.length >= 3) {
-          sections.push({
-            type: 'leaderboard',
-            label: `CAREER ${label}`,
-            headerLink: '/dynasty-records',
-            items: leaders.map((p, i) => ({
-              id: `lb${i}`,
-              team: p.team,
-              label: `#${i + 1}`,
-              text: `${p.name} ${getter(p).toLocaleString()}${unit ? ` ${unit}` : ''}`,
-              link: `/player/${p.pid}`
-            }))
-          })
-        }
-      })
+      if (viableLeaderboards.length > 0) {
+        const rotationSeed = (Number(currentYear) || 0) + (Number(dynasty.currentWeek) || 0)
+        const chosen = viableLeaderboards[rotationSeed % viableLeaderboards.length]
+        const { label, getter, unit, leaders } = chosen
+        sections.push({
+          type: 'leaderboard',
+          label: `CAREER ${label}`,
+          headerLink: '/dynasty-records',
+          items: leaders.map((p, i) => ({
+            id: `lb${i}`,
+            team: p.team,
+            label: `#${i + 1}`,
+            text: `${p.name} ${getter(p).toLocaleString()}${unit ? ` ${unit}` : ''}`,
+            link: `/player/${p.pid}`
+          }))
+        })
+      }
     }
 
     // === 17. CAREER SUMMARY - Each season individually ===
@@ -1289,7 +1311,41 @@ export function useTickerSections(dynasty) {
       }
     }
 
-    return sections
+    // === TIER GATING ===
+    // ESPN-style: prioritize sections that scroll through actual games.
+    // Tier 1 = game-centric sections (always shown — the whole point of the ticker).
+    // Tier 2 = current-team aggregate stats (cap to avoid crowding out games).
+    // Tier 3 = league/dynasty flavor (one rotating slot, prevents old bowls
+    //         and career leaderboards from dominating).
+    const TIER_MAP = {
+      games: 1, gamerecap: 1, upcoming: 1, history: 1, pastseason: 1, postseason: 1,
+      season: 2, leaders: 2, milestones: 2, hotstreaks: 2,
+      achievements: 3, records: 3, cfp: 3, bowls: 3, leaderboard: 3, career: 3
+    }
+
+    const tier1 = sections.filter(s => TIER_MAP[s.type] === 1)
+    const tier2 = sections.filter(s => TIER_MAP[s.type] === 2)
+    const tier3 = sections.filter(s => TIER_MAP[s.type] === 3)
+
+    // Cap Tier 2 aggregates — more games present means fewer aggregates needed.
+    const tier2Cap = tier1.length >= 4 ? 2 : tier1.length >= 2 ? 3 : tier2.length
+
+    // Always 1 Tier 3 slot — rotating — just enough flavor without dominating.
+    const tier3Cap = 1
+
+    // Stable seed so the rotating picks don't flicker every render.
+    const seed = (Number(currentYear) || 0) + (Number(dynasty.currentWeek) || 0)
+
+    const rotate = (arr, cap) => {
+      if (arr.length <= cap) return arr
+      return Array.from({ length: cap }, (_, i) => arr[(seed + i) % arr.length])
+    }
+
+    const rotatedTier2 = rotate(tier2, tier2Cap)
+    const rotatedTier3 = rotate(tier3, tier3Cap)
+
+    // Interleave: games first, then a sprinkle of stats/flavor between.
+    return [...tier1, ...rotatedTier2, ...rotatedTier3]
   }, [
     dynasty?.currentYear,
     dynasty?.currentPhase,

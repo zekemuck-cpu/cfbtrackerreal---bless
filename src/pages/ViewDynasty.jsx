@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useParams, Outlet, Link } from 'react-router-dom'
+import RouteFallback from '../components/RouteFallback'
 import { ViewDynastyProvider, useViewDynasty } from '../context/ViewDynastyContext'
 import { useTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogo } from '../data/teams'
@@ -177,7 +178,9 @@ function ViewDynastyContent() {
         className={`min-w-0 flex-1 px-4 py-6 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
-        <Outlet />
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <NewsTicker dynasty={currentDynasty} />

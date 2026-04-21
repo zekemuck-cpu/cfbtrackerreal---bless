@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
@@ -249,195 +250,198 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
 
   const team1Info = getTeamInfoByTid(game.team1Tid)
   const team2Info = getTeamInfoByTid(game.team2Tid)
+  const GOLD = '#c9a227'
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-3 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
-      onMouseDown={onClose}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.() }}
     >
       <div
-        className="rounded-2xl shadow-2xl w-full max-w-2xl max-h-[calc(100dvh-4rem)] sm:max-h-[90dvh] overflow-auto border"
-        style={{
-          backgroundColor: modalColors.background,
-          borderColor: modalColors.border
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl card-elevated flex flex-col max-h-[90dvh] overflow-hidden modal-panel-in"
+        role="dialog"
+        aria-modal="true"
+        aria-label="National Championship"
       >
-        {/* Header with Trophy */}
+        {/* Thin gold accent stripe */}
         <div
-          className="relative px-6 py-8 text-center overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%)'
-          }}
-        >
-          {/* Decorative elements */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 right-0 w-40 h-40 bg-white rounded-full translate-x-1/2 translate-y-1/2" />
-          </div>
+          className="h-[3px] w-full flex-shrink-0"
+          style={{ backgroundColor: GOLD }}
+          aria-hidden="true"
+        />
 
-          {/* Close button */}
-          <button aria-label="Close"
+        {/* Header */}
+        <header className="px-5 sm:px-6 py-4 sm:py-5 border-b border-surface-4 flex items-start justify-between flex-shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <img
+              src={TROPHY_URL}
+              alt=""
+              className="w-10 h-10 sm:w-12 sm:h-12 object-contain flex-shrink-0 opacity-90"
+              aria-hidden="true"
+            />
+            <div>
+              <div
+                className="text-txt-tertiary"
+                style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700, color: GOLD }}
+              >
+                {currentYear} · CFP Final
+              </div>
+              <h2 className="font-display text-txt-primary m-0 mt-1" style={{ fontSize: 'clamp(1.35rem, 3.2vw, 1.9rem)', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                National Championship
+              </h2>
+            </div>
+          </div>
+          <button
+            aria-label="Close"
             onClick={onClose}
-            className="absolute top-4 right-4 text-black/60 hover:text-black hover:bg-black/10 rounded-full p-2 transition-colors"
+            className="p-1.5 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+        </header>
 
-          {/* Trophy */}
-          <div className="relative z-10">
-            <img
-              src={TROPHY_URL}
-              alt="National Championship Trophy"
-              className="w-24 h-24 mx-auto mb-4 object-contain drop-shadow-lg"
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-6">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-3 sm:gap-4 items-stretch">
+            <ChampTeamCard
+              info={team1Info}
+              side="left"
+              scoreValue={game.team1Score}
+              onScoreChange={(v) => handleScoreChange('team1Score', v)}
+              scoreDisabled={!game.team1 && !game.team1Tid}
+              opponentScore={game.team2Score}
             />
-            <h2 className="text-3xl font-black text-black tracking-tight">
-              National Championship
-            </h2>
-            <p className="text-black/70 font-semibold mt-1">
-              {currentYear} College Football Playoff
-            </p>
-          </div>
-        </div>
 
-        {/* Game Content */}
-        <div className="p-6">
-          {/* Matchup Display */}
-          <div className="flex items-stretch gap-4">
-            {/* Team 1 */}
-            <div className="flex-1">
-              {team1Info ? (
-                <div
-                  className="rounded-xl p-5 h-full flex flex-col items-center justify-center text-center"
-                  style={{
-                    backgroundColor: team1Info.backgroundColor,
-                    boxShadow: `0 8px 32px ${team1Info.backgroundColor}60`
-                  }}
-                >
-                  {team1Info.logo && (
-                    <div className="w-20 h-20 bg-white rounded-full p-2 flex items-center justify-center mb-3 shadow-lg">
-                      <img
-                        src={team1Info.logo}
-                        alt={team1Info.fullMascot}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  )}
-                  <div className="text-xs font-bold opacity-70 mb-1" style={{ color: team1Info.textColor }}>
-                    #{team1Info.seed} Seed
-                  </div>
-                  <div className="text-lg font-bold leading-tight" style={{ color: team1Info.textColor }}>
-                    {team1Info.fullMascot?.split(' ').slice(-2).join(' ') || team1Info.abbr}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl p-5 bg-surface-3 h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-20 h-20 bg-surface-4 rounded-full flex items-center justify-center mb-3">
-                    <span className="text-3xl text-txt-muted">?</span>
-                  </div>
-                  <span className="text-lg font-semibold text-txt-muted">TBD</span>
-                  <p className="text-xs text-txt-muted mt-1">Awaiting semifinal result</p>
-                </div>
-              )}
+            {/* VS divider */}
+            <div className="flex items-center justify-center">
+              <div
+                className="text-txt-tertiary"
+                style={{ fontSize: '11px', letterSpacing: '3px', textTransform: 'uppercase', fontWeight: 700 }}
+              >
+                vs
+              </div>
             </div>
 
-            {/* Score Inputs */}
-            <div className="flex flex-col items-center justify-center gap-3">
-              <input
-                type="number"
-                min="0"
-                value={game.team1Score}
-                onChange={(e) => handleScoreChange('team1Score', e.target.value)}
-                className="w-20 h-20 text-center text-3xl font-black rounded-xl border-3 focus:outline-none focus:ring-4 focus:ring-yellow-500/50 transition-all"
-                style={{
-                  backgroundColor: team1Info?.backgroundColor || '#374151',
-                  color: team1Info?.textColor || '#fff',
-                  borderColor: '#FFD700'
-                }}
-                placeholder="0"
-                disabled={!game.team1 && !game.team1Tid}
-              />
-              <div className="text-2xl font-black text-yellow-500">VS</div>
-              <input
-                type="number"
-                min="0"
-                value={game.team2Score}
-                onChange={(e) => handleScoreChange('team2Score', e.target.value)}
-                className="w-20 h-20 text-center text-3xl font-black rounded-xl border-3 focus:outline-none focus:ring-4 focus:ring-yellow-500/50 transition-all"
-                style={{
-                  backgroundColor: team2Info?.backgroundColor || '#374151',
-                  color: team2Info?.textColor || '#fff',
-                  borderColor: '#FFD700'
-                }}
-                placeholder="0"
-                disabled={!game.team2 && !game.team2Tid}
-              />
-            </div>
-
-            {/* Team 2 */}
-            <div className="flex-1">
-              {team2Info ? (
-                <div
-                  className="rounded-xl p-5 h-full flex flex-col items-center justify-center text-center"
-                  style={{
-                    backgroundColor: team2Info.backgroundColor,
-                    boxShadow: `0 8px 32px ${team2Info.backgroundColor}60`
-                  }}
-                >
-                  {team2Info.logo && (
-                    <div className="w-20 h-20 bg-white rounded-full p-2 flex items-center justify-center mb-3 shadow-lg">
-                      <img
-                        src={team2Info.logo}
-                        alt={team2Info.fullMascot}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                  )}
-                  <div className="text-xs font-bold opacity-70 mb-1" style={{ color: team2Info.textColor }}>
-                    #{team2Info.seed} Seed
-                  </div>
-                  <div className="text-lg font-bold leading-tight" style={{ color: team2Info.textColor }}>
-                    {team2Info.fullMascot?.split(' ').slice(-2).join(' ') || team2Info.abbr}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl p-5 bg-surface-3 h-full flex flex-col items-center justify-center text-center">
-                  <div className="w-20 h-20 bg-surface-4 rounded-full flex items-center justify-center mb-3">
-                    <span className="text-3xl text-txt-muted">?</span>
-                  </div>
-                  <span className="text-lg font-semibold text-txt-muted">TBD</span>
-                  <p className="text-xs text-txt-muted mt-1">Awaiting semifinal result</p>
-                </div>
-              )}
-            </div>
+            <ChampTeamCard
+              info={team2Info}
+              side="right"
+              scoreValue={game.team2Score}
+              onScoreChange={(v) => handleScoreChange('team2Score', v)}
+              scoreDisabled={!game.team2 && !game.team2Tid}
+              opponentScore={game.team1Score}
+            />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-5 border-t" style={{ borderColor: modalColors.border }}>
-          <div className="flex gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving || (!game.team1 && !game.team1Tid) || (!game.team2 && !game.team2Tid)}
-              className="flex-1 px-6 py-4 rounded-xl font-bold transition-all hover:opacity-90 disabled:opacity-50 text-lg text-white"
-              style={{
-                backgroundColor: modalColors.accent
-              }}
-            >
-              {saving ? 'Saving...' : 'Crown the Champion'}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-4 rounded-xl font-bold bg-surface-3 hover:bg-surface-4 text-white transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+        <footer className="px-5 sm:px-6 py-4 border-t border-surface-4 flex items-center justify-end gap-3 flex-shrink-0 bg-surface-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-md text-sm font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || (!game.team1 && !game.team1Tid) || (!game.team2 && !game.team2Tid)}
+            className="px-5 py-2 rounded-md text-sm font-semibold transition-all disabled:opacity-40"
+            style={{
+              backgroundColor: GOLD,
+              color: '#0b0b10',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save Result'}
+          </button>
+        </footer>
       </div>
+    </div>,
+    document.body
+  )
+}
+
+// --- Local presentational helpers ---
+
+function ChampTeamCard({ info, side, scoreValue, onScoreChange, scoreDisabled, opponentScore }) {
+  const GOLD = '#c9a227'
+  const accent = info?.backgroundColor || GOLD
+  const reverse = side === 'right'
+
+  const myNum = Number(scoreValue)
+  const oppNum = Number(opponentScore)
+  const bothEntered = scoreValue !== '' && opponentScore !== '' && !Number.isNaN(myNum) && !Number.isNaN(oppNum)
+  const isWinner = bothEntered && myNum > oppNum
+  const isLoser = bothEntered && myNum < oppNum
+
+  if (!info) {
+    return (
+      <div className="rounded-md border border-dashed border-surface-4 bg-surface-3 p-4 flex flex-col items-center justify-center text-center min-h-[200px]">
+        <span className="font-display text-lg font-bold text-txt-tertiary tracking-tight">TBD</span>
+        <p
+          className="mt-1 text-txt-muted"
+          style={{ fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
+        >
+          Awaiting semifinal
+        </p>
+      </div>
+    )
+  }
+  return (
+    <div
+      className="relative rounded-md bg-surface-3 border overflow-hidden p-4 flex flex-col items-center justify-start text-center transition-colors"
+      style={{
+        borderColor: isWinner ? GOLD : 'var(--surface-4)',
+        boxShadow: isWinner ? `0 0 0 1px ${GOLD}` : 'none',
+      }}
+    >
+      <div
+        className={`absolute top-0 ${reverse ? 'right-0' : 'left-0'} bottom-0 w-[3px]`}
+        style={{ backgroundColor: accent }}
+        aria-hidden="true"
+      />
+      {info.logo && (
+        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full p-1.5 flex items-center justify-center mb-2 flex-shrink-0">
+          <img src={info.logo} alt={info.fullMascot} className="w-full h-full object-contain" />
+        </div>
+      )}
+      <div
+        className="text-txt-tertiary"
+        style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 700 }}
+      >
+        #{info.seed || '–'} Seed
+      </div>
+      <div
+        className="font-display font-bold text-txt-primary text-sm sm:text-base leading-tight mt-0.5 mb-3"
+        style={{ opacity: isLoser ? 0.55 : 1 }}
+      >
+        {info.fullMascot?.split(' ').slice(-2).join(' ') || info.abbr}
+      </div>
+
+      <div
+        className="label-xs text-txt-tertiary mb-1"
+        style={{ fontSize: '9px', letterSpacing: '2.5px', textTransform: 'uppercase', fontWeight: 700 }}
+      >
+        Score
+      </div>
+      <input
+        type="number"
+        min="0"
+        value={scoreValue}
+        onChange={(e) => onScoreChange(e.target.value)}
+        disabled={scoreDisabled}
+        placeholder="0"
+        aria-label={`${info.fullMascot || info.abbr} score`}
+        className="w-full max-w-[96px] h-14 sm:h-16 text-center font-display font-black text-3xl sm:text-4xl rounded-md bg-surface-2 border text-txt-primary focus:outline-none focus:ring-2 transition-all disabled:opacity-30"
+        style={{
+          fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '-0.02em',
+          borderColor: isWinner ? GOLD : 'var(--surface-4)',
+          color: isLoser ? 'var(--text-tertiary)' : 'var(--text-primary)',
+          '--tw-ring-color': GOLD,
+        }}
+      />
     </div>
   )
 }

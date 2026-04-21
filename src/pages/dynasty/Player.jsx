@@ -531,7 +531,9 @@ export default function Player() {
           td: rushing.td ?? rushing.touchdowns ?? 0,
           lng: rushing.lng ?? rushing.long ?? 0,
           fum: rushing.fum ?? rushing.fumbles ?? 0,
-          bt: rushing.bt ?? rushing.brokenTackles ?? 0
+          bt: rushing.bt ?? rushing.brokenTackles ?? 0,
+          yac: rushing.yac ?? rushing.yAC ?? 0,
+          twentyPlus: rushing.twentyPlus ?? rushing['20+'] ?? 0
         } : null,
         receiving: receiving ? {
           rec: receiving.rec ?? receiving.receptions ?? 0,
@@ -563,7 +565,19 @@ export default function Player() {
           fgPct: kicking.fga > 0 ? ((kicking.fgm / kicking.fga) * 100).toFixed(1) : '-',
           xpm: kicking.xpm ?? 0,
           xpa: kicking.xpa ?? 0,
-          lng: kicking.lng ?? 0
+          lng: kicking.lng ?? 0,
+          kickoffs: kicking.kickoffs ?? 0,
+          touchbacks: kicking.touchbacks ?? 0,
+          fgb: kicking.fgb ?? 0,
+          xpb: kicking.xpb ?? 0,
+          fgm29: kicking.fgm29 ?? 0,
+          fga29: kicking.fga29 ?? 0,
+          fgm39: kicking.fgm39 ?? 0,
+          fga39: kicking.fga39 ?? 0,
+          fgm49: kicking.fgm49 ?? 0,
+          fga49: kicking.fga49 ?? 0,
+          fgm50: kicking.fgm50 ?? 0,
+          fga50: kicking.fga50 ?? 0
         } : null,
         punting: punting ? {
           punts: punting.punts ?? 0,
@@ -571,7 +585,9 @@ export default function Player() {
           avg: punting.punts > 0 ? (punting.yds / punting.punts).toFixed(1) : '-',
           lng: punting.lng ?? 0,
           in20: punting.in20 ?? 0,
-          tb: punting.tb ?? 0
+          tb: punting.tb ?? 0,
+          netYds: punting.netYds ?? 0,
+          block: punting.block ?? 0
         } : null,
         kickReturn: kickReturn ? {
           ret: kickReturn.ret ?? 0,

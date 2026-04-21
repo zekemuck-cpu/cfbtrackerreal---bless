@@ -170,7 +170,7 @@ export default function Players() {
       <span
         className="ml-1 inline-block transition-transform duration-200"
         style={{
-          color: 'var(--team-primary)',
+          color: 'var(--text-primary)',
           transform: sortOrder === 'asc' ? 'rotate(180deg)' : 'rotate(0deg)',
         }}
       >
@@ -270,7 +270,7 @@ export default function Players() {
                       <Link
                         to={`${pathPrefix}/player/${player.pid}`}
                         className="font-semibold hover:underline flex items-center gap-2 group"
-                        style={{ color: 'var(--team-primary)' }}
+                        style={{ color: 'var(--text-primary)' }}
                       >
                         {player.jerseyNumber && (
                           <span
@@ -355,7 +355,7 @@ export default function Players() {
       <style>{`
         .player-row:hover {
           background-color: var(--surface-3);
-          box-shadow: inset 3px 0 0 var(--team-primary);
+          box-shadow: inset 3px 0 0 var(--surface-5);
         }
       `}</style>
     </div>

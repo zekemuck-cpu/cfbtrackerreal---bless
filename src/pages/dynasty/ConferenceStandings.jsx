@@ -259,7 +259,7 @@ export default function ConferenceStandings() {
     const logo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
     const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#666', secondary: '#fff' }
     const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
-    const diffColor = pointDiff > 0 ? 'var(--accent-success)' : pointDiff < 0 ? 'var(--accent-error)' : 'var(--text-muted)'
+    const diffColor = pointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
 
     return (
       <Link
@@ -270,7 +270,7 @@ export default function ConferenceStandings() {
         <span
           aria-hidden="true"
           className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
-          style={{ backgroundColor: colors.primary }}
+          style={{ backgroundColor: 'var(--surface-5)' }}
         />
         <div
           className="w-6 text-right font-display font-black tabular text-sm leading-none flex-shrink-0"
@@ -289,7 +289,7 @@ export default function ConferenceStandings() {
           )}
         </div>
 
-        <span className="flex-1 text-sm font-medium text-txt-primary truncate group-hover:text-[color:var(--team-primary)] transition-colors">
+        <span className="flex-1 text-sm font-medium text-txt-primary truncate group-hover:text-white transition-colors">
           {getSchoolName(mascotName) || teamAbbr}
         </span>
 
@@ -308,9 +308,9 @@ export default function ConferenceStandings() {
             className="absolute bottom-full right-0 mb-1.5 px-2 py-1 text-[10px] opacity-0 group-hover/diff:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10"
             style={{ backgroundColor: 'var(--surface-4)', color: 'var(--text-secondary)', borderRadius: '4px' }}
           >
-            <span style={{ color: 'var(--accent-success)' }}>{team.pointsFor || 0} PF</span>
+            <span style={{ color: 'var(--text-primary)' }}>{team.pointsFor || 0} PF</span>
             <span className="mx-1" style={{ color: 'var(--text-muted)' }}>|</span>
-            <span style={{ color: 'var(--accent-error)' }}>{team.pointsAgainst || 0} PA</span>
+            <span style={{ color: 'var(--text-tertiary)' }}>{team.pointsAgainst || 0} PA</span>
           </div>
         </div>
       </Link>
@@ -330,7 +330,7 @@ export default function ConferenceStandings() {
         <span
           aria-hidden="true"
           className="absolute top-0 left-0 right-0 h-[2px]"
-          style={{ backgroundColor: 'var(--team-primary)', opacity: hasData ? 1 : 0.25 }}
+          style={{ backgroundColor: 'var(--surface-5)', opacity: hasData ? 1 : 0.25 }}
         />
         <div
           className="flex items-center gap-3 px-4 py-3"

@@ -274,7 +274,19 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
         fga: aggregated.kicking.fGA || 0,
         lng: aggregated.kicking.fGLong || 0,
         xpm: aggregated.kicking.xPM || 0,
-        xpa: aggregated.kicking.xPA || 0
+        xpa: aggregated.kicking.xPA || 0,
+        kickoffs: aggregated.kicking.kickoffs || 0,
+        touchbacks: aggregated.kicking.touchbacks || 0,
+        fgb: aggregated.kicking.fGBlock || 0,
+        xpb: aggregated.kicking.xPB || 0,
+        fgm29: aggregated.kicking.fGM29 || 0,
+        fga29: aggregated.kicking.fGA29 || 0,
+        fgm39: aggregated.kicking.fGM39 || 0,
+        fga39: aggregated.kicking.fGA39 || 0,
+        fgm49: aggregated.kicking.fGM49 || 0,
+        fga49: aggregated.kicking.fGA49 || 0,
+        fgm50: aggregated.kicking['fGM50+'] || 0,
+        fga50: aggregated.kicking['fGA50+'] || 0
       }
     }
 
@@ -282,9 +294,11 @@ export function getPlayerSeasonStatsFromBoxScores(dynasty, player) {
       yearStats.punting = {
         punts: aggregated.punting.punts || 0,
         yds: aggregated.punting.yards || 0,
+        netYds: aggregated.punting.netYards || 0,
         lng: aggregated.punting.long || 0,
         in20: aggregated.punting.in20 || 0,
-        tb: aggregated.punting.tB || 0
+        tb: aggregated.punting.tB || 0,
+        block: aggregated.punting.block || 0
       }
     }
 

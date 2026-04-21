@@ -6192,11 +6192,17 @@ export default function TeamYear() {
             },
             kicking: {
               'FG Made': 'fgm', 'FG Attempted': 'fga', 'FG Long': 'lng',
-              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks'
+              'XP Made': 'xpm', 'XP Attempted': 'xpa', Kickoffs: 'kickoffs', Touchbacks: 'touchbacks',
+              'FG Blocked': 'fgb', 'XP Blocked': 'xpb',
+              'FG Made (0-29)': 'fgm29', 'FG Att (0-29)': 'fga29',
+              'FG Made (30-39)': 'fgm39', 'FG Att (30-39)': 'fga39',
+              'FG Made (40-49)': 'fgm49', 'FG Att (40-49)': 'fga49',
+              'FG Made (50+)': 'fgm50', 'FG Att (50+)': 'fga50'
             },
             punting: {
               Punts: 'punts', 'Punting Yards': 'yds', 'Net Punting Yards': 'netYds',
-              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb'
+              'Punts Inside 20': 'in20', 'Punt Long': 'lng', Touchbacks: 'tb',
+              'Punts Blocked': 'block'
             },
             kickReturn: {
               'Kickoff Returns': 'ret', 'KR Yardage': 'yds', 'KR Touchdowns': 'td', 'KR Long': 'lng'

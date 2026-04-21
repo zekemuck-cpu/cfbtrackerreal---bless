@@ -1426,7 +1426,7 @@ export function migrateToUnifiedGames(dynasty) {
  */
 const BOX_SCORE_STATS = {
   passing: {
-    sum: ['comp', 'att', 'yards', 'tD', 'iNT', 'sacks'],
+    sum: ['comp', 'attempts', 'yards', 'tD', 'iNT', 'sacks'],
     max: ['long']
   },
   rushing: {
@@ -1444,10 +1444,15 @@ const BOX_SCORE_STATS = {
     sum: ['solo', 'assists', 'tFL', 'sack', 'iNT', 'iNTYards', 'deflections', 'tD', 'fF', 'fR']
   },
   kicking: {
-    sum: ['fGM', 'fGA', 'xPM', 'xPA', 'kickoffs', 'touchbacks']
+    sum: [
+      'fGM', 'fGA', 'xPM', 'xPA', 'kickoffs', 'touchbacks',
+      'fGBlock', 'xPB',
+      'fGM29', 'fGA29', 'fGM39', 'fGA39', 'fGM49', 'fGA49', 'fGM50+', 'fGA50+'
+    ],
+    max: ['fGLong']
   },
   punting: {
-    sum: ['punts', 'yards', 'netYards', 'in20', 'touchbacks'],
+    sum: ['punts', 'yards', 'netYards', 'in20', 'tB', 'block'],
     max: ['long']
   },
   kickReturn: {
@@ -1462,13 +1467,24 @@ const BOX_SCORE_STATS = {
 
 // Convert box score format to internal format for statsByYear storage
 const BOXSCORE_TO_INTERNAL_MAP = {
-  passing: { comp: 'cmp', att: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
+  passing: { comp: 'cmp', attempts: 'att', yards: 'yds', tD: 'td', iNT: 'int', long: 'lng', sacks: 'sacks' },
   rushing: { carries: 'car', yards: 'yds', tD: 'td', long: 'lng', fumbles: 'fum', brokenTackles: 'bt', yAC: 'yac', '20+': 'twentyPlus' },
   receiving: { receptions: 'rec', yards: 'yds', tD: 'td', long: 'lng', drops: 'drops', rAC: 'rac' },
   blocking: { pancakes: 'pancakes', sacksAllowed: 'sacksAllowed' },
   defense: { solo: 'soloTkl', assists: 'astTkl', tFL: 'tfl', sack: 'sacks', iNT: 'int', iNTYards: 'intYds', deflections: 'pd', tD: 'td', fF: 'ff', fR: 'fr' },
-  kicking: { fGM: 'fgm', fGA: 'fga', xPM: 'xpm', xPA: 'xpa', kickoffs: 'kickoffs', touchbacks: 'touchbacks', fGLong: 'lng' },
-  punting: { punts: 'punts', yards: 'yds', netYards: 'netYds', in20: 'in20', touchbacks: 'tb', long: 'lng' },
+  kicking: {
+    fGM: 'fgm', fGA: 'fga', xPM: 'xpm', xPA: 'xpa',
+    kickoffs: 'kickoffs', touchbacks: 'touchbacks', fGLong: 'lng',
+    fGBlock: 'fgb', xPB: 'xpb',
+    fGM29: 'fgm29', fGA29: 'fga29',
+    fGM39: 'fgm39', fGA39: 'fga39',
+    fGM49: 'fgm49', fGA49: 'fga49',
+    'fGM50+': 'fgm50', 'fGA50+': 'fga50'
+  },
+  punting: {
+    punts: 'punts', yards: 'yds', netYards: 'netYds', in20: 'in20',
+    tB: 'tb', long: 'lng', block: 'block'
+  },
   kickReturn: { kR: 'ret', yards: 'yds', tD: 'td', long: 'lng' },
   puntReturn: { pR: 'ret', yards: 'yds', tD: 'td', long: 'lng' }
 }

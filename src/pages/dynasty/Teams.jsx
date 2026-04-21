@@ -93,7 +93,7 @@ export default function Teams() {
               ) : (
                 <span className="w-6 h-6 flex-shrink-0" />
               )}
-              <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-[color:var(--team-primary)]">
+              <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-white">
                 {team.name}
               </span>
               {team.isCustom && (

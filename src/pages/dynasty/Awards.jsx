@@ -291,7 +291,7 @@ export default function Awards() {
               {matchingPlayer ? (
                 <Link
                   to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                  className="display-md text-txt-primary hover:text-[color:var(--team-primary)] transition-colors truncate block"
+                  className="display-md text-txt-primary hover:text-white transition-colors truncate block"
                 >
                   {awardData.player}
                 </Link>
@@ -364,7 +364,7 @@ export default function Awards() {
             {matchingPlayer && !isCoachAward ? (
               <Link
                 to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-                className="font-semibold text-txt-primary hover:text-[color:var(--team-primary)] transition-colors truncate block"
+                className="font-semibold text-txt-primary hover:text-white transition-colors truncate block"
               >
                 {awardData.player}
               </Link>
@@ -407,7 +407,7 @@ export default function Awards() {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-txt-primary text-sm truncate group-hover:text-[color:var(--team-primary)] transition-colors">
+            <span className="font-semibold text-txt-primary text-sm truncate group-hover:text-white transition-colors">
               {awardData.player}
             </span>
             {!isCoachAward && awardData.position && (

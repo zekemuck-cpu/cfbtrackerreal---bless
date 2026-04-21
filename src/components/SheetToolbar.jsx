@@ -56,9 +56,9 @@ export default function SheetToolbar({
             disabled={isReloading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
             style={{
-              backgroundColor: `${teamColors.primary}15`,
-              color: teamColors.primary,
-              border: `1px solid ${teamColors.primary}30`
+              backgroundColor: 'var(--surface-3)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--surface-5)'
             }}
             title="Reload sheet"
           >
@@ -83,9 +83,9 @@ export default function SheetToolbar({
             onClick={handleOpenInNewTab}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
             style={{
-              backgroundColor: `${teamColors.primary}15`,
-              color: teamColors.primary,
-              border: `1px solid ${teamColors.primary}30`
+              backgroundColor: 'var(--surface-3)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--surface-5)'
             }}
             title="Open in new tab"
           >
@@ -126,15 +126,15 @@ export default function SheetToolbar({
 
       {/* Iframe container */}
       <div
-        className="flex-1 min-h-0 border-4 rounded-lg overflow-hidden relative"
-        style={{ borderColor: teamColors.primary }}
+        className="flex-1 min-h-0 border rounded-lg overflow-hidden relative"
+        style={{ borderColor: 'var(--surface-5)' }}
       >
         {isReloading && (
           <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-10">
             <div
               className="animate-spin w-8 h-8 border-4 rounded-full"
               style={{
-                borderColor: teamColors.primary,
+                borderColor: 'var(--text-primary)',
                 borderTopColor: 'transparent'
               }}
             />

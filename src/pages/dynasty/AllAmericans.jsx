@@ -309,7 +309,7 @@ export default function AllAmericans() {
           {matchingPlayer ? (
             <Link
               to={`${pathPrefix}/player/${matchingPlayer.pid}`}
-              className="font-medium text-sm text-txt-primary hover:text-[color:var(--team-primary)] transition-colors truncate block"
+              className="font-medium text-sm text-txt-primary hover:text-white transition-colors truncate block"
             >
               {cleanPlayerName(player.player)}
             </Link>

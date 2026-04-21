@@ -264,7 +264,7 @@ export default function ConferenceChampionshipHistory() {
                   <span
                     aria-hidden="true"
                     className="absolute top-0 left-0 right-0 h-[2px] z-10"
-                    style={{ backgroundColor: 'var(--team-primary)' }}
+                    style={{ backgroundColor: 'var(--surface-5)' }}
                   />
                 )}
                 <button
@@ -275,7 +275,7 @@ export default function ConferenceChampionshipHistory() {
                     className="w-11 h-11 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1 transition-transform duration-200 group-hover:scale-105"
                     style={{
                       boxShadow: isExpanded
-                        ? '0 0 0 2px color-mix(in srgb, var(--team-primary) 40%, transparent)'
+                        ? '0 0 0 2px var(--surface-5)'
                         : 'none',
                     }}
                   >
@@ -328,7 +328,7 @@ export default function ConferenceChampionshipHistory() {
                       className="w-4 h-4 transition-transform duration-300"
                       style={{
                         transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                        color: isExpanded ? 'var(--team-primary)' : 'var(--text-tertiary)',
+                        color: isExpanded ? 'var(--text-primary)' : 'var(--text-tertiary)',
                       }}
                       fill="none"
                       stroke="currentColor"
@@ -367,7 +367,7 @@ export default function ConferenceChampionshipHistory() {
                         >
                           <div
                             className="w-11 sm:w-14 text-center tabular font-display font-black text-sm leading-none flex-shrink-0"
-                            style={{ color: 'var(--team-primary)' }}
+                            style={{ color: 'var(--text-secondary)' }}
                           >
                             {game.year}
                           </div>
@@ -388,11 +388,11 @@ export default function ConferenceChampionshipHistory() {
                           </div>
 
                           <div className="flex items-center gap-1.5 tabular font-display font-black text-sm sm:text-base flex-shrink-0">
-                            <span style={winner === game.team1 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
+                            <span style={winner === game.team1 ? { color: 'var(--text-primary)' } : { color: 'var(--text-tertiary)' }}>
                               {game.team1Score}
                             </span>
                             <span className="text-txt-tertiary font-normal text-xs">–</span>
-                            <span style={winner === game.team2 ? { color: 'var(--accent-success)' } : { color: 'var(--text-tertiary)' }}>
+                            <span style={winner === game.team2 ? { color: 'var(--text-primary)' } : { color: 'var(--text-tertiary)' }}>
                               {game.team2Score}
                             </span>
                           </div>
@@ -455,11 +455,11 @@ export default function ConferenceChampionshipHistory() {
         }
         .score-row:hover {
           background-color: var(--surface-3);
-          border-color: color-mix(in srgb, var(--team-primary) 35%, transparent);
+          border-color: var(--surface-5);
           transform: translateX(2px);
         }
         .cc-card-expanded {
-          border-color: color-mix(in srgb, var(--team-primary) 30%, var(--surface-4));
+          border-color: var(--surface-5);
         }
         @media (prefers-reduced-motion: reduce) {
           .expand-body { animation: none; }

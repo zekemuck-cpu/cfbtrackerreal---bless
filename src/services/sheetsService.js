@@ -11601,6 +11601,16 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
   }
 }
 
+// Per-tab header key aliases — the default naive camelCase parser produces
+// keys like "bT" or "att" that don't match the canonical box-score format used
+// by generateRandomBoxScore, boxScoreAggregator, and DetailedStatsEntryModal.
+// This map aligns sheet-read output with that canonical convention so stats
+// flow cleanly into statsByYear and player game logs.
+const BOX_SCORE_HEADER_ALIASES = {
+  passing: { 'Rtg': 'qBRating', 'Att': 'attempts' },
+  rushing: { 'BT': 'brokenTackles' }
+}
+
 // Read all stats from a game box score sheet (9 tabs)
 export async function readGameBoxScoreFromSheet(spreadsheetId) {
   try {
@@ -11631,6 +11641,8 @@ export async function readGameBoxScoreFromSheet(spreadsheetId) {
       const data = await response.json()
       const rows = data.values || []
 
+      const aliases = BOX_SCORE_HEADER_ALIASES[key] || {}
+
       // Parse rows into objects using headers
       boxScore[key] = rows
         .filter(row => row[0]) // Must have player name
@@ -11642,8 +11654,8 @@ export async function readGameBoxScoreFromSheet(spreadsheetId) {
             if (idx === 0) {
               entry.playerName = value.trim()
             } else {
-              // Convert header to camelCase key
-              const camelKey = header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
+              const camelKey = aliases[header]
+                || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
               entry[camelKey] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
             }
           })

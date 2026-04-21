@@ -541,7 +541,7 @@ export default function DynastyRecords() {
                   aria-hidden="true"
                   className="h-[2px] w-full"
                   style={{
-                    background: 'linear-gradient(90deg, var(--team-primary) 0%, color-mix(in srgb, var(--team-primary) 60%, transparent) 55%, transparent 100%)'
+                    background: 'linear-gradient(90deg, var(--surface-5) 0%, color-mix(in srgb, var(--surface-5) 60%, transparent) 55%, transparent 100%)'
                   }}
                 />
 
@@ -585,7 +585,7 @@ export default function DynastyRecords() {
                             padding: isFirst ? '14px 16px 14px 18px' : '8px 16px 8px 18px',
                             borderTop: idx === 0 ? 'none' : '1px solid var(--rule-soft)',
                             background: isFirst
-                              ? 'linear-gradient(90deg, color-mix(in srgb, var(--team-primary) 6%, var(--surface-2)) 0%, var(--surface-2) 65%)'
+                              ? 'linear-gradient(90deg, var(--surface-3) 0%, var(--surface-2) 65%)'
                               : 'transparent'
                           }}
                         >
@@ -594,7 +594,7 @@ export default function DynastyRecords() {
                             <span
                               aria-hidden="true"
                               className="absolute left-0 top-0 bottom-0 w-[3px]"
-                              style={{ backgroundColor: 'var(--team-primary)' }}
+                              style={{ backgroundColor: 'var(--surface-5)' }}
                             />
                           )}
 
@@ -620,7 +620,7 @@ export default function DynastyRecords() {
                               className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
                               style={{
                                 border: isFirst
-                                  ? '2px solid color-mix(in srgb, var(--team-primary) 45%, transparent)'
+                                  ? '2px solid var(--surface-5)'
                                   : '1px solid var(--surface-4)'
                               }}
                             />

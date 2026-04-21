@@ -158,12 +158,7 @@ export default function Rankings() {
         <span
           aria-hidden="true"
           className="absolute top-0 left-0 right-0 h-[3px] transition-all duration-200 group-hover:h-[5px]"
-          style={{ backgroundColor: colors.primary }}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300 blur-2xl pointer-events-none"
-          style={{ backgroundColor: colors.primary }}
+          style={{ backgroundColor: 'var(--surface-5)' }}
         />
         <span
           className="font-display font-black tabular leading-none mb-2"
@@ -187,7 +182,7 @@ export default function Rankings() {
             </div>
           )}
         </div>
-        <div className="font-semibold text-sm text-txt-primary truncate w-full transition-colors group-hover:text-[color:var(--team-primary)]">
+        <div className="font-semibold text-sm text-txt-primary truncate w-full transition-colors group-hover:text-white">
           {schoolName}
         </div>
         {record && (
@@ -214,7 +209,7 @@ export default function Rankings() {
         <span
           aria-hidden="true"
           className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-[3px] transition-all duration-200"
-          style={{ backgroundColor: colors.primary }}
+          style={{ backgroundColor: 'var(--surface-5)' }}
         />
         <span
           className="w-8 text-right font-display font-black tabular text-sm"
@@ -234,7 +229,7 @@ export default function Rankings() {
             </div>
           )}
         </div>
-        <span className="flex-1 font-medium text-sm text-txt-primary truncate transition-colors group-hover:text-[color:var(--team-primary)]">
+        <span className="flex-1 font-medium text-sm text-txt-primary truncate transition-colors group-hover:text-white">
           {getSchoolName(mascotName) || teamAbbr}
         </span>
         {record && (
