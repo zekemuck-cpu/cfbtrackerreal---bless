@@ -318,10 +318,7 @@ export default function AllConference() {
         className="group flex items-center gap-3 px-3 py-2 hover:bg-surface-3 transition-colors"
         style={{ borderBottom: '1px solid var(--surface-4)' }}
       >
-        <span
-          className="w-8 text-center label-xs flex-shrink-0"
-          style={{ color: colors.primary }}
-        >
+        <span className="w-8 text-center label-xs flex-shrink-0 text-txt-secondary">
           {player.position}
         </span>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -327,14 +328,14 @@ export default function DetailedStatsEntryModal({
   const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, 'Passing') : null
   const isLoading = creatingSheet
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-3 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-1.5rem)] sm:max-h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
@@ -352,7 +353,7 @@ export default function DetailedStatsEntryModal({
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+        <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-4 sm:p-6">
         {/* Helper tip */}
         <div className="mb-4 p-3 rounded-lg text-sm bg-surface-2 text-txt-secondary border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
           <span className="font-semibold text-txt-primary">Tip:</span> Make sure you've completed GP/Snaps Entry first. In CFB 26, sort your stats by Snaps Played, then go through each category tab - the order will match and make entry quick!
@@ -582,6 +583,7 @@ export default function DetailedStatsEntryModal({
         }}
         teamColors={teamColors}
       />
-    </div>
+    </div>,
+    document.body
   )
 }

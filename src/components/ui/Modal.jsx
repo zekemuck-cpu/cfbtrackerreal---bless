@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * Base modal shell.
@@ -61,9 +62,9 @@ export default function Modal({
 
   const sizeClass = SIZES[size] || SIZES.md
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4 modal-backdrop-in"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-3 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
       onMouseDown={(e) => {
         if (hideClose) return
@@ -109,6 +110,7 @@ export default function Modal({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

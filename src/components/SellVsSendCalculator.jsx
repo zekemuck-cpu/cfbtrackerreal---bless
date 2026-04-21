@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const GRADE_POINTS = {
   'A+': 13, 'A': 12, 'A-': 11,
@@ -25,33 +26,17 @@ const GRADE_COLORS = {
 }
 
 const VERDICTS = {
-  hardSell: {
-    label: 'HARD SELL',
-    sub: 'Hard Sell (40 hrs), then DM the Player (10 hrs).',
-    tone: 'good'
-  },
-  marginal: {
-    label: 'HARD SELL',
-    sub: 'Close call, but still Hard Sell (40 hrs) then DM the Player (10 hrs).',
-    tone: 'warn'
-  },
-  sendHouse: {
-    label: 'SEND THE HOUSE',
-    sub: 'Grades too low to Sell. Send the House (50 hrs).',
-    tone: 'bad'
-  },
-  empty: {
-    label: 'SELECT 3 GRADES',
-    sub: 'Tap the three green checks on the recruit.',
-    tone: 'none'
-  }
+  hardSell: { label: 'HARD SELL',      tone: 'good' },
+  marginal: { label: 'HARD SELL',      tone: 'warn' },
+  sendHouse:{ label: 'SEND THE HOUSE', tone: 'bad'  },
+  empty:    { label: 'SELECT 3 GRADES',tone: 'none' }
 }
 
-const TONE_STRIPE = {
-  good: 'var(--accent-success, #22c55e)',
-  warn: 'var(--accent-warning, #eab308)',
-  bad:  'var(--accent-danger, #ef4444)',
-  none: 'var(--surface-5, #3f3f46)'
+const TONE_COLOR = {
+  good: '#22c55e',
+  warn: '#eab308',
+  bad:  '#ef4444',
+  none: '#52525b'
 }
 
 function getVerdict(selections) {
@@ -104,36 +89,36 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
   const clearAll = () => setSelections([])
   const undo = () => setSelections(selections.slice(0, -1))
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onClick={onClose}
     >
       <div
-        className="bg-surface-1 border border-surface-4 rounded-lg w-full max-w-md max-h-[90dvh] overflow-hidden flex flex-col"
+        className="relative bg-surface-1 border border-surface-4 rounded-lg w-full max-w-sm max-h-[95dvh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-surface-3 flex items-center justify-between gap-4">
+        <div className="px-4 py-2.5 border-b border-surface-3 flex items-center justify-between gap-4 flex-shrink-0">
           <h2
             className="text-txt-primary leading-none"
-            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', letterSpacing: '1.5px' }}
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', letterSpacing: '1.5px' }}
           >
             SELL <span className="text-txt-tertiary">vs</span> SEND
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-md text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex items-center justify-center flex-shrink-0"
+            className="w-7 h-7 rounded-md text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex items-center justify-center flex-shrink-0"
             aria-label="Close"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="relative flex-1 min-h-0 overflow-hidden px-4 py-3 flex flex-col">
+          <div className="flex items-center gap-2 flex-shrink-0" style={{ height: 'clamp(56px, 12dvh, 84px)' }}>
             {[0, 1, 2].map((idx) => {
               const g = selections[idx]
               const bg = g ? GRADE_COLORS[g] : null
@@ -143,9 +128,9 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
                   type="button"
                   onClick={() => g && removeAt(idx)}
                   disabled={!g}
-                  className="flex-1 aspect-[4/3] rounded-md flex items-center justify-center transition-colors"
+                  className="flex-1 h-full rounded-md flex items-center justify-center"
                   style={g
-                    ? { backgroundColor: bg, color: '#ffffff', border: '1px solid rgba(255,255,255,0.08)', fontFamily: "'Bebas Neue', sans-serif", fontSize: '2rem', letterSpacing: '1px', lineHeight: 1 }
+                    ? { backgroundColor: bg, color: '#ffffff', border: '1px solid rgba(255,255,255,0.08)', fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.5rem, 5vw, 2rem)', letterSpacing: '1px', lineHeight: 1 }
                     : { backgroundColor: 'transparent', border: '1px dashed var(--surface-4)', color: 'var(--text-muted, #52525b)', fontSize: '1.25rem' }}
                 >
                   {g || '·'}
@@ -154,7 +139,7 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
             })}
           </div>
 
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-4 my-2.5 flex-shrink-0">
             <button
               type="button"
               onClick={undo}
@@ -173,10 +158,10 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
             </button>
           </div>
 
-          <div className="label-xs text-txt-tertiary mb-2">GRADE</div>
-          <div className="space-y-1.5">
+          <div className="label-xs text-txt-tertiary mb-1.5 flex-shrink-0">GRADE</div>
+          <div className="grid grid-rows-5 gap-1.5 flex-1 min-h-0">
             {GRADE_ROWS.map((row, ri) => (
-              <div key={ri} className="grid grid-cols-3 gap-1.5">
+              <div key={ri} className="grid grid-cols-3 gap-1.5 min-h-0">
                 {row.grades.map((g, i) => {
                   if (!g) return <div key={i} aria-hidden="true" />
                   const disabled = selections.length >= 3
@@ -187,14 +172,15 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
                       type="button"
                       onClick={() => addGrade(g)}
                       disabled={disabled}
-                      className="aspect-[2/1] rounded-md transition-opacity disabled:opacity-40"
+                      className="w-full h-full rounded-md transition-opacity disabled:opacity-40"
                       style={{
                         backgroundColor: bg,
                         border: '1px solid rgba(255,255,255,0.08)',
                         color: '#ffffff',
                         fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: '1.35rem',
-                        letterSpacing: '1px'
+                        fontSize: 'clamp(1rem, 3.5vw, 1.35rem)',
+                        letterSpacing: '1px',
+                        minHeight: 0
                       }}
                     >
                       {g}
@@ -204,31 +190,51 @@ export default function SellVsSendCalculator({ isOpen, onClose }) {
               </div>
             ))}
           </div>
-        </div>
 
-        {selections.length === 3 && (
-          <div className="border-t border-surface-3 px-5 py-4">
-            <div className="flex items-stretch gap-4">
+          {selections.length === 3 && (
+            <div
+              className="verdict-pop absolute inset-0 flex flex-col items-center justify-center gap-4 cursor-pointer px-6"
+              onClick={clearAll}
+              role="button"
+              aria-label="Tap to reset"
+              style={{
+                background: `radial-gradient(ellipse at center, color-mix(in srgb, ${TONE_COLOR[verdict.tone]} 25%, var(--surface-1)) 0%, var(--surface-1) 75%)`,
+                backdropFilter: 'blur(2px)'
+              }}
+            >
               <div
-                aria-hidden="true"
-                className="flex-shrink-0 rounded-sm"
-                style={{ width: '3px', backgroundColor: TONE_STRIPE[verdict.tone] }}
-              />
-              <div className="flex-1 min-w-0">
+                className="verdict-glow rounded-full"
+                style={{
+                  ['--verdict-glow-color']: `color-mix(in srgb, ${TONE_COLOR[verdict.tone]} 60%, transparent)`,
+                  padding: '28px 44px',
+                  backgroundColor: 'color-mix(in srgb, var(--surface-2) 80%, transparent)',
+                  border: `2px solid ${TONE_COLOR[verdict.tone]}`
+                }}
+              >
                 <div
-                  className="text-txt-primary leading-none"
-                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', letterSpacing: '2px' }}
+                  className="leading-none text-center"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: 'clamp(2.5rem, 8vw, 3.5rem)',
+                    letterSpacing: '3px',
+                    color: TONE_COLOR[verdict.tone],
+                    textShadow: `0 2px 30px color-mix(in srgb, ${TONE_COLOR[verdict.tone]} 40%, transparent)`
+                  }}
                 >
                   {verdict.label}
                 </div>
-                <div className="text-xs text-txt-secondary mt-1.5">
-                  {verdict.sub}
-                </div>
+              </div>
+              <div
+                className="label-xs text-txt-tertiary"
+                style={{ letterSpacing: '2px' }}
+              >
+                TAP TO RESET
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

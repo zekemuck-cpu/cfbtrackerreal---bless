@@ -6,6 +6,7 @@ import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsMo
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
 import { getTeamLogoByTid } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
+import Modal from '../../components/ui/Modal'
 import { calculateRecruitingClassScore, formatRecruitingClassScore } from '../../utils/recruitingScore'
 
 const stateFullNames = {
@@ -66,6 +67,7 @@ export default function Recruiting() {
   })
   const [selectedStars, setSelectedStars] = useState([])
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
 
   const toggleStarFilter = (starCount) => {
     setSelectedStars(prev =>
@@ -648,6 +650,20 @@ export default function Recruiting() {
     return calculateRecruitingClassScore(allCommitmentsUnfiltered)
   }, [allCommitmentsUnfiltered, isAllSeasons])
 
+  const classHistory = useMemo(() => {
+    if (!selectedTid) return []
+    const rows = []
+    availableYears.forEach(year => {
+      if (typeof year !== 'number') return
+      const commits = getRecruitingCommitments(currentDynasty, selectedTid, year) || []
+      const score = calculateRecruitingClassScore(commits)
+      const rank = currentDynasty?.recruitingClassRankByTeamYear?.[teamAbbr]?.[year] ?? null
+      if (commits.length === 0 && !rank && !score) return
+      rows.push({ year, score, rank, count: commits.length })
+    })
+    return rows.sort((a, b) => b.year - a.year)
+  }, [availableYears, currentDynasty, selectedTid, teamAbbr])
+
   if (!currentDynasty) return null
 
   const findPlayerByName = (name, recruitYear) => {
@@ -789,10 +805,14 @@ export default function Recruiting() {
               </div>
 
               {!isAllSeasons && (
-                <div
-                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px]"
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryModal(true)}
+                  disabled={classHistory.length <= 1}
+                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px] text-left transition-colors hover:bg-surface-4 disabled:cursor-default disabled:hover:bg-[var(--surface-3)]"
                   style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
-                  title="NCAA Football 25 class score formula"
+                  title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
+                  aria-label="View recruiting class history"
                 >
                   <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                     {formatRecruitingClassScore(classScore)}
@@ -801,7 +821,7 @@ export default function Recruiting() {
                     <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Class</span>
                     <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>Score</span>
                   </div>
-                </div>
+                </button>
               )}
             </div>
 
@@ -1040,6 +1060,57 @@ export default function Recruiting() {
         existingCommitments={allCommitmentsUnfiltered}
         teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
       />
+
+      <Modal
+        isOpen={showHistoryModal}
+        onClose={() => setShowHistoryModal(false)}
+        title={`${teamFullName} · Class History`}
+        size="md"
+      >
+        {classHistory.length === 0 ? (
+          <p className="text-sm text-txt-secondary">No recruiting class data recorded yet.</p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-3 pb-2 border-b border-surface-4">
+              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Year</span>
+              <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Rank</span>
+              <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Score</span>
+              <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Commits</span>
+            </div>
+            {classHistory.map(row => {
+              const isCurrent = row.year === selectedYear
+              return (
+                <button
+                  key={row.year}
+                  type="button"
+                  onClick={() => {
+                    setShowHistoryModal(false)
+                    navigate(`${pathPrefix}/recruiting/${selectedTid}/${row.year}`)
+                  }}
+                  className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-3 py-2.5 rounded-sm text-left transition-colors hover:bg-surface-3"
+                  style={{
+                    backgroundColor: isCurrent ? 'var(--team-primary-faded, var(--surface-3))' : 'transparent',
+                    borderLeft: isCurrent ? '3px solid var(--team-primary)' : '3px solid transparent'
+                  }}
+                >
+                  <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {row.year}
+                  </span>
+                  <span className="text-sm font-semibold text-txt-secondary tabular">
+                    {row.rank ? `#${row.rank}` : '—'}
+                  </span>
+                  <span className="text-xl font-black tabular text-txt-primary text-right" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                    {formatRecruitingClassScore(row.score)}
+                  </span>
+                  <span className="text-sm text-txt-secondary tabular text-right">
+                    {row.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

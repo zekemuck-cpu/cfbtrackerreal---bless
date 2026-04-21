@@ -1506,6 +1506,53 @@ export default function Player() {
           }
         })
 
+        // Build a standalone recruitment node when we have class-ranking data.
+        // Before: recruitment was folded into the FR year as a sub-tag.
+        // Now: it's its own row on the timeline, sitting above the FR year.
+        const hasRecruitNodeData = !!(recruitmentInfo || player.recruitYear)
+        const recruitmentNode = hasRecruitNodeData ? (() => {
+          const rYear = Number(player.recruitYear) || years[0]
+          const rTeam = player.teamsByYear?.[rYear] || teamsByYear[years[0]]
+          const rTeamName = getMascotName(rTeam, teamsData)
+          const rSchool = getSchoolName(rTeam, teamsData)
+          const rLogo = rTeamName ? getTeamLogo(rTeamName, teamsData) : null
+          const rColors = rTeamName ? getTeamColors(rTeamName, teamsData) : null
+          const rTid = resolveTid(rTeam, teamsData || TEAMS)
+          return {
+            year: rYear,
+            team: rTeam,
+            teamName: rTeamName,
+            school: rSchool,
+            logo: rLogo,
+            color: rColors?.primary || teamInfo.backgroundColor,
+            tid: rTid,
+            stars: Number(recruitmentInfo?.stars) || 0,
+            nationalRank: Number(recruitmentInfo?.nationalRank) || 0,
+            positionRank: Number(recruitmentInfo?.positionRank) || 0,
+            stateRank: Number(recruitmentInfo?.stateRank) || 0,
+            state: recruitmentInfo?.state || player.state,
+            hometown: player.hometown,
+            // The recruit node represents the player's FIRST stint — we label it "Portal Entry"
+            // only when the prior team (`previousTeam`) is a school the player never had a
+            // season at. If `previousTeam` is already in teamsByYear, it refers to a later
+            // portal move (e.g. Wisconsin → Kentucky) and must not retroactively relabel the
+            // HS signing to Wisconsin.
+            isPortal: (() => {
+              const prev = recruitmentInfo?.previousTeam
+              if (!prev) return false
+              const prevTid = resolveTid(prev, teamsData || TEAMS)
+              if (prevTid == null) return false
+              const historyTids = Object.values(teamsByYear)
+                .map(t => resolveTid(t, teamsData || TEAMS))
+                .filter(t => t != null)
+                .map(Number)
+              return !historyTids.includes(Number(prevTid))
+            })(),
+            gemBust: recruitmentInfo?.gemBust,
+            previousTeam: recruitmentInfo?.previousTeam
+          }
+        })() : null
+
         // Build timeline entries (same logic as before)
         const timelineEntries = []
         let prevTeam = null
@@ -1519,15 +1566,22 @@ export default function Player() {
               m.type === 'recruited' || m.type === 'portal_in' || m.type === 'added'
             )
             if (joinMovement) {
-              const fromTeam = joinMovement.from || null
-              timelineEntries.push({ ...joinMovement, team, from: fromTeam })
+              // Skip the join movement when the standalone recruitment node already represents
+              // the entry — prevents "PORTAL ENTRY → KENTUCKY" node plus a duplicate
+              // "PORTAL TRANSFER Washington State → Kentucky" chip on the first season row.
+              if (!recruitmentNode) {
+                const fromTeam = joinMovement.from || null
+                timelineEntries.push({ ...joinMovement, team, from: fromTeam })
+              }
             } else {
-              let joinType = 'started'
+              let joinType = null
               let fromTeam = null
               if (player.isPortal) { joinType = 'portal_in'; fromTeam = player.previousTeam || null }
               else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) { joinType = 'juco_in' }
-              else if (player.stars || player.nationalRank || player.recruitYear) { joinType = 'recruited' }
-              timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
+              else if (!recruitmentNode && (player.stars || player.nationalRank || player.recruitYear)) { joinType = 'recruited' }
+              if (joinType && !recruitmentNode) {
+                timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
+              }
             }
           } else if (team !== prevTeam && prevTeam) {
             const transferMovement = yearMovements.find(m => m.type === 'transfer' || m.type === 'portal_in')
@@ -1566,7 +1620,6 @@ export default function Player() {
           timelineEntries.push({ year: lastYear, type: 'encouraged_transfer', from: lastTeam })
         }
 
-        if (timelineEntries.length === 0) return null
         timelineEntries.sort((a, b) => a.year - b.year)
 
         // Detect recommit scenarios
@@ -1634,36 +1687,288 @@ export default function Player() {
           return '#ef4444'
         }
 
-        // Helper: summarize key stats for a year
-        const getStatSummary = (stats) => {
-          if (!stats) return null
-          const parts = []
-          if (stats.passYds || stats.passTd) {
-            parts.push(`${stats.passYds || 0} pass yds, ${stats.passTd || 0} TD`)
+        // Helper: quick-hitter stat chips for a year — games played + position-relevant highlights.
+        // Uses the real statsByYear shape: { gamesPlayed, passing:{...}, rushing:{...}, receiving:{...}, defense:{...}, kicking:{...}, punting:{...} }
+        const fmtNum = (n) => {
+          const v = Number(n) || 0
+          return v >= 1000 ? v.toLocaleString() : String(v)
+        }
+        const getQuickStatChips = (stats, position) => {
+          if (!stats) return []
+          const chips = []
+          const gp = Number(stats.gamesPlayed) || 0
+          if (gp > 0) chips.push({ value: gp, label: 'G' })
+
+          const hasPassingRecord = stats.passing && (stats.passing.yds || stats.passing.td || stats.passing.att)
+          const hasRushingRecord = stats.rushing && (stats.rushing.yds || stats.rushing.td || stats.rushing.car)
+          const hasReceivingRecord = stats.receiving && (stats.receiving.yds || stats.receiving.td || stats.receiving.rec)
+          const hasDefenseRecord = stats.defense && (stats.defense.tkl || stats.defense.tackles || stats.defense.sacks || stats.defense.int || stats.defense.ints)
+          const hasKickingRecord = stats.kicking && (stats.kicking.fga || stats.kicking.fgm)
+          const hasPuntingRecord = stats.punting && (stats.punting.punts || stats.punting.yds)
+
+          const primary = getPrimaryStatCategory(position)
+          const addPassing = () => {
+            const p = stats.passing || {}
+            chips.push({ value: fmtNum(p.yds), label: 'PASS YDS' })
+            chips.push({ value: Number(p.td) || 0, label: 'PASS TD' })
+            if (p.int) chips.push({ value: p.int, label: 'INT' })
           }
-          if (stats.rushYds || stats.rushTd) {
-            parts.push(`${stats.rushYds || 0} rush yds, ${stats.rushTd || 0} TD`)
+          const addRushing = () => {
+            const r = stats.rushing || {}
+            chips.push({ value: fmtNum(r.yds), label: 'RUSH YDS' })
+            chips.push({ value: Number(r.td) || 0, label: 'RUSH TD' })
           }
-          if (stats.recYds || stats.recTd) {
-            parts.push(`${stats.recYds || 0} rec yds, ${stats.recTd || 0} TD`)
+          const addReceiving = () => {
+            const r = stats.receiving || {}
+            chips.push({ value: Number(r.rec) || 0, label: 'REC' })
+            chips.push({ value: fmtNum(r.yds), label: 'REC YDS' })
+            chips.push({ value: Number(r.td) || 0, label: 'REC TD' })
           }
-          if (stats.tackles || stats.sacks) {
-            const tackleStr = stats.tackles ? `${stats.tackles} tkl` : ''
-            const sackStr = stats.sacks ? `${stats.sacks} sack${stats.sacks !== 1 ? 's' : ''}` : ''
-            parts.push([tackleStr, sackStr].filter(Boolean).join(', '))
+          const addDefense = () => {
+            const d = stats.defense || {}
+            const tkl = Number(d.tkl ?? d.tackles) || 0
+            if (tkl) chips.push({ value: tkl, label: 'TKL' })
+            if (d.sacks) chips.push({ value: d.sacks, label: 'SACK' })
+            const ints = Number(d.int ?? d.ints) || 0
+            if (ints) chips.push({ value: ints, label: 'INT' })
+            if (d.ff) chips.push({ value: d.ff, label: 'FF' })
           }
-          if (stats.interceptions) {
-            parts.push(`${stats.interceptions} INT`)
+          const addKicking = () => {
+            const k = stats.kicking || {}
+            if (k.fga || k.fgm) chips.push({ value: `${k.fgm || 0}/${k.fga || 0}`, label: 'FG' })
+            if (k.long || k.lng) chips.push({ value: k.long || k.lng, label: 'LNG' })
           }
-          return parts.length > 0 ? parts : null
+          const addPunting = () => {
+            const p = stats.punting || {}
+            if (p.punts) chips.push({ value: p.punts, label: 'PUNTS' })
+            const avg = p.avg || (p.punts ? Math.round((p.yds || 0) / p.punts * 10) / 10 : null)
+            if (avg) chips.push({ value: avg, label: 'AVG' })
+          }
+
+          if (primary === 'passing' && hasPassingRecord) addPassing()
+          else if (primary === 'rushing' && hasRushingRecord) addRushing()
+          else if (primary === 'receiving' && hasReceivingRecord) addReceiving()
+          else if (primary === 'defense' && hasDefenseRecord) addDefense()
+          else if (primary === 'kicking' && hasKickingRecord) addKicking()
+          else if (primary === 'punting' && hasPuntingRecord) addPunting()
+          else {
+            // Fallback: show whichever category has a record
+            if (hasPassingRecord) addPassing()
+            else if (hasRushingRecord) addRushing()
+            else if (hasReceivingRecord) addReceiving()
+            else if (hasDefenseRecord) addDefense()
+            else if (hasKickingRecord) addKicking()
+            else if (hasPuntingRecord) addPunting()
+          }
+
+          // Dual-threat: QB who rushed for 300+ or RB who caught for 200+
+          if (primary === 'passing' && hasRushingRecord && (Number(stats.rushing?.yds) || 0) >= 200) {
+            chips.push({ value: fmtNum(stats.rushing.yds), label: 'RUSH YDS' })
+            if (stats.rushing.td) chips.push({ value: stats.rushing.td, label: 'RUSH TD' })
+          }
+          if (primary === 'rushing' && hasReceivingRecord && (Number(stats.receiving?.yds) || 0) >= 150) {
+            chips.push({ value: Number(stats.receiving.rec) || 0, label: 'REC' })
+            chips.push({ value: fmtNum(stats.receiving.yds), label: 'REC YDS' })
+          }
+
+          return chips
         }
 
-        return (
-          <div className="max-w-2xl mx-auto space-y-3">
+        const sameTid = (a, b) => {
+          if (a == null || b == null) return false
+          const ta = typeof a === 'number' ? a : resolveTid(a, teamsData || TEAMS)
+          const tb = typeof b === 'number' ? b : resolveTid(b, teamsData || TEAMS)
+          return ta != null && tb != null && Number(ta) === Number(tb)
+        }
 
-            {/* Section eyebrow — orients the user since the recruitment card
-                that used to open this list now lives in the player header. */}
-            <div className="flex items-baseline justify-between pb-1 mb-1 border-b border-surface-4">
+        const renderMovementDetail = (m, rowTeam, label) => {
+          const fromName = m.from ? getSchoolName(m.from, teamsData) : null
+          const toName = m.to ? getSchoolName(m.to, teamsData) : null
+          const fromLogo = m.from ? (() => { const fn = getMascotName(m.from, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
+          const toLogo = m.to ? (() => { const fn = getMascotName(m.to, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
+
+          // Hide team references already implicit from the row context (row team = dest team / from team)
+          const hideTo = sameTid(m.to, rowTeam)
+          const hideFrom = sameTid(m.from, rowTeam)
+
+          // Deduplicate the italic reason when it already matches the big label (e.g. "GRADUATING · Graduating")
+          const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z]/g, '')
+          const labelNorm = normalize(label)
+          const reasonNorm = normalize(m.reason)
+          const showReason = m.reason &&
+            (m.type === 'entered_portal' || m.type === 'encouraged_transfer' || m.type === 'recommit' || m.type === 'departure') &&
+            reasonNorm && reasonNorm !== labelNorm &&
+            !labelNorm.includes(reasonNorm) && !reasonNorm.includes(labelNorm)
+
+          return (
+            <span className="flex flex-wrap items-center gap-1 text-txt-secondary">
+              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && toName && !hideTo && (
+                <>
+                  {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                  <span>{fromName}</span>
+                  <span className="text-txt-muted">→</span>
+                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                  <span>{toName}</span>
+                </>
+              )}
+              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && (hideTo || !toName) && (
+                <>
+                  <span>from</span>
+                  {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                  <span>{fromName}</span>
+                </>
+              )}
+              {(m.type === 'recruited' || m.type === 'added' || m.type === 'recommit') && toName && !hideTo && (
+                <>
+                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                  <span>{toName}</span>
+                </>
+              )}
+              {/* Intentionally omit "from X" for departure/entered_portal/encouraged_transfer:
+                  the row already sits on the team being left, so restating it is noise
+                  (and stale m.from data can make it outright wrong — e.g., "GRADUATING from Wisconsin"
+                  when the player actually graduated from Kentucky). */}
+              {showReason && (
+                <span className="italic text-txt-tertiary">· {m.reason}</span>
+              )}
+              {m.draftRound && <span className="text-txt-tertiary">· Rd {m.draftRound}</span>}
+            </span>
+          )
+        }
+
+        // Friendly long-form class label for the headline (247-style)
+        const classHeadlineMap = {
+          'FR': 'Freshman', 'SO': 'Sophomore', 'JR': 'Junior', 'SR': 'Senior',
+          'RS FR': 'RS Freshman', 'RS SO': 'RS Sophomore', 'RS JR': 'RS Junior', 'RS SR': 'RS Senior',
+          'JUCO': 'JUCO'
+        }
+        const getClassHeadline = (cls) => {
+          if (!cls) return null
+          const key = cls.toUpperCase().trim()
+          return classHeadlineMap[key] || cls
+        }
+
+        // Node renderer: year-gutter on far left, rail + avatar dot in the middle, content on the right.
+        const renderTimelineNode = ({ key, logo, color, eyebrow, headline, headlineLink, metaRow, rightSlot, sub, movements, rowTeam, yearMarker, isFirst, isLast }) => (
+          <div key={key} className="relative flex items-stretch gap-3 sm:gap-4 pt-5 pb-5">
+            {/* Year gutter — only shown when this row introduces a new year */}
+            <div className="w-10 sm:w-14 flex-shrink-0 pt-1 text-right">
+              {yearMarker && (
+                <div
+                  className="font-black tabular text-txt-primary leading-none"
+                  style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.35rem', letterSpacing: '0.5px' }}
+                >
+                  {yearMarker}
+                </div>
+              )}
+            </div>
+
+            {/* Rail + avatar column — top stub, avatar, flex-1 bottom stub form a continuous rail */}
+            <div className="flex-shrink-0 flex flex-col items-center w-11 sm:w-12">
+              <div
+                className="w-[2px] bg-surface-4"
+                style={{ height: '0.5rem', visibility: isFirst ? 'hidden' : 'visible' }}
+                aria-hidden="true"
+              />
+              <div
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-surface-1 flex-shrink-0"
+                style={{ boxShadow: `inset 0 0 0 2px ${color}` }}
+              >
+                {logo
+                  ? <img src={logo} alt="" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" />
+                  : <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
+                }
+              </div>
+              <div
+                className="w-[2px] bg-surface-4 flex-1 min-h-[0.5rem]"
+                style={{ visibility: isLast ? 'hidden' : 'visible' }}
+                aria-hidden="true"
+              />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  {eyebrow && (
+                    <div
+                      className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary"
+                      style={{ letterSpacing: '1.8px' }}
+                    >
+                      {eyebrow}
+                    </div>
+                  )}
+                  <div
+                    className="font-display font-black text-xl sm:text-2xl leading-tight text-txt-primary"
+                    style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.5px' }}
+                  >
+                    {headlineLink
+                      ? <Link to={headlineLink} className="hover:text-team-primary transition-colors">{headline}</Link>
+                      : headline
+                    }
+                  </div>
+                  {metaRow && (
+                    <div className="mt-1 text-[12px] leading-relaxed text-txt-tertiary flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {metaRow}
+                    </div>
+                  )}
+                </div>
+                {rightSlot && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {rightSlot}
+                  </div>
+                )}
+              </div>
+
+              {sub && <div className="mt-1.5">{sub}</div>}
+
+              {movements && movements.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {movements.map((m, mIdx) => {
+                    const movementColor = getMovementColor(m.type)
+                    const label = getMovementLabel(m)
+                    return (
+                      <div key={mIdx} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        <span
+                          className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: movementColor }}
+                          aria-hidden="true"
+                        />
+                        <span
+                          className="font-black uppercase tracking-widest text-[10px]"
+                          style={{ color: movementColor, letterSpacing: '1.5px' }}
+                        >
+                          {label}
+                        </span>
+                        {renderMovementDetail(m, rowTeam, label)}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+        const postCareerEntries = timelineEntries.filter(e => e.year > lastYear)
+
+        // If the recruitment node and the first season share a year + team, fold the recruit
+        // into that season row so we don't show two near-identical "Kentucky" cards back to back.
+        const firstSeason = yearData[0]
+        const mergeRecruitIntoFirstSeason = !!(
+          recruitmentNode && firstSeason &&
+          Number(recruitmentNode.year) === Number(firstSeason.year) &&
+          sameTid(recruitmentNode.team, firstSeason.team)
+        )
+        const showRecruitRow = !!recruitmentNode && !mergeRecruitIntoFirstSeason
+
+        const totalRows = (showRecruitRow ? 1 : 0) + yearData.length + postCareerEntries.length
+
+        return (
+          <div className="max-w-3xl mx-auto">
+
+            {/* Section eyebrow */}
+            <div className="flex items-baseline justify-between pb-2 mb-1 border-b border-surface-4">
               <span
                 className="text-[11px] font-bold uppercase tracking-widest text-txt-tertiary"
                 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}
@@ -1675,208 +1980,326 @@ export default function Player() {
               </span>
             </div>
 
-            {/* Season Sections - one per year */}
-            {yearData.map((yd, idx) => {
-              const teamName = getMascotName(yd.team, teamsData)
-              const schoolName = getSchoolName(yd.team, teamsData)
-              const logo = teamName ? getTeamLogo(teamName, teamsData) : null
-              const isCurrentYear = yd.year === currentYear
-              const prevOverall = idx > 0 ? yearData[idx - 1].overall : null
-              const ovrChange = (yd.overall && prevOverall) ? yd.overall - prevOverall : null
-              const statSummary = getStatSummary(yd.stats)
-              const teamTid = resolveTid(yd.team, teamsData || TEAMS)
+            {(() => {
+              // Build a flat list of rows so we can assign a single year-gutter marker
+              // per unique year (shown only on the first row of each year group).
+              const rows = []
 
-              const ydTeamColors = teamName ? getTeamColors(teamName, teamsData) : null
-              const seasonColor = ydTeamColors?.primary || teamInfo.backgroundColor
+              // Helper: build the recruitment meta block (stars / ranks / class / hometown)
+              const buildRecruitMeta = (rn) => {
+                const stars = rn.stars
+                const classLabel = player.recruitYear ? `Class of ${Number(player.recruitYear)}` : null
+                const rankBits = []
+                if (rn.nationalRank > 0) rankBits.push({ value: `#${rn.nationalRank}`, label: 'Natl' })
+                if (rn.positionRank > 0) rankBits.push({ value: `#${rn.positionRank}`, label: player.position })
+                if (rn.stateRank > 0) rankBits.push({ value: `#${rn.stateRank}`, label: rn.state || player.state })
 
-              return (
-                <div
-                  key={yd.year}
-                  className="card overflow-hidden"
-                  style={{ borderLeft: `3px solid ${seasonColor}` }}
-                >
-                  <div className="px-4 py-3 sm:px-5 sm:py-4">
-                    {/* Header row: year hero + team + overall + current badge */}
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex items-baseline gap-3 min-w-0">
+                const starsNode = stars > 0 ? (
+                  <span className="flex items-center gap-0.5" aria-label={`${stars} star recruit`}>
+                    {[...Array(5)].map((_, i) => (
+                      <svg key={i} className="w-3.5 h-3.5" fill={i < stars ? '#FFD700' : 'rgba(255,255,255,0.18)'} viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </span>
+                ) : null
+
+                return (
+                  <>
+                    {starsNode}
+                    {starsNode && (rankBits.length > 0 || classLabel) && <span className="text-txt-muted">·</span>}
+                    {rankBits.map((rb, i) => (
+                      <span key={i} className="flex items-baseline gap-1">
+                        <span className="font-bold tabular text-txt-primary">{rb.value}</span>
+                        <span className="text-[10px] uppercase tracking-widest text-txt-tertiary">{rb.label}</span>
+                        {i < rankBits.length - 1 && <span className="text-txt-muted ml-1">·</span>}
+                      </span>
+                    ))}
+                    {classLabel && (
+                      <>
+                        {(starsNode || rankBits.length > 0) && <span className="text-txt-muted">·</span>}
+                        <span className="uppercase tracking-wider text-[11px] font-semibold text-txt-secondary" style={{ letterSpacing: '1px' }}>{classLabel}</span>
+                      </>
+                    )}
+                    {rn.hometown && (
+                      <>
+                        <span className="text-txt-muted">·</span>
+                        <span className="text-txt-secondary">{rn.hometown}</span>
+                      </>
+                    )}
+                  </>
+                )
+              }
+
+              // Standalone recruit row
+              if (showRecruitRow) {
+                const rn = recruitmentNode
+                const rightSlot = rn.gemBust ? (
+                  <span
+                    className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: rn.gemBust.toLowerCase() === 'gem' ? '#10B981' : '#EF4444',
+                      color: 'white',
+                      letterSpacing: '1.5px'
+                    }}
+                  >
+                    {rn.gemBust}
+                  </span>
+                ) : null
+                rows.push({
+                  key: `recruit-${rn.year}`,
+                  year: rn.year,
+                  node: {
+                    key: `recruit-${rn.year}`,
+                    logo: rn.logo,
+                    color: rn.color,
+                    eyebrow: rn.isPortal ? 'Portal Entry' : 'Recruited',
+                    headline: rn.school || 'Recruited',
+                    headlineLink: rn.tid ? `${pathPrefix}/team/${rn.tid}/${rn.year}` : null,
+                    metaRow: buildRecruitMeta(rn),
+                    rightSlot
+                  }
+                })
+              }
+
+              // Season rows
+              yearData.forEach((yd, idx) => {
+                const teamName = getMascotName(yd.team, teamsData)
+                const schoolName = getSchoolName(yd.team, teamsData)
+                const logo = teamName ? getTeamLogo(teamName, teamsData) : null
+                const isCurrentYear = yd.year === currentYear
+                const prevOverall = idx > 0 ? yearData[idx - 1].overall : null
+                const ovrChange = (yd.overall && prevOverall) ? yd.overall - prevOverall : null
+                const quickStats = getQuickStatChips(yd.stats, player.position)
+                const teamTid = resolveTid(yd.team, teamsData || TEAMS)
+                const ydTeamColors = teamName ? getTeamColors(teamName, teamsData) : null
+                const seasonColor = ydTeamColors?.primary || teamInfo.backgroundColor
+
+                // Peel transfer-in events (portal_in, juco_in, transfer) into their own standalone
+                // timeline row that sits just above the new season. This makes a mid-career move
+                // like "Wisconsin → Kentucky" visually obvious instead of hiding it as a chip on
+                // the destination season. We also remove it from the season's movements list so
+                // it doesn't double up. Works for any number of transfers — each team change in
+                // teamsByYear produces its own row (A → B → C → back to A all get separate rows).
+                const prevTeamRef = idx > 0 ? yearData[idx - 1]?.team : null
+                // Safety net: only treat this as a transfer row when the team actually changed
+                // from the previous season. timelineEntries already enforces this, but guard
+                // against degenerate data (e.g., a stray portal_in entry on the same team).
+                const teamActuallyChanged = idx > 0 && !sameTid(prevTeamRef, yd.team)
+                const transferIdx = teamActuallyChanged
+                  ? yd.movements.findIndex(m => m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer')
+                  : -1
+                const transferMovement = transferIdx >= 0 ? yd.movements[transferIdx] : null
+                const seasonMovements = transferIdx >= 0
+                  ? yd.movements.filter((_, i) => i !== transferIdx)
+                  : yd.movements
+
+                if (transferMovement) {
+                  // teamsByYear is the source of truth — prefer the previous season's team
+                  // over the movement's stored `from` (which can be stale or missing after
+                  // multi-hop transfers like A → B → C where legacy data may still point at A).
+                  const fromRef = prevTeamRef || transferMovement.from
+                  const fromName = fromRef ? getMascotName(fromRef, teamsData) : null
+                  const toName = teamName
+                  const fromSchool = fromRef ? getSchoolName(fromRef, teamsData) : null
+                  const toSchool = schoolName
+                  const fromLogo = fromName ? getTeamLogo(fromName, teamsData) : null
+                  const toLogo = logo
+                  const transferColor = getMovementColor(transferMovement.type)
+                  const transferLabel = transferMovement.isRecommit
+                    ? 'Recommitted'
+                    : transferMovement.type === 'juco_in'
+                      ? 'JUCO Transfer'
+                      : transferMovement.type === 'portal_in'
+                        ? 'Portal Transfer'
+                        : 'Transferred'
+
+                  // Avatar (destination) sits on the far left, so put the destination name
+                  // next to it and point back to the origin: "KENTUCKY ← Wisconsin".
+                  const transferHeadline = (
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span>{toSchool || 'New Team'}</span>
+                      <span className="text-txt-muted" style={{ fontWeight: 400 }}>←</span>
+                      {fromLogo && <img src={fromLogo} alt="" className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />}
+                      <span>{fromSchool || 'Previous'}</span>
+                    </span>
+                  )
+
+                  // Show the same recruit-style meta (stars / rank / class / hometown) on the
+                  // transfer row so a mid-career portal move gets the same context treatment
+                  // as an HS signing. Stars and ranks persist on the player object and apply
+                  // to the portal event as well.
+                  const transferMeta = (
+                    <>
+                      {recruitmentNode && buildRecruitMeta(recruitmentNode)}
+                      {transferMovement.reason && (
+                        <>
+                          {recruitmentNode && <span className="text-txt-muted">·</span>}
+                          <span className="italic text-txt-tertiary">{transferMovement.reason}</span>
+                        </>
+                      )}
+                    </>
+                  )
+
+                  rows.push({
+                    key: `transfer-${yd.year}`,
+                    year: yd.year,
+                    node: {
+                      key: `transfer-${yd.year}`,
+                      logo: toLogo,
+                      color: transferColor,
+                      eyebrow: transferLabel,
+                      headline: transferHeadline,
+                      metaRow: transferMeta
+                    }
+                  })
+                }
+
+                const classHeadline = getClassHeadline(yd.playerClass)
+                // Headline is the eligibility phase (Freshman/Sophomore/etc.)
+                // Eyebrow carries school + status flags. Year lives in the gutter now.
+                const eyebrowParts = []
+                if (schoolName) eyebrowParts.push(schoolName)
+                if (isCurrentYear) eyebrowParts.push('Current Season')
+                const eyebrow = eyebrowParts.join(' · ')
+                const headline = classHeadline || 'Season'
+
+                // If we're merging the recruit node into this first season, prepend
+                // the stars/ranks/hometown and the entry tag to the meta row.
+                const isMergedFirstSeason = idx === 0 && mergeRecruitIntoFirstSeason
+                const mergedEyebrow = isMergedFirstSeason
+                  ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Recruited', ...eyebrowParts].join(' · ')
+                  : eyebrow
+
+                const devChip = yd.devTrait && yd.devTrait !== 'Normal' ? (
+                  <span
+                    className="inline-block text-[10px] font-black uppercase px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: yd.devTrait === 'Elite' ? '#fbbf24' : yd.devTrait === 'Star' ? '#8b5cf6' : yd.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
+                      color: yd.devTrait === 'Elite' ? '#78350f' : '#ffffff',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    {yd.devTrait}
+                  </span>
+                ) : null
+
+                const metaRow = isMergedFirstSeason ? (
+                  <>
+                    {buildRecruitMeta(recruitmentNode)}
+                    {devChip && (
+                      <>
+                        <span className="text-txt-muted">·</span>
+                        {devChip}
+                      </>
+                    )}
+                  </>
+                ) : devChip
+
+                const rightSlot = yd.overall ? (
+                  <>
+                    <span
+                      className="text-xl sm:text-2xl font-black tabular leading-none"
+                      style={{ color: getOverallColor(yd.overall), fontFamily: "'Bebas Neue', sans-serif" }}
+                    >
+                      {yd.overall}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-txt-muted" style={{ letterSpacing: '1.5px' }}>OVR</span>
+                    {ovrChange !== null && ovrChange !== 0 && (
+                      <span className="text-xs font-bold tabular" style={{ color: ovrChange > 0 ? '#22c55e' : '#ef4444' }}>
+                        {ovrChange > 0 ? '+' : ''}{ovrChange}
+                      </span>
+                    )}
+                  </>
+                ) : null
+
+                const sub = quickStats.length > 0 ? (
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-1">
+                    {quickStats.map((qs, i) => (
+                      <div key={i} className="flex items-baseline gap-1.5">
                         <span
-                          className="text-3xl sm:text-4xl font-black tabular leading-none text-txt-primary"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif" }}
+                          className="text-base sm:text-lg font-black leading-none tabular text-txt-primary"
+                          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.5px' }}
                         >
-                          {yd.year}
+                          {qs.value}
                         </span>
-                        <div className="flex items-center gap-2 min-w-0">
-                          {logo && (
-                            <Link to={`${pathPrefix}/team/${teamTid}/${yd.year}`} className="hover:opacity-80 transition-opacity flex-shrink-0">
-                              <img src={logo} alt="" className="w-6 h-6 object-contain" />
-                            </Link>
-                          )}
-                          {schoolName && (
-                            <Link
-                              to={`${pathPrefix}/team/${teamTid}/${yd.year}`}
-                              className="text-sm sm:text-base font-bold uppercase tracking-wider text-txt-secondary hover:text-txt-primary transition-colors truncate"
-                              style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
-                            >
-                              {schoolName}
-                            </Link>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2.5 flex-shrink-0">
-                        {yd.overall ? (
-                          <div className="flex items-baseline gap-1.5">
-                            <span
-                              className="text-2xl sm:text-3xl font-black tabular leading-none"
-                              style={{ color: getOverallColor(yd.overall), fontFamily: "'Bebas Neue', sans-serif" }}
-                            >
-                              {yd.overall}
-                            </span>
-                            {ovrChange !== null && ovrChange !== 0 && (
-                              <span className="text-xs font-bold tabular" style={{ color: ovrChange > 0 ? '#22c55e' : '#ef4444' }}>
-                                {ovrChange > 0 ? '+' : ''}{ovrChange}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-2xl sm:text-3xl font-black tabular leading-none text-txt-muted" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>—</span>
-                        )}
-                        {isCurrentYear && (
-                          <span
-                            className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-surface-3 text-txt-secondary"
-                            style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
-                          >
-                            Current
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Meta row: class + dev trait */}
-                    {(yd.playerClass || (yd.devTrait && yd.devTrait !== 'Normal')) && (
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2.5">
-                        {yd.playerClass && (
-                          <span className="text-[11px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                            Class <span className="text-txt-secondary ml-1">{yd.playerClass}</span>
-                          </span>
-                        )}
-                        {yd.devTrait && yd.devTrait !== 'Normal' && (
-                          <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                            Dev Trait
-                            <span
-                              className="inline-block text-[10px] font-black px-1.5 py-0.5 rounded"
-                              style={{
-                                backgroundColor: yd.devTrait === 'Elite' ? '#fbbf24' : yd.devTrait === 'Star' ? '#8b5cf6' : yd.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                                color: yd.devTrait === 'Elite' ? '#78350f' : '#ffffff',
-                                letterSpacing: '1px'
-                              }}
-                            >
-                              {yd.devTrait}
-                            </span>
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Movements */}
-                    {yd.movements.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-surface-4">
-                        {yd.movements.map((m, mIdx) => {
-                          const fromName = m.from ? getSchoolName(m.from, teamsData) : null
-                          const toName = m.to ? getSchoolName(m.to, teamsData) : null
-                          const fromLogo = m.from ? (() => { const fn = getMascotName(m.from, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
-                          const toLogo = m.to ? (() => { const fn = getMascotName(m.to, teamsData); return fn ? getTeamLogo(fn, teamsData) : null })() : null
-                          const movementColor = getMovementColor(m.type)
-                          return (
-                            <div
-                              key={mIdx}
-                              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded bg-surface-3"
-                              style={{ color: movementColor, boxShadow: `inset 2px 0 0 ${movementColor}` }}
-                            >
-                              <span className="uppercase tracking-wider text-[11px]">{getMovementLabel(m)}</span>
-                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && toName && (
-                                <span className="flex items-center gap-1 text-txt-secondary font-normal normal-case">
-                                  {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                                  <span>{fromName}</span>
-                                  <span className="text-txt-muted">→</span>
-                                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
-                                  <span>{toName}</span>
-                                </span>
-                              )}
-                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && fromName && !toName && (
-                                <span className="flex items-center gap-1 text-txt-secondary font-normal normal-case">
-                                  from {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {fromName}
-                                </span>
-                              )}
-                              {(m.type === 'portal_in' || m.type === 'juco_in' || m.type === 'transfer') && !fromName && toName && (
-                                <span className="flex items-center gap-1 text-txt-secondary font-normal normal-case">
-                                  to {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {toName}
-                                </span>
-                              )}
-                              {(m.type === 'recruited' || m.type === 'added' || m.type === 'recommit') && toName && (
-                                <span className="flex items-center gap-1 text-txt-secondary font-normal normal-case">
-                                  {toLogo && <img src={toLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {toName}
-                                </span>
-                              )}
-                              {(m.type === 'entered_portal' || m.type === 'departure' || m.type === 'encouraged_transfer') && fromName && (
-                                <span className="flex items-center gap-1 text-txt-secondary font-normal normal-case">
-                                  from {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />} {fromName}
-                                </span>
-                              )}
-                              {m.reason && (m.type === 'entered_portal' || m.type === 'encouraged_transfer' || m.type === 'recommit') && (
-                                <span className="italic font-normal text-txt-tertiary normal-case">· {m.reason}</span>
-                              )}
-                              {m.draftRound && <span className="text-txt-tertiary font-normal normal-case">Rd {m.draftRound}</span>}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Stats */}
-                    {statSummary && (
-                      <div className="mt-3 pt-3 border-t border-surface-4">
-                        <div
-                          className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary mb-1"
-                          style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.5px' }}
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary"
+                          style={{ letterSpacing: '1.5px' }}
                         >
-                          Season Stats
-                        </div>
-                        <div className="text-xs font-medium text-txt-secondary tabular">
-                          {statSummary.join(' · ')}
-                        </div>
+                          {qs.label}
+                        </span>
                       </div>
-                    )}
+                    ))}
                   </div>
-                </div>
-              )
-            })}
+                ) : null
 
-            {/* Post-career events */}
-            {timelineEntries.filter(e => e.year > lastYear).map((entry, idx) => {
-              const fromName = entry.from ? getSchoolName(entry.from, teamsData) : null
-              return (
-                <div
-                  key={`post-${idx}`}
-                  className="card overflow-hidden"
-                  style={{ borderLeft: '3px solid #ef4444' }}
-                >
-                  <div className="px-4 py-3 sm:px-5 sm:py-4 flex items-baseline gap-3">
-                    <span
-                      className="text-3xl sm:text-4xl font-black tabular leading-none text-txt-primary"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}
-                    >
-                      {entry.year}
-                    </span>
-                    <span
-                      className="text-sm font-bold uppercase tracking-wider text-txt-secondary"
-                      style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1.2px' }}
-                    >
-                      {getMovementLabel(entry)}{fromName ? ` · ${fromName}` : ''}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
+                rows.push({
+                  key: `season-${yd.year}`,
+                  year: yd.year,
+                  node: {
+                    key: `season-${yd.year}`,
+                    logo,
+                    color: seasonColor,
+                    eyebrow: mergedEyebrow,
+                    headline,
+                    headlineLink: teamTid ? `${pathPrefix}/team/${teamTid}/${yd.year}` : null,
+                    metaRow,
+                    rightSlot,
+                    sub,
+                    movements: seasonMovements,
+                    rowTeam: yd.team
+                  }
+                })
+              })
+
+              // Post-career rows
+              postCareerEntries.forEach((entry, idx) => {
+                const movementColor = getMovementColor(entry.type)
+                const fromTeam = entry.from
+                const fromName = fromTeam ? getMascotName(fromTeam, teamsData) : null
+                const fromLogo = fromName ? getTeamLogo(fromName, teamsData) : null
+                const fromSchool = fromTeam ? getSchoolName(fromTeam, teamsData) : null
+                const fromTid = fromTeam ? resolveTid(fromTeam, teamsData || TEAMS) : null
+
+                const metaRow = fromSchool ? (
+                  <span className="flex items-center gap-1 text-txt-secondary">
+                    <span>from</span>
+                    {fromLogo && <img src={fromLogo} alt="" className="w-3.5 h-3.5 object-contain" />}
+                    <span>{fromSchool}</span>
+                    {entry.reason && <span className="italic text-txt-tertiary">· {entry.reason}</span>}
+                  </span>
+                ) : (entry.reason ? <span className="italic text-txt-tertiary">{entry.reason}</span> : null)
+
+                rows.push({
+                  key: `post-${idx}`,
+                  year: entry.year,
+                  node: {
+                    key: `post-${idx}`,
+                    logo: fromLogo,
+                    color: movementColor,
+                    eyebrow: getMovementLabel(entry),
+                    headline: fromSchool || getMovementLabel(entry),
+                    headlineLink: fromTid ? `${pathPrefix}/team/${fromTid}/${entry.year}` : null,
+                    metaRow
+                  }
+                })
+              })
+
+              // Year gutter: show the year only when it changes
+              let prevYear = null
+              rows.forEach(r => {
+                r.yearMarker = r.year !== prevYear ? r.year : null
+                prevYear = r.year
+              })
+
+              return rows.map((r, i) => renderTimelineNode({
+                ...r.node,
+                yearMarker: r.yearMarker,
+                isFirst: i === 0,
+                isLast: i === rows.length - 1
+              }))
+            })()}
           </div>
         )
       })()}
@@ -1884,11 +2307,16 @@ export default function Player() {
       {/* Career Statistics - Premium Dark Theme */}
       {activeTab === 'stats' && hasMeaningfulStats && (() => {
         const primaryStat = getPrimaryStatCategory(player.position)
+        // For receiving-primary positions (WR, TE) show the Receiving table
+        // above Rushing. Use CSS `order` so the JSX below stays in canonical
+        // position order and we only need to tweak two values.
+        const rushingOrder = primaryStat === 'receiving' ? 3 : 2
+        const receivingOrder = primaryStat === 'receiving' ? 2 : 3
         return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
           {/* Passing Table */}
           {hasStats.passing && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: 1 }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Passing</h3>
               </div>
@@ -2003,7 +2431,7 @@ export default function Player() {
 
           {/* Rushing Table */}
           {hasStats.rushing && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: rushingOrder }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Rushing</h3>
               </div>
@@ -2112,7 +2540,7 @@ export default function Player() {
 
           {/* Receiving Table */}
           {hasStats.receiving && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: receivingOrder }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Receiving</h3>
               </div>

@@ -371,7 +371,7 @@ export default function ScoringHighlightsModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90dvh] flex flex-col border border-surface-4"
+        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-6xl h-[92dvh] flex flex-col border border-surface-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -393,7 +393,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Video Player */}
-        <div className="relative bg-black aspect-video flex-shrink overflow-hidden">
+        <div className="relative bg-black flex-1 min-h-0 overflow-hidden">
           {isDirectVideo ? (
             <video
               key={currentIndex}
@@ -438,7 +438,7 @@ export default function ScoringHighlightsModal({
         </div>
 
         {/* Play Info */}
-        <div className="px-4 py-3 bg-surface-2 border-t border-surface-4 flex-shrink-0">
+        <div className="px-4 py-2 bg-surface-2 border-t border-surface-4 flex-shrink-0">
           <div className="flex items-start gap-3">
             {/* Player image */}
             {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
@@ -506,7 +506,7 @@ export default function ScoringHighlightsModal({
 
         {/* Navigation Filters */}
         {(seasons.length > 1 || games.length > 1) && (
-          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 bg-surface-2 border-t border-surface-4 flex-shrink-0">
+          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-2 bg-surface-2 border-t border-surface-4 flex-shrink-0">
             {seasons.length > 1 && (
               <div className="flex items-center gap-2">
                 <label className="text-sm text-txt-muted font-medium">Season:</label>
@@ -574,18 +574,18 @@ export default function ScoringHighlightsModal({
           </div>
         )}
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4 px-4 py-4 bg-surface-1 border-t border-surface-4 flex-shrink-0">
+        {/* Controls + Progress */}
+        <div className="flex items-center justify-center gap-3 px-4 py-2 bg-surface-1 border-t border-surface-4 flex-shrink-0">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               currentIndex === 0
                 ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
                 : 'bg-surface-3 text-white hover:bg-surface-4'
             }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Prev
@@ -593,15 +593,15 @@ export default function ScoringHighlightsModal({
 
           <button
             onClick={handlePlayPause}
-            className="flex items-center justify-center w-12 h-12 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors flex-shrink-0"
             title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
           >
             {isPlaying ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
               </svg>
             ) : (
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
@@ -610,38 +610,39 @@ export default function ScoringHighlightsModal({
           <button
             onClick={handleNext}
             disabled={currentIndex === totalPlays - 1}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               currentIndex === totalPlays - 1
                 ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
                 : 'bg-surface-3 text-white hover:bg-surface-4'
             }`}
           >
             Next
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-        </div>
 
-        {/* Progress dots */}
-        <div className="flex justify-center gap-2 px-4 pb-4 bg-surface-1 flex-shrink-0">
-          {playsWithVideo.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setCurrentIndex(idx)
-                setIsPlaying(true)
-              }}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                idx === currentIndex
-                  ? 'bg-blue-500'
-                  : idx < currentIndex
-                  ? 'bg-green-500'
-                  : 'bg-surface-4 hover:bg-surface-5'
-              }`}
-              title={`Play ${idx + 1}`}
-            />
-          ))}
+          {totalPlays > 1 && totalPlays <= 40 && (
+            <div className="hidden sm:flex items-center gap-1.5 ml-2 max-w-[45%] overflow-x-auto">
+              {playsWithVideo.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setCurrentIndex(idx)
+                    setIsPlaying(true)
+                  }}
+                  className={`w-1.5 h-1.5 rounded-full transition-colors flex-shrink-0 ${
+                    idx === currentIndex
+                      ? 'bg-blue-500'
+                      : idx < currentIndex
+                      ? 'bg-green-500'
+                      : 'bg-surface-4 hover:bg-surface-5'
+                  }`}
+                  title={`Play ${idx + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

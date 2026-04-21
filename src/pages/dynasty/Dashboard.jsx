@@ -3296,29 +3296,6 @@ export default function Dashboard() {
         </div>
       ) : currentDynasty.currentPhase === 'regular_season' ? (
         <div>
-          <div className="py-3 flex items-center gap-3" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
-            <div className="w-1 h-12 rounded-full" style={{ backgroundColor: teamColors.primary }} />
-            <div>
-              <div
-                className="font-bold uppercase text-txt-tertiary"
-                style={{ letterSpacing: '2px', fontSize: '10px' }}
-              >
-                Current Week
-              </div>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span
-                  className="font-display font-black tabular-nums leading-none"
-                  style={{ fontSize: '1.75rem', color: 'var(--text-primary)' }}
-                >
-                  W{currentDynasty.currentWeek}
-                </span>
-                <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                  {currentDynasty.currentYear} Regular Season
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="pt-4">
           <div className="space-y-3">
             {(() => {
               const scheduledGame = teamSchedule?.find(g => Number(g.week) === Number(currentDynasty.currentWeek))
@@ -3381,23 +3358,24 @@ export default function Dashboard() {
 
               return (
                 <>
-                  {isByeWeek ? (
-                    <div className="flex items-center justify-between px-4 py-5 rounded-xl" style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}>
-                      <div>
-                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>Week {currentDynasty.currentWeek}</div>
-                        <div className="font-display font-black text-2xl text-zinc-300 mt-1">BYE WEEK</div>
+                  <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
+                    {isByeWeek ? (
+                      /* Bye-week card occupies the left (game) column; recruiting sidebar still renders on the right so commits can be logged. */
+                      <div className="flex items-center justify-between px-4 py-5 rounded-xl" style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--rule-soft)' }}>
+                        <div>
+                          <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>Week {currentDynasty.currentWeek}</div>
+                          <div className="font-display font-black text-2xl text-zinc-300 mt-1">BYE WEEK</div>
+                        </div>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--surface-4)' }}>
+                          <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
                       </div>
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--surface-4)' }}>
-                        <svg className="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3 stagger-reveal">
-                      {/* Scorebug */}
+                    ) : (
+                      /* Scorebug */
                       <div
-                        className="rounded-xl p-5 flex flex-col justify-between"
+                        className="rounded-xl p-3 sm:p-5 flex flex-col justify-between"
                         style={playedGame ? {
                           backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
                           border: '1px solid rgba(34, 197, 94, 0.35)'
@@ -3407,24 +3385,23 @@ export default function Dashboard() {
                         }}
                       >
                         {/* Matchup row */}
-                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
                           {/* Our team */}
-                          <div className="flex flex-col items-center gap-2 min-w-0">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                          <div className="flex flex-col items-center min-w-0">
+                            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
                               {userLogoUrl
-                                ? <img src={userLogoUrl} alt="" className="w-full h-full object-contain" />
+                                ? <img src={userLogoUrl} alt={userAbbr} className="w-full h-full object-contain" />
                                 : <div className="w-full h-full rounded-full" style={{ backgroundColor: teamColors.primary }} />}
                             </div>
-                            <div className="font-display font-black tabular-nums text-lg sm:text-xl text-zinc-100 leading-none">{userAbbr}</div>
                           </div>
                           {/* Middle: VS/score */}
                           <div className="flex flex-col items-center gap-1 px-1">
                             {playedGame && userScore != null && oppScore != null ? (
                               <>
-                                <div className="flex items-baseline gap-2 font-display font-black tabular-nums leading-none" style={{ fontSize: '2rem', color: 'var(--text-primary)' }}>
-                                  <span>{userScore}</span>
-                                  <span className="text-zinc-600 text-xl">–</span>
-                                  <span>{oppScore}</span>
+                                <div className="flex items-baseline gap-1.5 sm:gap-2 font-display font-black tabular-nums leading-none" style={{ color: 'var(--text-primary)' }}>
+                                  <span className="text-2xl sm:text-[2rem]">{userScore}</span>
+                                  <span className="text-zinc-600 text-lg sm:text-xl">–</span>
+                                  <span className="text-2xl sm:text-[2rem]">{oppScore}</span>
                                 </div>
                                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${userWon ? 'text-green-400 bg-green-500/10' : 'text-red-400 bg-red-500/10'}`}>
                                   {userWon ? 'W' : 'L'} · Final
@@ -3433,30 +3410,28 @@ export default function Dashboard() {
                             ) : (
                               <>
                                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Week {currentDynasty.currentWeek}</span>
-                                <span className="font-display font-black text-xl leading-none" style={{ color: teamColors.primary }}>{atSymbol.toUpperCase()}</span>
+                                <span className="font-display font-black text-lg sm:text-xl leading-none" style={{ color: teamColors.primary }}>{atSymbol.toUpperCase()}</span>
                               </>
                             )}
                           </div>
                           {/* Opponent */}
-                          <div className="flex flex-col items-center gap-2 min-w-0">
-                            <div className="w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                          <div className="flex flex-col items-center min-w-0">
+                            <div className="w-12 h-12 sm:w-20 sm:h-20 flex items-center justify-center">
                               {oppLogoUrl
-                                ? <img src={oppLogoUrl} alt="" className="w-full h-full object-contain" />
-                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700" />}
+                                ? <img src={oppLogoUrl} alt={oppAbbr || 'Opponent'} className="w-full h-full object-contain" />
+                                : <div className="w-full h-full rounded-full border-2 border-dashed border-zinc-700 flex items-center justify-center text-xs font-bold text-zinc-400">TBD</div>}
                             </div>
-                            <div className="font-display font-black tabular-nums text-lg sm:text-xl text-zinc-100 leading-none truncate max-w-full">{oppAbbr || 'TBD'}</div>
                           </div>
                         </div>
                         {/* CTA */}
                         {!isViewOnly && (
                           <button
                             onClick={handleEnterGame}
-                            className="mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-3 transition-all hover:opacity-90 active:translate-y-px"
+                            className="mt-3 sm:mt-4 w-full rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
                             style={{
                               backgroundColor: teamColors.primary,
                               color: primaryBgText,
                               letterSpacing: '2px',
-                              fontSize: '13px',
                               boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
                             }}
                           >
@@ -3465,10 +3440,11 @@ export default function Dashboard() {
                         )}
                         {isViewOnly && <div className="mt-4 flex justify-center"><ViewOnlyBadge /></div>}
                       </div>
+                    )}
 
-                      {/* Recruiting sidebar */}
-                      <div
-                        className="rounded-xl p-4 flex flex-col"
+                    {/* Recruiting sidebar — always rendered, works on bye weeks too */}
+                    <div
+                      className="rounded-xl p-3 sm:p-4 flex flex-col gap-3"
                         style={hasCommitmentsData ? {
                           backgroundColor: 'color-mix(in srgb, #22c55e 10%, var(--surface-3))',
                           border: '1px solid rgba(34, 197, 94, 0.35)'
@@ -3477,46 +3453,84 @@ export default function Dashboard() {
                           border: '1px solid var(--rule-soft)'
                         }}
                       >
-                        <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
-                          Recruiting
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2px', fontSize: '10px' }}>
+                              Recruiting · Week {currentDynasty.currentWeek}
+                            </div>
+                            {!isViewOnly && (
+                              <button
+                                onClick={() => setShowSellCalc(true)}
+                                className="sm:hidden flex-shrink-0 -mt-0.5 -mr-0.5 w-7 h-7 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-1 hover:text-txt-primary transition-colors flex items-center justify-center"
+                                title="Sell vs Send Calculator"
+                                aria-label="Open Sell vs Send Calculator"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                  <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
+                                  <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
+                                  <circle cx="9" cy="13" r="0.5" fill="currentColor" />
+                                  <circle cx="12" cy="13" r="0.5" fill="currentColor" />
+                                  <circle cx="15" cy="13" r="0.5" fill="currentColor" />
+                                  <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
+                                  <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                                  <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                          {hasCommitmentsData && (
+                            <div className="font-display font-black text-lg sm:text-xl mt-1 leading-tight text-green-400">
+                              {commitmentsCount > 0
+                                ? `${commitmentsCount} Commit${commitmentsCount !== 1 ? 's' : ''} Logged`
+                                : 'Week Complete'}
+                            </div>
+                          )}
+                          {classScore > 0 && (
+                            <Link
+                              to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
+                              className="inline-block mt-1 text-[10px] font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
+                              style={{ letterSpacing: '1.5px' }}
+                              title="View recruiting class"
+                            >
+                              {currentDynasty.currentYear} Class <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
+                            </Link>
+                          )}
                         </div>
-                        <div className={`font-display font-black text-lg mt-1 leading-tight ${hasCommitmentsData ? 'text-green-400' : 'text-zinc-100'}`}>
-                          {hasCommitmentsData
-                            ? (commitmentsCount > 0 ? `${commitmentsCount} Commit${commitmentsCount !== 1 ? 's' : ''}` : 'No Commits')
-                            : 'This Week'}
-                        </div>
-                        {classScore > 0 ? (
-                          <Link
-                            to={`${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`}
-                            className="mt-1 text-[10px] font-bold uppercase text-txt-tertiary hover:text-team-primary transition-colors"
-                            style={{ letterSpacing: '1.5px' }}
-                            title="View recruiting class"
-                          >
-                            Class <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
-                          </Link>
-                        ) : (
-                          <div className="text-xs text-zinc-500 mt-1">Log this week's commits</div>
-                        )}
 
                         {!isViewOnly && (
-                          <div className="mt-auto pt-3 flex flex-col gap-2">
-                            <SellVsSendButton onClick={() => setShowSellCalc(true)} />
+                          <div className="mt-auto flex flex-col gap-2">
+                            <button
+                              onClick={() => setShowSellCalc(true)}
+                              className="hidden sm:flex w-full py-2 rounded-lg font-semibold uppercase tracking-wider text-[11px] bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-1 hover:text-txt-primary transition-colors items-center justify-center gap-1.5"
+                              style={{ letterSpacing: '1.2px' }}
+                              title="Open Sell vs Send Calculator"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
+                                <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
+                                <circle cx="9" cy="13" r="0.5" fill="currentColor" />
+                                <circle cx="12" cy="13" r="0.5" fill="currentColor" />
+                                <circle cx="15" cy="13" r="0.5" fill="currentColor" />
+                                <circle cx="9" cy="16.5" r="0.5" fill="currentColor" />
+                                <circle cx="12" cy="16.5" r="0.5" fill="currentColor" />
+                                <circle cx="15" cy="16.5" r="0.5" fill="currentColor" />
+                              </svg>
+                              Sell vs Send Calc
+                            </button>
                             <button
                               onClick={() => setShowRecruitingModal(true)}
                               className="w-full py-2 rounded-lg font-bold uppercase tracking-wider text-xs transition-all hover:opacity-90 active:translate-y-px"
                               style={{ backgroundColor: teamColors.primary, color: primaryBgText }}
                             >
-                              {hasCommitmentsData ? 'Edit Commits' : 'Enter Commits'}
+                              {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
                             </button>
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                  </div>
                 </>
               )
             })()}
-          </div>
           </div>
         </div>
       ) : currentDynasty.currentPhase === 'conference_championship' ? (

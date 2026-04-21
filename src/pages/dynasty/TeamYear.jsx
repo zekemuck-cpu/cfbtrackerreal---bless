@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -15,6 +16,7 @@ import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
+import { calculateRecruitingClassScore, formatRecruitingClassScore } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 
 // Map abbreviation to mascot name for logo lookup
@@ -2111,15 +2113,15 @@ export default function TeamYear() {
                     </svg>
                   </button>
 
-                  {showCoachingStaffPopup && (
+                  {showCoachingStaffPopup && createPortal(
                     <>
                       {/* Backdrop - click to close */}
                       <div
-                        className="fixed inset-0 z-40"
+                        className="fixed inset-0 z-[9998]"
                         onClick={() => setShowCoachingStaffPopup(false)}
                       />
                       <div
-                        className="fixed z-50 w-72 card-elevated overflow-hidden border-l-[3px]"
+                        className="fixed z-[9999] w-72 card-elevated overflow-hidden border-l-[3px]"
                         style={{
                           borderLeftColor: teamInfo.backgroundColor,
                           top: coachingStaffPopupPosition.top,
@@ -2194,7 +2196,8 @@ export default function TeamYear() {
                           )}
                         </div>
                       </div>
-                    </>
+                    </>,
+                    document.body
                   )}
                 </div>
               )}
@@ -2490,6 +2493,7 @@ export default function TeamYear() {
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
+          { key: 'recruiting', label: 'Recruiting' },
           { key: 'history', label: 'History' }
         ].map(tab => {
           const isActive = activeTab === tab.key
@@ -2759,8 +2763,8 @@ export default function TeamYear() {
                   </button>
                 </div>
 
-                {/* Mobile: horizontal scroll */}
-                <div className="md:hidden flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide stagger-reveal">
+                {/* Mobile: horizontal scroll — left-indented to align with section heading text */}
+                <div className="md:hidden flex gap-4 overflow-x-auto pb-2 -mr-4 pr-4 pl-[15px] scrollbar-hide stagger-reveal">
                   {leaders.map((l) => (
                     <Link
                       key={l.key}
@@ -2842,20 +2846,12 @@ export default function TeamYear() {
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3 min-w-0">
                   {teamLogo && <img src={teamLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
-                  <div className="flex flex-col min-w-0">
-                    <span
-                      className="text-[10px] font-semibold uppercase truncate"
-                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
-                    >
-                      {teamAbbr}
-                    </span>
-                    <span
-                      className="text-3xl font-black tabular-nums leading-none"
-                      style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
-                    >
-                      {lastGameInfo.teamScore}
-                    </span>
-                  </div>
+                  <span
+                    className="text-3xl font-black tabular-nums leading-none"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
+                  >
+                    {lastGameInfo.teamScore}
+                  </span>
                 </div>
                 <span
                   className={`text-[10px] font-bold uppercase px-2 py-1 rounded-sm ${lastGameInfo.isWin ? 'bg-green-600/15 text-green-400' : 'bg-red-600/15 text-red-400'}`}
@@ -2864,21 +2860,29 @@ export default function TeamYear() {
                   {lastGameInfo.isWin ? 'W' : 'L'}
                 </span>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex flex-col items-end min-w-0">
-                    <span
-                      className="text-[10px] font-semibold uppercase truncate"
-                      style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
-                    >
-                      {lastGame.opponentRank && <span className="opacity-60">#{lastGame.opponentRank} </span>}
-                      {lastGameInfo.oppAbbr}
-                    </span>
+                  {lastGame.opponentRank ? (
+                    <div className="flex flex-col items-end min-w-0">
+                      <span
+                        className="text-[10px] font-semibold uppercase"
+                        style={{ letterSpacing: '1.5px', color: 'var(--text-tertiary)' }}
+                      >
+                        #{lastGame.opponentRank}
+                      </span>
+                      <span
+                        className="text-3xl font-black tabular-nums leading-none"
+                        style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
+                      >
+                        {lastGameInfo.oppScore}
+                      </span>
+                    </div>
+                  ) : (
                     <span
                       className="text-3xl font-black tabular-nums leading-none"
                       style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}
                     >
                       {lastGameInfo.oppScore}
                     </span>
-                  </div>
+                  )}
                   {lastGameInfo.oppLogo && <img src={lastGameInfo.oppLogo} alt="" className="w-11 h-11 object-contain flex-shrink-0" />}
                 </div>
               </div>
@@ -4951,6 +4955,138 @@ export default function TeamYear() {
       )}
         </div>
       )}
+
+      {/* Recruiting Tab */}
+      {activeTab === 'recruiting' && (() => {
+        const commits = getRecruitingCommitments(currentDynasty, tid, selectedYear) || []
+        const sorted = [...commits].sort((a, b) => {
+          const starDiff = (Number(b.stars) || 0) - (Number(a.stars) || 0)
+          if (starDiff !== 0) return starDiff
+          return (a.name || '').localeCompare(b.name || '')
+        })
+        const classScore = calculateRecruitingClassScore(commits)
+        const nationalRank = currentDynasty?.recruitingClassRankByTeamYear?.[teamAbbr]?.[selectedYear] ?? null
+        const starCounts = [5, 4, 3, 2, 1].map(n => ({
+          count: n,
+          total: commits.filter(c => Number(c.stars) === n).length
+        }))
+
+        return (
+          <div className="space-y-4">
+            <div className="card overflow-hidden">
+              <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--team-primary)' }} aria-hidden="true" />
+              <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-5">
+                  <div
+                    className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
+                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
+                  >
+                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                      {nationalRank ? `#${nationalRank}` : '—'}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>National</span>
+                      <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>Rank</span>
+                    </div>
+                  </div>
+                  <div
+                    className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm"
+                    style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
+                  >
+                    <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                      {formatRecruitingClassScore(classScore)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Class</span>
+                      <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>Score</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="sm:ml-auto">
+                  <Link
+                    to={`${pathPrefix}/recruiting/${tid}/${selectedYear}`}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
+                    style={{
+                      backgroundColor: 'var(--team-primary)',
+                      color: 'var(--team-primary-text, #ffffff)',
+                      letterSpacing: '1.5px'
+                    }}
+                  >
+                    FULL RECRUITING PAGE
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 border-t border-surface-4">
+                {starCounts.map(tile => (
+                  <div key={tile.count} className="px-2 py-3 text-center border-r border-surface-4 last:border-r-0">
+                    <div className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{tile.total}</div>
+                    <div className="flex justify-center mt-1 gap-0.5">
+                      {[...Array(tile.count)].map((_, i) => (
+                        <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {sorted.length === 0 ? (
+              <div className="card p-8 text-center">
+                <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>No Commits</div>
+                <p className="text-sm text-txt-secondary mb-4">No recruiting class has been recorded for {teamAbbr} · {selectedYear}.</p>
+                <Link
+                  to={`${pathPrefix}/recruiting/${tid}/${selectedYear}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm label-sm transition-colors hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--team-primary)',
+                    color: 'var(--team-primary-text, #ffffff)',
+                    letterSpacing: '1.5px'
+                  }}
+                >
+                  OPEN RECRUITING PAGE
+                </Link>
+              </div>
+            ) : (
+              <div className="card overflow-hidden">
+                <div className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 bg-surface-2">
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>★</span>
+                  <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
+                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Name</span>
+                  <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Hometown</span>
+                  <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Type</span>
+                </div>
+                {sorted.map((c, i) => (
+                  <div
+                    key={`${c.name}-${i}`}
+                    className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0"
+                  >
+                    <div className="flex gap-0.5 items-center">
+                      {[...Array(Number(c.stars) || 0)].map((_, si) => (
+                        <svg key={si} className="w-3 h-3" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                    <span className="hidden sm:inline text-xs font-semibold text-txt-secondary tabular">{c.position || '—'}</span>
+                    <span className="text-sm font-semibold text-txt-primary truncate">{c.name}</span>
+                    <span className="text-xs text-txt-tertiary text-right truncate hidden sm:inline">
+                      {c.hometown ? `${c.hometown}${c.state ? `, ${c.state}` : ''}` : (c.state || '—')}
+                    </span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-txt-tertiary text-right">
+                      {c.previousTeam ? 'Portal' : 'HS'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* History Tab */}
       {activeTab === 'history' && (() => {

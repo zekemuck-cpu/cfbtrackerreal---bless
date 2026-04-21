@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -272,14 +273,14 @@ export default function StatsEntryModal({
   const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, 'GP/Snaps') : null
   const isLoading = creatingSheet
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-3 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-1.5rem)] sm:max-h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
@@ -297,8 +298,8 @@ export default function StatsEntryModal({
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        <p className="text-sm mb-4 text-txt-secondary">
+        <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-4 sm:p-6">
+        <p className="text-sm mb-3 text-txt-secondary">
           Enter this first! Detailed Stats entry sorts players by snaps, so entering snaps here lets you quickly go down the list when entering passing, rushing, and other stats.
         </p>
 
@@ -390,33 +391,28 @@ export default function StatsEntryModal({
             )}
 
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
-                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
-                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
-                  <ol className="text-sm space-y-2 text-txt-secondary">
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Select a player from the dropdown, enter GP &amp; Snaps</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <h3 className="label-xs text-txt-tertiary mb-1">Data Entry</h3>
+                <p className="text-xl font-bold text-txt-primary mb-3">Edit in Google Sheets</p>
+                <div className="text-left mb-3 max-w-sm w-full card p-3 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="label-xs text-txt-tertiary mb-1.5">Instructions</p>
+                  <ol className="text-xs space-y-1 text-txt-secondary">
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap button below to open Google Sheets</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Select a player, enter GP &amp; Snaps</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <div className="text-xs p-3 rounded-lg mb-6 max-w-xs" style={{ backgroundColor: `${teamColors.primary}15`, color: teamColors.primary }}>
-                  <p className="font-semibold mb-1">Tip:</p>
-                  <p style={{ opacity: 0.85 }}>Entering Snaps Played here will make detailed stats entry much faster - you can sort by snaps to quickly find players who actually played. Complete this step before moving to detailed stats.</p>
-                </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2 mb-4" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
                   Open Google Sheets
                 </a>
 
-                {/* Centered Save Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
+                <div className="flex flex-col sm:flex-row gap-2 items-center justify-center mb-2">
                   <button
                     onClick={handleSyncAndDelete}
                     disabled={syncing || deletingSheet}
-                    className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
+                    className={`px-5 py-2.5 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
                       color: getContrastTextColor(teamColors.primary)
@@ -427,7 +423,7 @@ export default function StatsEntryModal({
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="btn btn-secondary px-6 py-3 text-sm"
+                    className="btn btn-secondary px-5 py-2.5 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
@@ -435,7 +431,7 @@ export default function StatsEntryModal({
                 <button
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
-                  className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
+                  className="text-[11px] px-3 py-1.5 rounded-lg font-medium hover:opacity-90 transition-colors border"
                   style={{
                     backgroundColor: 'transparent',
                     borderColor: '#EF4444',
@@ -444,11 +440,6 @@ export default function StatsEntryModal({
                 >
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
-                {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: teamColors.primary }}>
-
-                  </span>
-                )}
               </div>
             ) : (
               <>
@@ -522,6 +513,7 @@ export default function StatsEntryModal({
         }}
         teamColors={teamColors}
       />
-    </div>
+    </div>,
+    document.body
   )
 }

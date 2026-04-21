@@ -460,10 +460,10 @@ export default function DynastyRecords() {
         actions={modeTabs}
       />
 
-      {/* Category Navigation */}
-      <div className="overflow-x-auto -mx-4 px-4 pb-1 scrollbar-hide">
+      {/* Category Navigation — editorial tab strip, neutral underline on active */}
+      <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
         <div
-          className="flex gap-1 min-w-max"
+          className="flex gap-6 min-w-max"
           style={{ borderBottom: '1px solid var(--surface-4)' }}
         >
           {CATEGORY_ORDER.map(catKey => {
@@ -473,23 +473,42 @@ export default function DynastyRecords() {
               <button
                 key={catKey}
                 onClick={() => handleCategoryChange(catKey)}
-                className={`px-4 py-2.5 label-xs whitespace-nowrap transition-colors ${
+                className={`relative py-3 whitespace-nowrap transition-colors text-[11px] font-bold uppercase ${
                   isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
                 }`}
-                style={isActive ? { boxShadow: 'inset 0 -2px 0 0 var(--team-primary)' } : undefined}
+                style={{ letterSpacing: '2px' }}
               >
                 {cat.name}
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-0 right-0 -bottom-px h-[2px]"
+                    style={{ backgroundColor: 'var(--text-primary)' }}
+                  />
+                )}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Category Header */}
-      <div>
-        <h2 className="display-md">{category.name} Leaders</h2>
+      {/* Category Header — editorial banner */}
+      <div className="flex items-end justify-between gap-4 border-b pb-3" style={{ borderColor: 'var(--surface-4)' }}>
+        <div>
+          <div className="text-[10px] font-bold uppercase text-txt-tertiary" style={{ letterSpacing: '2.5px' }}>
+            {mode === 'career' ? 'Career' : 'Single Season'}
+          </div>
+          <h2
+            className="font-black leading-none mt-1"
+            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '1px' }}
+          >
+            {category.name} Leaders
+          </h2>
+        </div>
         {category.minNote && (
-          <p className="text-xs text-txt-tertiary mt-1">{category.minNote}</p>
+          <p className="text-[11px] text-txt-tertiary shrink-0 hidden sm:block" style={{ letterSpacing: '0.5px' }}>
+            {category.minNote}
+          </p>
         )}
       </div>
 
@@ -502,106 +521,177 @@ export default function DynastyRecords() {
           />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 stagger-reveal">
           {category.stats.map(stat => {
             const statLeaderboard = catLeaderboards[stat.key] || []
             const isExpanded = selectedStat === stat.key
 
             return (
-              <Card
+              <div
                 key={stat.key}
-                padding="none"
-                accent={isExpanded ? 'top' : undefined}
+                className="records-card rounded-xl overflow-hidden flex flex-col"
+                style={{
+                  backgroundColor: 'var(--surface-2)',
+                  border: '1px solid var(--rule-soft)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 30px -18px rgba(0,0,0,0.6)'
+                }}
               >
+                {/* Team-accent top rule — thin, decorative */}
                 <div
-                  className="p-4 cursor-pointer"
+                  aria-hidden="true"
+                  className="h-[2px] w-full"
+                  style={{
+                    background: 'linear-gradient(90deg, var(--team-primary) 0%, color-mix(in srgb, var(--team-primary) 60%, transparent) 55%, transparent 100%)'
+                  }}
+                />
+
+                {/* Card header: stat abbr eyebrow + name */}
+                <div
+                  className="flex items-baseline justify-between px-5 pt-4 pb-3 cursor-pointer select-none"
+                  style={{
+                    background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 60%, var(--surface-2)) 0%, var(--surface-2) 100%)',
+                    borderBottom: '1px solid var(--rule-soft)'
+                  }}
                   onClick={() => setSelectedStat(isExpanded ? null : stat.key)}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-txt-primary text-sm">{stat.label}</h3>
-                    <Badge variant="accent" size="sm">{stat.abbr}</Badge>
+                  <div>
+                    <div
+                      className="text-[10px] font-bold uppercase text-txt-tertiary"
+                      style={{ letterSpacing: '2px' }}
+                    >
+                      {stat.abbr}
+                    </div>
+                    <h3
+                      className="font-black mt-0.5 leading-tight text-txt-primary"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.35rem', letterSpacing: '1px' }}
+                    >
+                      {stat.label}
+                    </h3>
                   </div>
-
-                  {/* Top 3 Preview */}
-                  {statLeaderboard.length > 0 ? (
-                    <div>
-                      {statLeaderboard.slice(0, 3).map((entry, idx) => {
-                        const rank = idx + 1
-                        const isFirst = rank === 1
-
-                        return (
-                          <div
-                            key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                            className="flex items-center gap-3 py-2"
-                            style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
-                          >
-                            <div
-                              className="w-6 text-right label-xs tabular flex-shrink-0"
-                              style={{ color: isFirst ? 'var(--team-primary)' : 'var(--text-muted)' }}
-                            >
-                              {rank}
-                            </div>
-
-                            {entry.pictureUrl ? (
-                              <img
-                                src={entry.pictureUrl}
-                                alt=""
-                                className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                                style={{ border: '1px solid var(--surface-4)' }}
-                              />
-                            ) : entry.teamLogo ? (
-                              <img
-                                src={entry.teamLogo}
-                                alt=""
-                                className="w-6 h-6 object-contain flex-shrink-0"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-surface-4 flex-shrink-0" />
-                            )}
-
-                            <div className="flex-1 min-w-0">
-                              <Link
-                                to={`${pathPrefix}/player/${entry.pid}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-sm font-medium text-txt-primary hover:text-[color:var(--team-primary)] truncate block transition-colors"
-                              >
-                                {entry.name}
-                              </Link>
-                              <p className="text-[11px] text-txt-tertiary">
-                                {entry.position && `${entry.position} • `}
-                                {mode === 'career' ? formatYears(entry.years) : entry.year}
-                              </p>
-                            </div>
-
-                            <div
-                              className={`tabular flex-shrink-0 ${isFirst ? 'stat-lg' : 'stat-md'}`}
-                              style={isFirst ? { color: 'var(--team-primary)' } : undefined}
-                            >
-                              {formatValue(entry.value, stat.format)}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="py-4">
-                      <p className="text-xs text-txt-tertiary">No qualifying players</p>
-                    </div>
-                  )}
                 </div>
+
+                {/* Top 3 — podium treatment */}
+                {statLeaderboard.length > 0 ? (
+                  <div>
+                    {statLeaderboard.slice(0, 3).map((entry, idx) => {
+                      const rank = idx + 1
+                      const isFirst = rank === 1
+
+                      return (
+                        <div
+                          key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
+                          className="relative flex items-center gap-3 transition-colors"
+                          style={{
+                            padding: isFirst ? '14px 16px 14px 18px' : '8px 16px 8px 18px',
+                            borderTop: idx === 0 ? 'none' : '1px solid var(--rule-soft)',
+                            background: isFirst
+                              ? 'linear-gradient(90deg, color-mix(in srgb, var(--team-primary) 6%, var(--surface-2)) 0%, var(--surface-2) 65%)'
+                              : 'transparent'
+                          }}
+                        >
+                          {/* Podium accent stripe on #1 */}
+                          {isFirst && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute left-0 top-0 bottom-0 w-[3px]"
+                              style={{ backgroundColor: 'var(--team-primary)' }}
+                            />
+                          )}
+
+                          <div
+                            className="text-right tabular flex-shrink-0"
+                            style={{
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: isFirst ? '1.4rem' : '1rem',
+                              letterSpacing: '0.5px',
+                              lineHeight: 1,
+                              width: isFirst ? '1.75rem' : '1.25rem',
+                              color: isFirst ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                              opacity: isFirst ? 1 : 0.85
+                            }}
+                          >
+                            {rank}
+                          </div>
+
+                          {entry.pictureUrl ? (
+                            <img
+                              src={entry.pictureUrl}
+                              alt=""
+                              className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
+                              style={{
+                                border: isFirst
+                                  ? '2px solid color-mix(in srgb, var(--team-primary) 45%, transparent)'
+                                  : '1px solid var(--surface-4)'
+                              }}
+                            />
+                          ) : entry.teamLogo ? (
+                            <img
+                              src={entry.teamLogo}
+                              alt=""
+                              className={`${isFirst ? 'w-10 h-10' : 'w-7 h-7'} object-contain flex-shrink-0`}
+                            />
+                          ) : (
+                            <div className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              to={`${pathPrefix}/player/${entry.pid}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}
+                            >
+                              {entry.name}
+                            </Link>
+                            <p className="text-[11px] text-txt-tertiary truncate">
+                              {entry.position && `${entry.position} · `}
+                              {mode === 'career' ? formatYears(entry.years) : entry.year}
+                            </p>
+                          </div>
+
+                          <div
+                            className="tabular flex-shrink-0 text-right text-txt-primary"
+                            style={{
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: isFirst ? '2.25rem' : rank === 2 ? '1.35rem' : '1.15rem',
+                              fontWeight: isFirst ? 900 : 700,
+                              letterSpacing: '0.5px',
+                              lineHeight: 1,
+                              opacity: isFirst ? 1 : rank === 2 ? 0.8 : 0.65
+                            }}
+                          >
+                            {formatValue(entry.value, stat.format)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-5 py-5">
+                    <p className="text-xs text-txt-tertiary">No qualifying players</p>
+                  </div>
+                )}
 
                 {/* Expanded View - Ranks 4-10 */}
                 {isExpanded && statLeaderboard.length > 3 && (
-                  <div style={{ borderTop: '1px solid var(--surface-4)' }}>
+                  <div
+                    className="records-expand"
+                    style={{
+                      borderTop: '1px solid var(--rule-soft)',
+                      backgroundColor: 'var(--surface-1)'
+                    }}
+                  >
                     {statLeaderboard.slice(3, 10).map((entry, idx) => {
                       const rank = idx + 4
                       return (
                         <div
                           key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                          className="flex items-center gap-3 px-4 py-2 hover:bg-surface-3 transition-colors"
-                          style={idx > 0 ? { borderTop: '1px solid var(--surface-4)' } : undefined}
+                          className="flex items-center gap-3 px-5 py-1.5 hover:bg-surface-2 transition-colors"
+                          style={idx > 0 ? { borderTop: '1px solid var(--rule-soft)' } : undefined}
                         >
-                          <div className="w-6 text-right label-xs tabular text-txt-tertiary flex-shrink-0">
+                          <div
+                            className="w-5 text-right tabular text-txt-tertiary flex-shrink-0"
+                            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '0.85rem' }}
+                          >
                             {rank}
                           </div>
 
@@ -614,13 +704,13 @@ export default function DynastyRecords() {
                           <div className="flex-1 min-w-0">
                             <Link
                               to={`${pathPrefix}/player/${entry.pid}`}
-                              className="text-sm text-txt-secondary hover:text-[color:var(--team-primary)] truncate block transition-colors"
+                              className="text-[13px] text-txt-secondary hover:text-txt-primary hover:underline truncate block transition-colors"
                             >
                               {entry.name}
                             </Link>
                           </div>
 
-                          <div className="text-sm font-semibold text-txt-secondary tabular flex-shrink-0">
+                          <div className="text-[13px] font-semibold text-txt-secondary tabular flex-shrink-0">
                             {formatValue(entry.value, stat.format)}
                           </div>
                         </div>
@@ -632,14 +722,18 @@ export default function DynastyRecords() {
                 {/* Expand/Collapse */}
                 {statLeaderboard.length > 3 && (
                   <button
-                    className="w-full px-4 py-2 text-center label-xs text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3 transition-colors"
-                    style={{ borderTop: '1px solid var(--surface-4)' }}
+                    className="mt-auto w-full px-5 py-2.5 text-center text-[10px] font-bold uppercase text-txt-tertiary hover:text-txt-primary transition-colors"
+                    style={{
+                      borderTop: '1px solid var(--rule-soft)',
+                      letterSpacing: '2.5px',
+                      backgroundColor: 'color-mix(in srgb, var(--surface-1) 55%, var(--surface-2))'
+                    }}
                     onClick={() => setSelectedStat(isExpanded ? null : stat.key)}
                   >
-                    {isExpanded ? 'Show Less' : `+${statLeaderboard.length - 3} more`}
+                    {isExpanded ? 'Show Less ↑' : `+${statLeaderboard.length - 3} More ↓`}
                   </button>
                 )}
-              </Card>
+              </div>
             )
           })}
         </div>

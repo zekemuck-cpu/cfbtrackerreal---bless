@@ -2265,7 +2265,7 @@ export default function Game() {
 
               {/* Stat label */}
               <div className="text-center flex-shrink-0 px-1 sm:px-2">
-                <span className={`text-[9px] sm:text-xs font-medium uppercase tracking-wide ${stat.key ? 'text-white' : 'text-txt-muted'}`}>
+                <span className="text-[9px] sm:text-xs font-medium uppercase tracking-wide text-txt-secondary">
                   {stat.label}
                 </span>
                 {stat.subLabel && (
