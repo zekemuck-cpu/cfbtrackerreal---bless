@@ -7,7 +7,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamA
 import { getTeamLogoByTid } from '../../data/teams'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
 import Modal from '../../components/ui/Modal'
-import { calculateRecruitingClassScore, formatRecruitingClassScore } from '../../utils/recruitingScore'
+import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -655,7 +655,7 @@ export default function Recruiting() {
     const rows = []
     availableYears.forEach(year => {
       if (typeof year !== 'number') return
-      const commits = getRecruitingCommitments(currentDynasty, selectedTid, year) || []
+      const commits = flattenClassCommitments(getRecruitingCommitments(currentDynasty, selectedTid, year))
       const score = calculateRecruitingClassScore(commits)
       const rank = currentDynasty?.recruitingClassRankByTeamYear?.[teamAbbr]?.[year] ?? null
       if (commits.length === 0 && !rank && !score) return

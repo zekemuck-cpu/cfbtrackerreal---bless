@@ -16,7 +16,7 @@ import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
-import { calculateRecruitingClassScore, formatRecruitingClassScore } from '../../utils/recruitingScore'
+import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
 
 // Map abbreviation to mascot name for logo lookup
@@ -4958,7 +4958,7 @@ export default function TeamYear() {
 
       {/* Recruiting Tab */}
       {activeTab === 'recruiting' && (() => {
-        const commits = getRecruitingCommitments(currentDynasty, tid, selectedYear) || []
+        const commits = flattenClassCommitments(getRecruitingCommitments(currentDynasty, tid, selectedYear))
         const sorted = [...commits].sort((a, b) => {
           const starDiff = (Number(b.stars) || 0) - (Number(a.stars) || 0)
           if (starDiff !== 0) return starDiff
