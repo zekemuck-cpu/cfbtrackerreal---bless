@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -228,14 +229,14 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
   const embedUrl = sheetId ? getSheetEmbedUrl(sheetId, 'CFP Seeds') : null
   const isLoading = creatingSheet
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-3 sm:p-4"
       style={{ margin: 0 }}
       onMouseDown={handleClose}
     >
       <div
-        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-1.5rem)] sm:h-[95dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
@@ -253,7 +254,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
+        <div className="flex-1 flex flex-col overflow-hidden p-3 sm:p-5 min-h-0">
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
@@ -281,68 +282,30 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
             </div>
           </div>
         ) : sheetId ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Action Buttons - only show at top for embedded view */}
-            {!isMobile && useEmbedded && (
-              <div className="mb-3">
-                <div className="flex gap-3 flex-wrap items-center">
-                  <button
-                    onClick={handleSyncAndDelete}
-                    disabled={syncing || deletingSheet}
-                    className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
-                    style={{
-                      backgroundColor: teamColors.primary,
-                      color: getContrastTextColor(teamColors.primary)
-                    }}
-                  >
-                    {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
-                  </button>
-                  <button
-                    onClick={handleSyncFromSheet}
-                    disabled={syncing || deletingSheet}
-                    className="btn btn-secondary text-sm"
-                  >
-                    {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
-                  </button>
-                  <button
-                    onClick={handleRegenerateSheet}
-                    disabled={syncing || deletingSheet || regenerating}
-                    className="bg-surface-3 hover:bg-surface-4 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
-                  >
-                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
-                  </button>
-                  {highlightSave && (
-                    <span className="text-xs font-medium animate-bounce" style={{ color: modalColors.accent }}>
-
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Bowl Configuration Section */}
-            <div className="mb-4 p-3 rounded-lg border" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            {/* Bowl Configuration Section — pinned at top */}
+            <div className="mb-3 p-3 rounded-lg border flex-shrink-0" style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold" style={{ color: modalColors.text }}>
+                <h4 className="text-xs font-bold uppercase" style={{ color: modalColors.text, letterSpacing: '1.5px' }}>
                   Bowl Game Assignments
                 </h4>
-                <span className="text-xs" style={{ color: modalColors.textMuted }}>
-                  NY6 bowls rotate each year
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: modalColors.textMuted }}>
+                  NY6 rotates yearly
                 </span>
               </div>
 
               {/* Quarterfinals */}
-              <p className="text-xs font-medium mb-1" style={{ color: modalColors.textMuted }}>Quarterfinals:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: modalColors.textMuted, letterSpacing: '1px' }}>Quarterfinals</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2.5">
                 {QF_KEYS.map(key => (
                   <div key={key}>
-                    <label className="text-xs block mb-1" style={{ color: modalColors.textMuted }}>
+                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
                       {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
                       value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
                       onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-2 py-1 rounded text-sm border"
+                      className="w-full px-1.5 py-1 rounded text-xs border"
                       style={{
                         borderColor: modalColors.inputBorder,
                         backgroundColor: modalColors.inputBg,
@@ -358,17 +321,17 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
               </div>
 
               {/* Semifinals */}
-              <p className="text-xs font-medium mb-1" style={{ color: modalColors.textMuted }}>Semifinals:</p>
-              <div className="grid grid-cols-2 gap-2">
+              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: modalColors.textMuted, letterSpacing: '1px' }}>Semifinals</p>
+              <div className="grid grid-cols-2 gap-1.5">
                 {SF_KEYS.map(key => (
                   <div key={key}>
-                    <label className="text-xs block mb-1" style={{ color: modalColors.textMuted }}>
+                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
                       {SEED_DESCRIPTIONS[key]}
                     </label>
                     <select
                       value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
                       onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-2 py-1 rounded text-sm border"
+                      className="w-full px-1.5 py-1 rounded text-xs border"
                       style={{
                         borderColor: modalColors.inputBorder,
                         backgroundColor: modalColors.inputBg,
@@ -388,8 +351,8 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
                 const bowls = Object.values(bowlConfig).filter(Boolean)
                 const hasDuplicates = bowls.length !== new Set(bowls).size
                 return hasDuplicates ? (
-                  <p className="text-xs mt-2 text-red-400 font-medium">
-                    Warning: Each bowl should only be assigned to one game
+                  <p className="text-[11px] mt-1.5 text-red-400 font-medium">
+                    Each bowl should only be assigned to one game
                   </p>
                 ) : null
               })()}
@@ -397,7 +360,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
 
             {/* Toggle between embedded and new tab */}
             {!isMobile && (
-              <div className="flex items-center justify-end mb-2">
+              <div className="flex items-center justify-end mb-2 flex-shrink-0">
                 <button
                   onClick={() => {
                     const newValue = !useEmbedded
@@ -411,31 +374,31 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
               </div>
             )}
 
-            {/* Mobile View */}
+            {/* Mobile / Non-embedded View — scrollable */}
             {isMobile || !useEmbedded ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                <h3 className="label-xs text-txt-tertiary mb-2">Data Entry</h3>
-                <p className="text-2xl font-bold text-txt-primary mb-6">Edit in Google Sheets</p>
-                <div className="text-left mb-6 max-w-sm w-full card p-4 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
-                  <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
-                  <ol className="text-sm space-y-2 text-txt-secondary">
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter CFP seeds 1-12</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync your seeds</span></li>
+              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center px-2 py-3">
+                <h3 className="label-xs text-txt-tertiary mb-1">Data Entry</h3>
+                <p className="text-xl font-bold text-txt-primary mb-3">Edit in Google Sheets</p>
+                <div className="text-left mb-3 max-w-sm w-full card p-3 border-l-[3px]" style={{ borderLeftColor: teamColors.primary }}>
+                  <p className="label-xs text-txt-tertiary mb-1.5">Instructions</p>
+                  <ol className="text-xs space-y-1 text-txt-secondary">
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter CFP seeds 1-12</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
+                    <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync your seeds</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2 mb-4" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
                   Open Google Sheets
                 </a>
 
                 {/* Centered Save Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
+                <div className="flex flex-col sm:flex-row gap-2 items-center justify-center mb-2">
                   <button
                     onClick={handleSyncAndDelete}
                     disabled={syncing || deletingSheet}
-                    className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
+                    className={`px-5 py-2.5 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
                     style={{
                       backgroundColor: teamColors.primary,
                       color: getContrastTextColor(teamColors.primary)
@@ -446,27 +409,53 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
                   <button
                     onClick={handleSyncFromSheet}
                     disabled={syncing || deletingSheet}
-                    className="btn btn-secondary px-6 py-3 text-sm"
+                    className="btn btn-secondary px-5 py-2.5 text-sm"
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                 </div>
-                {highlightSave && (
-                  <span className="text-sm font-medium animate-bounce mb-4" style={{ color: modalColors.accent }}>
-
-                  </span>
-                )}
 
                 <button
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
-                  className="text-sm underline text-txt-muted hover:text-txt-muted transition-colors"
+                  className="text-xs underline text-txt-muted hover:text-txt-muted transition-colors"
                 >
                   {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
                 </button>
               </div>
             ) : (
               <>
+                {/* Embedded-view action bar (save / keep / regenerate) */}
+                <div className="mb-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <button
+                      onClick={handleSyncAndDelete}
+                      disabled={syncing || deletingSheet}
+                      className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`}
+                      style={{
+                        backgroundColor: teamColors.primary,
+                        color: getContrastTextColor(teamColors.primary)
+                      }}
+                    >
+                      {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
+                    </button>
+                    <button
+                      onClick={handleSyncFromSheet}
+                      disabled={syncing || deletingSheet}
+                      className="btn btn-secondary text-sm"
+                    >
+                      {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
+                    </button>
+                    <button
+                      onClick={handleRegenerateSheet}
+                      disabled={syncing || deletingSheet || regenerating}
+                      className="bg-surface-3 hover:bg-surface-4 text-white px-4 py-2 rounded-lg font-semibold transition-colors text-sm"
+                    >
+                      {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                   <SheetToolbar
                     sheetId={sheetId}
@@ -524,6 +513,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-    </div>
+    </div>,
+    document.body
   )
 }

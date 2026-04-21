@@ -3148,7 +3148,7 @@ export default function Dashboard() {
                     }}
                   >
                     {item.done ? (
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
@@ -3624,7 +3624,7 @@ export default function Dashboard() {
                       }}
                     >
                       {ccQuestionComplete ? (
-                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (taskNum)}
@@ -3700,13 +3700,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                             ccGameComplete ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!ccGameComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {ccGameComplete ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : (taskNum)}
@@ -3781,13 +3781,13 @@ export default function Dashboard() {
                   >
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div
-                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                           coordinatorTaskComplete ? 'bg-green-500 text-white' : ''
                         }`}
                         style={!coordinatorTaskComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                       >
                         {coordinatorTaskComplete ? (
-                          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (taskNum)}
@@ -3852,13 +3852,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                             hasCommitmentsData ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {hasCommitmentsData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : (taskNum)}
@@ -4285,13 +4285,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasCCData ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!hasCCData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {hasCCData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -4327,13 +4327,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasCFPSeedsData ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!hasCFPSeedsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {hasCFPSeedsData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
@@ -4376,11 +4376,11 @@ export default function Dashboard() {
                           <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${!bowlTaskComplete || (!hasCFPSeedsData || bowlEligible === null || (!userCFPSeed && bowlEligible && (!selectedBowl || !bowlOpponent))) ? 'mb-3' : ''}`}>
                             <div className="flex items-center gap-2 sm:gap-3">
                               <div
-                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${bowlTaskComplete ? 'bg-green-500 text-white' : ''}`}
+                                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${bowlTaskComplete ? 'bg-green-500 text-white' : ''}`}
                                 style={!bowlTaskComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                               >
                                 {bowlTaskComplete ? (
-                                  <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                   </svg>
                                 ) : <span className="font-bold text-sm sm:text-base">3</span>}
@@ -4557,13 +4557,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userCFPFirstRoundGame ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!userCFPFirstRoundGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                           >
                             {userCFPFirstRoundGame ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
@@ -4618,13 +4618,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userBowlGame ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!userBowlGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                           >
                             {userBowlGame ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">4</span>}
@@ -4678,13 +4678,13 @@ export default function Dashboard() {
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               takingNewJob !== null ? 'bg-green-500 text-white' : ''
                             }`}
                             style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                           >
                             {takingNewJob !== null ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">5</span>}
@@ -4839,13 +4839,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div
-                              className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                                 hasCommitmentsData ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                             >
                               {hasCommitmentsData ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : taskNum}
@@ -4930,13 +4930,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-3 sm:gap-4">
                         <div
-                          className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasBowlWeek1Data ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!hasBowlWeek1Data ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                         >
                           {hasBowlWeek1Data ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -4975,13 +4975,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
-                            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               userBowlGame ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!userBowlGame ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {userBowlGame ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">2</span>}
@@ -5041,13 +5041,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
-                            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               qfGamePlayed ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!qfGamePlayed ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {qfGamePlayed ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">{(bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek2) ? 3 : 2}</span>}
@@ -5111,13 +5111,13 @@ export default function Dashboard() {
                       <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                         <div className="flex items-center gap-3 sm:gap-4">
                           <div
-                            className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               takingNewJob !== null ? 'bg-green-500 text-white' : ''
                             }`}
                             style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                           >
                             {takingNewJob !== null ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">{newJobTaskNum}</span>}
@@ -5283,7 +5283,7 @@ export default function Dashboard() {
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                             <div className="flex items-center gap-2 sm:gap-3">
                               <div
-                                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
                                 style={{ backgroundColor: `${teamColors.primary}20`, color: teamColors.primary }}
                               >
                                 <span className="font-bold text-sm sm:text-base">{taskNum}</span>
@@ -5522,13 +5522,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div
-                              className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                                 hasCommitmentsData ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}15`, color: teamColors.primary, boxShadow: '0 2px 4px rgba(0,0,0,0.1)' } : { boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}
                             >
                               {hasCommitmentsData ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : taskNum}
@@ -5621,13 +5621,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                               hasChampData ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!hasChampData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                           >
                             {hasChampData ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -5679,13 +5679,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {isCompleted ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -5740,13 +5740,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 isCompleted ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!isCompleted ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {isCompleted ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : isLocked ? (
@@ -5799,13 +5799,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasStandingsData ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasStandingsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasStandingsData ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -5852,13 +5852,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasPollsData ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasPollsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasPollsData ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -5904,13 +5904,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasTeamStats ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasTeamStats ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasTeamStats ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -5956,13 +5956,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAwards ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasAwards ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasAwards ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -6007,13 +6007,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAllAmericans ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasAllAmericans ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasAllAmericans ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -6058,13 +6058,13 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                                 hasAllConference ? 'bg-green-500 text-white' : ''
                               }`}
                               style={!hasAllConference ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                             >
                               {hasAllConference ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-base">{taskNumber}</span>}
@@ -6120,13 +6120,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             hasBowlWeek2Data ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!hasBowlWeek2Data ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {hasBowlWeek2Data ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -6164,13 +6164,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             userCFPSemifinalGame ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!userCFPSemifinalGame ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {userCFPSemifinalGame ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -6246,13 +6246,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             allSFComplete ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!allSFComplete ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {allSFComplete ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">1</span>}
@@ -6306,13 +6306,13 @@ export default function Dashboard() {
                     >
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             userChampHasScores ? 'bg-green-500 text-white' : ''
                           }`}
                           style={!userChampHasScores ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {userChampHasScores ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
@@ -6377,13 +6377,13 @@ export default function Dashboard() {
                     <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 ${takingNewJob === null || (takingNewJob === true && (!newJobTeam || !newJobPosition)) ? 'mb-3' : ''}`}>
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div
-                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 ${
                             takingNewJob !== null ? 'bg-green-500 text-white' : ''
                           }`}
                           style={takingNewJob === null ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                         >
                           {takingNewJob !== null ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-base">2</span>}
@@ -6543,7 +6543,7 @@ export default function Dashboard() {
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                           <div className="flex items-center gap-2 sm:gap-3">
                             <div
-                              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                              className="w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0"
                               style={{ backgroundColor: `${teamColors.primary}20`, color: teamColors.primary }}
                             >
                               <span className="font-bold text-sm sm:text-base">3</span>
@@ -6786,13 +6786,13 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div
-                            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold ${
+                            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center flex-shrink-0 font-bold ${
                               hasCommitmentsData ? 'bg-green-500 text-white' : ''
                             }`}
                             style={!hasCommitmentsData ? { backgroundColor: `${teamColors.primary}20`, color: teamColors.primary } : {}}
                           >
                             {hasCommitmentsData ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : taskNum}
@@ -6899,7 +6899,7 @@ export default function Dashboard() {
                             className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
                           >
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
@@ -6947,7 +6947,7 @@ export default function Dashboard() {
                           }}
                         >
                           {hasPlayersLeavingData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-lg">1</span>}
@@ -7038,7 +7038,7 @@ export default function Dashboard() {
                           }}
                         >
                           {hasCommitmentsData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-lg">1</span>}
@@ -7124,7 +7124,7 @@ export default function Dashboard() {
                             }}
                           >
                             {hasDraftResultsData || !hasDraftDeclarees ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-lg">2</span>}
@@ -7214,7 +7214,7 @@ export default function Dashboard() {
                               }}
                             >
                               {hasTransferDestinationsData || !hasTransfers ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-lg">3</span>}
@@ -7278,7 +7278,7 @@ export default function Dashboard() {
                               }}
                             >
                               {hasClassRank ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-lg">2</span>}
@@ -7337,7 +7337,7 @@ export default function Dashboard() {
                               }}
                             >
                               {hasPositionChanges ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-lg">4</span>}
@@ -7429,7 +7429,7 @@ export default function Dashboard() {
                               }}
                             >
                               {isComplete ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-lg">5</span>}
@@ -7542,7 +7542,7 @@ export default function Dashboard() {
                               }}
                             >
                               {isComplete ? (
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                               ) : <span className="font-bold text-sm sm:text-lg">6</span>}
@@ -7618,7 +7618,7 @@ export default function Dashboard() {
                             className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)', color: '#22c55e' }}
                           >
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
@@ -7723,7 +7723,7 @@ export default function Dashboard() {
                           }}
                         >
                           {hasTrainingResultsData ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-lg">1</span>}
@@ -7776,7 +7776,7 @@ export default function Dashboard() {
                             }}
                           >
                             {hasRecruitOverallsData ? (
-                              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>
                             ) : <span className="font-bold text-sm sm:text-lg">2</span>}
@@ -7853,7 +7853,7 @@ export default function Dashboard() {
                           }}
                         >
                           {hasConferencesSet ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-lg">1</span>}
@@ -7905,7 +7905,7 @@ export default function Dashboard() {
                           }}
                         >
                           {hasEncourageTransfers ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                           ) : <span className="font-bold text-sm sm:text-lg">2</span>}
