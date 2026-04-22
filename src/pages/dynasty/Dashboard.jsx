@@ -3079,7 +3079,7 @@ export default function Dashboard() {
               Pre-Season Setup
             </h3>
           </div>
-          <div className="space-y-2 sm:space-y-3">
+          <div className="-space-y-px">
             {[
               {
                 num: 1,
@@ -3635,7 +3635,7 @@ export default function Dashboard() {
             let taskNum = 1
 
             return (
-              <div className="space-y-3 sm:space-y-4">
+              <div className="-space-y-px">
                 {/* Task 1: Made Conference Championship? */}
                 <div
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
@@ -4308,7 +4308,7 @@ export default function Dashboard() {
                       Bowl Week 1
                     </h3>
                   </div>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="-space-y-px">
                     {/* Task 1: CC Results */}
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
@@ -5646,7 +5646,7 @@ export default function Dashboard() {
                       End of Season Recap
                     </h3>
                   </div>
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="-space-y-px">
                     {/* Task: Enter National Championship Result (only if user was NOT in championship) */}
                     {!userInCFPChampionship && (
                       <div
@@ -6148,7 +6148,7 @@ export default function Dashboard() {
                     {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
                   </h3>
                 </div>
-                <div className="space-y-3 sm:space-y-4">
+                <div className="-space-y-px">
                   {/* Week 2 Bowl Results - only show in Week 3 */}
                   {week === 3 && (
                     <div
@@ -6931,7 +6931,7 @@ export default function Dashboard() {
                         New Team — No Players Leaving
                       </h3>
                     </div>
-                    <div className="space-y-2 sm:space-y-3">
+                    <div className="-space-y-px">
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
                         style={{
@@ -6971,7 +6971,7 @@ export default function Dashboard() {
                       Players Leaving
                     </h3>
                   </div>
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="-space-y-px">
                     {/* Task: Enter Players Leaving */}
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
@@ -7065,7 +7065,7 @@ export default function Dashboard() {
                       {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
                     </h3>
                   </div>
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="-space-y-px">
                     {/* Task 1: Recruiting Commitments */}
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
@@ -7659,7 +7659,7 @@ export default function Dashboard() {
                         Training Camp
                       </h3>
                     </div>
-                    <div className="space-y-2 sm:space-y-3">
+                    <div className="-space-y-px">
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
                         style={{
@@ -7756,7 +7756,7 @@ export default function Dashboard() {
                       Training Camp
                     </h3>
                   </div>
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="-space-y-px">
                     {/* Task 1: Training Results */}
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
@@ -7889,7 +7889,7 @@ export default function Dashboard() {
                       Offseason
                     </h3>
                   </div>
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="-space-y-px">
                     {/* Task 1: Custom Conferences */}
                     <div
                       className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
