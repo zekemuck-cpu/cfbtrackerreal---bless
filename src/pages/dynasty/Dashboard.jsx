@@ -194,20 +194,25 @@ export default function Dashboard() {
 
         if (ourTeamStats) {
           gamesWithStats++
-          totalOffense += parseFloat(ourTeamStats.totalOffense) || 0
+          // Box score team stats reach us under two key schemas depending on
+          // path: the Team Stats sheet round-trip camelCases labels ("Total
+          // Yards" → totalYards, "Passing Yards" → passingYards), while some
+          // older/AI paths write "totalOffense"/"passYards" directly. Read
+          // both so aggregation doesn't silently drop values.
+          totalOffense += parseFloat(ourTeamStats.totalOffense ?? ourTeamStats.totalYards) || 0
           rushAttempts += parseFloat(ourTeamStats.rushAttempts) || 0
           rushYards += parseFloat(ourTeamStats.rushYards) || 0
           rushTds += parseFloat(ourTeamStats.rushTds) || 0
           passAttempts += parseFloat(ourTeamStats.passAttempts) || 0
-          passYards += parseFloat(ourTeamStats.passYards) || 0
+          passYards += parseFloat(ourTeamStats.passYards ?? ourTeamStats.passingYards) || 0
           passTds += parseFloat(ourTeamStats.passTds) || 0
           firstDowns += parseFloat(ourTeamStats.firstDowns) || 0
         }
 
         // Opponent's offense = our defense allowed
         if (oppTeamStats) {
-          defTotalYards += parseFloat(oppTeamStats.totalOffense) || 0
-          defPassYards += parseFloat(oppTeamStats.passYards) || 0
+          defTotalYards += parseFloat(oppTeamStats.totalOffense ?? oppTeamStats.totalYards) || 0
+          defPassYards += parseFloat(oppTeamStats.passYards ?? oppTeamStats.passingYards) || 0
           defRushYards += parseFloat(oppTeamStats.rushYards) || 0
         }
       }
