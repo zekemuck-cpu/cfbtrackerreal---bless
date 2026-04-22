@@ -14,7 +14,7 @@ import {
   Button,
   Badge,
   EmptyState,
-  Select,
+  TitleWithYear,
 } from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
@@ -441,30 +441,24 @@ export default function Awards() {
 
   const hasAnyAwards = heismanData || eliteAwards.length > 0 || positionAwards.length > 0
 
-  const heroActions = (
-    <div className="flex items-center gap-3">
-      <Select
-        value={displayYear}
-        onChange={(e) => handleYearChange(parseInt(e.target.value))}
-        size="sm"
-      >
-        {availableYears.map((year) => (
-          <option key={year} value={year}>{year}</option>
-        ))}
-      </Select>
-      {!isViewOnly && (
-        <Button variant="primary" size="sm" onClick={() => setShowAwardsModal(true)}>
-          Edit
-        </Button>
-      )}
-    </div>
-  )
+  const heroActions = !isViewOnly ? (
+    <Button variant="primary" size="sm" onClick={() => setShowAwardsModal(true)}>
+      Edit
+    </Button>
+  ) : null
 
   return (
     <div className="space-y-6">
       <PageHero
         eyebrow={`${displayYear} Season`}
-        title="Awards"
+        title={
+          <TitleWithYear
+            year={displayYear}
+            years={availableYears}
+            onChange={handleYearChange}
+            label="Awards"
+          />
+        }
         meta={<span>National individual honors</span>}
         actions={heroActions}
       />

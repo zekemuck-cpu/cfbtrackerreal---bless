@@ -5,7 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
-import { PageHero, Card, EmptyState, Tabs, Select } from '../../components/ui'
+import { PageHero, Card, EmptyState, Tabs, TitleWithYear } from '../../components/ui'
 
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
@@ -310,23 +310,15 @@ export default function Rankings() {
     <div className="space-y-6 page-enter">
       <PageHero
         eyebrow="Final Rankings"
-        title="Top 25"
-        meta={<span>End of season poll standings</span>}
-        actions={
-          <div className="flex items-center gap-2">
-            <span className="label-xs text-txt-tertiary hidden sm:block">Season</span>
-            <Select
-              value={displayYear}
-              onChange={(e) => handleYearChange(parseInt(e.target.value))}
-              size="sm"
-              className="min-w-[5.5rem] font-semibold"
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </Select>
-          </div>
+        title={
+          <TitleWithYear
+            year={displayYear}
+            years={availableYears}
+            onChange={handleYearChange}
+            label="Top 25"
+          />
         }
+        meta={<span>End of season poll standings</span>}
       />
 
       {/* Mobile poll switcher */}

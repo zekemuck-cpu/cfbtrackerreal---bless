@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
-import { PageHero, Card, EmptyState, Select, SectionHeader } from '../../components/ui'
+import { PageHero, Card, EmptyState, SectionHeader, TitleWithYear } from '../../components/ui'
 
 export default function Stats() {
   const { currentDynasty } = useDynasty()
@@ -26,21 +26,19 @@ export default function Stats() {
   return (
     <div className="space-y-6">
       <PageHero
-        title="Team Statistics"
-        meta={availableYears.length > 0 ? <span className="tabular">{displayYear} season</span> : null}
-        actions={
-          availableYears.length > 0 && (
-            <Select
-              size="sm"
-              value={displayYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            >
-              {availableYears.map((year) => (
-                <option key={year} value={year}>{year} Season</option>
-              ))}
-            </Select>
+        title={
+          availableYears.length > 0 ? (
+            <TitleWithYear
+              year={displayYear}
+              years={availableYears}
+              onChange={(y) => setSelectedYear(y)}
+              label="Team Statistics"
+            />
+          ) : (
+            "Team Statistics"
           )
         }
+        meta={availableYears.length > 0 ? <span className="tabular">Season totals</span> : null}
       />
 
       {hasStats ? (

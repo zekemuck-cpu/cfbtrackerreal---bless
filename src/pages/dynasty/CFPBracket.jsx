@@ -9,7 +9,7 @@ import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed } from '../../data/cfpConstants'
-import { PageHero } from '../../components/ui'
+import { PageHero, TitleWithYear } from '../../components/ui'
 import GameEntryModal from '../../components/GameEntryModal'
 
 // Map abbreviations to mascot names for logo lookup
@@ -962,34 +962,12 @@ export default function CFPBracket() {
   }
 
   const titleNode = (
-    <h1 className="display-lg text-txt-primary leading-none m-0 flex items-baseline gap-3 flex-wrap">
-      {availableYears.length > 1 ? (
-        <span className="relative inline-flex items-baseline">
-          <span
-            className="inline-flex items-baseline gap-2 border-b-2 border-surface-5 hover:border-txt-primary transition-colors pr-1"
-            aria-hidden="true"
-          >
-            <span className="tabular-nums">{displayYear}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-txt-tertiary translate-y-[-2px]">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </span>
-          <select
-            value={displayYear}
-            onChange={(e) => handleYearChange(parseInt(e.target.value))}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-            aria-label="Select bracket year"
-          >
-            {availableYears.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
-        </span>
-      ) : (
-        <span className="tabular-nums">{displayYear}</span>
-      )}
-      <span>Bracket</span>
-    </h1>
+    <TitleWithYear
+      year={displayYear}
+      years={availableYears}
+      onChange={handleYearChange}
+      label="Bracket"
+    />
   )
 
   return (

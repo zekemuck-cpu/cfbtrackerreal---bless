@@ -14,7 +14,7 @@ import {
   Button,
   EmptyState,
   Input,
-  Select,
+  TitleWithYear,
 } from '../../components/ui'
 
 // Extract school name from full mascot name
@@ -180,34 +180,27 @@ export default function ConferenceStandings() {
     return conf.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const heroActions = (
-    <div className="flex flex-wrap items-center gap-3">
-      <Select
-        value={displayYear}
-        onChange={(e) => handleYearChange(parseInt(e.target.value))}
-        size="sm"
-        disabled={availableYears.length === 0}
-      >
-        {availableYears.length === 0 ? (
-          <option value="">No seasons</option>
-        ) : (
-          availableYears.map((year) => (
-            <option key={year} value={year}>{year}</option>
-          ))
-        )}
-      </Select>
-      {!isViewOnly && (
-        <Button variant="primary" size="sm" onClick={() => setShowConferencesModal(true)}>
-          Edit
-        </Button>
-      )}
-    </div>
-  )
+  const heroActions = !isViewOnly ? (
+    <Button variant="primary" size="sm" onClick={() => setShowConferencesModal(true)}>
+      Edit
+    </Button>
+  ) : null
 
   const hero = (
     <PageHero
       eyebrow="Standings"
-      title="Conference Standings"
+      title={
+        availableYears.length > 0 ? (
+          <TitleWithYear
+            year={displayYear}
+            years={availableYears}
+            onChange={handleYearChange}
+            label="Conference Standings"
+          />
+        ) : (
+          "Conference Standings"
+        )
+      }
       meta={<span>Season records by conference</span>}
       actions={heroActions}
     />

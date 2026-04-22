@@ -17,6 +17,7 @@ import {
   EmptyState,
   Select,
   Tabs,
+  TitleWithYear,
 } from '../../components/ui'
 
 // Map abbreviation to mascot name for logo lookup
@@ -392,15 +393,6 @@ export default function AllConference() {
           <option key={conf} value={conf}>{conf}</option>
         ))}
       </Select>
-      <Select
-        value={displayYear}
-        onChange={(e) => handleYearChange(parseInt(e.target.value))}
-        size="sm"
-      >
-        {availableYears.map((year) => (
-          <option key={year} value={year}>{year}</option>
-        ))}
-      </Select>
       {!isViewOnly && (
         <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
           Edit
@@ -413,7 +405,14 @@ export default function AllConference() {
     <div className="space-y-6">
       <PageHero
         eyebrow={`${displayYear} Season`}
-        title={`All-${displayConference}`}
+        title={
+          <TitleWithYear
+            year={displayYear}
+            years={availableYears}
+            onChange={handleYearChange}
+            label={`All-${displayConference}`}
+          />
+        }
         meta={<span>Conference team honors</span>}
         actions={heroActions}
       />
