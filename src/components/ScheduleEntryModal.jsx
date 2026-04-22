@@ -14,6 +14,7 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors, teamTid, teamName }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -357,6 +358,7 @@ FINAL CHECK before you send the answer
               <p className="text-sm mt-2 text-txt-secondary">
                 Setting up 12-game schedule
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

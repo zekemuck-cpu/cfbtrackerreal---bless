@@ -16,6 +16,7 @@ import {
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SEED_DESCRIPTIONS } from '../data/cfpConstants'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -342,6 +343,7 @@ FINAL CHECK before you send the answer
               <p className="text-sm mt-2 text-txt-secondary">
                 Setting up seed entries 1-12
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

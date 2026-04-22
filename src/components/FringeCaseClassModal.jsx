@@ -14,6 +14,7 @@ import {
 } from '../services/sheetsService'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -343,6 +344,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Players with 5-9 games who might have redshirted
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

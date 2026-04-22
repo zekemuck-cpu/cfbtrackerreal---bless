@@ -9,6 +9,7 @@ import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 import {
   createCFPFirstRoundSheet,
   readCFPFirstRoundFromSheet,
@@ -300,6 +301,7 @@ FINAL CHECK before you send the answer
               <p className="text-sm mt-2 text-txt-tertiary">
                 Setting up 4 First Round games (seeds 5-12)
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

@@ -15,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -328,6 +329,7 @@ FINAL CHECK before you send
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: modalColors.accent, borderTopColor: 'transparent' }} />
               <p className="text-lg font-semibold text-txt-primary">Creating Awards Sheet...</p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

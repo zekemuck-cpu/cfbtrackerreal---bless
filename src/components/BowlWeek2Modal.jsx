@@ -17,6 +17,7 @@ import {
 import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -551,6 +552,7 @@ FINAL CHECK before you send the answer
               <p className="text-sm mt-2 text-txt-tertiary">
                 Setting up 12 bowl games
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

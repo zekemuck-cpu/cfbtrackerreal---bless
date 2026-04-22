@@ -78,9 +78,6 @@ export default function Contact() {
           >
             Get in touch
           </h1>
-          <p className="text-base sm:text-lg text-txt-secondary mt-4 max-w-lg">
-            Questions, bug reports, or ideas for the next feature — pick the channel that suits you.
-          </p>
         </header>
 
         {/* Discord server — the headline CTA */}

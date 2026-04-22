@@ -15,6 +15,7 @@ import {
   sheetExists
 } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -328,6 +329,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Loading roster for transfer selection
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

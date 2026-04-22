@@ -6,6 +6,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
 import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
+import SheetLoadingHint from './SheetLoadingHint'
 import {
   createTeamStatsSheet,
   readTeamStatsFromSheet,
@@ -303,6 +304,7 @@ FINAL CHECK before you send the answer
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: teamColors.primary, borderTopColor: 'transparent' }} />
               <p className="text-lg font-semibold text-txt-primary">Creating Team Stats Sheet...</p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

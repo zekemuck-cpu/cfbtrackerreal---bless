@@ -15,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 // Stats are read directly from player.statsByYear (single source of truth)
 
 const isMobileDevice = () => {
@@ -372,6 +373,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2 text-txt-secondary">
                 Setting up player dropdown
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

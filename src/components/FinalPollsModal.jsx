@@ -9,6 +9,7 @@ import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 import {
   createFinalPollsSheet,
   readFinalPollsFromSheet,
@@ -305,6 +306,7 @@ FINAL CHECK before you send
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
               <p className="text-lg font-semibold text-txt-primary">Creating Final Polls Sheet...</p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

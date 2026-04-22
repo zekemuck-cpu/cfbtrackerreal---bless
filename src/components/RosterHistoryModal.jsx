@@ -16,6 +16,7 @@ import {
 import { getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -405,6 +406,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2" style={{ color: modalColors.textMuted }}>
                 Pre-filling all players with team data
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

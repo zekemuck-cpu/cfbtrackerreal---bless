@@ -3153,7 +3153,7 @@ export default function Dashboard() {
               return (
               <div
                 key={item.num}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all ${
+                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all ${
                   item.done ? '' : 'hover:ring-1'
                 }`}
                 style={item.done ? {
@@ -3633,7 +3633,7 @@ export default function Dashboard() {
               <div className="space-y-3 sm:space-y-4">
                 {/* Task 1: Made Conference Championship? */}
                 <div
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                   style={ccQuestionComplete ? {
                     backgroundColor: 'rgba(34, 197, 94, 0.1)',
                     border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -3719,7 +3719,7 @@ export default function Dashboard() {
                   taskNum++
                   return (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={ccGameComplete ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -3800,7 +3800,7 @@ export default function Dashboard() {
                   taskNum++
                   return (
                   <div
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                     style={coordinatorTaskComplete ? {
                       backgroundColor: 'rgba(34, 197, 94, 0.1)',
                       border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -3871,7 +3871,7 @@ export default function Dashboard() {
 
                   return (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={hasCommitmentsData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4306,7 +4306,7 @@ export default function Dashboard() {
                   <div className="space-y-3 sm:space-y-4">
                     {/* Task 1: CC Results */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={hasCCData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4348,7 +4348,7 @@ export default function Dashboard() {
 
                     {/* Task 2: CFP Seeds */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={hasCFPSeedsData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4396,7 +4396,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="p-3 sm:p-4 rounded-xl transition-all"
+                          className="p-3 sm:p-4 transition-all"
                           style={bowlTaskComplete ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4578,7 +4578,7 @@ export default function Dashboard() {
                     {/* Task 4: Enter YOUR CFP First Round Game (if seeded 5-12) */}
                     {hasCFPSeedsData && userInCFPFirstRound && (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={userCFPFirstRoundGame ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4639,7 +4639,7 @@ export default function Dashboard() {
                     {/* Task 4b: Enter YOUR Bowl Game (if Week 1 bowl, non-CFP team) */}
                     {hasCFPSeedsData && !userCFPSeed && bowlEligible && selectedBowl && bowlOpponent && userBowlIsWeek1 && (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={userBowlGame ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -4698,7 +4698,7 @@ export default function Dashboard() {
 
                     {/* Task: Taking a New Job? */}
                     <div
-                      className="p-3 sm:p-4 rounded-xl transition-all"
+                      className="p-3 sm:p-4 transition-all"
                       style={takingNewJob !== null ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5306,7 +5306,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="p-3 sm:p-4 rounded-xl transition-all"
+                          className="p-3 sm:p-4 transition-all"
                           style={{
                             backgroundColor: 'var(--surface-3)',
                             border: '1px solid var(--rule-soft)'
@@ -5645,7 +5645,7 @@ export default function Dashboard() {
                     {/* Task: Enter National Championship Result (only if user was NOT in championship) */}
                     {!userInCFPChampionship && (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={hasChampData ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5703,7 +5703,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={isCompleted ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5764,7 +5764,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all ${isLocked ? 'opacity-50' : ''}`}
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all ${isLocked ? 'opacity-50' : ''}`}
                           style={isCompleted ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5823,7 +5823,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasStandingsData ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5876,7 +5876,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasPollsData ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5928,7 +5928,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasTeamStats ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -5980,7 +5980,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasAwards ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6031,7 +6031,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasAllAmericans ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6082,7 +6082,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                           style={hasAllConference ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6147,7 +6147,7 @@ export default function Dashboard() {
                   {/* Week 2 Bowl Results - only show in Week 3 */}
                   {week === 3 && (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={hasBowlWeek2Data ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6191,7 +6191,7 @@ export default function Dashboard() {
                   {/* Task: Enter YOUR CFP Semifinal Game (Week 3 only, if user is in SF AND Bowl Week 2 data entered) */}
                   {week === 3 && userInCFPSemifinal && hasBowlWeek2Data && (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={userCFPSemifinalGame ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6273,7 +6273,7 @@ export default function Dashboard() {
 
                     return (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={allSFComplete ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6333,7 +6333,7 @@ export default function Dashboard() {
 
                     return (
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                       style={userChampHasScores ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6403,7 +6403,7 @@ export default function Dashboard() {
                   {/* Task: Taking a New Job? (appears in bowl weeks 1-3, not in week 4/championship) */}
                   {week !== 4 && (
                   <div
-                    className="p-3 sm:p-4 rounded-xl transition-all"
+                    className="p-3 sm:p-4 transition-all"
                     style={takingNewJob !== null ? {
                       backgroundColor: 'rgba(34, 197, 94, 0.1)',
                       border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6572,7 +6572,7 @@ export default function Dashboard() {
 
                     return (
                       <div
-                        className="p-3 sm:p-4 rounded-xl transition-all"
+                        className="p-3 sm:p-4 transition-all"
                         style={{
                           backgroundColor: 'var(--surface-3)',
                           border: '1px solid var(--rule-soft)'
@@ -6813,7 +6813,7 @@ export default function Dashboard() {
 
                     return (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-3 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-3 sm:gap-0 transition-all"
                         style={hasCommitmentsData ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6928,7 +6928,7 @@ export default function Dashboard() {
                     </div>
                     <div className="space-y-2 sm:space-y-3">
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
                         style={{
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -6969,7 +6969,7 @@ export default function Dashboard() {
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task: Enter Players Leaving */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                       style={hasPlayersLeavingData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7063,7 +7063,7 @@ export default function Dashboard() {
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Recruiting Commitments */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                       style={hasCommitmentsData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7149,7 +7149,7 @@ export default function Dashboard() {
                     {/* Task 2: Draft Results (only in Recruiting Week 1) */}
                     {recruitingWeekNum === 1 && (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                         style={(hasDraftResultsData || !hasDraftDeclarees) ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7239,7 +7239,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                           style={(hasTransferDestinationsData || !hasTransfers) ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7303,7 +7303,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                           style={hasClassRank ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7362,7 +7362,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                           style={hasPositionChanges ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7447,7 +7447,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                           style={isComplete ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7560,7 +7560,7 @@ export default function Dashboard() {
 
                       return (
                         <div
-                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                           style={isComplete ? {
                             backgroundColor: 'rgba(34, 197, 94, 0.1)',
                             border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7656,7 +7656,7 @@ export default function Dashboard() {
                     </div>
                     <div className="space-y-2 sm:space-y-3">
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0"
                         style={{
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7754,7 +7754,7 @@ export default function Dashboard() {
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Training Results */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                       style={hasTrainingResultsData ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7807,7 +7807,7 @@ export default function Dashboard() {
                     {/* Task 2: Recruiting Class Overalls */}
                     {recruitingClassPlayers.length > 0 && (
                       <div
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                         style={hasRecruitOverallsData ? {
                           backgroundColor: 'rgba(34, 197, 94, 0.1)',
                           border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7887,7 +7887,7 @@ export default function Dashboard() {
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Custom Conferences */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                       style={hasConferencesSet ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'
@@ -7939,7 +7939,7 @@ export default function Dashboard() {
 
                     {/* Task 2: Encourage Transfers */}
                     <div
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0 transition-all"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 gap-2 sm:gap-0 transition-all"
                       style={hasEncourageTransfers ? {
                         backgroundColor: 'rgba(34, 197, 94, 0.1)',
                         border: '1px solid rgba(34, 197, 94, 0.3)'

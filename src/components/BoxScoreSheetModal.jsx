@@ -19,6 +19,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -867,6 +868,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2 text-txt-secondary">
                 {sheetType === 'scoring' ? 'Setting up scoring summary' : 'Setting up 9 stat category tabs'}
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

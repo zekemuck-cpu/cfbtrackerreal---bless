@@ -15,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -400,6 +401,7 @@ FINAL CHECK before you send
                   ? 'Loading your saved conference alignment'
                   : 'Setting up default EA CFB 26 conference alignment'}
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (

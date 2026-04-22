@@ -15,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -326,6 +327,7 @@ FINAL CHECK before you send
               <p className="text-sm mt-2 text-txt-secondary">
                 Loading your incoming recruits and transfers
               </p>
+              <SheetLoadingHint active={isLoading} />
             </div>
           </div>
         ) : showDeletedNote ? (
