@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -43,8 +43,19 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Training Results`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Training Results".
 Row 1 (header) and columns A–C (Player, Position, Past OVR) are PRE-FILLED and PROTECTED. Players are listed alphabetically by last name in column A. You output ONE value per player: the New OVR in column D.
 
@@ -91,7 +102,7 @@ FINAL CHECK before you send
 [ ] Row order matches column A in the screenshots exactly
 [ ] Blank lines for unknown players — did not invent any values`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

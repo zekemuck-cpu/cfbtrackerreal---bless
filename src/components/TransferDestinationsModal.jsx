@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -53,8 +53,19 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const [noTransfers, setNoTransfers] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Transfer Destinations`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Transfer Destinations". It has 2 columns total (A = Player Name, B = New Team). Row 1 is the protected header row. Column A (Player Name) is PRE-FILLED with outgoing transfers and PROTECTED — do NOT output column A. Column B is the only editable column — a STRICT dropdown of team abbreviations.
 
 ═══════════════════════════════════════════════════════════
@@ -106,7 +117,7 @@ FINAL CHECK before you send
 [ ] Blank lines used for unknown destinations — nothing invented, no "UNK"/"N/A"/"TBD"
 [ ] No header row, no commentary, no totals`,
     includeTeamMap: true,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

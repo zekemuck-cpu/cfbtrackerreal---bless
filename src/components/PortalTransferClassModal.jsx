@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -42,8 +42,19 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Portal Transfer Class Assignment`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Portal Transfers". It has 4 columns total: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Column D is the only editable column and uses PER-ROW dropdowns whose allowed values depend on each player's current (column C) class.
 
 ═══════════════════════════════════════════════════════════
@@ -103,7 +114,7 @@ FINAL CHECK before you send
 [ ] Blank lines used for uncertain rows — nothing guessed
 [ ] No header row, no totals`,
     includeTeamMap: true,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

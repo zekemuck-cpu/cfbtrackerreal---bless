@@ -57,8 +57,26 @@ export default function StatsEntryModal({
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  // Current-team roster, used to give the AI a "A. Guess → Alex Guess"
+  // lookup so EA-CFB screenshots with initial-abbreviated names can be
+  // resolved to the full names the strict Google Sheets dropdown expects.
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster = overrideTeamAbbr ||
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({
+        name: p.name,
+        jerseyNumber: p.jerseyNumber,
+        position: p.position,
+      }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} GP/Snaps Entry`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "GP/Snaps".
 Row 1 (header: Player | Games Played | Snaps Played) is pre-filled and PROTECTED. Data rows start at row 2. Column A uses a STRICT DROPDOWN containing every roster player's name — any value that doesn't exactly match a roster name will be rejected by the sheet.
 
@@ -105,7 +123,7 @@ FINAL CHECK before you send
 [ ] No commas in any number
 [ ] No header row, no totals, no commentary`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

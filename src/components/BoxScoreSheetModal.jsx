@@ -161,6 +161,19 @@ export default function BoxScoreSheetModal({
   const awayRoster = useMemo(() => getRosterForTeamByTid(awayTeamTid),
     [currentDynasty?.players, awayTeamTid, gameYear])
 
+  // Roster objects ({name, jerseyNumber, position}) for AI prompt — used so the
+  // AI can resolve abbreviated names (e.g. "A. Guess" → "Alex Guess").
+  const getRosterObjectsForTeamByTid = (tid) => {
+    if (!currentDynasty?.players || !tid) return []
+    return currentDynasty.players
+      .filter(p => isPlayerOnRoster(p, tid, gameYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }
+  const homeRosterObjects = useMemo(() => getRosterObjectsForTeamByTid(homeTeamTid),
+    [currentDynasty?.players, homeTeamTid, gameYear])
+  const awayRosterObjects = useMemo(() => getRosterObjectsForTeamByTid(awayTeamTid),
+    [currentDynasty?.players, awayTeamTid, gameYear])
+
   // Check if home/away teams are user-controlled FOR THIS GAME'S YEAR (for dropdown behavior)
   // Only the team the user controlled in the game's season should have strict dropdown
   const isHomeTeamUserControlled = userTidForGameYear && homeTeamTid === userTidForGameYear
@@ -224,9 +237,18 @@ export default function BoxScoreSheetModal({
     const matchupLabel = `${awayTeamAbbr} @ ${homeTeamAbbr}`.trim()
     const baseTitle = `${yearLabel} ${weekLabel} ${matchupLabel}`.trim()
 
+    // Determine which team (home/away) is user-controlled so we can label
+    // the roster blocks correctly in scoring prompts.
+    const userIsHome = userTidForGameYear && homeTeamTid === userTidForGameYear
+    const userIsAway = userTidForGameYear && awayTeamTid === userTidForGameYear
+    const scoringUserRoster = userIsHome ? homeRosterObjects : (userIsAway ? awayRosterObjects : [])
+    const scoringOpponentRoster = userIsHome ? awayRosterObjects : (userIsAway ? homeRosterObjects : [])
+
     if (sheetType === 'scoring') {
       return buildAIPrompt({
         title: `${baseTitle} — Scoring Summary`,
+        roster: scoringUserRoster,
+        opponentRoster: scoringOpponentRoster,
         structure: `This sheet has ONE tab: "Scoring Summary". It has 30 rows (one per scoring play, unused rows blank) and 9 columns.
 
 ═══════════════════════════════════════════════════════════
@@ -385,8 +407,14 @@ FINAL CHECK before you send
     // Player stats (homeStats or awayStats) — 9 tabs
     const teamAbbr = config.teamAbbr || ''
     const opponentAbbrLabel = config.opponentAbbr || ''
+    // Only pass roster when the tab is the user-controlled team — Column A
+    // is a strict roster dropdown only for the user's team.
+    const playerStatsRoster = config.isUserControlled
+      ? (sheetType === 'homeStats' ? homeRosterObjects : awayRosterObjects)
+      : []
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
+      roster: playerStatsRoster,
       structure: `This sheet has NINE tabs, one per stat category. Every tab uses Player Name as column A. You fill in the stat values (and the player name) for each player who recorded a stat in that category. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
 
 ═══════════════════════════════════════════════════════════
@@ -511,7 +539,7 @@ FINAL CHECK before you send
 [ ] No header row inside any block; no commentary outside the blocks`,
       includeTeamMap: true,
     })
-  }, [sheetType, config.teamAbbr, config.opponentAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
+  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear])
 
   const aiPromptTitle = useMemo(() => {
     const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'

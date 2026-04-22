@@ -136,6 +136,43 @@ WIS = Wisconsin
 WYO = Wyoming`
 
 /**
+ * Normalize a single player descriptor into a one-line roster entry.
+ * Accepts either a plain string or a `{name, jerseyNumber, position, class}`
+ * object. Swallows bad input so one malformed record can't break the prompt.
+ */
+function formatRosterEntry(p) {
+  if (typeof p === 'string') return p.trim()
+  if (!p || typeof p !== 'object') return ''
+  const name = (p.name || '').trim()
+  if (!name) return ''
+  const jersey = p.jerseyNumber ?? p.jersey
+  const jerseyStr = jersey !== undefined && jersey !== null && jersey !== '' ? `#${jersey}` : ''
+  const pos = p.position ? ` (${p.position}${p.class ? `, ${p.class}` : ''})` : ''
+  return `${jerseyStr ? jerseyStr + ' ' : ''}${name}${pos}`.trim()
+}
+
+/**
+ * Build a roster block to append to a prompt. Sorts by last-name initial so
+ * the AI can scan alphabetically — that's how EA CFB displays abbreviated
+ * names like "A. Guess", so alphabetical grouping makes the lookup fast.
+ */
+function buildRosterBlock(roster, heading) {
+  if (!Array.isArray(roster) || roster.length === 0) return null
+  const lines = roster
+    .map(formatRosterEntry)
+    .filter(Boolean)
+  if (lines.length === 0) return null
+  // Sort by last name so abbreviated "A. Guess" maps alphabetically. Falls
+  // back to the whole string if no space (e.g. a raw string without parse).
+  lines.sort((a, b) => {
+    const lastA = (a.split(/\s+/).slice(-1)[0] || a).toLowerCase()
+    const lastB = (b.split(/\s+/).slice(-1)[0] || b).toLowerCase()
+    return lastA.localeCompare(lastB)
+  })
+  return [heading, ...lines].join('\n')
+}
+
+/**
  * Build an AI prompt describing the structure of a Google Sheet so a user
  * can feed screenshots to an AI chat tool and paste the output back into
  * the sheet cell-for-cell.
@@ -145,8 +182,26 @@ WYO = Wyoming`
  * @param {string} config.structure  — Multi-line string describing tabs, headers, row count, formats
  * @param {boolean} [config.includeTeamMap=false] — Append the team-abbreviation mapping
  * @param {string}  [config.notes]   — Optional extra guidance (e.g. "opponent abbreviations…")
+ * @param {Array<object|string>} [config.roster] — Optional user-team roster
+ *   so the AI can resolve "A. Guess" → "Alex Guess". Accepts objects
+ *   ({ name, jerseyNumber, position, class }) or plain strings.
+ * @param {string}  [config.rosterLabel] — Optional label for the roster
+ *   block (default "YOUR TEAM ROSTER"). Use e.g. "OPPONENT ROSTER" for
+ *   the away team in a box-score prompt.
+ * @param {Array<object|string>} [config.opponentRoster] — Optional
+ *   opponent roster appended after the user roster (used in box-score).
+ * @param {string}  [config.opponentRosterLabel]
  */
-export function buildAIPrompt({ title, structure, includeTeamMap = false, notes }) {
+export function buildAIPrompt({
+  title,
+  structure,
+  includeTeamMap = false,
+  notes,
+  roster,
+  rosterLabel = 'YOUR TEAM ROSTER (match abbreviated names like "A. Guess" to full names)',
+  opponentRoster,
+  opponentRosterLabel = 'OPPONENT ROSTER',
+}) {
   const sections = [
     `Using the data from these screenshots, please generate a spreadsheet for "${title}".`,
     ``,
@@ -186,6 +241,33 @@ export function buildAIPrompt({ title, structure, includeTeamMap = false, notes 
   ]
   if (notes) {
     sections.push('', `Additional notes:`, notes.trim())
+  }
+  // Roster blocks — the AI uses these to expand abbreviated names (e.g.
+  // EA CFB menus display "A. Guess" but Google Sheets dropdowns reject
+  // that form; the roster map lets the AI write "Alex Guess" instead.
+  const rosterBlock = buildRosterBlock(roster, [
+    '═══════════════════════════════════════════════════════════',
+    rosterLabel,
+    '═══════════════════════════════════════════════════════════',
+    'When a screenshot shows an abbreviated name (e.g. "A. Guess", "J. Smith",',
+    '"D.Hixon"), MATCH it to the full name below by last name + first-initial.',
+    'ALWAYS output the full name as it appears here — Google Sheets dropdowns',
+    'reject abbreviated forms. If two players share the same last initial, use',
+    'jersey number + position to disambiguate. If you cannot disambiguate with',
+    'certainty, leave the cell blank per the "100% accuracy or blank" rule.',
+    '',
+  ].join('\n'))
+  if (rosterBlock) {
+    sections.push('', rosterBlock)
+  }
+  const opponentBlock = buildRosterBlock(opponentRoster, [
+    '═══════════════════════════════════════════════════════════',
+    opponentRosterLabel,
+    '═══════════════════════════════════════════════════════════',
+    '',
+  ].join('\n'))
+  if (opponentBlock) {
+    sections.push('', opponentBlock)
   }
   if (includeTeamMap) {
     sections.push(

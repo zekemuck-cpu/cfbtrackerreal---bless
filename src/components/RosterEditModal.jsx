@@ -48,8 +48,19 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
   const [highlightSave, setHighlightSave] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster = teamAbbr ||
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, teamAbbr, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamAbbr ? `${teamAbbr} ` : ''}Roster Edit`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Roster". It has 13 columns (A–M) and up to 85 data rows (rows 2–86). Row 1 is the protected header row. The sheet may already be pre-filled with current roster rows — your output will REPLACE all data rows, so include every player on the roster (edits + unchanged players).
 
 ═══════════════════════════════════════════════════════════
@@ -150,7 +161,7 @@ FINAL CHECK before you send
 [ ] Blank cells used for every unknown — nothing was invented
 [ ] At most 85 data lines`,
     includeTeamMap: false,
-  }), [currentYear, teamAbbr])
+  }), [currentYear, teamAbbr, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

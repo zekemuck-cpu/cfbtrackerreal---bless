@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -45,8 +45,19 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Encourage Transfers`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Encourage Transfers". It has 4 columns total (A–D) and one row per roster player (row 2 onward). Row 1 is the protected header row. Columns A (Name), B (Position), C (Overall) are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Only column D is editable.
 
 ═══════════════════════════════════════════════════════════
@@ -98,7 +109,7 @@ FINAL CHECK before you send
 [ ] No header row, no commentary, no totals
 [ ] Default to FALSE when uncertain — never blank, never guess TRUE`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

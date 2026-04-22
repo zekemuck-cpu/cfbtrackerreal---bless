@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -44,8 +44,19 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Players Leaving`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Players Leaving". It has 2 columns total (A = Player, B = Transfer Reason) and up to ~60 data rows. Row 1 is the protected header row. Graduating seniors (RS Sr, plus Sr with 5+ games played) are ALREADY PRE-FILLED in the top rows with reason "Graduating" — you MUST NOT re-output them, re-list them, or include any senior who appears pre-filled in the screenshots.
 
 Your job: add ONLY the additional non-graduating departures (early pro-draft declarations, voluntary transfers, medicals, dismissals, etc.), one per line.
@@ -102,7 +113,7 @@ FINAL CHECK before you send
 [ ] No commas in any cell
 [ ] If uncertain about a departure, do NOT include it — better to omit than to mismatch a dropdown`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

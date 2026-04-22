@@ -92,8 +92,19 @@ export default function DetailedStatsEntryModal({
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster = overrideTeamAbbr ||
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Detailed Stats Entry`,
+    roster: userRoster,
     structure: `This sheet has NINE tabs, one per stat category. Each tab's row 1 (header) and columns A (Name) and B (Snaps) are PRE-FILLED and PROTECTED. Players on each tab are filtered by position and sorted by Snaps DESCENDING. Your output is the stat columns ONLY, starting at column C, with row order matching column A exactly.
 
 ═══════════════════════════════════════════════════════════
@@ -298,7 +309,7 @@ FINAL CHECK before you send
 [ ] Row order within each block matches column A on that tab exactly
 [ ] Blank cells/lines for unknowns — invented nothing`,
     includeTeamMap: false,
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

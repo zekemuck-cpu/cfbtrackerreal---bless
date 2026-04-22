@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty } from '../context/DynastyContext'
+import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -43,8 +43,19 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  const userRoster = useMemo(() => {
+    const teamAbbrForRoster =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const all = currentDynasty?.players || []
+    return all
+      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Fringe Case Class Assignment`,
+    roster: userRoster,
     structure: `This sheet has ONE tab: "Fringe Cases". It has 5 columns total: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = Games, E = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C, D are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Column E is the only editable column, and its allowed dropdown values are PER-ROW (they depend on that row's Column C value).
 
 These are "fringe case" players who played between 5 and 9 games in ${currentYear}. Depending on the game's redshirt logic, each player can either be progressed to the next class OR kept at the current class with the RS prefix applied (i.e. a redshirt was used). Your job is to pick one of the two allowed values for each row.
@@ -113,7 +124,7 @@ FINAL CHECK before you send
 [ ] No header row, no totals`,
     includeTeamMap: true,
     notes: `The "Games" column (protected) reflects regular-season games played in ${currentYear}. In the fringe-case context, the game decides whether a redshirt was applied (typically ≤ 4 games used a redshirt; 5–9 games is the fringe case where either progression or redshirt may apply). Use the screenshot's Games and context to pick the correct allowed value for each row.`
-  }), [currentYear])
+  }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
