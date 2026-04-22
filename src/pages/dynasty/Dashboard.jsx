@@ -42,6 +42,7 @@ import PlayersLeavingModal from '../../components/PlayersLeavingModal'
 import DraftResultsModal from '../../components/DraftResultsModal'
 import TransferDestinationsModal from '../../components/TransferDestinationsModal'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
+import RecruitingInsightLink from '../../components/ui/RecruitingInsightLink'
 import SellVsSendCalculator, { SellVsSendButton } from '../../components/SellVsSendCalculator'
 import PositionChangesModal from '../../components/PositionChangesModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
@@ -3598,6 +3599,9 @@ export default function Dashboard() {
                             {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
                           </button>
                         )}
+                        <div className="mt-2 flex justify-center">
+                          <RecruitingInsightLink />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3919,6 +3923,7 @@ export default function Dashboard() {
                               Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
                             </Link>
                           )}
+                          <RecruitingInsightLink className="mt-1" />
                         </div>
                       </div>
                       {isViewOnly ? <ViewOnlyBadge /> : (
@@ -4908,6 +4913,7 @@ export default function Dashboard() {
                                   Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
                                 </Link>
                               )}
+                              <RecruitingInsightLink className="mt-1" />
                             </div>
                           </div>
                           {!hasCommitmentsData ? (
@@ -5591,6 +5597,7 @@ export default function Dashboard() {
                                   Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
                                 </Link>
                               )}
+                              <RecruitingInsightLink className="mt-1" />
                             </div>
                           </div>
                           {!hasCommitmentsData ? (
@@ -6861,6 +6868,7 @@ export default function Dashboard() {
                                 Class Score <span className="tabular text-txt-primary ml-1">{formatRecruitingClassScore(classScore)}</span>
                               </Link>
                             )}
+                            <RecruitingInsightLink className="mt-1" />
                           </div>
                         </div>
                         {!hasCommitmentsData ? (
@@ -7107,6 +7115,7 @@ export default function Dashboard() {
                                 : '✓ No commitments this week'
                               : (recruitingWeekNum === 5 ? 'Enter your final recruiting class' : 'Record any recruiting commitments for this week')}
                           </div>
+                          <RecruitingInsightLink className="mt-1" />
                         </div>
                       </div>
                       {!hasCommitmentsData ? (
