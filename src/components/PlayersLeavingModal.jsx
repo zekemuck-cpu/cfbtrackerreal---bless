@@ -57,24 +57,22 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Players Leaving`,
     roster: userRoster,
-    structure: `This sheet has ONE tab: "Players Leaving". It has 2 columns total (A = Player, B = Transfer Reason) and up to ~60 data rows. Row 1 is the protected header row. Graduating seniors (RS Sr, plus Sr with 5+ games played) are ALREADY PRE-FILLED in the top rows with reason "Graduating" — you MUST NOT re-output them, re-list them, or include any senior who appears pre-filled in the screenshots.
+    structure: `This sheet has ONE tab: "Players Leaving". It has 2 columns total (A = Player, B = Transfer Reason) and up to ~60 data rows. Row 1 is the protected header row.
 
-Your job: add ONLY the additional non-graduating departures (early pro-draft declarations, voluntary transfers, medicals, dismissals, etc.), one per line.
+Your job: output EVERY SINGLE PLAYER from the uploaded screenshots. Every departing player — graduating seniors, early pro-draft declarations, voluntary transfers, medicals, dismissals, everyone — one player per line. Do not skip anyone. Do not assume anything is already filled in. Output them all.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY the additional departures — NEVER re-output the pre-filled graduating seniors. If Name X appears in the screenshot with "Graduating" already populated, SKIP X.
+1. OUTPUT EVERY PLAYER shown in the screenshots. No skipping, no filtering, no assumptions about pre-filled rows. If the user screenshotted 38 players, output 38 rows.
 2. Every line has EXACTLY 2 tab-separated columns (1 tab character): Player<TAB>Transfer Reason.
 3. Column A (Player) must EXACTLY match a player name from the current roster — the Player column is a strict dropdown. Match capitalisation, spacing, and suffixes (Jr./II) character-for-character. A mismatch will silently drop the row.
 4. Column B (Transfer Reason) MUST be one of the 16 literal values listed below — exact case, exact spacing. No free text.
-5. Do NOT use "Graduating" for anyone new — the app auto-handles graduation for remaining Sr/RS Sr. Use a specific transfer reason instead (or "Pro Draft" for early declarations).
-6. No header row, no blank lines, no commentary, no totals.
-7. If no additional departures are needed, output NOTHING (an empty response).
-8. No commas anywhere.
+5. No header row, no blank lines, no commentary, no totals.
+6. No commas anywhere.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Players Leaving" — paste at the first empty row of column A (row 2 + number of pre-filled graduating seniors)
+TAB: "Players Leaving" — paste at cell A2 of the "Players Leaving" tab
 ═══════════════════════════════════════════════════════════
 
 Column layout, tab-separated:
@@ -89,29 +87,28 @@ COLUMN B — Transfer Reason — MUST be one of these 16 values EXACTLY (case + 
 Graduating | Pro Draft | Playing Style | Proximity to Home | Championship Contender | Program Tradition | Campus Lifestyle | Stadium Atmosphere | Pro Potential | Brand Exposure | Academic Prestige | Conference Prestige | Coach Stability | Coach Prestige | Athletic Facilities | Playing Time
 
 Notes on reason selection:
-- "Pro Draft" = early declaration for pro draft (underclassmen leaving early). The app auto-graduates Sr / RS Sr, so do NOT assign them "Pro Draft" here.
-- "Graduating" is reserved for the pre-filled seniors and is almost never the right answer for a new row — pick a specific reason instead.
-- All other values are "transfer portal" reasons — pick the one the screenshot / game context implies.
+- "Graduating" = a senior whose eligibility ended (use for every Sr / RS Sr whose time is up).
+- "Pro Draft" = underclassman declaring early for the pro draft.
+- All other values are transfer-portal reasons — pick the one the screenshot / game context implies.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== PLAYERS LEAVING (additions only) — paste at the first empty row of column A in "Players Leaving" tab ===
+=== PLAYERS LEAVING — paste at cell A2 of "Players Leaving" tab ===
 <Roster Name 1>\t<Reason 1>
 <Roster Name 2>\t<Reason 2>
-…one line per additional departure
-
-(If there are NO additional departures, output NOTHING — a completely empty response is valid.)
+…one line per departing player, every player from the screenshots
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
+[ ] One row per player in the uploaded screenshots — every single one, no skipping
 [ ] Every line has exactly 2 tab-separated columns (1 tab character)
-[ ] No header row, no pre-filled graduating seniors re-listed, no commentary
+[ ] No header row, no commentary, no totals
 [ ] Every Player value matches a current roster name exactly (case + spacing)
 [ ] Every Transfer Reason is one of the 16 literal values listed (exact case)
 [ ] No commas in any cell
-[ ] If uncertain about a departure, do NOT include it — better to omit than to mismatch a dropdown`,
+[ ] If uncertain about a player, leave the Transfer Reason blank — but still include the row`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
