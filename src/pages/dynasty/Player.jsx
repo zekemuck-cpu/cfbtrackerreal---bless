@@ -1052,6 +1052,94 @@ export default function Player() {
     )
   })() : null
 
+  // Award plates — aggregated career honors rendered as compact pills in the hero.
+  // Inspired by basketball-gm: "3x MVP", "7x Champion" — quick-scan career summary.
+  const awardPlates = (() => {
+    const accolades = player?.accolades || []
+    const allAmericans = player?.allAmericans || []
+    const allConference = player?.allConference || []
+
+    // Tier 1 — gold/highlighted (most prestigious)
+    const heismanAwardKeys = new Set(['heisman', 'heismanTrophy'])
+    const heismanCount = accolades.filter(a => heismanAwardKeys.has(a.award)).length
+
+    // Tier 2 — major named awards (aggregate by award key, sort by count desc)
+    const majorAwardLabels = {
+      maxwellAward: 'Maxwell',
+      walterCampAward: 'Walter Camp',
+      daveyObrienAward: "Davey O'Brien",
+      chuckBednarikAward: 'Bednarik',
+      bronkoNagurskiTrophy: 'Nagurski',
+      butkusAward: 'Butkus',
+      lombardiAward: 'Lombardi',
+      outlandTrophy: 'Outland',
+      jimThorpeAward: 'Thorpe',
+      tedHendricksAward: 'Hendricks',
+      biletnikoffAward: 'Biletnikoff',
+      johnMackeyAward: 'Mackey',
+      rimingtonTrophy: 'Rimington',
+      rayGuyAward: 'Ray Guy',
+      louGrozaAward: 'Lou Groza',
+      doakWalkerAward: 'Doak Walker',
+      paulHornungAward: 'Paul Hornung',
+      bowlMVP: 'Bowl MVP',
+      cfpChampMVP: 'CFP Title MVP',
+    }
+    const majorCounts = {}
+    accolades.forEach(a => {
+      if (majorAwardLabels[a.award]) {
+        majorCounts[a.award] = (majorCounts[a.award] || 0) + 1
+      }
+    })
+
+    // Tier 3 — honors teams (aggregate by designation)
+    const aaFirst = allAmericans.filter(a => (a.designation || 'first') === 'first').length
+    const aaSecond = allAmericans.filter(a => a.designation === 'second').length
+    const aaFreshman = allAmericans.filter(a => a.designation === 'freshman').length
+    const acFirst = allConference.filter(a => (a.designation || 'first') === 'first').length
+    const acSecond = allConference.filter(a => a.designation === 'second').length
+    const acFreshman = allConference.filter(a => a.designation === 'freshman').length
+
+    // Tier 4 — conference POYs
+    const confPOY = accolades.filter(a => ['confPOY', 'confOPOY', 'confDPOY'].includes(a.award)).length
+    const confFrosh = accolades.filter(a => a.award === 'confFreshmanOY').length
+
+    // Tier 5 — player of the week (from game data via memoized powHonors)
+    const confPOW = powHonors?.confPOW || 0
+    const nationalPOW = powHonors?.nationalPOW || 0
+
+    const fmt = (count, label) => count > 1 ? `${count}x ${label}` : label
+
+    const tiers = []
+
+    // Prestige tier — gold
+    if (heismanCount > 0) {
+      tiers.push({ label: fmt(heismanCount, 'Heisman'), variant: 'gold' })
+    }
+
+    // Major-award tier — subtle team-accent outline
+    Object.entries(majorCounts)
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([key, n]) => {
+        tiers.push({ label: fmt(n, majorAwardLabels[key]), variant: 'accent' })
+      })
+
+    // Honors-team tier — neutral
+    if (aaFirst > 0) tiers.push({ label: fmt(aaFirst, '1st-Team All-American'), variant: 'accent' })
+    if (aaSecond > 0) tiers.push({ label: fmt(aaSecond, '2nd-Team All-American'), variant: 'neutral' })
+    if (aaFreshman > 0) tiers.push({ label: fmt(aaFreshman, 'Freshman All-American'), variant: 'neutral' })
+    if (acFirst > 0) tiers.push({ label: fmt(acFirst, '1st-Team All-Conf'), variant: 'neutral' })
+    if (acSecond > 0) tiers.push({ label: fmt(acSecond, '2nd-Team All-Conf'), variant: 'neutral' })
+    if (acFreshman > 0) tiers.push({ label: fmt(acFreshman, 'Freshman All-Conf'), variant: 'neutral' })
+
+    if (confPOY > 0) tiers.push({ label: fmt(confPOY, 'Conf POY'), variant: 'neutral' })
+    if (confFrosh > 0) tiers.push({ label: fmt(confFrosh, 'Conf Frosh of the Year'), variant: 'neutral' })
+    if (nationalPOW > 0) tiers.push({ label: fmt(nationalPOW, 'National POW'), variant: 'neutral' })
+    if (confPOW > 0) tiers.push({ label: fmt(confPOW, 'Conf POW'), variant: 'neutral' })
+
+    return tiers
+  })()
+
   return (
     <div
       className="space-y-4 sm:space-y-6 max-w-6xl mx-auto -mt-4 sm:-mt-6 px-4 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-4 sm:pb-6"
@@ -1423,6 +1511,65 @@ export default function Player() {
         {recruitmentStrip}
         </div>
       </div>
+
+      {/* Award Plates — career honors summary (only render when the player has any) */}
+      {awardPlates.length > 0 && (
+        <div
+          onClick={() => setActiveTab('awards')}
+          className="flex flex-wrap gap-2 items-center cursor-pointer -mt-1 sm:-mt-2"
+          title="View all awards"
+        >
+          {awardPlates.map((p, i) => {
+            if (p.variant === 'gold') {
+              return (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    letterSpacing: '1px',
+                    backgroundColor: '#fbbf24',
+                    color: '#78350f',
+                    boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.4), 0 2px 6px rgba(251, 191, 36, 0.25)',
+                  }}
+                >
+                  {p.label}
+                </span>
+              )
+            }
+            if (p.variant === 'accent') {
+              return (
+                <span
+                  key={i}
+                  className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-txt-primary"
+                  style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    letterSpacing: '1px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: `1px solid ${teamInfo.backgroundColor}`,
+                  }}
+                >
+                  {p.label}
+                </span>
+              )
+            }
+            return (
+              <span
+                key={i}
+                className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-txt-secondary"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  letterSpacing: '1px',
+                  backgroundColor: 'var(--surface-2)',
+                  border: '1px solid var(--surface-4)',
+                }}
+              >
+                {p.label}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="flex gap-6 border-b border-surface-4">

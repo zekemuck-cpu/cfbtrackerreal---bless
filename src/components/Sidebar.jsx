@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
@@ -103,6 +103,19 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       onClose()
     }
   }
+
+  // Auto-close sidebar on mobile/tablet whenever the route changes — catches
+  // any navigation path (Link click, programmatic navigate(), back-button),
+  // not just the Link onClick handler.
+  const prevPathRef = useRef(location.pathname)
+  useEffect(() => {
+    if (prevPathRef.current !== location.pathname) {
+      prevPathRef.current = location.pathname
+      if (isOpen && typeof window !== 'undefined' && window.innerWidth < 1024) {
+        onClose()
+      }
+    }
+  }, [location.pathname, isOpen, onClose])
 
   // Warm the chunk on hover/focus so navigation feels instant.
   const handleNavPrefetch = (name) => {
