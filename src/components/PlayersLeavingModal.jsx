@@ -165,8 +165,8 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
       const playersLeaving = await readPlayersLeavingFromSheet(sheetId)
       await onSave(playersLeaving)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { playersLeavingSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

@@ -163,8 +163,8 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
       const recruitOveralls = await readRecruitOverallsFromSheet(sheetId)
       await onSave(recruitOveralls)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { recruitOverallsSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

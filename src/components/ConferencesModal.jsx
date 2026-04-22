@@ -208,8 +208,8 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
       const conferences = await readConferencesFromSheet(sheetId)
       await onSave(conferences)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { conferencesSheetId: null, conferencesSheetUrl: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

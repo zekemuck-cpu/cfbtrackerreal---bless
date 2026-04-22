@@ -141,11 +141,13 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      // Read from the current year tab
       const awards = await readAwardsFromSheet(sheetId, currentYear)
       await onSave(awards)
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      const existingByYear = currentDynasty?.awardsSheetIdByYear || {}
+      await updateDynasty(currentDynasty.id, {
+        awardsSheetIdByYear: { ...existingByYear, [currentYear]: null }
+      })
       setSheetId(null)
       setShowDeletedNote(true)
       setTimeout(() => onClose(), 2500)

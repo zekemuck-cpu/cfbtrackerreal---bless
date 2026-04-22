@@ -139,8 +139,8 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
     try {
       const stats = await readTeamStatsFromSheet(sheetId)
       await onSave(stats)
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { teamStatsSheetId: null })
       setSheetId(null)
       setShowDeletedNote(true)
       setTimeout(() => onClose(), 2500)

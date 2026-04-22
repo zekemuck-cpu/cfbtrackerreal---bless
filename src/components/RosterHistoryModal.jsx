@@ -248,8 +248,8 @@ export default function RosterHistoryModal({ isOpen, onClose, teamColors }) {
 
       await updateDynasty(currentDynasty.id, { players: updatedPlayers })
 
-      // Move sheet to trash
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { rosterHistorySheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

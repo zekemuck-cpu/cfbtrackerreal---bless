@@ -164,8 +164,8 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
       const transferPlayers = await readEncourageTransfersFromSheet(sheetId)
       await onSave(transferPlayers)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { encourageTransfersSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

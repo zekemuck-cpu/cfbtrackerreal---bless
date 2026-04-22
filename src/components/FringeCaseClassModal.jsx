@@ -162,8 +162,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
       const classSelections = await readFringeCaseClassFromSheet(sheetId)
       await onSave(classSelections)
 
-      // Move sheet to trash
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { fringeCaseClassSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

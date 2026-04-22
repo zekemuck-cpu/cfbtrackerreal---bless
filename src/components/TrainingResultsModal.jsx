@@ -162,8 +162,8 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
       const trainingResults = await readTrainingResultsFromSheet(sheetId)
       await onSave(trainingResults)
 
-      // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { trainingResultsSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)

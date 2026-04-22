@@ -164,8 +164,8 @@ export default function RosterEntryModal({ isOpen, onClose, onSave, currentYear,
       const players = await readRosterFromRosterSheet(sheetId)
       await onSave(players)
 
-      // Move the sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)
+      await updateDynasty(currentDynasty.id, { rosterSheetId: null })
 
       setSheetId(null)
       setShowDeletedNote(true)
