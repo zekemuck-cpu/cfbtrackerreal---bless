@@ -5150,30 +5150,33 @@ export function DynastyProvider({ children }) {
       // Use original updatesWithTimestamp for local state (includes players/games)
       const expandedUpdates = expandDotNotation(updatesWithTimestamp)
 
-      // Check if dynasty is in the array (might not be if just created - React state is async)
-      const dynastyInArray = dynasties.some(d => String(d.id) === String(dynastyId))
-
-      let updatedDynasties
-      if (dynastyInArray) {
-        // Normal case: update dynasty in the array
-        updatedDynasties = dynasties.map(d =>
-          String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
-        )
-      } else if (String(currentDynasty?.id) === String(dynastyId)) {
-        // Dynasty was just created and isn't in dynasties array yet
-        // Add the updated dynasty to the array
-        const updatedDynasty = deepMerge(currentDynasty, expandedUpdates)
-        updatedDynasties = [...dynasties, updatedDynasty]
-      } else {
-        // Dynasty not found anywhere - shouldn't happen but keep existing array
-        updatedDynasties = dynasties
-      }
-      setDynasties(updatedDynasties)
+      // CRITICAL: use functional setters so back-to-back updateDynasty calls
+      // (e.g. save data then clear the sheetId) don't race. Each call sees
+      // the latest committed dynasties state rather than the stale value
+      // captured when this closure was created.
+      setDynasties(prev => {
+        const dynastyInArray = prev.some(d => String(d.id) === String(dynastyId))
+        if (dynastyInArray) {
+          return prev.map(d =>
+            String(d.id) === String(dynastyId) ? deepMerge(d, expandedUpdates) : d
+          )
+        }
+        // Dynasty just created and not in array yet — use currentDynasty as base.
+        // currentDynasty may also be stale here, but expandedUpdates wins in deepMerge.
+        if (String(currentDynasty?.id) === String(dynastyId)) {
+          return [...prev, deepMerge(currentDynasty, expandedUpdates)]
+        }
+        return prev
+      })
 
       if (String(currentDynasty?.id) === String(dynastyId)) {
-        const updatedDynasty = updatedDynasties.find(d => String(d.id) === String(dynastyId))
-        // Fallback to merging currentDynasty directly if not found in array
-        setCurrentDynasty(updatedDynasty || deepMerge(currentDynasty, expandedUpdates))
+        // Same deal — functional setter so back-to-back writes merge correctly.
+        setCurrentDynasty(prev => {
+          if (prev && String(prev.id) === String(dynastyId)) {
+            return deepMerge(prev, expandedUpdates)
+          }
+          return deepMerge(currentDynasty, expandedUpdates)
+        })
       }
     } catch (error) {
       console.error('Error updating dynasty:', error)
