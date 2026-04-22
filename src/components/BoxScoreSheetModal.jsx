@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar, { SheetErrorBanner } from './SheetToolbar'
 import {
   createGameBoxScoreSheet,
@@ -16,6 +17,7 @@ import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 /**
  * BoxScoreSheetModal - A reusable modal for box score Google Sheets
@@ -59,6 +61,7 @@ export default function BoxScoreSheetModal({
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [ignoreExistingSheetId, setIgnoreExistingSheetId] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -210,6 +213,312 @@ export default function BoxScoreSheetModal({
 
   // Get dark theme modal colors
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+
+  // AI Prompt — varies by sheetType (player stats tabs vs scoring summary vs team stats)
+  const aiPrompt = useMemo(() => {
+    const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'
+    const yearLabel = gameYear || ''
+    const matchupLabel = `${awayTeamAbbr} @ ${homeTeamAbbr}`.trim()
+    const baseTitle = `${yearLabel} ${weekLabel} ${matchupLabel}`.trim()
+
+    if (sheetType === 'scoring') {
+      return buildAIPrompt({
+        title: `${baseTitle} — Scoring Summary`,
+        structure: `This sheet has ONE tab: "Scoring Summary". It has 30 rows (one per scoring play, unused rows blank) and 9 columns.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ALL 9 columns (A through I) per row, paste at cell A2. The sheet has no pre-filled data rows — you fill everything below the header.
+2. ONE ROW PER SCORING PLAY, in chronological order (earliest quarter/latest time first → later quarter). PAT attempts are NOT separate rows — they collapse into the TD row via column F (PAT Result).
+3. Output AT MOST 30 rows. Leave remaining rows blank (do not output them at all — just stop).
+4. NO COMMAS in numbers. "24" never "1,234".
+5. INTEGERS ONLY for Yards and Quarter.
+6. Use ONLY the literal dropdown values listed below for columns A, E, F, G. Strict dropdowns — wrong value is rejected.
+7. BLANK CELLS for unknowns. Never guess, never use "N/A" (except where explicitly allowed — this sheet uses empty string, NOT "N/A", for plays without a PAT).
+8. No header row, no commentary, no explanation. SINGLE TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "Scoring Summary" — up to 30 rows × 9 columns
+Paste your block at cell A2 of the "Scoring Summary" tab
+═══════════════════════════════════════════════════════════
+
+Col | Header       | Format / Allowed values
+----+--------------+----------------------------------------------------------------------
+ A  | Team         | STRICT dropdown: EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" (uppercase). No other values.
+ B  | Scorer       | Player name — the player who scored (rusher/receiver for TDs, kicker for FGs/PATs, returner for return TDs, "Defense" or defender name for safeties/defensive TDs).
+ C  | Passer       | QB name who threw the TD pass. BLANK for non-passing scores (rushing TD, FG, safety, return TD, defensive TD).
+ D  | Yards        | Integer — yards on the scoring play. FG distance for FGs; TD play yardage for TDs; blank for Safety.
+ E  | Score Type   | STRICT dropdown — EXACTLY one of these 9 literal values (case-sensitive):
+    |              |   - "Rushing TD"
+    |              |   - "Passing TD"
+    |              |   - "Field Goal"
+    |              |   - "Safety"
+    |              |   - "Kick Return TD"
+    |              |   - "Punt Return TD"
+    |              |   - "INT Return TD"
+    |              |   - "Fumble Return TD"
+    |              |   - "Blocked Punt/FG TD"
+ F  | PAT Result   | STRICT dropdown — EXACTLY one of these 6 literal values:
+    |              |   - ""            (empty string — for Field Goal / Safety rows; no PAT applies)
+    |              |   - "Made XP"     (extra point good after a TD)
+    |              |   - "Missed XP"   (extra point missed after a TD)
+    |              |   - "Blocked XP"  (extra point blocked after a TD)
+    |              |   - "Converted 2PT" (two-point conversion successful after a TD)
+    |              |   - "Failed 2PT"    (two-point conversion failed after a TD)
+ G  | Quarter      | STRICT dropdown — EXACTLY one of: "1", "2", "3", "4", "OT", "2OT", "3OT", "4OT".  (Regular quarters are the string digits, not integers; overtime uses "OT"/"2OT"/"3OT"/"4OT".)
+ H  | Time Left    | Game clock when the score occurred, formatted MM:SS (e.g. "03:42", "14:07", "00:00"). Leading zeros REQUIRED on both minutes and seconds.
+ I  | Video Link   | Optional URL to a clip; leave BLANK if none.
+
+PAT Result rules:
+  - TD row (any of the 5 "... TD" score types or "Rushing TD" / "Passing TD"): column F MUST be one of "Made XP", "Missed XP", "Blocked XP", "Converted 2PT", "Failed 2PT".
+  - Field Goal row: column F MUST be "" (empty string).
+  - Safety row: column F MUST be "" (empty string).
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== SCORING SUMMARY — paste at cell A2 of "Scoring Summary" tab ===
+<Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>
+... one row per scoring play, chronological
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every row has EXACTLY 9 tab-separated values (8 tab characters per row)
+[ ] Column A is EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" — nothing else
+[ ] Column E is one of the 9 exact Score Type values, no paraphrasing
+[ ] Column F is one of the 6 exact PAT Result values (empty string for FG / Safety)
+[ ] Column G is "1"/"2"/"3"/"4"/"OT"/"2OT"/"3OT"/"4OT" — quoted as listed
+[ ] Column H is MM:SS with leading zeros
+[ ] Rows are chronological
+[ ] Total rows ≤ 30; no header row; no commas in numbers
+[ ] PAT row is NOT a separate row; the PAT result is in column F of the TD row`,
+        includeTeamMap: true,
+      })
+    }
+
+    if (sheetType === 'teamStats') {
+      return buildAIPrompt({
+        title: `${baseTitle} — Team Stats`,
+        structure: `This sheet has ONE tab: "Team Stats". It has 30 rows (one per stat category) and 3 columns. Column A is the stat label (pre-filled, PROTECTED). Column B is the AWAY team's value (${awayTeamAbbr}). Column C is the HOME team's value (${homeTeamAbbr}).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMNS B AND C ONLY. Column A (stat label) is PROTECTED and pre-filled — never output it.
+2. ROW ORDER IS FIXED — the 30 rows match the exact stat order below. Row 1 of your output = "First Downs", row 2 = "Total Offense", ..., row 30 = "Poss Seconds". Never reorder, never skip, never add.
+3. Output EXACTLY 30 data rows, each with EXACTLY 2 tab-separated values (away value, home value).
+4. NO COMMAS in numbers. "1234" never "1,234".
+5. INTEGERS ONLY for all rows. Red Zone Pct is a whole-number percent (e.g. 75 means 75%). Possession time is split into separate Poss Minutes and Poss Seconds rows (both integers).
+6. Use 0 for a stat that is genuinely zero. Use a BLANK cell only if the stat is truly unknown/unreported.
+7. Column B = AWAY team (${awayTeamAbbr}), Column C = HOME team (${homeTeamAbbr}). Never swap.
+8. No header row, no stat labels, no commentary. SINGLE TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "Team Stats" — 30 rows × 2 editable columns
+Paste your block at cell B2 of the "Team Stats" tab
+═══════════════════════════════════════════════════════════
+
+Row | Col A (PROTECTED / pre-filled) | Col B (${awayTeamAbbr} — AWAY) | Col C (${homeTeamAbbr} — HOME) | Format
+----+--------------------------------+--------------------------------+--------------------------------+---------------------------
+  1 | First Downs                    | away first downs               | home first downs               | integer
+  2 | Total Offense                  | away total offense yards       | home total offense yards       | integer
+  3 | Total Plays                    | away total plays               | home total plays               | integer
+  4 | Rush Attempts                  | away rush attempts             | home rush attempts             | integer
+  5 | Rush Yards                     | away rush yards                | home rush yards                | integer
+  6 | Rush TDs                       | away rushing TDs               | home rushing TDs               | integer
+  7 | Completions                    | away pass completions          | home pass completions          | integer
+  8 | Pass Attempts                  | away pass attempts             | home pass attempts             | integer
+  9 | Pass TDs                       | away passing TDs               | home passing TDs               | integer
+ 10 | Passing Yards                  | away passing yards             | home passing yards             | integer
+ 11 | 3rd Down Conv                  | away 3rd down conversions      | home 3rd down conversions      | integer
+ 12 | 3rd Down Att                   | away 3rd down attempts         | home 3rd down attempts         | integer
+ 13 | 4th Down Conv                  | away 4th down conversions      | home 4th down conversions      | integer
+ 14 | 4th Down Att                   | away 4th down attempts         | home 4th down attempts         | integer
+ 15 | 2PT Conv                       | away 2PT conversions           | home 2PT conversions           | integer
+ 16 | 2PT Att                        | away 2PT attempts              | home 2PT attempts              | integer
+ 17 | Red Zone TD                    | away red-zone TDs              | home red-zone TDs              | integer
+ 18 | Red Zone FG                    | away red-zone FGs              | home red-zone FGs              | integer
+ 19 | Red Zone Pct                   | away red-zone percent          | home red-zone percent          | integer whole-number percent (e.g. 75 for 75%)
+ 20 | Turnovers                      | away turnovers                 | home turnovers                 | integer
+ 21 | Fumbles Lost                   | away fumbles lost              | home fumbles lost              | integer
+ 22 | Interceptions                  | away interceptions thrown      | home interceptions thrown      | integer
+ 23 | Punt Ret Yards                 | away punt return yards         | home punt return yards         | integer
+ 24 | Kick Ret Yards                 | away kick return yards         | home kick return yards         | integer
+ 25 | Total Yards                    | away total yards               | home total yards               | integer
+ 26 | Punts                          | away punts                     | home punts                     | integer
+ 27 | Penalties                      | away penalties count           | home penalties count           | integer
+ 28 | Penalty Yards                  | away penalty yards             | home penalty yards             | integer
+ 29 | Poss Minutes                   | away possession minutes        | home possession minutes        | integer (0-60)
+ 30 | Poss Seconds                   | away possession seconds        | home possession seconds        | integer (0-59)
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== TEAM STATS — paste at cell B2 of "Team Stats" tab ===
+<row1 away>\\t<row1 home>
+<row2 away>\\t<row2 home>
+... (30 total rows in the exact stat order above)
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly 30 data rows (count them)
+[ ] Exactly 2 tab-separated values per row (1 tab character per line)
+[ ] Row order matches the 30-row list above EXACTLY
+[ ] Column B is ${awayTeamAbbr} (away); Column C is ${homeTeamAbbr} (home) — not swapped
+[ ] All values INTEGERS — no commas, no decimals
+[ ] 0 used for genuine zeros; blank only for truly unknown stats
+[ ] No header row, no stat labels, no commentary`,
+        includeTeamMap: true,
+      })
+    }
+
+    // Player stats (homeStats or awayStats) — 9 tabs
+    const teamAbbr = config.teamAbbr || ''
+    const opponentAbbrLabel = config.opponentAbbr || ''
+    return buildAIPrompt({
+      title: `${baseTitle} — ${teamAbbr} Player Stats`,
+      structure: `This sheet has NINE tabs, one per stat category. Every tab uses Player Name as column A. You fill in the stat values (and the player name) for each player who recorded a stat in that category. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output NINE separate TSV blocks, one per tab, in the exact tab order below. Label each block with the tab name and paste cell.
+2. Column A (Player Name) IS editable by you — paste at cell A2 of each tab. If this is the user's own team, Player Name is a STRICT dropdown of the roster shown in the screenshot — use EXACT roster spelling, no nicknames, no initials. If this is the OPPONENT team, you may type any reasonable player name (no dropdown).
+3. Every tab has a FIXED row count (see below). Output ONLY rows for players with stats; LEAVE UNUSED ROWS COMPLETELY BLANK — do not output filler rows. So a tab with 15 rows that only has 3 stat-earners: output just 3 lines under that tab's block.
+4. Each output row must have EXACTLY the column count listed for that tab (tab-separated). Player Name column first, stat columns in the listed order.
+5. NO COMMAS in numbers. "1234" never "1,234".
+6. INTEGERS for all stat values EXCEPT Passing "Rtg" (passer rating) which may be a decimal to one place (e.g. "148.3"). No "pts" text, no minus signs for yardage totals (except a negative rush yardage is OK, like -3).
+7. BLANK CELL for truly unknown stats. Use 0 only when the stat is genuinely zero.
+8. If an entire tab has no players with stats (e.g. no one had a kick return), output the tab label line followed by NO rows (zero rows under that block).
+9. No header row inside any block (the pre-filled header row 1 is protected). No commentary, no explanation.
+10. Tab names are case-sensitive. Use the EXACT tab names listed.
+
+═══════════════════════════════════════════════════════════
+TAB ORDER AND COLUMN SPECS
+═══════════════════════════════════════════════════════════
+
+TAB 1: "Passing" — max 6 data rows × 8 columns
+  Paste at cell A2 of the "Passing" tab
+  Col order:  Player Name | Rtg  | Comp | Att  | Yards | TD  | INT | Long
+  Formats:    name text   | decimal (e.g. "148.3") | integer | integer | integer | integer | integer | integer
+
+TAB 2: "Rushing" — max 15 data rows × 9 columns
+  Paste at cell A2 of the "Rushing" tab
+  Col order:  Player Name | Carries | Yards | TD  | Fumbles | BT  | YAC | 20+ | Long
+  Formats:    name text   | integer | integer | integer | integer | integer | integer | integer | integer
+  (BT = Broken Tackles; YAC = Yards After Contact; "20+" = runs of 20+ yards)
+
+TAB 3: "Receiving" — max 15 data rows × 7 columns
+  Paste at cell A2 of the "Receiving" tab
+  Col order:  Player Name | Receptions | Yards | TD  | RAC | Drops | Long
+  Formats:    name text   | integer    | integer | integer | integer | integer | integer
+  (RAC = Receiving Yards After Catch)
+
+TAB 4: "Blocking" — max 20 data rows × 3 columns
+  Paste at cell A2 of the "Blocking" tab
+  Col order:  Player Name | Pancakes | Sacks Allowed
+  Formats:    name text   | integer  | integer
+
+TAB 5: "Defense" — max 30 data rows × 15 columns
+  Paste at cell A2 of the "Defense" tab
+  Col order:  Player Name | Solo | Assists | TFL | Sack | INT | INT Yards | INT Long | Deflections | FF  | FR  | Fumble Yards | Blocks | Safeties | TD
+  Formats:    name text   | integer (all 14 stat columns)
+  (TFL = Tackles For Loss; FF = Forced Fumbles; FR = Fumble Recoveries; Blocks = kicks/punts blocked; TD = defensive TDs)
+
+TAB 6: "Kicking" — max 3 data rows × 18 columns
+  Paste at cell A2 of the "Kicking" tab
+  Col order:  Player Name | FGM | FGA | FG Long | FG Block | XPM | XPA | XPB | FGA 29 | FGM 29 | FGA 39 | FGM 39 | FGA 49 | FGM 49 | FGA 50+ | FGM 50+ | Kickoffs | Touchbacks
+  Formats:    name text   | integer (all 17 stat columns)
+  (FGA 29 = FG attempts from 0-29 yards; FGM 29 = FG made from 0-29; and so on for 39, 49, 50+ ranges. XPM/XPA/XPB = extra points made/attempted/blocked.)
+
+TAB 7: "Punting" — max 3 data rows × 8 columns
+  Paste at cell A2 of the "Punting" tab
+  Col order:  Player Name | Punts | Yards | Net Yards | Block | In20 | TB  | Long
+  Formats:    name text   | integer (all 7 stat columns)
+  (Block = punts blocked; In20 = punts downed inside the 20; TB = touchbacks)
+
+TAB 8: "Kick Return" — max 6 data rows × 5 columns
+  Paste at cell A2 of the "Kick Return" tab
+  Col order:  Player Name | KR  | Yards | Long | TD
+  Formats:    name text   | integer (all 4 stat columns)
+
+TAB 9: "Punt Return" — max 6 data rows × 5 columns
+  Paste at cell A2 of the "Punt Return" tab
+  Col order:  Player Name | PR  | Yards | Long | TD
+  Formats:    name text   | integer (all 4 stat columns)
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== PASSING — paste at cell A2 of "Passing" tab ===
+<name>\\t<Rtg>\\t<Comp>\\t<Att>\\t<Yards>\\t<TD>\\t<INT>\\t<Long>
+... (0-6 rows)
+
+=== RUSHING — paste at cell A2 of "Rushing" tab ===
+<name>\\t<Carries>\\t<Yards>\\t<TD>\\t<Fumbles>\\t<BT>\\t<YAC>\\t<20+>\\t<Long>
+... (0-15 rows)
+
+=== RECEIVING — paste at cell A2 of "Receiving" tab ===
+<name>\\t<Receptions>\\t<Yards>\\t<TD>\\t<RAC>\\t<Drops>\\t<Long>
+... (0-15 rows)
+
+=== BLOCKING — paste at cell A2 of "Blocking" tab ===
+<name>\\t<Pancakes>\\t<Sacks Allowed>
+... (0-20 rows)
+
+=== DEFENSE — paste at cell A2 of "Defense" tab ===
+<name>\\t<Solo>\\t<Assists>\\t<TFL>\\t<Sack>\\t<INT>\\t<INT Yards>\\t<INT Long>\\t<Deflections>\\t<FF>\\t<FR>\\t<Fumble Yards>\\t<Blocks>\\t<Safeties>\\t<TD>
+... (0-30 rows)
+
+=== KICKING — paste at cell A2 of "Kicking" tab ===
+<name>\\t<FGM>\\t<FGA>\\t<FG Long>\\t<FG Block>\\t<XPM>\\t<XPA>\\t<XPB>\\t<FGA 29>\\t<FGM 29>\\t<FGA 39>\\t<FGM 39>\\t<FGA 49>\\t<FGM 49>\\t<FGA 50+>\\t<FGM 50+>\\t<Kickoffs>\\t<Touchbacks>
+... (0-3 rows)
+
+=== PUNTING — paste at cell A2 of "Punting" tab ===
+<name>\\t<Punts>\\t<Yards>\\t<Net Yards>\\t<Block>\\t<In20>\\t<TB>\\t<Long>
+... (0-3 rows)
+
+=== KICK RETURN — paste at cell A2 of "Kick Return" tab ===
+<name>\\t<KR>\\t<Yards>\\t<Long>\\t<TD>
+... (0-6 rows)
+
+=== PUNT RETURN — paste at cell A2 of "Punt Return" tab ===
+<name>\\t<PR>\\t<Yards>\\t<Long>\\t<TD>
+... (0-6 rows)
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] All 9 block labels present, in the exact order above
+[ ] Each row inside a block has the EXACT column count listed for that tab
+[ ] Row counts per tab are within the max: Passing≤6, Rushing≤15, Receiving≤15, Blocking≤20, Defense≤30, Kicking≤3, Punting≤3, Kick Return≤6, Punt Return≤6
+[ ] Player names match the roster spelling (strict dropdown on the user's team)
+[ ] All stats are for ${teamAbbr} players only (no opponent players mixed in)
+[ ] No commas in numbers; Rtg may have one decimal; all other stats are integers
+[ ] Tabs with no stat-earners have zero rows under the label (just the label line)
+[ ] No header row inside any block; no commentary outside the blocks`,
+      includeTeamMap: true,
+    })
+  }, [sheetType, config.teamAbbr, config.opponentAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
+
+  const aiPromptTitle = useMemo(() => {
+    const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'
+    const yearLabel = gameYear || ''
+    const matchupLabel = `${awayTeamAbbr} @ ${homeTeamAbbr}`.trim()
+    const baseTitle = `${yearLabel} ${weekLabel} ${matchupLabel}`.trim()
+    if (sheetType === 'scoring') return `${baseTitle} — Scoring Summary`
+    if (sheetType === 'teamStats') return `${baseTitle} — Team Stats`
+    return `${baseTitle} — ${config.teamAbbr || ''} Player Stats`
+  }, [sheetType, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
 
   // Highlight save button when user returns to window
   useEffect(() => {
@@ -587,6 +896,12 @@ export default function BoxScoreSheetModal({
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
@@ -685,25 +1000,33 @@ export default function BoxScoreSheetModal({
                   </ol>
                 </div>
 
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-3 mb-6"
-                  style={{
-                    backgroundColor: '#0F9D58',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-3"
+                    style={{
+                      backgroundColor: '#0F9D58',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-6">
@@ -789,6 +1112,13 @@ export default function BoxScoreSheetModal({
         )}
         </div>
       </div>
+
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={aiPromptTitle}
+        prompt={aiPrompt}
+      />
     </div>
   )
 }

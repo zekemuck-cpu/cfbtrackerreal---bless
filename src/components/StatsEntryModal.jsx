@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createStatsEntrySheet,
@@ -13,6 +14,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 // Stats are read directly from player.statsByYear (single source of truth)
 
 const isMobileDevice = () => {
@@ -52,6 +54,57 @@ export default function StatsEntryModal({
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} GP/Snaps Entry`,
+    structure: `This sheet has ONE tab: "GP/Snaps".
+Row 1 (header: Player | Games Played | Snaps Played) is pre-filled and PROTECTED. Data rows start at row 2. Column A uses a STRICT DROPDOWN containing every roster player's name — any value that doesn't exactly match a roster name will be rejected by the sheet.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output data rows ONLY (starting at row 2). NEVER output the header row.
+2. One line per player, 3 tab-separated values: <Player>\\t<Games Played>\\t<Snaps Played>.
+3. Column A (Player) is a STRICT DROPDOWN of roster names. You MUST use the EXACT player name as it appears on the box-score / stats screenshots — case-sensitive, including spaces, hyphens, apostrophes, "Jr.", "III", etc.
+4. Only include players who actually appear in the screenshots. Do NOT invent rows for other roster players.
+5. Games Played: integer 0–15 (regular season + postseason). NO commas, NO decimals.
+6. Snaps Played: integer. NO commas, NO decimals, NO "snaps" suffix.
+7. BLANK cell for unknown values (leave the cell empty between tabs). Never guess. Never use 0 as "unknown".
+8. NO COMMAS in numbers: "1234" not "1,234".
+9. No header row, no totals, no commentary. ONE TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "GP/Snaps"
+Paste at cell A2 of the "GP/Snaps" tab
+═══════════════════════════════════════════════════════════
+
+Col | Header (protected)  | Your output                                                                 | Format
+----+---------------------+-----------------------------------------------------------------------------+------------------------
+ A  | Player              | Player name — MUST exactly match a roster dropdown entry (see screenshots) | strict dropdown, text
+ B  | Games Played        | Integer 0–15                                                                | integer, no commas
+ C  | Snaps Played        | Integer (total snaps played for the season)                                 | integer, no commas
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== GP/SNAPS — paste at cell A2 of "GP/Snaps" tab ===
+<Player>\\t<Games Played>\\t<Snaps Played>
+<Player>\\t<Games Played>\\t<Snaps Played>
+...
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] One line per player that appears in the screenshots — no invented players
+[ ] Every line has EXACTLY 2 tab characters (3 values)
+[ ] Player name is copied character-for-character from the screenshot (case, punctuation, suffix)
+[ ] Games Played is an integer 0–15 (or blank)
+[ ] Snaps Played is an integer (or blank)
+[ ] No commas in any number
+[ ] No header row, no totals, no commentary`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -354,6 +407,12 @@ export default function StatsEntryModal({
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -403,10 +462,18 @@ export default function StatsEntryModal({
                     <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2 mb-4" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 items-center justify-center mb-2">
                   <button
@@ -512,6 +579,12 @@ export default function StatsEntryModal({
           setRetryCount(c => c + 1)
         }}
         teamColors={teamColors}
+      />
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} GP/Snaps Entry`}
+        prompt={aiPrompt}
       />
     </div>,
     document.body

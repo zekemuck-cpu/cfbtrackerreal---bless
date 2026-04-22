@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createDetailedStatsSheet,
@@ -13,6 +14,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 // Mapping from internal stat keys (player.statsByYear) to box score format (used by sheet)
 const INTERNAL_TO_BOXSCORE = {
@@ -87,6 +89,215 @@ export default function DetailedStatsEntryModal({
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Detailed Stats Entry`,
+    structure: `This sheet has NINE tabs, one per stat category. Each tab's row 1 (header) and columns A (Name) and B (Snaps) are PRE-FILLED and PROTECTED. Players on each tab are filtered by position and sorted by Snaps DESCENDING. Your output is the stat columns ONLY, starting at column C, with row order matching column A exactly.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output stat columns ONLY (column C onward). NEVER output column A (Name) or column B (Snaps). NEVER output the header row.
+2. ROW ORDER IS FIXED per tab. Produce exactly one output line per pre-filled player row on that tab, in the SAME ORDER as column A. Do NOT reorder, skip, or add rows.
+3. Tab-separated values within a line. Each tab has a FIXED number of stat columns (see spec per tab below); every line must have EXACTLY that many values (that many commas-are-not-allowed; that many values separated by tabs).
+4. Return NINE separate blocks, one per tab, labeled with the tab name and paste target (C2 on that tab).
+5. NO COMMAS in numbers. "1234" never "1,234". No quotes, no units, no "+/-", no percent signs.
+6. INTEGERS have no decimal point. Only two columns on TAB 1 (Passing) use decimals (1 decimal place). All other values on all tabs are integers.
+7. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". To emit a blank cell between two tab characters, just have nothing between the tabs. To emit a blank line for a player with no visible stats, output the correct number of empty tab-separated cells (that is, N-1 tab characters with nothing between them).
+8. Only the positions listed per tab appear on that tab. Do NOT include quarterbacks on Receiving, for example.
+9. No commentary, no totals, no header row. Nine labeled TSV blocks.
+
+═══════════════════════════════════════════════════════════
+TAB 1: "Passing" — positions filtered to QB only
+Paste at cell C2 of the "Passing" tab
+═══════════════════════════════════════════════════════════
+9 stat columns (C–K), in this EXACT order:
+  C  Completions                    integer
+  D  Attempts                       integer
+  E  Yards                          integer (pass yards)
+  F  Touchdowns                     integer
+  G  Interceptions                  integer
+  H  Net Yards/Attempt              DECIMAL — 1 place (e.g. 7.3)
+  I  Adjusted Net Yards/Attempt     DECIMAL — 1 place (e.g. 6.8)
+  J  Passing Long                   integer
+  K  Sacks Taken                    integer
+Each line: 9 tab-separated values (8 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 2: "Rushing" — positions: QB, HB, FB, WR, TE
+Paste at cell C2 of the "Rushing" tab
+═══════════════════════════════════════════════════════════
+8 stat columns (C–J), in this EXACT order:
+  C  Carries                        integer
+  D  Yards                          integer (rush yards)
+  E  Touchdowns                     integer
+  F  20+ Yard Runs                  integer
+  G  Broken Tackles                 integer
+  H  Yards After Contact            integer
+  I  Rushing Long                   integer
+  J  Fumbles                        integer
+Each line: 8 tab-separated values (7 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 3: "Receiving" — positions: HB, FB, WR, TE
+Paste at cell C2 of the "Receiving" tab
+═══════════════════════════════════════════════════════════
+6 stat columns (C–H), in this EXACT order:
+  C  Receptions                     integer
+  D  Yards                          integer (receiving yards)
+  E  Touchdowns                     integer
+  F  Receiving Long                 integer
+  G  Yards After Catch              integer
+  H  Drops                          integer
+Each line: 6 tab-separated values (5 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 4: "Blocking" — positions: LT, LG, C, RG, RT
+Paste at cell C2 of the "Blocking" tab
+═══════════════════════════════════════════════════════════
+2 stat columns (C–D), in this EXACT order:
+  C  Pancakes                       integer
+  D  Sacks Allowed                  integer
+Each line: 2 tab-separated values (1 tab character).
+
+═══════════════════════════════════════════════════════════
+TAB 5: "Defensive" — positions: LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS
+Paste at cell C2 of the "Defensive" tab
+═══════════════════════════════════════════════════════════
+15 stat columns (C–Q), in this EXACT order:
+  C  Solo Tackles                   integer
+  D  Assisted Tackles               integer
+  E  Tackles for Loss               integer
+  F  Sacks                          integer
+  G  Interceptions                  integer
+  H  INT Return Yards               integer
+  I  INT Long                       integer
+  J  Defensive TDs                  integer
+  K  Deflections                    integer
+  L  Catches Allowed                integer
+  M  Forced Fumbles                 integer
+  N  Fumble Recoveries              integer
+  O  Fumble Return Yards            integer
+  P  Blocks                         integer
+  Q  Safeties                       integer
+Each line: 15 tab-separated values (14 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 6: "Kicking" — positions: K, P
+Paste at cell C2 of the "Kicking" tab
+═══════════════════════════════════════════════════════════
+17 stat columns (C–S), in this EXACT order:
+  C  FG Made                        integer
+  D  FG Attempted                   integer
+  E  FG Long                        integer
+  F  XP Made                        integer
+  G  XP Attempted                   integer
+  H  FG Made (0-29)                 integer
+  I  FG Att (0-29)                  integer
+  J  FG Made (30-39)                integer
+  K  FG Att (30-39)                 integer
+  L  FG Made (40-49)                integer
+  M  FG Att (40-49)                 integer
+  N  FG Made (50+)                  integer
+  O  FG Att (50+)                   integer
+  P  Kickoffs                       integer
+  Q  Touchbacks                     integer
+  R  FG Blocked                     integer
+  S  XP Blocked                     integer
+Each line: 17 tab-separated values (16 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 7: "Punting" — positions: K, P
+Paste at cell C2 of the "Punting" tab
+═══════════════════════════════════════════════════════════
+7 stat columns (C–I), in this EXACT order:
+  C  Punts                          integer
+  D  Punting Yards                  integer
+  E  Net Punting Yards              integer
+  F  Punts Inside 20                integer
+  G  Touchbacks                     integer
+  H  Punt Long                      integer
+  I  Punts Blocked                  integer
+Each line: 7 tab-separated values (6 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 8: "Kick Return" — positions: HB, FB, WR, CB, FS, SS
+Paste at cell C2 of the "Kick Return" tab
+═══════════════════════════════════════════════════════════
+4 stat columns (C–F), in this EXACT order:
+  C  Kickoff Returns                integer
+  D  KR Yardage                     integer
+  E  KR Touchdowns                  integer
+  F  KR Long                        integer
+Each line: 4 tab-separated values (3 tab characters).
+
+═══════════════════════════════════════════════════════════
+TAB 9: "Punt Return" — positions: HB, FB, WR, CB, FS, SS
+Paste at cell C2 of the "Punt Return" tab
+═══════════════════════════════════════════════════════════
+4 stat columns (C–F), in this EXACT order:
+  C  Punt Returns                   integer
+  D  PR Yardage                     integer
+  E  PR Long                        integer
+  F  PR Touchdowns                  integer
+Each line: 4 tab-separated values (3 tab characters).
+
+NOTE ON PUNT RETURN COLUMN ORDER: on the Punt Return tab, PR Long is column E and PR Touchdowns is column F (opposite of the Kick Return tab). Copy this order literally.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== PASSING — paste at cell C2 of "Passing" tab ===
+<9 tab-separated values>
+<9 tab-separated values>
+...
+
+=== RUSHING — paste at cell C2 of "Rushing" tab ===
+<8 tab-separated values>
+...
+
+=== RECEIVING — paste at cell C2 of "Receiving" tab ===
+<6 tab-separated values>
+...
+
+=== BLOCKING — paste at cell C2 of "Blocking" tab ===
+<2 tab-separated values>
+...
+
+=== DEFENSIVE — paste at cell C2 of "Defensive" tab ===
+<15 tab-separated values>
+...
+
+=== KICKING — paste at cell C2 of "Kicking" tab ===
+<17 tab-separated values>
+...
+
+=== PUNTING — paste at cell C2 of "Punting" tab ===
+<7 tab-separated values>
+...
+
+=== KICK RETURN — paste at cell C2 of "Kick Return" tab ===
+<4 tab-separated values>
+...
+
+=== PUNT RETURN — paste at cell C2 of "Punt Return" tab ===
+<4 tab-separated values>
+...
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] NINE labeled blocks, one per tab, in the order above
+[ ] Each block's line count equals the number of pre-filled player rows on that tab (column A) — including any all-blank lines for players with no data
+[ ] Per-tab tab-count per line: Passing 8, Rushing 7, Receiving 5, Blocking 1, Defensive 14, Kicking 16, Punting 6, Kick Return 3, Punt Return 3
+[ ] Net Yards/Attempt and Adjusted Net Yards/Attempt (Passing columns H and I) use 1 decimal place; ALL other values on ALL tabs are integers
+[ ] No commas in any number
+[ ] No player name, no Snaps column, no header row, no commentary anywhere in output
+[ ] Row order within each block matches column A on that tab exactly
+[ ] Blank cells/lines for unknowns — invented nothing`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -421,6 +632,12 @@ export default function DetailedStatsEntryModal({
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -477,10 +694,18 @@ export default function DetailedStatsEntryModal({
                     <p>Sort by Snaps Played in your EA CFB 25 game stats and each tab will match up perfectly.</p>
                   </div>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -593,6 +818,12 @@ export default function DetailedStatsEntryModal({
           setRetryCount(c => c + 1)
         }}
         teamColors={teamColors}
+      />
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Detailed Stats Entry`}
+        prompt={aiPrompt}
       />
     </div>,
     document.body

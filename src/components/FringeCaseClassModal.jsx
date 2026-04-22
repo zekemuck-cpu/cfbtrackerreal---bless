@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import {
   createFringeCaseClassSheet,
   readFringeCaseClassFromSheet,
@@ -11,6 +12,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -36,6 +38,79 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Fringe Case Class Assignment`,
+    structure: `This sheet has ONE tab: "Fringe Cases". It has 5 columns total: A = Player, B = Position, C = "${currentYear} Recruitment Class", D = Games, E = "Updated ${currentYear + 1} Class". Row 1 is the protected header row. Columns A, B, C, D are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Column E is the only editable column, and its allowed dropdown values are PER-ROW (they depend on that row's Column C value).
+
+These are "fringe case" players who played between 5 and 9 games in ${currentYear}. Depending on the game's redshirt logic, each player can either be progressed to the next class OR kept at the current class with the RS prefix applied (i.e. a redshirt was used). Your job is to pick one of the two allowed values for each row.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY column E. NEVER output columns A, B, C, D, or the header row.
+2. Output format is a SINGLE column of values — one value per line — NO tabs, NO extra columns.
+3. Row order must match the pre-filled player rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (blank lines only when the current class is "RS Sr" which has no progression).
+4. Each row's allowed dropdown values are STRICTLY determined by that row's Column C value (the player's ${currentYear} class). You MUST pick one of the allowed values for that row — any other value is rejected by the dropdown.
+5. Use the EXACT literal strings shown below. "RS Fr" with ONE space. No "Fr (RS)", no "RSFr", no "Rs Fr", no "RS-Fr", no "Fr*".
+6. No header row, no commentary, no totals, no explanation.
+7. NEVER output a class that isn't in that row's allowed set.
+
+═══════════════════════════════════════════════════════════
+TAB: "Fringe Cases" — paste at cell E2 of the "Fringe Cases" tab
+═══════════════════════════════════════════════════════════
+
+Column layout:
+
+Col | Header (row 1, protected)               | Pre-filled / protected?           | Your value
+----+-----------------------------------------+-----------------------------------+-----------------------------------
+ A  | Player                                  | Pre-filled — PROTECTED            | DO NOT OUTPUT
+ B  | Position                                | Pre-filled — PROTECTED            | DO NOT OUTPUT
+ C  | ${currentYear} Recruitment Class                    | Pre-filled — PROTECTED            | DO NOT OUTPUT
+ D  | Games                                   | Pre-filled — PROTECTED            | DO NOT OUTPUT
+ E  | Updated ${currentYear + 1} Class                        | Empty — EDITABLE dropdown (per-row) | Exactly one allowed value, or BLANK only for "RS Sr"
+
+───────────────────────────────────────────────────────────
+COLUMN E — Per-row allowed values (depends on the row's Column C "${currentYear} Recruitment Class"):
+
+If Column C = "Fr"     → allowed values: "So" | "RS Fr"
+If Column C = "So"     → allowed values: "Jr" | "RS So"
+If Column C = "Jr"     → allowed values: "Sr" | "RS Jr"
+If Column C = "Sr"     → allowed value:  "RS Sr"                  (only one option)
+If Column C = "RS Fr"  → allowed value:  "RS So"                  (only one option)
+If Column C = "RS So"  → allowed value:  "RS Jr"                  (only one option)
+If Column C = "RS Jr"  → allowed value:  "RS Sr"                  (only one option)
+If Column C = "RS Sr"  → NO OPTIONS — leave the line blank (player graduates; no progression possible)
+
+Selection guidance (when two options exist):
+- Pick the NON-RS progressed class (e.g. "So", "Jr", "Sr") if the player did NOT use a redshirt in ${currentYear} — i.e. the screenshot indicates a normal year of eligibility was used. The fringe-case range is 5–9 games, so progression without redshirt is common.
+- Pick the "RS <CurrentClass>" value (e.g. "RS Fr", "RS So", "RS Jr") if the player used a redshirt in ${currentYear} — the screenshot / context indicates a redshirt was applied (e.g. the player participated in fewer meaningful games, or redshirt status is explicit).
+- When only one option is allowed (Sr, RS Fr, RS So, RS Jr), output that single value.
+- LITERAL case matters: all of "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" use Title Case with "RS" uppercase and exactly one space before the class letters.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== FRINGE CASES — paste at cell E2 of "Fringe Cases" tab ===
+<allowed value or blank>
+<allowed value or blank>
+<allowed value or blank>
+…one line per pre-filled player, in the EXACT order shown in the screenshots
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly N lines, where N = number of pre-filled player rows visible in the screenshots
+[ ] Every non-blank line is one of that row's allowed values based on Column C (per the table above)
+[ ] No "Fr (RS)" / "So (RS)" / "Jr (RS)" — use the "RS Fr" / "RS So" / "RS Jr" forms only
+[ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
+[ ] No tabs, no extra columns, no commentary
+[ ] Blank line ONLY for rows where Column C = "RS Sr" (no progression)
+[ ] No header row, no totals`,
+    includeTeamMap: true,
+    notes: `The "Games" column (protected) reflects regular-season games played in ${currentYear}. In the fringe-case context, the game decides whether a redshirt was applied (typically ≤ 4 games used a redshirt; 5–9 games is the fringe case where either progression or redshirt may apply). Use the screenshot's Games and context to pick the correct allowed value for each row.`
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -316,6 +391,7 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
@@ -375,19 +451,32 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
                     <li className="flex gap-2"><span className="font-bold">4.</span><span>Return here and tap "Save" to apply classes</span></li>
                   </ol>
                 </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-6 py-3 rounded-lg font-semibold text-base border transition-colors"
+                    style={{
+                      borderColor: modalColors.inputBorder,
+                      color: modalColors.text,
+                      backgroundColor: 'transparent'
+                    }}
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -452,6 +541,13 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Fringe Case Class Assignment`}
+        prompt={aiPrompt}
       />
     </div>
   )

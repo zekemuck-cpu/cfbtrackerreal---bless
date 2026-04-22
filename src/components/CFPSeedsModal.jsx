@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createCFPSeedsSheet,
@@ -14,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, SEED_DESCRIPTIONS } from '../data/cfpConstants'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -50,6 +52,75 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} CFP Seeds (1-12)`,
+    structure: `This sheet has ONE tab: "CFP Seeds". It is a 12-row ranking of the College Football Playoff seeds 1 through 12.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMN B ONLY. Column A (the seed number) is pre-filled and protected — never output it.
+2. ROW ORDER IS FIXED: row 1 = #1 seed, row 2 = #2 seed, ..., row 12 = #12 seed. Do not reorder.
+3. Output EXACTLY 12 lines. Not 11, not 13. One team per line.
+4. TEAM ABBREVIATIONS ONLY — use the abbreviation mapping below. Never output full names, nicknames, mascots, or cities.
+5. The team column is a STRICT dropdown. Wrong spelling/casing/nickname will be rejected by the sheet.
+6. BLANK LINE if the seed is unknown. Never guess, never use "N/A", "TBD", dash, or zero.
+7. No header row, no seed numbers, no commentary, no explanation, no blank leading line before row 1.
+8. No commas, no extra whitespace, no surrounding quotes.
+9. One SINGLE TSV block labeled with the tab name and paste cell.
+
+═══════════════════════════════════════════════════════════
+TAB: "CFP Seeds" — 12 rows × 1 editable column
+Paste your block at cell B2 of the "CFP Seeds" tab
+═══════════════════════════════════════════════════════════
+
+Row | Column A (PROTECTED / pre-filled) | Your column B value    | Format / Allowed values
+----+-----------------------------------+------------------------+-------------------------------------
+  1 | 1                                 | #1 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  2 | 2                                 | #2 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  3 | 3                                 | #3 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  4 | 4                                 | #4 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  5 | 5                                 | #5 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  6 | 6                                 | #6 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  7 | 7                                 | #7 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  8 | 8                                 | #8 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+  9 | 9                                 | #9 seed team abbr      | Exactly one value from the TEAM ABBREVIATIONS mapping below
+ 10 | 10                                | #10 seed team abbr     | Exactly one value from the TEAM ABBREVIATIONS mapping below
+ 11 | 11                                | #11 seed team abbr     | Exactly one value from the TEAM ABBREVIATIONS mapping below
+ 12 | 12                                | #12 seed team abbr     | Exactly one value from the TEAM ABBREVIATIONS mapping below
+
+All 12 cells use the same strict dropdown of team abbreviations. The complete list of allowed abbreviations is in the TEAM ABBREVIATIONS mapping at the bottom of this prompt — use ONLY those exact values.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== CFP SEEDS — paste at cell B2 of "CFP Seeds" tab ===
+<#1 seed abbr>
+<#2 seed abbr>
+<#3 seed abbr>
+<#4 seed abbr>
+<#5 seed abbr>
+<#6 seed abbr>
+<#7 seed abbr>
+<#8 seed abbr>
+<#9 seed abbr>
+<#10 seed abbr>
+<#11 seed abbr>
+<#12 seed abbr>
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send the answer
+═══════════════════════════════════════════════════════════
+[ ] Exactly 12 lines in the block (not counting the "=== CFP SEEDS ===" label)
+[ ] Every value is a team ABBREVIATION from the mapping — no full names, no nicknames
+[ ] No seed numbers, no column A, no header row in the output
+[ ] Blank line for any seed I could not determine — I invented nothing
+[ ] Casing matches the mapping exactly (e.g. "BAMA" not "bama" or "Bama")
+[ ] No commas, no surrounding quotes, no trailing commentary`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -388,10 +459,13 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
                     <li className="flex gap-2"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync your seeds</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2 mb-4" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 rounded-lg font-bold text-base hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-2 items-center justify-center mb-2">
@@ -446,6 +520,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
                     >
                       {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                     </button>
+                    <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                     <button
                       onClick={handleRegenerateSheet}
                       disabled={syncing || deletingSheet || regenerating}
@@ -513,6 +588,7 @@ export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, te
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP Seeds (1-12)`} prompt={aiPrompt} />
     </div>,
     document.body
   )

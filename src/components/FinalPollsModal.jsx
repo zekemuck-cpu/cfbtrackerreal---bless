@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 import {
   createFinalPollsSheet,
   readFinalPollsFromSheet,
@@ -38,9 +40,115 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
 
   const creatingSheetRef = useRef(false)
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Final Top 25 Polls`,
+    structure: `This sheet has ONE tab named "Polls". 3 columns, 26 rows: row 1 is a protected header, rows 2-26 are ranks 1-25.
+
+Column A (rank number 1-25) is PRE-FILLED — you never output it.
+You fill columns B (Media poll team) and C (Coaches poll team).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY columns B and C (Media, Coaches). NEVER output column A (rank), the header row, or any rank labels.
+2. Row order is FIXED: rank 1 first, rank 25 last. EXACTLY 25 lines of output.
+3. Each line has EXACTLY 2 tab-separated fields: <Media team>\\t<Coaches team>
+4. Team values must be UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
+5. NO COMMAS. No commentary. No rank numbers. No header row.
+6. A team may appear in Media and Coaches — they are independent rankings. A team can appear at the same rank in both polls (common) or at different ranks in each.
+7. Within a single column (Media OR Coaches), each team abbreviation should appear AT MOST ONCE — no duplicate teams in a single 25-team poll.
+8. BLANK field for unknown (empty between tabs). Never guess. If you only see the Media poll and not the Coaches poll, output Media abbr and empty Coaches field (still tab-separated).
+9. ONE TSV block. Label it with paste target.
+
+═══════════════════════════════════════════════════════════
+TAB "Polls" — 25 rows × 2 output columns
+Paste at cell B2 of the "Polls" tab
+═══════════════════════════════════════════════════════════
+
+Row-by-row mapping:
+
+Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output: Media\\tCoaches
+----------+----------------------------------+-----------------------------
+    2     | 1                                | <Media rank 1>\\t<Coaches rank 1>
+    3     | 2                                | <Media rank 2>\\t<Coaches rank 2>
+    4     | 3                                | <Media rank 3>\\t<Coaches rank 3>
+    5     | 4                                | <Media rank 4>\\t<Coaches rank 4>
+    6     | 5                                | <Media rank 5>\\t<Coaches rank 5>
+    7     | 6                                | <Media rank 6>\\t<Coaches rank 6>
+    8     | 7                                | <Media rank 7>\\t<Coaches rank 7>
+    9     | 8                                | <Media rank 8>\\t<Coaches rank 8>
+   10     | 9                                | <Media rank 9>\\t<Coaches rank 9>
+   11     | 10                               | <Media rank 10>\\t<Coaches rank 10>
+   12     | 11                               | <Media rank 11>\\t<Coaches rank 11>
+   13     | 12                               | <Media rank 12>\\t<Coaches rank 12>
+   14     | 13                               | <Media rank 13>\\t<Coaches rank 13>
+   15     | 14                               | <Media rank 14>\\t<Coaches rank 14>
+   16     | 15                               | <Media rank 15>\\t<Coaches rank 15>
+   17     | 16                               | <Media rank 16>\\t<Coaches rank 16>
+   18     | 17                               | <Media rank 17>\\t<Coaches rank 17>
+   19     | 18                               | <Media rank 18>\\t<Coaches rank 18>
+   20     | 19                               | <Media rank 19>\\t<Coaches rank 19>
+   21     | 20                               | <Media rank 20>\\t<Coaches rank 20>
+   22     | 21                               | <Media rank 21>\\t<Coaches rank 21>
+   23     | 22                               | <Media rank 22>\\t<Coaches rank 22>
+   24     | 23                               | <Media rank 23>\\t<Coaches rank 23>
+   25     | 24                               | <Media rank 24>\\t<Coaches rank 24>
+   26     | 25                               | <Media rank 25>\\t<Coaches rank 25>
+
+Per-line output (2 tab-separated fields):
+<Media team abbreviation>\\t<Coaches team abbreviation>
+
+Field formats:
+- Media (strict dropdown) — UPPERCASE abbreviation from the team mapping at the bottom (e.g. OSU, BAMA, UGA). One team per rank. Blank if unknown.
+- Coaches (strict dropdown) — same rules as Media. Independent of the Media column.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== FINAL POLLS — paste at cell B2 of "Polls" tab ===
+<rank 1 line: MediaAbbr\\tCoachesAbbr>
+<rank 2 line: MediaAbbr\\tCoachesAbbr>
+<rank 3 line: MediaAbbr\\tCoachesAbbr>
+<rank 4 line: MediaAbbr\\tCoachesAbbr>
+<rank 5 line: MediaAbbr\\tCoachesAbbr>
+<rank 6 line: MediaAbbr\\tCoachesAbbr>
+<rank 7 line: MediaAbbr\\tCoachesAbbr>
+<rank 8 line: MediaAbbr\\tCoachesAbbr>
+<rank 9 line: MediaAbbr\\tCoachesAbbr>
+<rank 10 line: MediaAbbr\\tCoachesAbbr>
+<rank 11 line: MediaAbbr\\tCoachesAbbr>
+<rank 12 line: MediaAbbr\\tCoachesAbbr>
+<rank 13 line: MediaAbbr\\tCoachesAbbr>
+<rank 14 line: MediaAbbr\\tCoachesAbbr>
+<rank 15 line: MediaAbbr\\tCoachesAbbr>
+<rank 16 line: MediaAbbr\\tCoachesAbbr>
+<rank 17 line: MediaAbbr\\tCoachesAbbr>
+<rank 18 line: MediaAbbr\\tCoachesAbbr>
+<rank 19 line: MediaAbbr\\tCoachesAbbr>
+<rank 20 line: MediaAbbr\\tCoachesAbbr>
+<rank 21 line: MediaAbbr\\tCoachesAbbr>
+<rank 22 line: MediaAbbr\\tCoachesAbbr>
+<rank 23 line: MediaAbbr\\tCoachesAbbr>
+<rank 24 line: MediaAbbr\\tCoachesAbbr>
+<rank 25 line: MediaAbbr\\tCoachesAbbr>
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly 25 lines in the block, rank 1 first, rank 25 last
+[ ] Every line has exactly 2 tab-separated fields (1 tab)
+[ ] All team values are uppercase abbreviations from the mapping — no full names
+[ ] No team duplicated within the Media column
+[ ] No team duplicated within the Coaches column
+[ ] Blank fields for unknowns — nothing invented
+[ ] No rank numbers, no header row, no commentary, no commas in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -214,6 +322,7 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
                 <div className="flex gap-3 flex-wrap items-center">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg font-semibold text-sm border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
                 </div>
               </div>
@@ -236,10 +345,13 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-6 py-3 rounded-lg font-semibold text-sm border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary px-6 py-3 text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
@@ -265,6 +377,7 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25 Polls`} prompt={aiPrompt} />
     </div>,
     document.body
   )

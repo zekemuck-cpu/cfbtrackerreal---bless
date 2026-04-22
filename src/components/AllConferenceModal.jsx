@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createAllConferenceSheet,
@@ -12,6 +13,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -38,6 +40,129 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} All-Conference`,
+    structure: `This sheet has ONE TAB PER CONFERENCE. Default layout = 10 tabs with these EXACT names (case-sensitive):
+  Big Ten | SEC | Big 12 | ACC | Pac-12 | Mountain West | American | Sun Belt | Conference USA | MAC
+(If the user has custom conferences, tab names may differ — use whatever tab names exist.)
+
+Every tab has the SAME layout: 28 rows × 12 columns organized as three side-by-side team blocks (First-Team, Second-Team, Freshman Team), each block = 4 columns (Position | Player | Team | Class).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. One output BLOCK per conference tab (so 10 blocks for default, labeled with the conference name).
+2. Row order is FIXED by the 25 positions below — output exactly 25 lines per block in that exact order.
+3. Each line has EXACTLY 12 tab-separated fields (11 tabs per line): Position, First Player, First Team, First Class, Position, Second Player, Second Team, Second Class, Position, Freshman Player, Freshman Team, Freshman Class.
+4. The Position value must be repeated identically in the 1st, 5th, and 9th fields of every line (the sheet has three Position columns).
+5. NO COMMAS in any value. No commentary, totals, "N/A", or dashes.
+6. BLANK field for unknown (empty between tabs). Never guess. A Freshman-team slot empty = leave Player/Team/Class blank.
+7. Use ONLY the literal dropdown values listed below for Position, Team, and Class.
+8. Team column values (cols C, G, K) must be UPPERCASE team abbreviations from the mapping below — NEVER full names. Each team listed in a block MUST actually belong to THIS conference for this tab. Teams from other conferences will be semantically wrong even if the dropdown accepts them.
+9. Do NOT output rows 1-3 (merged title, team-group headers, column headers) — they are pre-filled.
+
+═══════════════════════════════════════════════════════════
+SHARED LAYOUT (same for every conference tab)
+═══════════════════════════════════════════════════════════
+Rows 1-3 (pre-filled, DO NOT OUTPUT):
+  Row 1: "All-<Conference>" (merged A1:L1)
+  Row 2: "First-Team" (A2:D2, merged) | "Second-Team" (E2:H2, merged) | "Freshman Team" (I2:L2, merged)
+  Row 3: Position | Player | Team | Class | Position | Player | Team | Class | Position | Player | Team | Class
+
+Rows 4-28 (YOUR OUTPUT, 25 lines, 12 tab-separated fields each, positions in fixed order):
+  Row 4 → QB
+  Row 5 → HB
+  Row 6 → HB
+  Row 7 → WR
+  Row 8 → WR
+  Row 9 → WR
+  Row 10 → TE
+  Row 11 → LT
+  Row 12 → LG
+  Row 13 → C
+  Row 14 → RG
+  Row 15 → RT
+  Row 16 → LEDG
+  Row 17 → REDG
+  Row 18 → DT
+  Row 19 → DT
+  Row 20 → SAM
+  Row 21 → MIKE
+  Row 22 → WILL
+  Row 23 → CB
+  Row 24 → CB
+  Row 25 → FS
+  Row 26 → SS
+  Row 27 → K
+  Row 28 → P
+
+HB appears twice (rows 5-6), WR three times (rows 7-9), DT twice (rows 18-19), CB twice (rows 23-24). Use different players in each slot for the same conference/team-group — do not duplicate a name.
+
+Per-line output (12 tab-separated fields):
+<Position>\\t<First Player>\\t<First Team>\\t<First Class>\\t<Position>\\t<Second Player>\\t<Second Team>\\t<Second Class>\\t<Position>\\t<Freshman Player>\\t<Freshman Team>\\t<Freshman Class>
+
+Field formats:
+- Position (appears 3 times per line) — must be EXACTLY one of, case-sensitive:
+    QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
+  Use the position that matches the row from the list above. The same value goes in all three Position slots.
+- Player — full name string. Leave blank if unknown. Do NOT invent players.
+- Team (strict dropdown) — uppercase abbreviation from the mapping below (e.g. BAMA, OSU, UGA, TEX, USC). NEVER full names or nicknames. Must be a member of the conference this tab represents.
+- Class (strict dropdown) — must be EXACTLY one of, case-sensitive:
+    Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
+  Note the literal space in "RS Fr"/"RS So"/"RS Jr"/"RS Sr". No "Freshman"/"Sophomore"/"FR"/"SO"/"R-Fr"/"RSFr". Freshman-team slots must be Fr or RS Fr only.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT (one labeled block per conference tab)
+═══════════════════════════════════════════════════════════
+=== Big Ten — paste at cell A4 of "Big Ten" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== SEC — paste at cell A4 of "SEC" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== Big 12 — paste at cell A4 of "Big 12" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== ACC — paste at cell A4 of "ACC" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== Pac-12 — paste at cell A4 of "Pac-12" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== Mountain West — paste at cell A4 of "Mountain West" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== American — paste at cell A4 of "American" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== Sun Belt — paste at cell A4 of "Sun Belt" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== Conference USA — paste at cell A4 of "Conference USA" tab ===
+<25 lines × 12 tab-separated fields>
+
+=== MAC — paste at cell A4 of "MAC" tab ===
+<25 lines × 12 tab-separated fields>
+
+(If the user's sheet has custom conferences, output one labeled block per tab that actually exists, using the exact tab name in the label.)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] One labeled block per conference tab, exact tab name in the label
+[ ] Each block has exactly 25 lines in the exact position order: QB, HB, HB, WR, WR, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, DT, SAM, MIKE, WILL, CB, CB, FS, SS, K, P
+[ ] Each line has exactly 12 tab-separated fields (11 tabs)
+[ ] The 1st, 5th, and 9th fields on every line hold the SAME position value matching that row
+[ ] All Position values are from the exact list: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P
+[ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
+[ ] All Freshman-team Class values are Fr or RS Fr
+[ ] All Team values are uppercase abbreviations from the mapping — and each team is a member of THIS tab's conference
+[ ] Blank fields for unknowns — nothing was invented
+[ ] No commas, no header rows, no commentary in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation
   const creatingSheetRef = useRef(false)
@@ -240,6 +365,7 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
                 <div className="flex gap-3 flex-wrap items-center">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: modalColors.accent, color: getContrastTextColor(modalColors.accent) }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
                 </div>
               </div>
@@ -262,10 +388,13 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: modalColors.accent, color: getContrastTextColor(modalColors.accent) }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary px-6 py-3 text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
@@ -291,6 +420,7 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Conference`} prompt={aiPrompt} />
     </div>
   )
 }

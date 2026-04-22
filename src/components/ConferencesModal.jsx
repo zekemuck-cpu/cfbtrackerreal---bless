@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createConferencesSheet,
@@ -12,6 +13,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 // Simple mobile detection
 const isMobileDevice = () => {
@@ -39,6 +41,84 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `Custom Conferences`,
+    structure: `This sheet has ONE TAB PER SEASON YEAR (tab titles like "${currentDynasty?.currentYear || new Date().getFullYear()}", "${(currentDynasty?.currentYear || new Date().getFullYear()) - 1}", etc.). Focus on the "${currentDynasty?.currentYear || new Date().getFullYear()}" tab (the current year).
+Each tab has the SAME layout: row 1 is a PROTECTED header of conference names; rows 2-21 are 20 team-slot rows (one cell per conference × column).
+
+Row 1 (PROTECTED) — column headers in alphabetical order, typically these 11 conferences:
+ACC | American | Big 12 | Big Ten | Conference USA | Independent | MAC | Mountain West | Pac-12 | SEC | Sun Belt
+(If the user has renamed/added/removed conferences, column headers will differ. You must output one column per header in the exact left-to-right order shown in the sheet.)
+
+You fill rows 2-21 (20 rows) with team abbreviations, one team per cell, going top-to-bottom within each conference's column.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY rows 2-21 of data (up to 20 rows). NEVER output row 1 (conference-name headers).
+2. Output EXACTLY as many columns as the sheet has conference-name headers, in the exact left-to-right order (default: 11 columns alphabetically).
+3. Each line has tab-separated team abbreviations — one cell per conference column. Use an empty field (two consecutive tabs) for conferences whose column has fewer than the current row's index worth of teams.
+4. Every team abbreviation must be UPPERCASE from the mapping at the bottom — NEVER full names or nicknames.
+5. Every FBS team must appear EXACTLY ONCE across all columns in the block. Duplicates will cause a validation error when the sheet is read back.
+6. Each team must be placed in the column matching its real conference.
+7. NO COMMAS. No commentary. No header rows. No "N/A", no dashes.
+8. Row order within a column: list the teams alphabetically by abbreviation (or by conference-member order — either is acceptable as long as no team is missing or duplicated).
+9. ONE TSV block total. Label it with paste target.
+
+═══════════════════════════════════════════════════════════
+TAB "${currentDynasty?.currentYear || new Date().getFullYear()}" — 20 rows × (number of conferences) columns
+Paste at cell A2 of the "${currentDynasty?.currentYear || new Date().getFullYear()}" tab
+═══════════════════════════════════════════════════════════
+
+Default 11-column layout (your output has 11 tab-separated fields per line):
+Col 1 = ACC | Col 2 = American | Col 3 = Big 12 | Col 4 = Big Ten | Col 5 = Conference USA | Col 6 = Independent | Col 7 = MAC | Col 8 = Mountain West | Col 9 = Pac-12 | Col 10 = SEC | Col 11 = Sun Belt
+
+Default conference memberships (current real-world alignment — use these unless the screenshot shows different):
+- ACC: BC, CAL, CLEM, DUKE, FSU, GT, LOU, MIA, NCST, UNC, PITT, SMU, SYR, STAN, UVA, VT, WAKE
+- American: ARMY, CHAR, ECU, FAU, MEM, NAVY, UNT, RICE, TULN, TLSA, UAB, USF, UTSA
+- Big 12: ARIZ, ASU, BU, BYU, UC, COLO, UH, ISU, KU, KSU, OKST, TCU, TTU, UCF, UTAH, WVU
+- Big Ten: ILL, IU, IOWA, UMD, MICH, MSU, MINN, NEB, NU, OSU, ORE, PSU, PUR, RUTG, UCLA, USC, WASH, WIS
+- Conference USA: FIU, KENN, LIB, LT, MTSU, NMSU, SHSU, UTEP, WKU
+- Independent: ND, CONN, MASS
+- MAC: AKR, BALL, BGSU, BUFF, CMU, EMU, KENT, M-OH, NIU, OHIO, TOL, WMU
+- Mountain West: AFA, BOIS, CSU, FRES, HAW, NEV, SDSU, SJSU, UNLV, USU, WYO
+- Pac-12: ORST, WSU
+- SEC: BAMA, ARK, AUB, FLA, UGA, UK, LSU, MISS, MSST, MIZ, OU, SCAR, UT, TEX, TAMU, VAN
+- Sun Belt: APP, ARST, CCU, GASO, GSU, JMU, JKST, ULM, UL, MRSH, ODU, USA, TXST, TROY
+
+If the screenshot shows a DIFFERENT alignment (custom conferences / realignment year), use what the screenshot shows. Otherwise use the defaults above.
+
+Per-line output (tab-separated, one field per conference column; blank if that column's conference has fewer teams than the current row number):
+<ACC team>\\t<American team>\\t<Big 12 team>\\t<Big Ten team>\\t<Conf USA team>\\t<Indep team>\\t<MAC team>\\t<Mtn West team>\\t<Pac-12 team>\\t<SEC team>\\t<Sun Belt team>
+
+Field format for every cell:
+- Team abbreviation (strict dropdown) — UPPERCASE from the mapping at the bottom (e.g. BAMA, OSU, UGA). NEVER full names ("Alabama") or nicknames ("Crimson Tide").
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== CONFERENCES — paste at cell A2 of "${currentDynasty?.currentYear || new Date().getFullYear()}" tab ===
+<row 2: 11 tab-separated cells, one team per conference column>
+<row 3: 11 tab-separated cells>
+<row 4: 11 tab-separated cells>
+...continue for up to 20 rows...
+
+(Stop before row 21 if no conference has more teams to list. Shorter blocks allowed. Smaller conferences like Independent (3 teams) and Pac-12 (2 teams in the default) will have blank fields in later rows.)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has the same number of tab-separated fields = number of conference columns in the sheet (default 11)
+[ ] Conference column ORDER matches the header row in the sheet (default: ACC, American, Big 12, Big Ten, Conference USA, Independent, MAC, Mountain West, Pac-12, SEC, Sun Belt)
+[ ] Every FBS team appears EXACTLY ONCE across the entire block (no duplicates)
+[ ] Every team is placed in its correct conference column
+[ ] All team values are UPPERCASE abbreviations from the mapping — no full names, no nicknames
+[ ] Empty cells (two consecutive tabs) for conferences with fewer teams than the row index
+[ ] No header row, no commas, no commentary in the output`,
+    includeTeamMap: true,
+  }), [currentDynasty?.currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -349,6 +429,12 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -414,22 +500,25 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
                   </ol>
                 </div>
 
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{
-                    backgroundColor: '#0F9D58',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{
+                      backgroundColor: '#0F9D58',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -542,6 +631,7 @@ export default function ConferencesModal({ isOpen, onClose, onSave, teamColors }
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title="Custom Conferences" prompt={aiPrompt} />
     </div>
   )
 }

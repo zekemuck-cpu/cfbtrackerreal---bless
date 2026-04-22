@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import {
   createRecruitingSheet,
   readRecruitingFromSheet,
@@ -12,6 +13,7 @@ import {
 } from '../services/sheetsService'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -48,6 +50,120 @@ export default function RecruitingCommitmentsModal({
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim(),
+    structure: `This sheet has ONE tab: "Commitments".
+The header row (row 1) is pre-filled and PROTECTED. Data rows start at row 2. You will output one row per recruit visible in the screenshots (up to 35 recruits — max scholarships per class).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY the data rows (row 2 onward). NEVER output the header row.
+2. Output ALL 15 columns per row, tab-separated, in the exact order A→O below.
+3. One row per recruit. Do not reorder rows arbitrarily; keep the same order as the screenshots.
+4. NO COMMAS in numbers. Output "1234" — never "1,234".
+5. INTEGERS have no decimal point. No quotes around numbers.
+6. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". Blank ≠ zero.
+7. Dropdown columns (B, C, D, E, I, L, M, N, O) MUST use EXACTLY one of the literal values listed. Wrong spelling or casing will be rejected.
+8. Column E (Stars) uses ☆ symbols, NOT digits. One symbol = 1 star, five symbols = 5 stars.
+9. Column O (Prev Team) MUST be a team abbreviation from the mapping below, or BLANK. Blank for HS/JUCO recruits; only filled for transfer-portal recruits.
+10. No header row, no totals, no commentary. ONE TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "Commitments" — up to 35 rows × 15 columns
+Paste at cell A2 of the "Commitments" tab
+═══════════════════════════════════════════════════════════
+
+Row | Col | Header (protected)  | Your value                                                                            | Format
+----+-----+---------------------+---------------------------------------------------------------------------------------+----------
+ 2+ |  A  | Player              | Full player name, text                                                                | text
+ 2+ |  B  | Class               | Dropdown — exactly one of the 10 values below                                         | dropdown
+ 2+ |  C  | Position            | Dropdown — exactly one of the 22 values below                                         | dropdown
+ 2+ |  D  | Archetype           | Dropdown — exactly one of the 43 values below                                         | dropdown
+ 2+ |  E  | Stars               | Dropdown — exactly one of: ☆  ☆☆  ☆☆☆  ☆☆☆☆  ☆☆☆☆☆   (blank if unknown)               | dropdown (symbols)
+ 2+ |  F  | Nat. Rank           | Integer (national recruiting rank)                                                    | integer
+ 2+ |  G  | State Rank          | Integer (rank within state)                                                           | integer
+ 2+ |  H  | Pos. Rank           | Integer (rank at position)                                                            | integer
+ 2+ |  I  | Height              | Dropdown — exactly one of the 20 values below (feet'inches" with straight quotes)     | dropdown
+ 2+ |  J  | Weight              | Integer in lbs, no unit suffix                                                        | integer
+ 2+ |  K  | Hometown            | City name, text                                                                       | text
+ 2+ |  L  | State               | Dropdown — exactly one of the 51 two-letter codes below                               | dropdown
+ 2+ |  M  | Gem/Bust            | Dropdown — exactly "Gem" or "Bust", or blank                                          | dropdown
+ 2+ |  N  | Dev Trait           | Dropdown — exactly one of: Elite, Star, Impact, Normal                                | dropdown
+ 2+ |  O  | Prev Team           | Team abbreviation from mapping (transfers only); BLANK for HS/JUCO                    | dropdown
+
+═══════════════════════════════════════════════════════════
+ENUMERATED DROPDOWN VALUES (use EXACTLY — case-sensitive)
+═══════════════════════════════════════════════════════════
+
+Column B — Class (10 values):
+  HS, JUCO Fr, JUCO So, JUCO Jr, Fr, RS Fr, So, RS So, Jr, RS Jr
+
+Column C — Position (22 values):
+  QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P, ATH
+
+Column D — Archetype (43 values — copy EXACTLY, including capitalization and slashes):
+  Backfield Creator, Dual Threat, Pocket Passer, Pure Runner,
+  Backfield Threat, East/West Playmaker, Elusive Bruiser, North/South Receiver, North/South Blocker,
+  Blocking, Utility,
+  Contested Specialist, Elusive Route Runner, Gadget, Gritty Possession, Physical Route Runner, Route Artist, Speedster,
+  Possession, Pure Blocker, Pure Possession, Vertical Threat,
+  Agile, Pass Protector, Raw Strength, Ground and Pound, Well Rounded,
+  Edge Setter, Gap Specialist, Power Rusher, Pure Power, Speed Rusher,
+  Lurker, Signal Caller, Thumper,
+  Boundary, Bump and Run, Field, Zone,
+  Box Specialist, Coverage Specialist, Hybrid,
+  Accurate, Power
+
+Column E — Stars (5 values, star symbol only — NOT digits, NOT "5 stars"):
+  ☆        (1 star)
+  ☆☆       (2 stars)
+  ☆☆☆      (3 stars)
+  ☆☆☆☆     (4 stars)
+  ☆☆☆☆☆    (5 stars)
+
+Column I — Height (20 values — foot mark ' then inches then straight ASCII quote "):
+  5'5"  5'6"  5'7"  5'8"  5'9"  5'10"  5'11"
+  6'0"  6'1"  6'2"  6'3"  6'4"  6'5"  6'6"  6'7"  6'8"  6'9"  6'10"  6'11"
+  7'0"
+
+Column L — State (51 two-letter US codes):
+  AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, HI, IA, ID, IL, IN, KS, KY, LA, MA,
+  MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI,
+  SC, SD, TN, TX, UT, VA, VT, WA, WI, WV, WY
+
+Column M — Gem/Bust:
+  Gem, Bust   (or leave BLANK if neither)
+
+Column N — Dev Trait (4 values):
+  Elite, Star, Impact, Normal
+
+Column O — Prev Team: use ONLY abbreviations from the team mapping appended below. Leave BLANK for any non-transfer (HS, JUCO) recruit. Never write a full team name.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== COMMITMENTS — paste at cell A2 of "Commitments" tab ===
+<Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat. Rank>\\t<State Rank>\\t<Pos. Rank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev Trait>\\t<Prev Team>
+<next recruit row...>
+...
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly 15 tab-separated values per line (count the tabs: there must be 14 tabs between 15 values)
+[ ] No header row in output
+[ ] No commas in any number
+[ ] Stars column uses ☆ symbols (never digits)
+[ ] Every value in columns B, C, D, E, I, L, M, N, O is a LITERAL MATCH of an enumerated dropdown value
+[ ] Heights use straight ASCII quote " not curly quote
+[ ] Prev Team is blank for HS/JUCO recruits, an abbreviation (from mapping) for transfers
+[ ] Blank cells for unknowns — invented nothing`,
+    includeTeamMap: true,
+    notes: 'Column O (Prev Team) applies ONLY to transfer-portal recruits (Class = Fr, RS Fr, So, RS So, Jr, or RS Jr). For HS and JUCO recruits, leave column O blank. Use ONLY the team abbreviations in the mapping below — never a full team name.',
+  }), [currentYear, recruitingLabel])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -322,6 +438,12 @@ export default function RecruitingCommitmentsModal({
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -365,19 +487,27 @@ export default function RecruitingCommitmentsModal({
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Return here and tap "Save" to sync</span></li>
                   </ol>
                 </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button
@@ -436,6 +566,12 @@ export default function RecruitingCommitmentsModal({
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim()}
+        prompt={aiPrompt}
       />
     </div>
   )

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createConferenceStandingsSheet,
@@ -12,6 +13,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -39,6 +41,113 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Conference Standings`,
+    structure: `This sheet has ONE tab named "Standings". Single vertical table, 7 columns, 11 conference blocks of 20 rows each with 1 spacer row between blocks.
+
+Columns A (Conference name) and B (Conf. Rank 1-20) are PRE-FILLED in every team row. Column A text is the conference name; column B is the integer rank 1-20.
+You fill columns C, D, E, F, G only (Team, Wins, Losses, Points For, Points Against).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY columns C, D, E, F, G (Team, Wins, Losses, Points For, Points Against). Never output Conference name, Rank, header row, or spacer rows.
+2. ONE labeled TSV block per conference — 11 total blocks. Each block has UP TO 20 lines (one per ranked team). Leave extra slots blank if a conference has fewer than 20 teams.
+3. Row order within each block = rank 1 first → rank 20 last. Best record first.
+4. Each line has EXACTLY 5 tab-separated fields: Team, Wins, Losses, Points For, Points Against.
+5. NO COMMAS in numbers: "1234" not "1,234". No thousands separators.
+6. Integers only — no decimal points in Wins/Losses/Points For/Points Against.
+7. Fewer than 20 lines is allowed if a conference has fewer teams. Do NOT pad with fake entries. Do NOT guess — leave the remaining lines out rather than inventing teams.
+8. Team values (col C) must be UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames. Must be a member of the conference for that block.
+9. Spacer rows between conferences in the sheet are NOT part of your output — each block starts fresh at the rank-1 cell of its conference.
+
+═══════════════════════════════════════════════════════════
+LAYOUT — 11 conferences in this EXACT order with exact paste cells
+═══════════════════════════════════════════════════════════
+  1. ACC         → paste at cell C2   of "Standings" tab
+  2. American    → paste at cell C23  of "Standings" tab
+  3. Big 12      → paste at cell C44  of "Standings" tab
+  4. Big Ten     → paste at cell C65  of "Standings" tab
+  5. C-USA       → paste at cell C86  of "Standings" tab
+  6. Independent → paste at cell C107 of "Standings" tab
+  7. MAC         → paste at cell C128 of "Standings" tab
+  8. MWC         → paste at cell C149 of "Standings" tab
+  9. Pac-12      → paste at cell C170 of "Standings" tab
+ 10. SEC         → paste at cell C191 of "Standings" tab
+ 11. Sun Belt    → paste at cell C212 of "Standings" tab
+
+(Each conference occupies exactly 20 team rows starting at its rank-1 row, followed by 1 blank spacer row, then the next conference's rank-1 row.)
+
+Independent is small (typically just ND, CONN, MASS) — output only 1-3 lines, not 20.
+
+═══════════════════════════════════════════════════════════
+PER-LINE OUTPUT (5 tab-separated fields)
+═══════════════════════════════════════════════════════════
+<Team Abbr>\\t<Wins>\\t<Losses>\\t<Points For>\\t<Points Against>
+
+Field formats:
+- Team Abbr (strict dropdown) — UPPERCASE abbreviation from the mapping at the bottom (e.g. BAMA, OSU, UGA). Must be a team in THIS block's conference. NEVER full names ("Alabama", "Ohio State") or nicknames.
+- Wins — integer, no decimals, no commas (e.g. "12" not "12.0" or "12,0").
+- Losses — integer, same rules.
+- Points For — season total integer, no commas (e.g. "487" not "4,870").
+- Points Against — season total integer, same rules.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== ACC — paste at cell C2 of "Standings" tab ===
+<rank-1 team line>
+<rank-2 team line>
+...
+<rank-N team line>
+
+=== American — paste at cell C23 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== Big 12 — paste at cell C44 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== Big Ten — paste at cell C65 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== C-USA — paste at cell C86 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== Independent — paste at cell C107 of "Standings" tab ===
+<up to 20 team lines in rank order (usually 1-3)>
+
+=== MAC — paste at cell C128 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== MWC — paste at cell C149 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== Pac-12 — paste at cell C170 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== SEC — paste at cell C191 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+=== Sun Belt — paste at cell C212 of "Standings" tab ===
+<up to 20 team lines in rank order>
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly 11 labeled blocks, in the order: ACC, American, Big 12, Big Ten, C-USA, Independent, MAC, MWC, Pac-12, SEC, Sun Belt
+[ ] Each block labeled with the exact paste cell (C2, C23, C44, C65, C86, C107, C128, C149, C170, C191, C212)
+[ ] Every line has exactly 5 tab-separated fields (4 tabs)
+[ ] No commas in any number
+[ ] No decimals (all values are integers)
+[ ] All team values are uppercase abbreviations from the mapping — no full names
+[ ] Every team is a valid member of its block's conference
+[ ] Teams within a block are in rank order (rank 1 first)
+[ ] Did not invent teams to fill to 20 — shorter blocks allowed
+[ ] No Conference column, no Rank column, no header row, no commentary in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -239,6 +348,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="btn btn-secondary text-sm" style={{ opacity: 0.7 }}>
                     {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
                   </button>
@@ -267,10 +377,13 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: teamColors.primary, color: getContrastTextColor(teamColors.primary) }}>
                     {deletingSheet ? 'Saving...' : 'Save & Move to Trash'}
@@ -304,6 +417,7 @@ export default function ConferenceStandingsModal({ isOpen, onClose, onSave, curr
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Standings`} prompt={aiPrompt} />
     </div>
   )
 }

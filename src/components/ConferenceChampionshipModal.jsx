@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createConferenceChampionshipSheet,
@@ -14,6 +15,7 @@ import {
 } from '../services/sheetsService'
 import { getGameTeamInfo, TEAMS } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -41,6 +43,85 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Conference Championships`,
+    structure: `This sheet has ONE tab named "Conference Championships". 5 columns, up to 11 rows (1 header + up to 10 conferences — one conference may be excluded if the user already entered their own CC game).
+
+Column A (Conference name) is PRE-FILLED and PROTECTED — you never output it.
+You fill columns B (Team 1), C (Team 2), D (Team 1 Score), E (Team 2 Score).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY columns B, C, D, E. Never output column A (conference name) or the header row.
+2. Row order is FIXED by the conference order below (alphabetical). If the user excluded a conference, SKIP that line — do not leave a blank row; just output one fewer line. If uncertain whether a conference was excluded, output all 10 — the user will trim.
+3. NO COMMAS in scores. Integers only. No decimals.
+4. BLANK LINE (empty, no tabs) if you do not know the CC result for a conference. Never guess. Never invent scores.
+5. Team 1 and Team 2 must BOTH be members of the conference in column A for that row (the user will see your output next to the conference label).
+6. Both teams must use UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
+7. ONE TSV block. Label it with the paste target.
+
+═══════════════════════════════════════════════════════════
+TAB "Conference Championships" — up to 10 rows × 4 output columns
+Paste at cell B2 of the "Conference Championships" tab
+═══════════════════════════════════════════════════════════
+
+Column A is pre-filled with these 10 conferences in this ALPHABETICAL order (the code sorts them). If a conference was excluded from this sheet (because the user plays in it), that ROW will not exist and you should SKIP its line in your output:
+
+Sheet Row | Col A (PROTECTED)    | Your output: Team1\\tTeam2\\tTeam1Score\\tTeam2Score
+----------+----------------------+----------------------------------------------------
+    2     | ACC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    3     | American             | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    4     | Big 12               | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    5     | Big Ten              | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    6     | Conference USA       | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    7     | MAC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    8     | Mountain West        | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+    9     | Pac-12               | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+   10     | SEC                  | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+   11     | Sun Belt             | <Team1 abbr>\\t<Team2 abbr>\\t<int>\\t<int>
+
+(NOTE: The sheet sorts column A alphabetically. "American" comes before "Big 12" in alphabetical order and "Pac-12" comes before "SEC". This is the row order the sheet uses.)
+
+Per-line output (4 tab-separated fields):
+<Team 1 Abbr>\\t<Team 2 Abbr>\\t<Team 1 Score>\\t<Team 2 Score>
+
+Field formats:
+- Team 1 (strict dropdown) — UPPERCASE abbreviation from the mapping at the bottom. Must be a member of the conference on that row.
+- Team 2 (strict dropdown) — same rules. Must be a different team from Team 1, same conference.
+- Team 1 Score — integer (no commas, no decimals). e.g. "31" not "31.0".
+- Team 2 Score — integer (no commas, no decimals).
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== CONFERENCE CHAMPIONSHIPS — paste at cell B2 of "Conference Championships" tab ===
+<ACC row: Team1\\tTeam2\\tScore1\\tScore2   OR blank line if unknown>
+<American row: ...>
+<Big 12 row: ...>
+<Big Ten row: ...>
+<Conference USA row: ...>
+<MAC row: ...>
+<Mountain West row: ...>
+<Pac-12 row: ...>
+<SEC row: ...>
+<Sun Belt row: ...>
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Up to 10 lines total, in alphabetical conference order (ACC first, Sun Belt last)
+[ ] Every non-blank line has exactly 4 tab-separated fields (3 tabs)
+[ ] Both teams on each line are members of that row's conference
+[ ] Team 1 and Team 2 are different teams
+[ ] All team values are uppercase abbreviations from the mapping — no full names
+[ ] All scores are integers with no commas and no decimals
+[ ] Blank entire lines for unknown results — nothing invented
+[ ] No Conference name, no header row, no commentary in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -364,6 +445,12 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                   {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                 </button>
                 <button
+                  onClick={() => setShowAIPrompt(true)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                >
+                  AI Prompt
+                </button>
+                <button
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
                   className="btn btn-secondary text-sm"
@@ -408,10 +495,13 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -510,6 +600,7 @@ export default function ConferenceChampionshipModal({ isOpen, onClose, onSave, c
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Championships`} prompt={aiPrompt} />
     </div>,
     document.body
   )

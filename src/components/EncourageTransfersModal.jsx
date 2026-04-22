@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
 import {
@@ -12,6 +13,7 @@ import {
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -38,6 +40,62 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Encourage Transfers`,
+    structure: `This sheet has ONE tab: "Encourage Transfers". It has 4 columns total (A–D) and one row per roster player (row 2 onward). Row 1 is the protected header row. Columns A (Name), B (Position), C (Overall) are PRE-FILLED from dynasty data and PROTECTED — do NOT output them. Only column D is editable.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY column D. NEVER output columns A, B, C, or the header row.
+2. Output format is a SINGLE column of values — one value per line — NO tabs, NO commas, NO extra columns.
+3. Row order must match the pre-filled rows EXACTLY, from top to bottom as shown in the sheet screenshot. One line per pre-filled player. If the sheet shows N players, output EXACTLY N lines.
+4. Every value MUST be the literal string TRUE or FALSE — uppercase, no quotes, no period. Do NOT write "True", "true", "1", "0", "yes", "no", "Y", "N", a checkbox character, or a blank.
+5. TRUE means "encourage this player to transfer out". FALSE means "keep this player / do not encourage transfer". Use FALSE as the default — only mark TRUE when you are confident the coach should push this player out.
+6. No blank lines, no header row, no commentary, no totals, no explanation.
+7. NEVER leave a line blank. Every player row must receive either TRUE or FALSE (when uncertain, use FALSE).
+
+═══════════════════════════════════════════════════════════
+TAB: "Encourage Transfers" — paste at cell D2 of the "Encourage Transfers" tab
+═══════════════════════════════════════════════════════════
+
+Column layout (single editable column):
+
+Col | Header (row 1, protected) | Pre-filled / protected?      | Your value
+----+---------------------------+------------------------------+---------------------------
+ A  | Name                      | Pre-filled — PROTECTED       | DO NOT OUTPUT
+ B  | Position                  | Pre-filled — PROTECTED       | DO NOT OUTPUT
+ C  | Overall                   | Pre-filled — PROTECTED       | DO NOT OUTPUT
+ D  | Encourage Transfer        | Empty checkbox — EDITABLE    | TRUE or FALSE (literal, uppercase)
+
+───────────────────────────────────────────────────────────
+COLUMN D — Encourage Transfer — MUST be one of these 2 values EXACTLY:
+TRUE
+FALSE
+(Uppercase only. No quotes. No period. These values paste into Google Sheets checkbox cells as checked (TRUE) or unchecked (FALSE).)
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== ENCOURAGE TRANSFERS — paste at cell D2 of "Encourage Transfers" tab ===
+<TRUE or FALSE>
+<TRUE or FALSE>
+<TRUE or FALSE>
+…one line per pre-filled player, in the exact order shown in the screenshots
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly N lines, where N = number of pre-filled player rows visible in the screenshots
+[ ] Every line is either the literal TRUE or the literal FALSE (uppercase, no quotes)
+[ ] No tabs, no commas, no other columns
+[ ] No blank lines
+[ ] No header row, no commentary, no totals
+[ ] Default to FALSE when uncertain — never blank, never guess TRUE`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -309,6 +367,7 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
@@ -391,22 +450,25 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
                   </ol>
                 </div>
 
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{
-                    backgroundColor: '#0F9D58',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{
+                      backgroundColor: '#0F9D58',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button
@@ -519,6 +581,7 @@ export default function EncourageTransfersModal({ isOpen, onClose, onSave, curre
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Encourage Transfers`} prompt={aiPrompt} />
     </div>
   )
 }

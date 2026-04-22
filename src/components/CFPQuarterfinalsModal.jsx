@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createCFPQuarterfinalsSheet,
@@ -13,6 +14,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -40,6 +42,71 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} CFP Quarterfinals Results`,
+    structure: `This sheet has ONE tab: "CFP Quarterfinals". It contains 4 quarterfinal bowl games (each pairing a bye seed 1-4 against a First Round winner from seeds 5-12).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMNS B, C, D, E, F ONLY (5 values per row). Column A (Bowl Game) is pre-filled and must not be changed.
+2. ROW ORDER IS FIXED (bracket display order): row 1 = seed-4 bye bowl, row 2 = seed-1 bye bowl, row 3 = seed-3 bye bowl, row 4 = seed-2 bye bowl. Rows are keyed to the pre-filled Bowl Game column — do not reorder.
+3. Output EXACTLY 4 data rows, each with EXACTLY 5 tab-separated values.
+4. NO COMMAS in numbers. Output "28" never "1,234".
+5. INTEGERS ONLY for scores — no decimals, no "pts", no minus signs.
+6. TEAM ABBREVIATIONS ONLY (columns B, C, F) — use the abbreviation mapping below. Never full names, nicknames, cities, or mascots.
+7. WINNER (column F) must EXACTLY equal whichever abbreviation in that row's columns B or C has the higher score. If the two scores are tied or blank, leave Winner blank.
+8. BLANK CELL if unknown. Never guess, never use "N/A", "TBD", dash. Zero (0) is only valid if the team truly scored zero.
+   - If an entire game hasn't been played: leave all 5 cells blank.
+   - If teams are known but scores aren't: fill columns B and C only; leave D, E, F blank.
+9. Team 1 (column B) is always the bye seed (1, 2, 3, or 4). Team 2 (column C) is always the First Round winner that advanced into that bowl. Do not swap them.
+10. No header row, no Bowl Game text, no commentary, no explanation.
+11. SINGLE TSV block labeled by tab name and paste cell.
+
+═══════════════════════════════════════════════════════════
+TAB: "CFP Quarterfinals" — 4 rows × 5 editable columns
+Paste your block at cell B2 of the "CFP Quarterfinals" tab
+═══════════════════════════════════════════════════════════
+
+Column A (Bowl Game) shows which CFP bowl game hosts that matchup — the specific bowl names (Sugar, Cotton, Rose, Orange, or whatever the user configured) are already pre-filled and must not be changed. Focus on the 5 editable columns below.
+
+Row | Col A (PROTECTED)    | Col B (Team 1 = bye seed) | Col C (Team 2 = First Round winner) | Col D (Team 1 Score) | Col E (Team 2 Score) | Col F (Winner)
+----+----------------------+---------------------------+-------------------------------------+----------------------+----------------------+--------------------------------
+  1 | bowl hosting seed-4  | #4 seed team abbr         | winner of 5-vs-12 First Round game  | integer              | integer              | abbr matching higher scorer
+  2 | bowl hosting seed-1  | #1 seed team abbr         | winner of 8-vs-9 First Round game   | integer              | integer              | abbr matching higher scorer
+  3 | bowl hosting seed-3  | #3 seed team abbr         | winner of 6-vs-11 First Round game  | integer              | integer              | abbr matching higher scorer
+  4 | bowl hosting seed-2  | #2 seed team abbr         | winner of 7-vs-10 First Round game  | integer              | integer              | abbr matching higher scorer
+
+Columns B, C, F: team abbreviation from the TEAM ABBREVIATIONS mapping below.
+Columns D, E: integer score (0 or higher), no commas, no decimal point.
+Column F (Winner) rule: Winner === (Team 1 Score > Team 2 Score) ? Team 1 abbr : Team 2 abbr. Winner MUST equal whichever of columns B/C has the higher score.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== CFP QUARTERFINALS — paste at cell B2 of "CFP Quarterfinals" tab ===
+<row1 Team1>\\t<row1 Team2>\\t<row1 T1Score>\\t<row1 T2Score>\\t<row1 Winner>
+<row2 Team1>\\t<row2 Team2>\\t<row2 T1Score>\\t<row2 T2Score>\\t<row2 Winner>
+<row3 Team1>\\t<row3 Team2>\\t<row3 T1Score>\\t<row3 T2Score>\\t<row3 Winner>
+<row4 Team1>\\t<row4 Team2>\\t<row4 T1Score>\\t<row4 T2Score>\\t<row4 Winner>
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send the answer
+═══════════════════════════════════════════════════════════
+[ ] Exactly 4 data rows (not 3, not 5)
+[ ] Exactly 5 tab-separated values per row (4 tab characters per line)
+[ ] Row order: seed-4 bowl, seed-1 bowl, seed-3 bowl, seed-2 bowl (matches the protected Bowl Game column)
+[ ] Columns B and C use TEAM ABBREVIATIONS only
+[ ] Team 1 is always the bye seed, Team 2 is always the First Round winner (not swapped)
+[ ] Scores are INTEGERS only, no commas or decimals
+[ ] Winner column matches the team abbreviation with the higher score (or blank if tied/unknown)
+[ ] Blank cells for any unknowns — I invented nothing`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -298,6 +365,12 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2"
@@ -348,10 +421,18 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -454,6 +535,13 @@ export default function CFPQuarterfinalsModal({ isOpen, onClose, onSave, current
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} CFP Quarterfinals Results`}
+        prompt={aiPrompt}
       />
     </div>,
     document.body

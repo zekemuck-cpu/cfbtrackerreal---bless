@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import {
   createDraftResultsSheet,
   readDraftResultsFromSheet,
@@ -11,6 +12,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -37,6 +39,70 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [noDraftDeclarees, setNoDraftDeclarees] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Draft Results`,
+    structure: `This sheet has ONE tab: "Draft Results".
+Row 1 (header) and columns A–C (Player, Position, Overall) are PRE-FILLED. Players who declared for the draft are listed in column A, sorted by Overall DESCENDING. You output ONE value per player: the Draft Round in column D (a strict dropdown).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY column D. NEVER output columns A, B, or C. NEVER output the header row.
+2. ROW ORDER IS FIXED. Exactly one line per pre-filled player row, in the SAME ORDER as column A appears in the screenshots. Do NOT reorder, skip, or add rows.
+3. Exactly ONE value per line: the Draft Round string. No tabs, no numbers alone, no commas, no extra text.
+4. Column D is a STRICT DROPDOWN. Use EXACTLY one of the 8 literal values listed below — case-sensitive, with the space between number and "Round". Any other text is rejected.
+5. BLANK LINE if a player's draft round is unknown or not visible in the screenshots — never guess. Blank preserves row alignment.
+6. No header row, no totals, no commentary. ONE single-column TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "Draft Results"
+Paste at cell D2 of the "Draft Results" tab
+═══════════════════════════════════════════════════════════
+
+Col | Header (protected)  | Your output                              | Format
+----+---------------------+------------------------------------------+-------------------
+ A  | Player              | — (pre-filled, do NOT output)            | protected
+ B  | Position            | — (pre-filled, do NOT output)            | protected
+ C  | Overall             | — (pre-filled, do NOT output)            | protected
+ D  | Draft Round         | EXACT dropdown string, one of the 8 below| strict dropdown
+
+═══════════════════════════════════════════════════════════
+ENUMERATED DROPDOWN VALUES for column D (use EXACTLY — case-sensitive, with the space)
+═══════════════════════════════════════════════════════════
+  1st Round
+  2nd Round
+  3rd Round
+  4th Round
+  5th Round
+  6th Round
+  7th Round
+  Undrafted
+
+NOT allowed: "Round 1", "R1", "1st round", "1", "1st", "1st-round", "first round".
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== DRAFT RESULTS — paste at cell D2 of "Draft Results" tab ===
+<Draft Round>
+<Draft Round>
+<Draft Round>
+...
+(one line per player, same order as column A in the screenshots; blank line = unknown)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Line count exactly equals the number of pre-filled player rows visible in the screenshots (including blank lines for unknowns)
+[ ] Every non-blank line is EXACTLY one of: 1st Round, 2nd Round, 3rd Round, 4th Round, 5th Round, 6th Round, 7th Round, Undrafted
+[ ] Exact capitalization: "1st Round" (capital R), "Undrafted" (capital U)
+[ ] NO tabs, NO extra text, NO commentary on any line
+[ ] Row order matches column A in the screenshots exactly
+[ ] Blank lines for unknown players — did not invent any values`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -338,6 +404,12 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -382,19 +454,27 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Return here and tap "Save" to sync</span></li>
                   </ol>
                 </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -455,6 +535,12 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Draft Results`}
+        prompt={aiPrompt}
       />
     </div>
   )

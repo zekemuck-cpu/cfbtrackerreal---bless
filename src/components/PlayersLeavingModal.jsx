@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import {
   createPlayersLeavingSheet,
   readPlayersLeavingFromSheet,
@@ -12,6 +13,7 @@ import {
 } from '../services/sheetsService'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -37,6 +39,67 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Players Leaving`,
+    structure: `This sheet has ONE tab: "Players Leaving". It has 2 columns total (A = Player, B = Transfer Reason) and up to ~60 data rows. Row 1 is the protected header row. Graduating seniors (RS Sr, plus Sr with 5+ games played) are ALREADY PRE-FILLED in the top rows with reason "Graduating" — you MUST NOT re-output them, re-list them, or include any senior who appears pre-filled in the screenshots.
+
+Your job: add ONLY the additional non-graduating departures (early pro-draft declarations, voluntary transfers, medicals, dismissals, etc.), one per line.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY the additional departures — NEVER re-output the pre-filled graduating seniors. If Name X appears in the screenshot with "Graduating" already populated, SKIP X.
+2. Every line has EXACTLY 2 tab-separated columns (1 tab character): Player<TAB>Transfer Reason.
+3. Column A (Player) must EXACTLY match a player name from the current roster — the Player column is a strict dropdown. Match capitalisation, spacing, and suffixes (Jr./II) character-for-character. A mismatch will silently drop the row.
+4. Column B (Transfer Reason) MUST be one of the 16 literal values listed below — exact case, exact spacing. No free text.
+5. Do NOT use "Graduating" for anyone new — the app auto-handles graduation for remaining Sr/RS Sr. Use a specific transfer reason instead (or "Pro Draft" for early declarations).
+6. No header row, no blank lines, no commentary, no totals.
+7. If no additional departures are needed, output NOTHING (an empty response).
+8. No commas anywhere.
+
+═══════════════════════════════════════════════════════════
+TAB: "Players Leaving" — paste at the first empty row of column A (row 2 + number of pre-filled graduating seniors)
+═══════════════════════════════════════════════════════════
+
+Column layout, tab-separated:
+
+Col | Header (row 1, protected) | Your value                          | Format
+----+---------------------------+-------------------------------------+---------------------------------
+ A  | Player                    | Exact roster name                   | DROPDOWN — must match a roster player name exactly
+ B  | Transfer Reason           | Reason for leaving                  | DROPDOWN — one of 16 literals (see list)
+
+───────────────────────────────────────────────────────────
+COLUMN B — Transfer Reason — MUST be one of these 16 values EXACTLY (case + spacing matter):
+Graduating | Pro Draft | Playing Style | Proximity to Home | Championship Contender | Program Tradition | Campus Lifestyle | Stadium Atmosphere | Pro Potential | Brand Exposure | Academic Prestige | Conference Prestige | Coach Stability | Coach Prestige | Athletic Facilities | Playing Time
+
+Notes on reason selection:
+- "Pro Draft" = early declaration for pro draft (underclassmen leaving early). The app auto-graduates Sr / RS Sr, so do NOT assign them "Pro Draft" here.
+- "Graduating" is reserved for the pre-filled seniors and is almost never the right answer for a new row — pick a specific reason instead.
+- All other values are "transfer portal" reasons — pick the one the screenshot / game context implies.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== PLAYERS LEAVING (additions only) — paste at the first empty row of column A in "Players Leaving" tab ===
+<Roster Name 1>\t<Reason 1>
+<Roster Name 2>\t<Reason 2>
+…one line per additional departure
+
+(If there are NO additional departures, output NOTHING — a completely empty response is valid.)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 2 tab-separated columns (1 tab character)
+[ ] No header row, no pre-filled graduating seniors re-listed, no commentary
+[ ] Every Player value matches a current roster name exactly (case + spacing)
+[ ] Every Transfer Reason is one of the 16 literal values listed (exact case)
+[ ] No commas in any cell
+[ ] If uncertain about a departure, do NOT include it — better to omit than to mismatch a dropdown`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -299,6 +362,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
@@ -344,19 +408,22 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Return here and tap "Save" to sync</span></li>
                   </ol>
                 </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -418,6 +485,7 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Players Leaving`} prompt={aiPrompt} />
     </div>
   )
 }

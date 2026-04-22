@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import {
   createTransferDestinationsSheet,
   readTransferDestinationsFromSheet,
@@ -11,6 +12,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -46,6 +48,62 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [noTransfers, setNoTransfers] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Transfer Destinations`,
+    structure: `This sheet has ONE tab: "Transfer Destinations". It has 2 columns total (A = Player Name, B = New Team). Row 1 is the protected header row. Column A (Player Name) is PRE-FILLED with outgoing transfers and PROTECTED — do NOT output column A. Column B is the only editable column — a STRICT dropdown of team abbreviations.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY column B. NEVER output column A, the header row, or any commentary.
+2. Output format is a SINGLE column of values — one value per line — NO tabs, NO extra columns.
+3. Row order must match the pre-filled Player Name rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (even if some are blank).
+4. Every non-blank value MUST be a team abbreviation from the team-abbreviation mapping provided at the bottom of this prompt (format: ABBR = Full Name). Examples: BAMA, OSU, UGA, TEX.
+5. NEVER use full team names ("Alabama"), nicknames ("Crimson Tide"), mascots ("Tide"), city names, or conference names. The column is a STRICT dropdown — wrong spelling / wrong casing / free text will be silently rejected.
+6. Case must match the mapping exactly — abbreviations are typically all-uppercase but follow the mapping below.
+7. BLANK LINE if the destination is unknown — leave the line empty (an empty string between two newlines). Do NOT guess, NOT use "UNK", "N/A", "TBD", or "-".
+8. No header row, no commentary, no totals, no explanation text.
+9. If the screenshot shows the player has withdrawn / is no longer transferring, leave that line blank.
+
+═══════════════════════════════════════════════════════════
+TAB: "Transfer Destinations" — paste at cell B2 of the "Transfer Destinations" tab
+═══════════════════════════════════════════════════════════
+
+Column layout:
+
+Col | Header (row 1, protected) | Pre-filled / protected?          | Your value
+----+---------------------------+----------------------------------+-----------------------------------
+ A  | Player Name               | Pre-filled (outgoing transfers) — PROTECTED | DO NOT OUTPUT
+ B  | New Team                  | Empty — EDITABLE dropdown        | Team abbreviation from mapping (or BLANK)
+
+───────────────────────────────────────────────────────────
+COLUMN B — New Team — Allowed values:
+Any team abbreviation from the team-abbreviation mapping provided at the bottom of this prompt (format: ABBR = Full Name). Use the abbreviation exactly as shown (e.g. BAMA for Alabama, OSU for Ohio State, MIA for Miami (FL), M-OH for Miami (OH)).
+
+Leave the line BLANK if the destination is not visible/known in the screenshots — a blank is the correct answer for unknown.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== TRANSFER DESTINATIONS — paste at cell B2 of "Transfer Destinations" tab ===
+<team abbr or blank>
+<team abbr or blank>
+<team abbr or blank>
+…one line per pre-filled player, in the EXACT order shown in the screenshots
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly N lines, where N = number of pre-filled Player Name rows visible in the screenshots
+[ ] Every non-blank value is an exact match for an abbreviation in the mapping (case-sensitive)
+[ ] No full team names, nicknames, mascots, cities, conferences
+[ ] No tabs, no commas, no other columns
+[ ] Blank lines used for unknown destinations — nothing invented, no "UNK"/"N/A"/"TBD"
+[ ] No header row, no commentary, no totals`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -405,6 +463,7 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
@@ -450,19 +509,22 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Return here and tap "Save" to update player profiles</span></li>
                   </ol>
                 </div>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -524,6 +586,7 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Transfer Destinations`} prompt={aiPrompt} />
     </div>
   )
 }

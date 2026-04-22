@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createAwardsSheet,
@@ -12,6 +13,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -39,6 +41,107 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Season Awards`,
+    structure: `This sheet has ONE tab named "${currentYear}" (the current year). It has 5 columns and 22 rows: row 1 is a protected header, rows 2-22 are the 21 awards.
+
+Column A (Award name) is PRE-FILLED and PROTECTED — you never output it.
+You fill columns B (Player), C (Position), D (Team), E (Class).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY columns B, C, D, E. Never output column A (Award name), the header row, row numbers, or any labels.
+2. Row order is FIXED. You must output exactly 21 data rows in the exact order shown below — one per award.
+3. NO COMMAS in any value. No totals, no explanation text, no "N/A", no dashes.
+4. BLANK field for unknown (empty string between the tabs). Never guess, never write "Unknown", never put zero.
+5. Use ONLY the literal dropdown values listed — wrong spelling/casing = Google Sheets rejects it.
+6. Team column (D) uses the ABBREVIATION from the mapping at the bottom of this prompt — NEVER full names or mascots.
+7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 4 tab-separated fields: CoachName<TAB>TeamAbbr<TAB><TAB> — Player in column B, Team in the merged cell anchored at C, then two trailing empty fields for the now-merged-away D and E. Do NOT place the team in the 3rd field — it must be the 2nd field. All other 19 rows output Player<TAB>Position<TAB>Team<TAB>Class.
+8. ONE TSV block total — exactly 21 lines. Label it with the paste target.
+
+═══════════════════════════════════════════════════════════
+TAB "${currentYear}" — 21 rows × 4 output columns
+Paste at cell B2 of the "${currentYear}" tab
+═══════════════════════════════════════════════════════════
+
+Row-by-row mapping (sheet row numbers shown; row 2 = first award):
+
+Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output (tab-separated)
+----------+----------------------------------+-----------------------------------------------------------
+    2     | Heisman                          | Player<TAB>Position<TAB>Team<TAB>Class
+    3     | Maxwell                          | Player<TAB>Position<TAB>Team<TAB>Class
+    4     | Walter Camp                      | Player<TAB>Position<TAB>Team<TAB>Class
+    5     | Bear Bryant Coach of the Year    | CoachName<TAB>Team<TAB><TAB>           (COACH — Team in merged C cell; trailing empties for merged-away D & E)
+    6     | Davey O'Brien                    | Player<TAB>Position<TAB>Team<TAB>Class
+    7     | Chuck Bednarik                   | Player<TAB>Position<TAB>Team<TAB>Class
+    8     | Bronco Nagurski                  | Player<TAB>Position<TAB>Team<TAB>Class
+    9     | Jim Thorpe                       | Player<TAB>Position<TAB>Team<TAB>Class
+   10     | Doak Walker                      | Player<TAB>Position<TAB>Team<TAB>Class
+   11     | Fred Biletnikoff                 | Player<TAB>Position<TAB>Team<TAB>Class
+   12     | Lombardi                         | Player<TAB>Position<TAB>Team<TAB>Class
+   13     | Unitas Golden Arm                | Player<TAB>Position<TAB>Team<TAB>Class
+   14     | Edge Rusher of the Year          | Player<TAB>Position<TAB>Team<TAB>Class
+   15     | Outland                          | Player<TAB>Position<TAB>Team<TAB>Class
+   16     | John Mackey                      | Player<TAB>Position<TAB>Team<TAB>Class
+   17     | Broyles                          | CoachName<TAB>Team<TAB><TAB>           (COACH — Team in merged C cell; trailing empties for merged-away D & E)
+   18     | Dick Butkus                      | Player<TAB>Position<TAB>Team<TAB>Class
+   19     | Rimington                        | Player<TAB>Position<TAB>Team<TAB>Class
+   20     | Lou Groza                        | Player<TAB>Position<TAB>Team<TAB>Class
+   21     | Ray Guy                          | Player<TAB>Position<TAB>Team<TAB>Class
+   22     | Returner of the Year             | Player<TAB>Position<TAB>Team<TAB>Class
+
+Field formats:
+- Player: full name string (e.g. "John Smith"). Leave blank if unknown.
+- Position (strict dropdown) — must be EXACTLY one of these 21 values, case-sensitive:
+    QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
+  Do NOT use "RB", "OL", "LB", "DE", "S", "OG", "OT" — those will be REJECTED by the dropdown.
+- Team (strict dropdown) — uppercase abbreviation from the team mapping at the bottom of this prompt (e.g. BAMA, OSU, UGA). NEVER full names ("Alabama", "Ohio State") or nicknames ("Crimson Tide").
+- Class (strict dropdown) — must be EXACTLY one of these 8 values, case-sensitive:
+    Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
+  Note the literal space in "RS Fr", "RS So", "RS Jr", "RS Sr". Do NOT use "Freshman", "Sophomore", "Junior", "Senior", "FR", "SO", "JR", "SR", "RSFr", "R-Fr", etc.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== AWARDS — paste at cell B2 of "${currentYear}" tab ===
+<Heisman row: Player\\tPosition\\tTeam\\tClass>
+<Maxwell row: Player\\tPosition\\tTeam\\tClass>
+<Walter Camp row: Player\\tPosition\\tTeam\\tClass>
+<Bear Bryant row: CoachName\\tTeam\\t\\t>
+<Davey O'Brien row: Player\\tPosition\\tTeam\\tClass>
+<Chuck Bednarik row: Player\\tPosition\\tTeam\\tClass>
+<Bronco Nagurski row: Player\\tPosition\\tTeam\\tClass>
+<Jim Thorpe row: Player\\tPosition\\tTeam\\tClass>
+<Doak Walker row: Player\\tPosition\\tTeam\\tClass>
+<Fred Biletnikoff row: Player\\tPosition\\tTeam\\tClass>
+<Lombardi row: Player\\tPosition\\tTeam\\tClass>
+<Unitas Golden Arm row: Player\\tPosition\\tTeam\\tClass>
+<Edge Rusher of the Year row: Player\\tPosition\\tTeam\\tClass>
+<Outland row: Player\\tPosition\\tTeam\\tClass>
+<John Mackey row: Player\\tPosition\\tTeam\\tClass>
+<Broyles row: CoachName\\tTeam\\t\\t>
+<Dick Butkus row: Player\\tPosition\\tTeam\\tClass>
+<Rimington row: Player\\tPosition\\tTeam\\tClass>
+<Lou Groza row: Player\\tPosition\\tTeam\\tClass>
+<Ray Guy row: Player\\tPosition\\tTeam\\tClass>
+<Returner of the Year row: Player\\tPosition\\tTeam\\tClass>
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Exactly 21 lines in the block, in the exact order above (Heisman first, Returner of the Year last)
+[ ] Rows 4 (Bear Bryant, 4th line) and 16 (Broyles, 16th line) each have 4 tab-separated fields in this exact order: CoachName<TAB>Team<TAB><TAB> — Team is the SECOND field (col C, the merge anchor), the third and fourth fields are EMPTY (they are merged-away cells D & E). Do NOT leave field 2 empty and put the team in field 3 — that would land the team in column D inside the merged region and leave column C blank.
+[ ] All other 19 rows have 4 tab-separated non-empty slots: Player, Position, Team, Class (individual fields may be blank if unknown)
+[ ] All Position values are from the exact list: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P
+[ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
+[ ] All Team values are uppercase abbreviations from the mapping — no full names
+[ ] Blank fields for unknowns — nothing was invented
+[ ] No award name, header row, commas, commentary, or explanation in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -234,6 +337,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
                 <div className="flex gap-3 flex-wrap items-center">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: modalColors.accent, color: getContrastTextColor(modalColors.accent) }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button onClick={handleRegenerateSheet} disabled={syncing || deletingSheet || regenerating} className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto" style={{ backgroundColor: 'transparent', borderColor: '#EF4444', color: '#EF4444' }}>{regenerating ? 'Regenerating...' : 'Regenerate sheet'}</button>
                 </div>
               </div>
@@ -256,10 +360,13 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button onClick={handleSyncAndDelete} disabled={syncing || deletingSheet} className={`px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition-all text-sm ${highlightSave ? 'animate-pulse ring-4 ring-offset-2 scale-105' : ''}`} style={{ backgroundColor: modalColors.accent, color: getContrastTextColor(modalColors.accent) }}>{deletingSheet ? 'Saving...' : 'Save & Move to Trash'}</button>
                   <button onClick={handleSyncFromSheet} disabled={syncing || deletingSheet} className="btn btn-secondary px-6 py-3 text-sm">{syncing ? 'Syncing...' : 'Save & Keep Sheet'}</button>
@@ -285,6 +392,7 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Season Awards`} prompt={aiPrompt} />
     </div>
   )
 }

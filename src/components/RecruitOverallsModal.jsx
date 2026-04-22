@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createRecruitOverallsSheet,
@@ -12,6 +13,7 @@ import {
   getSheetEmbedUrl
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -37,6 +39,60 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Recruiting Class Overalls`,
+    structure: `This sheet has ONE tab: "Recruit Overalls".
+Row 1 (header) and Columns A–D (Name, Position, Class, Stars) are PRE-FILLED and PROTECTED. Recruits are already listed in alphabetical order by last name in column A. You output ONLY two values per recruit: Overall (col E) and Jersey # (col F).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Output ONLY columns E and F. NEVER output columns A, B, C, or D. NEVER output the header row.
+2. ROW ORDER IS FIXED. Produce exactly one output line per pre-filled recruit, in the SAME ORDER as column A in the screenshots. Do NOT reorder, skip, or add rows.
+3. Exactly TWO tab-separated values per line: <Overall>\\t<Jersey #>.
+4. NO COMMAS in numbers. Output "85" — never "85.0", "85pts", or "85,".
+5. INTEGERS only. No decimals, no quotes, no units.
+6. BLANK for unknown values — never guess, never use 0, "-", or "N/A". An empty cell = blank. For a line where Overall is known but Jersey # is not, output:  85\\t  (tab then nothing).
+7. Overall range: 40–99. Jersey # range: 0–99.
+8. No header row, no commentary. ONE TSV block.
+
+═══════════════════════════════════════════════════════════
+TAB: "Recruit Overalls"
+Paste at cell E2 of the "Recruit Overalls" tab
+═══════════════════════════════════════════════════════════
+
+Col | Header (protected)  | Your output                                | Format
+----+---------------------+--------------------------------------------+---------------------
+ A  | Name                | — (pre-filled, do NOT output)              | protected
+ B  | Position            | — (pre-filled, do NOT output)              | protected
+ C  | Class               | — (pre-filled, do NOT output)              | protected
+ D  | Stars               | — (pre-filled, do NOT output)              | protected
+ E  | Overall             | Integer 40–99                              | integer, no commas
+ F  | Jersey #            | Integer 0–99 (blank if not visible)        | integer, no commas
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== RECRUIT OVERALLS — paste at cell E2 of "Recruit Overalls" tab ===
+<Overall>\\t<Jersey #>
+<Overall>\\t<Jersey #>
+...
+(one line per recruit, same order as column A in the screenshots)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Line count exactly equals the number of pre-filled recruit rows visible in the screenshots
+[ ] Every line has EXACTLY one tab character (two values: Overall then Jersey #)
+[ ] Every Overall is an integer 40–99, or blank
+[ ] Every Jersey # is an integer 0–99, or blank
+[ ] No commas, no decimals, no quotes, no units
+[ ] Row order matches column A alphabetical-by-last-name order exactly
+[ ] Blank cells for unknowns — invented nothing`,
+    includeTeamMap: false,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -303,6 +359,12 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -375,22 +437,30 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
                   </ol>
                 </div>
 
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6"
-                  style={{
-                    backgroundColor: '#0F9D58',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2"
+                    style={{
+                      backgroundColor: '#0F9D58',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -495,6 +565,12 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Recruiting Class Overalls`}
+        prompt={aiPrompt}
       />
     </div>
   )

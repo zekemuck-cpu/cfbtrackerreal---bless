@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 import {
   createCFPFirstRoundSheet,
   readCFPFirstRoundFromSheet,
@@ -38,6 +40,67 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} CFP First Round Results`,
+    structure: `This sheet has ONE tab: "CFP First Round". It contains 4 First Round games (seeds 5 through 12 play; seeds 1-4 have byes).
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMNS B, C, D, E ONLY (4 values per row). Column A (Game label) is PROTECTED and pre-filled — never output it.
+2. ROW ORDER IS FIXED (see the table below). Never reorder the rows — rows are keyed to the pre-filled Game column.
+3. Output EXACTLY 4 data rows, each with EXACTLY 4 tab-separated values.
+4. NO COMMAS in numbers. Output "24" never "024", never "1,234".
+5. INTEGERS ONLY for scores — no decimals, no "pts", no minus signs, no plus signs.
+6. TEAM ABBREVIATIONS ONLY (columns B and C) — use the abbreviation mapping below. Never full names, nicknames, cities, or mascots. Columns B and C are strict dropdowns.
+7. BLANK CELL if unknown. Never guess, never use "N/A", "TBD", dash, or zero (0 is a real score).
+   - If an entire game hasn't been played yet: leave all 4 cells blank (empty tab-separated fields).
+   - If only the teams are known but not scores: fill Higher Seed + Lower Seed, leave score cells blank.
+8. No header row, no column labels, no pre-filled Game text, no commentary, no explanation.
+9. SINGLE TSV block labeled by tab name and paste cell.
+
+═══════════════════════════════════════════════════════════
+TAB: "CFP First Round" — 4 rows × 4 editable columns
+Paste your block at cell B2 of the "CFP First Round" tab
+═══════════════════════════════════════════════════════════
+
+Each row is one game. Column A (Game) is pre-filled/protected. You output columns B through E in order: Higher Seed, Lower Seed, Higher Score, Lower Score.
+
+Row | Col A (PROTECTED / pre-filled) | Col B (Higher Seed) | Col C (Lower Seed) | Col D (Higher Score) | Col E (Lower Score)
+----+--------------------------------+---------------------+--------------------+----------------------+--------------------
+  1 | Game 1 (5 vs 12)               | #5 seed team abbr   | #12 seed team abbr | points by #5 seed    | points by #12 seed
+  2 | Game 2 (6 vs 11)               | #6 seed team abbr   | #11 seed team abbr | points by #6 seed    | points by #11 seed
+  3 | Game 3 (7 vs 10)               | #7 seed team abbr   | #10 seed team abbr | points by #7 seed    | points by #10 seed
+  4 | Game 4 (8 vs 9)                | #8 seed team abbr   | #9 seed team abbr  | points by #8 seed    | points by #9 seed
+
+Column B and Column C: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
+Column D and Column E: INTEGER scores (0 or higher), no commas, no decimal point.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== CFP FIRST ROUND — paste at cell B2 of "CFP First Round" tab ===
+<row1 HigherSeed>\\t<row1 LowerSeed>\\t<row1 HigherScore>\\t<row1 LowerScore>
+<row2 HigherSeed>\\t<row2 LowerSeed>\\t<row2 HigherScore>\\t<row2 LowerScore>
+<row3 HigherSeed>\\t<row3 LowerSeed>\\t<row3 HigherScore>\\t<row3 LowerScore>
+<row4 HigherSeed>\\t<row4 LowerSeed>\\t<row4 HigherScore>\\t<row4 LowerScore>
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send the answer
+═══════════════════════════════════════════════════════════
+[ ] Exactly 4 data rows (not 3, not 5)
+[ ] Exactly 4 tab-separated values per row (3 tab characters per line)
+[ ] Row order is 5v12, 6v11, 7v10, 8v9 — matches the protected Game column
+[ ] Columns B and C use team ABBREVIATIONS only, from the mapping
+[ ] Columns D and E are INTEGERS only (no commas, no decimals)
+[ ] Blank cell for any unknown value — invented nothing
+[ ] Winner is implied by the higher of the two scores; I did not add a winner column`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   const creatingSheetRef = useRef(false)
 
@@ -272,6 +335,7 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
                   >
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
@@ -322,10 +386,13 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button onClick={() => setShowAIPrompt(true)} className="px-5 py-3 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent">AI Prompt</button>
+                </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
                   <button
@@ -423,6 +490,7 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP First Round Results`} prompt={aiPrompt} />
     </div>,
     document.body
   )

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import AuthErrorModal from './AuthErrorModal'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar from './SheetToolbar'
 import {
   createBowlWeek2Sheet,
@@ -15,6 +16,7 @@ import {
 } from '../services/sheetsService'
 import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -42,6 +44,82 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Bowl Week 2 Results`,
+    structure: `This sheet has ONE tab: "Bowl Games". It contains up to 12 Week 2 bowl games: 8 regular Week 2 bowls plus 4 CFP Quarterfinal bowls. All bowl names are PRE-FILLED in column A and sorted ALPHABETICALLY. The CFP Quarterfinal rows have the suffix "(CFP QF)" in their bowl name. If the user plays in a bowl themselves, that row may be omitted — so the screenshot's actual pre-filled rows are the SOURCE OF TRUTH for how many rows you output.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMNS B, C, D, E ONLY (4 values per row). Column A (Bowl Game) is PROTECTED and pre-filled.
+2. ROW ORDER IS FIXED — match the screenshot EXACTLY (alphabetical order by bowl name). Each row is keyed to the pre-filled Bowl Game name in column A. Never reorder, never rename, never add rows, never remove rows.
+3. Output ONE row per bowl shown in the screenshot, with EXACTLY 4 tab-separated values per row.
+4. NO COMMAS in numbers. "24" never "1,234".
+5. INTEGERS ONLY for scores — no decimals, no "pts".
+6. TEAM ABBREVIATIONS ONLY (columns B and C) — use the abbreviation mapping below. Columns B and C are strict dropdowns.
+7. BLANK CELLS if unknown. Never guess, never use "N/A", "TBD", dash. Zero is only valid if the team truly scored zero.
+8. No header row, no Bowl Game text, no winner column, no commentary.
+9. SINGLE TSV block labeled by tab name and paste cell.
+
+═══════════════════════════════════════════════════════════
+TAB: "Bowl Games" — up to 12 rows × 4 editable columns
+Paste your block at cell B2 of the "Bowl Games" tab
+═══════════════════════════════════════════════════════════
+
+Column A (Bowl Game) is pre-filled alphabetically. The possible pre-filled bowl names are listed below; the actual sheet contains ONLY those that appear in the screenshot, in the order shown.
+
+Possible pre-filled Bowl Game names (sheet is sorted alphabetically — the exact names for the CFP QF bowls vary by the user's configuration, but every CFP QF row ends with " (CFP QF)"):
+  Regular Week 2 bowls:
+    - Bahamas Bowl
+    - Citrus Bowl
+    - Duke's Mayo Bowl
+    - First Responder Bowl
+    - Gator Bowl
+    - Reliaquest Bowl
+    - Sun Bowl
+    - Texas Bowl
+  CFP Quarterfinal bowls (4 rows, names from user config, each suffixed "(CFP QF)"):
+    - <Seed-1 QF bowl> (CFP QF)     default: Sugar Bowl (CFP QF)
+    - <Seed-2 QF bowl> (CFP QF)     default: Cotton Bowl (CFP QF)
+    - <Seed-3 QF bowl> (CFP QF)     default: Rose Bowl (CFP QF)
+    - <Seed-4 QF bowl> (CFP QF)     default: Orange Bowl (CFP QF)
+
+For each row, in the same top-to-bottom order shown in the screenshot, output these 4 columns:
+
+Col A (PROTECTED)           | Col B (Team 1)   | Col C (Team 2)   | Col D (Team 1 Score) | Col E (Team 2 Score)
+----------------------------+------------------+------------------+----------------------+---------------------
+pre-filled bowl name        | team abbr        | team abbr        | integer              | integer
+
+Column B, Column C: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
+Column D, Column E: integer score (0 or higher), no commas, no decimal point.
+
+CFP QF rows (those with "(CFP QF)" in the name): Team 1 (column B) is the First Round winner (the lower-seeded team that advanced from the First Round, seeds 5-12). Team 2 (column C) is the higher seed that had the bye (seed 1, 2, 3, or 4). Do NOT swap this ordering.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== BOWL GAMES — paste at cell B2 of "Bowl Games" tab ===
+<row1 Team1>\\t<row1 Team2>\\t<row1 T1Score>\\t<row1 T2Score>
+<row2 Team1>\\t<row2 Team2>\\t<row2 T1Score>\\t<row2 T2Score>
+... (one row per bowl in the screenshot, in the screenshot's alphabetical order)
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send the answer
+═══════════════════════════════════════════════════════════
+[ ] Row count matches the number of bowl rows shown in the screenshot exactly (up to 12)
+[ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom (alphabetical)
+[ ] Exactly 4 tab-separated values per row (3 tab characters per line)
+[ ] Columns B and C are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
+[ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
+[ ] For "(CFP QF)" rows: Team 1 is the First Round winner (lower seed), Team 2 is the bye seed (1-4)
+[ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
+[ ] No header row, no bowl name text, no winner column in the output`,
+    includeTeamMap: true,
+  }), [currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -510,6 +588,12 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-sm border-2 ml-auto"
@@ -559,10 +643,18 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
                 </div>
-                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2 mb-6" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
-                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
-                  Open Google Sheets
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`} target="_blank" rel="noopener noreferrer" className="px-6 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-2" style={{ backgroundColor: '#0F9D58', color: '#FFFFFF' }}>
+                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/></svg>
+                    Open Google Sheets
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-4">
@@ -665,6 +757,13 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         onClose={() => setShowAuthError(false)}
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
+      />
+
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${currentYear} Bowl Week 2 Results`}
+        prompt={aiPrompt}
       />
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import AIPromptModal from './AIPromptModal'
 import SheetToolbar, { SheetErrorBanner } from './SheetToolbar'
 import {
   createScheduleSheet,
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
+import { buildAIPrompt } from '../utils/aiPrompt'
 
 export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors, teamTid, teamName }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -38,6 +40,94 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
   const [showSessionError, setShowSessionError] = useState(false)
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${displayTeamName} ${currentYear} Schedule`,
+    structure: `This sheet has ONE tab: "Schedule". It contains 16 rows, one per week for Week 0 through Week 15 of the ${currentYear} season for ${displayTeamName}.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. OUTPUT COLUMNS C AND D ONLY (2 values per row). Columns A (Week) and B (User Team) are PROTECTED and pre-filled — never output them.
+2. ROW ORDER IS FIXED: row 1 = Week 0, row 2 = Week 1, ..., row 16 = Week 15. Rows are keyed to the pre-filled Week number in column A — never reorder.
+3. Output EXACTLY 16 data rows, each with EXACTLY 2 tab-separated values.
+4. There are NO score columns. Do NOT output scores. This sheet is the pre-game schedule, not the results.
+5. TEAM ABBREVIATIONS ONLY (column C) — use values from the TEAM ABBREVIATIONS mapping below, OR the literal word "BYE" for a bye week. Column C is a strict dropdown.
+6. SITE (column D) must be EXACTLY one of these 3 literal values, case-sensitive: "Home", "Road", "Neutral". Do NOT use "Away" — the sheet's dropdown uses "Road" instead. Do NOT invent other values.
+7. BYE WEEKS: If the user has a bye that week, put "BYE" in column C and leave column D BLANK.
+8. BLANK CELLS if the matchup is unknown. Never guess, never use "N/A", "TBD", dash. Never leave column C blank if a game is scheduled — fill the opponent or "BYE".
+9. Never change or output the User Team (column B is pre-filled with ${targetTeamAbbr} on every row).
+10. No header row, no Week numbers, no scores, no commentary, no explanation.
+11. SINGLE TSV block labeled by tab name and paste cell.
+
+═══════════════════════════════════════════════════════════
+TAB: "Schedule" — 16 rows × 2 editable columns
+Paste your block at cell C2 of the "Schedule" tab
+═══════════════════════════════════════════════════════════
+
+Row | Col A (PROTECTED) | Col B (PROTECTED)    | Col C (CPU Team)                             | Col D (Site)
+----+-------------------+----------------------+----------------------------------------------+-----------------------------
+  1 | 0                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank if unknown | "Home" / "Road" / "Neutral" / blank
+  2 | 1                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  3 | 2                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  4 | 3                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  5 | 4                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  6 | 5                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  7 | 6                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  8 | 7                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+  9 | 8                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 10 | 9                 | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 11 | 10                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 12 | 11                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 13 | 12                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 14 | 13                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 15 | 14                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+ 16 | 15                | ${targetTeamAbbr}    | opponent abbr, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+
+Column C (CPU Team) allowed values (strict dropdown — wrong value is rejected):
+  - "BYE" — for a bye week (then leave column D blank)
+  - Any team abbreviation from the TEAM ABBREVIATIONS mapping at the bottom of this prompt
+
+Column D (Site) allowed values (strict dropdown — exactly these three, case-sensitive):
+  - "Home"    — the user team hosts the game
+  - "Road"    — the user team travels to the opponent  (NOT "Away")
+  - "Neutral" — played at a neutral site
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== SCHEDULE — paste at cell C2 of "Schedule" tab ===
+<week 0 CPU Team>\\t<week 0 Site>
+<week 1 CPU Team>\\t<week 1 Site>
+<week 2 CPU Team>\\t<week 2 Site>
+<week 3 CPU Team>\\t<week 3 Site>
+<week 4 CPU Team>\\t<week 4 Site>
+<week 5 CPU Team>\\t<week 5 Site>
+<week 6 CPU Team>\\t<week 6 Site>
+<week 7 CPU Team>\\t<week 7 Site>
+<week 8 CPU Team>\\t<week 8 Site>
+<week 9 CPU Team>\\t<week 9 Site>
+<week 10 CPU Team>\\t<week 10 Site>
+<week 11 CPU Team>\\t<week 11 Site>
+<week 12 CPU Team>\\t<week 12 Site>
+<week 13 CPU Team>\\t<week 13 Site>
+<week 14 CPU Team>\\t<week 14 Site>
+<week 15 CPU Team>\\t<week 15 Site>
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send the answer
+═══════════════════════════════════════════════════════════
+[ ] Exactly 16 data rows (Weeks 0 through 15)
+[ ] Exactly 2 tab-separated values per row (1 tab character per line)
+[ ] Column C: team abbreviation from the mapping, or the literal "BYE", or blank
+[ ] Column D: EXACTLY "Home", "Road", or "Neutral" — not "Away", not any other value; blank on bye weeks
+[ ] No score columns, no week numbers, no user team column, no header row in the output
+[ ] Blank cells only where the week's matchup is genuinely unknown — invented nothing`,
+    includeTeamMap: true,
+  }), [currentYear, displayTeamName, targetTeamAbbr])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -302,6 +392,12 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                     {syncing ? 'Syncing...' : 'Save & Keep Sheet'}
                   </button>
                   <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                  <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
                     className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
@@ -401,25 +497,33 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
                   </ol>
                 </div>
 
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-3 mb-6"
-                  style={{
-                    backgroundColor: '#0F9D58',
-                    color: '#FFFFFF'
-                  }}
-                >
-                  <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
-                    <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
-                  </svg>
-                  Open Google Sheets
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-6">
+                  <a
+                    href={`https://docs.google.com/spreadsheets/d/${sheetId}/edit`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-3"
+                    style={{
+                      backgroundColor: '#0F9D58',
+                      color: '#FFFFFF'
+                    }}
+                  >
+                    <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+                      <path d="M7 7h2v2H7zm0 4h2v2H7zm0 4h2v2H7zm4-8h6v2h-6zm0 4h6v2h-6zm0 4h6v2h-6z"/>
+                    </svg>
+                    Open Google Sheets
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                  <button
+                    onClick={() => setShowAIPrompt(true)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition-colors bg-transparent"
+                  >
+                    AI Prompt
+                  </button>
+                </div>
 
                 {/* Centered Save Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 items-center justify-center mb-6">
@@ -504,6 +608,13 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
         )}
         </div>
       </div>
+
+      <AIPromptModal
+        isOpen={showAIPrompt}
+        onClose={() => setShowAIPrompt(false)}
+        title={`${displayTeamName} ${currentYear} Schedule`}
+        prompt={aiPrompt}
+      />
     </div>
   )
 }
