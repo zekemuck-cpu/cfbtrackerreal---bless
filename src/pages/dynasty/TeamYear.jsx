@@ -3487,7 +3487,7 @@ export default function TeamYear() {
                             )}
                             <Link
                               to={`${pathPrefix}/player/${player.pid}`}
-                              className="font-bold text-txt-primary hover:underline"
+                              className="font-bold text-txt-primary"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {player.name}
