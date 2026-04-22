@@ -9800,11 +9800,30 @@ export function DynastyProvider({ children }) {
       if (!updatedPlayer.allConference) updatedPlayer.allConference = []
       if (!updatedPlayer.teams) updatedPlayer.teams = []
 
+      // Clone nested maps so we don't mutate the original player object
+      updatedPlayer.teamsByYear = { ...(updatedPlayer.teamsByYear || {}) }
+      updatedPlayer.classByYear = { ...(updatedPlayer.classByYear || {}) }
+
       // Process each update for this player
       for (const update of updates) {
         // Add team if not already present
         if (update.addTeam && !updatedPlayer.teams.includes(update.addTeam)) {
           updatedPlayer.teams.push(update.addTeam)
+        }
+
+        // Record roster membership and class for the honor year so the player's
+        // profile (timeline, team, classByYear) reflects the honor they just won.
+        // Transfer-confirmed matches can land the player on a different team than
+        // their previous year — this is what makes the timeline/team page update.
+        const honorYear = update.entry?.year
+        if (honorYear) {
+          if (update.addTeam) {
+            const teamTid = getTidFromAbbr(update.addTeam) || update.addTeam
+            updatedPlayer.teamsByYear[honorYear] = teamTid
+          }
+          if (update.entry?.class) {
+            updatedPlayer.classByYear[honorYear] = update.entry.class
+          }
         }
 
         // Add honor entry based on type
