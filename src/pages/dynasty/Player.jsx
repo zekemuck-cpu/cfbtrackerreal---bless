@@ -1312,6 +1312,24 @@ export default function Player() {
                 Commitment
               </span>
             )}
+            {/* In-Portal badge — entered portal via Players Leaving, no
+                destination yet (Transfer Destinations not filled). Appears
+                between offseason Week 1 and National Signing Day. */}
+            {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                  color: '#fbbf24',
+                  border: '1px solid rgba(245, 158, 11, 0.5)',
+                  letterSpacing: '1px',
+                }}
+                title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
+                In Portal
+              </span>
+            )}
             {/* Departure badge - show based on movements[] */}
             {departureMovement && departureMovement.type === 'departure' && (() => {
               const reason = departureMovement.reason
@@ -1444,6 +1462,23 @@ export default function Player() {
                     style={{ backgroundColor: `${teamInfo.backgroundColor}25`, color: teamInfo.backgroundColor, border: `1px solid ${teamInfo.backgroundColor}50` }}
                   >
                     Commitment
+                  </span>
+                )}
+                {/* In-Portal badge — entered portal via Players Leaving, no
+                    destination yet. Appears between offseason Week 1 and NSD. */}
+                {departureMovement && departureMovement.type === 'transfer' && !departureMovement.to && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase"
+                    style={{
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      color: '#fbbf24',
+                      border: '1px solid rgba(245, 158, 11, 0.5)',
+                      letterSpacing: '1px',
+                    }}
+                    title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
+                    In Portal
                   </span>
                 )}
                 {/* Departure badge - show based on movements[] */}
