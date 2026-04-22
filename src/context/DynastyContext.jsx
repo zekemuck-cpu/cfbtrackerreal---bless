@@ -5246,6 +5246,49 @@ export function DynastyProvider({ children }) {
     if (dynasty.storageType === 'cloud' && !loadedDynastyIdsRef.current.has(dynastyId)) {
       await loadDynastyData(dynastyId)
     }
+
+    // One-shot cleanup: earlier versions of the awards save flow created
+    // roster entries for coach awards (Bear Bryant, Broyles), leaving ghost
+    // players with no position/ovr/stats sitting in the roster. The current
+    // save path skips them — this sweep removes any that pre-exist.
+    if (!dynasty._coachAwardGhostsCleanedAt) {
+      const COACH_AWARD_KEYS = new Set(['bearBryantCoachOfTheYear', 'broyles'])
+      const players = dynasty.players || []
+      const isCoachAwardGhost = (p) => {
+        const accolades = p.accolades || []
+        if (accolades.length === 0) return false
+        // Every accolade must be a coach award.
+        if (!accolades.every(a => COACH_AWARD_KEYS.has(a.award))) return false
+        // And the player must have no real roster data.
+        const hasOverall = p.overall != null || Object.keys(p.overallByYear || {}).length > 0
+        const hasTeams = Object.keys(p.teamsByYear || {}).length > 0
+        const hasStats = Object.keys(p.statsByYear || {}).length > 0
+        const hasAllAm = (p.allAmericans || []).length > 0
+        const hasAllConf = (p.allConference || []).length > 0
+        const hasPosition = !!p.position
+        return !hasOverall && !hasTeams && !hasStats && !hasAllAm && !hasAllConf && !hasPosition
+      }
+      const ghosts = players.filter(isCoachAwardGhost)
+      if (ghosts.length > 0) {
+        const ghostPids = new Set(ghosts.map(p => p.pid))
+        const cleanedPlayers = players.filter(p => !ghostPids.has(p.pid))
+        console.log(`[selectDynasty] Cleaning up ${ghosts.length} coach-award ghost player(s):`,
+          ghosts.map(p => p.name).join(', '))
+        try {
+          await updateDynasty(dynastyId, {
+            players: cleanedPlayers,
+            _coachAwardGhostsCleanedAt: Date.now(),
+          })
+        } catch (e) {
+          console.error('[selectDynasty] Coach-award ghost cleanup failed:', e)
+        }
+      } else {
+        // Mark as clean so we don't re-scan every visit.
+        try {
+          await updateDynasty(dynastyId, { _coachAwardGhostsCleanedAt: Date.now() })
+        } catch {}
+      }
+    }
   }
 
   const addGame = async (dynastyId, gameData) => {
@@ -9708,12 +9751,25 @@ export function DynastyProvider({ children }) {
       decisionMap[d.entryIndex] = d.isSamePlayer
     })
 
+    // Coach awards — recipients are head coaches / coordinators, not roster
+    // players. They live on the Awards page already (read from awardsByYear
+    // directly) and must NOT be created as player records.
+    const COACH_AWARD_KEYS = new Set(['bearBryantCoachOfTheYear', 'broyles'])
+
     // Process each entry
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i]
 
       // Skip entries without a name
       if (!entry.player && !entry.name) continue
+
+      // Skip coach awards entirely — do not create player records for them.
+      // They're already stored in awardsByYear and rendered on the Awards /
+      // Coach Career pages.
+      const awardKey = entry.award || entry.awardKey
+      if (honorType === 'awards' && awardKey && COACH_AWARD_KEYS.has(awardKey)) {
+        continue
+      }
 
       const playerName = entry.player || entry.name
       // For allAmericans/allConference, school is the team; entry.team is the category label
