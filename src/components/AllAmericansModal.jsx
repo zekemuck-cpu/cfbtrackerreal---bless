@@ -11,7 +11,8 @@ import {
   createAllAmericansOnlySheet,
   readAllAmericansOnlyFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -176,8 +177,15 @@ FINAL CHECK before you send
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         const existingSheetId = currentDynasty?.allAmericansSheetIdByYear?.[currentYear]
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, {
+            allAmericansSheetIdByYear: { ...(currentDynasty.allAmericansSheetIdByYear || {}), [currentYear]: null }
+          })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true

@@ -13,7 +13,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.22.0010'
+const APP_VERSION = '2026.04.22.0017'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -687,8 +687,14 @@ export default function Layout({ children }) {
       </main>
 
       {/* Version Footer - positioned above ticker */}
-      <footer className="pb-10 pt-2 px-4 text-right">
-        <p className="text-[10px] sm:text-xs text-txt-tertiary">v{APP_VERSION}</p>
+      <footer className="pb-10 pt-2 px-4 flex items-center justify-end gap-3 text-[10px] sm:text-xs text-txt-tertiary">
+        <Link to="/contact" className="hover:text-txt-secondary transition-colors">Contact</Link>
+        <span aria-hidden="true">·</span>
+        <Link to="/privacy" className="hover:text-txt-secondary transition-colors">Privacy</Link>
+        <span aria-hidden="true">·</span>
+        <Link to="/terms" className="hover:text-txt-secondary transition-colors">Terms</Link>
+        <span aria-hidden="true">·</span>
+        <span>v{APP_VERSION}</span>
       </footer>
 
       {/* Class Advancement Modal - shown when advancing to new season with players needing confirmation */}

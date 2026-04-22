@@ -10,7 +10,8 @@ import {
   createTeamStatsSheet,
   readTeamStatsFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -170,8 +171,16 @@ FINAL CHECK before you send the answer
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         const existingSheetId = currentDynasty?.teamStatsSheetId
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          // Verify the stored sheet still lives in Drive. If the user (or
+          // Drive retention, or a second browser) trashed it, the ID is
+          // stale and would render a "file deleted" page. Clear and
+          // fall through to create a fresh sheet.
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { teamStatsSheetId: null })
         }
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true

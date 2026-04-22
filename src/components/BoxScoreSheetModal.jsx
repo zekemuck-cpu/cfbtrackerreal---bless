@@ -9,7 +9,8 @@ import {
   readScoringSummaryFromSheet,
   readGameTeamStatsFromSheet,
   deleteGoogleSheet,
-  getSingleSheetEmbedUrl
+  getSingleSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
@@ -573,8 +574,16 @@ FINAL CHECK before you send
       if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !showSessionError) {
         // Check for existing sheet (unless we're regenerating and should ignore it)
         if (existingSheetId && !ignoreExistingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await saveSheetIdToGame(null)
+          if (onSheetCreated) {
+            onSheetCreated(null)
+          }
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Create new sheet - set ref immediately to prevent concurrent calls

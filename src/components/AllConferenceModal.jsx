@@ -10,7 +10,8 @@ import {
   createAllConferenceSheet,
   readAllConferenceFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -209,8 +210,15 @@ FINAL CHECK before you send
         // Check for existing sheet for this year
         const existingSheetId = currentDynasty?.allConferenceSheetIdByYear?.[currentYear]
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, {
+            allConferenceSheetIdByYear: { ...(currentDynasty.allConferenceSheetIdByYear || {}), [currentYear]: null }
+          })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
         creatingSheetRef.current = true
         setCreatingSheet(true)

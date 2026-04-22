@@ -17,6 +17,7 @@ import Account from './pages/Account'
 import ViewDynasty from './pages/ViewDynasty'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
+import Contact from './pages/Contact'
 
 // Lazy pages with `.preload()` capability — see routes/lazyPages.js
 import {
@@ -49,6 +50,7 @@ function AppRoutes() {
           {/* Public policy pages - no auth required */}
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/contact" element={<Contact />} />
 
           {/* Public view routes - no auth required, reuses same components */}
           <Route path="/view/:shareCode" element={<ViewDynasty />}>

@@ -10,7 +10,8 @@ import {
   createConferencesSheet,
   readConferencesFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -217,8 +218,13 @@ FINAL CHECK before you send
             }
           } else {
             // No saved conferences, just use existing sheet
-            setSheetId(existingSheetId)
-            return
+            const stillExists = await sheetExists(existingSheetId)
+            if (stillExists) {
+              setSheetId(existingSheetId)
+              return
+            }
+            await updateDynasty(currentDynasty.id, { conferencesSheetId: null, conferencesSheetUrl: null })
+            // stale sheet (trashed in Drive); fall through to regenerate
           }
         }
 

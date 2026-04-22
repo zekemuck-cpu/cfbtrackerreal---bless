@@ -646,14 +646,68 @@ export default function Player() {
   // Calculate POW honors
   const calculatePOWHonors = () => {
     const games = dynasty.games || []
+    const teams = dynasty.teams || dynasty.customTeams || {}
     let confOffPOW = 0, confDefPOW = 0, nationalOffPOW = 0, nationalDefPOW = 0
     const confOffPOWGames = [], confDefPOWGames = [], nationalOffPOWGames = [], nationalDefPOWGames = []
 
-    games.forEach(game => {
-      if (game.conferencePOW === player.name) { confOffPOW++; confOffPOWGames.push(game) }
-      if (game.confDefensePOW === player.name) { confDefPOW++; confDefPOWGames.push(game) }
-      if (game.nationalPOW === player.name) { nationalOffPOW++; nationalOffPOWGames.push(game) }
-      if (game.natlDefensePOW === player.name) { nationalDefPOW++; nationalDefPOWGames.push(game) }
+    // Derive player-perspective fields (opponent, teamScore, opponentScore,
+    // location, result) from a raw game. The accolade modal renders these
+    // fields — without this transform, opponent is blank and the score is "-".
+    const toPlayerPerspective = (game) => {
+      const gameYear = game.year ?? game.season
+      const playerTid =
+        player?.teamsByYear?.[gameYear] ??
+        player?.teamsByYear?.[String(gameYear)] ??
+        player?.team ??
+        null
+
+      let teamScore = null, opponentScore = null, opponentAbbr = null, opponentTid = null, location = 'home'
+      if (game.team1Tid != null && game.team2Tid != null) {
+        const playerIsTeam1 = game.team1Tid === playerTid
+        const playerIsTeam2 = game.team2Tid === playerTid
+        // If we can't match the player to either side (missing teamsByYear),
+        // fall back to team1 perspective so at least something renders.
+        const onTeam1 = playerIsTeam1 || (!playerIsTeam1 && !playerIsTeam2)
+        teamScore = onTeam1 ? game.team1Score : game.team2Score
+        opponentScore = onTeam1 ? game.team2Score : game.team1Score
+        opponentTid = onTeam1 ? game.team2Tid : game.team1Tid
+        opponentAbbr = teams[opponentTid]?.abbr || (onTeam1 ? game.team2 : game.team1) || ''
+        const isNeutral = game.homeTeamTid == null || game.homeTeamTid === undefined
+        location = isNeutral ? 'neutral' : (game.homeTeamTid === (onTeam1 ? game.team1Tid : game.team2Tid) ? 'home' : 'away')
+      } else if (game.opponent != null) {
+        teamScore = game.teamScore
+        opponentScore = game.opponentScore
+        opponentAbbr = game.opponent
+        opponentTid = getTidFromAbbr(game.opponent)
+        location = game.location || 'home'
+      }
+
+      const result = (teamScore != null && opponentScore != null)
+        ? (Number(teamScore) > Number(opponentScore) ? 'W' : 'L')
+        : (game.result || null)
+
+      return {
+        ...game,
+        teamScore,
+        opponentScore,
+        opponent: opponentAbbr,
+        opponentTid,
+        location,
+        result,
+      }
+    }
+
+    games.forEach(rawGame => {
+      const isConfOff = rawGame.conferencePOW === player.name
+      const isConfDef = rawGame.confDefensePOW === player.name
+      const isNatOff = rawGame.nationalPOW === player.name
+      const isNatDef = rawGame.natlDefensePOW === player.name
+      if (!isConfOff && !isConfDef && !isNatOff && !isNatDef) return
+      const game = toPlayerPerspective(rawGame)
+      if (isConfOff) { confOffPOW++; confOffPOWGames.push(game) }
+      if (isConfDef) { confDefPOW++; confDefPOWGames.push(game) }
+      if (isNatOff) { nationalOffPOW++; nationalOffPOWGames.push(game) }
+      if (isNatDef) { nationalDefPOW++; nationalDefPOWGames.push(game) }
     })
 
     // Total counts for backward compatibility
@@ -2470,16 +2524,38 @@ export default function Player() {
       {/* Career Statistics - Premium Dark Theme */}
       {activeTab === 'stats' && hasMeaningfulStats && (() => {
         const primaryStat = getPrimaryStatCategory(player.position)
-        // For receiving-primary positions (WR, TE) show the Receiving table
-        // above Rushing. Use CSS `order` so the JSX below stays in canonical
-        // position order and we only need to tweak two values.
-        const rushingOrder = primaryStat === 'receiving' ? 3 : 2
-        const receivingOrder = primaryStat === 'receiving' ? 2 : 3
+        // CSS `order`-based reshuffle so the JSX can stay in canonical category
+        // order but each position surfaces its relevant tables first. Tables
+        // without an explicit order would default to 0 and leak above the
+        // primary tables (e.g. Defense on an HB profile) — so EVERY table
+        // below passes through getStatOrder().
+        const getStatOrder = (() => {
+          const offensiveSkill = ['passing', 'rushing', 'receiving', 'blocking', 'kickReturn', 'puntReturn', 'defense', 'kicking', 'punting']
+          const receiver      = ['receiving', 'rushing', 'passing', 'blocking', 'kickReturn', 'puntReturn', 'defense', 'kicking', 'punting']
+          const oLine          = ['blocking', 'rushing', 'receiving', 'passing', 'kickReturn', 'puntReturn', 'defense', 'kicking', 'punting']
+          const defender      = ['defense', 'kickReturn', 'puntReturn', 'rushing', 'receiving', 'blocking', 'passing', 'kicking', 'punting']
+          const kicker         = ['kicking', 'punting', 'kickReturn', 'puntReturn', 'defense', 'rushing', 'receiving', 'blocking', 'passing']
+          const punter         = ['punting', 'kicking', 'kickReturn', 'puntReturn', 'defense', 'rushing', 'receiving', 'blocking', 'passing']
+
+          const p = (player.position || '').toUpperCase()
+          let ordering
+          if (['LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OG', 'OT'].includes(p)) ordering = oLine
+          else if (['LEDG', 'REDG', 'DE', 'DT', 'SAM', 'MIKE', 'WILL', 'LB', 'OLB', 'MLB', 'ILB', 'ROLB', 'LOLB', 'CB', 'FS', 'SS', 'S'].includes(p)) ordering = defender
+          else if (p === 'K') ordering = kicker
+          else if (p === 'P') ordering = punter
+          else if (['WR', 'TE'].includes(p) || primaryStat === 'receiving') ordering = receiver
+          else ordering = offensiveSkill
+
+          return (category) => {
+            const idx = ordering.indexOf(category)
+            return idx === -1 ? 99 : idx + 1
+          }
+        })()
         return (
         <div className="flex flex-col gap-6">
           {/* Passing Table */}
           {hasStats.passing && (
-            <div className="card overflow-hidden" style={{ order: 1 }}>
+            <div className="card overflow-hidden" style={{ order: getStatOrder('passing') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Passing</h3>
               </div>
@@ -2594,7 +2670,7 @@ export default function Player() {
 
           {/* Rushing Table */}
           {hasStats.rushing && (
-            <div className="card overflow-hidden" style={{ order: rushingOrder }}>
+            <div className="card overflow-hidden" style={{ order: getStatOrder('rushing') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Rushing</h3>
               </div>
@@ -2703,7 +2779,7 @@ export default function Player() {
 
           {/* Receiving Table */}
           {hasStats.receiving && (
-            <div className="card overflow-hidden" style={{ order: receivingOrder }}>
+            <div className="card overflow-hidden" style={{ order: getStatOrder('receiving') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Receiving</h3>
               </div>
@@ -2807,7 +2883,7 @@ export default function Player() {
 
           {/* Blocking Table - Only show for TE and OL positions */}
           {hasStats.blocking && ['TE', 'LT', 'LG', 'C', 'RG', 'RT'].includes(player.position?.toUpperCase()) && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('blocking') }}>
               <div className="px-4 py-3 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Blocking</h3>
               </div>
@@ -2887,7 +2963,7 @@ export default function Player() {
 
           {/* Defense Table */}
           {hasStats.defensive && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('defense') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Defense</h3>
               </div>
@@ -2999,7 +3075,7 @@ export default function Player() {
 
           {/* Kicking Table */}
           {hasStats.kicking && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('kicking') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kicking</h3>
               </div>
@@ -3100,7 +3176,7 @@ export default function Player() {
 
           {/* Punting Table */}
           {hasStats.punting && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('punting') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punting</h3>
               </div>
@@ -3197,7 +3273,7 @@ export default function Player() {
 
           {/* Kick Returns Table */}
           {hasStats.kickReturn && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('kickReturn') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Kick Returns</h3>
               </div>
@@ -3283,7 +3359,7 @@ export default function Player() {
 
           {/* Punt Returns Table */}
           {hasStats.puntReturn && (
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden" style={{ order: getStatOrder('puntReturn') }}>
               <div className="px-5 py-3.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
                 <h3 className="text-lg font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>Punt Returns</h3>
               </div>
@@ -3483,20 +3559,41 @@ export default function Player() {
                   <span style={{ color: secondaryText, opacity: 0.7 }}> ({powHonors.nationalPOW}x)</span>
                 </button>
               )}
-              {/* Accolades from player.accolades array (excluding POW which comes from game data) */}
+              {/* Render per-year year-chips that link to the respective
+                  honor page for that year. Clicking the label links to the
+                  most recent year's page. POW awards above stay as modals. */}
               {Object.entries(accoladesByType)
                 .filter(([award]) => award !== 'confPOW' && award !== 'nationalPOW')
                 .map(([award, years]) => {
                   const label = formatAwardName(award)
                   const sortedYears = [...years].sort((a, b) => b - a)
                   return (
-                    <div key={award}>
-                      <span className="font-semibold" style={{ color: secondaryText }}>{label}</span>
-                      <span style={{ color: secondaryText, opacity: 0.7 }}> ({sortedYears.join(', ')})</span>
+                    <div key={award} className="flex flex-wrap items-baseline gap-x-1">
+                      <Link
+                        to={`${pathPrefix}/awards/${sortedYears[0]}`}
+                        className="font-semibold hover:underline transition-colors"
+                        style={{ color: secondaryText }}
+                      >
+                        {label}
+                      </Link>
+                      <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
+                      {sortedYears.map((yr, i) => (
+                        <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
+                          <Link
+                            to={`${pathPrefix}/awards/${yr}`}
+                            className="hover:underline"
+                            style={{ color: secondaryText }}
+                          >
+                            {yr}
+                          </Link>
+                          {i < sortedYears.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                      <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
                     </div>
                   )
                 })}
-              {/* All-Americans */}
+              {/* All-Americans — per-year links to /all-americans/:year */}
               {Object.entries(allAmericansByDesignation).map(([designation, years]) => {
                 const label = designation === 'first' ? 'All-American (1st Team)' :
                               designation === 'second' ? 'All-American (2nd Team)' :
@@ -3504,13 +3601,32 @@ export default function Player() {
                               `All-American (${designation})`
                 const sortedYears = [...years].sort((a, b) => b - a)
                 return (
-                  <div key={`aa-${designation}`}>
-                    <span className="font-semibold" style={{ color: secondaryText }}>{label}</span>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}> ({sortedYears.join(', ')})</span>
+                  <div key={`aa-${designation}`} className="flex flex-wrap items-baseline gap-x-1">
+                    <Link
+                      to={`${pathPrefix}/all-americans/${sortedYears[0]}`}
+                      className="font-semibold hover:underline transition-colors"
+                      style={{ color: secondaryText }}
+                    >
+                      {label}
+                    </Link>
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
+                    {sortedYears.map((yr, i) => (
+                      <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
+                        <Link
+                          to={`${pathPrefix}/all-americans/${yr}`}
+                          className="hover:underline"
+                          style={{ color: secondaryText }}
+                        >
+                          {yr}
+                        </Link>
+                        {i < sortedYears.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
                   </div>
                 )
               })}
-              {/* All-Conference */}
+              {/* All-Conference — per-year links to /all-conference/:year */}
               {Object.entries(allConferenceByDesignation).map(([designation, years]) => {
                 const label = designation === 'first' ? 'All-Conference (1st Team)' :
                               designation === 'second' ? 'All-Conference (2nd Team)' :
@@ -3518,9 +3634,28 @@ export default function Player() {
                               `All-Conference (${designation})`
                 const sortedYears = [...years].sort((a, b) => b - a)
                 return (
-                  <div key={`ac-${designation}`}>
-                    <span className="font-semibold" style={{ color: secondaryText }}>{label}</span>
-                    <span style={{ color: secondaryText, opacity: 0.7 }}> ({sortedYears.join(', ')})</span>
+                  <div key={`ac-${designation}`} className="flex flex-wrap items-baseline gap-x-1">
+                    <Link
+                      to={`${pathPrefix}/all-conference/${sortedYears[0]}`}
+                      className="font-semibold hover:underline transition-colors"
+                      style={{ color: secondaryText }}
+                    >
+                      {label}
+                    </Link>
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>(</span>
+                    {sortedYears.map((yr, i) => (
+                      <span key={yr} style={{ color: secondaryText, opacity: 0.7 }}>
+                        <Link
+                          to={`${pathPrefix}/all-conference/${yr}`}
+                          className="hover:underline"
+                          style={{ color: secondaryText }}
+                        >
+                          {yr}
+                        </Link>
+                        {i < sortedYears.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                    <span style={{ color: secondaryText, opacity: 0.7 }}>)</span>
                   </div>
                 )
               })}

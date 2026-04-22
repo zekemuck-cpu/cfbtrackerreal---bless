@@ -2026,6 +2026,30 @@ export async function deleteGoogleSheet(spreadsheetId) {
   }
 }
 
+/**
+ * Check whether a stored sheet ID still points to a live (non-trashed) file.
+ * Returns false if the file is missing (404), trashed, or we lack access (403).
+ * Returns true on any successful read. On network / auth errors we return
+ * true (assume-good) so we don't nuke the user's sheet ID on a transient blip.
+ */
+export async function sheetExists(spreadsheetId) {
+  if (!spreadsheetId) return false
+  try {
+    const accessToken = await getAccessToken()
+    const response = await fetch(
+      `${DRIVE_API_BASE}/${spreadsheetId}?fields=id,trashed`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+    if (response.status === 404 || response.status === 403) return false
+    if (!response.ok) return true
+    const data = await response.json()
+    return !data.trashed
+  } catch (error) {
+    console.warn('sheetExists probe failed, assuming sheet is still live:', error?.message || error)
+    return true
+  }
+}
+
 // Restore a Google Sheet from trash
 export async function restoreGoogleSheet(spreadsheetId) {
   try {

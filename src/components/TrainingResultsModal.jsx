@@ -9,7 +9,8 @@ import {
   createTrainingResultsSheet,
   readTrainingResultsFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -145,8 +146,13 @@ FINAL CHECK before you send
         // Check if we have an existing sheet for this year
         const existingSheetId = currentDynasty?.trainingResultsSheetId
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { trainingResultsSheetId: null })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Set ref immediately to prevent concurrent calls (state updates are async)

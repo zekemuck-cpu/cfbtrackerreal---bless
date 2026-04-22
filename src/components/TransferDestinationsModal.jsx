@@ -9,7 +9,8 @@ import {
   createTransferDestinationsSheet,
   readTransferDestinationsFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -205,8 +206,16 @@ FINAL CHECK before you send
           currentDynasty?.transferDestinationsSheetId &&
           currentDynasty?.transferDestinationsSheetYear === currentYear
         ) {
-          setSheetId(currentDynasty.transferDestinationsSheetId)
-          return
+          const stillExists = await sheetExists(currentDynasty.transferDestinationsSheetId)
+          if (stillExists) {
+            setSheetId(currentDynasty.transferDestinationsSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, {
+            transferDestinationsSheetId: null,
+            transferDestinationsSheetYear: null
+          })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         const transferringPlayers = getTransferringPlayers()
@@ -264,7 +273,19 @@ FINAL CHECK before you send
         currentDynasty?.transferDestinationsSheetId &&
         currentDynasty?.transferDestinationsSheetYear === currentYear
       ) {
-        setSheetId(currentDynasty.transferDestinationsSheetId)
+        const candidateId = currentDynasty.transferDestinationsSheetId
+        ;(async () => {
+          const stillExists = await sheetExists(candidateId)
+          if (stillExists) {
+            setSheetId(candidateId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, {
+            transferDestinationsSheetId: null,
+            transferDestinationsSheetYear: null
+          })
+          // stale sheet (trashed in Drive); fall through to regenerate
+        })()
       }
     }
   }, [isOpen])

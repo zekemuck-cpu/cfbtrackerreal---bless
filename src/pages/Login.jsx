@@ -76,6 +76,10 @@ function FeaturesAndSignin({ onSignIn }) {
         <Link to="/terms" className="hover:text-txt-secondary transition-colors">
           Terms of Service
         </Link>
+        <span>·</span>
+        <Link to="/contact" className="hover:text-txt-secondary transition-colors">
+          Contact
+        </Link>
       </div>
     </>
   )

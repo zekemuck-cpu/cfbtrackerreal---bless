@@ -9,7 +9,8 @@ import {
   createRecruitingSheet,
   readRecruitingFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
@@ -221,8 +222,13 @@ FINAL CHECK before you send
         const sheetKey = `recruitingSheet_${currentYear}_${commitmentKey}`
         const existingSheetId = currentDynasty?.[sheetKey]
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { [sheetKey]: null })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Set ref immediately to prevent concurrent calls (state updates are async)

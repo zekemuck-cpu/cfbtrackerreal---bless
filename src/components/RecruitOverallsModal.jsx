@@ -10,7 +10,8 @@ import {
   createRecruitOverallsSheet,
   readRecruitOverallsFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
@@ -149,8 +150,13 @@ FINAL CHECK before you send
         // Check if we have an existing sheet
         const existingSheetId = currentDynasty?.recruitOverallsSheetId
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { recruitOverallsSheetId: null })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Set ref immediately to prevent concurrent calls (state updates are async)

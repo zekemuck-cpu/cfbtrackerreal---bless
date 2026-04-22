@@ -9,7 +9,8 @@ import {
   createPlayersLeavingSheet,
   readPlayersLeavingFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
@@ -156,8 +157,13 @@ FINAL CHECK before you send
         // Check if we have an existing sheet for this year
         const existingSheetId = currentDynasty?.playersLeavingSheetId
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { playersLeavingSheetId: null })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Set ref immediately to prevent concurrent calls (state updates are async)

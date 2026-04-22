@@ -11,7 +11,8 @@ import {
   createEncourageTransfersSheet,
   readEncourageTransfersFromSheet,
   deleteGoogleSheet,
-  getSheetEmbedUrl
+  getSheetEmbedUrl,
+  sheetExists
 } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
 
@@ -152,8 +153,13 @@ FINAL CHECK before you send
         // Check if we have an existing sheet for this year
         const existingSheetId = currentDynasty?.encourageTransfersSheetId
         if (existingSheetId) {
-          setSheetId(existingSheetId)
-          return
+          const stillExists = await sheetExists(existingSheetId)
+          if (stillExists) {
+            setSheetId(existingSheetId)
+            return
+          }
+          await updateDynasty(currentDynasty.id, { encourageTransfersSheetId: null })
+          // stale sheet (trashed in Drive); fall through to regenerate
         }
 
         // Set ref immediately to prevent concurrent calls (state updates are async)
