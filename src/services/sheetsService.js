@@ -2006,6 +2006,14 @@ export async function deleteGoogleSheet(spreadsheetId) {
       })
     })
 
+    // "Already gone" counts as success — the caller wants the sheet not
+    // to exist, and it doesn't. 404 = deleted; 403 = we've lost access
+    // (treat like gone for regenerate purposes, where we're about to
+    // create a fresh one anyway).
+    if (response.status === 404 || response.status === 403) {
+      return true
+    }
+
     if (!response.ok) {
       const errorText = await response.text()
       let errorMessage = 'Unknown error'

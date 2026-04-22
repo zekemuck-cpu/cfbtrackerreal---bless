@@ -13,7 +13,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.22.0017'
+const APP_VERSION = '2026.04.22.0021'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -547,8 +547,21 @@ export default function Layout({ children }) {
 
             {useTeamTheme ? (
               <>
-                {/* Right: Advance Week Button - hugging right edge */}
-                <div className="relative flex items-center flex-shrink-0">
+                {/* Right: Contact + Advance Week - hugging right edge */}
+                <div className="relative flex items-center flex-shrink-0 gap-1">
+                  {/* Contact button — quick access to bug reports / feature requests */}
+                  <Link
+                    to="/contact"
+                    className="p-2 rounded-lg hover:opacity-70 transition-opacity"
+                    style={{ color: headerText }}
+                    title="Contact / Feedback"
+                    aria-label="Contact"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </Link>
+
                   {/* Advance Week Button with Dropdown */}
                   <div className="flex items-center">
                     <button

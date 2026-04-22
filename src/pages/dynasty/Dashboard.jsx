@@ -3067,11 +3067,13 @@ export default function Dashboard() {
           {/* Phase-Specific Content */}
           {currentDynasty.currentPhase === 'preseason' ? (
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
-          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-          <div className="p-4 sm:p-6">
-          <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-            Pre-Season Setup
-          </h3>
+          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
+          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+            <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+              Pre-Season Setup
+            </h3>
+          </div>
           <div className="space-y-2 sm:space-y-3">
             {[
               {
@@ -3604,11 +3606,13 @@ export default function Dashboard() {
           className="rounded-2xl overflow-hidden"
           style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}
         >
-          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-          <div className="p-4 sm:p-6">
-          <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
-            Conference Championship Week
-          </h3>
+          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
+          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+            <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+            <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+              Conference Championship Week
+            </h3>
+          </div>
 
           {(() => {
             const ccGame = getCCGame()
@@ -3952,8 +3956,7 @@ export default function Dashboard() {
       ) : currentDynasty.currentPhase === 'postseason' ? (
         // Postseason / Bowl Weeks
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--rule-soft)' }}>
-          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-          <div className="p-4 sm:p-6">
+          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           {(() => {
             const week = currentDynasty.currentWeek
             const currentYear = currentDynasty.currentYear
@@ -4294,9 +4297,12 @@ export default function Dashboard() {
             if (week === 1) {
               return (
                 <>
-                  <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
-                    Bowl Week 1
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      Bowl Week 1
+                    </h3>
+                  </div>
                   <div className="space-y-3 sm:space-y-4">
                     {/* Task 1: CC Results */}
                     <div
@@ -5629,9 +5635,12 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
-                    End of Season Recap
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      End of Season Recap
+                    </h3>
+                  </div>
                   <div className="space-y-3 sm:space-y-4">
                     {/* Task: Enter National Championship Result (only if user was NOT in championship) */}
                     {!userInCFPChampionship && (
@@ -6128,9 +6137,12 @@ export default function Dashboard() {
 
             return (
               <>
-                <h3 className="font-display text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-zinc-100">
-                  {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
-                </h3>
+                <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                  <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    {week === 5 ? 'End of Season Recap' : week === 4 ? 'National Championship' : `Bowl Week ${week}`}
+                  </h3>
+                </div>
                 <div className="space-y-3 sm:space-y-4">
                   {/* Week 2 Bowl Results - only show in Week 3 */}
                   {week === 3 && (
@@ -6890,8 +6902,7 @@ export default function Dashboard() {
             border: '1px solid var(--rule-soft)'
           }}
         >
-          <div className="h-[3px]" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
-          <div className="p-4 sm:p-6">
+          <div className="px-4 pt-3 pb-4 sm:px-6 sm:pt-3 sm:pb-6">
           {(() => {
             const week = currentDynasty.currentWeek
 
@@ -6909,9 +6920,12 @@ export default function Dashboard() {
               if (switchedTeams) {
                 return (
                   <>
-                    <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                      New Team - No Players Leaving
-                    </h3>
+                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                      <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                        New Team — No Players Leaving
+                      </h3>
+                    </div>
                     <div className="space-y-2 sm:space-y-3">
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
@@ -6946,9 +6960,12 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                    Players Leaving
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      Players Leaving
+                    </h3>
+                  </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task: Enter Players Leaving */}
                     <div
@@ -7037,9 +7054,12 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                    {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      {recruitingWeekNum === 5 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
+                    </h3>
+                  </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Recruiting Commitments */}
                     <div
@@ -7628,9 +7648,12 @@ export default function Dashboard() {
               if (switchedTeams) {
                 return (
                   <>
-                    <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                      Training Camp
-                    </h3>
+                    <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                      <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                      <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                        Training Camp
+                      </h3>
+                    </div>
                     <div className="space-y-2 sm:space-y-3">
                       <div
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded-xl gap-2 sm:gap-0"
@@ -7722,9 +7745,12 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                    Training Camp
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      Training Camp
+                    </h3>
+                  </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Training Results */}
                     <div
@@ -7852,9 +7878,12 @@ export default function Dashboard() {
 
               return (
                 <>
-                  <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                    Offseason
-                  </h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                    <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                      Offseason
+                    </h3>
+                  </div>
                   <div className="space-y-2 sm:space-y-3">
                     {/* Task 1: Custom Conferences */}
                     <div
@@ -7967,9 +7996,12 @@ export default function Dashboard() {
             // Fallback for any other weeks
             return (
               <>
-                <h3 className="font-display text-base sm:text-lg font-bold mb-3 sm:mb-4 text-zinc-100">
-                  Off-Season Week {week}
-                </h3>
+                <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                  <div className="w-1 h-10 sm:h-12 rounded-full flex-shrink-0" style={{ backgroundColor: teamColors.primary }} />
+                  <h3 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(1.25rem, 2vw, 1.75rem)', letterSpacing: '-0.01em' }}>
+                    Off-Season Week {week}
+                  </h3>
+                </div>
                 <p className="text-sm text-zinc-400">
                   Click "Advance Week" to continue to the next season.
                 </p>

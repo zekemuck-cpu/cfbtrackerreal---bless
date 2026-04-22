@@ -9,7 +9,7 @@ import ConfirmModal from '../components/ConfirmModal'
 import ShareDynastyModal from '../components/ShareDynastyModal'
 import StorageSwitchModal from '../components/StorageSwitchModal'
 import BouncingLogos from '../components/BouncingLogos'
-import { PageHero, Card, Button, Badge, Modal, Input, LoadingState } from '../components/ui'
+import { PageHero, Card, Button, Badge, Modal, Input, LoadingState, ContactCTA } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 function getDynastyTeamConference(dynasty) {
@@ -420,6 +420,10 @@ export default function Home() {
                 </div>
               </Card>
             </div>
+
+            <div className="max-w-md mx-auto w-full">
+              <ContactCTA />
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -613,6 +617,8 @@ export default function Home() {
                 )
               })}
             </div>
+
+            <ContactCTA className="mt-2" />
           </div>
         )}
       </div>

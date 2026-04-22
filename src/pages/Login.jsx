@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import logo from '../assets/logo.png'
 import BouncingLogos from '../components/BouncingLogos'
-import { Card } from '../components/ui'
+import { Card, ContactCTA } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 const SCREENSHOTS = [
@@ -67,6 +67,10 @@ function FeaturesAndSignin({ onSignIn }) {
       <p className="text-xs text-txt-tertiary text-center mt-4">
         Completely free
       </p>
+
+      <div className="mt-6">
+        <ContactCTA />
+      </div>
 
       <div className="flex items-center justify-center gap-3 mt-4 text-xs text-txt-tertiary">
         <Link to="/privacy" className="hover:text-txt-secondary transition-colors">
