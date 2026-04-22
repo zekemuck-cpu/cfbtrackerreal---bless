@@ -6706,13 +6706,23 @@ export default function TeamYear() {
               ) : (
                 <div className="space-y-2">
                   {historyGamesModalGames.map((game, idx) => {
-                    const g1Tid = game.team1Tid || resolveTid(game.team1, teamsSource)
-                    const g2Tid = game.team2Tid || resolveTid(game.team2, teamsSource)
+                    // Resolve both sides, tolerating records that only carry
+                    // the tid, only carry the abbr, or both. Older modals
+                    // read game.team1/team2 directly and rendered "vs "
+                    // (empty) when only tids were present — hence the
+                    // missing opponent + logo on the modal.
+                    const g1Tid = game.team1Tid ?? resolveTid(game.team1, teamsSource)
+                    const g2Tid = game.team2Tid ?? resolveTid(game.team2, teamsSource)
                     const isTeam1 = g1Tid === tid
                     const teamScore = isTeam1 ? game.team1Score : game.team2Score
                     const oppScore = isTeam1 ? game.team2Score : game.team1Score
-                    const opponent = isTeam1 ? game.team2 : game.team1
-                    const won = teamScore > oppScore
+                    const oppTid = isTeam1 ? g2Tid : g1Tid
+                    const oppTeamRecord = oppTid != null ? teamsSource?.[oppTid] : null
+                    const oppAbbr = oppTeamRecord?.abbr || (isTeam1 ? game.team2 : game.team1) || ''
+                    const oppMascot = getMascotNameFromTeams(oppTid ?? oppAbbr, teamsSource) || oppAbbr
+                    const oppLogo = getTeamLogo(oppMascot, teamsSource) || getTeamLogo(oppAbbr, teamsSource)
+                    const won = Number(teamScore) > Number(oppScore)
+                    const hasScores = teamScore != null && oppScore != null
                     const gameType = game.isCFPChampionship ? 'National Championship' :
                                     game.isCFPSemifinal ? 'CFP Semifinal' :
                                     game.isCFPQuarterfinal ? 'CFP Quarterfinal' :
@@ -6722,31 +6732,38 @@ export default function TeamYear() {
 
                     return (
                       <Link
-                        key={idx}
+                        key={game.id || idx}
                         to={`${pathPrefix}/game/${game.id}`}
                         className="flex items-center justify-between p-3 rounded-lg hover:opacity-80 transition-opacity"
                         style={{ backgroundColor: `${accentColor}10` }}
                         onClick={() => setShowHistoryGamesModal(false)}
                       >
-                        <div className="flex items-center gap-3">
-                          <span
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                            style={{ backgroundColor: won ? '#16a34a' : '#dc2626' }}
-                          >
-                            {won ? 'W' : 'L'}
-                          </span>
-                          <div>
-                            <div className="font-semibold" style={{ color: accentColor }}>
-                              vs {opponent}
+                        <div className="flex items-center gap-3 min-w-0">
+                          {hasScores && (
+                            <span
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                              style={{ backgroundColor: won ? '#16a34a' : '#dc2626' }}
+                            >
+                              {won ? 'W' : 'L'}
+                            </span>
+                          )}
+                          {oppLogo && (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white p-[2px] flex-shrink-0">
+                              <img src={oppLogo} alt="" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate" style={{ color: accentColor }}>
+                              vs {oppMascot || oppAbbr || 'Unknown'}
                             </div>
                             <div className="text-xs" style={{ color: accentColorMuted }}>
                               {game.year} {gameType}
                             </div>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0 ml-3">
                           <div className="font-bold tabular-nums" style={{ color: accentColor }}>
-                            {teamScore}-{oppScore}
+                            {hasScores ? `${teamScore}-${oppScore}` : '—'}
                           </div>
                         </div>
                       </Link>

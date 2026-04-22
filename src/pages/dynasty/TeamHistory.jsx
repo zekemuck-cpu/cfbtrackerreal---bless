@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty, getUserGamePerspective } from '../../context/DynastyContext'
 import { getGameTeamInfo } from '../../data/teamRegistry'
+import { getTeamLogo, getMascotName } from '../../data/teams'
 import {
   PageHero,
   Card,
@@ -336,10 +337,12 @@ export default function TeamHistory() {
                   {games.map((game, idx) => {
                     const won = isWin(game)
                     const weekLabel = WEEK_LABEL(game)
-                    const oppInfo = game.perspective?.opponentTid
-                      ? getGameTeamInfo(teams, game.perspective.opponentTid)
-                      : null
-                    const oppLabel = oppInfo?.abbr || game.opponent || 'Unknown'
+                    const oppTid = game.perspective?.opponentTid
+                    const oppInfo = oppTid ? getGameTeamInfo(teams, oppTid) : null
+                    const oppAbbr = oppInfo?.abbr || game.opponent || ''
+                    const oppMascot = getMascotName(oppTid ?? oppAbbr, teams) || oppAbbr
+                    const oppLogo = (oppMascot && getTeamLogo(oppMascot, teams)) ||
+                      (oppAbbr && getTeamLogo(oppAbbr, teams)) || null
                     const location = game.perspective?.isHome
                       ? 'Home'
                       : game.perspective?.isAway ? 'Away' : 'Neutral'
@@ -353,20 +356,25 @@ export default function TeamHistory() {
                           borderBottom: idx < games.length - 1 ? '1px solid var(--surface-4)' : 'none',
                         }}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <Badge variant={won ? 'success' : 'danger'} size="md">
                             {won ? 'W' : 'L'}
                           </Badge>
-                          <div>
-                            <div className="font-semibold text-sm text-txt-primary">
-                              vs {oppLabel}
+                          {oppLogo && (
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center bg-white p-[2px] flex-shrink-0">
+                              <img src={oppLogo} alt="" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold text-sm text-txt-primary truncate">
+                              vs {oppMascot || oppAbbr || 'Unknown'}
                             </div>
                             <div className="label-xs text-txt-tertiary">
                               {weekLabel} · {location}
                             </div>
                           </div>
                         </div>
-                        <div className="tabular font-semibold text-sm text-txt-primary">
+                        <div className="tabular font-semibold text-sm text-txt-primary flex-shrink-0 ml-3">
                           {game.perspective?.userScore ?? '—'} – {game.perspective?.opponentScore ?? '—'}
                         </div>
                       </Link>
