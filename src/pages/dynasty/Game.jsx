@@ -2381,147 +2381,129 @@ export default function Game() {
           })()}
 
           {/* Awards Tab */}
-          {activeTab === 'awards' && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Conference Player of the Week */}
-              {(game.conferencePOW || game.confDefensePOW) && (
-                <div className="p-4 rounded-xl bg-surface-2/50">
-                  <div className="text-[10px] text-txt-tertiary uppercase font-bold tracking-wider mb-4">Conference Player of the Week</div>
-                  <div className="space-y-4">
-                    {game.conferencePOW && (() => {
-                      const player = getPlayerByName(game.conferencePOW)
-                      const stats = getPlayerBoxScoreStats(game.conferencePOW)
-                      return (
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-amber-500/20 ring-2 ring-amber-500/30">
-                            {player?.pictureUrl ? (
-                              <img src={player.pictureUrl} alt={game.conferencePOW} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-amber-500 uppercase font-semibold">Offensive</div>
-                            {getPlayerPID(game.conferencePOW) ? (
-                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.conferencePOW)}`} className="font-bold text-white text-sm hover:underline block">
-                                {game.conferencePOW}
-                              </Link>
-                            ) : (
-                              <div className="font-bold text-white text-sm">{game.conferencePOW}</div>
-                            )}
-                            {stats && <div className="text-xs text-txt-tertiary mt-1">{stats}</div>}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                    {game.confDefensePOW && (() => {
-                      const player = getPlayerByName(game.confDefensePOW)
-                      const stats = getPlayerBoxScoreStats(game.confDefensePOW)
-                      return (
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-blue-500/20 ring-2 ring-blue-500/30">
-                            {player?.pictureUrl ? (
-                              <img src={player.pictureUrl} alt={game.confDefensePOW} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-blue-400 uppercase font-semibold">Defensive</div>
-                            {getPlayerPID(game.confDefensePOW) ? (
-                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.confDefensePOW)}`} className="font-bold text-white text-sm hover:underline block">
-                                {game.confDefensePOW}
-                              </Link>
-                            ) : (
-                              <div className="font-bold text-white text-sm">{game.confDefensePOW}</div>
-                            )}
-                            {stats && <div className="text-xs text-txt-tertiary mt-1">{stats}</div>}
-                          </div>
-                        </div>
-                      )
-                    })()}
+          {activeTab === 'awards' && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW) && (() => {
+            // Shared honoree row — avatar, OFFENSIVE/DEFENSIVE chip, name, stat
+            // line. Accent color is the only thing that changes between the
+            // Conference (neutral) and National (gold) panels.
+            const HonoreeRow = ({ name, side, accent }) => {
+              const player = getPlayerByName(name)
+              const stats = getPlayerBoxScoreStats(name)
+              const pid = getPlayerPID(name)
+              const initials = (name || '?')
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((w) => w[0])
+                .join('')
+                .toUpperCase()
+              return (
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-surface-3"
+                    style={{ boxShadow: `0 0 0 2px ${accent}55` }}
+                  >
+                    {player?.pictureUrl ? (
+                      <img src={player.pictureUrl} alt={name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center font-bold text-sm"
+                        style={{ color: accent }}
+                      >
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span
+                      className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-1"
+                      style={{
+                        color: accent,
+                        backgroundColor: `${accent}1a`,
+                        border: `1px solid ${accent}40`,
+                      }}
+                    >
+                      {side}
+                    </span>
+                    {pid ? (
+                      <Link
+                        to={`${pathPrefix}/player/${pid}`}
+                        className="block font-bold text-txt-primary truncate hover:underline"
+                      >
+                        {name}
+                      </Link>
+                    ) : (
+                      <div className="font-bold text-txt-primary truncate">{name}</div>
+                    )}
+                    {stats && (
+                      <div className="text-xs text-txt-tertiary mt-0.5 tabular-nums">{stats}</div>
+                    )}
                   </div>
                 </div>
-              )}
+              )
+            }
 
-              {/* National Player of the Week */}
-              {(game.nationalPOW || game.natlDefensePOW) && (
-                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
-                  <div className="text-[10px] text-yellow-400 uppercase font-bold tracking-wider mb-4">National Player of the Week</div>
-                  <div className="space-y-4">
-                    {game.nationalPOW && (() => {
-                      const player = getPlayerByName(game.nationalPOW)
-                      const stats = getPlayerBoxScoreStats(game.nationalPOW)
-                      return (
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-yellow-500/20 ring-2 ring-yellow-500/40">
-                            {player?.pictureUrl ? (
-                              <img src={player.pictureUrl} alt={game.nationalPOW} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-amber-400 uppercase font-semibold">Offensive</div>
-                            {getPlayerPID(game.nationalPOW) ? (
-                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.nationalPOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
-                                {game.nationalPOW}
-                              </Link>
-                            ) : (
-                              <div className="font-bold text-yellow-300 text-sm">{game.nationalPOW}</div>
-                            )}
-                            {stats && <div className="text-xs text-yellow-200/60 mt-1">{stats}</div>}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                    {game.natlDefensePOW && (() => {
-                      const player = getPlayerByName(game.natlDefensePOW)
-                      const stats = getPlayerBoxScoreStats(game.natlDefensePOW)
-                      return (
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-yellow-500/20 ring-2 ring-yellow-500/40">
-                            {player?.pictureUrl ? (
-                              <img src={player.pictureUrl} alt={game.natlDefensePOW} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <svg className="w-6 h-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[9px] text-amber-400 uppercase font-semibold">Defensive</div>
-                            {getPlayerPID(game.natlDefensePOW) ? (
-                              <Link to={`${pathPrefix}/player/${getPlayerPID(game.natlDefensePOW)}`} className="font-bold text-yellow-300 text-sm hover:underline block">
-                                {game.natlDefensePOW}
-                              </Link>
-                            ) : (
-                              <div className="font-bold text-yellow-300 text-sm">{game.natlDefensePOW}</div>
-                            )}
-                            {stats && <div className="text-xs text-yellow-200/60 mt-1">{stats}</div>}
-                          </div>
-                        </div>
-                      )
-                    })()}
+            return (
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Conference Player of the Week — neutral, team-colored accent */}
+                {(game.conferencePOW || game.confDefensePOW) && (
+                  <div
+                    className="rounded-xl overflow-hidden"
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--rule-soft)',
+                    }}
+                  >
+                    <div
+                      className="h-[3px] w-full"
+                      style={{ backgroundColor: teamColors.primary }}
+                      aria-hidden="true"
+                    />
+                    <div className="px-5 py-4 space-y-4">
+                      <div className="label-xs text-txt-tertiary">Conference Player of the Week</div>
+                      {game.conferencePOW && (
+                        <HonoreeRow name={game.conferencePOW} side="Offensive" accent={teamColors.primary} />
+                      )}
+                      {game.confDefensePOW && (
+                        <HonoreeRow name={game.confDefensePOW} side="Defensive" accent="#60a5fa" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {/* National Player of the Week — gold treatment for prestige */}
+                {(game.nationalPOW || game.natlDefensePOW) && (
+                  <div
+                    className="rounded-xl overflow-hidden relative"
+                    style={{
+                      background:
+                        'linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, rgba(251, 191, 36, 0.02) 100%)',
+                      border: '1px solid rgba(251, 191, 36, 0.3)',
+                      boxShadow: '0 0 0 1px rgba(251, 191, 36, 0.05) inset',
+                    }}
+                  >
+                    <div
+                      className="h-[3px] w-full"
+                      style={{ backgroundColor: '#fbbf24' }}
+                      aria-hidden="true"
+                    />
+                    <div className="px-5 py-4 space-y-4">
+                      <div
+                        className="label-xs"
+                        style={{ color: '#fbbf24' }}
+                      >
+                        National Player of the Week
+                      </div>
+                      {game.nationalPOW && (
+                        <HonoreeRow name={game.nationalPOW} side="Offensive" accent="#fbbf24" />
+                      )}
+                      {game.natlDefensePOW && (
+                        <HonoreeRow name={game.natlDefensePOW} side="Defensive" accent="#fbbf24" />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
         </div>
       )}
