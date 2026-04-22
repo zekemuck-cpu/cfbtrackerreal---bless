@@ -11,12 +11,13 @@ import { Card, Button, Badge, LoadingState } from '../components/ui'
 
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
 
+// On mobile/tablet always start closed — desktop's saved "open" preference
+// shouldn't leak onto small viewports where the overlay would block the page.
 const getInitialSidebarState = () => {
+  if (!isDesktop()) return false
   const saved = localStorage.getItem('sidebarOpen')
-  if (saved !== null) {
-    return saved === 'true'
-  }
-  return isDesktop()
+  if (saved !== null) return saved === 'true'
+  return true
 }
 
 function ViewDynastyContent() {

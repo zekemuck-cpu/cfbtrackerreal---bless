@@ -9,14 +9,15 @@ import NewsTicker from '../components/NewsTicker/NewsTicker'
 // Check if we're on a desktop-sized screen
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
 
-// Get initial sidebar state from localStorage or default based on screen size
+// Get initial sidebar state. On mobile/tablet ALWAYS start closed — the
+// sidebar is an overlay that would block the page, and the desktop-saved
+// "open" preference shouldn't leak onto small viewports where a bursting
+// overlay on arrival is hostile.
 const getInitialSidebarState = () => {
+  if (!isDesktop()) return false
   const saved = localStorage.getItem('sidebarOpen')
-  if (saved !== null) {
-    return saved === 'true'
-  }
-  // Default: open on desktop, closed on mobile
-  return isDesktop()
+  if (saved !== null) return saved === 'true'
+  return true
 }
 
 export default function DynastyDashboard() {

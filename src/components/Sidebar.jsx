@@ -98,24 +98,34 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     return location.pathname.startsWith(path)
   }
 
+  // Media query matching Tailwind's `lg` breakpoint. matchMedia is more
+  // reliable than inline window.innerWidth on mobile Safari, which can report
+  // stale widths during orientation/keyboard changes. Falls back to false on
+  // SSR to be safe.
+  const isMobileLayout = () => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(max-width: 1023.98px)').matches
+  }
+
   const handleNavClick = () => {
-    if (window.innerWidth < 1024) {
+    if (isMobileLayout()) {
       onClose()
     }
   }
 
-  // Auto-close sidebar on mobile/tablet whenever the route changes — catches
-  // any navigation path (Link click, programmatic navigate(), back-button),
-  // not just the Link onClick handler.
+  // Belt-and-suspenders: auto-close on mobile whenever the route changes —
+  // catches programmatic navigate(), back-button, and anything else that
+  // bypasses the Link onClick above. Skips the first render so a user who
+  // intentionally opened the sidebar doesn't have it snap shut on arrival.
   const prevPathRef = useRef(location.pathname)
   useEffect(() => {
-    if (prevPathRef.current !== location.pathname) {
-      prevPathRef.current = location.pathname
-      if (isOpen && typeof window !== 'undefined' && window.innerWidth < 1024) {
-        onClose()
-      }
+    if (prevPathRef.current === location.pathname) return
+    prevPathRef.current = location.pathname
+    if (isMobileLayout()) {
+      onClose()
     }
-  }, [location.pathname, isOpen, onClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
 
   // Warm the chunk on hover/focus so navigation feels instant.
   const handleNavPrefetch = (name) => {
