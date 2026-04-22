@@ -1107,8 +1107,15 @@ export default function Dashboard() {
     const updatedPlayers = (currentDynasty.players || []).map(player => {
       if (leavingPids.has(player.pid)) {
         const reason = reasonByPid[player.pid] || 'Unknown'
-        const isTransfer = reason === 'Transfer' || reason === 'Encouraged Transfer'
+        // ANY reason that isn't a permanent departure (Graduating / Pro
+        // Draft) is a transfer-portal reason. The 14 sheet reasons
+        // (Playing Time, Playing Style, Proximity to Home, etc.) all
+        // mean "entered the portal", so all of them get
+        // `transferred_out` with a null destination until Transfer
+        // Destinations populates it. Legacy 'Transfer' / 'Encouraged
+        // Transfer' strings remain valid.
         const isDeparture = reason === 'Graduating' || reason === 'Pro Draft'
+        const isTransfer = !isDeparture
         // Get player's team as tid - ALWAYS use tid for movement data
         let playerTeamTid = player.team
         if (typeof playerTeamTid === 'string') {
@@ -1123,14 +1130,14 @@ export default function Dashboard() {
 
         // Build movementByYear entry based on reason
         const movementByYearEntry = (() => {
-          if (reason === 'Transfer' || reason === 'Encouraged Transfer') {
-            return { type: 'transferred_out', toTeamTid: null }
-          } else if (reason === 'Pro Draft') {
+          if (reason === 'Pro Draft') {
             return { type: 'declared_for_draft' }
           } else if (reason === 'Graduating') {
             return { type: 'graduated' }
           }
-          return { type: reason.toLowerCase().replace(/\s+/g, '_') }
+          // Every other reason = entered the transfer portal, destination
+          // unknown until Transfer Destinations is filled in on Signing Day.
+          return { type: 'transferred_out', toTeamTid: null, reason }
         })()
 
         if (existingMovementIndex !== -1) {
