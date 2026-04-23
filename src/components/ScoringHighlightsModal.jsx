@@ -434,7 +434,7 @@ export default function ScoringHighlightsModal({
 
           {/* Timer indicator */}
           {isPlaying && (
-            <div className="absolute top-4 right-4 bg-black/70 px-3 py-1 rounded-full z-10">
+            <div className="absolute top-4 left-4 bg-black/70 px-3 py-1 rounded-full z-10">
               <span className="text-white text-sm font-mono">{timeRemaining}s</span>
             </div>
           )}
