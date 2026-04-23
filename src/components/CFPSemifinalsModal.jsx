@@ -7,6 +7,7 @@ import { getBowlLogo } from '../data/bowlGames'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
+import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS } from '../data/cfpConstants'
 
 // Map abbreviations to mascot names for logo lookup
 const mascotMap = {
@@ -88,12 +89,31 @@ const SEMIFINAL_STRUCTURE = [
 ]
 
 export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYear, teamColors, userTeamAbbr }) {
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty } = useDynasty()
   const { toast } = useToast()
   const [games, setGames] = useState([])
   const [saving, setSaving] = useState(false)
   const [userGameIndex, setUserGameIndex] = useState(-1) // Index of user's game (if any)
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+
+  // Bowl host assignment for semifinals — prompted here (at Bowl Week 3)
+  // rather than at seed entry, because EA CFB doesn't reveal the semifinal
+  // host bowls until Week 3.
+  const [bowlConfig, setBowlConfig] = useState(() => {
+    const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+    return {
+      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
+      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
+    }
+  })
+  useEffect(() => {
+    if (!isOpen) return
+    const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+    setBowlConfig({
+      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
+      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
+    })
+  }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
   // Get seed by tid
   const getSeedByTid = (tid) => {
@@ -512,17 +532,46 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
       return
     }
 
+    // Bowl hosts must be distinct
+    if (bowlConfig.sf1 && bowlConfig.sf2 && bowlConfig.sf1 === bowlConfig.sf2) {
+      toast.error('Each semifinal needs a different host bowl.')
+      return
+    }
+
     setSaving(true)
     try {
-      // Process games to add winner and seeds
-      const processedGames = games.map(game => ({
-        ...game,
-        team1Score: parseInt(game.team1Score),
-        team2Score: parseInt(game.team2Score),
-        winner: parseInt(game.team1Score) > parseInt(game.team2Score) ? game.team1 : game.team2,
-        seed1: getSeedByTid(game.team1Tid),
-        seed2: getSeedByTid(game.team2Tid)
-      }))
+      // Stamp the user's bowl-host picks onto each semifinal game so
+      // downstream views (bracket, game pages, history) show the right bowl.
+      const bowlForConfigKey = (configKey) =>
+        bowlConfig[configKey] || DEFAULT_BOWL_CONFIG[configKey]
+      const processedGames = games.map(game => {
+        const sf = SEMIFINAL_STRUCTURE.find(s => s.id === game.id || s.slotId === game.cfpSlot)
+        const bowlName = sf ? bowlForConfigKey(sf.configKey) : game.bowlName
+        return {
+          ...game,
+          bowlName,
+          team1Score: parseInt(game.team1Score),
+          team2Score: parseInt(game.team2Score),
+          winner: parseInt(game.team1Score) > parseInt(game.team2Score) ? game.team1 : game.team2,
+          seed1: getSeedByTid(game.team1Tid),
+          seed2: getSeedByTid(game.team2Tid),
+        }
+      })
+
+      // Persist semifinal bowl assignments to the shared bowl-config map.
+      // Merge with existing config so QF assignments (set at Week 1) are kept.
+      const existingConfig = currentDynasty?.cfpBowlConfigByYear || {}
+      const existingYearConfig = existingConfig[currentYear] || {}
+      await updateDynasty(currentDynasty.id, {
+        cfpBowlConfigByYear: {
+          ...existingConfig,
+          [currentYear]: {
+            ...existingYearConfig,
+            sf1: bowlForConfigKey('sf1'),
+            sf2: bowlForConfigKey('sf2'),
+          },
+        },
+      })
 
       await onSave(processedGames)
       onClose()
@@ -589,7 +638,12 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
           {games.map((game, index) => {
             const team1Info = getTeamInfoByTid(game.team1Tid)
             const team2Info = getTeamInfoByTid(game.team2Tid)
-            const bowlLogo = getBowlLogo(game.bowlName)
+            const sfStruct = SEMIFINAL_STRUCTURE.find(s => s.id === game.id || s.slotId === game.cfpSlot)
+            const configKey = sfStruct?.configKey
+            const selectedBowl = configKey
+              ? (bowlConfig[configKey] || DEFAULT_BOWL_CONFIG[configKey])
+              : game.bowlName
+            const bowlLogo = getBowlLogo(selectedBowl)
 
             return (
               <div
@@ -600,7 +654,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
                 <div className="px-4 py-3 flex items-center gap-3 border-b border-surface-4 bg-surface-3">
                   {bowlLogo && (
                     <div className="w-8 h-8 bg-white rounded p-1 flex items-center justify-center flex-shrink-0">
-                      <img src={bowlLogo} alt={game.bowlName} className="w-full h-full object-contain" />
+                      <img src={bowlLogo} alt={selectedBowl} className="w-full h-full object-contain" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
@@ -608,11 +662,25 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
                       className="text-txt-tertiary"
                       style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', fontWeight: 600 }}
                     >
-                      Semifinal
+                      Semifinal · Host Bowl
                     </div>
-                    <h3 className="text-sm sm:text-base font-semibold text-txt-primary truncate">
-                      {game.bowlName}
-                    </h3>
+                    {configKey ? (
+                      <select
+                        value={selectedBowl}
+                        onChange={(e) =>
+                          setBowlConfig(prev => ({ ...prev, [configKey]: e.target.value }))
+                        }
+                        className="mt-0.5 w-full bg-transparent text-sm sm:text-base font-semibold text-txt-primary border-b border-surface-5 focus:outline-none focus:border-[var(--team-primary)] py-0.5"
+                      >
+                        {CFP_NY6_BOWLS.map(bowl => (
+                          <option key={bowl} value={bowl} className="bg-surface-2 text-txt-primary">{bowl}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <h3 className="text-sm sm:text-base font-semibold text-txt-primary truncate">
+                        {selectedBowl}
+                      </h3>
+                    )}
                   </div>
                   {game.userGame && (
                     <span

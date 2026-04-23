@@ -26,7 +26,6 @@ const isMobileDevice = () => {
 
 // Config keys in order for UI - QF by seed (4, 1, 3, 2) then SF
 const QF_KEYS = ['seed4', 'seed1', 'seed3', 'seed2']
-const SF_KEYS = ['sf1', 'sf2']
 
 export default function CFPSeedsModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
@@ -393,31 +392,11 @@ FINAL CHECK before you send the answer
                 ))}
               </div>
 
-              {/* Semifinals */}
-              <p className="text-[10px] font-bold uppercase mb-1.5" style={{ color: modalColors.textMuted, letterSpacing: '1px' }}>Semifinals</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {SF_KEYS.map(key => (
-                  <div key={key}>
-                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
-                      {SEED_DESCRIPTIONS[key]}
-                    </label>
-                    <select
-                      value={bowlConfig[key] || DEFAULT_BOWL_CONFIG[key]}
-                      onChange={(e) => setBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-1.5 py-1 rounded text-xs border"
-                      style={{
-                        borderColor: modalColors.inputBorder,
-                        backgroundColor: modalColors.inputBg,
-                        color: modalColors.text
-                      }}
-                    >
-                      {CFP_NY6_BOWLS.map(bowl => (
-                        <option key={bowl} value={bowl}>{bowl}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
+              {/* Semifinal bowl assignments are prompted at Bowl Week 3 — the
+                  EA CFB game does not show semifinal bowl hosts during Week 1. */}
+              <p className="text-[10px] mt-1 italic" style={{ color: modalColors.textMuted }}>
+                Semifinal bowl hosts entered at Bowl Week 3.
+              </p>
 
               {/* Validation warning if same bowl assigned to multiple slots */}
               {(() => {

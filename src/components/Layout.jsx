@@ -8,17 +8,21 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
+import DynastyMigrationModal from './DynastyMigrationModal'
+import { needsV2Migration } from '../data/migrateDynastyV2'
 import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.22.0041'
+const APP_VERSION = '2026.04.23.0005'
 
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty } = useDynasty()
+  const [showV2Migration, setShowV2Migration] = useState(false)
+  const [v2MigrationDismissed, setV2MigrationDismissed] = useState(false)
   const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -56,6 +60,25 @@ export default function Layout({ children }) {
   useEffect(() => {
     preloadCommonDynastyPages()
   }, [])
+
+  // Detect dynasties that need the v2 roster-data migration and prompt.
+  useEffect(() => {
+    if (!currentDynasty) { setShowV2Migration(false); return }
+    if (v2MigrationDismissed) return
+    setShowV2Migration(needsV2Migration(currentDynasty))
+  }, [currentDynasty?.id, currentDynasty?._schemaVersion, v2MigrationDismissed])
+
+  const handleV2Migrate = async (migrated) => {
+    const { _schemaVersion, _normalizedAt, players } = migrated
+    // forceOverwrite: required so Firestore does a full set() per player
+    // (default merge mode preserves keys we're trying to delete, e.g. legacy
+    // movements[] arrays that migration consolidates into movementByYear).
+    await updateDynasty(
+      currentDynasty.id,
+      { _schemaVersion, _normalizedAt, players },
+      { forceOverwrite: true }
+    )
+  }
 
   // Use tid-based team colors lookup - this is THE source of truth
   const teamColors = useCurrentTeamColors(currentDynasty)
@@ -718,6 +741,14 @@ export default function Layout({ children }) {
         players={playersNeedingConfirmation}
         teamColors={teamColors}
         year={currentDynasty?.currentYear}
+      />
+
+      {/* v2 roster data migration prompt — shows once per dynasty load until accepted */}
+      <DynastyMigrationModal
+        dynasty={currentDynasty}
+        isOpen={showV2Migration}
+        onMigrate={handleV2Migrate}
+        onDismiss={() => { setShowV2Migration(false); setV2MigrationDismissed(true) }}
       />
     </div>
   )
