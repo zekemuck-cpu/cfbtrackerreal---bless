@@ -331,11 +331,12 @@ export async function savePlayerToSubcollection(dynastyId, player) {
     // reappears on the roster after reload" because the old year key survived
     // the write. Callers (updatePlayer) always pass the full player object,
     // so a full replace is safe and correct.
+    console.log(`[savePlayerToSubcollection] WRITING ${player.pid} (${player.name}) — teamsByYear:`, JSON.stringify(playerData.teamsByYear))
     await setDoc(playerRef, playerData)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
-    console.log(`[savePlayerToSubcollection] Saved player ${player.pid} (${player.name}) to server`)
+    console.log(`[savePlayerToSubcollection] COMMITTED ${player.pid} (${player.name}) to server`)
   } catch (error) {
     console.error('Error saving player to subcollection:', error)
     throw error

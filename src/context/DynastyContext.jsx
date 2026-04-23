@@ -3083,6 +3083,12 @@ export function migrateRosterData(dynasty) {
   if (!dynasty) return dynasty
   // Use _rosterMigratedV3 to force re-run of migration (V2 didn't backfill current year)
   if (dynasty._rosterMigratedV3) return dynasty
+  console.warn(
+    `[migrateRosterData] RUNNING for dynasty ${dynasty.id} — ` +
+    `_rosterMigratedV3 flag is NOT set. This will auto-re-add players ` +
+    `to teamsByYear[currentYear]. If you see unexpected players ` +
+    `reappearing, this is likely the cause.`
+  )
   if (!dynasty.players || dynasty.players.length === 0) {
     return { ...dynasty, _rosterMigratedV3: true }
   }
@@ -3136,13 +3142,28 @@ export function migrateRosterData(dynasty) {
       // This prevents re-adding players that were fixed by "Fix Roster" button
       const previousYear = currentYear - 1
 
-      // Check if player has a departure movement from this team
-      const hasDepartureMovement = (player.movements || []).some(m => {
-        const isDeparture = m.type === 'departure' || m.type === 'transfer' || m.type === 'entered_portal'
-        const fromThisTeam = m.from === teamTid || m.from === teamAbbr ||
-                             (typeof m.from === 'string' && getTidFromAbbr(m.from) === teamTid)
-        return isDeparture && fromThisTeam
-      })
+      // Check if player has ANY departure-like event anywhere in their
+      // history. We read BOTH the legacy movements[] array AND the v2
+      // movementByYear map — post-v2-migration players only have the
+      // latter, and earlier versions of this check missed them entirely,
+      // causing re-add-on-reload for transferred/graduated players.
+      const isDepartureType = (m) => {
+        if (!m) return false
+        const t = m.type
+        const dep = m.departure
+        return (
+          t === 'departure' || t === 'transfer' || t === 'entered_portal' ||
+          t === 'transferred_out' || t === 'graduated' || t === 'declared_for_draft' ||
+          t === 'encouraged_to_transfer' ||
+          dep === 'graduated' || dep === 'pro_draft' || dep === 'transfer_out'
+        )
+      }
+      const legacyArr = Array.isArray(player.movements) ? player.movements : []
+      const byYearEntries = player.movementByYear
+        ? Object.values(player.movementByYear)
+        : []
+      const hasDepartureMovement =
+        legacyArr.some(isDepartureType) || byYearEntries.some(isDepartureType)
 
       // Check if player is in the playersLeavingByYear list
       const leavingByYear = dynasty.playersLeavingByYear?.[previousYear] ||
@@ -3165,6 +3186,13 @@ export function migrateRosterData(dynasty) {
         const existingTeamsByYear = modifiedPlayer.teamsByYear || {}
         // If current year is missing from teamsByYear, add it
         if (!existingTeamsByYear[currentYear] && !existingTeamsByYear[String(currentYear)]) {
+          console.warn(
+            `[migrateRosterData] AUTO-RE-ADDING ${player.name} (pid=${player.pid}) ` +
+            `to teamsByYear[${currentYear}]. ` +
+            `movements=${(player.movements || []).length}, ` +
+            `movementByYear keys=${Object.keys(player.movementByYear || {}).join(',')}, ` +
+            `leftTeam=${player.leftTeam}, team=${player.team}`
+          )
           needsUpdate = true
           playerModified = true
           modifiedPlayer = {
