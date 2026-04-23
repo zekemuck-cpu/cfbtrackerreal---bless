@@ -9,17 +9,13 @@ const PLAY_DURATION = 30 // seconds per play before auto-advance
 function getEmbedUrl(url) {
   if (!url) return null
 
-  console.log('getEmbedUrl received URL:', url)
-
   // YouTube: youtu.be/VIDEO_ID?t=SECONDS or youtube.com/watch?v=VIDEO_ID&t=SECONDS
   const youtubeShortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)(?:\?t=(\d+))?/)
   if (youtubeShortMatch) {
     const startTime = youtubeShortMatch[2]
-    const embedUrl = startTime
+    return startTime
       ? `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1&start=${startTime}`
       : `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1`
-    console.log('Generated YouTube embed URL:', embedUrl)
-    return embedUrl
   }
 
   const youtubeLongMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
