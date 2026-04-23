@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
@@ -125,6 +127,7 @@ export default function ScoringHighlightsModal({
   pathPrefix,
   startIndex = 0
 }) {
+  useBodyScrollLock(isOpen)
   const navigate = useNavigate()
   const [currentIndex, setCurrentIndex] = useState(startIndex)
   const [isPlaying, setIsPlaying] = useState(true)
@@ -364,7 +367,7 @@ export default function ScoringHighlightsModal({
   // For "All Games" mode, use the opponent logo from the current play's gameInfo
   const team2LogoUrl = currentPlay?.gameInfo?.opponentLogo || team2Logo
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
@@ -645,6 +648,7 @@ export default function ScoringHighlightsModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

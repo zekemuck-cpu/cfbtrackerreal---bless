@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { teams } from '../data/teams'
 import SearchableSelect from './SearchableSelect'
 import { useToast } from './ui/Toast'
@@ -34,9 +36,10 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
     onClose()
   }
 
+  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
       style={{ margin: 0 }}
@@ -102,5 +105,7 @@ export default function RankingsEntryModal({ isOpen, onClose, onSave, currentYea
         </form>
       </div>
     </div>
+  ,
+  document.body
   )
 }

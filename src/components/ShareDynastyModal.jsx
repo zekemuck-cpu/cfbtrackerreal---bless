@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useDynasty } from '../context/DynastyContext'
 import { generateShareCode } from '../services/dynastyService'
 import { getModalColors } from '../utils/colorUtils'
@@ -59,9 +61,10 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
     setTimeout(() => setCopied(false), 2000)
   }
 
+  useBodyScrollLock(isOpen)
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
@@ -172,5 +175,7 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
         </div>
       </div>
     </div>
+  ,
+  document.body
   )
 }

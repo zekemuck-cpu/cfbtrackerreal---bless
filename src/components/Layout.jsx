@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.23.0010'
+const APP_VERSION = '2026.04.23.0011'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -59,6 +59,61 @@ export default function Layout({ children }) {
   // navigating between pages feels instant (not a click → spinner → render).
   useEffect(() => {
     preloadCommonDynastyPages()
+  }, [])
+
+  // Global modal-scroll-lock: whenever any portal-mounted modal is open
+  // (i.e. a direct child of <body> with both `fixed` and `z-[9999]` classes
+  // applied by Tailwind), lock body scroll. Unlocks automatically when the
+  // last such element is removed. Refcounted so stacked modals behave.
+  useEffect(() => {
+    const isModalNode = (node) => {
+      if (!(node instanceof HTMLElement)) return false
+      const cls = node.className
+      if (typeof cls !== 'string') return false
+      // Match Tailwind compiled classes for fixed inset-0 + high z-index.
+      return cls.includes('fixed') && cls.includes('z-[9999]')
+    }
+    const countModals = () => {
+      let n = 0
+      for (const child of document.body.children) {
+        if (isModalNode(child)) n++
+        // Some modals wrap in an extra div — walk one level deep for safety.
+        else if (child instanceof HTMLElement) {
+          for (const g of child.children) {
+            if (isModalNode(g)) { n++; break }
+          }
+        }
+      }
+      return n
+    }
+    let savedOverflow = ''
+    let savedPaddingRight = ''
+    let locked = false
+    const apply = () => {
+      const n = countModals()
+      if (n > 0 && !locked) {
+        savedOverflow = document.body.style.overflow
+        savedPaddingRight = document.body.style.paddingRight
+        const sbw = window.innerWidth - document.documentElement.clientWidth
+        if (sbw > 0) document.body.style.paddingRight = `${sbw}px`
+        document.body.style.overflow = 'hidden'
+        locked = true
+      } else if (n === 0 && locked) {
+        document.body.style.overflow = savedOverflow
+        document.body.style.paddingRight = savedPaddingRight
+        locked = false
+      }
+    }
+    apply()
+    const obs = new MutationObserver(apply)
+    obs.observe(document.body, { childList: true, subtree: false })
+    return () => {
+      obs.disconnect()
+      if (locked) {
+        document.body.style.overflow = savedOverflow
+        document.body.style.paddingRight = savedPaddingRight
+      }
+    }
   }, [])
 
   // Detect dynasties that need the v2 roster-data migration and prompt.
