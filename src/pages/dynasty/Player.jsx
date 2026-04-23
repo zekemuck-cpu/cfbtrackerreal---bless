@@ -4078,9 +4078,8 @@ export default function Player() {
 
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold" style={{ color: secondaryText }}>Game Log</h2>
-              {allPlayerScoringPlays.length > 0 && (
+            {allPlayerScoringPlays.length > 0 && (
+              <div className="flex justify-end">
                 <button
                   onClick={() => {
                     setSelectedGameScoringPlays({
@@ -4102,8 +4101,8 @@ export default function Player() {
                     Watch All Scores ({allPlayerScoringPlays.length})
                   </span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {Object.entries(gamesByYear).sort(([a], [b]) => b - a).map(([year, games]) => (
               <div key={year} className="card overflow-hidden">
