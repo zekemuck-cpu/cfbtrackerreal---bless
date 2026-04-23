@@ -5746,8 +5746,16 @@ export function DynastyProvider({ children }) {
       console.log(`[addGame] OPTIMIZED: Saving single game ${game.id} to cloud (no box score)`)
 
       try {
+        // Set listener-skip guards so the real-time listener doesn't
+        // overwrite our local games array with a stale subcollection read.
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
         // Save single game to Firestore subcollection (1 write instead of N)
         await saveGameToSubcollection(dynastyId, game)
+        lastGamesUpdateTimestampRef.current = Date.now()
         console.log(`[addGame] Single game saved successfully: ${game.id}`)
 
         // Update local React state
@@ -5842,6 +5850,13 @@ export function DynastyProvider({ children }) {
       console.log(`[updateGame] OPTIMIZED: Saving ${1 + cfpGamesToPropagate.length} game(s) to cloud individually`)
 
       try {
+        // Set listener-skip guards so the real-time listener doesn't
+        // overwrite our games array with a stale subcollection read.
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastGamesUpdateTimestampRef.current = Date.now()
+        lastGamesUpdateDynastyIdRef.current = dynastyId
+
         // Save main game to subcollection
         await saveGameToSubcollection(dynastyId, updatedGames.find(g => g.id === gameData.id))
         console.log(`[updateGame] Saved main game: ${gameData.id}`)
@@ -5861,6 +5876,9 @@ export function DynastyProvider({ children }) {
           console.log('[updateGame] Updating dynasty with record updates only:', Object.keys(recordUpdates))
           await updateDynasty(dynastyId, recordUpdates, { skipGamesSubcollection: true })
         }
+
+        // Re-stamp now that writes are durable.
+        lastGamesUpdateTimestampRef.current = Date.now()
 
         // Update local React state
         const updatedDynasty = { ...dynasty, games: updatedGames, lastModified: Date.now() }
@@ -9189,8 +9207,17 @@ export function DynastyProvider({ children }) {
       console.log(`[updatePlayer] OPTIMIZED: Saving single player ${finalPlayer.pid} (${finalPlayer.name}) to cloud`)
 
       try {
+        // Set listener-skip guards so the real-time listener doesn't
+        // overwrite our local state with a stale subcollection read.
+        // (See the matching fix in deletePlayer — same root cause.)
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastPlayersUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateDynastyIdRef.current = dynastyId
+
         // Save single player to Firestore subcollection (1 write instead of N)
         await savePlayerToSubcollection(dynastyId, finalPlayer)
+        lastPlayersUpdateTimestampRef.current = Date.now()
 
         // Update local React state
         const updatedPlayers = (dynasty.players || []).map(player =>
@@ -9288,6 +9315,15 @@ export function DynastyProvider({ children }) {
         try {
           console.log(`[updatePlayer] OPTIMIZED: Saving player + affected games individually`)
 
+          // Set listener-skip guards for both players AND games subcollections
+          // so the real-time listener doesn't clobber our local changes.
+          skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+          skipListenerTimestampRef.current = Date.now()
+          lastPlayersUpdateTimestampRef.current = Date.now()
+          lastPlayersUpdateDynastyIdRef.current = dynastyId
+          lastGamesUpdateTimestampRef.current = Date.now()
+          lastGamesUpdateDynastyIdRef.current = dynastyId
+
           // Save the player
           await savePlayerToSubcollection(dynastyId, finalPlayer)
 
@@ -9298,6 +9334,11 @@ export function DynastyProvider({ children }) {
           for (const game of affectedGames) {
             await saveGameToSubcollection(dynastyId, game)
           }
+
+          // Re-stamp now that writes are durable so the 10-second window
+          // starts from write-complete, not write-initiated.
+          lastPlayersUpdateTimestampRef.current = Date.now()
+          lastGamesUpdateTimestampRef.current = Date.now()
 
           // Update local React state
           const updatedDynasty = { ...dynasty, players: updatedPlayers, games: updatedGames, lastModified: Date.now() }
@@ -9347,8 +9388,29 @@ export function DynastyProvider({ children }) {
       console.log(`[deletePlayer] OPTIMIZED: Deleting single player ${playerPid} from cloud`)
 
       try {
+        // CRITICAL: Set the listener-skip guards BEFORE the Firestore write,
+        // mirroring the batch updateDynasty() path. Without this, the real-
+        // time listener fires as a side effect of the delete, reads the
+        // players subcollection via its own data stream (which may not have
+        // seen the delete yet), and overwrites local React state with a
+        // stale snapshot — bringing the deleted player back. This is the
+        // exact bug that made deleted players "reappear after reload".
+        //
+        // See the listener's guard at the top of subscribeToDynasties'
+        // callback: it preserves local state when the refs below are set
+        // and younger than 10s.
+        skipListenerUpdatesCountRef.current = Math.max(skipListenerUpdatesCountRef.current, 3)
+        skipListenerTimestampRef.current = Date.now()
+        lastPlayersUpdateTimestampRef.current = Date.now()
+        lastPlayersUpdateDynastyIdRef.current = dynastyId
+
         // Delete single player from Firestore subcollection (1 delete instead of N writes)
         await deletePlayerFromSubcollection(dynastyId, playerPid)
+
+        // Re-stamp the timestamp AFTER the write so the 10-second window
+        // starts when Firestore actually has the delete, not when we
+        // decided to do it.
+        lastPlayersUpdateTimestampRef.current = Date.now()
 
         // Update local React state - remove the player from the array
         const updatedPlayers = (dynasty.players || []).filter(player => player.pid !== playerPid)
