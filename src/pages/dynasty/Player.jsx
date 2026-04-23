@@ -2240,19 +2240,6 @@ export default function Player() {
         return (
           <div className="max-w-3xl mx-auto">
 
-            {/* Section eyebrow */}
-            <div className="flex items-baseline justify-between pb-2 mb-1 border-b border-surface-4">
-              <span
-                className="text-[11px] font-bold uppercase tracking-widest text-txt-tertiary"
-                style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}
-              >
-                Career Timeline
-              </span>
-              <span className="text-[10px] uppercase tracking-widest text-txt-muted" style={{ letterSpacing: '1.5px' }}>
-                {years.length} {years.length === 1 ? 'season' : 'seasons'}
-              </span>
-            </div>
-
             {(() => {
               // Build a flat list of rows so we can assign a single year-gutter marker
               // per unique year (shown only on the first row of each year group).
