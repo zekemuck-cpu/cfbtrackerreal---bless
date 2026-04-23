@@ -324,10 +324,14 @@ export async function savePlayerToSubcollection(dynastyId, player) {
     const { _firestoreId, ...rawPlayerData } = player
     const playerData = sanitizeForFirestore(rawPlayerData)
 
-    // merge: true prevents a partial write from wiping top-level fields the
-    // caller omitted. Our callers always spread the full player object today,
-    // but this is a defensive safety net against future regressions.
-    await setDoc(playerRef, playerData, { merge: true })
+    // CRITICAL: full set() (NOT merge) so deleted nested keys actually get
+    // removed in Firestore. merge: true preserved keys the caller omitted —
+    // including keys the user explicitly deleted in the editor (e.g. removing
+    // teamsByYear[2034] from a player's career tab). That caused "player
+    // reappears on the roster after reload" because the old year key survived
+    // the write. Callers (updatePlayer) always pass the full player object,
+    // so a full replace is safe and correct.
+    await setDoc(playerRef, playerData)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -423,15 +427,16 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         const { _firestoreId, ...rawPlayerData } = player
         const playerData = sanitizeForFirestore(rawPlayerData)
 
-        // Default: merge so partial writes don't wipe top-level fields.
-        // forceOverwrite: full replace — required when migrations trim nested
-        // object keys (e.g. stale teamsByYear years), because Firestore's merge
-        // mode recursively merges nested objects and preserves removed keys.
-        if (forceOverwrite) {
-          batch.set(playerRef, playerData)
-        } else {
-          batch.set(playerRef, playerData, { merge: true })
-        }
+        // ALWAYS full replace (not merge). Firestore's merge mode recursively
+        // merges nested objects, which means keys the caller INTENTIONALLY
+        // removed (e.g. teamsByYear[2034] deleted from a player's career tab,
+        // or stale keys trimmed by a migration) silently survive the write.
+        // Callers always build a complete player object from the current
+        // in-memory state, so a full replace is both safe and correct.
+        // The `forceOverwrite` option is kept on this function for the
+        // orphan-cleanup behavior above; individual player docs no longer
+        // branch on it. See the matching comment in savePlayerToSubcollection.
+        batch.set(playerRef, playerData)
       }
 
       await batch.commit()
