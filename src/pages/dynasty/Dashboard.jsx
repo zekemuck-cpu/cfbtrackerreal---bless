@@ -1618,24 +1618,39 @@ export default function Dashboard() {
     const updatedPlayers = [...(currentDynasty.players || [])]
     let updatedCount = 0
 
+    const prevYear = year - 1
     results.forEach(result => {
       // Find player by name (case-insensitive match)
       const playerIndex = updatedPlayers.findIndex(p =>
         normalizePlayerName(p.name) === normalizePlayerName(result.playerName)
       )
-      if (playerIndex !== -1 && result.newOverall) {
-        const existingOverallByYear = updatedPlayers[playerIndex].overallByYear || {}
-        updatedPlayers[playerIndex] = {
-          ...updatedPlayers[playerIndex],
-          overall: result.newOverall,
-          // Also update overallByYear for the new system
-          overallByYear: {
-            ...existingOverallByYear,
-            [year]: result.newOverall
-          }
-        }
-        updatedCount++
+      if (playerIndex === -1) return
+      if (!result.newOverall && result.pastOverall == null) return
+
+      const player = updatedPlayers[playerIndex]
+      const nextOverallByYear = { ...(player.overallByYear || {}) }
+
+      if (result.newOverall) {
+        nextOverallByYear[year] = result.newOverall
       }
+      // Back-fill pastOverall into prev-year slot only if we don't already
+      // have a value there. Keeps legitimate prior-year data intact and
+      // fills gaps for transfer-portal arrivals whose old-team OVR was
+      // never recorded in this dynasty.
+      if (
+        result.pastOverall != null &&
+        nextOverallByYear[prevYear] == null &&
+        nextOverallByYear[String(prevYear)] == null
+      ) {
+        nextOverallByYear[prevYear] = result.pastOverall
+      }
+
+      updatedPlayers[playerIndex] = {
+        ...player,
+        ...(result.newOverall ? { overall: result.newOverall } : {}),
+        overallByYear: nextOverallByYear,
+      }
+      updatedCount++
     })
 
     // Store training results for history

@@ -10247,36 +10247,10 @@ async function initializeTrainingResultsSheet(spreadsheetId, accessToken, sheetI
         }
       }
     },
-    // Protect Player column (column A)
-    {
-      addProtectedRange: {
-        protectedRange: {
-          range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 0, endColumnIndex: 1 },
-          description: 'Player names',
-          warningOnly: false
-        }
-      }
-    },
-    // Protect Position column (column B)
-    {
-      addProtectedRange: {
-        protectedRange: {
-          range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 1, endColumnIndex: 2 },
-          description: 'Positions',
-          warningOnly: false
-        }
-      }
-    },
-    // Protect Past OVR column (column C)
-    {
-      addProtectedRange: {
-        protectedRange: {
-          range: { sheetId, startRowIndex: 1, endRowIndex: totalRows + 1, startColumnIndex: 2, endColumnIndex: 3 },
-          description: 'Past OVR',
-          warningOnly: false
-        }
-      }
-    },
+    // Columns A–C (Player / Position / Past OVR) are NOT protected. The
+    // paste workflow is: AI outputs all 4 columns, user pastes over A2,
+    // reader keys by name so row order is irrelevant. Unprotecting these
+    // columns lets the paste land without Google Sheets blocking it.
     // Format header row - bold, background color
     {
       repeatCell: {

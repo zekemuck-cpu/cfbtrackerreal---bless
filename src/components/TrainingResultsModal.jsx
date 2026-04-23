@@ -56,51 +56,46 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Training Results`,
     roster: userRoster,
-    structure: `This sheet has ONE tab: "Training Results".
-Row 1 (header) and columns A–C (Player, Position, Past OVR) are PRE-FILLED and PROTECTED. Players are listed alphabetically by last name in column A. You output ONE value per player: the New OVR in column D.
+    structure: `This sheet has ONE tab: "Training Results". The user will paste your output at cell A2 and the app matches rows by PLAYER NAME — row order does not matter. Output ALL FOUR columns for every player on the YOUR TEAM ROSTER block above.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY column D. NEVER output columns A, B, or C. NEVER output the header row.
-2. ROW ORDER IS FIXED. Exactly one line per pre-filled player row, in the SAME ORDER as column A appears in the screenshots. Do NOT reorder, skip, or add rows.
-3. Exactly ONE value per line: the New OVR integer. No tabs, no commas, no extra columns.
-4. INTEGERS only. Range 40–99. No decimals, no quotes, no units, no "+/-", no color coding.
-5. BLANK LINE (empty line) if the new OVR is unknown for that player — never guess, never use 0, "-", or "N/A". A blank line preserves row alignment.
-6. NO COMMAS in numbers ("85" never "85.").
-7. No commentary, no header, no totals. ONE single-column TSV block.
+1. OUTPUT 4 TAB-SEPARATED COLUMNS per row: Player<TAB>Position<TAB>Past OVR<TAB>New OVR.
+2. ONE ROW PER PLAYER on the team's roster (the YOUR TEAM ROSTER block lists them). Include every roster player, even if their New OVR is unknown.
+3. Column 1 (Player) MUST use the FULL name from the YOUR TEAM ROSTER block — never abbreviated ("A. Guess"). EA CFB screenshots often show abbreviated names; match them to full names using the roster.
+4. Column 2 (Position) MUST match the roster's position string exactly (QB, HB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P).
+5. Column 3 (Past OVR) = the OLD OVR before training. Integer 40–99.
+   • If the screenshot shows both an old and new OVR for this player, use the old value.
+   • TRANSFER PORTAL PLAYERS (newly arrived from another team) usually have NO prior OVR recorded in the app. In those cases, compute Past OVR = New OVR − training delta (e.g. a +3 training result with new OVR 84 means Past OVR = 81). Do this for ANY player whose past value you can derive from the screenshot — even if the app doesn't already know it.
+   • Leave BLANK only if no past value can be read or derived.
+6. Column 4 (New OVR) = the NEW OVR after training. Integer 40–99. Leave BLANK if unknown. If the screenshot shows a "+N" delta and a Past OVR, compute New OVR = Past OVR + delta.
+7. NO header row. NO commentary. NO blank lines between rows. Each row has exactly 3 tab characters.
+8. INTEGERS only in columns C and D. No decimals, no commas, no quotes, no units, no "+/-" signs, no color coding.
+9. NEVER GUESS. If you cannot determine a player's OVR from the screenshots, leave that column blank for that player — the app keeps the previous value.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Training Results"
-Paste at cell D2 of the "Training Results" tab
+REQUIRED OUTPUT FORMAT — fenced TSV block only, no prose before or after
 ═══════════════════════════════════════════════════════════
-
-Col | Header (protected)  | Your output                                | Format
-----+---------------------+--------------------------------------------+---------------------
- A  | Player              | — (pre-filled, do NOT output)              | protected
- B  | Position            | — (pre-filled, do NOT output)              | protected
- C  | Past OVR            | — (pre-filled, do NOT output)              | protected
- D  | New OVR             | Integer 40–99 (player's new overall)       | integer, no commas
-
-═══════════════════════════════════════════════════════════
-REQUIRED OUTPUT FORMAT
-═══════════════════════════════════════════════════════════
-=== TRAINING RESULTS — paste at cell D2 of "Training Results" tab ===
-<New OVR>
-<New OVR>
-<New OVR>
+\`\`\`tsv
+Alex Guess	QB	87	90
+Jaylen Miller	HB	81	82
+Devin Hollis	WR	76
 ...
-(one line per player, same order as column A in the screenshots; blank line = unknown)
+\`\`\`
+
+(one row per roster player; blank cells allowed in columns C/D only; paste the whole block at A2)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Line count exactly equals the number of pre-filled player rows visible in the screenshots (including blank lines for unknowns)
-[ ] Every non-blank line is a single integer 40–99
-[ ] NO tabs in any line (this is a single-column output)
-[ ] No commas, no decimals, no quotes, no units
-[ ] Row order matches column A in the screenshots exactly
-[ ] Blank lines for unknown players — did not invent any values`,
+[ ] Row count equals the number of players on YOUR TEAM ROSTER
+[ ] Every row has exactly 3 tab characters (4 columns)
+[ ] Column 1 names match the FULL names in the roster block (no initials)
+[ ] Column 2 positions use canonical abbreviations
+[ ] Columns 3 and 4 are integers 40–99 or blank
+[ ] No header row, no prose, no commas, no +/- signs
+[ ] Output wrapped in a single \`\`\`tsv ... \`\`\` fence`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
