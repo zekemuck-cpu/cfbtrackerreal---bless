@@ -428,47 +428,10 @@ export default function TeamYear() {
   // Get team info from tid - teamsSource now has properly merged data
   const team = teamsSource[tid]
 
-  // Show loading state if dynasty data is still being loaded from Firebase
-  // This prevents rendering with incomplete data (missing games/players)
-  if (isLoadingDynastyData) {
-    return (
-      <div className="flex items-center justify-center min-h-dvh">
-        <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-surface-4 border-t-blue-500 rounded-full animate-spin mb-4" />
-          <p className="text-lg font-medium text-txt-secondary">Loading dynasty data...</p>
-          <p className="text-sm text-txt-muted mt-2">Please wait while we fetch your games and roster from the cloud.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!team) {
-    return (
-      <div className="space-y-6">
-        <div
-          className="rounded-lg shadow-lg p-6"
-          style={{
-            backgroundColor: '#f3f4f6',
-            border: '3px solid #6b7280'
-          }}
-        >
-          <h1 className="text-2xl font-bold" style={{ color: '#1f2937' }}>
-            Team Not Found
-          </h1>
-          <Link
-            to={`${pathPrefix}/teams`}
-            className="inline-block mt-4 px-4 py-2 rounded-lg font-semibold"
-            style={{
-              backgroundColor: '#1f2937',
-              color: '#ffffff'
-            }}
-          >
-            Back to Teams
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  // NOTE: loading-state and team-not-found early returns used to live
+  // here, but they came BEFORE the useMemo calls further down and caused
+  // hook-count mismatches on first render. Moved to the bottom of the
+  // component, right before the JSX return, after all hooks have fired.
 
   // Extract team data - using new tid-based structure
   const teamAbbr = team.abbr  // Keep for backwards compatibility with data lookups
@@ -1927,9 +1890,49 @@ export default function TeamYear() {
 
   // handleEditGame and handleGameSave removed - now using game pages instead
 
-  // Real null gate — AFTER every hook above has been called. Don't move
-  // this up without also moving the hooks.
+  // Real gates — AFTER every hook above has been called. Don't move
+  // these up without also moving the hooks.
   if (!_dyn) return null
+
+  if (isLoadingDynastyData) {
+    return (
+      <div className="flex items-center justify-center min-h-dvh">
+        <div className="text-center">
+          <div className="inline-block w-12 h-12 border-4 border-surface-4 border-t-blue-500 rounded-full animate-spin mb-4" />
+          <p className="text-lg font-medium text-txt-secondary">Loading dynasty data...</p>
+          <p className="text-sm text-txt-muted mt-2">Please wait while we fetch your games and roster from the cloud.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!team) {
+    return (
+      <div className="space-y-6">
+        <div
+          className="rounded-lg shadow-lg p-6"
+          style={{
+            backgroundColor: '#f3f4f6',
+            border: '3px solid #6b7280'
+          }}
+        >
+          <h1 className="text-2xl font-bold" style={{ color: '#1f2937' }}>
+            Team Not Found
+          </h1>
+          <Link
+            to={`${pathPrefix}/teams`}
+            className="inline-block mt-4 px-4 py-2 rounded-lg font-semibold"
+            style={{
+              backgroundColor: '#1f2937',
+              color: '#ffffff'
+            }}
+          >
+            Back to Teams
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
