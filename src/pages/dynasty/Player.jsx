@@ -1920,16 +1920,28 @@ export default function Player() {
           }
         }
 
-        // Build year-by-year data
-        const yearData = years.map(year => ({
-          year,
-          team: teamsByYear[year],
-          playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)] || player.year || null,
-          overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)] || (year === years[years.length - 1] ? player.overall : null),
-          devTrait: player.devTraitByYear?.[year] || player.devTraitByYear?.[String(year)] || player.devTrait || null,
-          stats: player.statsByYear?.[year] || player.statsByYear?.[String(year)] || null,
-          movements: timelineEntries.filter(e => e.year === year)
-        }))
+        // Build year-by-year data. Do NOT fall back to player.year / player.overall
+        // / player.devTrait for historical years — those are "current year"
+        // values and using them here would stamp every unspecified prior year
+        // with the current-year snapshot. That caused the timeline to label
+        // 2030 as "Senior" (current class = Sr) when the editor had it blank.
+        // Current year is a special case handled separately below.
+        const currentYearVal = dynasty?.currentYear
+        const yearData = years.map(year => {
+          const isCurrentYr = Number(year) === Number(currentYearVal)
+          return {
+            year,
+            team: teamsByYear[year],
+            playerClass: player.classByYear?.[year] || player.classByYear?.[String(year)]
+              || (isCurrentYr ? player.year : null),
+            overall: player.overallByYear?.[year] || player.overallByYear?.[String(year)]
+              || (isCurrentYr ? player.overall : null),
+            devTrait: player.devTraitByYear?.[year] || player.devTraitByYear?.[String(year)]
+              || (isCurrentYr ? player.devTrait : null),
+            stats: player.statsByYear?.[year] || player.statsByYear?.[String(year)] || null,
+            movements: timelineEntries.filter(e => e.year === year),
+          }
+        })
 
         const getOverallColor = (ovr) => {
           if (!ovr) return '#9ca3af'
