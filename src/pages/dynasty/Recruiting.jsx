@@ -703,54 +703,72 @@ export default function Recruiting() {
       <PageHero
         eyebrow="Recruiting"
         title={
-          <div className="flex items-center gap-4">
-            <TeamLogo tid={selectedTid} teams={teamsSource} size="lg" />
-            <div className="min-w-0">
-              <Link
-                to={`${pathPrefix}/team/${selectedTid}/${isAllSeasons ? currentDynasty?.currentYear : selectedYear}`}
-                className="text-display-lg text-txt-primary leading-none m-0 hover:underline"
+          <h1 className="group display-lg text-txt-primary leading-none m-0 inline-flex items-baseline flex-wrap gap-x-3">
+            {/* Inline year selector (falls back to "All Seasons") */}
+            <span className="relative inline-flex items-baseline">
+              <span className="tabular-nums" aria-hidden="true">
+                {isAllSeasons ? 'All Seasons' : selectedYear}
+              </span>
+              <svg
+                className="ml-1 self-center w-[0.5em] h-[0.5em] opacity-60"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
               >
-                {teamFullName}
-              </Link>
-            </div>
-          </div>
-        }
-        meta={
-          <span>{isAllSeasons ? 'All-Time Recruiting' : `${selectedYear} Recruiting Class`}</span>
-        }
-        actions={
-          <div className="flex items-center gap-2 flex-wrap">
-            {teamsWithRecruitingClasses.length > 1 && (
-              <Select
-                size="sm"
-                value={selectedTid}
-                onChange={(e) => handleTeamChange(Number(e.target.value))}
+                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+              </svg>
+              <select
+                value={selectedYear}
+                onChange={(e) => handleYearChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                aria-label="Select recruiting year"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
               >
-                {teamsWithRecruitingClasses.map(t => (
-                  <option key={t.tid} value={t.tid}>{t.name}</option>
-                ))}
-              </Select>
-            )}
-            <Select
-              size="sm"
-              value={selectedYear}
-              onChange={(e) => handleYearChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              {availableYears.length > 0 && <option value="all">All Seasons</option>}
-              {availableYears.length > 0 ? (
-                availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))
-              ) : (
-                <option value={selectedYear}>{selectedYear}</option>
+                {availableYears.length > 0 && <option value="all">All Seasons</option>}
+                {availableYears.length > 0 ? (
+                  availableYears.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))
+                ) : (
+                  <option value={selectedYear}>{selectedYear}</option>
+                )}
+              </select>
+            </span>
+
+            {/* Inline team selector — only a dropdown when there's more than one team */}
+            <span className="relative inline-flex items-baseline">
+              <span>{teamFullName}</span>
+              {teamsWithRecruitingClasses.length > 1 && (
+                <>
+                  <svg
+                    className="ml-1 self-center w-[0.5em] h-[0.5em] opacity-60"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                  <select
+                    value={selectedTid}
+                    onChange={(e) => handleTeamChange(Number(e.target.value))}
+                    aria-label="Select team"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
+                  >
+                    {teamsWithRecruitingClasses.map(t => (
+                      <option key={t.tid} value={t.tid}>{t.name}</option>
+                    ))}
+                  </select>
+                </>
               )}
-            </Select>
-            {!isViewOnly && !isAllSeasons && (
-              <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
-                Edit
-              </Button>
-            )}
-          </div>
+            </span>
+          </h1>
+        }
+        meta={<span>{isAllSeasons ? 'All-Time Recruiting' : 'Recruiting Class'}</span>}
+        actions={
+          !isViewOnly && !isAllSeasons ? (
+            <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
+              Edit
+            </Button>
+          ) : null
         }
       />
 
