@@ -650,8 +650,8 @@ FINAL CHECK before you send the answer
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {[
-                  { key: 'sf1', label: 'Semifinal 1 host (1 / 4-seed bracket)' },
-                  { key: 'sf2', label: 'Semifinal 2 host (2 / 3-seed bracket)' },
+                  { key: 'sf1', label: 'Semifinal 1 host (1/4-seed bracket)' },
+                  { key: 'sf2', label: 'Semifinal 2 host (2/3-seed bracket)' },
                 ].map(({ key, label }) => (
                   <div key={key}>
                     <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
