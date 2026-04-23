@@ -2127,15 +2127,28 @@ export default function Player() {
               )}
             </div>
 
-            {/* Rail + avatar column — top stub, avatar, flex-1 bottom stub form a continuous rail */}
-            <div className="flex-shrink-0 flex flex-col items-center w-11 sm:w-12">
+            {/* Rail + avatar column — the rail is absolute so it spans the
+                row's padding (pt-5/pb-5) and connects seamlessly to the next
+                row's rail with no visible gap. */}
+            <div className="relative flex-shrink-0 flex flex-col items-center justify-start w-11 sm:w-12">
+              {/* Top rail segment: 0 → avatar top. Hidden on first row. */}
+              {!isFirst && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 top-0 w-[2px] bg-surface-4"
+                  style={{ height: 'calc(1.25rem + 0.125rem)' }}
+                  aria-hidden="true"
+                />
+              )}
+              {/* Bottom rail segment: avatar bottom → row bottom. Hidden on last row. */}
+              {!isLast && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[2px] bg-surface-4"
+                  style={{ top: 'calc(1.25rem + 2.75rem - 0.125rem)' }}
+                  aria-hidden="true"
+                />
+              )}
               <div
-                className="w-[2px] bg-surface-4"
-                style={{ height: '0.5rem', visibility: isFirst ? 'hidden' : 'visible' }}
-                aria-hidden="true"
-              />
-              <div
-                className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-surface-1 flex-shrink-0"
+                className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-surface-1 flex-shrink-0 z-[1]"
                 style={{ boxShadow: `inset 0 0 0 2px ${color}` }}
               >
                 {logo
@@ -2143,11 +2156,6 @@ export default function Player() {
                   : <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }} />
                 }
               </div>
-              <div
-                className="w-[2px] bg-surface-4 flex-1 min-h-[0.5rem]"
-                style={{ visibility: isLast ? 'hidden' : 'visible' }}
-                aria-hidden="true"
-              />
             </div>
 
             {/* Content */}
