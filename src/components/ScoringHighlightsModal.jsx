@@ -374,7 +374,7 @@ export default function ScoringHighlightsModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-6xl h-[92dvh] flex flex-col border border-surface-4"
+        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-6xl max-h-[92dvh] flex flex-col border border-surface-4"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -395,8 +395,8 @@ export default function ScoringHighlightsModal({
           </div>
         </div>
 
-        {/* Video Player */}
-        <div className="relative bg-black flex-1 min-h-0 overflow-hidden">
+        {/* Video Player — 16:9 so the panel only takes the height the video needs */}
+        <div className="relative bg-black w-full aspect-video overflow-hidden flex-shrink-0">
           {isDirectVideo ? (
             <video
               key={currentIndex}
