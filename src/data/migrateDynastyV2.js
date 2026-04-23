@@ -25,12 +25,12 @@ function normalizeYearKeyedObject(obj, valueCoercer) {
   return out
 }
 
+// Return true ONLY if the dynasty has real legacy debt the user should see a
+// modal about. A brand-new or already-clean dynasty with a missing schema
+// flag is NOT a migration — it gets silently stamped by stampV2IfClean.
 export function needsV2Migration(dynasty) {
   if (!dynasty) return false
   const players = dynasty.players || []
-  // Regardless of the dynasty-level flag, re-run migration if any player
-  // still carries legacy debt. An earlier run may have been partially
-  // applied (Firestore merge mode can preserve deleted keys).
   for (const p of players) {
     if (Array.isArray(p.movements) && p.movements.length) return true
     if (p.teamsByYear) {
@@ -39,8 +39,25 @@ export function needsV2Migration(dynasty) {
         if (v === '') return true
       }
     }
+    if (p.classByYear) {
+      for (const k of Object.keys(p.classByYear)) {
+        if (isNaN(Number(k))) return true
+      }
+    }
+    // Honor-only ghost pattern — worth migrating to clean up.
+    const hasStats = p.statsByYear && Object.keys(p.statsByYear).length > 0
+    const hasAccolades = p.accolades && Object.keys(p.accolades).length > 0
+    if (!p.position && p.overall == null && !hasStats && hasAccolades) return true
   }
-  return dynasty._schemaVersion !== 2
+  return false
+}
+
+// True if the dynasty has no legacy debt AND no v2 flag yet. Caller should
+// silently stamp _schemaVersion: 2 in this case — no modal, no friction.
+export function isCleanButUnstamped(dynasty) {
+  if (!dynasty) return false
+  if (dynasty._schemaVersion === 2) return false
+  return !needsV2Migration(dynasty)
 }
 
 export function migrateDynastyToV2(dynasty) {

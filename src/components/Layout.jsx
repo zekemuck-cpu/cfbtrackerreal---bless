@@ -9,13 +9,13 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import DynastyMigrationModal from './DynastyMigrationModal'
-import { needsV2Migration } from '../data/migrateDynastyV2'
+import { needsV2Migration, isCleanButUnstamped } from '../data/migrateDynastyV2'
 import { useToast, useConfirm } from './ui'
 import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.23.0005'
+const APP_VERSION = '2026.04.23.0006'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -62,10 +62,23 @@ export default function Layout({ children }) {
   }, [])
 
   // Detect dynasties that need the v2 roster-data migration and prompt.
+  // New / already-clean dynasties are silently stamped with _schemaVersion: 2
+  // so the user never sees a modal for a dynasty with nothing to migrate.
   useEffect(() => {
     if (!currentDynasty) { setShowV2Migration(false); return }
     if (v2MigrationDismissed) return
-    setShowV2Migration(needsV2Migration(currentDynasty))
+    if (needsV2Migration(currentDynasty)) {
+      setShowV2Migration(true)
+      return
+    }
+    setShowV2Migration(false)
+    if (isCleanButUnstamped(currentDynasty)) {
+      // Silent stamp — no modal, no forceOverwrite needed (no keys to delete).
+      updateDynasty(currentDynasty.id, {
+        _schemaVersion: 2,
+        _normalizedAt: new Date().toISOString(),
+      }).catch(err => console.error('[v2 silent stamp] failed:', err))
+    }
   }, [currentDynasty?.id, currentDynasty?._schemaVersion, v2MigrationDismissed])
 
   const handleV2Migrate = async (migrated) => {
