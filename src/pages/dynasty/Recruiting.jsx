@@ -701,9 +701,9 @@ export default function Recruiting() {
   return (
     <div className="space-y-4">
       <PageHero
-        eyebrow="Recruiting"
-        title={
-          <h1 className="group display-lg text-txt-primary leading-none m-0 inline-flex items-baseline flex-wrap gap-x-3">
+        title="Recruiting Class"
+        meta={
+          <span className="group inline-flex items-baseline flex-wrap gap-x-2 text-[clamp(1.1rem,2.2vw,1.5rem)] font-bold text-txt-secondary">
             {/* Inline year selector (falls back to "All Seasons") */}
             <span className="relative inline-flex items-baseline">
               <span className="tabular-nums" aria-hidden="true">
@@ -760,9 +760,8 @@ export default function Recruiting() {
                 </>
               )}
             </span>
-          </h1>
+          </span>
         }
-        meta={<span>{isAllSeasons ? 'All-Time Recruiting' : 'Recruiting Class'}</span>}
         actions={
           !isViewOnly && !isAllSeasons ? (
             <Button variant="primary" size="sm" onClick={() => setShowEditModal(true)}>
