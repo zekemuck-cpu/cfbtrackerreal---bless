@@ -6869,10 +6869,19 @@ export function DynastyProvider({ children }) {
 
       // Helper to check if player is leaving
       const isPlayerLeaving = (player) => {
+        // If they recommitted AFTER entering the portal that same year, they
+        // aren't leaving — they came back. Class progression must still apply.
+        const movements = player.movements || []
+        const hasRecommitThisYear = movements.some(m =>
+          (m.type === 'recommit' || m.type === 'recommitted') &&
+          Number(m.year) === previousSeasonYear
+        )
+        if (hasRecommitThisYear) return false
+
         if (leavingPids.has(player.pid)) return true
         if (player.name && leavingNames.has(player.name.toLowerCase().trim())) return true
         // Check for departure movements
-        const hasDeparture = (player.movements || []).some(m =>
+        const hasDeparture = movements.some(m =>
           (m.type === 'departure' || m.type === 'entered_portal' || m.type === 'transfer') &&
           Number(m.year) === previousSeasonYear
         )
