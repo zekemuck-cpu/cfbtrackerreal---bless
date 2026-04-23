@@ -644,20 +644,12 @@ FINAL CHECK before you send the answer
               className="mb-3 p-3 rounded-lg border flex-shrink-0"
               style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <h4
-                  className="text-xs font-bold uppercase"
-                  style={{ color: modalColors.text, letterSpacing: '1.5px' }}
-                >
-                  Semifinal Host Bowls
-                </h4>
-                <span
-                  className="text-[10px] uppercase tracking-wider"
-                  style={{ color: modalColors.textMuted }}
-                >
-                  shown in EA at Bowl Week 3
-                </span>
-              </div>
+              <h4
+                className="text-xs font-bold uppercase mb-1.5"
+                style={{ color: modalColors.text, letterSpacing: '1.5px' }}
+              >
+                Semifinal Host Bowls
+              </h4>
               {(() => {
                 // The 2 bowls available as SF hosts are whichever NY6 bowls
                 // were NOT picked as QF hosts at Week 1. Derived per-year so
