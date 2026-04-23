@@ -258,7 +258,15 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty, loadingDynastyId, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  // Shadow with a non-null alias so intermediate useMemos and non-hook
+  // computations below don't have to constantly null-check. The real
+  // null gate sits at the end of the component, AFTER all hooks have
+  // been called (otherwise hook count differs between the first render
+  // where dynasty is still loading and the second render where it's
+  // populated, triggering React error #310). Values computed from the
+  // empty fallback never render because of that final gate.
+  const currentDynasty = _dyn || {}
   const { toast } = useToast()
   const pathPrefix = usePathPrefix()
 
@@ -368,7 +376,8 @@ export default function TeamYear() {
     }
   }
 
-  if (!currentDynasty) return null
+  // (removed the early null-gate here — it was before the useMemo calls
+  // below and caused hook-count mismatches. See the _dyn shadow above.)
 
   // Merge TEAMS with dynasty.teams to ensure all teams are available
   // dynasty.teams may contain partial data (byYear, userId) without team properties (tid, name, abbr)
@@ -1917,6 +1926,10 @@ export default function TeamYear() {
   }
 
   // handleEditGame and handleGameSave removed - now using game pages instead
+
+  // Real null gate — AFTER every hook above has been called. Don't move
+  // this up without also moving the hooks.
+  if (!_dyn) return null
 
   return (
     <div
