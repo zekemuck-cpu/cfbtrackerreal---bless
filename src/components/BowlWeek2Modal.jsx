@@ -51,20 +51,30 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
 
   // Semifinal host-bowl picks — prompted here (Bowl Week 3) because EA CFB
   // doesn't reveal the SF hosts during Bowl Week 1 when seeds are entered.
-  const [sfBowlConfig, setSfBowlConfig] = useState(() => {
+  // Defaults derive from whichever 2 NY6 bowls weren't picked for QFs this
+  // year, so users don't see impossible options.
+  const computeSfDefaults = () => {
     const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+    const qfBowls = new Set(
+      ['seed1', 'seed2', 'seed3', 'seed4']
+        .map(k => saved[k])
+        .filter(Boolean)
+    )
+    const remaining = CFP_NY6_BOWLS.filter(b => !qfBowls.has(b))
+    const [def1, def2] =
+      remaining.length >= 2
+        ? remaining
+        : [DEFAULT_BOWL_CONFIG.sf1, DEFAULT_BOWL_CONFIG.sf2]
     return {
-      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
-      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
+      sf1: saved.sf1 || def1,
+      sf2: saved.sf2 || def2,
     }
-  })
+  }
+  const [sfBowlConfig, setSfBowlConfig] = useState(computeSfDefaults)
   useEffect(() => {
     if (!isOpen) return
-    const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
-    setSfBowlConfig({
-      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
-      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
-    })
+    setSfBowlConfig(computeSfDefaults())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
 
   // Persist the chosen SF bowl assignments and stamp bowlName on any existing
@@ -648,32 +658,57 @@ FINAL CHECK before you send the answer
                   shown in EA at Bowl Week 3
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  { key: 'sf1', label: 'Semifinal 1 host (1/4-seed bracket)' },
-                  { key: 'sf2', label: 'Semifinal 2 host (2/3-seed bracket)' },
-                ].map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
-                      {label}
-                    </label>
-                    <select
-                      value={sfBowlConfig[key]}
-                      onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="w-full px-2 py-1 rounded text-xs border"
-                      style={{
-                        borderColor: modalColors.inputBorder,
-                        backgroundColor: modalColors.inputBg,
-                        color: modalColors.text,
-                      }}
-                    >
-                      {CFP_NY6_BOWLS.map(bowl => (
-                        <option key={bowl} value={bowl}>{bowl}</option>
-                      ))}
-                    </select>
+              {(() => {
+                // The 2 bowls available as SF hosts are whichever NY6 bowls
+                // were NOT picked as QF hosts at Week 1. Derived per-year so
+                // it reflects whatever the user assigned that specific season.
+                const savedConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+                const qfBowls = new Set(
+                  ['seed1', 'seed2', 'seed3', 'seed4']
+                    .map(k => savedConfig[k])
+                    .filter(Boolean)
+                )
+                const sfOptions = CFP_NY6_BOWLS.filter(b => !qfBowls.has(b))
+                // Fallback: if QF config is missing (older dynasty), show all 6
+                // to avoid an empty dropdown.
+                const bowlChoices = sfOptions.length > 0 ? sfOptions : CFP_NY6_BOWLS
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { key: 'sf1', label: 'Semifinal 1 host (1/4-seed bracket)' },
+                      { key: 'sf2', label: 'Semifinal 2 host (2/3-seed bracket)' },
+                    ].map(({ key, label }) => {
+                      // Make sure the currently-selected value is in the
+                      // options list (else the select renders blank).
+                      const current = sfBowlConfig[key]
+                      const optionsForThisSelect = bowlChoices.includes(current)
+                        ? bowlChoices
+                        : [current, ...bowlChoices]
+                      return (
+                        <div key={key}>
+                          <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
+                            {label}
+                          </label>
+                          <select
+                            value={current}
+                            onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
+                            className="w-full px-2 py-1 rounded text-xs border"
+                            style={{
+                              borderColor: modalColors.inputBorder,
+                              backgroundColor: modalColors.inputBg,
+                              color: modalColors.text,
+                            }}
+                          >
+                            {optionsForThisSelect.map(bowl => (
+                              <option key={bowl} value={bowl}>{bowl}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )
+                    })}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
               {sfBowlConfig.sf1 === sfBowlConfig.sf2 && (
                 <p className="text-[11px] mt-1.5 text-red-400 font-medium">
                   Each semifinal needs a different host bowl.
