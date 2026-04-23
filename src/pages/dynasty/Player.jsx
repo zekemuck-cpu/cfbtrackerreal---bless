@@ -2114,9 +2114,9 @@ export default function Player() {
 
         // Node renderer: year-gutter on far left, rail + avatar dot in the middle, content on the right.
         const renderTimelineNode = ({ key, logo, color, eyebrow, headline, headlineLink, metaRow, rightSlot, sub, movements, rowTeam, yearMarker, isFirst, isLast }) => (
-          <div key={key} className="relative flex items-stretch gap-3 sm:gap-4 pt-5 pb-5">
+          <div key={key} className="relative flex items-stretch gap-3 sm:gap-4">
             {/* Year gutter — only shown when this row introduces a new year */}
-            <div className="w-10 sm:w-14 flex-shrink-0 pt-1 text-right">
+            <div className="w-10 sm:w-14 flex-shrink-0 pt-6 text-right">
               {yearMarker && (
                 <div
                   className="font-black tabular text-txt-primary leading-none"
@@ -2127,23 +2127,24 @@ export default function Player() {
               )}
             </div>
 
-            {/* Rail + avatar column — the rail is absolute so it spans the
-                row's padding (pt-5/pb-5) and connects seamlessly to the next
-                row's rail with no visible gap. */}
-            <div className="relative flex-shrink-0 flex flex-col items-center justify-start w-11 sm:w-12">
-              {/* Top rail segment: 0 → avatar top. Hidden on first row. */}
+            {/* Rail + avatar column — the rail fills the full column height
+                (top:0 → avatar, avatar → bottom:0). No row padding here means
+                adjacent rows' rails meet directly with no visible gap. */}
+            <div className="relative flex-shrink-0 flex flex-col items-center w-11 sm:w-12 py-5">
+              {/* Continuous rail spanning the entire row height. Painted first
+                  so the avatar draws on top. First row hides the portion above
+                  the avatar; last row hides below. */}
               {!isFirst && (
                 <div
                   className="absolute left-1/2 -translate-x-1/2 top-0 w-[2px] bg-surface-4"
-                  style={{ height: 'calc(1.25rem + 0.125rem)' }}
+                  style={{ height: 'calc(1.25rem + 1.375rem)' }}
                   aria-hidden="true"
                 />
               )}
-              {/* Bottom rail segment: avatar bottom → row bottom. Hidden on last row. */}
               {!isLast && (
                 <div
                   className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[2px] bg-surface-4"
-                  style={{ top: 'calc(1.25rem + 2.75rem - 0.125rem)' }}
+                  style={{ top: 'calc(1.25rem + 1.375rem + 2px)' }}
                   aria-hidden="true"
                 />
               )}
@@ -2159,7 +2160,7 @@ export default function Player() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 py-5">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   {eyebrow && (
