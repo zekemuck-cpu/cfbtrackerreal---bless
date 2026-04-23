@@ -49,6 +49,8 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
       currentDynasty?.teamName
     const all = currentDynasty?.players || []
     return all
+      // Exclude HS recruits — they don't receive training results in EA CFB.
+      .filter(p => !p.isRecruit)
       .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
@@ -62,7 +64,7 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. OUTPUT 4 TAB-SEPARATED COLUMNS per row: Player<TAB>Position<TAB>Past OVR<TAB>New OVR.
-2. ONE ROW PER PLAYER on the team's roster (the YOUR TEAM ROSTER block lists them). Include every roster player, even if their New OVR is unknown.
+2. ONE ROW PER PLAYER in the YOUR TEAM ROSTER block. Include every roster player, even if their New OVR is unknown. The roster block has ALREADY been filtered to exclude incoming HS recruits — they do NOT receive training results. If a name appears in EA's training screenshots but is NOT in the YOUR TEAM ROSTER block, DO NOT output a row for them.
 3. Column 1 (Player) MUST use the FULL name from the YOUR TEAM ROSTER block — never abbreviated ("A. Guess"). EA CFB screenshots often show abbreviated names; match them to full names using the roster.
 4. Column 2 (Position) MUST match the roster's position string exactly (QB, HB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P).
 5. Column 3 (Past OVR) = the OLD OVR before training. Integer 40–99.
