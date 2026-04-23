@@ -5060,28 +5060,53 @@ export default function TeamYear() {
                   <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Hometown</span>
                   <span className="label-xs text-txt-tertiary text-right" style={{ letterSpacing: '1.5px' }}>Type</span>
                 </div>
-                {sorted.map((c, i) => (
-                  <div
-                    key={`${c.name}-${i}`}
-                    className="grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0"
-                  >
-                    <div className="flex gap-0.5 items-center">
-                      {[...Array(Number(c.stars) || 0)].map((_, si) => (
-                        <svg key={si} className="w-3 h-3" fill="var(--accent-warning)" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
+                {sorted.map((c, i) => {
+                  // Resolve a pid for this commit so the row can link to the
+                  // player page. Prefer c.pid if the recruit already has a
+                  // player record; otherwise match by name + recruitYear.
+                  let resolvedPid = c.pid
+                  if (!resolvedPid && c.name) {
+                    const nameLower = String(c.name).toLowerCase().trim()
+                    const match = (currentDynasty.players || []).find(p =>
+                      p?.name && String(p.name).toLowerCase().trim() === nameLower &&
+                      Number(p.recruitYear) === Number(selectedYear)
+                    )
+                    if (match) resolvedPid = match.pid
+                  }
+                  const rowBody = (
+                    <>
+                      <div className="flex gap-0.5 items-center">
+                        {[...Array(Number(c.stars) || 0)].map((_, si) => (
+                          <svg key={si} className="w-3 h-3" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                      <span className="hidden sm:inline text-xs font-semibold text-txt-secondary tabular">{c.position || '—'}</span>
+                      <span className="text-sm font-semibold text-txt-primary truncate">{c.name}</span>
+                      <span className="text-xs text-txt-tertiary text-right truncate hidden sm:inline">
+                        {c.hometown ? `${c.hometown}${c.state ? `, ${c.state}` : ''}` : (c.state || '—')}
+                      </span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-txt-tertiary text-right">
+                        {c.previousTeam ? 'Portal' : 'HS'}
+                      </span>
+                    </>
+                  )
+                  const rowClass = 'grid grid-cols-[auto_1fr_auto_auto] sm:grid-cols-[auto_auto_1fr_auto_auto] gap-3 sm:gap-4 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0'
+                  return resolvedPid ? (
+                    <Link
+                      key={`${c.name}-${i}`}
+                      to={`${pathPrefix}/player/${resolvedPid}`}
+                      className={`${rowClass} hover:bg-surface-3 transition-colors`}
+                    >
+                      {rowBody}
+                    </Link>
+                  ) : (
+                    <div key={`${c.name}-${i}`} className={rowClass}>
+                      {rowBody}
                     </div>
-                    <span className="hidden sm:inline text-xs font-semibold text-txt-secondary tabular">{c.position || '—'}</span>
-                    <span className="text-sm font-semibold text-txt-primary truncate">{c.name}</span>
-                    <span className="text-xs text-txt-tertiary text-right truncate hidden sm:inline">
-                      {c.hometown ? `${c.hometown}${c.state ? `, ${c.state}` : ''}` : (c.state || '—')}
-                    </span>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-txt-tertiary text-right">
-                      {c.previousTeam ? 'Portal' : 'HS'}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
