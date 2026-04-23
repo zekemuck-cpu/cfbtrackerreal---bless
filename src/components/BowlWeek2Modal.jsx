@@ -19,6 +19,7 @@ import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '.
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS } from '../data/cfpConstants'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -26,7 +27,7 @@ const isMobileDevice = () => {
 }
 
 export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, teamColors }) {
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty } = useDynasty()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
   const { user, signOut, refreshSession } = useAuth()
   const { toast } = useToast()
@@ -47,6 +48,61 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
+
+  // Semifinal host-bowl picks — prompted here (Bowl Week 3) because EA CFB
+  // doesn't reveal the SF hosts during Bowl Week 1 when seeds are entered.
+  const [sfBowlConfig, setSfBowlConfig] = useState(() => {
+    const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+    return {
+      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
+      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
+    }
+  })
+  useEffect(() => {
+    if (!isOpen) return
+    const saved = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+    setSfBowlConfig({
+      sf1: saved.sf1 || DEFAULT_BOWL_CONFIG.sf1,
+      sf2: saved.sf2 || DEFAULT_BOWL_CONFIG.sf2,
+    })
+  }, [isOpen, currentYear, currentDynasty?.cfpBowlConfigByYear])
+
+  // Persist the chosen SF bowl assignments and stamp bowlName on any existing
+  // SF game shells. Called from both save paths before onSave.
+  const persistSfBowlConfig = async () => {
+    if (!currentDynasty?.id) return
+    if (sfBowlConfig.sf1 === sfBowlConfig.sf2) {
+      toast.error('Each semifinal needs a different host bowl.')
+      throw new Error('duplicate SF bowl')
+    }
+    const existingConfig = currentDynasty.cfpBowlConfigByYear || {}
+    const existingYearConfig = existingConfig[currentYear] || {}
+    // Stamp bowlName on any SF game shells already created so bracket /
+    // history render the right bowl immediately.
+    const existingGames = currentDynasty.games || []
+    const updatedGames = existingGames.map(g => {
+      if (Number(g.year) !== Number(currentYear)) return g
+      if (g.cfpSlot === 'cfpsf1' || g.isCFPSemifinal && g.id?.includes('sf1')) {
+        return { ...g, bowlName: sfBowlConfig.sf1 }
+      }
+      if (g.cfpSlot === 'cfpsf2' || g.isCFPSemifinal && g.id?.includes('sf2')) {
+        return { ...g, bowlName: sfBowlConfig.sf2 }
+      }
+      return g
+    })
+    const gamesChanged = updatedGames.some((g, i) => g !== existingGames[i])
+    await updateDynasty(currentDynasty.id, {
+      cfpBowlConfigByYear: {
+        ...existingConfig,
+        [currentYear]: {
+          ...existingYearConfig,
+          sf1: sfBowlConfig.sf1,
+          sf2: sfBowlConfig.sf2,
+        },
+      },
+      ...(gamesChanged ? { games: updatedGames } : {}),
+    })
+  }
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Bowl Week 2 Results`,
@@ -431,10 +487,12 @@ FINAL CHECK before you send the answer
 
     setSyncing(true)
     try {
+      await persistSfBowlConfig()
       const bowlGames = await readBowlWeek2GamesFromSheet(sheetId)
       await onSave(bowlGames)
       onClose()
     } catch (error) {
+      if (error?.message === 'duplicate SF bowl') { setSyncing(false); return }
       console.error(error)
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
@@ -451,6 +509,7 @@ FINAL CHECK before you send the answer
 
     setDeletingSheet(true)
     try {
+      await persistSfBowlConfig()
       const bowlGames = await readBowlWeek2GamesFromSheet(sheetId)
       await onSave(bowlGames)
 
@@ -463,6 +522,7 @@ FINAL CHECK before you send the answer
         onClose()
       }, 2500)
     } catch (error) {
+      if (error?.message === 'duplicate SF bowl') { setDeletingSheet(false); return }
       console.error(error)
       if (error.message?.includes('OAuth') || error.message?.includes('access token')) {
         setShowAuthError(true)
@@ -568,6 +628,59 @@ FINAL CHECK before you send the answer
           </div>
         ) : sheetId ? (
           <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Semifinal bowl host assignment — must be entered now because
+                EA CFB reveals these hosts at Bowl Week 3, not Week 1. */}
+            <div
+              className="mb-3 p-3 rounded-lg border flex-shrink-0"
+              style={{ borderColor: modalColors.border, backgroundColor: modalColors.headerBg }}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <h4
+                  className="text-xs font-bold uppercase"
+                  style={{ color: modalColors.text, letterSpacing: '1.5px' }}
+                >
+                  Semifinal Host Bowls
+                </h4>
+                <span
+                  className="text-[10px] uppercase tracking-wider"
+                  style={{ color: modalColors.textMuted }}
+                >
+                  shown in EA at Bowl Week 3
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { key: 'sf1', label: 'Semifinal 1 host (1 / 4-seed bracket)' },
+                  { key: 'sf2', label: 'Semifinal 2 host (2 / 3-seed bracket)' },
+                ].map(({ key, label }) => (
+                  <div key={key}>
+                    <label className="text-[10px] block mb-0.5" style={{ color: modalColors.textMuted }}>
+                      {label}
+                    </label>
+                    <select
+                      value={sfBowlConfig[key]}
+                      onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="w-full px-2 py-1 rounded text-xs border"
+                      style={{
+                        borderColor: modalColors.inputBorder,
+                        backgroundColor: modalColors.inputBg,
+                        color: modalColors.text,
+                      }}
+                    >
+                      {CFP_NY6_BOWLS.map(bowl => (
+                        <option key={bowl} value={bowl}>{bowl}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              {sfBowlConfig.sf1 === sfBowlConfig.sf2 && (
+                <p className="text-[11px] mt-1.5 text-red-400 font-medium">
+                  Each semifinal needs a different host bowl.
+                </p>
+              )}
+            </div>
+
             {/* Action Buttons - only show at top for embedded view */}
             {!isMobile && useEmbedded && (
               <div className="mb-3">
