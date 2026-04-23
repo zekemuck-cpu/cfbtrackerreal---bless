@@ -2326,9 +2326,13 @@ export default function Player() {
                     key: `recruit-${rn.year}`,
                     logo: rn.logo,
                     color: rn.color,
-                    eyebrow: rn.isPortal ? 'Portal Entry' : 'Recruited',
-                    headline: rn.school || 'Recruited',
-                    headlineLink: rn.tid ? `${pathPrefix}/team/${rn.tid}/${rn.year}` : null,
+                    eyebrow: rn.isPortal ? 'Portal Entry' : 'Committed',
+                    headline: rn.school || 'Committed',
+                    headlineLink: rn.tid
+                      ? (rn.isPortal
+                          ? `${pathPrefix}/recruiting/portal/${rn.tid}/${rn.year}`
+                          : `${pathPrefix}/recruiting/${rn.tid}/${rn.year}`)
+                      : null,
                     metaRow: buildRecruitMeta(rn),
                     rightSlot
                   }
@@ -2441,7 +2445,7 @@ export default function Player() {
                 // the stars/ranks/hometown and the entry tag to the meta row.
                 const isMergedFirstSeason = idx === 0 && mergeRecruitIntoFirstSeason
                 const mergedEyebrow = isMergedFirstSeason
-                  ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Recruited', ...eyebrowParts].join(' · ')
+                  ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Committed', ...eyebrowParts].join(' · ')
                   : eyebrow
 
                 const devChip = yd.devTrait && yd.devTrait !== 'Normal' ? (
@@ -2472,8 +2476,8 @@ export default function Player() {
                 const rightSlot = yd.overall ? (
                   <>
                     <span
-                      className="text-xl sm:text-2xl font-black tabular leading-none"
-                      style={{ color: getOverallColor(yd.overall), fontFamily: "'Bebas Neue', sans-serif" }}
+                      className="text-xl sm:text-2xl font-black tabular leading-none text-txt-primary"
+                      style={{ fontFamily: "'Bebas Neue', sans-serif" }}
                     >
                       {yd.overall}
                     </span>
