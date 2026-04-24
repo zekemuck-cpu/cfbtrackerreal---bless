@@ -28,7 +28,7 @@ import {
 } from '../../components/ui'
 
 export default function DangerZone() {
-  const { currentDynasty, cleanupRosterData, removeOrphanedRosterEntries, migratePlayerCareerData, fixTransferredPlayers, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, cleanupStintData, syncAllPlayersStats } = useDynasty()
+  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -37,10 +37,6 @@ export default function DangerZone() {
   useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   // Status states
-  const [rosterCleanupStatus, setRosterCleanupStatus] = useState(null)
-  const [orphanCleanupStatus, setOrphanCleanupStatus] = useState(null)
-  const [migrationStatus, setMigrationStatus] = useState(null)
-  const [transferFixStatus, setTransferFixStatus] = useState(null)
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
   const [recruitingSyncStatus, setRecruitingSyncStatus] = useState(null)
   const [duplicateGameCleanupStatus, setDuplicateGameCleanupStatus] = useState(null)
@@ -71,9 +67,6 @@ export default function DangerZone() {
   // Honors sync state
   const [honorsSyncStatus, setHonorsSyncStatus] = useState(null)
 
-  // Departure fix state
-  const [departureFixStatus, setDepartureFixStatus] = useState(null)
-
   // v2 Consolidation state
   const [v2ConsolidateStatus, setV2ConsolidateStatus] = useState(null)
 
@@ -81,12 +74,6 @@ export default function DangerZone() {
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
-
-  // Stint data cleanup state
-  const [stintCleanupStatus, setStintCleanupStatus] = useState(null)
-
-  // Roster system migration state (legacy systems → teamsByYear)
-  const [rosterMigrationStatus, setRosterMigrationStatus] = useState(null)
 
   // Class data fix state
   const [classDataFixStatus, setClassDataFixStatus] = useState(null)
@@ -118,26 +105,6 @@ export default function DangerZone() {
   }
 
   // Handlers
-  const handleRosterCleanup = async () => {
-    setRosterCleanupStatus('running')
-    try {
-      const result = await cleanupRosterData(currentDynasty.id)
-      setRosterCleanupStatus(result)
-    } catch (error) {
-      setRosterCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
-    }
-  }
-
-  const handleOrphanCleanup = async () => {
-    setOrphanCleanupStatus('running')
-    try {
-      const result = await removeOrphanedRosterEntries(currentDynasty.id)
-      setOrphanCleanupStatus(result)
-    } catch (error) {
-      setOrphanCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
-    }
-  }
-
   const handleSyncAllStats = async () => {
     setStatsSyncStatus('running')
     try {
@@ -151,26 +118,6 @@ export default function DangerZone() {
       })
     } catch (error) {
       setStatsSyncStatus({ success: false, message: 'Sync failed: ' + error.message })
-    }
-  }
-
-  const handleMigration = async () => {
-    setMigrationStatus('running')
-    try {
-      const result = await migratePlayerCareerData(currentDynasty.id)
-      setMigrationStatus(result)
-    } catch (error) {
-      setMigrationStatus({ success: false, message: 'Migration failed: ' + error.message })
-    }
-  }
-
-  const handleFixTransfers = async () => {
-    setTransferFixStatus('running')
-    try {
-      const result = await fixTransferredPlayers(currentDynasty.id)
-      setTransferFixStatus(result)
-    } catch (error) {
-      setTransferFixStatus({ success: false, message: 'Fix failed: ' + error.message })
     }
   }
 
@@ -1088,98 +1035,6 @@ export default function DangerZone() {
     }
   }
 
-  // Fix players who have wrong departure reason or wrong departure team
-  const handleFixDepartureReasons = async () => {
-    setDepartureFixStatus('running')
-    try {
-      const players = [...(currentDynasty.players || [])]
-      const draftResultsByYear = currentDynasty.draftResultsByYear || {}
-      let fixedReasonCount = 0
-      let fixedTeamCount = 0
-
-      // Build a set of all drafted player pids by year
-      const draftedByYear = {}
-      for (const [year, results] of Object.entries(draftResultsByYear)) {
-        draftedByYear[year] = new Set()
-        if (Array.isArray(results)) {
-          results.forEach(r => {
-            if (r.pid) draftedByYear[year].add(r.pid)
-          })
-        }
-      }
-
-      const updatedPlayers = players.map(player => {
-        const movements = player.movements || []
-        const teamsByYear = player.teamsByYear || {}
-        let hasChange = false
-
-        const updatedMovements = movements.map(m => {
-          let updatedM = { ...m }
-
-          // Fix 1: Check if this is a "Graduating" departure movement for a drafted player
-          if (m.type === 'departure' && m.reason === 'Graduating') {
-            const year = String(m.year)
-            if (draftedByYear[year]?.has(player.pid) || player.draftYear === Number(m.year) || player.draftRound) {
-              hasChange = true
-              fixedReasonCount++
-              updatedM.reason = 'Pro Draft'
-            }
-          }
-
-          // Fix 2: Check if departure 'from' team is wrong (doesn't match player's last team)
-          if (m.type === 'departure' && m.from) {
-            // Get player's team for the departure year or the year before
-            const depYear = Number(m.year)
-            const playerTeamAtDep = teamsByYear[depYear] || teamsByYear[String(depYear)] ||
-                                     teamsByYear[depYear - 1] || teamsByYear[String(depYear - 1)]
-
-            if (playerTeamAtDep) {
-              // Convert both to tid for comparison
-              const movementFromTid = typeof m.from === 'number' ? m.from : getTidFromAbbr(m.from)
-              const playerTeamTid = typeof playerTeamAtDep === 'number' ? playerTeamAtDep : getTidFromAbbr(playerTeamAtDep)
-
-              if (movementFromTid && playerTeamTid && movementFromTid !== playerTeamTid) {
-                hasChange = true
-                fixedTeamCount++
-                updatedM.from = playerTeamTid
-              }
-            }
-          }
-
-          return hasChange ? updatedM : m
-        })
-
-        if (hasChange) {
-          return { ...player, movements: updatedMovements }
-        }
-        return player
-      })
-
-      const totalFixed = fixedReasonCount + fixedTeamCount
-      if (totalFixed > 0) {
-        await updateDynasty(currentDynasty.id, { players: updatedPlayers })
-        const messages = []
-        if (fixedReasonCount > 0) messages.push(`${fixedReasonCount} reasons`)
-        if (fixedTeamCount > 0) messages.push(`${fixedTeamCount} teams`)
-        setDepartureFixStatus({
-          success: true,
-          message: `Fixed ${messages.join(', ')}`
-        })
-      } else {
-        setDepartureFixStatus({
-          success: true,
-          message: 'No incorrect departures found'
-        })
-      }
-    } catch (error) {
-      console.error('[DepartureFix] Error:', error)
-      setDepartureFixStatus({
-        success: false,
-        message: 'Fix failed: ' + error.message
-      })
-    }
-  }
-
   // Get game display info for the deletion list
   const getGameDisplayInfo = (game) => {
     const year = game.year || '?'
@@ -1967,484 +1822,6 @@ export default function DangerZone() {
     }
   }
 
-  // ==========================================================
-  // STINT DATA CLEANUP HANDLER
-  // ==========================================================
-
-  const handleStintCleanup = async () => {
-    const ok = await confirm({
-      title: 'Remove old stint data?',
-      message: 'This will backfill teamsByYear from stint data first, then remove teamHistory, entryYear, entryClass, and other stint fields.',
-      confirmLabel: 'Remove Stint Data',
-      variant: 'danger',
-    })
-    if (!ok) return
-
-    setStintCleanupStatus('running')
-    try {
-      const result = await cleanupStintData(currentDynasty.id)
-      setStintCleanupStatus(result)
-    } catch (error) {
-      setStintCleanupStatus({ success: false, message: 'Cleanup failed: ' + error.message })
-    }
-  }
-
-  // ==========================================================
-  // END STINT DATA CLEANUP HANDLER
-  // ==========================================================
-
-  // ==========================================================
-  // ROSTER SYSTEM MIGRATION
-  // Consolidates ALL legacy roster sources into teamsByYear
-  // (the single source of truth: year → numeric tid).
-  //
-  // Sources merged, in priority:
-  //   1. Existing teamsByYear — normalize string abbr → numeric tid
-  //   2. _legacy_teamsByYear (stint-cleanup backup)
-  //   3. teamHistory[] stints (if populated)
-  //   4. movements[] — derive on-team years:
-  //        added/portal_in/recommit: year = first year at to_tid
-  //        transfer: year+1 = first year at to_tid
-  //        recruited: year+1 = first play year at to_tid
-  //        departure: year = last year at from_tid
-  //   5. statsByYear / classByYear / overallByYear — fill gap years
-  //        with flanking tid as evidence of roster presence
-  //   6. player.team + recruit/entry/yearStarted fallback
-  //   7. legacy teams[] single-entry anchor
-  //
-  // Stale-data trimming:
-  //   - If player has a departure movement, remove any teamsByYear
-  //     entries past the cutoff year (last year on roster).
-  //   - classByYear/overallByYear entries past cutoff also trimmed
-  //     (they frequently hold stale user input).
-  //
-  // Gap filling:
-  //   - Gaps within [minYear..maxYear] filled with the prior year's
-  //     tid unless there's a departure/transfer movement in that gap.
-  //
-  // Also normalizes player.team to a numeric tid.
-  // ==========================================================
-
-  const handleRosterSystemMigration = async () => {
-    const ok = await confirm({
-      title: 'Migrate roster data to new system?',
-      message: 'Consolidates every legacy roster source (teamHistory, _legacy_teamsByYear, movements, player.team, teams[]) into teamsByYear keyed by year → tid. Also trims stale entries past departure year and fills gaps. Safe to run multiple times; only backfills missing entries and normalizes formats. Run this before "Remove Stint Data".',
-      confirmLabel: 'Migrate Now',
-    })
-    if (!ok) return
-
-    setRosterMigrationStatus('running')
-    try {
-      const players = currentDynasty.players || []
-      const currentYear = Number(currentDynasty.currentYear) || new Date().getFullYear()
-      const teamsSource = currentDynasty?.teams || {}
-
-      const stats = {
-        total: players.length,
-        playersModified: 0,
-        fromTeamHistory: 0,
-        fromLegacy: 0,
-        fromMovements: 0,
-        fromEvidence: 0,
-        fromTeamField: 0,
-        fromTeamsArray: 0,
-        filledGaps: 0,
-        trimmedStale: 0,
-        trimmedStaleClass: 0,
-        trimmedStaleOverall: 0,
-        normalizedAbbrToTid: 0,
-        normalizedTeamField: 0,
-        droppedInvalid: 0,
-        skippedRecruit: 0,
-      }
-
-      // Normalize any roster value (number, numeric string, or abbr) to a numeric tid.
-      // Uses resolveTid which checks dynasty.teams for custom teambuilder abbrs.
-      const toTid = (v) => {
-        if (v === null || v === undefined || v === '') return null
-        if (typeof v === 'number') return Number.isFinite(v) ? v : null
-        if (typeof v === 'string') {
-          return resolveTid(v, teamsSource)
-        }
-        return null
-      }
-
-      // Canonical form for change detection — sorted numeric keys, numeric tid values
-      const canonical = (obj) => {
-        if (!obj || typeof obj !== 'object') return ''
-        const result = {}
-        Object.keys(obj)
-          .map(Number)
-          .filter(Number.isFinite)
-          .sort((a, b) => a - b)
-          .forEach(k => {
-            const v = obj[k] ?? obj[String(k)]
-            if (typeof v === 'number') result[k] = v
-          })
-        return JSON.stringify(result)
-      }
-
-      const updatedPlayers = players.map(player => {
-        const teamsByYear = {}
-
-        // 1. Existing teamsByYear — canonical priority
-        const existing = player.teamsByYear || {}
-        for (const [yearKey, value] of Object.entries(existing)) {
-          const year = Number(yearKey)
-          if (!Number.isFinite(year)) continue
-          const tid = toTid(value)
-          if (tid) {
-            teamsByYear[year] = tid
-            if (typeof value !== 'number') stats.normalizedAbbrToTid++
-          } else {
-            stats.droppedInvalid++
-          }
-        }
-
-        // 2. _legacy_teamsByYear (backup from stint migration)
-        const legacy = player._legacy_teamsByYear || {}
-        for (const [yearKey, value] of Object.entries(legacy)) {
-          const year = Number(yearKey)
-          if (!Number.isFinite(year)) continue
-          if (teamsByYear[year]) continue
-          const tid = toTid(value)
-          if (tid) {
-            teamsByYear[year] = tid
-            stats.fromLegacy++
-          }
-        }
-
-        // 3. teamHistory[] stints — expand fromYear..toYear
-        const history = Array.isArray(player.teamHistory) ? player.teamHistory : []
-        history.forEach(stint => {
-          const tid = toTid(stint.teamTid ?? stint.tid ?? stint.team)
-          const fromYear = Number(stint.fromYear ?? stint.startYear)
-          if (!tid || !Number.isFinite(fromYear)) return
-          const rawTo = Number(stint.toYear ?? stint.endYear)
-          const toYear = Number.isFinite(rawTo) ? rawTo : currentYear
-          for (let year = fromYear; year <= toYear; year++) {
-            if (!teamsByYear[year]) {
-              teamsByYear[year] = tid
-              stats.fromTeamHistory++
-            }
-          }
-        })
-
-        // 4. movements[] — derive on-team years.
-        //    Also determine the global departure cutoff (if any).
-        const movements = Array.isArray(player.movements) ? player.movements : []
-        let departureCutoff = null  // year player permanently left a team
-        movements.forEach(m => {
-          const year = Number(m.year)
-          if (!Number.isFinite(year)) return
-          const toT = toTid(m.to)
-          switch (m.type) {
-            case 'added':
-            case 'portal_in':
-            case 'recommit':
-              if (toT && !teamsByYear[year]) {
-                teamsByYear[year] = toT
-                stats.fromMovements++
-              }
-              break
-            case 'recruited':
-              // Commit year; first play year = year + 1
-              if (toT && !teamsByYear[year + 1]) {
-                teamsByYear[year + 1] = toT
-                stats.fromMovements++
-              }
-              break
-            case 'transfer':
-              // year = last year at from team; year + 1 = first at to team
-              if (toT && !teamsByYear[year + 1]) {
-                teamsByYear[year + 1] = toT
-                stats.fromMovements++
-              }
-              break
-            case 'departure':
-              // year = last year on roster; track for stale-trim cutoff
-              departureCutoff = departureCutoff == null ? year : Math.max(departureCutoff, year)
-              break
-          }
-        })
-
-        // Legacy departure fields (older dynasties may use these)
-        if (player.leftYear && Number.isFinite(Number(player.leftYear))) {
-          const y = Number(player.leftYear)
-          departureCutoff = departureCutoff == null ? y : Math.max(departureCutoff, y)
-        }
-        if (player.leavingYear && Number.isFinite(Number(player.leavingYear))) {
-          const y = Number(player.leavingYear)
-          departureCutoff = departureCutoff == null ? y : Math.max(departureCutoff, y)
-        }
-
-        // If there's a departure, but a LATER portal_in/transfer/added brought
-        // the player back, the cutoff doesn't apply — player returned.
-        if (departureCutoff != null) {
-          const hasReturn = movements.some(m => {
-            const y = Number(m.year)
-            if (!Number.isFinite(y)) return false
-            if (m.type === 'portal_in' || m.type === 'added' || m.type === 'recommit') {
-              return y > departureCutoff
-            }
-            if (m.type === 'transfer' || m.type === 'recruited') {
-              return (y + 1) > departureCutoff
-            }
-            return false
-          })
-          if (hasReturn) departureCutoff = null
-        }
-
-        // 5. Trim stale teamsByYear entries past departure cutoff
-        if (departureCutoff != null) {
-          for (const yearKey of Object.keys(teamsByYear)) {
-            const year = Number(yearKey)
-            if (year > departureCutoff) {
-              delete teamsByYear[year]
-              stats.trimmedStale++
-            }
-          }
-        }
-
-        // 6. Evidence-based fill: statsByYear/classByYear/overallByYear years
-        //    that fall within [minYear..cutoff] should have teamsByYear entries.
-        const evidenceYears = new Set()
-        if (player.statsByYear && typeof player.statsByYear === 'object') {
-          Object.keys(player.statsByYear).forEach(y => {
-            const n = Number(y)
-            if (Number.isFinite(n)) evidenceYears.add(n)
-          })
-        }
-        if (player.classByYear && typeof player.classByYear === 'object') {
-          Object.keys(player.classByYear).forEach(y => {
-            const n = Number(y)
-            if (Number.isFinite(n)) evidenceYears.add(n)
-          })
-        }
-        if (player.overallByYear && typeof player.overallByYear === 'object') {
-          Object.keys(player.overallByYear).forEach(y => {
-            const n = Number(y)
-            if (Number.isFinite(n)) evidenceYears.add(n)
-          })
-        }
-
-        // Find teamsByYear span for gap-fill
-        const existingYears = Object.keys(teamsByYear).map(Number).filter(Number.isFinite).sort((a, b) => a - b)
-
-        // 7. Fill gaps WITHIN the existing span — use prior year's tid
-        //    Don't fill if a transfer/departure movement occurs in that gap
-        //    (the movement should have already populated the correct entry).
-        if (existingYears.length >= 2) {
-          const minY = existingYears[0]
-          const maxY = existingYears[existingYears.length - 1]
-          let lastTid = teamsByYear[minY]
-          for (let y = minY + 1; y <= maxY; y++) {
-            if (teamsByYear[y]) {
-              lastTid = teamsByYear[y]
-            } else if (lastTid && (departureCutoff == null || y <= departureCutoff)) {
-              teamsByYear[y] = lastTid
-              stats.filledGaps++
-            }
-          }
-        }
-
-        // 8. Extend coverage to evidence years (stats/class/overall) outside
-        //    current span but within cutoff — anchor to nearest known tid.
-        if (existingYears.length >= 1) {
-          const minY = existingYears[0]
-          const maxY = existingYears[existingYears.length - 1]
-          const evidenceSorted = [...evidenceYears].sort((a, b) => a - b)
-          for (const y of evidenceSorted) {
-            if (teamsByYear[y]) continue
-            if (departureCutoff != null && y > departureCutoff) continue
-            // Pick nearest prior year's tid, else nearest next year's tid
-            let anchor = null
-            for (let k = y - 1; k >= minY; k--) {
-              if (teamsByYear[k]) { anchor = teamsByYear[k]; break }
-            }
-            if (!anchor) {
-              for (let k = y + 1; k <= maxY; k++) {
-                if (teamsByYear[k]) { anchor = teamsByYear[k]; break }
-              }
-            }
-            // If y is BEFORE minY, anchor = teamsByYear[minY]
-            if (!anchor && y < minY) anchor = teamsByYear[minY]
-            // If y is AFTER maxY, anchor = teamsByYear[maxY]
-            if (!anchor && y > maxY) anchor = teamsByYear[maxY]
-            if (anchor) {
-              teamsByYear[y] = anchor
-              stats.fromEvidence++
-            }
-          }
-        }
-
-        // 9. Fallback: player.team + entry/current bounds
-        //    Only run if teamsByYear is still empty AND player has a team field.
-        if (Object.keys(teamsByYear).length === 0) {
-          const fallbackTid = toTid(player.team)
-          const isPreEnrollmentRecruit =
-            player.isRecruit && player.recruitYear && Number(player.recruitYear) >= currentYear
-
-          if (fallbackTid && !isPreEnrollmentRecruit) {
-            let entryYear = Number(player.entryYear)
-            if (!Number.isFinite(entryYear) && player.yearStarted) {
-              entryYear = Number(player.yearStarted)
-            }
-            if (!Number.isFinite(entryYear) && player.recruitYear) {
-              entryYear = Number(player.recruitYear) + 1
-            }
-            if (!Number.isFinite(entryYear) && player.classByYear) {
-              const classYears = Object.keys(player.classByYear).map(Number).filter(Number.isFinite)
-              if (classYears.length > 0) entryYear = Math.min(...classYears)
-            }
-            if (!Number.isFinite(entryYear) && player.statsByYear && typeof player.statsByYear === 'object') {
-              const statYears = Object.keys(player.statsByYear).map(Number).filter(Number.isFinite)
-              if (statYears.length > 0) entryYear = Math.min(...statYears)
-            }
-            if (!Number.isFinite(entryYear)) entryYear = currentYear
-
-            const finalYear = Number.isFinite(departureCutoff) ? departureCutoff : currentYear
-
-            if (finalYear >= entryYear) {
-              for (let year = entryYear; year <= finalYear; year++) {
-                if (!teamsByYear[year]) {
-                  teamsByYear[year] = fallbackTid
-                  stats.fromTeamField++
-                }
-              }
-            }
-          } else if (isPreEnrollmentRecruit) {
-            stats.skippedRecruit++
-          }
-        }
-
-        // 10. Legacy teams[] array — very old multi-team field, only use as a
-        //     last resort when everything else is empty.
-        if (
-          Object.keys(teamsByYear).length === 0 &&
-          Array.isArray(player.teams) &&
-          player.teams.length === 1
-        ) {
-          const soleTid = toTid(player.teams[0])
-          const anchor = Number(player.entryYear) ||
-            Number(player.yearStarted) ||
-            (player.recruitYear ? Number(player.recruitYear) + 1 : null)
-          if (soleTid && Number.isFinite(anchor)) {
-            const finalYear = Number.isFinite(departureCutoff) ? departureCutoff : currentYear
-            for (let year = anchor; year <= finalYear; year++) {
-              teamsByYear[year] = soleTid
-              stats.fromTeamsArray++
-            }
-          }
-        }
-
-        // 11. Normalize player.team to a numeric tid (not string abbr)
-        let newTeamField = player.team
-        if (typeof player.team === 'string') {
-          const tid = toTid(player.team)
-          if (tid) {
-            newTeamField = tid
-            stats.normalizedTeamField++
-          }
-        }
-
-        // 12. Trim stale classByYear / overallByYear entries past cutoff
-        let newClassByYear = player.classByYear
-        let newOverallByYear = player.overallByYear
-        if (departureCutoff != null) {
-          if (player.classByYear && typeof player.classByYear === 'object') {
-            const trimmed = {}
-            let trimmedCount = 0
-            for (const [yearKey, val] of Object.entries(player.classByYear)) {
-              const y = Number(yearKey)
-              if (!Number.isFinite(y) || y <= departureCutoff) {
-                trimmed[yearKey] = val
-              } else {
-                trimmedCount++
-              }
-            }
-            if (trimmedCount > 0) {
-              newClassByYear = trimmed
-              stats.trimmedStaleClass += trimmedCount
-            }
-          }
-          if (player.overallByYear && typeof player.overallByYear === 'object') {
-            const trimmed = {}
-            let trimmedCount = 0
-            for (const [yearKey, val] of Object.entries(player.overallByYear)) {
-              const y = Number(yearKey)
-              if (!Number.isFinite(y) || y <= departureCutoff) {
-                trimmed[yearKey] = val
-              } else {
-                trimmedCount++
-              }
-            }
-            if (trimmedCount > 0) {
-              newOverallByYear = trimmed
-              stats.trimmedStaleOverall += trimmedCount
-            }
-          }
-        }
-
-        // Detect modification
-        const teamsByYearChanged = canonical(existing) !== canonical(teamsByYear)
-        const teamFieldChanged = newTeamField !== player.team
-        const classChanged = newClassByYear !== player.classByYear
-        const overallChanged = newOverallByYear !== player.overallByYear
-        if (!teamsByYearChanged && !teamFieldChanged && !classChanged && !overallChanged) {
-          return player
-        }
-        stats.playersModified++
-        const updated = { ...player, teamsByYear }
-        if (teamFieldChanged) updated.team = newTeamField
-        if (classChanged) updated.classByYear = newClassByYear
-        if (overallChanged) updated.overallByYear = newOverallByYear
-        return updated
-      })
-
-      if (stats.playersModified === 0) {
-        setRosterMigrationStatus({
-          success: true,
-          message: `No changes needed — all ${stats.total} players already on new system`,
-        })
-        return
-      }
-
-      // forceOverwrite: full doc replace — ensures trimmed keys in
-      // teamsByYear/classByYear/overallByYear actually get removed server-side.
-      // Without this, Firestore merge preserves stale nested keys.
-      await updateDynasty(currentDynasty.id, { players: updatedPlayers }, { forceOverwrite: true })
-
-      const parts = [`${stats.playersModified}/${stats.total} players updated`]
-      if (stats.fromTeamHistory) parts.push(`+${stats.fromTeamHistory} from teamHistory`)
-      if (stats.fromLegacy) parts.push(`+${stats.fromLegacy} from _legacy`)
-      if (stats.fromMovements) parts.push(`+${stats.fromMovements} from movements`)
-      if (stats.fromEvidence) parts.push(`+${stats.fromEvidence} from stats/class`)
-      if (stats.fromTeamField) parts.push(`+${stats.fromTeamField} from player.team`)
-      if (stats.fromTeamsArray) parts.push(`+${stats.fromTeamsArray} from teams[]`)
-      if (stats.filledGaps) parts.push(`${stats.filledGaps} gaps filled`)
-      if (stats.trimmedStale) parts.push(`${stats.trimmedStale} stale trimmed`)
-      if (stats.trimmedStaleClass) parts.push(`${stats.trimmedStaleClass} stale class`)
-      if (stats.trimmedStaleOverall) parts.push(`${stats.trimmedStaleOverall} stale OVR`)
-      if (stats.normalizedAbbrToTid) parts.push(`${stats.normalizedAbbrToTid} abbr→tid`)
-      if (stats.normalizedTeamField) parts.push(`${stats.normalizedTeamField} team field normalized`)
-      if (stats.droppedInvalid) parts.push(`${stats.droppedInvalid} invalid dropped`)
-      if (stats.skippedRecruit) parts.push(`${stats.skippedRecruit} recruits skipped`)
-
-      setRosterMigrationStatus({ success: true, message: parts.join(' · ') })
-    } catch (error) {
-      console.error('[RosterSystemMigration]', error)
-      setRosterMigrationStatus({
-        success: false,
-        message: 'Migration failed: ' + error.message,
-      })
-    }
-  }
-
-  // ==========================================================
-  // END ROSTER SYSTEM MIGRATION
-  // ==========================================================
-
   // Status line (success/error/running)
   const StatusLine = ({ status }) => {
     if (!status || status === 'running') return null
@@ -2543,11 +1920,11 @@ export default function DangerZone() {
         />
         <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
           <ActionCard
-            title="Fix Roster"
-            description="Removes departed players, fixes recruit assignments"
-            buttonText="Fix Roster"
-            onClick={handleRosterCleanup}
-            status={rosterCleanupStatus}
+            title="Consolidate to v2"
+            description="Recommended. Migrates every player to the canonical v2 schema, drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated legacy fields. Safe to re-run."
+            buttonText="Consolidate"
+            onClick={handleV2Consolidate}
+            status={v2ConsolidateStatus}
           />
           <ActionCard
             title="Sync Recruiting"
@@ -2949,34 +2326,6 @@ export default function DangerZone() {
             onClick={handleSyncHonorsToPlayers}
             status={honorsSyncStatus}
           />
-          <ActionCard
-            title="Migrate Career Data"
-            description="Fills gaps in player career timelines"
-            buttonText="Migrate"
-            onClick={handleMigration}
-            status={migrationStatus}
-          />
-          <ActionCard
-            title="Fix Transfers"
-            description="Removes transferred/graduated players"
-            buttonText="Fix"
-            onClick={handleFixTransfers}
-            status={transferFixStatus}
-          />
-          <ActionCard
-            title="Fix Ghost Players"
-            description="Fixes ghost roster entries"
-            buttonText="Fix"
-            onClick={handleOrphanCleanup}
-            status={orphanCleanupStatus}
-          />
-          <ActionCard
-            title="Fix Departure Reasons"
-            description="Fixes graduated to drafted players"
-            buttonText="Fix"
-            onClick={handleFixDepartureReasons}
-            status={departureFixStatus}
-          />
         </div>
       </div>
 
@@ -3113,53 +2462,6 @@ export default function DangerZone() {
         </div>
       </div>
 
-      {/* v2 Consolidation — THE recommended cleanup */}
-      <div>
-        <SectionHeader
-          size="sm"
-          title="Consolidate All Players to v2"
-          subtitle="One-click roster cleanup — recommended"
-        />
-        <ActionCard
-          title="Consolidate to v2"
-          description="Recommended for every existing dynasty. Collapses the old dual-schema (legacy top-level fields + per-year v2 maps) into a single consistent shape: v2 is canonical, top-level player.year / .team / .overall / .devTrait become derived mirrors that can't drift. Drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated keys. Safe to re-run."
-          buttonText="Consolidate"
-          onClick={handleV2Consolidate}
-          status={v2ConsolidateStatus}
-        />
-      </div>
-
-      {/* Stint Data Cleanup */}
-      <div>
-        <SectionHeader
-          size="sm"
-          title="Roster System Migration"
-          subtitle="Consolidate all legacy roster data into teamsByYear"
-        />
-        <ActionCard
-          title="Migrate Roster Data"
-          description="Reads every legacy roster source (teamHistory stints, _legacy_teamsByYear, movements, player.team, teams[], stats/class/OVR evidence) and consolidates into teamsByYear keyed by year → tid. Normalizes abbr strings to tids, fills gaps within active spans, and trims stale entries past departure year. Safe to re-run. Run this BEFORE 'Remove Stint Data'."
-          buttonText="Migrate Roster Data"
-          onClick={handleRosterSystemMigration}
-          status={rosterMigrationStatus}
-        />
-      </div>
-
-      <div>
-        <SectionHeader
-          size="sm"
-          title="Clean Up Stint Data"
-          subtitle="Remove old stint-based roster fields, backfill teamsByYear"
-        />
-        <ActionCard
-          title="Remove Stint Data"
-          description="Removes teamHistory, entryYear, entryClass, and other stint fields from all players. Backfills teamsByYear from stint data first to prevent data loss."
-          buttonText="Clean Up Stint Data"
-          onClick={handleStintCleanup}
-          status={stintCleanupStatus}
-          variant="danger"
-        />
-      </div>
 
       {/* Storage Tier Testing (Dev) */}
       <div>
