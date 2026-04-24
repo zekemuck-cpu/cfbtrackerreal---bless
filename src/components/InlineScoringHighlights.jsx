@@ -14,10 +14,12 @@ export default function InlineScoringHighlights({
   onExpand,
   team1Abbr,
   team2Abbr,
+  startIndex = 0,
 }) {
   const playsWithVideo = (scoringPlays || []).filter(p => p.videoLink)
   const total = playsWithVideo.length
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const initialIndex = total > 0 ? Math.max(0, Math.min(startIndex, total - 1)) : 0
+  const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
   const timerRef = useRef(null)

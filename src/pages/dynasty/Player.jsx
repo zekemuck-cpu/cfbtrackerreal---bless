@@ -10,6 +10,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginal
 import { getTeamColors } from '../../data/teamColors'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
+import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 
@@ -156,6 +157,7 @@ export default function Player() {
   }
   const [showAccoladeModal, setShowAccoladeModal] = useState(false)
   const [accoladeType, setAccoladeType] = useState(null)
+  const [overviewStatTab, setOverviewStatTab] = useState(null)
   const [showOverallProgressionModal, setShowOverallProgressionModal] = useState(false)
   const [showGameLogModal, setShowGameLogModal] = useState(false)
   const [expandedGameLog, setExpandedGameLog] = useState(null) // { year, statType }
@@ -278,24 +280,7 @@ export default function Player() {
     : currentDynasty
   const player = dynasty?.players?.find(p => p.pid === parseInt(pid))
 
-  // Default tab based on what the player actually has:
-  //   • has any recorded season stats → Stats (most common, keep front-and-center)
-  //   • no stats but has awards → Awards
-  //   • neither → Timeline (always meaningful since it shows career arc)
-  // Any explicit ?tab= in the URL overrides this.
-  const defaultTab = (() => {
-    const statsByYear = player?.statsByYear || {}
-    const hasAnyStats = Object.keys(statsByYear).length > 0
-    if (hasAnyStats) return 'stats'
-    const accolades = player?.accolades?.length || 0
-    const allAm = player?.allAmericans?.length || 0
-    const allConf = player?.allConference?.length || 0
-    if (accolades + allAm + allConf > 0) return 'awards'
-    return 'timeline'
-  })()
-  const activeTab = explicitTab || defaultTab
-
-  // True only while the player is a committed recruit who hasn't yet
+// True only while the player is a committed recruit who hasn't yet
   // joined the roster. Once they have a teamsByYear entry for the
   // current year (or any past year), they've enrolled — hide the
   // "Commitment" badge regardless of the stale isRecruit flag.
@@ -651,6 +636,68 @@ export default function Player() {
     if (!expandedGameLog?.year || !player?.name || !dynasty) return []
     return getPlayerGameLog(dynasty, player.name, expandedGameLog.year, playerTeamAbbr)
   }, [expandedGameLog, dynasty, player?.name, playerTeamAbbr])
+
+  // Flat list of this player's scoring plays with video, across all games,
+  // in chronological order. Used by the Overview tab's inline highlight widget.
+  const allPlayerScoringPlays = useMemo(() => {
+    if (!player?.name || !playerGameLog?.length) return []
+    const normalizeName = (name) => name?.toLowerCase().trim() || ''
+    const playerNameNorm = normalizeName(player.name)
+    return [...playerGameLog]
+      .sort((a, b) =>
+        (a.game.year - b.game.year) ||
+        ((a.game.week ?? 0) - (b.game.week ?? 0))
+      )
+      .flatMap(entry => {
+        const game = entry.game
+        const scoringSummary = sortPlaysChronologically(game.boxScore?.scoringSummary)
+        return scoringSummary
+          .filter(play => {
+            if (!play.videoLink) return false
+            if (normalizeName(play.scorer) === playerNameNorm) return true
+            if (play.scoreType?.includes('TD') && play.passer && normalizeName(play.passer) === playerNameNorm) return true
+            return false
+          })
+          .map(play => ({
+            ...play,
+            gameInfo: {
+              gameId: game.gameId || game.gid || game.id,
+              week: game.week,
+              year: game.year,
+              opponent: game.opponent,
+              opponentTid: game.opponentTid,
+              result: game.result,
+            }
+          }))
+      })
+  }, [player?.name, playerGameLog])
+
+  // Pick a random starting index once per player page visit so the widget
+  // opens somewhere in the middle of the career rather than always at play 1.
+  const randomScoringStartIndex = useMemo(() => {
+    if (!allPlayerScoringPlays?.length) return 0
+    return Math.floor(Math.random() * allPlayerScoringPlays.length)
+  }, [allPlayerScoringPlays?.length])
+
+  // Default tab: overview if any games are entered, otherwise stats if any
+  // stats exist, otherwise timeline. Explicit ?tab= in the URL overrides.
+  const defaultTab = (() => {
+    const hasGames = (playerGameLog?.length || 0) > 0
+    if (hasGames) return 'overview'
+    // "has stats" = at least one category has non-zero data, not just the
+    // presence of a year key (empty `{}` shells shouldn't default to Stats).
+    const statsByYear = player?.statsByYear || {}
+    const hasAnyStats = Object.values(statsByYear).some(year => {
+      if (!year || typeof year !== 'object') return false
+      return Object.values(year).some(cat => {
+        if (cat == null || typeof cat !== 'object') return false
+        return Object.values(cat).some(v => typeof v === 'number' && v > 0)
+      })
+    })
+    if (hasAnyStats) return 'stats'
+    return 'timeline'
+  })()
+  const activeTab = explicitTab || defaultTab
 
   // Early returns AFTER all hooks
   if (!dynasty) {
@@ -1702,6 +1749,7 @@ export default function Player() {
       {/* Tab Navigation */}
       <div className="flex gap-6 border-b border-surface-4">
         {[
+          { key: 'overview', label: 'Overview' },
           { key: 'stats', label: 'Stats' },
           { key: 'gamelog', label: 'Game Log' },
           { key: 'timeline', label: 'Timeline' },
@@ -1727,6 +1775,440 @@ export default function Player() {
           )
         })}
       </div>
+
+      {/* Overview - 3-column summary with inline scoring highlights */}
+      {activeTab === 'overview' && (() => {
+        const teamsByYear = player.teamsByYear || {}
+        const timelineYears = Object.keys(teamsByYear).map(Number).sort((a, b) => b - a)
+        const teamsData = dynasty?.teams || dynasty?.customTeams
+        const recentGames = (playerGameLog || []).slice(0, 10)
+
+        // Career totals across relevant categories
+        const totals = yearByYearStats.reduce((acc, y) => {
+          if (y.passing) {
+            acc.passing.cmp += y.passing.cmp || 0
+            acc.passing.att += y.passing.att || 0
+            acc.passing.yds += y.passing.yds || 0
+            acc.passing.td += y.passing.td || 0
+            acc.passing.int += y.passing.int || 0
+            acc.hasPassing = acc.hasPassing || y.passing.att > 0
+          }
+          if (y.rushing) {
+            acc.rushing.car += y.rushing.car || 0
+            acc.rushing.yds += y.rushing.yds || 0
+            acc.rushing.td += y.rushing.td || 0
+            acc.hasRushing = acc.hasRushing || y.rushing.car > 0
+          }
+          if (y.receiving) {
+            acc.receiving.rec += y.receiving.rec || 0
+            acc.receiving.yds += y.receiving.yds || 0
+            acc.receiving.td += y.receiving.td || 0
+            acc.hasReceiving = acc.hasReceiving || y.receiving.rec > 0
+          }
+          if (y.defensive) {
+            acc.defense.tkl += (y.defensive.solo || 0) + (y.defensive.ast || 0)
+            acc.defense.tfl += y.defensive.tfl || 0
+            acc.defense.sacks += y.defensive.sacks || 0
+            acc.defense.int += y.defensive.int || 0
+            acc.defense.ff += y.defensive.ff || 0
+            acc.hasDefense = acc.hasDefense || ((y.defensive.solo || 0) + (y.defensive.ast || 0)) > 0
+          }
+          if (y.kicking) {
+            acc.kicking.fgm += y.kicking.fgm || 0
+            acc.kicking.fga += y.kicking.fga || 0
+            acc.kicking.xpm += y.kicking.xpm || 0
+            acc.kicking.xpa += y.kicking.xpa || 0
+            acc.hasKicking = acc.hasKicking || (y.kicking.fga > 0 || y.kicking.xpa > 0)
+          }
+          return acc
+        }, {
+          passing: { cmp: 0, att: 0, yds: 0, td: 0, int: 0 },
+          rushing: { car: 0, yds: 0, td: 0 },
+          receiving: { rec: 0, yds: 0, td: 0 },
+          defense: { tkl: 0, tfl: 0, sacks: 0, int: 0, ff: 0 },
+          kicking: { fgm: 0, fga: 0, xpm: 0, xpa: 0 },
+          hasPassing: false, hasRushing: false, hasReceiving: false, hasDefense: false, hasKicking: false,
+        })
+
+        const sectionHeader = (label) => (
+          <div className="px-4 py-2.5 bg-surface-2 border-b border-surface-4 border-l-[3px]" style={{ borderLeftColor: teamInfo.backgroundColor }}>
+            <h3 className="text-sm font-black uppercase tracking-widest" style={{ color: 'var(--text-primary)', fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '2px' }}>{label}</h3>
+          </div>
+        )
+
+        const statRow = (label, value) => (
+          <div className="flex items-baseline justify-between px-4 py-1.5 text-sm">
+            <span style={{ color: secondaryText }} className="uppercase text-xs tracking-wider">{label}</span>
+            <span className="font-bold tabular-nums" style={{ color: primaryText }}>{value}</span>
+          </div>
+        )
+
+        return (
+          <div className="flex flex-col gap-6">
+            {/* 3-column grid: timeline | stats (+ highlights on top) | game log */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,340px)] gap-y-6 lg:gap-x-6 xl:gap-x-8">
+              {/* LEFT — Timeline (condensed, with connecting line) */}
+              <div className="card overflow-hidden">
+                {sectionHeader('Timeline')}
+                {timelineYears.length === 0 ? (
+                  <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
+                ) : (() => {
+                  // Collect light-weight movement events for tags
+                  const mby = player.movementByYear || {}
+                  const mvmts = player.movements || []
+                  const eventsByYear = {}
+                  mvmts.forEach(m => {
+                    if (!eventsByYear[m.year]) eventsByYear[m.year] = []
+                    eventsByYear[m.year].push(m.type)
+                  })
+                  Object.entries(mby).forEach(([y, m]) => {
+                    const yr = Number(y)
+                    if (!m?.type || isNaN(yr)) return
+                    if (!eventsByYear[yr]) eventsByYear[yr] = []
+                    eventsByYear[yr].push(m.type)
+                  })
+                  // Transition events (portal, recommit, transfer, encouraged) happen
+                  // AT THE END of their recorded year — visually they belong between
+                  // that season and the next one. In a desc-sorted timeline that means
+                  // rendering them at the TOP of the *following* year's row, not the
+                  // bottom of the year they were keyed to.
+                  // Recommit vs transfer is inferred from teamsByYear: if the team is
+                  // the same before and after, the portal entry was a recommit even
+                  // when the raw event type is just "entered_portal".
+                  const transitionForYear = (yr) => {
+                    const prev = eventsByYear[yr - 1] || []
+                    const sameTeam = teamsByYear[yr] != null && Number(teamsByYear[yr]) === Number(teamsByYear[yr - 1])
+                    if (prev.includes('recommitted') || prev.includes('recommit')) return 'Recommit'
+                    if (prev.includes('entered_portal') || prev.includes('transferred_out') || prev.includes('transfer')) {
+                      return sameTeam ? 'Recommit' : 'Transfer Portal'
+                    }
+                    if (prev.includes('encouraged_to_transfer') || prev.includes('encouraged_transfer')) return 'Encouraged'
+                    return null
+                  }
+                  // Events that belong ON the year itself (not between years).
+                  const inYearEvent = (yr) => {
+                    const ts = eventsByYear[yr] || []
+                    if (ts.includes('graduated')) return 'Graduated'
+                    if (ts.includes('committed') || ts.includes('recruited')) return 'Committed'
+                    return null
+                  }
+
+                  // Newest first for the sidebar
+                  const yearsDesc = [...timelineYears]
+                  return (
+                    <div className="relative px-4 py-3">
+                      {/* Vertical line */}
+                      <div className="absolute left-[22px] top-4 bottom-4 w-px bg-surface-4" aria-hidden />
+                      <ul className="space-y-3">
+                        {yearsDesc.map(year => {
+                          const tid = teamsByYear[year]
+                          const teamData = teamsData?.[tid] || {}
+                          const abbr = teamData.abbr || ''
+                          const mascot = getMascotName(abbr, teamsData)
+                          const logo = getTeamLogoByTid(tid, teamsData)
+                          const cls = player.classByYear?.[year]
+                          const ovr = player.overallByYear?.[year]
+                          const pos = player.positionByYear?.[year] || player.position
+                          const transition = transitionForYear(year)
+                          const inYear = inYearEvent(year)
+                          return (
+                            <li key={year} className="relative pl-7">
+                              {transition && (
+                                <div className="mb-1 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
+                                  {transition}
+                                </div>
+                              )}
+                              <span
+                                className="absolute left-[6px] top-[6px] w-3 h-3 rounded-full ring-2"
+                                style={{ backgroundColor: teamInfo.backgroundColor, boxShadow: '0 0 0 2px var(--bg-surface-1, #0b0b0f)', top: transition ? '28px' : '6px' }}
+                                aria-hidden
+                              />
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold tabular-nums" style={{ color: primaryText }}>{year}</span>
+                                {logo && <img src={logo} alt="" className="w-4 h-4 object-contain" />}
+                                <span className="text-[11px] font-semibold truncate flex-1 min-w-0" style={{ color: primaryText }}>{abbr || mascot || '—'}</span>
+                                {ovr != null && (
+                                  <span className="text-[11px] font-bold tabular-nums flex-shrink-0" style={{ color: primaryText }}>{ovr}</span>
+                                )}
+                              </div>
+                              <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: secondaryText }}>
+                                {[cls, pos].filter(Boolean).join(' · ') || '—'}
+                              </div>
+                              {inYear && (
+                                <div className="mt-1 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
+                                  {inYear}
+                                </div>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )
+                })()}
+                <button
+                  onClick={() => setActiveTab('timeline')}
+                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                >
+                  Full Timeline →
+                </button>
+              </div>
+
+              {/* MIDDLE — Career Stats + Scoring highlights */}
+              <div className="flex flex-col gap-6 min-w-0">
+                <div className="card overflow-hidden">
+                {(() => {
+                  const categories = [
+                    { key: 'passing', label: 'Passing', has: totals.hasPassing,
+                      columns: [
+                        { k: 'cmpatt', label: 'CMP/ATT', get: y => `${y.passing?.cmp ?? 0}/${y.passing?.att ?? 0}` },
+                        { k: 'yds', label: 'YDS', get: y => y.passing?.yds ?? 0, format: v => v.toLocaleString() },
+                        { k: 'td', label: 'TD', get: y => y.passing?.td ?? 0 },
+                        { k: 'int', label: 'INT', get: y => y.passing?.int ?? 0 },
+                        { k: 'pct', label: 'PCT', get: y => y.passing?.att ? ((y.passing.cmp / y.passing.att) * 100).toFixed(1) : '-' },
+                      ],
+                      totalRow: [`${totals.passing.cmp}/${totals.passing.att}`, totals.passing.yds.toLocaleString(), totals.passing.td, totals.passing.int, totals.passing.att ? ((totals.passing.cmp / totals.passing.att) * 100).toFixed(1) : '-']
+                    },
+                    { key: 'rushing', label: 'Rushing', has: totals.hasRushing,
+                      columns: [
+                        { k: 'car', label: 'CAR', get: y => y.rushing?.car ?? 0 },
+                        { k: 'yds', label: 'YDS', get: y => y.rushing?.yds ?? 0, format: v => v.toLocaleString() },
+                        { k: 'avg', label: 'AVG', get: y => y.rushing?.car ? (y.rushing.yds / y.rushing.car).toFixed(1) : '-' },
+                        { k: 'td', label: 'TD', get: y => y.rushing?.td ?? 0 },
+                        { k: 'lng', label: 'LNG', get: y => y.rushing?.lng ?? 0 },
+                      ],
+                      totalRow: [totals.rushing.car, totals.rushing.yds.toLocaleString(), totals.rushing.car ? (totals.rushing.yds / totals.rushing.car).toFixed(1) : '-', totals.rushing.td, '-']
+                    },
+                    { key: 'receiving', label: 'Receiving', has: totals.hasReceiving,
+                      columns: [
+                        { k: 'rec', label: 'REC', get: y => y.receiving?.rec ?? 0 },
+                        { k: 'yds', label: 'YDS', get: y => y.receiving?.yds ?? 0, format: v => v.toLocaleString() },
+                        { k: 'avg', label: 'AVG', get: y => y.receiving?.rec ? (y.receiving.yds / y.receiving.rec).toFixed(1) : '-' },
+                        { k: 'td', label: 'TD', get: y => y.receiving?.td ?? 0 },
+                        { k: 'lng', label: 'LNG', get: y => y.receiving?.lng ?? 0 },
+                      ],
+                      totalRow: [totals.receiving.rec, totals.receiving.yds.toLocaleString(), totals.receiving.rec ? (totals.receiving.yds / totals.receiving.rec).toFixed(1) : '-', totals.receiving.td, '-']
+                    },
+                    { key: 'defense', label: 'Defense', has: totals.hasDefense,
+                      columns: [
+                        { k: 'tkl', label: 'TKL', get: y => (y.defensive?.solo ?? 0) + (y.defensive?.ast ?? 0) },
+                        { k: 'tfl', label: 'TFL', get: y => y.defensive?.tfl ?? 0 },
+                        { k: 'sck', label: 'SCK', get: y => y.defensive?.sacks ?? 0 },
+                        { k: 'int', label: 'INT', get: y => y.defensive?.int ?? 0 },
+                        { k: 'ff', label: 'FF', get: y => y.defensive?.ff ?? 0 },
+                        { k: 'td', label: 'TD', get: y => y.defensive?.td ?? 0 },
+                      ],
+                      totalRow: [totals.defense.tkl, totals.defense.tfl, totals.defense.sacks, totals.defense.int, totals.defense.ff, '-']
+                    },
+                    { key: 'kicking', label: 'Kicking', has: totals.hasKicking,
+                      columns: [
+                        { k: 'fgm', label: 'FGM', get: y => y.kicking?.fgm ?? 0 },
+                        { k: 'fga', label: 'FGA', get: y => y.kicking?.fga ?? 0 },
+                        { k: 'fgpct', label: 'FG%', get: y => y.kicking?.fga ? ((y.kicking.fgm / y.kicking.fga) * 100).toFixed(1) : '-' },
+                        { k: 'xpm', label: 'XPM', get: y => y.kicking?.xpm ?? 0 },
+                        { k: 'xpa', label: 'XPA', get: y => y.kicking?.xpa ?? 0 },
+                        { k: 'lng', label: 'LNG', get: y => y.kicking?.lng ?? 0 },
+                      ],
+                      totalRow: [totals.kicking.fgm, totals.kicking.fga, totals.kicking.fga ? ((totals.kicking.fgm / totals.kicking.fga) * 100).toFixed(1) : '-', totals.kicking.xpm, totals.kicking.xpa, '-']
+                    },
+                  ].filter(c => c.has)
+
+                  if (categories.length === 0) {
+                    return (
+                      <>
+                        {sectionHeader('Career Stats')}
+                        <div className="px-4 py-6 text-sm text-center" style={{ color: secondaryText }}>No recorded stats</div>
+                      </>
+                    )
+                  }
+
+                  const activeKey = categories.find(c => c.key === overviewStatTab)?.key || categories[0].key
+                  const active = categories.find(c => c.key === activeKey)
+                  const rowsForCategory = yearByYearStats.filter(y => {
+                    if (active.key === 'passing') return y.passing && y.passing.att > 0
+                    if (active.key === 'rushing') return y.rushing && y.rushing.car > 0
+                    if (active.key === 'receiving') return y.receiving && y.receiving.rec > 0
+                    if (active.key === 'defense') return y.defensive && ((y.defensive.solo || 0) + (y.defensive.ast || 0)) > 0
+                    if (active.key === 'kicking') return y.kicking && (y.kicking.fga > 0 || y.kicking.xpa > 0)
+                    return false
+                  })
+
+                  return (
+                    <>
+                      {sectionHeader('Career Stats')}
+                      <div className="flex border-b border-surface-4 overflow-x-auto">
+                        {categories.map(cat => {
+                          const isActive = cat.key === activeKey
+                          return (
+                            <button
+                              key={cat.key}
+                              onClick={() => setOverviewStatTab(cat.key)}
+                              className="px-4 py-2 text-[11px] uppercase tracking-widest font-bold transition-colors flex-shrink-0"
+                              style={{
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                letterSpacing: '1.5px',
+                                color: isActive ? primaryText : secondaryText,
+                                borderBottom: isActive ? `2px solid ${teamInfo.backgroundColor}` : '2px solid transparent',
+                                marginBottom: '-1px',
+                              }}
+                            >
+                              {cat.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-surface-3">
+                              <th className="px-3 py-2 text-left font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>Year</th>
+                              {active.columns.map(col => (
+                                <th key={col.k} className="px-2 py-2 text-right font-semibold uppercase tracking-wider" style={{ color: secondaryText, opacity: 0.8 }}>{col.label}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rowsForCategory.map((y, idx) => (
+                              <tr key={y.year} className={idx % 2 ? '' : 'bg-surface-2/40'}>
+                                <td className="px-3 py-2 font-bold tabular-nums" style={{ color: primaryText }}>{y.year}</td>
+                                {active.columns.map(col => {
+                                  const v = col.get(y)
+                                  return (
+                                    <td key={col.k} className="px-2 py-2 text-right tabular-nums" style={{ color: primaryText }}>
+                                      {col.format ? col.format(v) : v}
+                                    </td>
+                                  )
+                                })}
+                              </tr>
+                            ))}
+                            {rowsForCategory.length > 1 && (
+                              <tr className="bg-surface-3 border-t-2" style={{ borderTopColor: teamInfo.backgroundColor }}>
+                                <td className="px-3 py-2 font-black uppercase text-[11px] tracking-wider" style={{ color: primaryText, fontFamily: "'Bebas Neue', sans-serif" }}>Career</td>
+                                {active.totalRow.map((v, i) => (
+                                  <td key={i} className="px-2 py-2 text-right font-bold tabular-nums" style={{ color: primaryText }}>{v}</td>
+                                ))}
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )
+                })()}
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                >
+                  Full Stats →
+                </button>
+                </div>
+                {allPlayerScoringPlays.length > 0 && (
+                  <InlineScoringHighlights
+                    scoringPlays={allPlayerScoringPlays}
+                    startIndex={randomScoringStartIndex}
+                    onExpand={(idx) => {
+                      setSelectedGameScoringPlays({
+                        plays: allPlayerScoringPlays,
+                        opponent: 'All Games',
+                        startIndex: idx,
+                      })
+                      setShowScoringHighlightsModal(true)
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* RIGHT — Recent Game Log */}
+              <div className="card overflow-hidden">
+                {sectionHeader('Recent Games')}
+                {recentGames.length === 0 ? (
+                  <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No game log data</div>
+                ) : (
+                  <div className="divide-y divide-surface-4">
+                    {recentGames.map((entry, idx) => {
+                      const { game, stats } = entry
+                      const gameId = game.gameId || game.gid || game.id
+                      const locationPrefix = game.location === 'neutral' ? 'vs' : (game.location === 'home' ? 'vs' : '@')
+                      const isWin = game.result === 'W'
+                      const isLoss = game.result === 'L'
+                      const resultBg = isWin ? 'rgba(16, 185, 129, 0.12)' : isLoss ? 'rgba(239, 68, 68, 0.12)' : 'transparent'
+                      const resultColor = isWin ? '#10b981' : isLoss ? '#ef4444' : secondaryText
+                      const oppLogo = game.opponentTid ? getTeamLogoByTid(game.opponentTid, dynasty.teams) : null
+                      let statDisplay = ''
+                      if (stats?.category === 'passing') {
+                        const c = stats.comp ?? stats.cmp ?? stats.completions ?? 0
+                        const a = stats.att ?? stats.attempts ?? stats.passAttempts ?? 0
+                        const yds = stats.yards ?? stats.yds ?? stats.passYards ?? 0
+                        const td = stats.tD ?? stats.td ?? stats.passTD ?? 0
+                        statDisplay = `${c}/${a}, ${yds} yds, ${td} TD`
+                      } else if (stats?.category === 'rushing') {
+                        statDisplay = `${stats.carries ?? stats.car ?? 0} car, ${stats.yards ?? stats.yds ?? 0} yds, ${stats.tD ?? stats.td ?? 0} TD`
+                      } else if (stats?.category === 'receiving') {
+                        statDisplay = `${stats.receptions ?? stats.rec ?? 0} rec, ${stats.yards ?? stats.yds ?? 0} yds, ${stats.tD ?? stats.td ?? 0} TD`
+                      } else if (stats?.category === 'defense') {
+                        const tkl = (stats.solo ?? 0) + (stats.assists ?? 0)
+                        const parts = []
+                        if (tkl > 0) parts.push(`${tkl} tkl`)
+                        if ((stats.sack ?? 0) > 0) parts.push(`${stats.sack} sck`)
+                        if ((stats.iNT ?? 0) > 0) parts.push(`${stats.iNT} INT`)
+                        statDisplay = parts.join(', ')
+                      } else if (stats?.category === 'kicking') {
+                        statDisplay = `${stats.fGM ?? 0}/${stats.fGA ?? 0} FG, ${stats.xPM ?? 0}/${stats.xPA ?? 0} XP`
+                      }
+                      const RowWrap = gameId ? Link : 'div'
+                      const rowProps = gameId ? { to: `${pathPrefix}/game/${gameId}` } : {}
+                      return (
+                        <RowWrap key={idx} {...rowProps} className="block px-4 py-3 hover:bg-surface-2/60 transition-colors cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            {/* Date / week column */}
+                            <div className="flex-shrink-0 w-12 text-center">
+                              <div className="text-[11px] font-bold tabular-nums" style={{ color: primaryText }}>{game.year}</div>
+                              <div className="text-[10px] uppercase tracking-wider tabular-nums" style={{ color: secondaryText }}>W{game.week ?? '-'}</div>
+                            </div>
+                            {/* Opponent */}
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {oppLogo && <img src={oppLogo} alt="" className="w-6 h-6 object-contain flex-shrink-0" />}
+                              <div className="min-w-0">
+                                <div className="text-[11px] uppercase tracking-wider" style={{ color: secondaryText }}>{locationPrefix}</div>
+                                <div className="text-sm font-bold truncate" style={{ color: primaryText }}>{game.opponent || '—'}</div>
+                              </div>
+                            </div>
+                            {/* Result pill */}
+                            <div className="flex-shrink-0 flex items-center gap-2">
+                              <div className="text-right">
+                                <div className="text-xs font-bold tabular-nums" style={{ color: resultColor }}>
+                                  {game.result || '—'} {game.teamScore != null && game.opponentScore != null ? `${game.teamScore}-${game.opponentScore}` : ''}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          {statDisplay && (
+                            <div
+                              className="text-[11px] mt-2 px-2 py-1 rounded"
+                              style={{ color: primaryText, backgroundColor: resultBg }}
+                            >
+                              {statDisplay}
+                            </div>
+                          )}
+                        </RowWrap>
+                      )
+                    })}
+                  </div>
+                )}
+                <button
+                  onClick={() => setActiveTab('gamelog')}
+                  className="w-full px-4 py-2.5 text-[11px] uppercase tracking-widest font-bold border-t border-surface-4 hover:bg-surface-3 transition-colors"
+                  style={{ color: secondaryText, fontFamily: "'Bebas Neue', sans-serif" }}
+                >
+                  Full Game Log →
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Career Timeline - Built from teamsByYear (source of truth) with movements for context */}
       {activeTab === 'timeline' && (() => {
@@ -1800,7 +2282,20 @@ export default function Player() {
         // Build a standalone recruitment node when we have class-ranking data.
         // Before: recruitment was folded into the FR year as a sub-tag.
         // Now: it's its own row on the timeline, sitting above the FR year.
-        const hasRecruitNodeData = !!(recruitmentInfo || player.recruitYear)
+        // Only show a "Committed" recruitment node when the recruit year actually
+        // precedes (or matches) the player's first recorded season. If the stored
+        // recruitYear lands AFTER the first teamsByYear entry, the player was
+        // already on the roster before their "commitment" — that's stale/bogus
+        // data (e.g., player was on the team before the dynasty began) and the
+        // node would just confuse the timeline.
+        const earliestRosterYear = years[0]
+        const recruitYearValid = (() => {
+          const ry = Number(player.recruitYear)
+          if (!Number.isFinite(ry)) return true
+          if (!Number.isFinite(earliestRosterYear)) return true
+          return ry <= earliestRosterYear
+        })()
+        const hasRecruitNodeData = !!(recruitmentInfo || player.recruitYear) && recruitYearValid
         const recruitmentNode = hasRecruitNodeData ? (() => {
           const rYear = Number(player.recruitYear) || years[0]
           const rTeam = player.teamsByYear?.[rYear] || teamsByYear[years[0]]
@@ -1867,9 +2362,23 @@ export default function Player() {
             } else {
               let joinType = null
               let fromTeam = null
-              if (player.isPortal) { joinType = 'portal_in'; fromTeam = player.previousTeam || null }
-              else if (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO')) { joinType = 'juco_in' }
-              else if (!recruitmentNode && (player.stars || player.nationalRank || player.recruitYear)) { joinType = 'recruited' }
+              // Only trust the global `player.isPortal` flag when the purported
+              // origin team is actually different from the first-season team.
+              // Doug's flag can get set by a LATER recommit (entered portal and
+              // returned to the same school) — in that case the recommit belongs
+              // between two later seasons, not as a portal-in on year 0.
+              if (player.isPortal) {
+                const fromRef = player.previousTeam || null
+                const fromTid = fromRef ? resolveTid(fromRef, teamsData || TEAMS) : null
+                const teamTid = resolveTid(team, teamsData || TEAMS)
+                const isSameAsFirstTeam = fromTid != null && teamTid != null && Number(fromTid) === Number(teamTid)
+                if (!isSameAsFirstTeam) {
+                  joinType = 'portal_in'
+                  fromTeam = fromRef
+                }
+              }
+              if (!joinType && (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO'))) { joinType = 'juco_in' }
+              else if (!joinType && !recruitmentNode && (player.stars || player.nationalRank || player.recruitYear)) { joinType = 'recruited' }
               if (joinType && !recruitmentNode) {
                 timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
               }
@@ -2318,12 +2827,6 @@ export default function Player() {
                       <>
                         {(starsNode || rankBits.length > 0) && <span className="text-txt-muted">·</span>}
                         <span className="uppercase tracking-wider text-[11px] font-semibold text-txt-secondary" style={{ letterSpacing: '1px' }}>{classLabel}</span>
-                      </>
-                    )}
-                    {rn.hometown && (
-                      <>
-                        <span className="text-txt-muted">·</span>
-                        <span className="text-txt-secondary">{rn.hometown}</span>
                       </>
                     )}
                   </>

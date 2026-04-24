@@ -771,11 +771,45 @@ export default function Recruiting() {
         }
       />
 
-      <Card>
-        <div className="flex flex-col gap-4">
+      <Card padding="none">
+        <div className="flex flex-wrap items-stretch divide-y md:divide-y-0 md:divide-x divide-surface-4">
+          {/* Metrics — entire block opens the class history modal */}
+          {!isAllSeasons ? (
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(true)}
+              disabled={classHistory.length <= 1}
+              className="flex items-center gap-6 px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
+              title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
+              aria-label="View recruiting class history"
+            >
+              <span className="flex items-baseline gap-2">
+                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  {nationalRank ? `#${nationalRank}` : '—'}
+                </span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl Rank</span>
+              </span>
+              <span className="flex items-baseline gap-2">
+                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  {formatRecruitingClassScore(classScore)}
+                </span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Score</span>
+              </span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-6 px-5 py-3 flex-shrink-0">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                  {classStats.total}
+                </span>
+                <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Commits</span>
+              </div>
+            </div>
+          )}
+
+          {/* View toggle */}
           {hasHSandPortal && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="label-xs text-txt-tertiary">View</span>
+            <div className="flex items-center gap-1 px-4 py-3 flex-shrink-0">
               {VIEW_MODE_OPTIONS.map(opt => {
                 const active = viewMode === opt.value
                 const count = opt.value === 'both'
@@ -787,94 +821,51 @@ export default function Recruiting() {
                   <button
                     key={opt.value}
                     onClick={() => setViewMode(opt.value)}
-                    className={`px-3 py-1 rounded-sm text-xs font-semibold uppercase tracking-wider transition-colors ${
-                      active ? 'text-txt-primary' : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3'
+                    className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                      active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
                     }`}
                     style={active ? { backgroundColor: 'var(--team-primary-faded)' } : undefined}
                   >
-                    {opt.label} <span className="tabular opacity-70">({count})</span>
+                    {opt.label} <span className="tabular opacity-70">{count}</span>
                   </button>
                 )
               })}
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row items-stretch gap-3">
-            {/* Featured headline tiles: class rank + class score */}
-            <div className="flex flex-row gap-3 flex-shrink-0">
-              <div
-                className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px]"
-                style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
-              >
-                <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                  {isAllSeasons
-                    ? classStats.total
-                    : (nationalRank ? `#${nationalRank}` : '—')}
-                </div>
-                <div className="flex flex-col">
-                  <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
-                    {isAllSeasons ? 'Total' : 'National'}
-                  </span>
-                  <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>
-                    {isAllSeasons ? 'Commits' : 'Rank'}
-                  </span>
-                </div>
-              </div>
-
-              {!isAllSeasons && (
+          {/* Star filter chips */}
+          <div className="flex items-center gap-1 px-4 py-3 flex-1 min-w-0 flex-wrap">
+            {starTiles.map(tile => {
+              const selected = selectedStars.includes(tile.count)
+              return (
                 <button
-                  type="button"
-                  onClick={() => setShowHistoryModal(true)}
-                  disabled={classHistory.length <= 1}
-                  className="flex items-center gap-3 sm:gap-4 px-4 py-3 rounded-sm flex-1 sm:flex-none sm:min-w-[180px] text-left transition-colors hover:bg-surface-4 disabled:cursor-default disabled:hover:bg-[var(--surface-3)]"
-                  style={{ backgroundColor: 'var(--surface-3)', borderLeft: '3px solid var(--team-primary)' }}
-                  title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
-                  aria-label="View recruiting class history"
+                  key={tile.count}
+                  onClick={() => toggleStarFilter(tile.count)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                  style={{
+                    backgroundColor: selected ? 'var(--team-primary-faded)' : 'transparent',
+                    border: `1px solid ${selected ? 'var(--team-primary)' : 'var(--surface-4)'}`,
+                    color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  }}
+                  aria-pressed={selected}
                 >
-                  <div className="text-4xl sm:text-5xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-                    {formatRecruitingClassScore(classScore)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Class</span>
-                    <span className="label-xs text-txt-muted" style={{ letterSpacing: '1.5px' }}>Score</span>
-                  </div>
+                  <span className="flex items-center gap-0.5">
+                    {[...Array(tile.count)].map((_, i) => (
+                      <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </span>
+                  <span className="tabular">{tile.label}</span>
                 </button>
-              )}
-            </div>
-
-            {/* Star filter grid */}
-            <div className="grid grid-cols-5 gap-2 flex-1">
-              {starTiles.map(tile => {
-                const selected = selectedStars.includes(tile.count)
-                return (
-                  <button
-                    key={tile.count}
-                    onClick={() => toggleStarFilter(tile.count)}
-                    className="px-2 py-2 rounded-sm text-center transition-all hover:bg-surface-4"
-                    style={{
-                      backgroundColor: selected ? 'var(--team-primary-faded)' : 'var(--surface-3)',
-                      border: selected ? '1px solid var(--team-primary)' : '1px solid var(--surface-4)'
-                    }}
-                    aria-pressed={selected}
-                  >
-                    <div className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>{tile.label}</div>
-                    <div className="flex justify-center mt-1 gap-0.5">
-                      {[...Array(tile.count)].map((_, i) => (
-                        <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
+              )
+            })}
           </div>
         </div>
       </Card>
 
       {allCommitments.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 stagger-reveal">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 stagger-reveal">
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
@@ -902,23 +893,23 @@ export default function Recruiting() {
                 interactive={!!player}
                 className="h-full overflow-hidden group"
               >
-                <div className="p-4 flex flex-col h-full">
+                <div className="p-3 flex flex-col h-full">
                   {/* Top row — photo, name, position, stars */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2.5">
                     {player?.pictureUrl ? (
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-14 h-14 sm:w-16 sm:h-16 object-cover rounded-sm flex-shrink-0"
+                        className="w-12 h-12 object-cover rounded-sm flex-shrink-0"
                         style={{ border: '1px solid var(--surface-4)' }}
                       />
                     ) : (
                       <div
-                        className="w-14 h-14 sm:w-16 sm:h-16 rounded-sm flex-shrink-0 flex items-center justify-center"
+                        className="w-12 h-12 rounded-sm flex-shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
                       >
                         <span
-                          className="text-xl font-black uppercase tracking-wide text-txt-muted"
+                          className="text-base font-black uppercase tracking-wide text-txt-muted"
                           style={{ fontFamily: "'Bebas Neue', sans-serif" }}
                         >
                           {(recruit.position || 'ATH').slice(0, 3)}
@@ -927,23 +918,23 @@ export default function Recruiting() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3
-                        className="text-base sm:text-lg font-black uppercase tracking-wide text-txt-primary leading-tight truncate"
+                        className="text-sm font-black uppercase tracking-wide text-txt-primary leading-tight truncate"
                         style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}
                       >
                         {recruit.name || 'Unknown'}
                       </h3>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1.5 mt-0.5">
                         <Badge variant="accent" size="sm">{recruit.position || 'ATH'}</Badge>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
                           {recruit.class || 'HS'}
                           {isAllSeasons && recruit.recruitYear ? ` · ${recruit.recruitYear}` : ''}
                         </span>
                       </div>
-                      <div className="flex items-center gap-0.5 mt-1.5">
+                      <div className="flex items-center gap-0.5 mt-1">
                         {[...Array(5)].map((_, i) => (
                           <svg
                             key={i}
-                            className="w-3.5 h-3.5"
+                            className="w-3 h-3"
                             fill={i < starCount ? 'var(--accent-warning)' : 'var(--surface-4)'}
                             viewBox="0 0 20 20"
                           >
@@ -957,49 +948,49 @@ export default function Recruiting() {
                   {/* Rank strip — editorial, tabular */}
                   {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
                     <div
-                      className="mt-3 grid grid-cols-3 text-center rounded-sm overflow-hidden"
+                      className="mt-2 grid grid-cols-3 text-center rounded-sm overflow-hidden"
                       style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)' }}
                     >
-                      <div className="py-1.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                      <div className="py-1 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl</div>
-                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
                         </div>
                       </div>
-                      <div className="py-1.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                      <div className="py-1 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.position || 'Pos'}</div>
-                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
                         </div>
                       </div>
-                      <div className="py-1.5 px-1">
+                      <div className="py-1 px-1">
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.state || 'St'}</div>
-                        <div className="text-sm font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+                        <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Meta info grid — editorial label/value pairs */}
+                  {/* Meta info — compact stacked lines */}
                   {(recruit.archetype || sizeText || hometownText) && (
-                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
+                    <div className="mt-2 space-y-0.5 text-[11px]">
                       {recruit.archetype && (
-                        <div className="col-span-2">
-                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Archetype</div>
-                          <div className="text-sm font-semibold text-txt-primary">{recruit.archetype}</div>
+                        <div className="truncate">
+                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>Arch</span>
+                          <span className="font-semibold text-txt-primary">{recruit.archetype}</span>
                         </div>
                       )}
                       {sizeText && (
-                        <div>
-                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Size</div>
-                          <div className="text-sm font-semibold text-txt-primary tabular">{sizeText}</div>
+                        <div className="truncate">
+                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>Size</span>
+                          <span className="font-semibold text-txt-primary tabular">{sizeText}</span>
                         </div>
                       )}
                       {hometownText && (
-                        <div>
-                          <div className="label-xs text-txt-tertiary mb-0.5" style={{ letterSpacing: '1.5px' }}>Hometown</div>
-                          <div className="text-sm font-semibold text-txt-primary truncate">{hometownText}</div>
+                        <div className="truncate">
+                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>From</span>
+                          <span className="font-semibold text-txt-primary">{hometownText}</span>
                         </div>
                       )}
                     </div>
@@ -1007,7 +998,7 @@ export default function Recruiting() {
 
                   {/* Bottom chips */}
                   {showBottomChips && (
-                    <div className="flex items-center flex-wrap gap-1.5 mt-auto pt-3">
+                    <div className="flex items-center flex-wrap gap-1 mt-auto pt-2">
                       {recruit.devTrait && (
                         <Badge variant="outline" size="sm">
                           {recruit.devTrait}
