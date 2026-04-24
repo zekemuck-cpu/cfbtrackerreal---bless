@@ -49,7 +49,17 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
     title: `${currentYear} All-Conference`,
     structure: `This sheet has ONE TAB PER CONFERENCE. Default layout = 10 tabs with these EXACT names (case-sensitive):
   Big Ten | SEC | Big 12 | ACC | Pac-12 | Mountain West | American | Sun Belt | Conference USA | MAC
-(If the user has custom conferences, tab names may differ — use whatever tab names exist.)
+
+⚠️ If the user's sheet has CUSTOM conferences (different tab names), the
+default list above does NOT apply. In that case:
+  • Read the actual tab names from the user's screenshots (the tab strip
+    at the bottom of Google Sheets, or any header the user includes).
+  • Output ONE block per tab that actually exists, in left-to-right tab
+    order.
+  • Label each block with the tab's EXACT name, copied character-for-
+    character from the screenshot.
+  • NEVER invent a "Big Ten" / "SEC" / etc. block if those tabs don't
+    exist in the user's sheet — pasting into a missing tab fails.
 
 Every tab has the SAME layout: 28 rows × 12 columns organized as three side-by-side team blocks (First-Team, Second-Team, Freshman Team), each block = 4 columns (Position | Player | Team | Class).
 

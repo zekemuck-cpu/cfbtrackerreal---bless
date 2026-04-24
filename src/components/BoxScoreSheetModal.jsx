@@ -272,7 +272,15 @@ Col | Header       | Format / Allowed values
 ----+--------------+----------------------------------------------------------------------
  A  | Team         | STRICT dropdown: EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" (uppercase). No other values.
  B  | Scorer       | Player name — the player who scored (rusher/receiver for TDs, kicker for FGs/PATs, returner for return TDs, "Defense" or defender name for safeties/defensive TDs).
+                  | ⚠️ NAME DISAMBIGUATION: the scoring play belongs to whichever team
+                  |    scored (column A). Resolve the full name against THAT team's
+                  |    roster block — HOME roster for "${homeTeamAbbr}" scores, OPPONENT
+                  |    roster for "${awayTeamAbbr}" scores. If both rosters contain a
+                  |    player matching the same initial + last name, use jersey
+                  |    number or position to pick the right one; otherwise leave
+                  |    Scorer blank (never guess across teams).
  C  | Passer       | QB name who threw the TD pass. BLANK for non-passing scores (rushing TD, FG, safety, return TD, defensive TD).
+                  | Passer is always on the SAME team as Scorer — match to that team's roster.
  D  | Yards        | Integer — yards on the scoring play. FG distance for FGs; TD play yardage for TDs; blank for Safety.
  E  | Score Type   | STRICT dropdown — EXACTLY one of these 9 literal values (case-sensitive):
     |              |   - "Rushing TD"

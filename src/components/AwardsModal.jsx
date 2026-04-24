@@ -62,7 +62,7 @@ CRITICAL RULES — read before anything else
 4. BLANK field for unknown (empty string between the tabs). Never guess, never write "Unknown", never put zero.
 5. Use ONLY the literal dropdown values listed — wrong spelling/casing = Google Sheets rejects it.
 6. Team column (D) uses the ABBREVIATION from the mapping at the bottom of this prompt — NEVER full names or mascots.
-7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 4 tab-separated fields: CoachName<TAB>TeamAbbr<TAB><TAB> — Player in column B, Team in the merged cell anchored at C, then two trailing empty fields for the now-merged-away D and E. Do NOT place the team in the 3rd field — it must be the 2nd field. All other 19 rows output Player<TAB>Position<TAB>Team<TAB>Class.
+7. COACH AWARDS (rows 5 "Bear Bryant Coach of the Year" and 17 "Broyles") have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows only, output exactly 3 tab characters yielding 4 fields: CoachName<TAB>TeamAbbr<TAB><TAB>. Concretely: field1=CoachName, field2=TeamAbbr, field3=EMPTY, field4=EMPTY. All other 19 rows output 3 tab characters yielding 4 fields: Player<TAB>Position<TAB>Team<TAB>Class. NEVER put the team in field 3 on coach rows — that lands inside the merged region and leaves column C blank.
 8. ONE TSV block total — exactly 21 lines. Label it with the paste target.
 
 ═══════════════════════════════════════════════════════════

@@ -255,7 +255,14 @@ Paste at cell C2 of the "Punt Return" tab
   F  PR Touchdowns                  integer
 Each line: 4 tab-separated values (3 tab characters).
 
-NOTE ON PUNT RETURN COLUMN ORDER: on the Punt Return tab, PR Long is column E and PR Touchdowns is column F (opposite of the Kick Return tab). Copy this order literally.
+⚠️ CRITICAL — RETURN TAB COLUMN ORDERS ARE INVERTED FOR TD/LONG.
+
+  Kick Return tab:  [Returns] [Yardage] [TD]   [Long]
+  Punt Return tab:  [Returns] [Yardage] [Long] [TD]
+
+  Double-check before pasting each return tab. Copy the columns in the
+  literal order shown for each tab. Mixing them silently corrupts stats
+  (TDs become Longs and vice versa).
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
