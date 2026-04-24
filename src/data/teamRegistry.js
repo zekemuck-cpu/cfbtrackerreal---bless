@@ -1224,7 +1224,7 @@ export function getTeam(teams, tid) {
  * @param {string} abbr - Team abbreviation (e.g., "BAMA")
  * @returns {number|null} Team ID or null
  */
-export function getTidFromAbbr(abbr) {
+export function getTidFromAbbr(abbr, dynastyTeams = null) {
   if (!abbr && abbr !== 0) return null
   // If already a number (tid), return it directly
   if (typeof abbr === 'number') return abbr
@@ -1232,7 +1232,17 @@ export function getTidFromAbbr(abbr) {
   if (typeof abbr === 'string' && /^\d+$/.test(abbr)) return parseInt(abbr, 10)
   // Otherwise lookup by abbreviation
   if (typeof abbr !== 'string') return null
-  return ABBR_TO_TID[abbr.toUpperCase()] || null
+  const upper = abbr.toUpperCase()
+  // Check dynasty-local teams FIRST — teambuilder teams may share an abbr
+  // with a real FBS team, and within this dynasty the custom team is the
+  // right answer. Without this check, `BAMA` created in teambuilder would
+  // silently resolve to the static Alabama tid.
+  if (dynastyTeams) {
+    for (const [tid, team] of Object.entries(dynastyTeams)) {
+      if (team?.abbr?.toUpperCase() === upper) return Number(tid)
+    }
+  }
+  return ABBR_TO_TID[upper] || null
 }
 
 /**

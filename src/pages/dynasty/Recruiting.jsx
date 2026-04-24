@@ -869,7 +869,7 @@ export default function Recruiting() {
           {allCommitments.map((recruit, index) => {
             const player = findPlayerByName(recruit.name, recruit.recruitYear)
             const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
-            const transferTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam) : null
+            const transferTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsData) : null
             const transferLogo = transferTid ? getTeamLogoByTid(transferTid, teamsData) : null
 
             const hometownText = recruit.hometown
@@ -878,7 +878,7 @@ export default function Recruiting() {
             const sizeText = (recruit.height || recruit.weight)
               ? `${recruit.height || ''}${recruit.height && recruit.weight ? ', ' : ''}${recruit.weight ? `${recruit.weight} lbs` : ''}`
               : null
-            const previousTeamTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam) : null
+            const previousTeamTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsData) : null
             const previousTeamName = previousTeamTid && teamsSource[previousTeamTid]?.name
               ? teamsSource[previousTeamTid].name
               : recruit.previousTeam

@@ -246,15 +246,24 @@ export default function AllAmericans() {
           return true
         }
       }
+      // Teambuilder teams live in dynasty.teams / customTeams — those
+      // lookups must come BEFORE falling back to the static TEAMS table,
+      // otherwise a custom team's players get filtered out.
+      const resolveAbbrForTid = (tid) => {
+        const t = currentDynasty?.teams?.[tid]
+          || currentDynasty?.customTeams?.[tid]
+          || TEAMS[tid]
+        return t?.abbr?.toUpperCase() || null
+      }
       if (p.team) {
         const playerTeamAbbr = typeof p.team === 'number'
-          ? TEAMS[p.team]?.abbr?.toUpperCase()
+          ? resolveAbbrForTid(p.team)
           : p.team.toUpperCase()
         if (playerTeamAbbr === normalizedSchool) return true
       }
       if (p.teamsByYear) {
         for (const tid of Object.values(p.teamsByYear)) {
-          if (typeof tid === 'number' && TEAMS[tid]?.abbr?.toUpperCase() === normalizedSchool) {
+          if (typeof tid === 'number' && resolveAbbrForTid(tid) === normalizedSchool) {
             return true
           }
           if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) {
