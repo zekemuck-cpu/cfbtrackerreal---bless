@@ -1853,7 +1853,7 @@ DATA HYGIENE RULE: If any value in the data above is missing, blank, "undefined"
 
 FORMAT:
 - Start with a strong headline on its own line as a level-1 markdown heading (e.g., "# Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
-- Begin the article body with a dateline: "City, State —" format (e.g., "Madison, WI —" or "Tuscaloosa, AL —"). Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
+- Begin the article body with a dateline in EXACTLY this format: City, State — (two-letter state abbreviation, a space, then a true em-dash "—", then a space, then the first sentence). Do NOT use a period, a hyphen, or an en-dash between the dateline and the first sentence — it MUST be the em-dash character "—". Examples: "Madison, WI — The Badgers..." or "Tuscaloosa, AL — Alabama jumped out...". Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
 - For longer articles with rich data, use level-2 markdown subheadings to break up sections (e.g., "## Early fireworks and a heavyweight feel", "## Fourth-quarter chaos: lead changes and clutch plays")
 - Use **bold** for pivotal moments, decisive plays, and standout stat lines — things you want the reader's eye to land on. Examples: **"Shembo completed 27 of 28 passes for 266 yards and three touchdowns"**, **the 48-yard field goal with 0:03 left**. Don't over-bold — 3 to 8 boldings across the whole article is the sweet spot.
 - Use *italic* sparingly, for a quoted phrase, a team nickname on first mention, or a moment of narrative emphasis. Skip it if you're not sure.
