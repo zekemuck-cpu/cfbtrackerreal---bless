@@ -1827,15 +1827,26 @@ export default function TeamYear() {
   }
 
   const handleRosterSort = (sortKey) => {
-    if (rosterSort === sortKey) {
-      // Toggle direction if same key
-      setRosterSortDir(rosterSortDir === 'asc' ? 'desc' : 'asc')
-    } else {
-      // New sort key - set appropriate default direction
-      setRosterSort(sortKey)
-      // Default to desc for overall and devTrait (best first), asc for class (seniors first)
-      setRosterSortDir((sortKey === 'overall' || sortKey === 'devTrait') ? 'desc' : 'asc')
-    }
+    // IMPORTANT: setSearchParams doesn't compose across two synchronous
+    // calls — the second navigate wins and wipes the first. So update
+    // both sort and dir in ONE setSearchParams call.
+    setSearchParams(prev => {
+      const np = new URLSearchParams(prev)
+      if (rosterSort === sortKey) {
+        // Toggle direction
+        const nextDir = rosterSortDir === 'asc' ? 'desc' : 'asc'
+        if (nextDir === 'desc') np.set('dir', 'desc')
+        else np.delete('dir')
+      } else {
+        // New sort key — set key + appropriate default direction.
+        if (!sortKey || sortKey === 'position') np.delete('sort')
+        else np.set('sort', sortKey)
+        const defaultDesc = sortKey === 'overall' || sortKey === 'devTrait'
+        if (defaultDesc) np.set('dir', 'desc')
+        else np.delete('dir')
+      }
+      return np
+    }, { replace: true })
   }
 
   const handleRosterSave = async (players) => {
