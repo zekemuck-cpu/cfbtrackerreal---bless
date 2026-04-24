@@ -6,10 +6,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
-import { useAuth } from '../../context/AuthContext'
-import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getFullRecapPrompt } from '../../services/geminiService'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
@@ -270,14 +267,8 @@ export default function Game() {
   }
 
 
-  // Recap state — copy-prompt / paste-back flow. No live AI calls.
-  const { user } = useAuth()
-  const { confirm } = useConfirm()
-  const [promptCopied, setPromptCopied] = useState(false)
-  const [copyError, setCopyError] = useState(null)
-  const [isEditingRecap, setIsEditingRecap] = useState(false)
-  const [recapDraft, setRecapDraft] = useState('')
-  const [isSavingRecap, setIsSavingRecap] = useState(false)
+  // The Game page is read-only for recap text — all copy-prompt and paste-back
+  // editing happens in the game editor (GameEdit.jsx).
   const [showHighlightsModal, setShowHighlightsModal] = useState(false)
   const [highlightsStartIndex, setHighlightsStartIndex] = useState(0)
 
@@ -931,68 +922,6 @@ export default function Game() {
     // Regular games: away on left, home on right
     leftTeam = location === 'home' ? 'opponent' : 'user'
     rightTeam = location === 'home' ? 'user' : 'opponent'
-  }
-
-  // Copy the full recap prompt to the clipboard so the user can paste it
-  // into their AI of choice (ChatGPT, Claude, Gemini web, etc.). We never
-  // hit an AI API from this app.
-  const handleCopyPrompt = async () => {
-    setCopyError(null)
-    try {
-      const prompt = getFullRecapPrompt(currentDynasty, game)
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(prompt)
-      } else {
-        const ta = document.createElement('textarea')
-        ta.value = prompt
-        ta.style.position = 'fixed'
-        ta.style.left = '-9999px'
-        document.body.appendChild(ta)
-        ta.focus()
-        ta.select()
-        document.execCommand('copy')
-        ta.remove()
-      }
-      setPromptCopied(true)
-      setTimeout(() => setPromptCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy prompt:', err)
-      setCopyError('Could not copy to clipboard. Try the desktop browser or copy manually.')
-    }
-  }
-
-  // Persist the user-pasted recap text to the game.
-  const handleSaveRecap = async () => {
-    if (isSavingRecap) return
-    setIsSavingRecap(true)
-    try {
-      const existingGames = currentDynasty.games || []
-      const gameIndex = existingGames.findIndex(g => g.id === gameId)
-      if (gameIndex >= 0) {
-        const updatedGames = [...existingGames]
-        updatedGames[gameIndex] = {
-          ...updatedGames[gameIndex],
-          aiRecap: recapDraft,
-          aiRecapGeneratedAt: new Date().toISOString(),
-        }
-        await updateDynasty(currentDynasty.id, { games: updatedGames })
-      }
-      setIsEditingRecap(false)
-    } catch (err) {
-      console.error('Failed to save recap:', err)
-    } finally {
-      setIsSavingRecap(false)
-    }
-  }
-
-  const handleStartEditRecap = () => {
-    setRecapDraft(game.aiRecap || '')
-    setIsEditingRecap(true)
-  }
-
-  const handleCancelEditRecap = () => {
-    setIsEditingRecap(false)
-    setRecapDraft('')
   }
 
   // Get game title
@@ -1753,52 +1682,32 @@ export default function Game() {
               </div>
             )
 
-            // ---- Recap body (reuses the same UI as the Recap tab) ----
+            // Display-only recap. Editing lives in the game editor.
+            const canEditInEditor = !isViewOnly && !!gameId
+            const editorHref = canEditInEditor ? `${pathPrefix}/game/${gameId}/edit` : null
             const RecapCenter = () => {
-              if (isEditingRecap) {
-                return (
-                  <div className="space-y-3">
-                    <textarea
-                      value={recapDraft}
-                      onChange={(e) => setRecapDraft(e.target.value)}
-                      placeholder="Paste the AI-generated recap here..."
-                      className="w-full min-h-[260px] px-3 py-2 bg-surface-2 border border-surface-4 rounded-lg text-txt-primary text-sm leading-relaxed resize-y focus:outline-none focus:border-blue-500"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button variant="primary" size="sm" onClick={handleSaveRecap} disabled={isSavingRecap}>
-                        {isSavingRecap ? 'Saving…' : 'Save recap'}
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={handleCancelEditRecap} disabled={isSavingRecap}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )
-              }
               if (game.aiRecap) {
                 return (
                   <FormattedRecap
                     text={game.aiRecap}
                     className="text-txt-secondary text-sm leading-relaxed"
+                    playerLinks={recapPlayerLinks}
                   />
                 )
               }
               return (
                 <div className="py-6">
                   <p className="text-[13px] leading-relaxed text-txt-secondary max-w-md">
-                    No recap yet. Copy the prompt, run it through your AI of choice, then paste the response back here.
+                    No recap yet for this game.
+                    {editorHref && (
+                      <>
+                        {' '}
+                        <Link to={editorHref} className="text-blue-400 hover:text-blue-300 underline underline-offset-2">
+                          Add one in the game editor
+                        </Link>.
+                      </>
+                    )}
                   </p>
-                  <div className="flex items-center gap-2 flex-wrap mt-4">
-                    <Button variant="primary" size="sm" onClick={handleCopyPrompt}>
-                      {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleStartEditRecap}>
-                      Paste recap
-                    </Button>
-                  </div>
-                  {copyError && (
-                    <p className="mt-3 text-xs text-red-400/80">{copyError}</p>
-                  )}
                 </div>
               )
             }
@@ -1869,30 +1778,9 @@ export default function Game() {
                   )}
                 </aside>
 
-                {/* CENTER: Recap — the narrative, no container box, typography-led */}
+                {/* CENTER: Recap — display only. Edit via the game editor. */}
                 <section className="order-1 lg:order-2 min-w-0">
-                  <SectionHead
-                    actions={
-                      game.aiRecap && !isEditingRecap && (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={handleCopyPrompt}
-                            className="text-[11px] font-medium px-2 py-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
-                          >
-                            {promptCopied ? 'Copied!' : 'Copy prompt'}
-                          </button>
-                          <button
-                            onClick={handleStartEditRecap}
-                            className="text-[11px] font-medium px-2 py-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      )
-                    }
-                  >
-                    Game Recap
-                  </SectionHead>
+                  <SectionHead>Game Recap</SectionHead>
                   <div className="max-w-prose">
                     <RecapCenter />
                   </div>
@@ -2196,77 +2084,31 @@ export default function Game() {
             )
           })()}
 
-          {/* Game Recap Tab — copy prompt → paste into your AI → paste result back */}
-          {activeTab === 'recap' && !isViewOnly && (
-            <div className="p-4 max-h-[500px] overflow-y-auto space-y-4">
-              {/* Action bar */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleCopyPrompt}
-                >
-                  {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-                </Button>
-                {game.aiRecap && !isEditingRecap && (
-                  <Button variant="outline" size="sm" onClick={handleStartEditRecap}>
-                    Edit recap
-                  </Button>
-                )}
-                <span className="text-xs text-txt-muted">
-                  Paste into ChatGPT, Claude, Gemini, or your AI of choice, then paste the response below.
-                </span>
-              </div>
-
-              {copyError && (
-                <div className="p-2 text-xs text-red-400/80 bg-red-900/20 border border-red-700/40 rounded-md">
-                  {copyError}
-                </div>
-              )}
-
-              {isEditingRecap ? (
-                <div className="space-y-3">
-                  <textarea
-                    value={recapDraft}
-                    onChange={(e) => setRecapDraft(e.target.value)}
-                    placeholder="Paste the AI-generated recap here..."
-                    className="w-full min-h-[260px] px-3 py-2 bg-surface-2 border border-surface-4 rounded-lg text-txt-primary text-sm leading-relaxed resize-y focus:outline-none focus:border-blue-500"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button variant="primary" size="sm" onClick={handleSaveRecap} disabled={isSavingRecap}>
-                      {isSavingRecap ? 'Saving…' : 'Save recap'}
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={handleCancelEditRecap} disabled={isSavingRecap}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : game.aiRecap ? (
+          {/* Game Recap Tab — display only. Editing and prompt copying live in
+              the game editor so the viewing surface stays clean. */}
+          {activeTab === 'recap' && (
+            <div className="p-4 max-h-[500px] overflow-y-auto">
+              {game.aiRecap ? (
                 <FormattedRecap
                   text={game.aiRecap}
-                  className="text-txt-secondary text-sm leading-relaxed"
+                  className="text-txt-secondary text-sm leading-relaxed max-w-prose"
                   playerLinks={recapPlayerLinks}
                 />
               ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-txt-muted">
-                    No recap yet. Copy the prompt above, generate the article with your AI, then paste it here.
-                  </p>
-                  <textarea
-                    value={recapDraft}
-                    onChange={(e) => setRecapDraft(e.target.value)}
-                    placeholder="Paste the AI-generated recap here..."
-                    className="w-full min-h-[260px] px-3 py-2 bg-surface-2 border border-surface-4 rounded-lg text-txt-primary text-sm leading-relaxed resize-y focus:outline-none focus:border-blue-500"
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleSaveRecap}
-                    disabled={isSavingRecap || !recapDraft.trim()}
-                  >
-                    {isSavingRecap ? 'Saving…' : 'Save recap'}
-                  </Button>
-                </div>
+                <p className="text-sm text-txt-secondary max-w-md">
+                  No recap yet for this game.
+                  {!isViewOnly && gameId && (
+                    <>
+                      {' '}
+                      <Link
+                        to={`${pathPrefix}/game/${gameId}/edit`}
+                        className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                      >
+                        Add one in the game editor
+                      </Link>.
+                    </>
+                  )}
+                </p>
               )}
             </div>
           )}
