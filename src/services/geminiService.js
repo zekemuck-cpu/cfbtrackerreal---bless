@@ -121,6 +121,45 @@ function getAbbrFromTid(tid) {
 }
 
 /**
+ * Drop noise rows from player performance trends.
+ * "0 car, 0 yds" or "0 rec, 0 yds" lines appear when a player touched the
+ * box score in one category but got nothing in another — they clutter the
+ * prompt without telling the AI anything useful.
+ */
+function isZeroStatRow(stats, category) {
+  if (!stats) return true
+  const n = (v) => Number(v) || 0
+  switch (category) {
+    case 'passing': {
+      const att = n(stats.attempts ?? stats.att)
+      const yds = n(stats.yards ?? stats.yds)
+      return att === 0 && yds === 0
+    }
+    case 'rushing': {
+      const car = n(stats.carries ?? stats.car)
+      const yds = n(stats.yards ?? stats.yds)
+      return car === 0 && yds === 0
+    }
+    case 'receiving': {
+      const rec = n(stats.receptions ?? stats.rec)
+      const yds = n(stats.yards ?? stats.yds)
+      return rec === 0 && yds === 0
+    }
+    case 'defense': {
+      const tkl = n(stats.solo) + n(stats.assists) + n(stats.tackles)
+      const sacks = n(stats.sack)
+      const ints = n(stats.iNT ?? stats.int)
+      const tfl = n(stats.tFL ?? stats.tfl)
+      const ff = n(stats.fF ?? stats.ff)
+      const pd = n(stats.deflections ?? stats.pD ?? stats.pd)
+      return tkl === 0 && sacks === 0 && ints === 0 && tfl === 0 && ff === 0 && pd === 0
+    }
+    default:
+      return false
+  }
+}
+
+/**
  * Treat a game as "not played yet" when both scores are absent or both zero.
  * These phantom entries come from scheduled-but-blank games and would
  * otherwise inflate loss columns and litter the season recap.
@@ -218,16 +257,23 @@ function buildTalentContext(team1Ratings, team2Ratings, team1Name, team2Name, te
  * Get coaching staff for a team/year
  */
 function getCoachingStaff(dynasty, teamAbbr, year) {
-  if (!dynasty?.coachingStaffByTeamYear?.[teamAbbr]) {
-    return null
-  }
-  // Check current year, then walk back to find most recent
-  for (let y = year; y >= (dynasty.startYear || year - 10); y--) {
-    if (dynasty.coachingStaffByTeamYear[teamAbbr][y]) {
-      return dynasty.coachingStaffByTeamYear[teamAbbr][y]
+  if (!dynasty) return null
+  const startYear = dynasty.startYear || year - 10
+  const teamTid = getTidFromAbbr(teamAbbr)
+
+  // Check the modern tid-based byYear structure first, then the legacy abbr
+  // map. Walk backwards up to startYear so carried-over staff still resolves.
+  for (let y = year; y >= startYear; y--) {
+    if (teamTid) {
+      const tidStaff = dynasty.teams?.[teamTid]?.byYear?.[y]?.coachingStaff
+      if (tidStaff) return tidStaff
     }
+    const legacyStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[y]
+    if (legacyStaff) return legacyStaff
   }
-  return null
+
+  // Final fallback: dynasty-level default staff (first-season state)
+  return dynasty.coachingStaff || null
 }
 
 /**
@@ -980,7 +1026,13 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
     }
   }
 
+  // Only emit seasons where we have enough games to represent a plausible
+  // full season. Otherwise a CPU team might show a misleading "1-1 overall"
+  // when really we only tracked one win and one loss in this dynasty's
+  // history — not their actual FBS season record. 6 games is a loose floor.
+  const MIN_GAMES_PER_SEASON = 6
   return Object.values(seasonsByYear)
+    .filter(s => (s.wins + s.losses) >= MIN_GAMES_PER_SEASON)
     .sort((a, b) => b.year - a.year)
     .slice(0, maxSeasons)
 }
@@ -1085,35 +1137,56 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
       .slice(0, 3)
 
     for (const g of prevGames) {
+      // Pre-resolve which tid sits on each box-score side. homeTeamTid is the
+      // source of truth — team1Tid/team2Tid do NOT always map to home/away.
+      let homeSideTid = null
+      let awaySideTid = null
+      if (g.team1Tid && g.team2Tid) {
+        if (g.homeTeamTid) {
+          homeSideTid = g.homeTeamTid
+          awaySideTid = g.homeTeamTid === g.team1Tid ? g.team2Tid : g.team1Tid
+        } else {
+          // Neutral site / no home marker — assume team1=home as a best-effort
+          homeSideTid = g.team1Tid
+          awaySideTid = g.team2Tid
+        }
+      }
+
       for (const gameSide of ['home', 'away']) {
         for (const category of ['passing', 'rushing', 'receiving', 'defense']) {
           const entries = g.boxScore?.[gameSide]?.[category] || []
           const playerEntry = entries.find(p => normalizePlayerName(p.playerName) === normalized)
-          if (playerEntry) {
-            // Opponent is ALWAYS the team on the OTHER side from where the player appeared.
-            // g.opponent is unreliable here because it encodes the user's perspective, not
-            // this specific player's — an opponent-team player would get their own team
-            // name back. Resolve from tid/boxScore side first.
-            const opponentTid = gameSide === 'home' ? g.team2Tid : g.team1Tid
-            const otherSide = gameSide === 'home' ? 'away' : 'home'
-            let opponentName = null
-            if (opponentTid && TEAMS[opponentTid]) {
-              opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
-            }
-            if (!opponentName) {
-              opponentName = g.boxScore?.[otherSide]?.teamName || null
-            }
-            if (!opponentName) {
-              const fallback = gameSide === 'home' ? g.team2 : g.team1
-              opponentName = typeof fallback === 'string' ? fallback : null
-            }
-            recentGames.push({
-              week: g.week,
-              opponent: opponentName,
-              category,
-              stats: playerEntry
-            })
+          if (!playerEntry) continue
+
+          // Opponent is the team on the OTHER box-score side from where the
+          // player appeared. g.opponent is unreliable (it's stored from the
+          // user's perspective, not this player's).
+          const opponentTid = gameSide === 'home' ? awaySideTid : homeSideTid
+          const otherSide = gameSide === 'home' ? 'away' : 'home'
+          let opponentName = null
+          if (opponentTid && TEAMS[opponentTid]) {
+            opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
           }
+          if (!opponentName) {
+            opponentName = g.boxScore?.[otherSide]?.teamName || null
+          }
+          if (!opponentName) {
+            const fallback = gameSide === 'home' ? g.team2 : g.team1
+            opponentName = typeof fallback === 'string' ? fallback : null
+          }
+
+          // Skip zero-stat noise rows (e.g., "0 car, 0 yds") — these appear
+          // when a player is on the box score because they had a catch but
+          // recorded 0 carries, and vice-versa. Keep only categories where
+          // the player actually produced something notable.
+          if (isZeroStatRow(playerEntry, category)) continue
+
+          recentGames.push({
+            week: g.week,
+            opponent: opponentName,
+            category,
+            stats: playerEntry
+          })
         }
       }
     }
@@ -1371,8 +1444,11 @@ export function buildGameRecapContext(dynasty, game) {
     }
   }
 
-  // Get coaching staff for user team (team1 for user games)
+  // Get coaching staff for both teams. The user's side ("team1") is always
+  // the primary focus; grabbing the opponent's head coach too lets the AI
+  // name names instead of writing "the opposing coach" or "Coach's team".
   const team1Staff = !isCPUGame ? getCoachingStaff(dynasty, team1, year) : null
+  const team2Staff = getCoachingStaff(dynasty, team2, year)
 
   // Get full season results before this game (for user games)
   const seasonResults = !isCPUGame
@@ -1538,8 +1614,9 @@ export function buildGameRecapContext(dynasty, game) {
     team1Ratings,
     team2Ratings,
 
-    // NEW: Coaching staff
+    // NEW: Coaching staff — both sides so the AI can name the opponent's HC too
     team1Staff,
+    team2Staff,
 
     // NEW: Full season results before this game
     seasonResults,
@@ -1947,6 +2024,34 @@ Passing (CMP-ATT-YDS):  ${home.completions ?? '-'}-${home.passAttempts ?? '-'}-$
 Turnovers:              ${home.turnovers ?? '-'}         ${away.turnovers ?? '-'}
 3rd Down:               ${home['3rdDownConv'] ?? '-'}/${home['3rdDownAtt'] ?? '-'}       ${away['3rdDownConv'] ?? '-'}/${away['3rdDownAtt'] ?? '-'}
 Possession:             ${home.possMinutes ?? ''}:${String(home.possSeconds ?? '').padStart(2, '0')}      ${away.possMinutes ?? ''}:${String(away.possSeconds ?? '').padStart(2, '0')}`
+  }
+
+  // Add coaching staff so the AI can name coaches instead of writing "Coach's team"
+  const team1HC = ctx.team1Staff?.hcName?.trim()
+  const team1OC = ctx.team1Staff?.ocName?.trim()
+  const team1DC = ctx.team1Staff?.dcName?.trim()
+  const team2HC = ctx.team2Staff?.hcName?.trim()
+  const team2OC = ctx.team2Staff?.ocName?.trim()
+  const team2DC = ctx.team2Staff?.dcName?.trim()
+  const anyCoach = team1HC || team1OC || team1DC || team2HC || team2OC || team2DC
+  if (anyCoach) {
+    prompt += `\n
+===========================================
+COACHING STAFF
+===========================================`
+    if (team1HC || team1OC || team1DC) {
+      prompt += `\n${ctx.team1FullName}:`
+      if (team1HC) prompt += `\n  Head Coach: ${team1HC}`
+      if (team1OC) prompt += `\n  Offensive Coordinator: ${team1OC}`
+      if (team1DC) prompt += `\n  Defensive Coordinator: ${team1DC}`
+    }
+    if (team2HC || team2OC || team2DC) {
+      prompt += `\n${ctx.team2FullName}:`
+      if (team2HC) prompt += `\n  Head Coach: ${team2HC}`
+      if (team2OC) prompt += `\n  Offensive Coordinator: ${team2OC}`
+      if (team2DC) prompt += `\n  Defensive Coordinator: ${team2DC}`
+    }
+    prompt += `\n\nUse coach names where natural (e.g., "[HC] watched his team..."). Never write the literal word "Coach" as a stand-in for a name — if you don't have a coach's name for a reference, just use the team name or a pronoun.`
   }
 
   // Add talent/roster context based on team ratings
