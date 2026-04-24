@@ -102,13 +102,6 @@ export default function InlineScoringHighlights({
           </div>
         )}
 
-        {/* Timer pill */}
-        {isPlaying && (
-          <div className="absolute top-2 left-2 bg-black/70 backdrop-blur px-2 py-0.5 rounded-full z-10 pointer-events-none">
-            <span className="text-white text-[10px] font-mono tabular-nums">{timeRemaining}s</span>
-          </div>
-        )}
-
         {/* Expand button (top-right) */}
         {onExpand && (
           <button

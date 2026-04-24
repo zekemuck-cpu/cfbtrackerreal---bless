@@ -5,31 +5,82 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
+// When a YouTube link arrives with a start timestamp but no end time, we
+// auto-clip the embed to this many seconds so the video actually stops at
+// the end of the play instead of rolling forward into the next snap. Stays
+// in sync with PLAY_DURATION so the visible advance and the embed end
+// coincide. Bump them together if you ever change the clip length.
+const YOUTUBE_AUTO_CLIP_SECONDS = PLAY_DURATION
+
+// Build a YouTube embed with our standard params. Passing an end time makes
+// the player actually stop at that second — no more next-play overlap.
+function buildYouTubeEmbed(videoId, startSec, endSec) {
+  const params = ['autoplay=1', 'mute=1', 'rel=0', 'modestbranding=1']
+  if (startSec != null) params.push(`start=${startSec}`)
+  if (endSec != null) params.push(`end=${endSec}`)
+  return `https://www.youtube-nocookie.com/embed/${videoId}?${params.join('&')}`
+}
+
 // Extract video embed URL from various platforms.
 // Exported so the inline highlights widget can reuse the same parsing.
 export function getEmbedUrl(url) {
   if (!url) return null
 
+  // youtubetrimmer.com share links carry both start and end explicitly — use
+  // them verbatim so a user who actually clipped the play gets exact bounds.
+  const trimmerMatch = url.match(/youtubetrimmer\.com\/view\/?\?([^#]+)/)
+  if (trimmerMatch) {
+    const qs = new URLSearchParams(trimmerMatch[1])
+    const v = qs.get('v')
+    if (v && /^[a-zA-Z0-9_-]+$/.test(v)) {
+      const s = parseInt(qs.get('start'), 10)
+      const e = parseInt(qs.get('end'), 10)
+      return buildYouTubeEmbed(
+        v,
+        Number.isFinite(s) ? s : null,
+        Number.isFinite(e) ? e : null,
+      )
+    }
+  }
+
   // YouTube: youtu.be/VIDEO_ID?t=SECONDS or youtube.com/watch?v=VIDEO_ID&t=SECONDS
   const youtubeShortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)(?:\?t=(\d+))?/)
   if (youtubeShortMatch) {
-    const startTime = youtubeShortMatch[2]
-    return startTime
-      ? `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1&start=${startTime}`
-      : `https://www.youtube-nocookie.com/embed/${youtubeShortMatch[1]}?autoplay=1&mute=1`
+    const videoId = youtubeShortMatch[1]
+    const startTime = youtubeShortMatch[2] ? parseInt(youtubeShortMatch[2], 10) : null
+    const endTime = startTime != null ? startTime + YOUTUBE_AUTO_CLIP_SECONDS : null
+    return buildYouTubeEmbed(videoId, startTime, endTime)
   }
 
   const youtubeLongMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)(?:.*[&?]t=(\d+))?/)
   if (youtubeLongMatch) {
-    const startTime = youtubeLongMatch[2]
-    return startTime
-      ? `https://www.youtube-nocookie.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1&start=${startTime}`
-      : `https://www.youtube-nocookie.com/embed/${youtubeLongMatch[1]}?autoplay=1&mute=1`
+    const videoId = youtubeLongMatch[1]
+    const startTime = youtubeLongMatch[2] ? parseInt(youtubeLongMatch[2], 10) : null
+    const endTime = startTime != null ? startTime + YOUTUBE_AUTO_CLIP_SECONDS : null
+    return buildYouTubeEmbed(videoId, startTime, endTime)
   }
 
   const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/)
   if (youtubeEmbedMatch) {
-    return url.includes('autoplay') ? url : `${url}${url.includes('?') ? '&' : '?'}autoplay=1`
+    // Respect an end time the pasted URL already specifies. Otherwise, if
+    // there's a start but no end, clip to our standard duration.
+    try {
+      const u = new URL(url)
+      const hasEnd = u.searchParams.has('end')
+      const startParam = u.searchParams.get('start') || u.searchParams.get('t')
+      if (!u.searchParams.has('autoplay')) u.searchParams.set('autoplay', '1')
+      if (!u.searchParams.has('mute')) u.searchParams.set('mute', '1')
+      if (!u.searchParams.has('rel')) u.searchParams.set('rel', '0')
+      if (!hasEnd && startParam != null) {
+        const startSec = parseInt(startParam, 10)
+        if (Number.isFinite(startSec)) {
+          u.searchParams.set('end', String(startSec + YOUTUBE_AUTO_CLIP_SECONDS))
+        }
+      }
+      return u.toString()
+    } catch {
+      return url.includes('autoplay') ? url : `${url}${url.includes('?') ? '&' : '?'}autoplay=1`
+    }
   }
 
   // Twitch clips: clips.twitch.tv/CLIP_ID or twitch.tv/*/clip/CLIP_ID
@@ -487,12 +538,6 @@ export default function ScoringHighlightsModal({
             </div>
           )}
 
-          {/* Timer pill */}
-          {isPlaying && (
-            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur px-2.5 py-0.5 rounded-full z-10 pointer-events-none">
-              <span className="text-white text-xs font-mono tabular-nums">{timeRemaining}s</span>
-            </div>
-          )}
         </div>
 
         {/* Progress bar between video and footer */}
