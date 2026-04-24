@@ -1845,10 +1845,11 @@ export default function Player() {
 
         return (
           <div className="flex flex-col gap-6">
-            {/* 3-column grid: timeline | stats (+ highlights on top) | game log */}
+            {/* 3-column grid: timeline | stats + video | game log.
+                Mobile stack order (top→bottom): Stats, Game Log, Video, Timeline. */}
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,340px)] gap-y-6 lg:gap-x-6 xl:gap-x-8">
               {/* LEFT — Timeline (condensed, with connecting line) */}
-              <div className="card overflow-hidden">
+              <div className="card overflow-hidden order-4 lg:order-none lg:col-start-1 lg:row-start-1">
                 {sectionHeader('Timeline')}
                 {timelineYears.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
@@ -1955,9 +1956,8 @@ export default function Player() {
                 </button>
               </div>
 
-              {/* MIDDLE — Career Stats + Scoring highlights */}
-              <div className="flex flex-col gap-6 min-w-0">
-                <div className="card overflow-hidden">
+              {/* MIDDLE TOP — Career Stats */}
+              <div className="card overflow-hidden min-w-0 order-1 lg:order-none lg:col-start-2 lg:row-start-1">
                 {(() => {
                   const categories = [
                     { key: 'passing', label: 'Passing', has: totals.hasPassing,
@@ -2103,8 +2103,11 @@ export default function Player() {
                 >
                   Full Stats →
                 </button>
-                </div>
-                {allPlayerScoringPlays.length > 0 && (
+              </div>
+
+              {/* MIDDLE BOTTOM — Scoring highlights */}
+              {allPlayerScoringPlays.length > 0 && (
+                <div className="min-w-0 order-3 lg:order-none lg:col-start-2 lg:row-start-2">
                   <InlineScoringHighlights
                     scoringPlays={allPlayerScoringPlays}
                     startIndex={randomScoringStartIndex}
@@ -2117,11 +2120,11 @@ export default function Player() {
                       setShowScoringHighlightsModal(true)
                     }}
                   />
-                )}
-              </div>
+                </div>
+              )}
 
               {/* RIGHT — Recent Game Log */}
-              <div className="card overflow-hidden">
+              <div className="card overflow-hidden order-2 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2">
                 {sectionHeader('Recent Games')}
                 {recentGames.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No game log data</div>
