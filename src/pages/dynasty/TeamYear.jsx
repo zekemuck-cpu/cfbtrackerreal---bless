@@ -2927,6 +2927,82 @@ export default function TeamYear() {
             )
           })()}
 
+          {/* Fallback: no stat leaders yet (pre-season, or a season with no
+              box scores entered) — surface a top-rated slice of the roster so
+              the rail still has useful content instead of sitting empty. */}
+          {!(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && sortedTeamPlayers.length > 0 && (() => {
+            const topRated = [...sortedTeamPlayers]
+              .sort((a, b) => (getPlayerOverallForYear(b, selectedYear) || 0) - (getPlayerOverallForYear(a, selectedYear) || 0))
+              .slice(0, 8)
+            return (
+              <div>
+                <div className="py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="w-[3px] h-5 inline-block" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
+                    <span className="text-xs font-black uppercase tracking-[0.2em] text-txt-secondary">Top Rated</span>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('roster')}
+                    className="text-xs font-semibold uppercase tracking-wider transition-colors hover:opacity-100"
+                    style={{ color: teamInfo.textColor, opacity: 0.7 }}
+                  >
+                    Full Roster →
+                  </button>
+                </div>
+                <ul
+                  className="stagger-reveal"
+                  style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}
+                >
+                  {topRated.map((p, idx) => {
+                    const ovr = getPlayerOverallForYear(p, selectedYear)
+                    const pos = getPlayerPositionForYear(p, selectedYear)
+                    const cls = p.classByYear?.[selectedYear] || p.classByYear?.[String(selectedYear)] || p.year || ''
+                    const devColor = getDevColor(p.devTrait)
+                    return (
+                      <li
+                        key={p.pid}
+                        style={idx > 0 ? { borderTop: `1px solid ${accentColor}12` } : undefined}
+                      >
+                        <Link
+                          to={`${pathPrefix}/player/${p.pid}`}
+                          className="group flex items-center gap-3 py-2.5 px-2 transition-colors hover:bg-white/[0.02]"
+                        >
+                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{ border: `2px solid ${teamInfo.backgroundColor}40` }}>
+                            {p.pictureUrl ? (
+                              <img src={p.pictureUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: `${accentColor}15` }}>
+                                <span className="text-sm font-bold" style={{ color: accentColor }}>{p.name?.charAt(0) || '?'}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13px] font-semibold truncate group-hover:opacity-80 transition-opacity" style={{ color: accentColor }}>
+                              {p.name}
+                            </div>
+                            <div className="text-[10px] tabular-nums mt-0.5 truncate flex items-center gap-1.5" style={{ color: accentColorMuted }}>
+                              <span>{pos || '—'}</span>
+                              {cls && (<><span className="opacity-60">·</span><span>{cls}</span></>)}
+                              {p.devTrait && p.devTrait !== 'Normal' && (
+                                <><span className="opacity-60">·</span><span style={{ color: devColor }}>{p.devTrait}</span></>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <div className="font-display font-black tabular-nums leading-none text-txt-primary" style={{ fontSize: '1.25rem' }}>
+                              {ovr ?? '—'}
+                            </div>
+                            <div className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: accentColorMuted }}>OVR</div>
+                          </div>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })()}
+
           </aside>
 
           {/* MIDDLE: Previous + Next Game (editorial scorebug) */}
