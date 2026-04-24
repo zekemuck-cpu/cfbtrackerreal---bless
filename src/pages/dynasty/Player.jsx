@@ -1845,13 +1845,16 @@ export default function Player() {
 
         return (
           <div className="flex flex-col gap-6">
-            {/* 3-column grid: timeline | stats + video | game log.
-                Mobile stack order (top→bottom): Stats, Game Log, Video, Timeline.
-                items-start prevents cards from stretching to row height and
-                leaving dead space when their content is shorter. */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,340px)] lg:items-start gap-y-6 lg:gap-x-6 xl:gap-x-8">
+            {/* 3-column layout: timeline | stats + video | game log.
+                Flex lets each column size to its own content — no phantom
+                row stretching when the game log is much taller than the
+                other columns. Middle column uses display:contents on mobile
+                so Stats / Video can be reordered individually relative to
+                the other top-level items; on lg it becomes a proper flex
+                column that keeps the video directly below stats. */}
+            <div className="flex flex-col lg:flex-row lg:items-start gap-6 lg:gap-6 xl:gap-8">
               {/* LEFT — Timeline (condensed, with connecting line) */}
-              <div className="card overflow-hidden order-4 lg:order-none lg:col-start-1 lg:row-start-1">
+              <div className="card overflow-hidden order-4 lg:order-none w-full lg:w-[280px] lg:flex-shrink-0">
                 {sectionHeader('Timeline')}
                 {timelineYears.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
@@ -1958,8 +1961,13 @@ export default function Player() {
                 </button>
               </div>
 
-              {/* MIDDLE TOP — Career Stats */}
-              <div className="card overflow-hidden min-w-0 order-1 lg:order-none lg:col-start-2 lg:row-start-1">
+              {/* MIDDLE (col 2 on lg) — Career Stats + Video stacked via
+                  flex column on desktop; on mobile they split out via the
+                  `contents` trick so order classes on each child control
+                  their individual position in the mobile stack. */}
+              <div className="contents lg:flex lg:flex-col lg:flex-1 lg:min-w-0 lg:gap-6 lg:order-none">
+              {/* Career Stats */}
+              <div className="card overflow-hidden min-w-0 order-1 lg:order-none">
                 {(() => {
                   const categories = [
                     { key: 'passing', label: 'Passing', has: totals.hasPassing,
@@ -2107,11 +2115,11 @@ export default function Player() {
                 </button>
               </div>
 
-              {/* MIDDLE BOTTOM — Scoring highlights. Expand opens the full
-                  modal seeked forward by the seconds elapsed in the inline
-                  clip so playback "resumes" instead of restarting. */}
+              {/* Scoring highlights. Expand opens the full modal seeked
+                  forward by the seconds elapsed in the inline clip so
+                  playback "resumes" instead of restarting. */}
               {allPlayerScoringPlays.length > 0 && (
-                <div className="min-w-0 order-3 lg:order-none lg:col-start-2 lg:row-start-2">
+                <div className="min-w-0 order-3 lg:order-none">
                   <InlineScoringHighlights
                     scoringPlays={allPlayerScoringPlays}
                     startIndex={randomScoringStartIndex}
@@ -2127,9 +2135,10 @@ export default function Player() {
                   />
                 </div>
               )}
+              </div>
 
               {/* RIGHT — Recent Game Log */}
-              <div className="card overflow-hidden order-2 lg:order-none lg:col-start-3 lg:row-start-1 lg:row-span-2">
+              <div className="card overflow-hidden order-2 lg:order-none w-full lg:w-[340px] lg:flex-shrink-0">
                 {sectionHeader('Recent Games')}
                 {recentGames.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No game log data</div>
