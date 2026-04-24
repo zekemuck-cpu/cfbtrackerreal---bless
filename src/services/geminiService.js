@@ -114,9 +114,11 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
 /**
  * Get abbreviation from tid using TEAMS registry
  */
-function getAbbrFromTid(tid) {
+function getAbbrFromTid(tid, dynasty = null) {
   if (!tid) return null
-  const teamData = TEAMS[tid]
+  // Dynasty-local teams win over the static TEAMS map so teambuilder
+  // replacements surface their custom abbr.
+  const teamData = dynasty?.teams?.[tid] || dynasty?.customTeams?.[tid] || TEAMS[tid]
   return teamData?.abbr || null
 }
 

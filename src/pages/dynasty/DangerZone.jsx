@@ -1760,7 +1760,9 @@ export default function DangerZone() {
   // Helper to get team abbreviation from tid
   const getTeamAbbrFromTid = (tid) => {
     if (typeof tid === 'string') return tid
-    const team = TEAMS[tid] || currentDynasty?.teams?.[tid]
+    // Dynasty teams FIRST so teambuilder-renamed teams win over stale
+    // static data.
+    const team = currentDynasty?.teams?.[tid] || currentDynasty?.customTeams?.[tid] || TEAMS[tid]
     return team?.abbr || `Team ${tid}`
   }
 

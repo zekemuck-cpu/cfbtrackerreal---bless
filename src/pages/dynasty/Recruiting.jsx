@@ -355,13 +355,17 @@ export default function Recruiting() {
 
     const wasPlayerOnTeam = (player, team, year) => {
       if (!player || !team) return false
-      const teamTid = typeof team === 'number' ? team : getTidFromAbbr(team)
-      const teamAbbrLocal = typeof team === 'string' ? team : TEAMS[team]?.abbr
+      const teamTid = typeof team === 'number' ? team : getTidFromAbbr(team, currentDynasty)
+      const teamAbbrLocal = typeof team === 'string'
+        ? team
+        : (currentDynasty?.teams?.[team]?.abbr
+           || currentDynasty?.customTeams?.[team]?.abbr
+           || TEAMS[team]?.abbr)
 
       const matchesTeam = (value) => {
         if (!value) return false
         if (typeof value === 'number') return value === teamTid
-        return value === teamAbbrLocal || getTidFromAbbr(value) === teamTid
+        return value === teamAbbrLocal || getTidFromAbbr(value, currentDynasty) === teamTid
       }
 
       if (year && player.teamsByYear?.[year] && matchesTeam(player.teamsByYear[year])) return true
@@ -673,7 +677,7 @@ export default function Recruiting() {
     const matchesTeam = (value) => {
       if (!value) return false
       if (typeof value === 'number') return value === selectedTid
-      return value === teamAbbr || getTidFromAbbr(value) === selectedTid
+      return value === teamAbbr || getTidFromAbbr(value, currentDynasty) === selectedTid
     }
 
     return currentDynasty.players?.find(p => {

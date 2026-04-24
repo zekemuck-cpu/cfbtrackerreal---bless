@@ -5078,8 +5078,8 @@ export function DynastyProvider({ children }) {
       // Convert legacy user game format to unified format
       const userTeamAbbr = cleanGameData.userTeam || currentUserTeam
       const opponentAbbr = cleanGameData.opponent
-      const userTid = getTidFromAbbr(userTeamAbbr) || currentUserTid
-      const opponentTid = getTidFromAbbr(opponentAbbr)
+      const userTid = getTidFromAbbr(userTeamAbbr, dynasty) || currentUserTid
+      const opponentTid = getTidFromAbbr(opponentAbbr, dynasty)
 
       // Determine scores from legacy fields
       const userScore = cleanGameData.team1Score ?? parseInt(cleanGameData.teamScore) ?? null
@@ -5668,8 +5668,8 @@ export function DynastyProvider({ children }) {
       })
       .map(bowl => {
         // Get tids (support both input formats)
-        const team1Tid = bowl.team1Tid || getTidFromAbbr(bowl.team1)
-        const team2Tid = bowl.team2Tid || getTidFromAbbr(bowl.team2)
+        const team1Tid = bowl.team1Tid || getTidFromAbbr(bowl.team1, dynasty)
+        const team2Tid = bowl.team2Tid || getTidFromAbbr(bowl.team2, dynasty)
 
         // Determine scores and winner
         const team1Score = parseInt(bowl.team1Score)
@@ -5964,7 +5964,7 @@ export function DynastyProvider({ children }) {
       // Unified format: check if user's tid matches
       if (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) return true
       // Legacy format: check userTeam field
-      if (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear) return true
+      if (g.userTeam && getTidFromAbbr(g.userTeam, dynasty) === userTidForYear) return true
       return false
     })
     console.log('[saveCPUCC] User CC game found:', userCCGame)
@@ -5990,7 +5990,7 @@ export function DynastyProvider({ children }) {
       if (shouldPreserveUserCCGame) {
         // Check if this is user's game (unified or legacy format)
         const isUserGame = (g.team1Tid === userTidForYear || g.team2Tid === userTidForYear) ||
-                          (g.userTeam && getTidFromAbbr(g.userTeam) === userTidForYear)
+                          (g.userTeam && getTidFromAbbr(g.userTeam, dynasty) === userTidForYear)
         if (isUserGame) {
           console.log('[saveCPUCC] Preserving user CC game')
           return true
@@ -6066,11 +6066,11 @@ export function DynastyProvider({ children }) {
           if (existingIdx >= 0) {
             // Check if this game involves user's team (unified or legacy format)
             const thisIsUserGame = (game.team1Tid === userTidForYear || game.team2Tid === userTidForYear) ||
-                                  (game.userTeam && getTidFromAbbr(game.userTeam) === userTidForYear)
+                                  (game.userTeam && getTidFromAbbr(game.userTeam, dynasty) === userTidForYear)
             const existingIsUserGame = (deduplicatedGames[existingIdx].team1Tid === userTidForYear ||
                                        deduplicatedGames[existingIdx].team2Tid === userTidForYear) ||
                                       (deduplicatedGames[existingIdx].userTeam &&
-                                       getTidFromAbbr(deduplicatedGames[existingIdx].userTeam) === userTidForYear)
+                                       getTidFromAbbr(deduplicatedGames[existingIdx].userTeam, dynasty) === userTidForYear)
 
             if (thisIsUserGame && !existingIsUserGame) {
               console.log('[saveCPUCC] Replacing CPU CC game with user CC game for:', key)
@@ -7074,7 +7074,7 @@ export function DynastyProvider({ children }) {
       if (!value || !teamTid) return false
       if (typeof value === 'number') return value === teamTid
       // Legacy: if stored as abbr string, convert to tid and compare
-      return getTidFromAbbr(value) === teamTid
+      return getTidFromAbbr(value, dynasty) === teamTid
     }
 
     // Process each player
@@ -9234,7 +9234,7 @@ export function DynastyProvider({ children }) {
       // Get player's team as tid
       let playerTeamTid = playerToDelete.team
       if (typeof playerTeamTid === 'string') {
-        playerTeamTid = getTidFromAbbr(playerTeamTid) || teamTid
+        playerTeamTid = getTidFromAbbr(playerTeamTid, dynasty) || teamTid
       }
       if (!playerTeamTid) {
         playerTeamTid = teamTid
@@ -9952,7 +9952,7 @@ export function DynastyProvider({ children }) {
         const honorYear = update.entry?.year
         if (honorYear) {
           if (update.addTeam) {
-            const teamTid = getTidFromAbbr(update.addTeam) || update.addTeam
+            const teamTid = getTidFromAbbr(update.addTeam, dynasty) || update.addTeam
             updatedPlayer.teamsByYear[honorYear] = teamTid
           }
           if (update.entry?.class) {
@@ -10016,7 +10016,7 @@ export function DynastyProvider({ children }) {
       // Get the year from the entry for teamsByYear
       const entryYear = newPlayer.entry?.year || dynasty.currentYear
       // Convert team abbreviation to tid for proper storage
-      const teamTid = getTidFromAbbr(newPlayer.team) || newPlayer.team
+      const teamTid = getTidFromAbbr(newPlayer.team, dynasty) || newPlayer.team
       const normalizedName = newPlayer.name?.toLowerCase().trim()
 
       // Check if we already created this player in this batch (same name + team)

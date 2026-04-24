@@ -2460,8 +2460,8 @@ export default function Player() {
             })
           }
           if (entry.type === 'portal_in' && entry.to) {
-            const toTid = typeof entry.to === 'number' ? entry.to : getTidFromAbbr(entry.to)
-            if (Array.from(teamsSeenBefore).some(t => (typeof t === 'number' ? t : getTidFromAbbr(t)) === toTid)) {
+            const toTid = typeof entry.to === 'number' ? entry.to : getTidFromAbbr(entry.to, dynasty)
+            if (Array.from(teamsSeenBefore).some(t => (typeof t === 'number' ? t : getTidFromAbbr(t, dynasty)) === toTid)) {
               entry.isRecommit = true
             }
           }

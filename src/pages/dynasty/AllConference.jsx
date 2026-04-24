@@ -275,15 +275,25 @@ export default function AllConference() {
           return true
         }
       }
+      // Dynasty-local teams (including teambuilder replacements) must be
+      // resolved before the static TEAMS table — same rule as
+      // AllAmericans: a custom team can share an abbr with a real FBS
+      // team and we want the dynasty's version to win.
+      const resolveAbbrForTid = (tid) => {
+        const t = currentDynasty?.teams?.[tid]
+          || currentDynasty?.customTeams?.[tid]
+          || TEAMS[tid]
+        return t?.abbr?.toUpperCase() || null
+      }
       if (p.team) {
         const playerTeamAbbr = typeof p.team === 'number'
-          ? TEAMS[p.team]?.abbr?.toUpperCase()
+          ? resolveAbbrForTid(p.team)
           : p.team.toUpperCase()
         if (playerTeamAbbr === normalizedSchool) return true
       }
       if (p.teamsByYear) {
         for (const tid of Object.values(p.teamsByYear)) {
-          if (typeof tid === 'number' && TEAMS[tid]?.abbr?.toUpperCase() === normalizedSchool) {
+          if (typeof tid === 'number' && resolveAbbrForTid(tid) === normalizedSchool) {
             return true
           }
           if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) {
