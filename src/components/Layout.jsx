@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.23.0031'
+const APP_VERSION = '2026.04.23.0032'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -575,25 +575,25 @@ export default function Layout({ children }) {
             <div className="flex-1 flex items-center justify-center gap-2 sm:gap-3 min-w-0">
               <Link
                 to="/"
-                className="flex-shrink-0 relative inline-flex items-center"
+                className="flex-shrink-0 relative inline-block"
                 aria-label="Dynasty Tracker — beta"
               >
                 <img src={logo} alt="Dynasty Tracker" className="h-8 sm:h-10 object-contain" />
-                {/* BETA badge — pill shape, subtle gradient, pulsing dot */}
+                {/* BETA tag — sits on top of the logo's upper-right corner
+                    like a sticker. Slight rotation gives it "tag" energy. */}
                 <span
                   aria-hidden="true"
-                  className="ml-1.5 sm:ml-2 inline-flex items-center gap-1 px-1.5 sm:px-2 py-[2px] sm:py-[3px] rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-[0.15em] sm:tracking-[0.18em] text-white shadow-sm border border-white/10"
+                  className="absolute -top-1 -right-2 sm:-top-1.5 sm:-right-3 px-1.5 py-[1px] sm:px-2 sm:py-[2px] rounded-[3px] text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] text-white shadow-md pointer-events-none select-none"
                   style={{
                     fontFamily: "'Inter', system-ui, sans-serif",
                     background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 55%, #ef4444 100%)',
-                    textShadow: '0 1px 1px rgba(0,0,0,0.25)',
-                    letterSpacing: '0.15em',
+                    textShadow: '0 1px 1px rgba(0,0,0,0.35)',
+                    boxShadow: '0 2px 6px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    transform: 'rotate(8deg)',
+                    animation: 'beta-pulse-wiggle 3.2s ease-in-out infinite',
                   }}
                 >
-                  <span
-                    className="inline-block w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white"
-                    style={{ animation: 'beta-pulse 1.8s ease-in-out infinite' }}
-                  />
                   Beta
                 </span>
               </Link>
