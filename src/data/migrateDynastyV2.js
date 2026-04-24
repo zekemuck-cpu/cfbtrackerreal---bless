@@ -25,14 +25,45 @@ function normalizeYearKeyedObject(obj, valueCoercer) {
   return out
 }
 
-// Return true ONLY if the dynasty has real legacy debt the user should see a
-// modal about. A brand-new or already-clean dynasty with a missing schema
-// flag is NOT a migration — it gets silently stamped by stampV2IfClean.
+// Return true if the dynasty has any legacy debt the user should migrate.
+// The detector is intentionally broad: it's better to prompt a user to
+// migrate once too often than to leave a dynasty with drifting state
+// that can reintroduce roster bugs.
+//
+// Triggers migration when ANY player has:
+//   - legacy movements[] array with entries
+//   - teamHistory[] array (stint-based)
+//   - _legacy_teamsByYear object
+//   - entryYear / entryClass legacy fields
+//   - leftTeam / leavingYear / transferredTo / pendingDeparture
+//   - legacy top-level teams[] abbr array
+//   - string-keyed year maps (not Number)
+//   - empty-string team values in teamsByYear
+//   - honor-only ghost records (no position, no overall, no stats)
+//   - top-level player.year / .team / .overall / .devTrait out of sync
+//     with the canonical per-year map for the dynasty's current year
 export function needsV2Migration(dynasty) {
   if (!dynasty) return false
   const players = dynasty.players || []
+  const currentYear = Number(dynasty.currentYear)
+  const hasCurrentYear = Number.isFinite(currentYear)
+
   for (const p of players) {
+    // Legacy arrays / objects that v2 doesn't use.
     if (Array.isArray(p.movements) && p.movements.length) return true
+    if (Array.isArray(p.teamHistory) && p.teamHistory.length) return true
+    if (Array.isArray(p.teams) && p.teams.length) return true
+    if (p._legacy_teamsByYear && Object.keys(p._legacy_teamsByYear).length) return true
+
+    // Legacy scalar fields that v2 replaces entirely.
+    if (p.entryYear != null) return true
+    if (p.entryClass) return true
+    if (p.leftTeam || p.leftYear || p.leftReason) return true
+    if (p.leavingYear || p.leavingReason) return true
+    if (p.transferredTo) return true
+    if (p.pendingDeparture) return true
+
+    // Malformed per-year maps.
     if (p.teamsByYear) {
       for (const [k, v] of Object.entries(p.teamsByYear)) {
         if (isNaN(Number(k))) return true
@@ -44,10 +75,40 @@ export function needsV2Migration(dynasty) {
         if (isNaN(Number(k))) return true
       }
     }
+    if (p.overallByYear) {
+      for (const k of Object.keys(p.overallByYear)) {
+        if (isNaN(Number(k))) return true
+      }
+    }
+    if (p.devTraitByYear) {
+      for (const k of Object.keys(p.devTraitByYear)) {
+        if (isNaN(Number(k))) return true
+      }
+    }
+    if (p.movementByYear) {
+      for (const k of Object.keys(p.movementByYear)) {
+        if (isNaN(Number(k))) return true
+      }
+    }
+
     // Honor-only ghost pattern — worth migrating to clean up.
     const hasStats = p.statsByYear && Object.keys(p.statsByYear).length > 0
     const hasAccolades = p.accolades && Object.keys(p.accolades).length > 0
     if (!p.position && p.overall == null && !hasStats && hasAccolades) return true
+
+    // Drift between top-level mirrors and canonical per-year maps.
+    // If the player has a value for the current year in classByYear and
+    // player.year disagrees, they're out of sync and need resyncing.
+    if (hasCurrentYear) {
+      const curClass = p.classByYear?.[currentYear] ?? p.classByYear?.[String(currentYear)]
+      if (curClass && p.year && String(curClass) !== String(p.year)) return true
+      const curTid = p.teamsByYear?.[currentYear] ?? p.teamsByYear?.[String(currentYear)]
+      if (curTid != null && p.team != null && Number(curTid) !== Number(p.team)) return true
+      const curOvr = p.overallByYear?.[currentYear] ?? p.overallByYear?.[String(currentYear)]
+      if (curOvr != null && p.overall != null && Number(curOvr) !== Number(p.overall)) return true
+      const curDev = p.devTraitByYear?.[currentYear] ?? p.devTraitByYear?.[String(currentYear)]
+      if (curDev && p.devTrait && String(curDev) !== String(p.devTrait)) return true
+    }
   }
   return false
 }
