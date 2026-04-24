@@ -177,9 +177,9 @@ export function SheetErrorBanner({ teamColors, onReload, onOpenNewTab, onRefresh
           />
         </svg>
         <div className="flex-1">
-          <h4 className="font-semibold text-amber-800 mb-1">Session Issue Detected</h4>
+          <h4 className="font-semibold text-amber-800 mb-1">Session expired</h4>
           <p className="text-sm text-amber-700 mb-3">
-            Google detected a session mismatch. This usually happens when you've signed into a different Google account in another tab.
+            Your Google sign-in has expired — this happens every so often. Refresh the session to keep going.
           </p>
           {onRefreshSession && (
             <button

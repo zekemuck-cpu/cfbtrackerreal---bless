@@ -1656,7 +1656,7 @@ export default function Game() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-semibold text-txt-primary truncate leading-tight">{player}</div>
-                    <div className="text-[11px] text-txt-muted truncate tabular-nums leading-tight mt-0.5">{statLine}</div>
+                    <div className="text-[12px] text-txt-secondary truncate tabular-nums leading-snug mt-0.5">{statLine}</div>
                   </div>
                 </>
               )
@@ -1820,7 +1820,7 @@ export default function Game() {
                           const cell = (label, val, key) => val == null ? null : (
                             <div className="flex flex-col items-start min-w-0">
                               <span className="text-[9px] uppercase tracking-[0.18em] text-txt-muted">{label}</span>
-                              <span className={`text-base tabular-nums font-bold leading-none mt-1 ${better(key) ? 'text-green-400' : 'text-txt-primary'}`}>
+                              <span className={`text-base tabular-nums leading-none mt-1 text-txt-primary ${better(key) ? 'font-bold' : 'font-medium'}`}>
                                 {val}
                               </span>
                             </div>
@@ -1855,16 +1855,33 @@ export default function Game() {
                     <div>
                       <SectionHead>Players of the Week</SectionHead>
                       <ul className="divide-y divide-surface-3/40">
-                        {awardRows.map((a, i) => (
-                          <li key={i} className="py-2.5 first:pt-0 last:pb-0">
-                            <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${a.national ? 'text-amber-400' : 'text-txt-muted'}`}>
-                              {a.scope} · {a.side}
-                            </div>
-                            <div className="text-[13px] font-semibold text-txt-primary truncate mt-0.5">
-                              {a.name}
-                            </div>
-                          </li>
-                        ))}
+                        {awardRows.map((a, i) => {
+                          const pid = getPlayerPID(a.name)
+                          const label = (
+                            <>
+                              <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${a.national ? 'text-amber-400' : 'text-txt-muted'}`}>
+                                {a.scope} · {a.side}
+                              </div>
+                              <div className="text-[13px] font-semibold text-txt-primary truncate mt-0.5">
+                                {a.name}
+                              </div>
+                            </>
+                          )
+                          return (
+                            <li key={i} className="first:pt-0 last:pb-0">
+                              {pid ? (
+                                <Link
+                                  to={`${pathPrefix}/player/${pid}`}
+                                  className="block py-2.5 -mx-1 px-1 rounded-md hover:bg-surface-2/60 transition-colors"
+                                >
+                                  {label}
+                                </Link>
+                              ) : (
+                                <div className="py-2.5">{label}</div>
+                              )}
+                            </li>
+                          )
+                        })}
                       </ul>
                     </div>
                   )}
