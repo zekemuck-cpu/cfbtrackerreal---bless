@@ -1162,32 +1162,6 @@ export function buildRecordUpdatePayload(dynasty, tid, year) {
 }
 
 /**
- * Get a specific game by teams and year (for finding duplicates)
- */
-export function findGameByTeams(dynasty, team1, team2, year, gameType = null) {
-  if (!dynasty) return null
-  const games = dynasty.games || []
-
-  return games.find(g => {
-    if (Number(g.year) !== Number(year)) return false
-
-    // Check if teams match (in either order)
-    const teamsMatch =
-      (g.team1 === team1 && g.team2 === team2) ||
-      (g.team1 === team2 && g.team2 === team1) ||
-      (g.userTeam === team1 && g.opponent === team2) ||
-      (g.userTeam === team2 && g.opponent === team1)
-
-    if (!teamsMatch) return false
-
-    // If gameType specified, check it matches
-    if (gameType && detectGameType(g) !== gameType) return false
-
-    return true
-  })
-}
-
-/**
  * Migrate dynasty to unified game system
  * Converts cfpResultsByYear, bowlGamesByYear, conferenceChampionshipsByYear to games[]
  * Safe to run multiple times (idempotent)
@@ -1726,22 +1700,6 @@ export function processBoxScoreSave(players, newBoxScore, oldContribution, year,
   }
 }
 
-/**
- * Process box score deletion - subtracts the contribution from player stats
- * @param {Array} players - Current players array
- * @param {Object} oldContribution - The statsContributed from the deleted game
- * @param {number} year - The year
- * @param {Array} [allGames] - Optional remaining games for max-field recompute
- * @returns {Array} Updated players array
- */
-export function processBoxScoreDelete(players, oldContribution, year, allGames = null) {
-  // Deleting is like applying a delta where new contribution is empty
-  let updatedPlayers = applyBoxScoreDelta(players, {}, oldContribution, year)
-  if (allGames) {
-    updatedPlayers = recomputeMaxFieldsFromGames(updatedPlayers, allGames, year)
-  }
-  return updatedPlayers
-}
 
 /**
  * Recalculate ALL player stats from ALL box scores for a given year
@@ -2728,27 +2686,6 @@ export function getCoachTeamForYear(dynasty, year) {
   return null
 }
 
-/**
- * Get all years the coach has coached with their team info
- */
-export function getCoachHistory(dynasty) {
-  if (!dynasty) return []
-
-  const history = []
-  const coachTeamByYear = dynasty.coachTeamByYear || {}
-
-  // Get all years from coachTeamByYear
-  for (const [year, record] of Object.entries(coachTeamByYear)) {
-    history.push({
-      year: parseInt(year),
-      ...record
-    })
-  }
-
-  // Sort by year
-  history.sort((a, b) => a.year - b.year)
-  return history
-}
 
 /**
  * Get the locked coaching staff for a specific year.
@@ -2893,19 +2830,6 @@ export function getTeamConferenceForDynasty(dynasty, teamAbbr, year = null) {
 // PLAYER STATS HELPERS - Unified stats access
 // ============================================================================
 
-/**
- * Get player stats for a specific year
- * Handles both string and number year keys
- * @param {Object} player - The player object
- * @param {number|string} year - The year to get stats for
- * @returns {Object|null} Stats for that year or null
- */
-export function getPlayerStatsForYear(player, year) {
-  if (!player) return null
-  const numYear = Number(year)
-  const strYear = String(year)
-  return player.statsByYear?.[numYear] || player.statsByYear?.[strYear] || null
-}
 
 /**
  * Convert sheet category stats to internal format
@@ -3746,17 +3670,6 @@ export function getRecruitingCommitments(dynasty, tidOrAbbr, year) {
   }
 
   return {}
-}
-
-/**
- * Check if a player has transferred away (has a transfer movement in their history)
- */
-export function hasPlayerTransferredAway(player, fromTeam) {
-  if (!player.movements) return false
-  return player.movements.some(m =>
-    m.type === MOVEMENT_TYPES.TRANSFER &&
-    m.from === fromTeam
-  )
 }
 
 /**

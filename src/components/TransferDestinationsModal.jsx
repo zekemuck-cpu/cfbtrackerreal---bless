@@ -53,13 +53,22 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const [noTransfers, setNoTransfers] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
+  // Roster block for AI name resolution. Transfer Destinations concerns
+  // players who just left the team this offseason — they won't be on the
+  // current roster anymore, so check BOTH the current year AND the year
+  // before (that's when they last played for us). Superset catches them.
   const userRoster = useMemo(() => {
-    const teamAbbrForRoster =
-      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
-      currentDynasty?.teamName
+    const teamTidForRoster =
+      currentDynasty?.currentTid ??
+      (currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr || currentDynasty?.teamName)
     const all = currentDynasty?.players || []
+    const prevYear = Number(currentYear) - 1
     return all
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
+      .filter(p => !p.isHonorOnly)
+      .filter(p =>
+        isPlayerOnRoster(p, teamTidForRoster, currentYear) ||
+        isPlayerOnRoster(p, teamTidForRoster, prevYear)
+      )
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
 
