@@ -147,8 +147,9 @@ export default function Player() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Tab state from URL (default to 'stats')
-  const activeTab = searchParams.get('tab') || 'stats'
+  // Explicit tab param — if set, it wins. If not set, derive from the
+  // player's record below: awards → stats → timeline (first match wins).
+  const explicitTab = searchParams.get('tab')
   const setActiveTab = (tab) => {
     setSearchParams({ tab })
   }
@@ -275,6 +276,23 @@ export default function Player() {
     ? (currentDynasty?.id === dynastyId ? currentDynasty : dynasties.find(d => d.id === dynastyId))
     : currentDynasty
   const player = dynasty?.players?.find(p => p.pid === parseInt(pid))
+
+  // Default tab based on what the player actually has:
+  //   • has any award / All-American / All-Conference honor → Awards
+  //   • has any recorded season stats → Stats
+  //   • neither → Timeline (always meaningful since it shows career arc)
+  // Any explicit ?tab= in the URL overrides this.
+  const defaultTab = (() => {
+    const accolades = player?.accolades?.length || 0
+    const allAm = player?.allAmericans?.length || 0
+    const allConf = player?.allConference?.length || 0
+    if (accolades + allAm + allConf > 0) return 'awards'
+    const statsByYear = player?.statsByYear || {}
+    const hasAnyStats = Object.keys(statsByYear).length > 0
+    if (hasAnyStats) return 'stats'
+    return 'timeline'
+  })()
+  const activeTab = explicitTab || defaultTab
 
   // Get departure/transfer info - check movementByYear (source of truth from career editor) first,
   // then fall back to legacy movements[] array
