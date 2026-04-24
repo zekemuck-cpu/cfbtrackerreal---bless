@@ -13,6 +13,7 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
+import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 
 // Load premium fonts
 const FONT_LINK = document.createElement('link')
@@ -1859,44 +1860,18 @@ export default function Player() {
                 {timelineYears.length === 0 ? (
                   <div className="px-4 py-4 text-sm" style={{ color: secondaryText }}>No timeline data</div>
                 ) : (() => {
-                  // Collect light-weight movement events for tags
-                  const mby = player.movementByYear || {}
-                  const mvmts = player.movements || []
-                  const eventsByYear = {}
-                  mvmts.forEach(m => {
-                    if (!eventsByYear[m.year]) eventsByYear[m.year] = []
-                    eventsByYear[m.year].push(m.type)
+                  // Canonical timeline events — same derivation the full
+                  // Timeline tab uses so labels/placement never diverge.
+                  const timeline = buildTimelineEvents(player, {
+                    resolveTid: (v) => resolveTid(v, teamsData || TEAMS),
                   })
-                  Object.entries(mby).forEach(([y, m]) => {
-                    const yr = Number(y)
-                    if (!m?.type || isNaN(yr)) return
-                    if (!eventsByYear[yr]) eventsByYear[yr] = []
-                    eventsByYear[yr].push(m.type)
-                  })
-                  // Transition events (portal, recommit, transfer, encouraged) happen
-                  // AT THE END of their recorded year — visually they belong between
-                  // that season and the next one. In a desc-sorted timeline that means
-                  // rendering them at the TOP of the *following* year's row, not the
-                  // bottom of the year they were keyed to.
-                  // Recommit vs transfer is inferred from teamsByYear: if the team is
-                  // the same before and after, the portal entry was a recommit even
-                  // when the raw event type is just "entered_portal".
                   const transitionForYear = (yr) => {
-                    const prev = eventsByYear[yr - 1] || []
-                    const sameTeam = teamsByYear[yr] != null && Number(teamsByYear[yr]) === Number(teamsByYear[yr - 1])
-                    if (prev.includes('recommitted') || prev.includes('recommit')) return 'Recommit'
-                    if (prev.includes('entered_portal') || prev.includes('transferred_out') || prev.includes('transfer')) {
-                      return sameTeam ? 'Recommit' : 'Transfer Portal'
-                    }
-                    if (prev.includes('encouraged_to_transfer') || prev.includes('encouraged_transfer')) return 'Encouraged'
-                    return null
+                    const e = eventsForYear(timeline, yr, 'before')[0]
+                    return e ? labelForEventKind(e.kind) : null
                   }
-                  // Events that belong ON the year itself (not between years).
                   const inYearEvent = (yr) => {
-                    const ts = eventsByYear[yr] || []
-                    if (ts.includes('graduated')) return 'Graduated'
-                    if (ts.includes('committed') || ts.includes('recruited')) return 'Committed'
-                    return null
+                    const e = eventsForYear(timeline, yr, 'after')[0]
+                    return e ? labelForEventKind(e.kind) : null
                   }
 
                   // Newest first for the sidebar
@@ -2379,17 +2354,24 @@ export default function Player() {
             } else {
               let joinType = null
               let fromTeam = null
-              // Only trust the global `player.isPortal` flag when the purported
-              // origin team is actually different from the first-season team.
-              // Doug's flag can get set by a LATER recommit (entered portal and
-              // returned to the same school) — in that case the recommit belongs
-              // between two later seasons, not as a portal-in on year 0.
+              // The global `player.isPortal` flag can get dirtied by a LATER
+              // portal event (recommit or transfer after the player's first
+              // season). Before trusting it as a year-0 join indicator, check
+              // that (a) no movementByYear entries exist at a later year
+              // referencing portal activity, AND (b) the stored previousTeam
+              // actually differs from the first-season team.
               if (player.isPortal) {
                 const fromRef = player.previousTeam || null
                 const fromTid = fromRef ? resolveTid(fromRef, teamsData || TEAMS) : null
                 const teamTid = resolveTid(team, teamsData || TEAMS)
                 const isSameAsFirstTeam = fromTid != null && teamTid != null && Number(fromTid) === Number(teamTid)
-                if (!isSameAsFirstTeam) {
+                const hasLaterPortalEvent = Object.entries(player.movementByYear || {}).some(([yStr, m]) => {
+                  const yr = Number(yStr)
+                  if (!Number.isFinite(yr) || yr <= year) return false
+                  const t = m?.type
+                  return t === 'entered_portal' || t === 'transferred_out' || t === 'transfer' || t === 'recommitted' || t === 'recommit'
+                })
+                if (!isSameAsFirstTeam && !hasLaterPortalEvent) {
                   joinType = 'portal_in'
                   fromTeam = fromRef
                 }
