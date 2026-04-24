@@ -2107,15 +2107,15 @@ export default function Game() {
           {/* Game Recap Tab — display only. Editing and prompt copying live in
               the game editor so the viewing surface stays clean. */}
           {activeTab === 'recap' && (
-            <div className="p-4 max-h-[500px] overflow-y-auto">
+            <div className="px-4 py-6 sm:px-6 sm:py-8">
               {game.aiRecap ? (
                 <FormattedRecap
                   text={game.aiRecap}
-                  className="text-txt-secondary text-sm leading-relaxed max-w-prose"
+                  className="text-txt-secondary text-[15px] leading-relaxed max-w-3xl mx-auto"
                   playerLinks={recapPlayerLinks}
                 />
               ) : (
-                <p className="text-sm text-txt-secondary max-w-md">
+                <p className="text-sm text-txt-secondary max-w-3xl mx-auto">
                   No recap yet for this game.
                   {!isViewOnly && gameId && (
                     <>
