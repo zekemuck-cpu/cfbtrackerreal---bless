@@ -294,6 +294,26 @@ export default function Player() {
   })()
   const activeTab = explicitTab || defaultTab
 
+  // True only while the player is a committed recruit who hasn't yet
+  // joined the roster. Once they have a teamsByYear entry for the
+  // current year (or any past year), they've enrolled — hide the
+  // "Commitment" badge regardless of the stale isRecruit flag.
+  const isUnenrolledRecruit = (() => {
+    if (!player?.isRecruit) return false
+    const tby = player.teamsByYear || {}
+    const currentYr = Number(dynasty?.currentYear)
+    if (!Number.isFinite(currentYr)) return true
+    // If they have a team entry for the current year or any earlier
+    // year, they've officially joined the roster.
+    for (const k of Object.keys(tby)) {
+      const y = Number(k)
+      if (Number.isFinite(y) && y <= currentYr && tby[k] != null && tby[k] !== '') {
+        return false
+      }
+    }
+    return true
+  })()
+
   // Get departure/transfer info - check movementByYear (source of truth from career editor) first,
   // then fall back to legacy movements[] array
   const departureMovement = (() => {
@@ -1322,7 +1342,7 @@ export default function Player() {
 
           {/* Status badges */}
           <div className="flex flex-wrap items-center gap-2">
-            {player.isRecruit && (
+            {isUnenrolledRecruit && (
               <span
                 className="px-2 py-0.5 rounded-full text-xs font-bold"
                 style={{ backgroundColor: `${teamInfo.backgroundColor}25`, color: teamInfo.backgroundColor, border: `1px solid ${teamInfo.backgroundColor}50` }}
@@ -1474,7 +1494,7 @@ export default function Player() {
                   )}
                   {playerTeamName}
                 </Link>
-                {player.isRecruit && (
+                {isUnenrolledRecruit && (
                   <span
                     className="px-2 py-0.5 rounded-full text-xs font-bold"
                     style={{ backgroundColor: `${teamInfo.backgroundColor}25`, color: teamInfo.backgroundColor, border: `1px solid ${teamInfo.backgroundColor}50` }}
