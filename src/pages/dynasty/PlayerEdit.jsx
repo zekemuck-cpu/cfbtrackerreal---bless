@@ -781,7 +781,7 @@ export default function PlayerEdit() {
   ]
 
   return (
-    <div className="min-h-dvh pb-24 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 bg-surface-1">
+    <div className="min-h-dvh pb-24 -mx-4 sm:-mx-6 lg:-mx-8 -my-4 sm:-my-6">
       {/* Header */}
       <div
         className="sticky top-0 z-30 bg-surface-2 border-b border-surface-4 shadow-lg"
