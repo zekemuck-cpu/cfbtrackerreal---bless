@@ -1884,9 +1884,22 @@ export default function TeamYear() {
         const numB = parseInt(b.jerseyNumber) || 999
         result = numA - numB
         break
-      case 'name':
-        result = (a.name || '').localeCompare(b.name || '')
+      case 'name': {
+        // Sort by LAST name, then first name. Splitting on the final
+        // whitespace handles multi-word first names ("Mary Ann Smith")
+        // and "Last, First" style inputs fall back to plain compare.
+        const lastFirst = (full) => {
+          const s = String(full || '').trim()
+          if (!s) return ['', '']
+          const idx = s.lastIndexOf(' ')
+          if (idx < 0) return [s, '']
+          return [s.slice(idx + 1), s.slice(0, idx)]
+        }
+        const [aLast, aFirst] = lastFirst(a.name)
+        const [bLast, bFirst] = lastFirst(b.name)
+        result = aLast.localeCompare(bLast) || aFirst.localeCompare(bFirst)
         break
+      }
       case 'class':
         // classOrder: Sr=0, Fr=7. Ascending on the index = seniors first
         // (which is the conventional default for "sort by class").
