@@ -3083,12 +3083,6 @@ export function migrateRosterData(dynasty) {
   if (!dynasty) return dynasty
   // Use _rosterMigratedV3 to force re-run of migration (V2 didn't backfill current year)
   if (dynasty._rosterMigratedV3) return dynasty
-  console.warn(
-    `[migrateRosterData] RUNNING for dynasty ${dynasty.id} — ` +
-    `_rosterMigratedV3 flag is NOT set. This will auto-re-add players ` +
-    `to teamsByYear[currentYear]. If you see unexpected players ` +
-    `reappearing, this is likely the cause.`
-  )
   if (!dynasty.players || dynasty.players.length === 0) {
     return { ...dynasty, _rosterMigratedV3: true }
   }
@@ -3123,88 +3117,13 @@ export function migrateRosterData(dynasty) {
       }
     }
 
-    // Fix 2: Add current year to teamsByYear for active players who are missing it
-    // (This fixes players who went through Signing Day before the code fix)
-    if (!player.leftTeam && !player.isRecruit && !player.isHonorOnly) {
-      // Check if player should be on current team (handles both tid and abbr)
-      const playerTeamMatches = !player.team ||
-        player.team === teamAbbr ||
-        player.team === teamTid ||
-        (typeof player.team === 'number' && player.team === teamTid) ||
-        (typeof player.team === 'string' && getTidFromAbbr(player.team) === teamTid)
-      const isOnCurrentTeam = playerTeamMatches
-      // Check if they don't have pending departure
-      const notLeaving = !player.leavingYear || !player.leavingReason
-      // Check if they've enrolled (not a future recruit)
-      const hasEnrolled = !player.recruitYear || Number(currentYear) > Number(player.recruitYear)
-
-      // CRITICAL: Also check if player has departed via movements
-      // This prevents re-adding players that were fixed by "Fix Roster" button
-      const previousYear = currentYear - 1
-
-      // Check if player has ANY departure-like event anywhere in their
-      // history. We read BOTH the legacy movements[] array AND the v2
-      // movementByYear map — post-v2-migration players only have the
-      // latter, and earlier versions of this check missed them entirely,
-      // causing re-add-on-reload for transferred/graduated players.
-      const isDepartureType = (m) => {
-        if (!m) return false
-        const t = m.type
-        const dep = m.departure
-        return (
-          t === 'departure' || t === 'transfer' || t === 'entered_portal' ||
-          t === 'transferred_out' || t === 'graduated' || t === 'declared_for_draft' ||
-          t === 'encouraged_to_transfer' ||
-          dep === 'graduated' || dep === 'pro_draft' || dep === 'transfer_out'
-        )
-      }
-      const legacyArr = Array.isArray(player.movements) ? player.movements : []
-      const byYearEntries = player.movementByYear
-        ? Object.values(player.movementByYear)
-        : []
-      const hasDepartureMovement =
-        legacyArr.some(isDepartureType) || byYearEntries.some(isDepartureType)
-
-      // Check if player is in the playersLeavingByYear list
-      const leavingByYear = dynasty.playersLeavingByYear?.[previousYear] ||
-                            dynasty.playersLeavingByYear?.[String(previousYear)] || []
-      const leavingByTeamAbbr = dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[previousYear] ||
-                                dynasty.playersLeavingByTeamYear?.[teamAbbr]?.[String(previousYear)] || []
-      const leavingByTeamTid = dynasty.playersLeavingByTeamYear?.[teamTid]?.[previousYear] ||
-                               dynasty.playersLeavingByTeamYear?.[teamTid]?.[String(previousYear)] ||
-                               dynasty.playersLeavingByTeamYear?.[String(teamTid)]?.[previousYear] ||
-                               dynasty.playersLeavingByTeamYear?.[String(teamTid)]?.[String(previousYear)] || []
-      const allLeavingList = [...leavingByYear, ...leavingByTeamAbbr, ...leavingByTeamTid]
-      const isInLeavingList = allLeavingList.some(l =>
-        l.pid === player.pid || l.playerName?.toLowerCase() === player.name?.toLowerCase()
-      )
-
-      // Player has departed - don't re-add them
-      const hasActuallyDeparted = hasDepartureMovement || isInLeavingList
-
-      if (isOnCurrentTeam && notLeaving && hasEnrolled && !hasActuallyDeparted) {
-        const existingTeamsByYear = modifiedPlayer.teamsByYear || {}
-        // If current year is missing from teamsByYear, add it
-        if (!existingTeamsByYear[currentYear] && !existingTeamsByYear[String(currentYear)]) {
-          console.warn(
-            `[migrateRosterData] AUTO-RE-ADDING ${player.name} (pid=${player.pid}) ` +
-            `to teamsByYear[${currentYear}]. ` +
-            `movements=${(player.movements || []).length}, ` +
-            `movementByYear keys=${Object.keys(player.movementByYear || {}).join(',')}, ` +
-            `leftTeam=${player.leftTeam}, team=${player.team}`
-          )
-          needsUpdate = true
-          playerModified = true
-          modifiedPlayer = {
-            ...modifiedPlayer,
-            teamsByYear: {
-              ...existingTeamsByYear,
-              [currentYear]: teamAbbr
-            }
-          }
-        }
-      }
-    }
+    // Fix 2 (DISABLED — was a 2024 bandaid for a Signing-Day carryover bug).
+    // It guessed roster membership from stale legacy fields and re-added
+    // teamsByYear[currentYear] for anyone that "looked active," which
+    // caused players to reappear after deliberate edits (transfer-outs,
+    // year removals in the career editor). Year-flip carry-over now
+    // happens in advanceWeek; this migration's only remaining job is the
+    // Fix 1 cleanup above (trim post-departure teamsByYear entries).
 
     return playerModified ? modifiedPlayer : player
   })
