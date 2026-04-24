@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
+import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
@@ -43,17 +43,19 @@ export default function TrainingResultsModal({ isOpen, onClose, onSave, currentY
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
 
-  const userRoster = useMemo(() => {
-    const teamAbbrForRoster =
-      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
-      currentDynasty?.teamName
-    const all = currentDynasty?.players || []
-    return all
-      // Exclude HS recruits — they don't receive training results in EA CFB.
-      .filter(p => !p.isRecruit)
-      .filter(p => isPlayerOnRoster(p, teamAbbrForRoster, currentYear))
-      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
-  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
+  // Use the EXACT list of players the sheet is built from (passed in via
+  // the `players` prop from Dashboard). That list is the combined
+  // returning-players + portal-transfers set. Recomputing it here with a
+  // simpler filter missed portal transfers, so the AI prompt listed fewer
+  // players than the sheet actually contained — causing the AI to skip
+  // valid training rows.
+  const userRoster = useMemo(() => (
+    (players || []).map(p => ({
+      name: p.name,
+      jerseyNumber: p.jerseyNumber,
+      position: p.position,
+    }))
+  ), [players])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Training Results`,
