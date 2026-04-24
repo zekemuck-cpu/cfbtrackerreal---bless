@@ -722,11 +722,14 @@ export default function Game() {
       const last = parts[parts.length - 1]
       lastCount.set(last, (lastCount.get(last) || 0) + 1)
     }
+    // Player-name links render as plain body text until hovered. `font-normal`
+    // + `no-underline` override any surrounding <strong> so a name inside a
+    // **bold** markdown span doesn't read as a double-emphasis link.
     const makeRender = (href) => (matchedText, key) => (
       <Link
         key={key}
         to={href}
-        className="text-txt-primary underline decoration-surface-5 underline-offset-[3px] hover:decoration-blue-400 hover:text-blue-300 transition-colors"
+        className="font-normal no-underline text-txt-primary hover:text-blue-300 hover:underline underline-offset-[3px] decoration-blue-400 transition-colors"
       >
         {matchedText}
       </Link>
