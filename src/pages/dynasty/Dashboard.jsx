@@ -1123,10 +1123,13 @@ export default function Dashboard() {
         }
         const playerTeam = playerTeamTid || teamTid
 
-        // Check if player already has a movement for this year - if so, UPDATE it with new reason
-        const existingMovementIndex = (player.movements || []).findIndex(m =>
-          m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure')
-        )
+        // v2 canonical write: only movementByYear. The legacy movements[]
+        // array is stripped by syncDerivedFieldsFromV2 on every write, so
+        // touching it here is dead code. The helper variables above
+        // (playerTeam, isTransfer, isDeparture) are kept only in case
+        // future code needs them.
+        // eslint-disable-next-line no-unused-vars
+        void playerTeam; void isTransfer; void isDeparture
 
         // Build movementByYear entry based on reason
         const movementByYearEntry = (() => {
@@ -1140,75 +1143,24 @@ export default function Dashboard() {
           return { type: 'transferred_out', toTeamTid: null, reason }
         })()
 
-        if (existingMovementIndex !== -1) {
-          // UPDATE the existing movement with the new reason/type
-          const updatedMovements = [...(player.movements || [])]
-          const newType = isTransfer ? 'entered_portal' : 'departure'
-          updatedMovements[existingMovementIndex] = {
-            ...updatedMovements[existingMovementIndex],
-            type: newType,
-            reason: reason,
-            timestamp: Date.now()
-          }
-
-          return {
-            ...player,
-            movements: updatedMovements,
-            movementByYear: {
-              ...(player.movementByYear || {}),
-              [Number(year)]: movementByYearEntry
-            }
-          }
-        }
-
-        // Create movement based on reason (for display/history only)
-        let newMovement = null
-        if (isTransfer) {
-          newMovement = {
-            year: Number(year),
-            type: 'entered_portal',
-            from: playerTeam,
-            to: null,
-            reason: reason,
-            timestamp: Date.now()
-          }
-        } else if (isDeparture) {
-          newMovement = {
-            year: Number(year),
-            type: 'departure',
-            from: playerTeam,
-            to: null,
-            reason: reason,
-            timestamp: Date.now()
-          }
-        }
-
         return {
           ...player,
-          movements: newMovement
-            ? [...(player.movements || []), newMovement]
-            : player.movements,
           movementByYear: {
             ...(player.movementByYear || {}),
-            [Number(year)]: movementByYearEntry
-          }
+            [Number(year)]: movementByYearEntry,
+          },
         }
       } else if (previousLeavingPids.has(player.pid)) {
-        // Player was previously marked as leaving this year but is no longer in the list
-        // Remove any entered_portal or departure movement for this year
-        const filteredMovements = (player.movements || []).filter(m =>
-          !(m.year === Number(year) && (m.type === 'entered_portal' || m.type === 'departure'))
-        )
-
-        // Also remove movementByYear entry for this year
+        // Player was previously marked as leaving this year but isn't now.
+        // Clear the movementByYear entry for this year. (Legacy movements[]
+        // is stripped by syncDerivedFieldsFromV2 on write.)
         const updatedMovementByYear = { ...(player.movementByYear || {}) }
         delete updatedMovementByYear[Number(year)]
         delete updatedMovementByYear[String(year)]
 
         return {
           ...player,
-          movements: filteredMovements,
-          movementByYear: updatedMovementByYear
+          movementByYear: updatedMovementByYear,
         }
       }
       return player
@@ -1304,48 +1256,23 @@ export default function Dashboard() {
         // Convert to tid if it's an abbreviation
         const playerLastTeamTid = typeof playerLastTeam === 'number' ? playerLastTeam : (getTidFromAbbr(playerLastTeam) || tid)
 
-        // Build movementByYear entry for draft
+        // Build movementByYear entry for draft. playerLastTeamTid is
+        // computed above in case future shape changes need it, but v2
+        // declared_for_draft doesn't carry a fromTid.
+        void playerLastTeamTid
         const draftMovementByYear = { type: 'declared_for_draft', draftRound: entry.draftRound || null }
 
-        if (!hasDraftMovement) {
-          updatedPlayers[playerIndex] = {
-            ...player,
-            // Store draft info on player record
-            draftYear: year,
-            draftRound: entry.draftRound,
-            // Add departure movement for draft
-            movements: [
-              ...existingMovements,
-              {
-                year,
-                type: 'departure',
-                reason: 'Pro Draft',
-                from: playerLastTeamTid,
-                draftRound: entry.draftRound,
-                timestamp: Date.now()
-              }
-            ],
-            movementByYear: {
-              ...(player.movementByYear || {}),
-              [year]: draftMovementByYear
-            }
-          }
-        } else {
-          // Update existing draft movement with round info and correct team
-          updatedPlayers[playerIndex] = {
-            ...player,
-            draftYear: year,
-            draftRound: entry.draftRound,
-            movements: existingMovements.map(m =>
-              (m.year === year && m.type === 'departure' && m.reason === 'Pro Draft')
-                ? { ...m, draftRound: entry.draftRound, from: playerLastTeamTid }
-                : m
-            ),
-            movementByYear: {
-              ...(player.movementByYear || {}),
-              [year]: draftMovementByYear
-            }
-          }
+        // Same canonical shape whether this is the first draft entry or
+        // an update — movementByYear is authoritative, v2 sync strips
+        // any legacy movements[] on write.
+        updatedPlayers[playerIndex] = {
+          ...player,
+          draftYear: year,
+          draftRound: entry.draftRound,
+          movementByYear: {
+            ...(player.movementByYear || {}),
+            [year]: draftMovementByYear,
+          },
         }
       }
     })
@@ -1424,62 +1351,33 @@ export default function Dashboard() {
         const isRecommit = newTeamTid === oldTeamTid || newTeamTid === teamTid
 
         if (isRecommit) {
-          // Player recommitted - they're staying on the team!
-          const recommitMovement = {
-            year: Number(year),
-            type: 'recommit',
-            from: null,
-            to: oldTeamTid,
-            reason: 'Recommitted after entering portal',
-            timestamp: Date.now()
-          }
-
-          // Remove entered_portal movement for this year (they're not leaving anymore)
-          const filteredMovements = (player.movements || []).filter(m =>
-            !(m.year === Number(year) && m.type === 'entered_portal')
-          )
-
-          // Set movementByYear to 'recommitted' - preserves the history that they entered the portal
+          // Player recommitted — they're staying on the team.
           const updatedMovementByYear = { ...(player.movementByYear || {}) }
           updatedMovementByYear[Number(year)] = { type: 'recommitted' }
 
-          // ALWAYS use tid for teamsByYear storage
-          const teamsByYearValue = oldTeamTid
-
           updatedPlayers[playerIndex] = {
             ...player,
-            movements: [...filteredMovements, recommitMovement],
             movementByYear: updatedMovementByYear,
-            // Keep them on roster for next year
+            // Keep them on roster for next year (tid-only)
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              [String(nextYear)]: teamsByYearValue
-            }
+              [String(nextYear)]: oldTeamTid,
+            },
           }
         } else {
-          // Normal transfer to another team
-          // Add transfer movement - ALWAYS use tid
-          const transferMovement = {
-            year: Number(year),
-            type: 'transfer',
-            from: oldTeamTid,
-            to: newTeamTid,
-            timestamp: Date.now()
-          }
-
-          // Update teamsByYear to new team, update current team with tid
+          // Normal transfer to another team. Only canonical v2 writes —
+          // no legacy movements[]. v2 sync strips any residual array.
           updatedPlayers[playerIndex] = {
             ...player,
-            team: newTeamTid, // Use tid for current team
-            movements: [...(player.movements || []), transferMovement],
+            team: newTeamTid, // derived mirror; sync will re-derive on write too
             movementByYear: {
               ...(player.movementByYear || {}),
-              [Number(year)]: { type: 'transferred_out', toTeamTid: newTeamTid }
+              [Number(year)]: { type: 'transferred_out', toTeamTid: newTeamTid },
             },
             teamsByYear: {
               ...(player.teamsByYear || {}),
-              [String(nextYear)]: newTeamTid
-            }
+              [String(nextYear)]: newTeamTid,
+            },
           }
         }
       }
@@ -2149,13 +2047,9 @@ export default function Dashboard() {
       // Store previousTeam as tid if resolved, otherwise keep original text for display fallback
       const previousTeam = previousTeamTid || recruit.previousTeam || (isPortalPlayer ? null : '')
 
-      // Create movement for this recruit - use tid for team references
-      const movementType = isPortalPlayer ? MOVEMENT_TYPES.PORTAL_IN : MOVEMENT_TYPES.RECRUITED
-      const fromTeamTid = isPortalPlayer ? previousTeamTid : null
-      const recruitMovement = createMovement(year, movementType, fromTeamTid, teamTid)
-
       const enrollmentYear = year + 1 // Year they will be on the roster
       const enrollmentClass = classToYear[recruit.class] || 'Fr'
+      const fromTeamTid = isPortalPlayer ? previousTeamTid : null
 
       return {
         pid,
@@ -2171,19 +2065,19 @@ export default function Dashboard() {
         weight: recruit.weight || 0,
         hometown: recruit.hometown || '',
         state: recruit.state || '',
-        team: teamTid, // Tag player with team tid
+        team: teamTid, // derived mirror; sync re-derives on every write
         isRecruit: true,
         recruitYear: year, // The recruiting class year (they play NEXT year)
-        // IMMUTABLE roster history - recruits will be on team starting NEXT year
+        // Canonical v2: per-year maps only — legacy movements[] is NOT
+        // written here (syncDerivedFieldsFromV2 would strip it anyway).
         teamsByYear: { [enrollmentYear]: teamsByYearValue },
-        // IMMUTABLE class history - record their class when they enroll
         classByYear: { [enrollmentYear]: enrollmentClass },
-        // Entry tracking for the new system
-        entryYear: enrollmentYear,
-        entryClass: enrollmentClass,
-        entryReason: isPortalPlayer ? 'transfer_in' : 'recruited',
-        // Dev trait tracking
-        devTraitByYear: (recruit.devTrait || 'Normal') ? { [enrollmentYear]: recruit.devTrait || 'Normal' } : {},
+        devTraitByYear: { [enrollmentYear]: recruit.devTrait || 'Normal' },
+        movementByYear: {
+          [year]: isPortalPlayer
+            ? { type: 'arrival', arrival: 'transfer_in', fromTid: fromTeamTid }
+            : { type: 'arrival', arrival: 'recruit' },
+        },
         // Recruiting info
         stars: recruit.stars || 0,
         nationalRank: recruit.nationalRank || null,
@@ -2192,9 +2086,6 @@ export default function Dashboard() {
         gemBust: recruit.gemBust || '',
         previousTeam: previousTeam,
         isPortal: isPortalPlayer,
-        // Add movements array with recruit movement
-        movements: [recruitMovement],
-        pendingDeparture: null
       }
     })
 
@@ -2240,33 +2131,19 @@ export default function Dashboard() {
             )
           }
 
-          // Preserve existing movements and add the new movement
-          const existingMovements = p.movements || []
-
-          // CRITICAL: Preserve all existing player data, only update specific fields
+          // CRITICAL: Preserve all existing player data, only update
+          // specific fields. v2 canonical writes only — the sync layer
+          // strips legacy movements[] / leftTeam / leavingYear / etc.
+          void newMovement // computed above for readability; not persisted
           const updatedPlayer = {
             ...p, // Preserve everything: pid, name, statsByYear, classByYear, overall, etc.
-            // Clear pendingDeparture - they're staying!
-            pendingDeparture: null,
-            // Add movement
-            movements: [...existingMovements, newMovement],
-            // Set movementByYear - preserves history of what happened
             movementByYear: {
               ...(p.movementByYear || {}),
               [Number(year)]: isFromDifferentTeam
                 ? { type: 'transferred_out', toTeamTid: teamTid }
                 : { type: 'recommitted' }
             },
-            // Clear ALL legacy departure flags - they're staying/coming back!
-            leftTeam: false,
-            leftYear: null,
-            leftReason: null,
-            leavingYear: null,
-            leavingReason: null,
-            transferredTo: null,
-            transferredFrom: null,
-            // Update team assignment with tid
-            team: teamTid,
+            team: teamTid, // derived mirror
             teamsByYear: {
               ...p.teamsByYear,
               [year + 1]: teamsByYearValue // Add them to next year's roster
