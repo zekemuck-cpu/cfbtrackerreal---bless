@@ -3351,52 +3351,7 @@ export default function TeamYear() {
               )}
             </div>
 
-            {/* Sort row */}
-            <div className="px-3 sm:px-4 py-1.5 border-t border-surface-4 flex items-center gap-1 overflow-x-auto">
-              <span
-                className="text-sm font-semibold uppercase tracking-wider text-txt-tertiary mr-2 flex-shrink-0"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                Sort
-              </span>
-              {[
-                { key: 'position', label: 'Pos' },
-                { key: 'overall', label: 'OVR' },
-                { key: 'class', label: 'Yr' },
-                { key: 'devTrait', label: 'Dev' },
-                { key: 'jerseyNumber', label: '#' },
-                { key: 'name', label: 'A–Z' },
-              ].map(({ key, label }) => {
-                const isActive = rosterSort === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => handleRosterSort(key)}
-                    className="py-1.5 px-2.5 flex items-center gap-1 transition-all flex-shrink-0"
-                    style={{ borderBottom: `2px solid ${isActive ? teamInfo.backgroundColor : 'transparent'}` }}
-                  >
-                    <span
-                      className="text-sm font-semibold uppercase tracking-wider"
-                      style={{
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontFamily: 'var(--font-display)',
-                      }}
-                    >
-                      {label}
-                    </span>
-                    {isActive && (
-                      <svg
-                        className={`w-3.5 h-3.5 transition-transform ${rosterSortDir === 'desc' ? 'rotate-180' : ''}`}
-                        fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                        style={{ color: 'var(--text-primary)' }}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-                      </svg>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+            {/* Sort row removed — click the column headers below to sort. */}
           </div>
 
           <div>
