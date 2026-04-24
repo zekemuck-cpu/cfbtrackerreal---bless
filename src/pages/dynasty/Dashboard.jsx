@@ -3509,9 +3509,6 @@ export default function Dashboard() {
                             {hasCommitmentsData ? 'Edit Commits' : 'Log Commits'}
                           </button>
                         )}
-                        <div className="mt-2 flex justify-center">
-                          <RecruitingInsightLink />
-                        </div>
                       </div>
                     </div>
                   </div>
