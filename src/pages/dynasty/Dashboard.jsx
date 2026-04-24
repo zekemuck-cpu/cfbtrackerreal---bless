@@ -3473,8 +3473,19 @@ export default function Dashboard() {
                             </Link>
                           ) : (
                             <>
-                              <div className="font-display font-black leading-none text-txt-primary" style={{ fontSize: 'clamp(1.5rem, 3vw, 2rem)', letterSpacing: '-0.01em' }}>
-                                Log This Week
+                              <div className="flex items-end gap-3">
+                                <div
+                                  className="font-display font-black leading-none text-txt-tertiary/60 tabular-nums"
+                                  style={{ fontSize: 'clamp(2rem, 4vw, 2.75rem)', letterSpacing: '-0.01em' }}
+                                >
+                                  —
+                                </div>
+                                <div
+                                  className="pb-1 text-[11px] uppercase font-semibold text-txt-tertiary"
+                                  style={{ letterSpacing: '1px' }}
+                                >
+                                  Awaiting<br />commits
+                                </div>
                               </div>
                               <div className="mt-1.5 text-[11px] uppercase font-bold text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
                                 {currentDynasty.currentYear} Class
