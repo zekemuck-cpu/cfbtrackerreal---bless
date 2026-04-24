@@ -278,18 +278,18 @@ export default function Player() {
   const player = dynasty?.players?.find(p => p.pid === parseInt(pid))
 
   // Default tab based on what the player actually has:
-  //   • has any award / All-American / All-Conference honor → Awards
-  //   • has any recorded season stats → Stats
+  //   • has any recorded season stats → Stats (most common, keep front-and-center)
+  //   • no stats but has awards → Awards
   //   • neither → Timeline (always meaningful since it shows career arc)
   // Any explicit ?tab= in the URL overrides this.
   const defaultTab = (() => {
+    const statsByYear = player?.statsByYear || {}
+    const hasAnyStats = Object.keys(statsByYear).length > 0
+    if (hasAnyStats) return 'stats'
     const accolades = player?.accolades?.length || 0
     const allAm = player?.allAmericans?.length || 0
     const allConf = player?.allConference?.length || 0
     if (accolades + allAm + allConf > 0) return 'awards'
-    const statsByYear = player?.statsByYear || {}
-    const hasAnyStats = Object.keys(statsByYear).length > 0
-    if (hasAnyStats) return 'stats'
     return 'timeline'
   })()
   const activeTab = explicitTab || defaultTab
