@@ -452,6 +452,20 @@ function getAbbrFromTid(tid) {
 }
 
 /**
+ * Treat a game as "not played yet" when both scores are absent or both zero.
+ * These phantom entries come from scheduled-but-blank games and would
+ * otherwise inflate loss columns and litter the season recap.
+ */
+function isUnplayedGame(g) {
+  if (!g) return true
+  const s1 = g.team1Score ?? g.teamScore
+  const s2 = g.team2Score ?? g.opponentScore
+  const n1 = Number(s1) || 0
+  const n2 = Number(s2) || 0
+  return n1 === 0 && n2 === 0
+}
+
+/**
  * Get team ratings for a team/year
  * Checks tid-based storage first, then falls back to legacy abbr-based storage
  */
@@ -564,6 +578,7 @@ function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder) 
       const isUserTeamLegacy = g.userTeam === teamAbbr
       const isUserTeamUnified = teamTid && (g.userTid === teamTid || g.team1Tid === teamTid)
       if (!isUserTeamLegacy && !isUserTeamUnified) return false
+      if (isUnplayedGame(g)) return false
       return true
     })
     .sort((a, b) => getGameOrder(a) - getGameOrder(b))
@@ -826,52 +841,68 @@ function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5)
   for (const g of allGames) {
     // Skip games from current year (we only want historical)
     if (Number(g.year) >= Number(currentYear)) continue
+    // Skip scheduled-but-unplayed phantom entries
+    if (isUnplayedGame(g)) continue
 
     // Check if this game involves both teams (support multiple formats)
-    const isMatch = (
-      // Legacy user game format (userTeam/opponent abbreviations)
-      (g.userTeam === team1 && g.opponent === team2) ||
-      (g.userTeam === team2 && g.opponent === team1) ||
-      // Legacy CPU game format (team1/team2 abbreviations)
-      (g.team1 === team1 && g.team2 === team2) ||
-      (g.team1 === team2 && g.team2 === team1) ||
-      // Unified format (team1Tid/team2Tid)
-      (team1Tid && team2Tid && g.team1Tid === team1Tid && g.team2Tid === team2Tid) ||
-      (team1Tid && team2Tid && g.team1Tid === team2Tid && g.team2Tid === team1Tid)
+    const isUnifiedMatch = team1Tid && team2Tid && (
+      (g.team1Tid === team1Tid && g.team2Tid === team2Tid) ||
+      (g.team1Tid === team2Tid && g.team2Tid === team1Tid)
     )
+    const isLegacyUserMatch = (
+      (g.userTeam === team1 && g.opponent === team2) ||
+      (g.userTeam === team2 && g.opponent === team1)
+    )
+    const isLegacyCpuMatch = (
+      (g.team1 === team1 && g.team2 === team2) ||
+      (g.team1 === team2 && g.team2 === team1)
+    )
+    const isMatch = isUnifiedMatch || isLegacyUserMatch || isLegacyCpuMatch
+    if (!isMatch) continue
 
-    if (isMatch) {
-      let winner, loser, winnerScore, loserScore
-      if (g.team1 && g.team2) {
-        // CPU game format
-        const team1Won = g.team1Score > g.team2Score
-        winner = team1Won ? g.team1 : g.team2
-        loser = team1Won ? g.team2 : g.team1
-        winnerScore = team1Won ? g.team1Score : g.team2Score
-        loserScore = team1Won ? g.team2Score : g.team1Score
-      } else {
-        // User game format
-        const userWon = g.result === 'win' || g.result === 'W'
-        winner = userWon ? g.userTeam : g.opponent
-        loser = userWon ? g.opponent : g.userTeam
-        winnerScore = userWon ? g.teamScore : g.opponentScore
-        loserScore = userWon ? g.opponentScore : g.teamScore
-      }
-
-      history.push({
-        year: g.year,
-        winner,
-        loser,
-        winnerScore,
-        loserScore,
-        gameType: g.isBowlGame ? (g.bowlName || 'Bowl Game') :
-                  g.isConferenceChampionship ? 'Conference Championship' :
-                  g.isCFPChampionship ? 'National Championship' :
-                  g.isCFPSemifinal ? 'CFP Semifinal' :
-                  g.isCFPQuarterfinal ? 'CFP Quarterfinal' :
-                  'Regular Season'
-      })
+    let winner, loser, winnerScore, loserScore
+    if (isUnifiedMatch) {
+      // Unified format — resolve names from tids, never fall back to undefined string fields
+      const s1 = Number(g.team1Score) || 0
+      const s2 = Number(g.team2Score) || 0
+      const team1Won = s1 > s2
+      const team1Name = getTeamName(getAbbrFromTid(g.team1Tid)) || getAbbrFromTid(g.team1Tid)
+      const team2Name = getTeamName(getAbbrFromTid(g.team2Tid)) || getAbbrFromTid(g.team2Tid)
+      winner = team1Won ? team1Name : team2Name
+      loser = team1Won ? team2Name : team1Name
+      winnerScore = team1Won ? s1 : s2
+      loserScore = team1Won ? s2 : s1
+    } else if (isLegacyCpuMatch && g.team1 && g.team2) {
+      const team1Won = g.team1Score > g.team2Score
+      winner = team1Won ? g.team1 : g.team2
+      loser = team1Won ? g.team2 : g.team1
+      winnerScore = team1Won ? g.team1Score : g.team2Score
+      loserScore = team1Won ? g.team2Score : g.team1Score
+    } else {
+      // Legacy user game format
+      const userWon = g.result === 'win' || g.result === 'W'
+      winner = userWon ? g.userTeam : g.opponent
+      loser = userWon ? g.opponent : g.userTeam
+      winnerScore = userWon ? g.teamScore : g.opponentScore
+      loserScore = userWon ? g.opponentScore : g.teamScore
     }
+
+    // Guard: if resolution failed, skip rather than emit an "undefined" row
+    if (!winner || !loser || winnerScore == null || loserScore == null) continue
+
+    history.push({
+      year: g.year,
+      winner,
+      loser,
+      winnerScore,
+      loserScore,
+      gameType: g.isBowlGame ? (g.bowlName || 'Bowl Game') :
+                g.isConferenceChampionship ? 'Conference Championship' :
+                g.isCFPChampionship ? 'National Championship' :
+                g.isCFPSemifinal ? 'CFP Semifinal' :
+                g.isCFPQuarterfinal ? 'CFP Quarterfinal' :
+                'Regular Season'
+    })
   }
 
   // Sort by year descending (most recent first) and limit
@@ -1250,6 +1281,7 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
     const teamInGameLegacy = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
     const teamInGameUnified = teamTid && (g.team1Tid === teamTid || g.team2Tid === teamTid || g.userTid === teamTid)
     if (!teamInGameLegacy && !teamInGameUnified) continue
+    if (isUnplayedGame(g)) continue
 
     if (!seasonsByYear[gYear]) {
       seasonsByYear[gYear] = { year: gYear, wins: 0, losses: 0, confWins: 0, confLosses: 0 }
@@ -1296,6 +1328,7 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
   for (const g of allGames) {
     if (Number(g.year) !== Number(year)) continue
     if (getGameOrder(g) >= currentGameOrder) continue
+    if (isUnplayedGame(g)) continue
 
     // Check if opponent was in this game
     let opponentWon, oppScore, otherTeam, otherScore, found = false
@@ -1378,7 +1411,7 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
 
     // Find this player's stats in previous games this season
     const prevGames = allGames
-      .filter(g => Number(g.year) === Number(year) && getGameOrder(g) < currentGameOrder && g.boxScore)
+      .filter(g => Number(g.year) === Number(year) && getGameOrder(g) < currentGameOrder && g.boxScore && !isUnplayedGame(g))
       .sort((a, b) => getGameOrder(b) - getGameOrder(a))
       .slice(0, 3)
 
@@ -1388,17 +1421,22 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
           const entries = g.boxScore?.[gameSide]?.[category] || []
           const playerEntry = entries.find(p => normalizePlayerName(p.playerName) === normalized)
           if (playerEntry) {
-            // Get opponent team - for unified format, need to look up team name from tid
-            let opponentName = g.opponent
+            // Opponent is ALWAYS the team on the OTHER side from where the player appeared.
+            // g.opponent is unreliable here because it encodes the user's perspective, not
+            // this specific player's — an opponent-team player would get their own team
+            // name back. Resolve from tid/boxScore side first.
+            const opponentTid = gameSide === 'home' ? g.team2Tid : g.team1Tid
+            const otherSide = gameSide === 'home' ? 'away' : 'home'
+            let opponentName = null
+            if (opponentTid && TEAMS[opponentTid]) {
+              opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
+            }
             if (!opponentName) {
-              const opponentTid = gameSide === 'home' ? g.team2Tid : g.team1Tid
-              if (opponentTid && TEAMS[opponentTid]) {
-                opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
-              } else {
-                // Fallback to team1/team2 which might be names or tids
-                const fallback = gameSide === 'home' ? g.team2 : g.team1
-                opponentName = typeof fallback === 'string' ? fallback : null
-              }
+              opponentName = g.boxScore?.[otherSide]?.teamName || null
+            }
+            if (!opponentName) {
+              const fallback = gameSide === 'home' ? g.team2 : g.team1
+              opponentName = typeof fallback === 'string' ? fallback : null
             }
             recentGames.push({
               week: g.week,
@@ -1585,7 +1623,7 @@ export function buildGameRecapContext(dynasty, game) {
   // Calculate season context for user games
   if (isCurrentGameUserGame) {
     const seasonGames = allGames.filter(g =>
-      Number(g.year) === Number(year) && isUserGame(g)
+      Number(g.year) === Number(year) && isUserGame(g) && !isUnplayedGame(g)
     )
 
     const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
@@ -2060,6 +2098,8 @@ function formatEnhancedPlayerLine(p, category) {
 export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `Write a professional game recap article like a college football writer for ESPN or The Athletic.
 
 CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats, drive details, time remaining, etc.) MUST be directly supported by the data provided above. Do not make up any numbers, injuries, rankings, or plays. It's fine to add neutral connecting language (e.g., "Clemson took control in the fourth quarter") but don't invent extra drives, turnovers, or scoring plays that aren't in the data.
+
+DATA HYGIENE RULE: If any value in the data above is missing, blank, "undefined", "N/A", or a 0-0 score for a completed game, treat that entry as unavailable and ignore it silently. Never write phrases like "undefined defeated undefined", "they are 0-0 against them", or "record unavailable". Do not mention the gap — just leave that fact out of the article. Pull the narrative from the fields that ARE populated.
 
 FORMAT:
 - Start with a strong headline on its own line as a level-1 markdown heading (e.g., "# Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
