@@ -1923,14 +1923,9 @@ export default function Player() {
                           const inYear = inYearEvent(year)
                           return (
                             <li key={year} className="relative pl-7">
-                              {transition && (
-                                <div className="mb-1 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
-                                  {transition}
-                                </div>
-                              )}
                               <span
                                 className="absolute left-[6px] top-[6px] w-3 h-3 rounded-full ring-2"
-                                style={{ backgroundColor: teamInfo.backgroundColor, boxShadow: '0 0 0 2px var(--bg-surface-1, #0b0b0f)', top: transition ? '28px' : '6px' }}
+                                style={{ backgroundColor: teamInfo.backgroundColor, boxShadow: '0 0 0 2px var(--bg-surface-1, #0b0b0f)' }}
                                 aria-hidden
                               />
                               <div className="flex items-center gap-2">
@@ -1947,6 +1942,18 @@ export default function Player() {
                               {inYear && (
                                 <div className="mt-1 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
                                   {inYear}
+                                </div>
+                              )}
+                              {/* Transition event for this year (placement
+                                  'before' = happened at end of the previous
+                                  season / start of this one). In a desc list
+                                  rendering it at the BOTTOM of this row puts
+                                  it visually between this year and the year
+                                  below — i.e. between the two seasons it
+                                  actually happened between. */}
+                              {transition && (
+                                <div className="mt-2 inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded" style={{ color: secondaryText, backgroundColor: 'var(--bg-surface-3, #1c1c22)' }}>
+                                  {transition}
                                 </div>
                               )}
                             </li>
@@ -2406,7 +2413,15 @@ export default function Player() {
                 }
               }
               if (!joinType && (player.year?.startsWith('JUCO') || player.classByYear?.[year]?.startsWith('JUCO'))) { joinType = 'juco_in' }
-              else if (!joinType && !recruitmentNode && (player.stars || player.nationalRank || player.recruitYear)) { joinType = 'recruited' }
+              // Only emit a "recruited" join tag when the editor's entryReason
+              // says so. A player marked "Created" (or "Walk-On"/"Transferred
+              // In") shouldn't show a green RECRUITED dot on their first
+              // season just because they have stars in their profile.
+              else if (!joinType && !recruitmentNode && player.entryReason === 'recruited' && (player.stars || player.nationalRank || player.recruitYear)) { joinType = 'recruited' }
+              // Explicit "transfer_in" entryReason produces a portal_in row
+              // (unless we already have richer movement data).
+              else if (!joinType && player.entryReason === 'transfer_in' && player.previousTeam) { joinType = 'portal_in'; fromTeam = player.previousTeam }
+              else if (!joinType && player.entryReason === 'juco_in') { joinType = 'juco_in' }
               if (joinType && !recruitmentNode) {
                 timelineEntries.push({ year, type: joinType, team, to: team, from: fromTeam })
               }

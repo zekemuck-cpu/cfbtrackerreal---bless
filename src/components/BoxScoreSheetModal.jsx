@@ -252,6 +252,32 @@ export default function BoxScoreSheetModal({
         structure: `This sheet has ONE tab: "Scoring Summary". It has 30 rows (one per scoring play, unused rows blank) and 9 columns.
 
 ═══════════════════════════════════════════════════════════
+HOW TO READ THE SCORING-SUMMARY SCREENSHOT — do this first
+═══════════════════════════════════════════════════════════
+The user pastes a screenshot of CFB26's post-game Scoring Summary page. Each entry on that page is ONE scoring play. Before writing any row:
+
+1. EACH ENTRY ON THE SCREENSHOT = ONE ROW. The PAT attempt listed below a TD is NOT a separate row — it collapses into that TD's row via column F (PAT Result).
+
+2. TEAM COLUMN: each entry shows the scoring team's helmet/abbr on the left. Put EXACTLY "${homeTeamAbbr}" or "${awayTeamAbbr}" in column A — whatever the screenshot shows for that play.
+
+3. QUARTER + TIME: CFB26 shows "Q2 03:47" style. Q1/Q2/Q3/Q4 map to "1"/"2"/"3"/"4" (quoted digits). Overtime entries map to "OT" (or "2OT", "3OT"... for subsequent overtimes). Time is "MM:SS" with leading zeros on BOTH minutes and seconds — "03:47" not "3:47", "00:15" not "0:15".
+
+4. SCORING SUMMARY ORDER: the screenshot lists plays chronologically within each quarter. OT plays are ALWAYS after Q4 — never let OT plays land first even if the screenshot displays them in a different visual position.
+
+5. SCORE TYPE mapping:
+     - Rushing TD → run into the endzone (column D = yards on the run)
+     - Passing TD → QB threw to a receiver who scored (column B = receiver, column C = QB)
+     - Field Goal → kicker's points (column B = kicker, column D = FG distance in yards)
+     - Safety → opposing offense tackled/flagged in its own endzone (column B may be the defender or "Defense"; column D = blank)
+     - Kick Return TD / Punt Return TD / INT Return TD / Fumble Return TD / Blocked Punt/FG TD → self-explanatory; column B = the returner/recoverer; column C = blank
+
+6. PAT RESULT (column F): Every TD row MUST have a PAT result (Made XP / Missed XP / Blocked XP / Converted 2PT / Failed 2PT). Field goals and safeties have BLANK PAT (empty string, not "N/A").
+
+7. YARDS (column D): for TDs this is the yardage of the SCORING PLAY ITSELF — not the length of the drive. For a 3-yard TD pass, D = 3, NOT 75. For FGs, D = the kick distance. For safeties, D = blank.
+
+8. OPPONENT PLAYER NAMES: the opponent's roster is provided separately in this prompt. Names in the opponent column must come from THAT list. Do not type "#12" or "J. Smith" — use the full roster name. If the screenshot shows only a jersey number and the roster doesn't clearly match, leave Scorer blank rather than guess.
+
+═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ALL 9 columns (A through I) per row, paste at cell A2. The sheet has no pre-filled data rows — you fill everything below the header.
@@ -339,6 +365,25 @@ FINAL CHECK before you send
         structure: `This sheet has ONE tab: "Team Stats". It has 30 rows (one per stat category) and 3 columns. Column A is the stat label (pre-filled, PROTECTED). Column B is the AWAY team's value (${awayTeamAbbr}). Column C is the HOME team's value (${homeTeamAbbr}).
 
 ═══════════════════════════════════════════════════════════
+HOW TO READ THE TEAM-STATS SCREENSHOT — do this first
+═══════════════════════════════════════════════════════════
+The user pastes CFB26's "Team Stats" post-game screen. That screen shows TWO columns, one per team, with the stat label down the middle. Before writing any TSV row:
+
+1. IDENTIFY TEAM ORDER: the screenshot usually shows home team on ONE side (often right) and away on the other. ${awayTeamAbbr} = AWAY (your output column B). ${homeTeamAbbr} = HOME (your output column C). Confirm by reading the team names/helmets in the header of the screenshot. If you cannot reliably tell which side is which, stop and say so — do not guess.
+
+2. POSSESSION TIME: CFB26 shows possession as "MM:SS" (e.g. "32:14"). Split into TWO separate rows in the sheet: Row 29 "Poss Minutes" (integer) and Row 30 "Poss Seconds" (integer). "32:14" → row 29 = 32, row 30 = 14.
+
+3. RED ZONE: CFB26 shows red-zone conversions (e.g. "3/4 · 75%"). The sheet has separate rows for attempts, successes, and percent. Red Zone Pct row takes the PERCENT AS A WHOLE NUMBER (75, not 0.75 and not "75%").
+
+4. PENALTIES / 3RD DOWNS / 4TH DOWNS: shown as "fraction (percent)" in game. Put attempts and conversions in separate rows as the label requires.
+
+5. THIRD/FOURTH DOWN EFFICIENCY: if shown as "6/14" split into two rows: "3rd Down Conversions" = 6, "3rd Down Attempts" = 14.
+
+6. YARDS BREAKDOWN: Total Offense, Rush Yards, Pass Yards, Net Passing may differ slightly from Total Offense. Copy each separately — do NOT derive Pass Yards as Total Offense minus Rush Yards.
+
+7. BLANKS: if a stat isn't visible in the screenshot, leave the cell BLANK. Do not invent. Do not copy another team's value into the missing one.
+
+═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. OUTPUT COLUMNS B AND C ONLY. Column A (stat label) is PROTECTED and pre-filled — never output it.
@@ -424,6 +469,32 @@ FINAL CHECK before you send
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
       roster: playerStatsRoster,
       structure: `This sheet has NINE tabs, one per stat category. Every tab uses Player Name as column A. You fill in the stat values (and the player name) for each player who recorded a stat in that category. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
+
+═══════════════════════════════════════════════════════════
+HOW TO READ THE GAME SCREENSHOTS — do this first
+═══════════════════════════════════════════════════════════
+The user pastes screenshots from EA College Football 26's post-game stats screens. Each screenshot shows ONE stat category for BOTH teams side-by-side. Before you write a single TSV row:
+
+1. IDENTIFY THE TEAM COLUMN. Each screenshot shows the two team helmets/names as column headers. "${teamAbbr}" is the team you're writing stats for RIGHT NOW. Only use rows from the ${teamAbbr} column. Never mix in opponent (${opponentAbbrLabel}) rows — those go on a different sheet.
+
+2. TACKLES SPLIT: the defense screenshot shows "TOTAL" tackles as a single number (e.g. "8"). The sheet needs SOLO and ASSISTS as SEPARATE columns. EA's in-game screen shows them split as "SOLO/AST" like "6/2". If the screenshot shows only a combined total with no split, enter the total under Solo and leave Assists blank — NEVER invent a split.
+
+3. PASSING HEADER LINE: CFB26 shows a QB line like "26/35, 298 YDS, 3 TD, 1 INT, 148.3 RTG". Map directly:
+     - "26" → Comp
+     - "35" → Att
+     - "298" → Yards
+     - "3"   → TD
+     - "1"   → INT
+     - "148.3" → Rtg (one decimal; ONLY this column may have a decimal)
+     - Long is shown separately on the passing screen — grab it from the LONG column.
+
+4. RUSHING / RECEIVING ROWS: format is usually "CARRIES YDS AVG TD LONG". Skip AVG (not a column). 20+ / BT / YAC / RAC / Drops come from the "ADVANCED" tab in CFB26 — if you don't see them in the screenshot, leave those columns BLANK, do not guess.
+
+5. KICKING RANGE SPLITS: CFB26 shows FG attempts per distance range. Map attempts and makes to the pairs FGA 29/FGM 29 (0-29 yd), FGA 39/FGM 39 (30-39 yd), FGA 49/FGM 49 (40-49 yd), FGA 50+/FGM 50+ (50 yd+). If the screenshot lists one combined FG line with no splits, enter FGM / FGA on the summary columns and leave the range columns BLANK.
+
+6. JERSEY NUMBERS IN SCREENSHOTS: CFB26 shows "#12 J. Smith" style entries. Map that to the full roster name from the roster block above — NEVER output "#12" or "J. Smith". Always the full name from the roster dropdown.
+
+7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. A player who didn't appear on the screenshot should not be in your output at all — don't pad with zero rows.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -535,13 +606,26 @@ REQUIRED OUTPUT FORMAT
 (Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
 
 ═══════════════════════════════════════════════════════════
+COMMON MISTAKES — actively avoid these
+═══════════════════════════════════════════════════════════
+✗ Putting ${opponentAbbrLabel} players in this sheet (they belong on a different tab, not here)
+✗ Using "J. Smith" or jersey-number-only when the roster has the full name
+✗ Guessing split Solo/Assists when the screenshot shows only a total
+✗ Inventing 20+ / BT / YAC / RAC / Drops when those columns aren't visible in the screenshot
+✗ Outputting decimal numbers for anything except Passing Rtg
+✗ Adding commas to totals ("1,234" → wrong; "1234" is correct)
+✗ Padding tabs with 0-rows for players who didn't appear in that category
+✗ Reordering columns — the column order per tab is FIXED
+✗ Mixing the "Long" value with TD yardage (Long is the longest SINGLE play, not TD yardage)
+
+═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] All 9 block labels present, in the exact order above
 [ ] Each row inside a block has the EXACT column count listed for that tab
 [ ] Row counts per tab are within the max: Passing≤6, Rushing≤15, Receiving≤15, Blocking≤20, Defense≤30, Kicking≤3, Punting≤3, Kick Return≤6, Punt Return≤6
-[ ] Player names match the roster spelling (strict dropdown on the user's team)
-[ ] All stats are for ${teamAbbr} players only (no opponent players mixed in)
+[ ] Player names match the roster spelling (strict dropdown on the user's team) — NO "#12" or "J. Smith" anywhere
+[ ] All stats are for ${teamAbbr} players only (no ${opponentAbbrLabel} players mixed in)
 [ ] No commas in numbers; Rtg may have one decimal; all other stats are integers
 [ ] Tabs with no stat-earners have zero rows under the label (just the label line)
 [ ] No header row inside any block; no commentary outside the blocks`,
