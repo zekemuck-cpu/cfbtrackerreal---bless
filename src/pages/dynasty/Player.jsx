@@ -1846,8 +1846,10 @@ export default function Player() {
         return (
           <div className="flex flex-col gap-6">
             {/* 3-column grid: timeline | stats + video | game log.
-                Mobile stack order (top→bottom): Stats, Game Log, Video, Timeline. */}
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,340px)] gap-y-6 lg:gap-x-6 xl:gap-x-8">
+                Mobile stack order (top→bottom): Stats, Game Log, Video, Timeline.
+                items-start prevents cards from stretching to row height and
+                leaving dead space when their content is shorter. */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_minmax(0,340px)] lg:items-start gap-y-6 lg:gap-x-6 xl:gap-x-8">
               {/* LEFT — Timeline (condensed, with connecting line) */}
               <div className="card overflow-hidden order-4 lg:order-none lg:col-start-1 lg:row-start-1">
                 {sectionHeader('Timeline')}
