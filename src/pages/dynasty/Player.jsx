@@ -2105,12 +2105,23 @@ export default function Player() {
                 </button>
               </div>
 
-              {/* MIDDLE BOTTOM — Scoring highlights (seamless expand). */}
+              {/* MIDDLE BOTTOM — Scoring highlights. Expand opens the full
+                  modal seeked forward by the seconds elapsed in the inline
+                  clip so playback "resumes" instead of restarting. */}
               {allPlayerScoringPlays.length > 0 && (
                 <div className="min-w-0 order-3 lg:order-none lg:col-start-2 lg:row-start-2">
                   <InlineScoringHighlights
                     scoringPlays={allPlayerScoringPlays}
                     startIndex={randomScoringStartIndex}
+                    onExpand={(idx, elapsed) => {
+                      setSelectedGameScoringPlays({
+                        plays: allPlayerScoringPlays,
+                        opponent: 'All Games',
+                        startIndex: idx,
+                        resumeOffsetSec: elapsed,
+                      })
+                      setShowScoringHighlightsModal(true)
+                    }}
                   />
                 </div>
               )}
@@ -4983,6 +4994,8 @@ export default function Player() {
           teamsData={dynasty.teams}
           customTitle={selectedGameScoringPlays.opponent === 'All Games' ? `${player.name} - All Scoring Plays` : `${player.name} Scores vs ${selectedGameScoringPlays.opponent}`}
           pathPrefix={pathPrefix}
+          startIndex={selectedGameScoringPlays.startIndex || 0}
+          resumeOffsetSec={selectedGameScoringPlays.resumeOffsetSec || 0}
         />
       )}
 

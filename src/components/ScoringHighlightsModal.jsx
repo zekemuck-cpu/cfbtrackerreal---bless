@@ -173,7 +173,12 @@ export default function ScoringHighlightsModal({
   teamsData,
   customTitle,
   pathPrefix,
-  startIndex = 0
+  startIndex = 0,
+  // When opening mid-clip from the inline widget, seek the initial play to
+  // this offset so playback "resumes" where the small video was. Only applies
+  // to the first play rendered after open; clearing on navigation is handled
+  // inside the effect below.
+  resumeOffsetSec = 0,
 }) {
   useBodyScrollLock(isOpen)
   const navigate = useNavigate()
@@ -181,6 +186,10 @@ export default function ScoringHighlightsModal({
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
   const [showGameDropdown, setShowGameDropdown] = useState(false)
+  // The resume offset only applies to the very first play we show on open.
+  // Once the user navigates (or the clip auto-advances), we clear it so
+  // subsequent plays start from the beginning.
+  const [appliedResumeOffset, setAppliedResumeOffset] = useState(0)
   const timerRef = useRef(null)
   const gameDropdownRef = useRef(null)
 
@@ -353,12 +362,16 @@ export default function ScoringHighlightsModal({
       setCurrentIndex(startIndex)
       setIsPlaying(true)
       setTimeRemaining(PLAY_DURATION)
+      setAppliedResumeOffset(resumeOffsetSec || 0)
     }
-  }, [isOpen, startIndex])
+  }, [isOpen, startIndex, resumeOffsetSec])
 
-  // Reset timer when changing plays
+  // Reset timer when changing plays — also clear the resume offset so only
+  // the first play we opened on gets seeked.
   useEffect(() => {
     setTimeRemaining(PLAY_DURATION)
+    setAppliedResumeOffset(0)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex])
 
   const handlePrev = () => {
@@ -384,10 +397,34 @@ export default function ScoringHighlightsModal({
   const runningScore = getRunningScore(currentIndex)
   const isPassingTD = currentPlay?.scoreType === 'Passing TD'
 
-  // Get embed URL
+  // Get embed URL. If we were handed a resume offset (modal opened from the
+  // inline widget mid-clip), bump the YouTube `start` param forward by that
+  // number of seconds so playback picks up where the small video left off.
   const embedData = getEmbedUrl(currentPlay?.videoLink)
   const isDirectVideo = embedData && typeof embedData === 'object' && embedData.type === 'video'
-  const embedUrl = isDirectVideo ? null : embedData
+  let embedUrl = isDirectVideo ? null : embedData
+  if (embedUrl && appliedResumeOffset > 0) {
+    try {
+      const u = new URL(embedUrl)
+      const currentStart = parseInt(u.searchParams.get('start') || '0', 10) || 0
+      const currentEnd = u.searchParams.get('end')
+      const nextStart = currentStart + Math.floor(appliedResumeOffset)
+      // Don't seek past the end marker — clamp to end - 1 so playback still
+      // gets a beat before stopping, or drop the end param if the math would
+      // invalidate it.
+      if (currentEnd != null) {
+        const endNum = parseInt(currentEnd, 10)
+        if (Number.isFinite(endNum) && nextStart >= endNum) {
+          u.searchParams.delete('end')
+        }
+      }
+      u.searchParams.set('start', String(nextStart))
+      embedUrl = u.toString()
+    } catch {
+      // Non-URL (e.g., Streamable/Vimeo embeds); fall through without a
+      // timestamp — video will just restart, same as before.
+    }
+  }
 
   // Get player data for images
   const scorerPlayer = findPlayer(currentPlay?.scorer)
