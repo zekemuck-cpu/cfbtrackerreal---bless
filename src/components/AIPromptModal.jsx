@@ -39,7 +39,13 @@ export default function AIPromptModal({ isOpen, onClose, title, prompt }) {
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[10000] py-8 px-4 sm:p-4 modal-backdrop-in"
       style={{ margin: 0 }}
-      onMouseDown={onClose}
+      onMouseDown={(e) => {
+        // Stop the mousedown from bubbling through the React tree to a parent
+        // modal's backdrop handler. Without this, dismissing the AI modal also
+        // closes the underlying sheet/box-score modal in the same click.
+        e.stopPropagation()
+        onClose()
+      }}
     >
       <div
         className="card-elevated w-full sm:w-[min(720px,95vw)] max-h-[calc(100dvh-4rem)] sm:max-h-[85vh] flex flex-col overflow-hidden"
