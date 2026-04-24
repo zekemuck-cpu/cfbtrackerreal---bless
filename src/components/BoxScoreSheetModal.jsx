@@ -390,26 +390,30 @@ CRITICAL RULES — read before anything else
 2. ROW ORDER IS FIXED — the 30 rows match the exact stat order below. Row 1 of your output = "First Downs", row 2 = "Total Offense", ..., row 30 = "Poss Seconds". Never reorder, never skip, never add.
 3. Output EXACTLY 30 data rows, each with EXACTLY 2 tab-separated values (away value, home value).
 4. NO COMMAS in numbers. "1234" never "1,234".
-5. INTEGERS ONLY for all rows. Red Zone Pct is a whole-number percent (e.g. 75 means 75%). Possession time is split into separate Poss Minutes and Poss Seconds rows (both integers).
-6. Use 0 for a stat that is genuinely zero. Use a BLANK cell only if the stat is truly unknown/unreported.
-7. Column B = AWAY team (${awayTeamAbbr}), Column C = HOME team (${homeTeamAbbr}). Never swap.
-8. No header row, no stat labels, no commentary. SINGLE TSV block.
+5. ENTER EVERY NUMBER YOU CAN SEE. If a stat is visible in the screenshots (even if it's only the combined-format number or average), extract and enter it per the rules below. Only leave a cell BLANK if the stat is GENUINELY not visible anywhere in the provided screenshots.
+6. INTEGERS for all rows EXCEPT row 26 (Punt Avg), which is a one-decimal number (e.g. 42.7). Red Zone Pct is a whole-number percent (e.g. 75 means 75%). Possession time is split into separate Poss Minutes and Poss Seconds rows (both integers).
+7. Use 0 for a stat that is genuinely zero. Use a BLANK cell only if the stat is truly unknown/unreported.
+8. Column B = AWAY team (${awayTeamAbbr}), Column C = HOME team (${homeTeamAbbr}). Never swap.
+9. No header row, no stat labels, no commentary. SINGLE TSV block.
 
 ═══════════════════════════════════════════════════════════
 DATA-INTERPRETATION RULES (read before reading rows)
 ═══════════════════════════════════════════════════════════
-A. The unit on the screenshot must match the unit the row asks for.
-   If the screenshot shows "42.7 yds" next to "Punts" that's an
-   AVERAGE (yards per punt), NOT a count. Leave the row blank — do
-   NOT enter the average as the count.
-B. Percentage rows want an integer 0-100. "75%" → "75". Never
-   "0.75" or "75.00".
-C. "Total Offense" = passing yards + rushing yards. If the
-   screenshot only labels one, derive it.
-D. Possession Time displayed as "31:14" splits into Poss Minutes
-   "31" and Poss Seconds "14". Never put "31:14" in a single row.
-E. If a stat is genuinely not visible in the screenshot, leave the
-   cell BLANK. Never guess. Never insert "N/A" or "—" or "0".
+A. CFB26 shows several stats as pipe-separated combined labels. You MUST split each one into the separate rows shown:
+     • "Rushes | Yards | TDs" (e.g. "18 | 73 | 1") → Row 4 Rush Attempts=18, Row 5 Rush Yards=73, Row 6 Rush TDs=1
+     • "Comp | Att | TDs" (e.g. "21 | 31 | 3") → Row 7 Completions=21, Row 8 Pass Attempts=31, Row 9 Pass TDs=3
+     • "3rd Down Conv." (e.g. "7 | 12 (58%)") → Row 11 =7, Row 12 =12. Ignore the % — it's derived.
+     • "4th Down Conv." (e.g. "1 | 2 (50%)") → Row 13 =1, Row 14 =2. Ignore the %.
+     • "2-Point Conv." (e.g. "0 | 0 (0%)") → Row 15 =0, Row 16 =0. Ignore the %.
+     • "Red Zone TD | FG | %" (e.g. "3 | 0 | 60%") → Row 17 =3, Row 18 =0, Row 19 =60 (integer percent).
+     • "Penalties" (e.g. "1 | 10") → Row 27 Penalties =1, Row 28 Penalty Yards =10.
+B. "Turnovers" in CFB26 shows as "2 (-1)" — the "2" is the turnover COUNT (enter 2). The "(-1)" is turnover margin — IGNORE it.
+C. Row 26 (Punt Avg): CFB26's "Punts" stat is the punt AVERAGE, shown as a decimal (e.g. "42.7"). Enter it as a decimal. Do NOT try to derive punt count — the screen doesn't show it. Do NOT leave it blank when the average is visible.
+D. Calculated/derived fields ("Yards Per Play", "Yards Per Rush", "Yards Per Pass") are NOT rows in this sheet — skip them. Do not try to fit them anywhere.
+E. "Total Offense" (Row 2) = the value CFB26 labels "Total Offense". If only rushing and passing yards are visible, sum them for Total Offense.
+F. Percentage rows want an integer 0-100. "75%" → "75". Never "0.75" or "75.00".
+G. Possession Time displayed as "MM:SS" (e.g. "26:12") splits into Poss Minutes "26" and Poss Seconds "12". Never put "26:12" in a single row.
+H. Blank only when truly not visible across ALL provided screenshots. Never insert "N/A", "—", or "0" to substitute for a missing value.
 
 ═══════════════════════════════════════════════════════════
 TAB: "Team Stats" — 30 rows × 2 editable columns
@@ -443,7 +447,7 @@ Row | Col A (PROTECTED / pre-filled) | Col B (${awayTeamAbbr} — AWAY) | Col C 
  23 | Punt Ret Yards                 | away punt return yards         | home punt return yards         | integer
  24 | Kick Ret Yards                 | away kick return yards         | home kick return yards         | integer
  25 | Total Yards                    | away total yards               | home total yards               | integer
- 26 | Punts                          | away punt COUNT                | home punt COUNT                | integer (count of punts, NOT yards or average)
+ 26 | Punt Avg                       | away punt average (yds)        | home punt average (yds)        | decimal, one digit (e.g. 42.7) — the number CFB26 shows next to "Punts"
  27 | Penalties                      | away penalties count           | home penalties count           | integer
  28 | Penalty Yards                  | away penalty yards             | home penalty yards             | integer
  29 | Poss Minutes                   | away possession minutes        | home possession minutes        | integer (0-60)
@@ -466,7 +470,9 @@ FINAL CHECK before you send
 [ ] Exactly 2 tab-separated values per row (1 tab character per line)
 [ ] Row order matches the 30-row list above EXACTLY
 [ ] Column B is ${awayTeamAbbr} (away); Column C is ${homeTeamAbbr} (home) — not swapped
-[ ] All values INTEGERS — no commas, no decimals
+[ ] All values INTEGERS — no commas, no decimals — EXCEPT row 26 (Punt Avg), which is a one-decimal number (e.g. 42.7)
+[ ] Every pipe-separated CFB26 stat was SPLIT into its rows (Rushes|Yds|TDs, Comp|Att|TDs, 3rd/4th down, 2PT, Red Zone, Penalties)
+[ ] Row 26 Punt Avg filled with the decimal shown next to "Punts" in CFB26 (not blank, not a count)
 [ ] 0 used for genuine zeros; blank only for truly unknown stats
 [ ] No header row, no stat labels, no commentary`,
         includeTeamMap: true,

@@ -11754,7 +11754,7 @@ const TEAM_STATS_ROWS = [
   'Punt Ret Yards',
   'Kick Ret Yards',
   'Total Yards',
-  'Punts',
+  'Punt Avg',
   'Penalties',
   'Penalty Yards',
   'Poss Minutes',
@@ -12104,11 +12104,14 @@ async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
   // Build values array for both columns (B=away, C=home)
   const values = new Array(TEAM_STATS_ROWS.length).fill(null).map(() => ['', ''])
 
+  // Legacy key migration: old data stored punt count under `punts`; new field is `puntAvg`.
+  const migrateKey = (key) => (key === 'punts' ? 'puntAvg' : key)
+
   // Fill away team values (column B)
   if (teamStatsData.away) {
     Object.entries(teamStatsData.away).forEach(([key, value]) => {
       if (key === 'teamAbbr') return // Skip metadata
-      const rowIdx = keyToRowIndex[key]
+      const rowIdx = keyToRowIndex[migrateKey(key)]
       if (rowIdx !== undefined && value !== null && value !== undefined) {
         values[rowIdx][0] = String(value)
       }
@@ -12119,7 +12122,7 @@ async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
   if (teamStatsData.home) {
     Object.entries(teamStatsData.home).forEach(([key, value]) => {
       if (key === 'teamAbbr') return // Skip metadata
-      const rowIdx = keyToRowIndex[key]
+      const rowIdx = keyToRowIndex[migrateKey(key)]
       if (rowIdx !== undefined && value !== null && value !== undefined) {
         values[rowIdx][1] = String(value)
       }

@@ -2496,7 +2496,7 @@ export default function Game() {
           { label: 'Punt Ret Yards', left: leftTeamStats.puntRetYards, right: rightTeamStats.puntRetYards },
           { label: 'Kick Ret Yards', left: leftTeamStats.kickRetYards, right: rightTeamStats.kickRetYards },
           { label: 'Total Yards', left: leftTeamStats.totalYards, right: rightTeamStats.totalYards },
-          { label: 'Punts', left: leftTeamStats.punts, right: rightTeamStats.punts },
+          { label: 'Punt Avg', left: leftTeamStats.puntAvg ?? leftTeamStats.punts, right: rightTeamStats.puntAvg ?? rightTeamStats.punts },
           { label: 'Penalties', left: leftTeamStats.penalties, right: rightTeamStats.penalties, inverted: true },
           { label: 'Penalty Yards', left: leftTeamStats.penaltyYards, right: rightTeamStats.penaltyYards, inverted: true },
           { label: 'Time of Possession', left: formatPossession(leftTeamStats.possMinutes, leftTeamStats.possSeconds), right: formatPossession(rightTeamStats.possMinutes, rightTeamStats.possSeconds) },

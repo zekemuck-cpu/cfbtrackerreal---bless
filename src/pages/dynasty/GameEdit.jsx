@@ -1251,16 +1251,16 @@ export default function GameEdit() {
       />
 
       <Card>
-        <div className="flex items-center justify-center gap-4 sm:gap-8">
-          <div className="flex-1 text-center">
-            <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center justify-center gap-2 sm:gap-8 w-full">
+          <div className="flex-1 min-w-0 text-center">
+            <div className="flex flex-col items-center gap-2 min-w-0">
               <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2"
+                className="w-14 h-14 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2 shrink-0"
                 style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
               >
                 {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
               </div>
-              <div className="text-sm font-medium truncate max-w-[160px] text-txt-primary">
+              <div className="text-xs sm:text-sm font-medium truncate max-w-full text-txt-primary">
                 {leftTeamName}
               </div>
               {formData[`${displayLeftTeam}Rank`] && (
@@ -1271,12 +1271,12 @@ export default function GameEdit() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <input
               type="number"
               value={formData[`${displayLeftTeam}Score`]}
               onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
-              className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+              className={`w-14 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
               style={{
                 backgroundColor: 'var(--surface-3)',
                 border: '2px solid var(--surface-5)',
@@ -1290,7 +1290,7 @@ export default function GameEdit() {
               type="number"
               value={formData[`${displayRightTeam}Score`]}
               onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
-              className={`w-16 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+              className={`w-14 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
               style={{
                 backgroundColor: 'var(--surface-3)',
                 border: '2px solid var(--surface-5)',
@@ -1301,15 +1301,15 @@ export default function GameEdit() {
             />
           </div>
 
-          <div className="flex-1 text-center">
-            <div className="flex flex-col items-center gap-2">
+          <div className="flex-1 min-w-0 text-center">
+            <div className="flex flex-col items-center gap-2 min-w-0">
               <div
-                className="w-16 h-16 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2"
+                className="w-14 h-14 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2 shrink-0"
                 style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
               >
                 {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
               </div>
-              <div className="text-sm font-medium truncate max-w-[160px] text-txt-primary">
+              <div className="text-xs sm:text-sm font-medium truncate max-w-full text-txt-primary">
                 {rightTeamName}
               </div>
               {formData[`${displayRightTeam}Rank`] && (
