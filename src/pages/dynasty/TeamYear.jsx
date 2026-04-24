@@ -2021,9 +2021,7 @@ export default function TeamYear() {
   }
 
   return (
-    <div
-      className="space-y-4 sm:space-y-6 -mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-4 sm:pb-6 min-h-dvh bg-surface-1"
-    >
+    <div className="space-y-4 sm:space-y-6">
       {/* Team Header */}
       <div className="card overflow-hidden relative reveal">
         <div
