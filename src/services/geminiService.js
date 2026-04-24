@@ -1998,6 +1998,92 @@ SCORING SUMMARY (in chronological order)
 
       prompt += `\n${idx + 1}. Q${quarter} ${timeLeft} - ${playTeamFullName}: ${scorer}${passer} (${scoreType}${patResult ? ', ' + patResult : ''}) → Score: ${ctx.team1FullName} ${team1Running}, ${ctx.team2FullName} ${team2Running}`
     })
+
+    // ---- GAME FLOW FACTS ----
+    // The scoring summary is chronological, but LLMs still occasionally
+    // confuse WHICH team was trailing and WHICH team rallied. Spell it out
+    // explicitly so the recap headline can't invert the narrative.
+    const quarterRankForFlow = (q) => {
+      if (q == null) return 0
+      if (typeof q === 'number' && Number.isFinite(q)) return q
+      const s = String(q).trim().toUpperCase()
+      if (!s) return 0
+      if (/^\d+$/.test(s)) return parseInt(s, 10)
+      const otMatch = s.match(/^(\d*)OT$/)
+      if (otMatch) return 4 + (otMatch[1] ? parseInt(otMatch[1], 10) : 1)
+      return 0
+    }
+    let t1 = 0, t2 = 0
+    let t1MaxDeficit = 0, t2MaxDeficit = 0
+    let halftimeT1 = 0, halftimeT2 = 0
+    let regT1 = 0, regT2 = 0
+    let otT1 = 0, otT2 = 0
+    let leadChanges = 0
+    let lastLeader = 0 // -1 = team2, 0 = tied, 1 = team1
+    ctx.scoringSummary.forEach((play) => {
+      const scoreType = play.scoreType || ''
+      const patResult = play.patResult || ''
+      let pts = 0
+      if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
+        pts = 6
+        if (patResult.includes('Made XP')) pts += 1
+        else if (patResult.includes('Converted 2PT')) pts += 2
+      } else if (scoreType === 'Field Goal') pts = 3
+      else if (scoreType === 'Safety') pts = 2
+      else if (scoreType.includes('2PT') && scoreType.includes('Converted')) pts = 2
+      const isTeam1 = play.team?.toUpperCase() === ctx.team1?.toUpperCase()
+      if (isTeam1) t1 += pts
+      else t2 += pts
+      const qr = quarterRankForFlow(play.quarter)
+      // Track halftime (through Q2) and end-of-regulation (through Q4)
+      if (qr <= 2) { halftimeT1 = t1; halftimeT2 = t2 }
+      if (qr <= 4) { regT1 = t1; regT2 = t2 }
+      if (qr > 4) { otT1 = t1 - regT1; otT2 = t2 - regT2 }
+      // Running deficit tracking (positive = they trailed by this much)
+      if (t1 < t2) t1MaxDeficit = Math.max(t1MaxDeficit, t2 - t1)
+      if (t2 < t1) t2MaxDeficit = Math.max(t2MaxDeficit, t1 - t2)
+      // Lead change count
+      const leader = t1 > t2 ? 1 : t1 < t2 ? -1 : 0
+      if (leader !== 0 && leader !== lastLeader && lastLeader !== 0) leadChanges += 1
+      if (leader !== 0) lastLeader = leader
+    })
+    // If no plays after Q4, regT matches current; if only regulation, otT is 0
+    if (ctx.scoringSummary.every((p) => quarterRankForFlow(p.quarter) <= 4)) {
+      regT1 = t1; regT2 = t2
+    }
+    const finalT1 = t1
+    const finalT2 = t2
+    const name1 = ctx.team1FullName
+    const name2 = ctx.team2FullName
+    const describeLead = (a, b, nameA, nameB) =>
+      a > b ? `${nameA} led ${a}-${b}` : a < b ? `${nameB} led ${b}-${a}` : `tied ${a}-${a}`
+
+    const flowLines = [
+      `Halftime: ${describeLead(halftimeT1, halftimeT2, name1, name2)}.`,
+      `End of regulation: ${describeLead(regT1, regT2, name1, name2)}${regT1 === regT2 ? ' (went to overtime)' : ''}.`,
+    ]
+    if (regT1 === regT2) {
+      flowLines.push(`Overtime scoring: ${name1} ${otT1}, ${name2} ${otT2}.`)
+    }
+    flowLines.push(`Final: ${describeLead(finalT1, finalT2, name1, name2)}.`)
+    flowLines.push(`Largest deficit overcome by ${name1}: ${t1MaxDeficit === 0 ? 'never trailed' : `${t1MaxDeficit} point${t1MaxDeficit === 1 ? '' : 's'}`}.`)
+    flowLines.push(`Largest deficit overcome by ${name2}: ${t2MaxDeficit === 0 ? 'never trailed' : `${t2MaxDeficit} point${t2MaxDeficit === 1 ? '' : 's'}`}.`)
+    flowLines.push(`Lead changes: ${leadChanges}.`)
+    // Winner framing — whichever team's score is higher at the end won.
+    const winnerName = finalT1 > finalT2 ? name1 : finalT2 > finalT1 ? name2 : null
+    const loserName = winnerName === name1 ? name2 : winnerName === name2 ? name1 : null
+    const winnerMaxDeficit = winnerName === name1 ? t1MaxDeficit : t2MaxDeficit
+    if (winnerName && winnerMaxDeficit > 0) {
+      flowLines.push(`COMEBACK FACT: ${winnerName} trailed by as many as ${winnerMaxDeficit} and came back to win. ${loserName} led at one point but did NOT win — do not describe ${loserName} as rallying or coming back.`)
+    } else if (winnerName && winnerMaxDeficit === 0) {
+      flowLines.push(`FRONT-RUNNER FACT: ${winnerName} never trailed in this game. Do not describe ${winnerName} as rallying or coming back from behind.`)
+    }
+
+    prompt += `\n
+===========================================
+GAME FLOW FACTS — DO NOT CONTRADICT THESE
+===========================================
+${flowLines.join('\n')}`
   }
 
   // Add team stats if available
