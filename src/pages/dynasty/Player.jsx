@@ -11,6 +11,7 @@ import { getTeamColors } from '../../data/teamColors'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
+import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 
 // Load premium fonts
 const FONT_LINK = document.createElement('link')
@@ -4045,10 +4046,18 @@ export default function Player() {
         const normalizeName = (name) => name?.toLowerCase().trim() || ''
         const playerNameNorm = normalizeName(player.name)
 
-        const allPlayerScoringPlays = playerGameLog
+        // Order games oldest → newest, then within each game sort plays into
+        // chronological order (Q1 → OT, higher timeLeft first). This keeps
+        // running scores accurate and prevents the modal from showing a
+        // late-game TD before an earlier one from the same game.
+        const allPlayerScoringPlays = [...playerGameLog]
+          .sort((a, b) =>
+            (a.game.year - b.game.year) ||
+            ((a.game.week ?? 0) - (b.game.week ?? 0))
+          )
           .flatMap(entry => {
             const game = entry.game
-            const scoringSummary = game.boxScore?.scoringSummary || []
+            const scoringSummary = sortPlaysChronologically(game.boxScore?.scoringSummary)
 
             // Calculate running score for all plays in this game
             const getPlayPoints = (play) => {
@@ -4112,7 +4121,6 @@ export default function Player() {
                 }
               }))
           })
-          .reverse() // Reverse to show oldest to newest
 
         return (
           <div className="space-y-6">
@@ -4215,7 +4223,9 @@ export default function Player() {
                         const normalizeName = (name) => name?.toLowerCase().trim() || ''
                         const playerNameNorm = normalizeName(player.name)
 
-                        const scoringSummary = game.boxScore?.scoringSummary || []
+                        // Sort plays chronologically so running scores accumulate
+                        // in real game order and the per-game modal lists them Q1 → OT.
+                        const scoringSummary = sortPlaysChronologically(game.boxScore?.scoringSummary)
 
                         // Calculate running score for all plays in this game
                         const getPlayPoints = (play) => {

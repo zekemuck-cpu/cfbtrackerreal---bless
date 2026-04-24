@@ -17,6 +17,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
+import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import {
   PageHero,
   Card,
@@ -1642,10 +1643,15 @@ export default function Game() {
               return 0
             }
 
+            // Sort plays chronologically (Q1 → OT, time-left descending within a quarter)
+            // so running scores accumulate in real game order — and the videoIndex
+            // passed to ScoringHighlightsModal matches the modal's own ordering.
+            const chronoPlays = sortPlaysChronologically(game.boxScore.scoringSummary)
+
             // Calculate running scores
             let leftRunning = 0
             let rightRunning = 0
-            const playsWithScores = game.boxScore.scoringSummary.map((play) => {
+            const playsWithScores = chronoPlays.map((play) => {
               const points = getPlayPoints(play)
               const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
               if (isLeftTeam) {
@@ -2635,7 +2641,7 @@ export default function Game() {
       <ScoringHighlightsModal
         isOpen={showHighlightsModal}
         onClose={() => setShowHighlightsModal(false)}
-        scoringPlays={game.boxScore?.scoringSummary || []}
+        scoringPlays={sortPlaysChronologically(game.boxScore?.scoringSummary)}
         team1Abbr={leftData?.abbr}
         team2Abbr={rightData?.abbr}
         team1Logo={leftData?.logo}
