@@ -342,9 +342,9 @@ export default function PlayersByState() {
                         </div>
                       )}
 
-                      {player.devTrait && player.devTrait !== 'Normal' && (
+                      {player.devTrait && (
                         <div className="flex-shrink-0">
-                          <Badge variant={DEV_TRAIT_VARIANT[player.devTrait] || 'outline'} size="sm">
+                          <Badge variant="outline" size="sm">
                             {player.devTrait}
                           </Badge>
                         </div>

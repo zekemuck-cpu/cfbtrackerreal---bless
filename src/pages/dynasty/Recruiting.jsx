@@ -1008,8 +1008,8 @@ export default function Recruiting() {
                   {/* Bottom chips */}
                   {showBottomChips && (
                     <div className="flex items-center flex-wrap gap-1.5 mt-auto pt-3">
-                      {recruit.devTrait && recruit.devTrait.toLowerCase() !== 'normal' && (
-                        <Badge variant={DEV_TRAIT_VARIANT[devTraitKey] || 'default'} size="sm">
+                      {recruit.devTrait && (
+                        <Badge variant="outline" size="sm">
                           {recruit.devTrait}
                         </Badge>
                       )}

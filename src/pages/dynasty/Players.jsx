@@ -304,7 +304,7 @@ export default function Players() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {player.devTrait && (
-                        <Badge variant={DEV_TRAIT_VARIANT[player.devTrait] || 'outline'} size="sm">
+                        <Badge variant="outline" size="sm">
                           {player.devTrait}
                         </Badge>
                       )}

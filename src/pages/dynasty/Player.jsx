@@ -2474,14 +2474,10 @@ export default function Player() {
                   ? [recruitmentNode.isPortal ? 'Portal Entry' : 'Committed', ...eyebrowParts].join(' · ')
                   : eyebrow
 
-                const devChip = yd.devTrait && yd.devTrait !== 'Normal' ? (
+                const devChip = yd.devTrait ? (
                   <span
-                    className="inline-block text-[10px] font-black uppercase px-1.5 py-0.5 rounded"
-                    style={{
-                      backgroundColor: yd.devTrait === 'Elite' ? '#fbbf24' : yd.devTrait === 'Star' ? '#8b5cf6' : yd.devTrait === 'Impact' ? '#3b82f6' : '#9ca3af',
-                      color: yd.devTrait === 'Elite' ? '#78350f' : '#ffffff',
-                      letterSpacing: '1px'
-                    }}
+                    className="inline-block text-[10px] font-semibold uppercase text-txt-secondary"
+                    style={{ letterSpacing: '1px' }}
                   >
                     {yd.devTrait}
                   </span>

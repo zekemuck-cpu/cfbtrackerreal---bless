@@ -1179,14 +1179,8 @@ export default function PlayerEditModalNew({
                       {formData.overall} OVR
                     </span>
                   )}
-                  {formData.devTrait && DEV_TRAIT_COLORS[formData.devTrait] && (
-                    <span
-                      className="text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor: DEV_TRAIT_COLORS[formData.devTrait].bg,
-                        color: DEV_TRAIT_COLORS[formData.devTrait].text
-                      }}
-                    >
+                  {formData.devTrait && (
+                    <span className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
                       {formData.devTrait}
                     </span>
                   )}

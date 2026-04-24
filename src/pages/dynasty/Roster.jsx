@@ -128,7 +128,7 @@ export default function Roster() {
                       <span>{player.position}</span>
                       <span>·</span>
                       <span>{player.classByYear?.[currentDynasty.currentYear] || player.year}</span>
-                      {player.devTrait && player.devTrait !== 'Normal' && (
+                      {player.devTrait && (
                         <>
                           <span>·</span>
                           <span>{player.devTrait}</span>

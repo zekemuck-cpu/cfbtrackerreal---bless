@@ -2957,7 +2957,6 @@ export default function TeamYear() {
                     const ovr = getPlayerOverallForYear(p, selectedYear)
                     const pos = getPlayerPositionForYear(p, selectedYear)
                     const cls = p.classByYear?.[selectedYear] || p.classByYear?.[String(selectedYear)] || p.year || ''
-                    const devColor = getDevColor(p.devTrait)
                     return (
                       <li
                         key={p.pid}
@@ -2983,8 +2982,8 @@ export default function TeamYear() {
                             <div className="text-[10px] tabular-nums mt-0.5 truncate flex items-center gap-1.5" style={{ color: accentColorMuted }}>
                               <span>{pos || '—'}</span>
                               {cls && (<><span className="opacity-60">·</span><span>{cls}</span></>)}
-                              {p.devTrait && p.devTrait !== 'Normal' && (
-                                <><span className="opacity-60">·</span><span style={{ color: devColor }}>{p.devTrait}</span></>
+                              {p.devTrait && (
+                                <><span className="opacity-60">·</span><span>{p.devTrait}</span></>
                               )}
                             </div>
                           </div>
@@ -3448,7 +3447,6 @@ export default function TeamYear() {
             {/* Mobile: card rows with team-color left-rail */}
             <div className="sm:hidden divide-y divide-surface-4">
               {filteredTeamPlayers.map((player) => {
-                const devColor = getDevColor(player.devTrait)
                 return (
                   <Link
                     key={player.pid}
@@ -3510,10 +3508,10 @@ export default function TeamYear() {
                         <span className="text-txt-secondary">{getPlayerPositionForYear(player, selectedYear) || '—'}</span>
                         <span className="text-txt-muted">·</span>
                         <span className="text-txt-tertiary">{player.classByYear?.[year] || player.year || '—'}</span>
-                        {player.devTrait && player.devTrait !== 'Normal' && (
+                        {player.devTrait && (
                           <>
                             <span className="text-txt-muted">·</span>
-                            <span style={{ color: devColor }}>{player.devTrait}</span>
+                            <span className="text-txt-tertiary">{player.devTrait}</span>
                           </>
                         )}
                       </div>
@@ -3575,7 +3573,6 @@ export default function TeamYear() {
                 </thead>
                 <tbody>
                   {filteredTeamPlayers.map((player) => {
-                    const devColor = getDevColor(player.devTrait)
                     return (
                       <tr
                         key={player.pid}
@@ -3651,8 +3648,8 @@ export default function TeamYear() {
                           <span className="text-base font-bold tabular text-txt-primary">{getPlayerOverallForYear(player, selectedYear) ?? '—'}</span>
                         </td>
                         <td className="py-2 px-3 text-center hidden md:table-cell">
-                          {player.devTrait && player.devTrait !== 'Normal' ? (
-                            <span className="label-xs" style={{ color: devColor }}>{player.devTrait}</span>
+                          {player.devTrait ? (
+                            <span className="label-xs text-txt-secondary">{player.devTrait}</span>
                           ) : (
                             <span className="text-txt-muted">—</span>
                           )}
