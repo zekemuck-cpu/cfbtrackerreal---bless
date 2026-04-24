@@ -17,6 +17,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName, getBowlForSlot, DEFAULT_BOWL_CONFIG } from '../../data/cfpConstants'
 import { STAT_TABS, STAT_TAB_ORDER } from '../../data/boxScoreConstants'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
+import FormattedRecap from '../../components/FormattedRecap'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import {
   PageHero,
@@ -1824,9 +1825,9 @@ export default function Game() {
               </div>
             ) : isGeneratingRecap && streamingRecap ? (
               <div className="space-y-4">
-                <div className="text-txt-secondary text-sm leading-relaxed whitespace-pre-line">
-                  {streamingRecap}
-                  <span className="inline-block w-2 h-4 bg-yellow-500 ml-1 animate-pulse" />
+                <div className="text-txt-secondary text-sm leading-relaxed">
+                  <FormattedRecap text={streamingRecap} />
+                  <span className="inline-block w-2 h-4 bg-yellow-500 ml-1 animate-pulse align-middle" />
                 </div>
                 <div className="text-xs text-amber-400 flex items-center gap-2">
                   <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1838,9 +1839,10 @@ export default function Game() {
               </div>
             ) : game.aiRecap ? (
               <div className="space-y-4">
-                <div className="text-txt-secondary text-sm leading-relaxed whitespace-pre-line">
-                  {game.aiRecap}
-                </div>
+                <FormattedRecap
+                  text={game.aiRecap}
+                  className="text-txt-secondary text-sm leading-relaxed"
+                />
                 {recapError && (
                   <div className="p-4 bg-red-900/30 border border-red-700/50 rounded-lg">
                     <div className="flex items-start gap-3">

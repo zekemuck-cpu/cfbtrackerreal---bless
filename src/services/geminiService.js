@@ -2062,10 +2062,12 @@ export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `Write a professional game recap 
 CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats, drive details, time remaining, etc.) MUST be directly supported by the data provided above. Do not make up any numbers, injuries, rankings, or plays. It's fine to add neutral connecting language (e.g., "Clemson took control in the fourth quarter") but don't invent extra drives, turnovers, or scoring plays that aren't in the data.
 
 FORMAT:
-- Start with a strong headline in proper title case (e.g., "Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
+- Start with a strong headline on its own line as a level-1 markdown heading (e.g., "# Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
 - Begin the article body with a dateline: "City, State —" format (e.g., "Madison, WI —" or "Tuscaloosa, AL —"). Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
-- For longer articles with rich data, use subheadings to break up sections (e.g., "Early fireworks and a heavyweight feel", "Fourth-quarter chaos: lead changes and clutch plays")
-- Write in plain text only - no markdown formatting (**, ##, *)
+- For longer articles with rich data, use level-2 markdown subheadings to break up sections (e.g., "## Early fireworks and a heavyweight feel", "## Fourth-quarter chaos: lead changes and clutch plays")
+- Use **bold** for pivotal moments, decisive plays, and standout stat lines — things you want the reader's eye to land on. Examples: **"Shembo completed 27 of 28 passes for 266 yards and three touchdowns"**, **the 48-yard field goal with 0:03 left**. Don't over-bold — 3 to 8 boldings across the whole article is the sweet spot.
+- Use *italic* sparingly, for a quoted phrase, a team nickname on first mention, or a moment of narrative emphasis. Skip it if you're not sure.
+- Use these markdown markers only. Do not use bullet lists, tables, code fences, links, or any other markdown syntax. Separate paragraphs with a blank line.
 
 USING THE DATA:
 - Use the SCORING SUMMARY to walk through scoring plays chronologically with times and running scores
