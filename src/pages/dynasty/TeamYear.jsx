@@ -2918,7 +2918,11 @@ export default function TeamYear() {
 
           {/* Previous Game + Next Game Row — editorial scorebug */}
           {(lastGame || nextGame) && (
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 ${(!lastGame || !nextGame) ? 'md:max-w-2xl' : ''}`}>
+          <div className={
+            (!lastGame || !nextGame)
+              ? 'grid grid-cols-1 gap-y-8 max-w-2xl mx-auto'
+              : 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8'
+          }>
             {/* Previous Game with Stats */}
             {lastGame && lastGameInfo && (
             <Link
