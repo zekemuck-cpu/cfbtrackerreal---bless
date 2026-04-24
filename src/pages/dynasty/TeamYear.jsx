@@ -2837,7 +2837,10 @@ export default function TeamYear() {
             )
           })()}
 
-          {/* Team Stat Leaders — editorial grid, no outer box */}
+          {/* Three-column home layout: leaders | prev+next | schedule */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 lg:gap-x-8 xl:gap-x-10">
+          {/* LEFT: Stat Leaders (editorial grid, collapses to stacked rows in the rail) */}
+          <aside className="lg:order-1 min-w-0">
           {(teamLeaders.passing || teamLeaders.rushing || teamLeaders.receiving || teamLeaders.tackles || teamLeaders.interceptions) && (() => {
             const leaders = [
               teamLeaders.passing && { key: 'passing', label: 'Passing', valueText: teamLeaders.passing.stats.yards.toLocaleString(), unit: 'YDS', sub: `${teamLeaders.passing.stats.comp}/${teamLeaders.passing.stats.attempts} · ${teamLeaders.passing.stats.tD} TD · ${teamLeaders.passing.stats.int} INT`, data: teamLeaders.passing, fallback: 'P' },
@@ -2882,8 +2885,9 @@ export default function TeamYear() {
                   ))}
                 </div>
 
-                {/* Desktop: divided grid, no outer box */}
-                <div className="hidden md:grid grid-cols-5 stagger-reveal" style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}>
+                {/* Desktop: 5-col grid at md+; collapses to vertical stack at lg+
+                    because the Home layout wraps this in a narrow left rail */}
+                <div className="hidden md:grid md:grid-cols-5 lg:grid-cols-1 stagger-reveal" style={{ borderTop: `1px solid ${accentColor}20`, borderBottom: `1px solid ${accentColor}20` }}>
                   {leaders.map((l, idx) => (
                     <Link
                       key={l.key}
@@ -2916,12 +2920,16 @@ export default function TeamYear() {
             )
           })()}
 
+          </aside>
+
+          {/* MIDDLE: Previous + Next Game (editorial scorebug) */}
+          <section className="lg:order-2 min-w-0">
           {/* Previous Game + Next Game Row — editorial scorebug */}
           {(lastGame || nextGame) && (
           <div className={
             (!lastGame || !nextGame)
               ? 'grid grid-cols-1 gap-y-8 max-w-2xl mx-auto'
-              : 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8'
+              : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-x-8 gap-y-8'
           }>
             {/* Previous Game with Stats */}
             {lastGame && lastGameInfo && (
@@ -3164,6 +3172,10 @@ export default function TeamYear() {
           </div>
           )}
 
+          </section>
+
+          {/* RIGHT: Season Schedule (single-column list inside the rail) */}
+          <aside className="lg:order-3 min-w-0">
           {/* Compact Season Schedule - Column-first order */}
           {teamYearGames.length > 0 && (() => {
             // Calculate rows needed for column-first layout
@@ -3254,11 +3266,11 @@ export default function TeamYear() {
                   </button>
                 </div>
 
-                {/* Mobile: Single column, divided rows */}
+                {/* Mobile: single column, divided rows */}
                 <div className="sm:hidden">
                   {teamYearGames.map((game, index) => renderGameItem(game, index))}
                 </div>
-                {/* Tablet (sm): 2 columns */}
+                {/* Tablet (sm–md): 2 columns */}
                 <div className="hidden sm:grid lg:hidden grid-cols-2 gap-x-6">
                   <div>
                     {teamYearGames.slice(0, rowsFor2Col).map((game, index) => renderGameItem(game, index))}
@@ -3267,21 +3279,17 @@ export default function TeamYear() {
                     {teamYearGames.slice(rowsFor2Col).map((game, index) => renderGameItem(game, rowsFor2Col + index))}
                   </div>
                 </div>
-                {/* Desktop (lg): 3 columns */}
-                <div className="hidden lg:grid grid-cols-3 gap-x-8">
-                  <div>
-                    {teamYearGames.slice(0, rowsFor3Col).map((game, index) => renderGameItem(game, index))}
-                  </div>
-                  <div>
-                    {teamYearGames.slice(rowsFor3Col, rowsFor3Col * 2).map((game, index) => renderGameItem(game, rowsFor3Col + index))}
-                  </div>
-                  <div>
-                    {teamYearGames.slice(rowsFor3Col * 2).map((game, index) => renderGameItem(game, rowsFor3Col * 2 + index))}
-                  </div>
+                {/* Desktop (lg+): single column — this block lives in the
+                    narrow right rail of the three-column home layout, so
+                    the older 3-column layout doesn't fit. */}
+                <div className="hidden lg:block">
+                  {teamYearGames.map((game, index) => renderGameItem(game, index))}
                 </div>
               </div>
             )
           })()}
+          </aside>
+          </div>
         </div>
         )
       })()}
