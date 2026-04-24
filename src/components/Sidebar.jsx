@@ -87,7 +87,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
-    { name: 'AI Settings', path: '/ai-settings', isAdmin: true },
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 

@@ -6,7 +6,7 @@ import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeam
 import { useDynasty, GAME_TYPES, getCurrentCustomConferences, buildRecordUpdatePayload, calculateTeamRecordFromGames, propagateCFPWinner, isPlayerOnRoster } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { generateGameRecap, getCustomRecapInstructions, getAiConfig, getFullRecapPrompt } from '../../services/geminiService'
+import { getFullRecapPrompt } from '../../services/geminiService'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
@@ -154,10 +154,8 @@ export default function GameEdit() {
   const [showBoxScoreModal, setShowBoxScoreModal] = useState(false)
   const [boxScoreModalType, setBoxScoreModalType] = useState(null) // 'homeStats', 'awayStats', 'scoring', 'teamStats'
 
-  // AI Recap state
-  const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
+  // Recap state — copy-prompt only, no live AI calls.
   const [recapError, setRecapError] = useState(null)
-  const [streamingRecap, setStreamingRecap] = useState('')
   const [promptCopied, setPromptCopied] = useState(false)
 
   // Form state
@@ -1167,65 +1165,9 @@ export default function GameEdit() {
     }
   }
 
-  // Generate AI recap
-  const handleGenerateRecap = async () => {
-    if (!user?.uid) return
-
-    setIsGeneratingRecap(true)
-    setRecapError(null)
-    setStreamingRecap('')
-
-    try {
-      // Get user's AI configuration (provider, model, API keys)
-      const aiConfig = await getAiConfig(user.uid)
-      const provider = aiConfig?.provider || 'gemini'
-      const apiKey = aiConfig?.apiKeys?.[provider]
-
-      if (!apiKey) {
-        setRecapError(`No API key configured. Add your ${provider === 'gemini' ? 'Gemini' : provider} API key in AI Settings.`)
-        return
-      }
-
-      // Fetch custom instructions
-      const customInstructions = await getCustomRecapInstructions(user.uid)
-      const model = aiConfig?.model || 'gemini-2.5-flash'
-
-      // Build game object for recap generation
-      // IMPORTANT: Parse scores as integers - string comparison fails ("24" > "3" is false alphabetically)
-      const gameForRecap = {
-        ...existingGame,
-        team1: team1Name,
-        team2: team2Name,
-        team1Score: parseInt(formData.team1Score) || 0,
-        team2Score: parseInt(formData.team2Score) || 0,
-        quarters: formData.quarters,
-        gameType,
-        bowlName,
-        year: gameYear
-      }
-
-      // Use streaming to show progress (pass provider as last parameter)
-      const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
-        setStreamingRecap(partialText)
-      }, customInstructions, user.uid, model, provider)
-
-      setFormData(prev => ({ ...prev, aiRecap: result.text }))
-      setStreamingRecap('')
-    } catch (error) {
-      setRecapError(error.message)
-    } finally {
-      setIsGeneratingRecap(false)
-    }
-  }
-
-  // Copy full prompt to clipboard for use in external AI
+  // Copy full prompt to clipboard for use in external AI (ChatGPT/Claude/etc.)
   const handleCopyPrompt = async () => {
     try {
-      // Fetch custom instructions if user is logged in
-      const customInstructions = user?.uid ? await getCustomRecapInstructions(user.uid) : null
-
-      // Build game object for prompt generation
-      // IMPORTANT: Parse scores as integers - string comparison fails ("24" > "3" is false alphabetically)
       const gameForRecap = {
         ...existingGame,
         team1: team1Name,
@@ -1235,16 +1177,14 @@ export default function GameEdit() {
         quarters: formData.quarters,
         gameType,
         bowlName,
-        year: gameYear
+        year: gameYear,
       }
 
-      const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, customInstructions)
+      const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap)
 
-      // Try modern clipboard API first, fall back to legacy method
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(fullPrompt)
       } else {
-        // Fallback for non-secure contexts or older browsers
         const textArea = document.createElement('textarea')
         textArea.value = fullPrompt
         textArea.style.position = 'fixed'
@@ -1651,28 +1591,18 @@ export default function GameEdit() {
       <Card>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="label-sm text-txt-primary">Game Recap</h3>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopyPrompt}
-              disabled={!formData.team1Score || !formData.team2Score}
-              title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
-            >
-              {promptCopied ? 'Copied!' : 'Copy Prompt'}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleGenerateRecap}
-              disabled={isGeneratingRecap || !formData.team1Score || !formData.team2Score}
-            >
-              {isGeneratingRecap ? 'Generating...' : 'Generate with AI'}
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleCopyPrompt}
+            disabled={!formData.team1Score || !formData.team2Score}
+            title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
+          >
+            {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
+          </Button>
         </div>
         <p className="text-xs text-txt-tertiary mb-3">
-          Tip: Enter all game info (scores, quarters, stats) before generating for the best AI recap.
+          Enter all game info first, then copy the prompt into ChatGPT / Claude / your AI of choice and paste the generated article into the box below.
         </p>
         {recapError && (
           <p className="text-sm mb-2" style={{ color: 'var(--accent-error)' }}>{recapError}</p>
@@ -1681,7 +1611,7 @@ export default function GameEdit() {
           value={formData.aiRecap}
           onChange={(e) => setFormData({ ...formData, aiRecap: e.target.value })}
           rows={8}
-          placeholder="Write a game recap or use AI to generate one..."
+          placeholder="Paste the AI-generated recap here (or write your own)..."
         />
       </Card>
 

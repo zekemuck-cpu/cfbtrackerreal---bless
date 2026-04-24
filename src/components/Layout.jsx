@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.24.0006'
+const APP_VERSION = '2026.04.24.0007'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -531,9 +531,9 @@ export default function Layout({ children }) {
         )}
         <div className="w-full px-2 sm:px-4">
           <div className="flex items-center justify-between py-3">
-            {/* Left: Burger menu + Home button (dynasty) OR AI Settings (home page) */}
+            {/* Left: Burger menu + Home button (dynasty pages only) */}
             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-              {useTeamTheme ? (
+              {useTeamTheme && (
                 <>
                   <button
                     onClick={() => window.toggleDynastySidebar?.()}
@@ -558,16 +558,6 @@ export default function Layout({ children }) {
                     </svg>
                   </Link>
                 </>
-              ) : (
-                /* AI Settings on left side of home page header */
-                user && (
-                  <Link
-                    to="/ai-settings"
-                    className="text-sm px-3 py-1.5 rounded transition-colors hover:bg-surface-3 text-txt-primary whitespace-nowrap"
-                  >
-                    AI Settings
-                  </Link>
-                )
               )}
             </div>
 

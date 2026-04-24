@@ -25,7 +25,7 @@ import {
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, Game,
-  GameEdit, DangerZone, AISettings,
+  GameEdit, DangerZone,
 } from './routes/lazyPages'
 
 // Protected route wrapper
@@ -103,13 +103,6 @@ function AppRoutes() {
                   <ProtectedRoute>
                     <Layout>
                       <CreateDynasty />
-                    </Layout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/ai-settings" element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <AISettings />
                     </Layout>
                   </ProtectedRoute>
                 } />

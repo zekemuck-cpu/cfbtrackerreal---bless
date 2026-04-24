@@ -34,7 +34,6 @@ export const CFPBracket = lazyWithPreload(() => import('../pages/dynasty/CFPBrac
 export const Game = lazyWithPreload(() => import('../pages/dynasty/Game'))
 export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'))
 export const DangerZone = lazyWithPreload(() => import('../pages/dynasty/DangerZone'))
-export const AISettings = lazyWithPreload(() => import('../pages/dynasty/AISettings'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.
@@ -53,7 +52,6 @@ export const preloadByNavName = {
   'Top 25': Rankings.preload,
   'All Teams': Teams.preload,
   'All Players': Players.preload,
-  'AI Settings': AISettings.preload,
   'Danger Zone': DangerZone.preload,
 }
 

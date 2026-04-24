@@ -7,7 +7,7 @@ import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
 import { generateRandomBoxScore } from '../data/boxScoreConstants'
-import { generateGameRecap, getGeminiApiKey, getCustomRecapInstructions, getGeminiModel } from '../services/geminiService'
+import { getFullRecapPrompt } from '../services/geminiService'
 import { isSameWeek } from '../utils/compareUtils'
 import BoxScoreSheetModal from './BoxScoreSheetModal'
 import { useToast } from './ui/Toast'
@@ -52,10 +52,9 @@ export default function GameEntryModal({
   const effectiveTeamData = teamsSource[effectiveTeamTid]
   const effectiveTeamName = effectiveTeamData?.name || currentDynasty?.teamName || ''
 
-  // AI Recap generation state
-  const [isGeneratingRecap, setIsGeneratingRecap] = useState(false)
+  // Recap state — copy-prompt only, no live AI calls.
   const [recapError, setRecapError] = useState(null)
-  const [tokenUsage, setTokenUsage] = useState(null)
+  const [promptCopied, setPromptCopied] = useState(false)
 
   // Detect if this is a CPU vs CPU game from existingGame or passed props
   // In unified model: CPU games have team1/team2 or team1Tid/team2Tid but NO userTeam AND NO opponent
@@ -2889,91 +2888,53 @@ export default function GameEntryModal({
               <h3 className="text-base sm:text-lg font-bold" style={{ color: modalColors.text }}>
                 Game Recap
               </h3>
-              {(existingGame?.id || tempGameId) && (
-                <button
-                  onClick={async () => {
-                    if (!user?.uid || isGeneratingRecap) return
-                    if (gameData.aiRecap) {
-                      const ok = await confirm({
-                        title: 'Overwrite recap?',
-                        message: 'This will erase the existing recap.',
-                        confirmLabel: 'Overwrite',
-                        variant: 'danger',
-                      })
-                      if (!ok) return
+              <button
+                onClick={async () => {
+                  setRecapError(null)
+                  try {
+                    const gameForRecap = {
+                      ...existingGame,
+                      ...gameData,
+                      teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
+                      opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
+                      team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
+                      team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
                     }
-                    setIsGeneratingRecap(true)
-                    setRecapError(null)
-                    setTokenUsage(null)
-                    setGameData(prev => ({ ...prev, aiRecap: '' })) // Clear for fresh streaming
-                    try {
-                      const apiKey = await getGeminiApiKey(user.uid)
-                      if (!apiKey) {
-                        setRecapError('No API key found. Add your Gemini API key in AI Settings.')
-                        setIsGeneratingRecap(false)
-                        return
-                      }
-                      // Fetch custom instructions and model preference
-                      const customInstructions = await getCustomRecapInstructions(user.uid)
-                      const model = await getGeminiModel(user.uid)
-
-                      // Build a game object from current form data for recap generation
-                      const gameForRecap = {
-                        ...existingGame,
-                        ...gameData,
-                        teamScore: parseInt(gameData.teamScore) || existingGame?.teamScore,
-                        opponentScore: parseInt(gameData.opponentScore) || existingGame?.opponentScore,
-                        team1Score: parseInt(gameData.team1Score) || existingGame?.team1Score,
-                        team2Score: parseInt(gameData.team2Score) || existingGame?.team2Score,
-                      }
-                      // Use streaming to show progress - returns { text, usage }
-                      const result = await generateGameRecap(currentDynasty, gameForRecap, apiKey, (partialText) => {
-                        setGameData(prev => ({ ...prev, aiRecap: partialText }))
-                      }, customInstructions, user.uid, model)
-                      // Capture token usage
-                      if (result.usage) {
-                        setTokenUsage(result.usage)
-                      }
-                      // Set final text (may be trimmed version)
-                      setGameData(prev => ({ ...prev, aiRecap: result.text }))
-                    } catch (error) {
-                      console.error('Error generating recap:', error)
-                      setRecapError(error.message || 'Failed to generate recap')
-                    } finally {
-                      setIsGeneratingRecap(false)
+                    const fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap)
+                    if (navigator.clipboard && window.isSecureContext) {
+                      await navigator.clipboard.writeText(fullPrompt)
+                    } else {
+                      const ta = document.createElement('textarea')
+                      ta.value = fullPrompt
+                      ta.style.position = 'fixed'
+                      ta.style.left = '-9999px'
+                      document.body.appendChild(ta)
+                      ta.focus()
+                      ta.select()
+                      document.execCommand('copy')
+                      ta.remove()
                     }
-                  }}
-                  disabled={isGeneratingRecap}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-                  style={{
-                    backgroundColor: `${modalColors.accent}20`,
-                    color: modalColors.accent,
-                    border: `1px solid ${modalColors.accent}40`
-                  }}
-                >
-                  {isGeneratingRecap ? (
-                    <>
-                      <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      {gameData.aiRecap ? 'AI Regenerate' : 'AI Generate'}
-                    </>
-                  )}
-                </button>
-              )}
+                    setPromptCopied(true)
+                    setTimeout(() => setPromptCopied(false), 2000)
+                  } catch (err) {
+                    console.error('Failed to copy prompt:', err)
+                    setRecapError('Failed to copy prompt: ' + (err.message || 'unknown error'))
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: `${modalColors.accent}20`,
+                  color: modalColors.accent,
+                  border: `1px solid ${modalColors.accent}40`
+                }}
+              >
+                {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
+              </button>
             </div>
 
-            {/* Tip for better AI results */}
+            {/* Instructions */}
             <p className="text-xs mb-3 italic" style={{ color: modalColors.textMuted }}>
-              Tip: Fill in all game data (score, box score, quarters, scoring summary) before generating for the best results. The AI uses this data plus historical context to write the recap.
+              Fill in all game data first, then copy the prompt into ChatGPT / Claude / your AI of choice and paste the generated article below.
             </p>
 
             {recapError && (
@@ -2989,10 +2950,10 @@ export default function GameEntryModal({
                 className="w-full px-3 sm:px-4 py-2 sm:py-2.5 border-2 rounded-xl text-sm focus:ring-2 focus:outline-none transition-all"
                 style={{ backgroundColor: modalColors.inputBg, color: modalColors.text, borderColor: modalColors.inputBorder }}
                 rows="10"
-                placeholder={existingGame?.id || tempGameId ? "Click 'Generate' to create an AI recap, or write your own..." : "Save the game first to generate an AI recap, or write your own..."}
+                placeholder="Paste the AI-generated recap here (or write your own)..."
               />
               <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
-                You can edit the generated recap or write your own.
+                Paste the output from your AI, or write your own.
               </p>
             </div>
 
