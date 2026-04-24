@@ -97,6 +97,13 @@ export default function FormattedRecap({ text, className = '', playerLinks = nul
 
   const blocks = text.split(/\n{2,}/)
 
+  // Headings intentionally skip player linking. A linked name inside a bold
+  // heading ends up rendered at the same size but non-bold (our link forces
+  // font-normal to avoid the "bold + underlined" look users hated inside
+  // body **bold** spans), which next to the bold heading text visually
+  // reads as smaller. Keeping headings link-free preserves the weight
+  // consistency readers expect from a headline.
+
   return (
     <div className={className}>
       {blocks.map((block, bi) => {
@@ -106,21 +113,21 @@ export default function FormattedRecap({ text, className = '', playerLinks = nul
         if (/^###\s+/.test(trimmed)) {
           return (
             <h4 key={bi} className="text-sm font-bold text-white uppercase tracking-wide mt-4 mb-1.5 first:mt-0">
-              {renderInline(trimmed.replace(/^###\s+/, ''), `h4-${bi}`, playerRegex, lookup)}
+              {renderInline(trimmed.replace(/^###\s+/, ''), `h4-${bi}`, null, lookup)}
             </h4>
           )
         }
         if (/^##\s+/.test(trimmed)) {
           return (
             <h3 key={bi} className="text-base font-bold text-white mt-5 mb-2 first:mt-0">
-              {renderInline(trimmed.replace(/^##\s+/, ''), `h3-${bi}`, playerRegex, lookup)}
+              {renderInline(trimmed.replace(/^##\s+/, ''), `h3-${bi}`, null, lookup)}
             </h3>
           )
         }
         if (/^#\s+/.test(trimmed)) {
           return (
             <h2 key={bi} className="text-lg font-bold text-white mt-6 mb-3 first:mt-0">
-              {renderInline(trimmed.replace(/^#\s+/, ''), `h2-${bi}`, playerRegex, lookup)}
+              {renderInline(trimmed.replace(/^#\s+/, ''), `h2-${bi}`, null, lookup)}
             </h2>
           )
         }
