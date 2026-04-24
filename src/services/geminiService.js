@@ -10,7 +10,7 @@
 import { getTeamName } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, TEAMS, getGameTeamInfo, getNameByAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getTeamConference } from '../data/conferenceTeams'
-import { getUserGamePerspective } from '../context/DynastyContext'
+import { getUserGamePerspective, getLockedCoachingStaff } from '../context/DynastyContext'
 
 // ============================================
 // HELPER FUNCTIONS FOR DATA EXTRACTION
@@ -257,23 +257,17 @@ function buildTalentContext(team1Ratings, team2Ratings, team1Name, team2Name, te
  * Get coaching staff for a team/year
  */
 function getCoachingStaff(dynasty, teamAbbr, year) {
-  if (!dynasty) return null
-  const startYear = dynasty.startYear || year - 10
-  const teamTid = getTidFromAbbr(teamAbbr)
-
-  // Check the modern tid-based byYear structure first, then the legacy abbr
-  // map. Walk backwards up to startYear so carried-over staff still resolves.
-  for (let y = year; y >= startYear; y--) {
-    if (teamTid) {
-      const tidStaff = dynasty.teams?.[teamTid]?.byYear?.[y]?.coachingStaff
-      if (tidStaff) return tidStaff
-    }
-    const legacyStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[y]
-    if (legacyStaff) return legacyStaff
-  }
-
-  // Final fallback: dynasty-level default staff (first-season state)
-  return dynasty.coachingStaff || null
+  // Delegate to the production helper. It handles:
+  //   - locked staff → team-centric staff → legacy staff fallback chain
+  //   - ONLY falling back to dynasty.coachingStaff when the team is the user's
+  //     current team (so opponents don't inherit the user's OC/DC)
+  //   - injecting dynasty.coachName as hcName/ocName/dcName when the user
+  //     coaches that team in that year (fills in the user's HC name)
+  if (!dynasty || !teamAbbr) return null
+  const staff = getLockedCoachingStaff(dynasty, Number(year), teamAbbr)
+  if (!staff) return null
+  if (!staff.hcName && !staff.ocName && !staff.dcName) return null
+  return staff
 }
 
 /**
