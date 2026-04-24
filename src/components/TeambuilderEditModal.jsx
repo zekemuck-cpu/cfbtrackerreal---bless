@@ -15,7 +15,11 @@ export default function TeambuilderEditModal({
   onClose,
   team,
   tid,
-  onSave
+  onSave,
+  // Map of all teams currently in the dynasty (dynasty.teams). Used to
+  // detect abbreviation collisions with OTHER teambuilder teams, not just
+  // against the static FBS list.
+  dynastyTeams = null,
 }) {
   const { toast } = useToast()
   const [formData, setFormData] = useState({
@@ -65,6 +69,17 @@ export default function TeambuilderEditModal({
       // Also allow if it's our current abbreviation
       if (conflictingTeam && conflictingTeam !== originalTeamAbbr && conflictingTeam !== team?.abbr) {
         return `"${upperAbbr}" is already used by ${getTeamName(conflictingTeam)}`
+      }
+      // Also check OTHER teambuilder teams in the same dynasty. Two custom
+      // teams sharing an abbr breaks tid-based lookups (getTidFromAbbr can
+      // return either one) so we block it outright.
+      if (dynastyTeams) {
+        for (const [otherTid, otherTeam] of Object.entries(dynastyTeams)) {
+          if (Number(otherTid) === Number(tid)) continue
+          if (otherTeam?.abbr?.toUpperCase() === upperAbbr) {
+            return `"${upperAbbr}" is already used by ${otherTeam.name || 'another team'} in this dynasty`
+          }
+        }
       }
     }
     return ''

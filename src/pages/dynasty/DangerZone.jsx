@@ -551,19 +551,19 @@ export default function DangerZone() {
         // Get team 1 tid - check tid fields first, then convert from abbreviation
         let t1 = game.team1Tid || game.userTid || 0
         if (!t1 && game.userTeam) {
-          t1 = getTidFromAbbr(game.userTeam) || 0
+          t1 = getTidFromAbbr(game.userTeam, currentDynasty) || 0
         }
         if (!t1 && game.team1) {
-          t1 = getTidFromAbbr(game.team1) || 0
+          t1 = getTidFromAbbr(game.team1, currentDynasty) || 0
         }
 
         // Get team 2 tid - check tid fields first, then convert from abbreviation
         let t2 = game.team2Tid || game.opponentTid || 0
         if (!t2 && game.opponent) {
-          t2 = getTidFromAbbr(game.opponent) || 0
+          t2 = getTidFromAbbr(game.opponent, currentDynasty) || 0
         }
         if (!t2 && game.team2) {
-          t2 = getTidFromAbbr(game.team2) || 0
+          t2 = getTidFromAbbr(game.team2, currentDynasty) || 0
         }
 
         return t1 < t2 ? `${t1}-${t2}` : `${t2}-${t1}`
@@ -709,7 +709,7 @@ export default function DangerZone() {
             }
 
             // Find matching game by week/year/teams
-            const opponentTid = getTidFromAbbr(entry.opponent)
+            const opponentTid = getTidFromAbbr(entry.opponent, currentDynasty)
             const matchingGame = updatedGames.find(g =>
               Number(g.week) === Number(entry.week) &&
               Number(g.year) === Number(year) &&
@@ -817,7 +817,7 @@ export default function DangerZone() {
         }
 
         // Get tid for the team
-        const tid = playerTeam ? getTidFromAbbr(playerTeam) : null
+        const tid = playerTeam ? getTidFromAbbr(playerTeam, currentDynasty) : null
 
         // Add to teamsByYear if we have a tid and this year isn't already tracked
         if (tid && !updatedPlayer.teamsByYear[year]) {
@@ -856,7 +856,7 @@ export default function DangerZone() {
 
       // Helper: Create a new player for an honor
       const createPlayerForHonor = (name, position, team, honorType, honor, year) => {
-        const tid = team ? getTidFromAbbr(team) : null
+        const tid = team ? getTidFromAbbr(team, currentDynasty) : null
         const newPlayer = {
           pid: nextPID++,
           name: name,
@@ -1103,7 +1103,7 @@ export default function DangerZone() {
           if (!seed.team) return seed // No team abbreviation to look up
 
           // Look up tid from abbreviation
-          const tid = getTidFromAbbr(seed.team)
+          const tid = getTidFromAbbr(seed.team, currentDynasty)
           if (tid) {
             yearSeedsFixed = true
             seedsFixedCount++
@@ -1215,7 +1215,7 @@ export default function DangerZone() {
 
         // Add team1Tid if missing but team1 exists
         if (!updatedGame.team1Tid && updatedGame.team1) {
-          const tid = getTidFromAbbr(updatedGame.team1)
+          const tid = getTidFromAbbr(updatedGame.team1, currentDynasty)
           if (tid) {
             updatedGame.team1Tid = tid
             gameModified = true
@@ -1224,7 +1224,7 @@ export default function DangerZone() {
 
         // Add team2Tid if missing but team2 exists
         if (!updatedGame.team2Tid && updatedGame.team2) {
-          const tid = getTidFromAbbr(updatedGame.team2)
+          const tid = getTidFromAbbr(updatedGame.team2, currentDynasty)
           if (tid) {
             updatedGame.team2Tid = tid
             gameModified = true
@@ -1233,7 +1233,7 @@ export default function DangerZone() {
 
         // Add winnerTid if missing but winner exists
         if (!updatedGame.winnerTid && updatedGame.winner) {
-          const tid = getTidFromAbbr(updatedGame.winner)
+          const tid = getTidFromAbbr(updatedGame.winner, currentDynasty)
           if (tid) {
             updatedGame.winnerTid = tid
             gameModified = true
@@ -1244,7 +1244,7 @@ export default function DangerZone() {
         if (!updatedGame.winner && updatedGame.team1Score !== null && updatedGame.team2Score !== null) {
           updatedGame.winner = updatedGame.team1Score > updatedGame.team2Score ? updatedGame.team1 : updatedGame.team2
           if (updatedGame.winner) {
-            updatedGame.winnerTid = getTidFromAbbr(updatedGame.winner)
+            updatedGame.winnerTid = getTidFromAbbr(updatedGame.winner, currentDynasty)
             gameModified = true
           }
         }
@@ -2650,6 +2650,7 @@ export default function DangerZone() {
           onClose={() => { setShowTeambuilderEditModal(false); setSelectedTeambuilderTid(null) }}
           team={currentDynasty?.teams?.[selectedTeambuilderTid]}
           tid={selectedTeambuilderTid}
+          dynastyTeams={currentDynasty?.teams || currentDynasty?.customTeams}
           teamColors={{ primary: 'var(--team-primary)', secondary: 'var(--team-secondary)' }}
           onSave={async (updates) => {
             const result = await updateTeambuilderTeam(currentDynasty.id, selectedTeambuilderTid, updates)

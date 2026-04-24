@@ -1107,7 +1107,7 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
  * Get performance trends for players in the box score
  * Shows if players are on hot streaks, bouncing back, etc.
  */
-function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, currentGameOrder) {
+function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, currentGameOrder, dynasty = null) {
   const trends = []
 
   // Get all players from this side of the box score
@@ -1158,8 +1158,16 @@ function getPlayerPerformanceTrends(boxScore, side, players, allGames, year, cur
           const opponentTid = gameSide === 'home' ? awaySideTid : homeSideTid
           const otherSide = gameSide === 'home' ? 'away' : 'home'
           let opponentName = null
-          if (opponentTid && TEAMS[opponentTid]) {
-            opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
+          if (opponentTid) {
+            // Prefer dynasty.teams (picks up teambuilder-renamed teams) over
+            // the static TEAMS table so a custom team's name is used.
+            const fromDynasty = dynasty?.teams?.[opponentTid] || dynasty?.customTeams?.[opponentTid]
+            if (fromDynasty) {
+              opponentName = fromDynasty.name || fromDynasty.mascot || fromDynasty.abbr
+            }
+            if (!opponentName && TEAMS[opponentTid]) {
+              opponentName = TEAMS[opponentTid].name || TEAMS[opponentTid].mascot || TEAMS[opponentTid].abbr
+            }
           }
           if (!opponentName) {
             opponentName = g.boxScore?.[otherSide]?.teamName || null
@@ -1515,8 +1523,8 @@ export function buildGameRecapContext(dynasty, game) {
   let team1PlayerTrends = []
   let team2PlayerTrends = []
   if (game.boxScore) {
-    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder)
-    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder)
+    team1PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team1Side, players, allGames, year, thisGameOrder, dynasty)
+    team2PlayerTrends = getPlayerPerformanceTrends(game.boxScore, team2Side, players, allGames, year, thisGameOrder, dynasty)
   }
 
   // Map quarters correctly based on team position in original game data

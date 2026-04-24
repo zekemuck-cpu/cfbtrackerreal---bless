@@ -951,7 +951,7 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return null
 
   // Handle abbr input for backward compatibility
-  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : tidOrAbbr
   const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(tidOrAbbr) : tidOrAbbr
 
   // Priority 1: Calculate from actual games
@@ -1037,7 +1037,7 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return null
 
   // Resolve tid and abbr
-  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr) : tidOrAbbr
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : tidOrAbbr
   const abbr = typeof tidOrAbbr === 'number' ? getOriginalTeamAbbr(tidOrAbbr) : tidOrAbbr
 
   // Priority 1: Check final polls (end of season ranking, most authoritative)
@@ -1994,7 +1994,7 @@ export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return []
 
   // Resolve tid and abbr
-  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
   const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(tidOrAbbr)
 
   // Try NEW tid-based byYear structure first
@@ -2030,7 +2030,7 @@ export function createGamesFromSchedule(dynasty, schedule, userTid, year) {
       return { ...entry, isBye: true, gameId: null, opponentTid: null }
     }
 
-    const opponentTid = entry.opponentTid || getTidFromAbbr(entry.opponent)
+    const opponentTid = entry.opponentTid || getTidFromAbbr(entry.opponent, dynasty)
 
     // If entry already has gameId, check if game exists
     if (entry.gameId) {
@@ -2387,7 +2387,7 @@ export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return defaultRatings
 
   // Resolve tid from abbr if needed
-  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
   const yearNum = Number(year)
   const currentTid = getCurrentTeamTid(dynasty)
   const currentYear = Number(dynasty.currentYear)
@@ -2737,7 +2737,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     const coachTeam = getCoachTeamForYear(dynasty, year)
     teamAbbr = coachTeam?.team
     // Also get tid from coachTeam if it has it
-    tid = coachTeam?.tid || (teamAbbr ? getTidFromAbbr(teamAbbr) : null)
+    tid = coachTeam?.tid || (teamAbbr ? getTidFromAbbr(teamAbbr, dynasty) : null)
   }
 
   if (!teamAbbr && !tid) {
@@ -2746,7 +2746,7 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
   } else if (!tid && teamAbbr) {
     // Have abbr but not tid - resolve it
-    tid = getTidFromAbbr(teamAbbr)
+    tid = getTidFromAbbr(teamAbbr, dynasty)
   }
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
@@ -3064,7 +3064,7 @@ export function migrateToFullTidSystem(dynasty) {
     } else {
       // Fallback: try abbreviation approach
       const abbr = getAbbrFromTeamName(migrated.teamName, migrated.teams)
-      const fallbackTid = getTidFromAbbr(abbr)
+      const fallbackTid = getTidFromAbbr(abbr, dynasty)
       if (fallbackTid) {
         migrated.currentTid = fallbackTid
       }
@@ -3077,7 +3077,7 @@ export function migrateToFullTidSystem(dynasty) {
     for (const [year, record] of Object.entries(migrated.coachTeamByYear)) {
       if (record && !record.tid && record.team) {
         // Convert team abbr to tid
-        const tid = getTidFromAbbr(record.team)
+        const tid = getTidFromAbbr(record.team, dynasty)
         migratedCoachTeamByYear[year] = {
           ...record,
           tid: tid || null
@@ -3096,7 +3096,7 @@ export function migrateToFullTidSystem(dynasty) {
     if (migrated.games && Array.isArray(migrated.games)) {
       for (const game of migrated.games) {
         if (game.userTeam && game.year && !initCoachTeamByYear[game.year]) {
-          const tid = getTidFromAbbr(game.userTeam)
+          const tid = getTidFromAbbr(game.userTeam, dynasty)
           const team = migrated.teams?.[tid]
           initCoachTeamByYear[game.year] = {
             tid: tid,
@@ -3140,7 +3140,7 @@ export function migrateToFullTidSystem(dynasty) {
           migratedTeamsByYear[year] = value
         } else if (typeof value === 'string') {
           // Convert abbr to tid
-          const tid = getTidFromAbbr(value)
+          const tid = getTidFromAbbr(value, dynasty)
           migratedTeamsByYear[year] = tid || null
           needsMigration = true
         } else {
@@ -3171,8 +3171,8 @@ export function migrateToFullTidSystem(dynasty) {
 
       if (game.userTeam || game.userTid || game.opponent || game.opponentTid) {
         // User game format - convert to unified format
-        const userTid = game.userTid || getTidFromAbbr(game.userTeam)
-        const oppTid = game.opponentTid || getTidFromAbbr(game.opponent)
+        const userTid = game.userTid || getTidFromAbbr(game.userTeam, dynasty)
+        const oppTid = game.opponentTid || getTidFromAbbr(game.opponent, dynasty)
         const userScore = parseInt(game.teamScore) || 0
         const oppScore = parseInt(game.opponentScore) || 0
 
@@ -3217,8 +3217,8 @@ export function migrateToFullTidSystem(dynasty) {
         delete newGame.opponentRecord
       } else if (game.team1 || game.team1Tid) {
         // Already has team1/team2 format (CPU game or postseason)
-        newGame.team1Tid = game.team1Tid || getTidFromAbbr(game.team1)
-        newGame.team2Tid = game.team2Tid || getTidFromAbbr(game.team2)
+        newGame.team1Tid = game.team1Tid || getTidFromAbbr(game.team1, dynasty)
+        newGame.team2Tid = game.team2Tid || getTidFromAbbr(game.team2, dynasty)
 
         // Add winnerTid if scores exist
         const score1 = parseInt(newGame.team1Score) || 0
@@ -3269,7 +3269,7 @@ export function migrateCoachTeamByYear(dynasty) {
 
       // LEGACY FORMAT: Check userTeam field
       if (game.userTeam) {
-        const tid = getTidFromAbbr(game.userTeam)
+        const tid = getTidFromAbbr(game.userTeam, dynasty)
         const team = migrated.teams?.[tid]
         initCoachTeamByYear[year] = {
           tid: tid,
@@ -3308,7 +3308,7 @@ export function migrateCoachTeamByYear(dynasty) {
     if (!currentTid && migrated.games) {
       const currentYearGame = migrated.games.find(g => isSameYear(g.year, currentYear))
       if (currentYearGame) {
-        currentTid = currentYearGame.userTid || getTidFromAbbr(currentYearGame.userTeam)
+        currentTid = currentYearGame.userTid || getTidFromAbbr(currentYearGame.userTeam, dynasty)
       }
     }
 
@@ -3372,7 +3372,7 @@ export function migrateToUserTeamSystem(dynasty) {
       const coachCareer = []
       for (const [yearStr, entry] of Object.entries(migrated.coachTeamByYear)) {
         const year = Number(yearStr)
-        const tid = entry.tid || getTidFromAbbr(entry.team)
+        const tid = entry.tid || getTidFromAbbr(entry.team, dynasty)
         const position = entry.position || migrated.coachPosition || 'HC'
         if (tid && !isNaN(year)) {
           coachCareer.push({ year, tid, position })
@@ -3439,7 +3439,7 @@ export function getPlayersLeaving(dynasty, tidOrAbbr, year) {
   if (!dynasty) return []
 
   // Resolve tid - handle both numeric tid and string abbreviation
-  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.playersLeaving) {
@@ -3472,7 +3472,7 @@ export function getConferenceChampionshipData(dynasty, tidOrAbbr, year) {
   if (!dynasty) return null
 
   // Resolve tid - handle both numeric tid and string abbreviation
-  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.conferenceChampionshipData) {
@@ -3501,7 +3501,7 @@ export function getBowlEligibilityData(dynasty, teamAbbr, year) {
   if (!dynasty) return null
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.bowlEligibilityData) {
     return dynasty.teams[tid].byYear[year].bowlEligibilityData
   }
@@ -3524,7 +3524,7 @@ export function getDraftResults(dynasty, teamAbbr, year) {
   if (!dynasty) return []
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.draftResults) {
     return dynasty.teams[tid].byYear[year].draftResults
   }
@@ -3547,7 +3547,7 @@ export function getTransferDestinations(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.transferDestinations) {
     return dynasty.teams[tid].byYear[year].transferDestinations
   }
@@ -3574,7 +3574,7 @@ export function getTrainingResults(dynasty, tidOrAbbr, year) {
   if (!dynasty) return {}
 
   // Resolve tid - handle both numeric tid and string abbreviation
-  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.trainingResults) {
@@ -3603,7 +3603,7 @@ export function getPortalTransferClass(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.portalTransferClass) {
     return dynasty.teams[tid].byYear[year].portalTransferClass
   }
@@ -3626,7 +3626,7 @@ export function getFringeCaseClass(dynasty, teamAbbr, year) {
   if (!dynasty) return {}
 
   // Try NEW tid-based byYear structure first (Phase 7 migration)
-  const tid = getTidFromAbbr(teamAbbr)
+  const tid = getTidFromAbbr(teamAbbr, dynasty)
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.fringeCaseClass) {
     return dynasty.teams[tid].byYear[year].fringeCaseClass
   }
@@ -3653,7 +3653,7 @@ export function getEncourageTransfers(dynasty, tidOrAbbr, year) {
   if (!dynasty) return []
 
   // Resolve tid - handle both numeric tid and string abbreviation
-  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
 
   // Try NEW tid-based byYear structure first
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.encourageTransfers) {
@@ -3684,7 +3684,7 @@ export function getRecruitingCommitments(dynasty, tidOrAbbr, year) {
   if (!dynasty) return {}
 
   // Resolve tid - handle both numeric tid and string abbreviation
-  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr)
+  let tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
 
   // Try NEW tid-based byYear structure first
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.recruitingCommitments) {
@@ -3730,7 +3730,7 @@ export function migrateToMovementsSystem(dynasty) {
     let originTeam = player.team
     if (typeof originTeam === 'string') {
       // Convert legacy abbr to tid
-      originTeam = getTidFromAbbr(originTeam) || teamTid
+      originTeam = getTidFromAbbr(originTeam, dynasty) || teamTid
     }
     if (!originTeam) {
       originTeam = teamTid

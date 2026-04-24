@@ -1016,9 +1016,25 @@ export default function Game() {
         : (game.team2Defense ?? game.opponentDefense ?? null)
     }
 
+    // Resolve tid for this side so downstream comparisons (quarter scores,
+    // etc.) can match by tid instead of abbr — the only safe way when two
+    // teams in the same dynasty share an abbreviation.
+    let tid = null
+    if (isCPUGame) {
+      const team1Tid = game.team1Tid
+      const team2Tid = game.team2Tid
+      const team1Info = team1Tid ? getGameTeamInfo(teams, team1Tid) : null
+      const team1Abbr = team1Info?.abbr || game.team1
+      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
+      tid = isTeam1 ? team1Tid : team2Tid
+    } else {
+      tid = isDisplayTeam ? (game.team1Tid ?? game.userTid ?? null) : (game.team2Tid ?? game.opponentTid ?? null)
+    }
+
     return {
       name: isDisplayTeam ? displayTeam : opponent,
       abbr: isDisplayTeam ? displayTeamAbbr : opponentAbbr,
+      tid,
       logo: isDisplayTeam ? displayTeamLogo : opponentLogo,
       colors: isDisplayTeam ? displayTeamColors : opponentColors,
       score: isDisplayTeam ? userScore : opponentScore,
@@ -1206,7 +1222,12 @@ export default function Game() {
                   const t = game.quarters.team1 || game.quarters.team || {}
                   const o = game.quarters.team2 || game.quarters.opponent || {}
                   const isNewFormat = game.quarters.team1 || game.quarters.team2
-                  const isLeftTeam1 = leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
+                  // Match by tid when both sides are available — abbrs can
+                  // collide between teambuilder teams and real FBS teams.
+                  // Fall back to abbr only when one side has no tid.
+                  const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
+                    ? Number(leftData.tid) === Number(game.team1Tid)
+                    : leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
                   const leftQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team1' : 'team2') : (leftTeam === 'user' ? 'team' : 'opponent')
                   const rightQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team2' : 'team1') : (leftTeam === 'user' ? 'opponent' : 'team')
                   const leftQuarters = game.quarters[leftQuarterKey] || {}
@@ -1481,7 +1502,12 @@ export default function Game() {
                 {[leftData, rightData].map((team, idx) => {
                   // Support both new format (team1/team2) and legacy format (team/opponent)
                   const isNewFormat = game.quarters.team1 || game.quarters.team2
-                  const isLeftTeam1 = leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
+                  // Match by tid when both sides are available — abbrs can
+                  // collide between teambuilder teams and real FBS teams.
+                  // Fall back to abbr only when one side has no tid.
+                  const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
+                    ? Number(leftData.tid) === Number(game.team1Tid)
+                    : leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
                   const quarterKey = isNewFormat
                     ? (idx === 0 ? (isLeftTeam1 ? 'team1' : 'team2') : (isLeftTeam1 ? 'team2' : 'team1'))
                     : ((idx === 0 ? leftTeam : rightTeam) === 'user' ? 'team' : 'opponent')

@@ -142,7 +142,7 @@ export function ViewDynastyProvider({ shareCode, children }) {
     getCurrentRoster: () => {
       if (!dynasty) return []
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-      const teamTid = getTidFromAbbr(teamAbbr)
+      const teamTid = getTidFromAbbr(teamAbbr, dynasty)
       const currentYear = dynasty.currentYear
       // Use unified isPlayerOnRoster check - teamsByYear is the ONLY source of truth
       // Handle both tid (number) and legacy abbr (string) in teamsByYear
