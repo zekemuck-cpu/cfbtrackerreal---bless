@@ -279,13 +279,47 @@ export default function TeamYear() {
   // Convert tid param to number
   const tid = parseInt(tidParam, 10)
 
-  // Main tab state - persisted in URL params (home, schedule, stats, roster)
-  const activeTab = searchParams.get('tab') || 'home'
+  // Main tab state - persisted in URL params (home, schedule, stats, roster).
+  // When no ?tab= is specified, default is 'home' — UNLESS there are no
+  // games recorded for this team/year yet, in which case the Home tab is
+  // empty and we default to 'roster' so the user lands on something useful.
+  // See `defaultTab` below the teamYearGames memo for the no-games case.
+  const explicitTab = searchParams.get('tab')
   const setActiveTab = (tab) => {
     setSearchParams(prev => {
       const newParams = new URLSearchParams(prev)
       newParams.set('tab', tab)
       return newParams
+    }, { replace: true })
+  }
+
+  // Roster tab state — persisted in URL so back-button preserves the
+  // filter/sort selection when returning from a player page.
+  const positionFilter = searchParams.get('pos') || 'all'
+  const setPositionFilter = (pos) => {
+    setSearchParams(prev => {
+      const np = new URLSearchParams(prev)
+      if (!pos || pos === 'all') np.delete('pos')
+      else np.set('pos', pos)
+      return np
+    }, { replace: true })
+  }
+  const rosterSort = searchParams.get('sort') || 'position'
+  const setRosterSort = (sort) => {
+    setSearchParams(prev => {
+      const np = new URLSearchParams(prev)
+      if (!sort || sort === 'position') np.delete('sort')
+      else np.set('sort', sort)
+      return np
+    }, { replace: true })
+  }
+  const rosterSortDir = searchParams.get('dir') === 'desc' ? 'desc' : 'asc'
+  const setRosterSortDir = (dir) => {
+    setSearchParams(prev => {
+      const np = new URLSearchParams(prev)
+      if (dir === 'desc') np.set('dir', 'desc')
+      else np.delete('dir')
+      return np
     }, { replace: true })
   }
 
@@ -307,13 +341,11 @@ export default function TeamYear() {
 
   // Game edit modal state removed - now using game pages
 
-  // Roster sorting state
-  const [rosterSort, setRosterSort] = useState('position') // 'position', 'overall', 'jerseyNumber', 'name'
-  const [rosterSortDir, setRosterSortDir] = useState('asc') // 'asc', 'desc'
+  // Roster sorting state — rosterSort/rosterSortDir/positionFilter are now
+  // URL-persisted above so back-button navigation preserves them.
   const [showRosterModal, setShowRosterModal] = useState(false)
   const [rosterCollapsed, setRosterCollapsed] = useState(false)
   const [scheduleCollapsed, setScheduleCollapsed] = useState(false)
-  const [positionFilter, setPositionFilter] = useState('all') // 'all', 'QB', 'RB', 'WR', etc.
   const [showRecordTooltip, setShowRecordTooltip] = useState(false)
   const [showTeamEditModal, setShowTeamEditModal] = useState(false)
   const [showScheduleModal, setShowScheduleModal] = useState(false)
@@ -889,6 +921,12 @@ export default function TeamYear() {
       return true
     })
     .sort((a, b) => getGameSortOrder(a) - getGameSortOrder(b))
+
+  // Default tab: 'home' normally, but 'roster' when no games are on the
+  // books yet for this team/year — the Home tab has nothing useful to
+  // show pre-season, so skip straight to the Roster.
+  const activeTab = explicitTab || (teamYearGames.length === 0 ? 'roster' : 'home')
+
   // Check for both 'win'/'loss' and 'W'/'L' formats
   // Use _displayResult for flipped perspective games (opponent team pages)
   const teamWins = teamYearGames.filter(g => {
