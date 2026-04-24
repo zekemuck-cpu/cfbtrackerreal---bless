@@ -2641,7 +2641,10 @@ export default function Game() {
       <ScoringHighlightsModal
         isOpen={showHighlightsModal}
         onClose={() => setShowHighlightsModal(false)}
-        scoringPlays={sortPlaysChronologically(game.boxScore?.scoringSummary)}
+        scoringPlays={sortPlaysChronologically(game.boxScore?.scoringSummary).map(p => ({
+          ...p,
+          gameInfo: { ...(p.gameInfo || {}), gameId }
+        }))}
         team1Abbr={leftData?.abbr}
         team2Abbr={rightData?.abbr}
         team1Logo={leftData?.logo}
@@ -2651,6 +2654,7 @@ export default function Game() {
         getMascotName={getMascotName}
         teamsData={currentDynasty?.teams || currentDynasty?.customTeams}
         startIndex={highlightsStartIndex}
+        pathPrefix={pathPrefix}
       />
     </div>
   )

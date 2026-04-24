@@ -589,33 +589,59 @@ export default function ScoringHighlightsModal({
             </button>
           </div>
 
-          {/* Running score (right) */}
-          <div
-            className={`flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60 transition-colors ${
-              currentPlay?.gameInfo?.gameId && pathPrefix ? 'cursor-pointer hover:bg-surface-3' : ''
-            }`}
-            onClick={(e) => {
-              if (currentPlay?.gameInfo?.gameId && pathPrefix) {
-                e.stopPropagation()
-                navigate(`${pathPrefix}/game/${currentPlay.gameInfo.gameId}`)
-              }
-            }}
-            title={currentPlay?.gameInfo?.gameId ? 'View game details' : undefined}
-          >
-            {team1LogoUrl && (
-              <img src={team1LogoUrl} alt={team1Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
-            )}
-            <span className="text-white font-bold text-base sm:text-lg tabular-nums">
-              {runningScore.score1}
-            </span>
-            <span className="text-txt-muted text-xs">–</span>
-            <span className="text-white font-bold text-base sm:text-lg tabular-nums">
-              {runningScore.score2}
-            </span>
-            {team2LogoUrl && (
-              <img src={team2LogoUrl} alt={currentPlay?.gameInfo?.opponent || team2Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
-            )}
-          </div>
+          {/* Running score (right) — links to the game */}
+          {(() => {
+            const canLinkToGame = !!(currentPlay?.gameInfo?.gameId && pathPrefix)
+            const scoreInner = (
+              <>
+                {team1LogoUrl && (
+                  <img src={team1LogoUrl} alt={team1Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+                )}
+                <span className="text-white font-bold text-base sm:text-lg tabular-nums">
+                  {runningScore.score1}
+                </span>
+                <span className="text-txt-muted text-xs">–</span>
+                <span className="text-white font-bold text-base sm:text-lg tabular-nums">
+                  {runningScore.score2}
+                </span>
+                {team2LogoUrl && (
+                  <img src={team2LogoUrl} alt={currentPlay?.gameInfo?.opponent || team2Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+                )}
+              </>
+            )
+
+            if (!canLinkToGame) {
+              return (
+                <div className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60">
+                  {scoreInner}
+                </div>
+              )
+            }
+
+            return (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`${pathPrefix}/game/${currentPlay.gameInfo.gameId}`)
+                }}
+                title="View game details"
+                aria-label="View game details"
+                className="group flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60 hover:bg-blue-600/20 ring-1 ring-transparent hover:ring-blue-500/50 transition-colors focus:outline-none focus:ring-blue-500 cursor-pointer"
+              >
+                {scoreInner}
+                <svg
+                  className="w-3.5 h-3.5 text-txt-muted group-hover:text-blue-400 transition-colors ml-0.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )
+          })()}
         </div>
       </div>
     </div>,
