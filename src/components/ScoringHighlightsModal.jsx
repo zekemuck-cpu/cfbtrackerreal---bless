@@ -129,7 +129,6 @@ export default function ScoringHighlightsModal({
   const [isPlaying, setIsPlaying] = useState(true)
   const [timeRemaining, setTimeRemaining] = useState(PLAY_DURATION)
   const [showGameDropdown, setShowGameDropdown] = useState(false)
-  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false)
   const timerRef = useRef(null)
   const gameDropdownRef = useRef(null)
 
@@ -267,22 +266,6 @@ export default function ScoringHighlightsModal({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Check if dropdown should open upward to avoid overflow
-  useEffect(() => {
-    if (showGameDropdown && gameDropdownRef.current) {
-      const dropdownButton = gameDropdownRef.current.querySelector('button')
-      if (dropdownButton) {
-        const rect = dropdownButton.getBoundingClientRect()
-        const viewportHeight = window.innerHeight
-        const spaceBelow = viewportHeight - rect.bottom
-        const estimatedDropdownHeight = Math.min(games.length * 40, 240) // 40px per item, max 240px (max-h-60)
-
-        // Open upward if not enough space below
-        setDropdownOpenUpward(spaceBelow < estimatedDropdownHeight + 20)
-      }
-    }
-  }, [showGameDropdown, games.length])
-
   // Handle timer for auto-advance
   useEffect(() => {
     if (!isOpen || !isPlaying) {
@@ -363,41 +346,116 @@ export default function ScoringHighlightsModal({
   // For "All Games" mode, use the opponent logo from the current play's gameInfo
   const team2LogoUrl = currentPlay?.gameInfo?.opponentLogo || team2Logo
 
+  const progressPct = totalPlays > 0 ? ((currentIndex + 1) / totalPlays) * 100 : 0
+
   return createPortal(
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-[9999] p-2 sm:p-4"
       style={{ margin: 0 }}
       onClick={onClose}
     >
       <div
-        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-6xl max-h-[92dvh] flex flex-col border border-surface-4"
+        className="bg-surface-1 rounded-xl shadow-2xl w-full max-w-7xl h-[94dvh] flex flex-col border border-surface-4 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-surface-4 bg-surface-2 flex-shrink-0">
-          <h3 className="text-lg font-bold text-white">{customTitle || 'Scoring Highlights'}</h3>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-txt-muted">
-              Play {currentIndex + 1} of {totalPlays}
-            </span>
-            <button aria-label="Close"
-              onClick={onClose}
-              className="p-1 hover:bg-surface-3 rounded-lg transition-colors"
+        {/* Header — title, counter, filters, close */}
+        <div className="flex items-center gap-3 px-4 h-12 border-b border-surface-4 bg-surface-2 flex-shrink-0">
+          <h3 className="text-sm sm:text-base font-semibold text-white truncate">
+            {customTitle || 'Scoring Highlights'}
+          </h3>
+          <span className="text-xs text-txt-muted whitespace-nowrap tabular-nums">
+            {currentIndex + 1} / {totalPlays}
+          </span>
+
+          <div className="flex-1" />
+
+          {seasons.length > 1 && (
+            <select
+              value={currentPlay?.gameInfo?.year || ''}
+              onChange={(e) => jumpToSeason(e.target.value)}
+              className="px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:border-blue-500 focus:outline-none"
+              aria-label="Season"
             >
-              <svg className="w-6 h-6 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+              {seasons.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          )}
+
+          {games.length > 1 && (
+            <div className="relative" ref={gameDropdownRef}>
+              <button
+                onClick={() => setShowGameDropdown(!showGameDropdown)}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-blue-500 max-w-[220px]"
+              >
+                {currentPlay?.gameInfo?.opponentLogo && (
+                  <img
+                    src={currentPlay.gameInfo.opponentLogo}
+                    alt=""
+                    className="w-3.5 h-3.5 object-contain flex-shrink-0"
+                  />
+                )}
+                <span className="flex-1 text-left truncate">
+                  {currentPlay?.gameInfo
+                    ? `W${currentPlay.gameInfo.week} vs ${currentPlay.gameInfo.opponent}`
+                    : 'Select game'}
+                </span>
+                <svg className="w-3 h-3 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showGameDropdown && (
+                <div className="absolute right-0 top-full mt-1 min-w-[260px] bg-surface-3 border border-surface-4 rounded-lg shadow-xl max-h-72 overflow-y-auto z-50">
+                  {games.map(game => {
+                    const isActive =
+                      currentPlay?.gameInfo?.year === game.year &&
+                      currentPlay?.gameInfo?.week === game.week &&
+                      currentPlay?.gameInfo?.opponent === game.opponent
+                    return (
+                      <button
+                        key={`${game.year}-${game.week}-${game.opponent}`}
+                        onClick={() => {
+                          jumpToGame(`${game.year}|||${game.week}|||${game.opponent}`)
+                          setShowGameDropdown(false)
+                        }}
+                        className={`flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left ${
+                          isActive ? 'bg-surface-4 text-white' : 'text-white hover:bg-surface-4'
+                        }`}
+                      >
+                        {game.opponentLogo && (
+                          <img
+                            src={game.opponentLogo}
+                            alt=""
+                            className="w-4 h-4 object-contain flex-shrink-0"
+                          />
+                        )}
+                        <span className="truncate">{game.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className="p-1 -mr-1 hover:bg-surface-3 rounded-md transition-colors"
+          >
+            <svg className="w-5 h-5 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* Video Player — 16:9 so the panel only takes the height the video needs */}
-        <div className="relative bg-black w-full aspect-video overflow-hidden flex-shrink-0">
+        {/* Video — fills all remaining space */}
+        <div className="relative bg-black flex-1 min-h-0 overflow-hidden">
           {isDirectVideo ? (
             <video
               key={currentIndex}
               src={embedData.url}
-              className="absolute inset-0 w-full h-full"
+              className="w-full h-full"
               autoPlay
               controls
             />
@@ -405,7 +463,7 @@ export default function ScoringHighlightsModal({
             <iframe
               key={currentIndex}
               src={embedUrl}
-              className="absolute inset-0 w-full h-full"
+              className="w-full h-full"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -428,20 +486,28 @@ export default function ScoringHighlightsModal({
             </div>
           )}
 
-          {/* Timer indicator */}
+          {/* Timer pill */}
           {isPlaying && (
-            <div className="absolute top-4 left-4 bg-black/70 px-3 py-1 rounded-full z-10">
-              <span className="text-white text-sm font-mono">{timeRemaining}s</span>
+            <div className="absolute top-3 left-3 bg-black/70 backdrop-blur px-2.5 py-0.5 rounded-full z-10 pointer-events-none">
+              <span className="text-white text-xs font-mono tabular-nums">{timeRemaining}s</span>
             </div>
           )}
         </div>
 
-        {/* Play Info */}
-        <div className="px-4 py-2 bg-surface-2 border-t border-surface-4 flex-shrink-0">
-          <div className="flex items-start gap-3">
-            {/* Player image */}
+        {/* Progress bar between video and footer */}
+        <div className="h-0.5 bg-surface-3 flex-shrink-0 relative">
+          <div
+            className="h-full bg-blue-500 transition-all duration-300 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        {/* Footer — play info + controls + score in one row */}
+        <div className="flex items-center gap-3 sm:gap-4 px-4 py-2.5 bg-surface-2 flex-shrink-0">
+          {/* Play info (left) */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
             {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
-              <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-surface-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block">
                 <img
                   src={scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl}
                   alt=""
@@ -449,199 +515,107 @@ export default function ScoringHighlightsModal({
                 />
               </div>
             )}
-
-            {/* Play details */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="text-txt-muted">
-                  Q{currentPlay?.quarter} | {currentPlay?.timeLeft}
-                </span>
-                <span className="text-white font-semibold">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm leading-tight">
+                <span className="text-white font-semibold truncate">
                   {currentPlay?.scoreType}
-                  {currentPlay?.yards && ` - ${currentPlay.yards} yds`}
+                  {currentPlay?.yards && ` · ${currentPlay.yards} yd`}
                 </span>
                 {currentPlay?.patResult && (
-                  <span className="text-txt-muted">({currentPlay.patResult})</span>
+                  <span className="text-txt-muted text-xs hidden sm:inline whitespace-nowrap">
+                    ({currentPlay.patResult})
+                  </span>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm">
-                <span className="text-txt-muted">
-                  {isPassingTD && currentPlay?.passer ? (
-                    <>{currentPlay.passer} to {currentPlay.scorer}</>
-                  ) : (
-                    currentPlay?.scorer
-                  )}
-                </span>
+              <div className="text-xs text-txt-muted truncate mt-0.5">
+                <span className="tabular-nums">Q{currentPlay?.quarter} {currentPlay?.timeLeft}</span>
+                <span className="mx-1.5 opacity-50">·</span>
+                {isPassingTD && currentPlay?.passer ? (
+                  <>{currentPlay.passer} → {currentPlay.scorer}</>
+                ) : (
+                  currentPlay?.scorer
+                )}
               </div>
             </div>
+          </div>
 
-            {/* Running Score with logos */}
-            <div
-              className="flex-shrink-0 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={(e) => {
-                if (currentPlay?.gameInfo?.gameId && pathPrefix) {
-                  e.stopPropagation()
-                  navigate(`${pathPrefix}/game/${currentPlay.gameInfo.gameId}`)
-                }
-              }}
-              title={currentPlay?.gameInfo?.gameId ? "View game details" : undefined}
+          {/* Controls (center) */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={handlePrev}
+              disabled={currentIndex === 0}
+              aria-label="Previous play"
+              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+                currentIndex === 0
+                  ? 'text-txt-muted/40 cursor-not-allowed'
+                  : 'text-white hover:bg-surface-3'
+              }`}
             >
-              {team1LogoUrl && (
-                <img src={team1LogoUrl} alt={team1Abbr} className="w-6 h-6 object-contain" />
-              )}
-              <span className="text-white font-bold text-lg">
-                {runningScore.score1}
-              </span>
-              <span className="text-txt-muted">-</span>
-              <span className="text-white font-bold text-lg">
-                {runningScore.score2}
-              </span>
-              {team2LogoUrl && (
-                <img src={team2LogoUrl} alt={currentPlay?.gameInfo?.opponent || team2Abbr} className="w-6 h-6 object-contain" />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Filters */}
-        {(seasons.length > 1 || games.length > 1) && (
-          <div className="flex flex-wrap items-center justify-center gap-3 px-4 py-2 bg-surface-2 border-t border-surface-4 flex-shrink-0">
-            {seasons.length > 1 && (
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-txt-muted font-medium">Season:</label>
-                <select
-                  value={currentPlay?.gameInfo?.year || ''}
-                  onChange={(e) => jumpToSeason(e.target.value)}
-                  className="px-3 py-1.5 bg-surface-3 text-white rounded-lg text-sm border border-surface-4 focus:border-blue-500 focus:outline-none"
-                >
-                  {seasons.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {games.length > 1 && (
-              <div className="flex items-center gap-2 relative" ref={gameDropdownRef}>
-                <label className="text-sm text-txt-muted font-medium">Game:</label>
-                <div className="relative">
-                  <button
-                    onClick={() => setShowGameDropdown(!showGameDropdown)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-surface-3 text-white rounded-lg text-sm border border-surface-4 hover:border-blue-500 focus:outline-none focus:border-blue-500 min-w-[200px]"
-                  >
-                    {currentPlay?.gameInfo?.opponentLogo && (
-                      <img
-                        src={currentPlay.gameInfo.opponentLogo}
-                        alt={currentPlay.gameInfo.opponent}
-                        className="w-4 h-4 object-contain"
-                      />
-                    )}
-                    <span className="flex-1 text-left truncate">
-                      {currentPlay?.gameInfo ? `${currentPlay.gameInfo.year} Week ${currentPlay.gameInfo.week} vs ${currentPlay.gameInfo.opponent}` : 'Select game'}
-                    </span>
-                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showGameDropdown && (
-                    <div className={`absolute left-0 w-full bg-surface-3 border border-surface-4 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50 ${
-                      dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-                    }`}>
-                      {games.map(game => (
-                        <button
-                          key={`${game.year}-${game.week}-${game.opponent}`}
-                          onClick={() => {
-                            jumpToGame(`${game.year}|||${game.week}|||${game.opponent}`)
-                            setShowGameDropdown(false)
-                          }}
-                          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-white hover:bg-surface-4 transition-colors text-left"
-                        >
-                          {game.opponentLogo && (
-                            <img
-                              src={game.opponentLogo}
-                              alt={game.opponent}
-                              className="w-4 h-4 object-contain flex-shrink-0"
-                            />
-                          )}
-                          <span className="truncate">{game.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Controls + Progress */}
-        <div className="flex items-center justify-center gap-3 px-4 py-2 bg-surface-1 border-t border-surface-4 flex-shrink-0">
-          <button
-            onClick={handlePrev}
-            disabled={currentIndex === 0}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              currentIndex === 0
-                ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
-                : 'bg-surface-3 text-white hover:bg-surface-4'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Prev
-          </button>
-
-          <button
-            onClick={handlePlayPause}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors flex-shrink-0"
-            title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
-          >
-            {isPlaying ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
-          </button>
+            </button>
 
-          <button
-            onClick={handleNext}
-            disabled={currentIndex === totalPlays - 1}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              currentIndex === totalPlays - 1
-                ? 'bg-surface-3 text-txt-muted cursor-not-allowed'
-                : 'bg-surface-3 text-white hover:bg-surface-4'
+            <button
+              onClick={handlePlayPause}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-500 active:scale-95 transition-all flex-shrink-0 shadow-lg shadow-blue-600/20"
+              title={isPlaying ? 'Pause auto-advance' : 'Resume auto-advance'}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? (
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
+            <button
+              onClick={handleNext}
+              disabled={currentIndex === totalPlays - 1}
+              aria-label="Next play"
+              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
+                currentIndex === totalPlays - 1
+                  ? 'text-txt-muted/40 cursor-not-allowed'
+                  : 'text-white hover:bg-surface-3'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Running score (right) */}
+          <div
+            className={`flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg bg-surface-3/60 transition-colors ${
+              currentPlay?.gameInfo?.gameId && pathPrefix ? 'cursor-pointer hover:bg-surface-3' : ''
             }`}
+            onClick={(e) => {
+              if (currentPlay?.gameInfo?.gameId && pathPrefix) {
+                e.stopPropagation()
+                navigate(`${pathPrefix}/game/${currentPlay.gameInfo.gameId}`)
+              }
+            }}
+            title={currentPlay?.gameInfo?.gameId ? 'View game details' : undefined}
           >
-            Next
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          {totalPlays > 1 && totalPlays <= 40 && (
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 max-w-[45%] overflow-x-auto">
-              {playsWithVideo.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setCurrentIndex(idx)
-                    setIsPlaying(true)
-                  }}
-                  className={`w-1.5 h-1.5 rounded-full transition-colors flex-shrink-0 ${
-                    idx === currentIndex
-                      ? 'bg-blue-500'
-                      : idx < currentIndex
-                      ? 'bg-green-500'
-                      : 'bg-surface-4 hover:bg-surface-5'
-                  }`}
-                  title={`Play ${idx + 1}`}
-                />
-              ))}
-            </div>
-          )}
+            {team1LogoUrl && (
+              <img src={team1LogoUrl} alt={team1Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+            )}
+            <span className="text-white font-bold text-base sm:text-lg tabular-nums">
+              {runningScore.score1}
+            </span>
+            <span className="text-txt-muted text-xs">–</span>
+            <span className="text-white font-bold text-base sm:text-lg tabular-nums">
+              {runningScore.score2}
+            </span>
+            {team2LogoUrl && (
+              <img src={team2LogoUrl} alt={currentPlay?.gameInfo?.opponent || team2Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+            )}
+          </div>
         </div>
       </div>
     </div>,
