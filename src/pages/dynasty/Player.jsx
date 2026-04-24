@@ -644,6 +644,19 @@ export default function Player() {
     if (!player?.name || !playerGameLog?.length) return []
     const normalizeName = (name) => name?.toLowerCase().trim() || ''
     const playerNameNorm = normalizeName(player.name)
+    const getPlayPoints = (play) => {
+      const scoreType = play.scoreType || ''
+      const patResult = play.patResult || ''
+      if (scoreType.includes('TD') && !scoreType.includes('2PT')) {
+        let pts = 6
+        if (patResult.includes('Made XP')) pts += 1
+        else if (patResult.includes('Converted 2PT')) pts += 2
+        return pts
+      }
+      if (scoreType === 'Field Goal') return 3
+      if (scoreType === 'Safety') return 2
+      return 0
+    }
     return [...playerGameLog]
       .sort((a, b) =>
         (a.game.year - b.game.year) ||
@@ -652,7 +665,23 @@ export default function Player() {
       .flatMap(entry => {
         const game = entry.game
         const scoringSummary = sortPlaysChronologically(game.boxScore?.scoringSummary)
-        return scoringSummary
+        // Running scores MUST be computed per-game, otherwise opening the
+        // modal shows a nonsensical cross-career running total (e.g. "70-0"
+        // for the 10th TD). Walk the full scoring summary for this game,
+        // track both sides' running totals, then emit the player's plays
+        // with the correct per-play running score attached.
+        const playerTeamAbbr = (dynasty.teams?.[player.teamsByYear?.[game.year]]?.abbr
+          || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+        let playerTeamScore = 0
+        let opponentScore = 0
+        const enriched = scoringSummary.map(play => {
+          const pts = getPlayPoints(play)
+          const isPlayerTeam = play.team?.toUpperCase() === playerTeamAbbr
+          if (isPlayerTeam) playerTeamScore += pts
+          else opponentScore += pts
+          return { ...play, runningPlayerScore: playerTeamScore, runningOpponentScore: opponentScore }
+        })
+        return enriched
           .filter(play => {
             if (!play.videoLink) return false
             if (normalizeName(play.scorer) === playerNameNorm) return true
@@ -671,7 +700,7 @@ export default function Player() {
             }
           }))
       })
-  }, [player?.name, playerGameLog])
+  }, [player?.name, playerGameLog, dynasty])
 
   // Pick a random starting index once per player page visit so the widget
   // opens somewhere in the middle of the career rather than always at play 1.
