@@ -1826,6 +1826,20 @@ export default function TeamYear() {
     'Elite': 0, 'Star': 1, 'Impact': 2, 'Normal': 3
   }
 
+  // First-click direction per column — picks the "natural" default so
+  // clicking OVR shows best-first, clicking #  shows #1-first, etc.
+  // Remember: inner sort returns ASCENDING on each column's natural
+  // scale. classOrder and devTraitOrder put "best/most senior" at index
+  // 0, so asc IS already best-first for those.
+  const NATURAL_FIRST_CLICK_DIR = {
+    overall: 'desc',     // best first (high OVR)
+    jerseyNumber: 'asc', // #1 first
+    name: 'asc',         // A first
+    class: 'asc',        // seniors first (Sr index = 0)
+    devTrait: 'asc',     // Elite first (Elite index = 0)
+    position: 'asc',     // position list order
+  }
+
   const handleRosterSort = (sortKey) => {
     // IMPORTANT: setSearchParams doesn't compose across two synchronous
     // calls — the second navigate wins and wipes the first. So update
@@ -1833,16 +1847,16 @@ export default function TeamYear() {
     setSearchParams(prev => {
       const np = new URLSearchParams(prev)
       if (rosterSort === sortKey) {
-        // Toggle direction
+        // Toggle direction relative to current
         const nextDir = rosterSortDir === 'asc' ? 'desc' : 'asc'
         if (nextDir === 'desc') np.set('dir', 'desc')
         else np.delete('dir')
       } else {
-        // New sort key — set key + appropriate default direction.
+        // New sort key — set key + natural default direction.
         if (!sortKey || sortKey === 'position') np.delete('sort')
         else np.set('sort', sortKey)
-        const defaultDesc = sortKey === 'overall' || sortKey === 'devTrait'
-        if (defaultDesc) np.set('dir', 'desc')
+        const naturalDir = NATURAL_FIRST_CLICK_DIR[sortKey] || 'asc'
+        if (naturalDir === 'desc') np.set('dir', 'desc')
         else np.delete('dir')
       }
       return np
@@ -1854,11 +1868,16 @@ export default function TeamYear() {
     setShowRosterModal(false)
   }
 
+  // Every branch returns `result` as ASCENDING on the natural scale of
+  // that column. The outer dir check then flips when 'desc' is requested.
+  // Keeping the inner logic uniformly ascending means the direction flag
+  // actually does what its name says.
   const sortedTeamPlayers = [...teamPlayers].sort((a, b) => {
     let result = 0
     switch (rosterSort) {
       case 'overall':
-        result = (b.overall || 0) - (a.overall || 0)
+        // asc = lowest OVR first (natural numeric ascending).
+        result = (a.overall || 0) - (b.overall || 0)
         break
       case 'jerseyNumber':
         const numA = parseInt(a.jerseyNumber) || 999
@@ -1869,11 +1888,14 @@ export default function TeamYear() {
         result = (a.name || '').localeCompare(b.name || '')
         break
       case 'class':
+        // classOrder: Sr=0, Fr=7. Ascending on the index = seniors first
+        // (which is the conventional default for "sort by class").
         const classA = classOrder[a.year] ?? 99
         const classB = classOrder[b.year] ?? 99
         result = classA - classB
         break
       case 'devTrait':
+        // devTraitOrder: Elite=0, Normal=3. Ascending = Elite first.
         const devA = devTraitOrder[a.devTrait] ?? 99
         const devB = devTraitOrder[b.devTrait] ?? 99
         result = devA - devB
@@ -1885,7 +1907,9 @@ export default function TeamYear() {
         if (aPos !== bPos) {
           result = aPos - bPos
         } else {
-          result = (b.overall || 0) - (a.overall || 0)
+          // Same position: sort by OVR best-first regardless of outer
+          // direction, so each position group always reads top-down.
+          return (b.overall || 0) - (a.overall || 0)
         }
         break
     }
