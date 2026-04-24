@@ -2105,20 +2105,12 @@ export default function Player() {
                 </button>
               </div>
 
-              {/* MIDDLE BOTTOM — Scoring highlights */}
+              {/* MIDDLE BOTTOM — Scoring highlights (seamless expand). */}
               {allPlayerScoringPlays.length > 0 && (
                 <div className="min-w-0 order-3 lg:order-none lg:col-start-2 lg:row-start-2">
                   <InlineScoringHighlights
                     scoringPlays={allPlayerScoringPlays}
                     startIndex={randomScoringStartIndex}
-                    onExpand={(idx) => {
-                      setSelectedGameScoringPlays({
-                        plays: allPlayerScoringPlays,
-                        opponent: 'All Games',
-                        startIndex: idx,
-                      })
-                      setShowScoringHighlightsModal(true)
-                    }}
                   />
                 </div>
               )}
