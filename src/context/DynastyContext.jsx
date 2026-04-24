@@ -2203,6 +2203,37 @@ export function getPlayerClassForYear(player, year) {
 }
 
 /**
+ * Get a player's overall rating for a specific season.
+ * Falls back to player.overall when no per-year record exists (legacy players).
+ */
+export function getPlayerOverallForYear(player, year) {
+  if (!player) return null
+  const yearNum = Number(year)
+  const yearStr = String(year)
+  const byYear = player.overallByYear
+  const fromByYear = byYear?.[yearNum] ?? byYear?.[yearStr]
+  if (fromByYear != null && fromByYear !== '') return fromByYear
+  return player.overall ?? null
+}
+
+/**
+ * Get a player's position for a specific season.
+ * Falls back to player.position when no per-year record exists — intentional,
+ * so pre-positionByYear historical rosters don't display blanks. From the
+ * point positionByYear starts being written, new entries land under their
+ * own year and historical views get accurate tags.
+ */
+export function getPlayerPositionForYear(player, year) {
+  if (!player) return null
+  const yearNum = Number(year)
+  const yearStr = String(year)
+  const byYear = player.positionByYear
+  const fromByYear = byYear?.[yearNum] ?? byYear?.[yearStr]
+  if (fromByYear) return fromByYear
+  return player.position ?? null
+}
+
+/**
  * Get the current team's roster (non-honor-only players for current team)
  * Uses isPlayerOnRoster for consistent filtering
  */
@@ -8925,6 +8956,19 @@ export function DynastyProvider({ children }) {
 
     // Prepare the final player object (with yearStats if provided)
     let finalPlayer = { ...updatedPlayer }
+
+    // Year-stamp the player's position so past-season roster views can show
+    // the position they held at the time (e.g., a WR in 2033 who becomes a
+    // TE in 2034 still shows as "WR" on the 2033 roster). Stamping happens
+    // in the central save path so every edit surface is covered at once.
+    const stampYear = Number(dynasty.currentYear)
+    if (stampYear && finalPlayer.position) {
+      finalPlayer.positionByYear = {
+        ...(finalPlayer.positionByYear || {}),
+        [stampYear]: finalPlayer.position,
+      }
+    }
+
     if (yearStats && yearStats.year) {
       const year = Number(yearStats.year)
       const existingStatsByYear = { ...(finalPlayer.statsByYear || {}) }

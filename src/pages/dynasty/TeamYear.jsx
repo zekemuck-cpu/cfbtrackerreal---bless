@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
@@ -1873,11 +1873,17 @@ export default function TeamYear() {
   // Keeping the inner logic uniformly ascending means the direction flag
   // actually does what its name says.
   const sortedTeamPlayers = [...teamPlayers].sort((a, b) => {
+    // Historical roster views: sort by each player's overall/position as of
+    // the selected season, not their current-day values. Keeps the TE who
+    // used to be a WR in the WR bucket when you rewind a year.
+    const ovrFor = (p) => getPlayerOverallForYear(p, selectedYear) || 0
+    const posFor = (p) => getPlayerPositionForYear(p, selectedYear) || ''
+
     let result = 0
     switch (rosterSort) {
       case 'overall':
         // asc = lowest OVR first (natural numeric ascending).
-        result = (a.overall || 0) - (b.overall || 0)
+        result = ovrFor(a) - ovrFor(b)
         break
       case 'jerseyNumber':
         const numA = parseInt(a.jerseyNumber) || 999
@@ -1915,14 +1921,14 @@ export default function TeamYear() {
         break
       case 'position':
       default:
-        const aPos = posOrder.indexOf(a.position)
-        const bPos = posOrder.indexOf(b.position)
+        const aPos = posOrder.indexOf(posFor(a))
+        const bPos = posOrder.indexOf(posFor(b))
         if (aPos !== bPos) {
           result = aPos - bPos
         } else {
           // Same position: sort by OVR best-first regardless of outer
           // direction, so each position group always reads top-down.
-          return (b.overall || 0) - (a.overall || 0)
+          return ovrFor(b) - ovrFor(a)
         }
         break
     }
@@ -1943,14 +1949,15 @@ export default function TeamYear() {
     'K/P': { label: 'K/P', positions: ['K', 'P'] },
   }
 
-  // Filter players by position group
+  // Filter players by position group — uses the selected season's position
+  // so historical roster views bucket players as of that year.
   const filteredTeamPlayers = positionFilter === 'all'
     ? sortedTeamPlayers
-    : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(p.position))
+    : sortedTeamPlayers.filter(p => positionGroups[positionFilter]?.positions?.includes(getPlayerPositionForYear(p, selectedYear)))
 
   // Aggregate roster stats + position breakdown for the scorebug strip
   const rosterStats = useMemo(() => {
-    const ovrs = sortedTeamPlayers.map(p => p.overall || 0).filter(n => n > 0)
+    const ovrs = sortedTeamPlayers.map(p => getPlayerOverallForYear(p, selectedYear) || 0).filter(n => n > 0)
     const avgOvr = ovrs.length ? Math.round(ovrs.reduce((s, n) => s + n, 0) / ovrs.length) : 0
     const topOvr = ovrs.length ? Math.max(...ovrs) : 0
     const eightyPlus = ovrs.filter(n => n >= 80).length
@@ -1958,11 +1965,11 @@ export default function TeamYear() {
     const byPosition = {}
     Object.keys(positionGroups).forEach(key => {
       if (key === 'all') return
-      byPosition[key] = sortedTeamPlayers.filter(p => positionGroups[key].positions?.includes(p.position)).length
+      byPosition[key] = sortedTeamPlayers.filter(p => positionGroups[key].positions?.includes(getPlayerPositionForYear(p, selectedYear))).length
     })
     return { avgOvr, topOvr, eightyPlus, starPlus, byPosition }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortedTeamPlayers])
+  }, [sortedTeamPlayers, selectedYear])
 
   // Dev trait accent color (broadcast/sports-almanac rarity palette)
   const getDevColor = (trait) => {
@@ -3424,7 +3431,7 @@ export default function TeamYear() {
                     <div className="min-w-0 flex-1">
                       <div className="font-bold text-txt-primary truncate">{player.name}</div>
                       <div className="label-xs flex items-center gap-1.5 mt-0.5">
-                        <span className="text-txt-secondary">{player.position}</span>
+                        <span className="text-txt-secondary">{getPlayerPositionForYear(player, selectedYear) || '—'}</span>
                         <span className="text-txt-muted">·</span>
                         <span className="text-txt-tertiary">{player.classByYear?.[year] || player.year || '—'}</span>
                         {player.devTrait && player.devTrait !== 'Normal' && (
@@ -3438,7 +3445,7 @@ export default function TeamYear() {
 
                     {/* OVR */}
                     <div className="text-right flex-shrink-0">
-                      <div className="text-base font-bold tabular text-txt-primary">{player.overall}</div>
+                      <div className="text-base font-bold tabular text-txt-primary">{getPlayerOverallForYear(player, selectedYear) ?? '—'}</div>
                       <div className="label-xs text-txt-muted mt-0.5">OVR</div>
                     </div>
                   </Link>
@@ -3559,13 +3566,13 @@ export default function TeamYear() {
                           </div>
                         </td>
                         <td className="py-2 px-3 text-center">
-                          <span className="label-sm text-txt-primary">{player.position}</span>
+                          <span className="label-sm text-txt-primary">{getPlayerPositionForYear(player, selectedYear) || '—'}</span>
                         </td>
                         <td className="py-2 px-3 text-center text-txt-secondary">
                           {player.classByYear?.[year] || player.year || '—'}
                         </td>
                         <td className="py-2 px-3 text-center">
-                          <span className="text-base font-bold tabular text-txt-primary">{player.overall}</span>
+                          <span className="text-base font-bold tabular text-txt-primary">{getPlayerOverallForYear(player, selectedYear) ?? '—'}</span>
                         </td>
                         <td className="py-2 px-3 text-center hidden md:table-cell">
                           {player.devTrait && player.devTrait !== 'Normal' ? (
