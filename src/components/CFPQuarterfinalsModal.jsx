@@ -209,7 +209,7 @@ FINAL CHECK before you send the answer
 
     setSyncing(true)
     try {
-      const games = await readCFPQuarterfinalsFromSheet(sheetId)
+      const games = await readCFPQuarterfinalsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(games)
       onClose()
     } catch (error) {
@@ -229,7 +229,7 @@ FINAL CHECK before you send the answer
 
     setDeletingSheet(true)
     try {
-      const games = await readCFPQuarterfinalsFromSheet(sheetId)
+      const games = await readCFPQuarterfinalsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(games)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)

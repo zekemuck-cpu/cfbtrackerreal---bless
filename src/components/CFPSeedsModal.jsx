@@ -222,7 +222,7 @@ FINAL CHECK before you send the answer
 
     setSyncing(true)
     try {
-      const seeds = await readCFPSeedsFromSheet(sheetId)
+      const seeds = await readCFPSeedsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(seeds, bowlConfig)
       onClose()
     } catch (error) {
@@ -242,7 +242,7 @@ FINAL CHECK before you send the answer
 
     setDeletingSheet(true)
     try {
-      const seeds = await readCFPSeedsFromSheet(sheetId)
+      const seeds = await readCFPSeedsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(seeds, bowlConfig)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)

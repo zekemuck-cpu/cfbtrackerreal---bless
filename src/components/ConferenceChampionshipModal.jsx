@@ -285,7 +285,7 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       console.log('[CC Modal] Reading from sheet:', sheetId)
-      const championships = await readConferenceChampionshipsFromSheet(sheetId)
+      const championships = await readConferenceChampionshipsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       console.log('[CC Modal] Read championships from sheet:', championships)
       console.log('[CC Modal] Calling onSave...')
       await onSave(championships)
@@ -309,7 +309,7 @@ FINAL CHECK before you send
     setDeletingSheet(true)
     try {
       console.log('[CC Modal] handleSyncAndDelete - Reading from sheet:', sheetId)
-      const championships = await readConferenceChampionshipsFromSheet(sheetId)
+      const championships = await readConferenceChampionshipsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       console.log('[CC Modal] handleSyncAndDelete - Read championships:', championships)
       console.log('[CC Modal] handleSyncAndDelete - Calling onSave...')
       await onSave(championships)

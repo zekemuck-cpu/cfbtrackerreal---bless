@@ -9457,7 +9457,7 @@ export function DynastyProvider({ children }) {
 
     try {
       // Read conferences from Google Sheet
-      const conferences = await readConferencesFromSheet(conferencesSheetId)
+      const conferences = await readConferencesFromSheet(conferencesSheetId, dynasty?.teams || dynasty?.customTeams)
 
       // Derive storage type from dynasty's storageType field
       const useLocalStorage = dynasty.storageType !== 'cloud'

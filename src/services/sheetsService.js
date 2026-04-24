@@ -1770,9 +1770,9 @@ export async function readScheduleFromScheduleSheet(spreadsheetId) {
         return {
           week: parseInt(row[0]) || index + 1,
           userTeam: userTeamAbbr,
-          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr) : null,
+          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr, dynastyTeams) : null,
           opponent: opponentAbbr,
-          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr) : null,
+          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr, dynastyTeams) : null,
           location
         }
       })
@@ -1934,7 +1934,7 @@ export function getSingleSheetEmbedUrl(spreadsheetId) {
 }
 
 // Read schedule data from sheet
-export async function readScheduleFromSheet(spreadsheetId) {
+export async function readScheduleFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
@@ -1970,9 +1970,9 @@ export async function readScheduleFromSheet(spreadsheetId) {
         return {
           week: parseInt(row[0]) || index + 1,
           userTeam: userTeamAbbr,
-          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr) : null,
+          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr, dynastyTeams) : null,
           opponent: opponentAbbr,
-          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr) : null,
+          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr, dynastyTeams) : null,
           location
         }
       })
@@ -2103,7 +2103,7 @@ export async function restoreGoogleSheet(spreadsheetId) {
 }
 
 // Read roster data from sheet (12 columns)
-export async function readRosterFromSheet(spreadsheetId) {
+export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
@@ -2692,7 +2692,7 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
 }
 
 // Read Conference Championship data from sheet
-export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
+export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     console.log('[readCCSheet] Reading from spreadsheet:', spreadsheetId)
     const accessToken = await getAccessToken()
@@ -2722,8 +2722,8 @@ export async function readConferenceChampionshipsFromSheet(spreadsheetId) {
       const team2Abbr = (row[2] || '').toUpperCase()
       const team1Score = row[3] ? parseInt(row[3]) : null
       const team2Score = row[4] ? parseInt(row[4]) : null
-      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
-      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
 
       // Determine winner by score
       let winner = null
@@ -3228,7 +3228,7 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
 }
 
 // Read Bowl Games data from sheet
-export async function readBowlGamesFromSheet(spreadsheetId) {
+export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -3268,8 +3268,8 @@ export async function readBowlGamesFromSheet(spreadsheetId) {
 
       // Debug log for each row with scores
       console.log(`[readBowlGamesFromSheet] Row ${idx}: "${bowlName}" - ${team1Abbr} (raw: "${score1Raw}", parsed: ${team1Score}) vs ${team2Abbr} (raw: "${score2Raw}", parsed: ${team2Score})`)
-      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
-      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
 
       // Determine winner by score
       let winner = null
@@ -3735,7 +3735,7 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
 }
 
 // Read Bowl Week 2 Games data from sheet
-export async function readBowlWeek2GamesFromSheet(spreadsheetId) {
+export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -3763,8 +3763,8 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId) {
       const team2Abbr = (row[2] || '').toUpperCase()
       const team1Score = row[3] ? parseInt(row[3]) : null
       const team2Score = row[4] ? parseInt(row[4]) : null
-      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
-      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
 
       // Determine winner by score
       let winner = null
@@ -4072,7 +4072,7 @@ async function initializeCFPSeedsSheet(spreadsheetId, accessToken, sheetId, cust
 }
 
 // Read CFP Seeds from sheet
-export async function readCFPSeedsFromSheet(spreadsheetId) {
+export async function readCFPSeedsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4097,7 +4097,7 @@ export async function readCFPSeedsFromSheet(spreadsheetId) {
     const seeds = rows.map(row => {
       const seedNum = row[0] ? parseInt(row[0]) : null
       const teamAbbr = (row[1] || '').toUpperCase()
-      const tid = teamAbbr ? getTidFromAbbr(teamAbbr) : null
+      const tid = teamAbbr ? getTidFromAbbr(teamAbbr, dynastyTeams) : null
       return {
         seed: seedNum,
         tid              // PRIMARY identifier for teambuilder support
@@ -4363,7 +4363,7 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
 }
 
 // Read CFP First Round results from sheet
-export async function readCFPFirstRoundFromSheet(spreadsheetId) {
+export async function readCFPFirstRoundFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4389,8 +4389,8 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId) {
       const gameName = row[0] || ''
       const higherSeedAbbr = (row[1] || '').toUpperCase()
       const lowerSeedAbbr = (row[2] || '').toUpperCase()
-      const higherSeedTid = higherSeedAbbr ? getTidFromAbbr(higherSeedAbbr) : null
-      const lowerSeedTid = lowerSeedAbbr ? getTidFromAbbr(lowerSeedAbbr) : null
+      const higherSeedTid = higherSeedAbbr ? getTidFromAbbr(higherSeedAbbr, dynastyTeams) : null
+      const lowerSeedTid = lowerSeedAbbr ? getTidFromAbbr(lowerSeedAbbr, dynastyTeams) : null
       const higherSeedScore = row[3] ? parseInt(row[3]) : null
       const lowerSeedScore = row[4] ? parseInt(row[4]) : null
 
@@ -4646,7 +4646,7 @@ async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheet
 }
 
 // Read CFP Quarterfinals results from sheet
-export async function readCFPQuarterfinalsFromSheet(spreadsheetId) {
+export async function readCFPQuarterfinalsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4678,8 +4678,8 @@ export async function readCFPQuarterfinalsFromSheet(spreadsheetId) {
       const team2Score = row[4] ? parseInt(row[4]) : null
       const team1Abbr = row[1]?.toUpperCase() || ''
       const team2Abbr = row[2]?.toUpperCase() || ''
-      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr) : null
-      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr) : null
+      const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+      const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
 
       // Auto-determine winner from scores
       let winnerTid = null
@@ -5133,7 +5133,7 @@ function validateConferenceData(conferences, yearLabel = '') {
   }
 }
 
-export async function readConferencesFromSheet(spreadsheetId) {
+export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -5440,7 +5440,7 @@ async function initializeStatsEntrySheet(spreadsheetId, accessToken, sheetId, pl
  * Read stats data from the stats entry sheet
  * New format: Column A = Player Name, Column B = Games Played, Column C = Snaps Played
  */
-export async function readStatsFromSheet(spreadsheetId) {
+export async function readStatsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -5942,7 +5942,7 @@ async function initializeDetailedStatsTab(spreadsheetId, accessToken, sheetId, t
  * Read detailed stats data from all tabs
  * Columns: Name (A), Snaps (B), then stat columns (C+)
  */
-export async function readDetailedStatsFromSheet(spreadsheetId) {
+export async function readDetailedStatsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
     const result = {}
@@ -6332,7 +6332,7 @@ async function prefillConferenceStandingsData(spreadsheetId, accessToken, existi
 /**
  * Read conference standings from Google Sheet
  */
-export async function readConferenceStandingsFromSheet(spreadsheetId) {
+export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -6365,7 +6365,7 @@ export async function readConferenceStandingsFromSheet(spreadsheetId) {
       const losses = parseInt(row[4]) || 0
       const pointsFor = parseInt(row[5]) || 0
       const pointsAgainst = parseInt(row[6]) || 0
-      const tid = teamAbbr ? getTidFromAbbr(teamAbbr) : null
+      const tid = teamAbbr ? getTidFromAbbr(teamAbbr, dynastyTeams) : null
 
       // Skip empty rows, spacer rows, or rows without a team
       if (!conference || !teamAbbr || teamAbbr === '') return
@@ -6696,7 +6696,7 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
 /**
  * Read final polls from Google Sheet
  */
-export async function readFinalPollsFromSheet(spreadsheetId) {
+export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -7023,7 +7023,7 @@ export async function createTeamStatsSheet(year, teamName, aggregatedStats = {})
  * Read team stats from Google Sheet
  * Reads values from both Offense and Defense tabs
  */
-export async function readTeamStatsFromSheet(spreadsheetId) {
+export async function readTeamStatsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -7497,7 +7497,7 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, customTe
  * @param {string} spreadsheetId - The Google Sheet ID
  * @param {number} year - The year tab to read from
  */
-export async function readAwardsFromSheet(spreadsheetId, year) {
+export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -8133,7 +8133,7 @@ export async function createAllAmericansSheet(currentYear, allAmericansByYear = 
  * @param spreadsheetId - The Google Sheets ID
  * @param year - The year tab to read from
  */
-export async function readAllAmericansFromSheet(spreadsheetId, year) {
+export async function readAllAmericansFromSheet(spreadsheetId, year, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -8604,7 +8604,7 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
  * @param spreadsheetId - The Google Sheets ID
  * @param year - The year tab to read from
  */
-export async function readAllAmericansOnlyFromSheet(spreadsheetId, year) {
+export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -9047,7 +9047,7 @@ export async function createAllConferenceSheet(year, allConferenceByConference =
  * @param spreadsheetId - The Google Sheets ID
  * @param conferences - Array of conference names (tabs) to read from
  */
-export async function readAllConferenceFromSheet(spreadsheetId, conferences = ALL_CONFERENCES) {
+export async function readAllConferenceFromSheet(spreadsheetId, conferences = ALL_CONFERENCES, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -9160,12 +9160,12 @@ const LEAVING_REASONS = [
 // Create Players Leaving sheet for offseason
 // Auto-fills RS Sr (exhausted eligibility) and Sr with 5+ games as "Graduating"
 // teamAbbr is optional but recommended for proper team-centric filtering
-export async function createPlayersLeavingSheet(dynastyName, year, players, teamAbbr) {
+export async function createPlayersLeavingSheet(dynastyName, year, players, teamAbbr, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
     // Filter to only current roster players using isPlayerOnRoster (handles both stint-based and legacy)
-    const teamTid = getTidFromAbbr(teamAbbr)
+    const teamTid = getTidFromAbbr(teamAbbr, dynastyTeams)
     const currentRosterPlayers = players.filter(p => {
       if (p.isHonorOnly) return false
       if (p.isRecruit) return false
@@ -9425,7 +9425,7 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
 }
 
 // Read players leaving data from Google Sheet
-export async function readPlayersLeavingFromSheet(spreadsheetId) {
+export async function readPlayersLeavingFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -9680,7 +9680,7 @@ export async function createDraftResultsSheet(dynastyName, year, playersLeavingT
 }
 
 // Read draft results from Google Sheet
-export async function readDraftResultsFromSheet(spreadsheetId) {
+export async function readDraftResultsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -10062,7 +10062,7 @@ function starsSymbolToNumber(starsStr) {
 }
 
 // Read recruiting commitments from Google Sheet
-export async function readRecruitingFromSheet(spreadsheetId) {
+export async function readRecruitingFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -10363,7 +10363,7 @@ async function initializeTrainingResultsSheet(spreadsheetId, accessToken, sheetI
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, position, pastOverall, newOverall }
  */
-export async function readTrainingResultsFromSheet(spreadsheetId) {
+export async function readTrainingResultsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -10640,7 +10640,7 @@ async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, she
 }
 
 // Read encourage transfers data from sheet
-export async function readEncourageTransfersFromSheet(spreadsheetId) {
+export async function readEncourageTransfersFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -10935,7 +10935,7 @@ async function initializeRecruitOverallsSheet(spreadsheetId, accessToken, sheetI
 }
 
 // Read recruit overalls from sheet
-export async function readRecruitOverallsFromSheet(spreadsheetId) {
+export async function readRecruitOverallsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -11618,7 +11618,7 @@ const BOX_SCORE_HEADER_ALIASES = {
 }
 
 // Read all stats from a game box score sheet (9 tabs)
-export async function readGameBoxScoreFromSheet(spreadsheetId) {
+export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
     const boxScore = {}
@@ -11677,7 +11677,7 @@ export async function readGameBoxScoreFromSheet(spreadsheetId) {
 }
 
 // Read scoring summary from sheet
-export async function readScoringSummaryFromSheet(spreadsheetId) {
+export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -12024,7 +12024,7 @@ async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, hom
 }
 
 // Read team stats from sheet (single tab with columns: Stat, Away, Home)
-export async function readGameTeamStatsFromSheet(spreadsheetId) {
+export async function readGameTeamStatsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -12390,7 +12390,7 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, newTeam }
  */
-export async function readTransferDestinationsFromSheet(spreadsheetId) {
+export async function readTransferDestinationsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -12418,7 +12418,7 @@ export async function readTransferDestinationsFromSheet(spreadsheetId) {
         return {
           playerName: row[0]?.trim() || '',
           newTeam: newTeamAbbr,  // Keep for backward compat
-          newTeamTid: newTeamAbbr ? getTidFromAbbr(newTeamAbbr) : null  // PRIMARY identifier
+          newTeamTid: newTeamAbbr ? getTidFromAbbr(newTeamAbbr, dynastyTeams) : null  // PRIMARY identifier
         }
       })
 
@@ -12641,7 +12641,7 @@ export async function prefillRosterHistorySheet(spreadsheetId, players, years = 
  * Read roster history from sheet
  * Returns array of { playerName, pid, teamsByYear: { year: team } }
  */
-export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2026]) {
+export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2026], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
     const endCol = String.fromCharCode(65 + 1 + years.length)
@@ -12667,7 +12667,7 @@ export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2
           const team = row[2 + i]?.trim().toUpperCase()
           if (team) {
             teamsByYear[year] = team  // Keep abbr for backward compat
-            const tid = getTidFromAbbr(team)
+            const tid = getTidFromAbbr(team, dynastyTeams)
             if (tid) teamsByYearTid[year] = tid  // PRIMARY identifier
           }
         })
@@ -12988,7 +12988,7 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, position, currentClass, newClass, pid }
  */
-export async function readPortalTransferClassFromSheet(spreadsheetId) {
+export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -13342,7 +13342,7 @@ async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetI
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, position, currentClass, gamesPlayed, newClass }
  */
-export async function readFringeCaseClassFromSheet(spreadsheetId) {
+export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 

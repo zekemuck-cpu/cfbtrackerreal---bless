@@ -273,7 +273,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const conferences = await readConferencesFromSheet(sheetId)
+      const conferences = await readConferencesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(conferences)
       onClose()
     } catch (error) {
@@ -293,7 +293,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const conferences = await readConferencesFromSheet(sheetId)
+      const conferences = await readConferencesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(conferences)
 
       await deleteGoogleSheet(sheetId)

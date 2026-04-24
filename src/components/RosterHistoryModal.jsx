@@ -222,7 +222,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const historyData = await readRosterHistoryFromSheet(sheetId, years)
+      const historyData = await readRosterHistoryFromSheet(sheetId, years, (currentDynasty?.teams || currentDynasty?.customTeams))
       const useFullTidSystem = currentDynasty?._tidFullyMigrated === true
 
       // Helper to convert teamsByYear values to tid format for migrated dynasties
@@ -274,7 +274,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const historyData = await readRosterHistoryFromSheet(sheetId, years)
+      const historyData = await readRosterHistoryFromSheet(sheetId, years, (currentDynasty?.teams || currentDynasty?.customTeams))
       const useFullTidSystem = currentDynasty?._tidFullyMigrated === true
 
       // Helper to convert teamsByYear values to tid format for migrated dynasties

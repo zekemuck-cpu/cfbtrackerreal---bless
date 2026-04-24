@@ -236,7 +236,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const draftResults = await readDraftResultsFromSheet(sheetId)
+      const draftResults = await readDraftResultsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(draftResults)
       onClose()
     } catch (error) {
@@ -256,7 +256,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const draftResults = await readDraftResultsFromSheet(sheetId)
+      const draftResults = await readDraftResultsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(draftResults)
 
       await deleteGoogleSheet(sheetId)

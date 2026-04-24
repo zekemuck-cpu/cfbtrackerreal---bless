@@ -743,11 +743,11 @@ FINAL CHECK before you send
     try {
       let data
       if (sheetType === 'scoring') {
-        data = await readScoringSummaryFromSheet(sheetId)
+        data = await readScoringSummaryFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else if (sheetType === 'teamStats') {
-        data = await readGameTeamStatsFromSheet(sheetId)
+        data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId)
+        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       }
       await onSave(data)
       onClose()
@@ -772,11 +772,11 @@ FINAL CHECK before you send
     try {
       let data
       if (sheetType === 'scoring') {
-        data = await readScoringSummaryFromSheet(sheetId)
+        data = await readScoringSummaryFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else if (sheetType === 'teamStats') {
-        data = await readGameTeamStatsFromSheet(sheetId)
+        data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId)
+        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       }
       await onSave(data)
 

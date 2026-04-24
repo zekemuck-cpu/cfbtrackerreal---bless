@@ -216,7 +216,7 @@ FINAL CHECK before you send the answer
     if (!sheetId) return
     setSyncing(true)
     try {
-      const stats = await readTeamStatsFromSheet(sheetId)
+      const stats = await readTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(stats)
       onClose()
     } catch (error) {
@@ -235,7 +235,7 @@ FINAL CHECK before you send the answer
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const stats = await readTeamStatsFromSheet(sheetId)
+      const stats = await readTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(stats)
       await deleteGoogleSheet(sheetId)
       await updateDynasty(currentDynasty.id, { teamStatsSheetId: null })

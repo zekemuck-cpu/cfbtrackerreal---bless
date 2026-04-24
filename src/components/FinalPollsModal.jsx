@@ -219,7 +219,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setSyncing(true)
     try {
-      const polls = await readFinalPollsFromSheet(sheetId)
+      const polls = await readFinalPollsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(polls)
       onClose()
     } catch (error) {
@@ -238,7 +238,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const polls = await readFinalPollsFromSheet(sheetId)
+      const polls = await readFinalPollsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(polls)
       await deleteGoogleSheet(sheetId)
       setSheetId(null)

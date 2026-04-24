@@ -221,7 +221,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const playersLeaving = await readPlayersLeavingFromSheet(sheetId)
+      const playersLeaving = await readPlayersLeavingFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(playersLeaving)
       onClose()
     } catch (error) {
@@ -241,7 +241,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const playersLeaving = await readPlayersLeavingFromSheet(sheetId)
+      const playersLeaving = await readPlayersLeavingFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(playersLeaving)
 
       await deleteGoogleSheet(sheetId)

@@ -233,7 +233,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const classSelections = await readFringeCaseClassFromSheet(sheetId)
+      const classSelections = await readFringeCaseClassFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(classSelections)
       onClose()
     } catch (error) {
@@ -253,7 +253,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const classSelections = await readFringeCaseClassFromSheet(sheetId)
+      const classSelections = await readFringeCaseClassFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(classSelections)
 
       await deleteGoogleSheet(sheetId)

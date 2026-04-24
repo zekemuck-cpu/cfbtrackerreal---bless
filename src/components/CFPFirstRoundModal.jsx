@@ -190,7 +190,7 @@ FINAL CHECK before you send the answer
 
     setSyncing(true)
     try {
-      const games = await readCFPFirstRoundFromSheet(sheetId)
+      const games = await readCFPFirstRoundFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(games)
       onClose()
     } catch (error) {
@@ -206,7 +206,7 @@ FINAL CHECK before you send the answer
 
     setDeletingSheet(true)
     try {
-      const games = await readCFPFirstRoundFromSheet(sheetId)
+      const games = await readCFPFirstRoundFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(games)
 
       await deleteGoogleSheet(sheetId)

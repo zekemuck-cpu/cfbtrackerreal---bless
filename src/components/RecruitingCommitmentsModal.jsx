@@ -277,7 +277,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const recruits = await readRecruitingFromSheet(sheetId)
+      const recruits = await readRecruitingFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(recruits)
       onClose()
     } catch (error) {
@@ -297,7 +297,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const recruits = await readRecruitingFromSheet(sheetId)
+      const recruits = await readRecruitingFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(recruits)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)

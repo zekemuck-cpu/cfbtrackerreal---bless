@@ -317,7 +317,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const destinations = await readTransferDestinationsFromSheet(sheetId)
+      const destinations = await readTransferDestinationsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(destinations)
       onClose()
     } catch (error) {
@@ -337,7 +337,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const destinations = await readTransferDestinationsFromSheet(sheetId)
+      const destinations = await readTransferDestinationsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(destinations)
 
       // Move sheet to trash and clear saved reference

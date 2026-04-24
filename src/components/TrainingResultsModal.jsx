@@ -210,7 +210,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const trainingResults = await readTrainingResultsFromSheet(sheetId)
+      const trainingResults = await readTrainingResultsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(trainingResults)
       onClose()
     } catch (error) {
@@ -230,7 +230,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const trainingResults = await readTrainingResultsFromSheet(sheetId)
+      const trainingResults = await readTrainingResultsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(trainingResults)
 
       await deleteGoogleSheet(sheetId)

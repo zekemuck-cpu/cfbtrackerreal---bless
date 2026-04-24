@@ -235,7 +235,7 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       // Read from the current year tab
-      const awards = await readAwardsFromSheet(sheetId, currentYear)
+      const awards = await readAwardsFromSheet(sheetId, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(awards)
       onClose()
     } catch (error) {
@@ -254,7 +254,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const awards = await readAwardsFromSheet(sheetId, currentYear)
+      const awards = await readAwardsFromSheet(sheetId, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(awards)
       await deleteGoogleSheet(sheetId)
       const existingByYear = currentDynasty?.awardsSheetIdByYear || {}

@@ -227,7 +227,7 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       // Read from the current year tab
-      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear)
+      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(data)
       onClose()
     } catch (error) {
@@ -247,7 +247,7 @@ FINAL CHECK before you send
     setDeletingSheet(true)
     try {
       // Read from the current year tab
-      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear)
+      const data = await readAllAmericansOnlyFromSheet(sheetId, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(data)
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)

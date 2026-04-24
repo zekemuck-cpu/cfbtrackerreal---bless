@@ -226,7 +226,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const classSelections = await readPortalTransferClassFromSheet(sheetId)
+      const classSelections = await readPortalTransferClassFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(classSelections)
       onClose()
     } catch (error) {
@@ -246,7 +246,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const classSelections = await readPortalTransferClassFromSheet(sheetId)
+      const classSelections = await readPortalTransferClassFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(classSelections)
 
       // Move sheet to trash

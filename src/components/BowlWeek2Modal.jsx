@@ -498,7 +498,7 @@ FINAL CHECK before you send the answer
     setSyncing(true)
     try {
       await persistSfBowlConfig()
-      const bowlGames = await readBowlWeek2GamesFromSheet(sheetId)
+      const bowlGames = await readBowlWeek2GamesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(bowlGames)
       onClose()
     } catch (error) {
@@ -520,7 +520,7 @@ FINAL CHECK before you send the answer
     setDeletingSheet(true)
     try {
       await persistSfBowlConfig()
-      const bowlGames = await readBowlWeek2GamesFromSheet(sheetId)
+      const bowlGames = await readBowlWeek2GamesFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(bowlGames)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)

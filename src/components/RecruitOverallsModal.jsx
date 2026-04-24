@@ -204,7 +204,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const recruitOveralls = await readRecruitOverallsFromSheet(sheetId)
+      const recruitOveralls = await readRecruitOverallsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(recruitOveralls)
       onClose()
     } catch (error) {
@@ -224,7 +224,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const recruitOveralls = await readRecruitOverallsFromSheet(sheetId)
+      const recruitOveralls = await readRecruitOverallsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(recruitOveralls)
 
       await deleteGoogleSheet(sheetId)

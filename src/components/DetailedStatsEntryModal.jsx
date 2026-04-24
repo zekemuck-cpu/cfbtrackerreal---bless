@@ -491,7 +491,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const detailedStats = await readDetailedStatsFromSheet(sheetId)
+      const detailedStats = await readDetailedStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(detailedStats)
       onClose()
     } catch (error) {
@@ -511,7 +511,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const detailedStats = await readDetailedStatsFromSheet(sheetId)
+      const detailedStats = await readDetailedStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(detailedStats)
 
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)

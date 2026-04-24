@@ -218,7 +218,7 @@ FINAL CHECK before you send
 
     setSyncing(true)
     try {
-      const transferPlayers = await readEncourageTransfersFromSheet(sheetId)
+      const transferPlayers = await readEncourageTransfersFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(transferPlayers)
       onClose()
     } catch (error) {
@@ -238,7 +238,7 @@ FINAL CHECK before you send
 
     setDeletingSheet(true)
     try {
-      const transferPlayers = await readEncourageTransfersFromSheet(sheetId)
+      const transferPlayers = await readEncourageTransfersFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(transferPlayers)
 
       await deleteGoogleSheet(sheetId)

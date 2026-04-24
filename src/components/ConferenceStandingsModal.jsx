@@ -230,7 +230,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setSyncing(true)
     try {
-      const standings = await readConferenceStandingsFromSheet(sheetId)
+      const standings = await readConferenceStandingsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(standings)
       onClose()
     } catch (error) {
@@ -249,7 +249,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const standings = await readConferenceStandingsFromSheet(sheetId)
+      const standings = await readConferenceStandingsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(standings)
       // Move sheet to trash (keep sheet ID stored so user can restore if needed)
       await deleteGoogleSheet(sheetId)

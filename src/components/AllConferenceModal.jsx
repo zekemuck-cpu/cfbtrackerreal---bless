@@ -275,7 +275,7 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       // Read from all conference tabs
-      const data = await readAllConferenceFromSheet(sheetId)
+      const data = await readAllConferenceFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(data)
       onClose()
     } catch (error) {
@@ -294,7 +294,7 @@ FINAL CHECK before you send
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const data = await readAllConferenceFromSheet(sheetId)
+      const data = await readAllConferenceFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       await onSave(data)
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
