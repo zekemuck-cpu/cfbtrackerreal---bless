@@ -396,6 +396,22 @@ CRITICAL RULES — read before anything else
 8. No header row, no stat labels, no commentary. SINGLE TSV block.
 
 ═══════════════════════════════════════════════════════════
+DATA-INTERPRETATION RULES (read before reading rows)
+═══════════════════════════════════════════════════════════
+A. The unit on the screenshot must match the unit the row asks for.
+   If the screenshot shows "42.7 yds" next to "Punts" that's an
+   AVERAGE (yards per punt), NOT a count. Leave the row blank — do
+   NOT enter the average as the count.
+B. Percentage rows want an integer 0-100. "75%" → "75". Never
+   "0.75" or "75.00".
+C. "Total Offense" = passing yards + rushing yards. If the
+   screenshot only labels one, derive it.
+D. Possession Time displayed as "31:14" splits into Poss Minutes
+   "31" and Poss Seconds "14". Never put "31:14" in a single row.
+E. If a stat is genuinely not visible in the screenshot, leave the
+   cell BLANK. Never guess. Never insert "N/A" or "—" or "0".
+
+═══════════════════════════════════════════════════════════
 TAB: "Team Stats" — 30 rows × 2 editable columns
 Paste your block at cell B2 of the "Team Stats" tab
 ═══════════════════════════════════════════════════════════
@@ -427,7 +443,7 @@ Row | Col A (PROTECTED / pre-filled) | Col B (${awayTeamAbbr} — AWAY) | Col C 
  23 | Punt Ret Yards                 | away punt return yards         | home punt return yards         | integer
  24 | Kick Ret Yards                 | away kick return yards         | home kick return yards         | integer
  25 | Total Yards                    | away total yards               | home total yards               | integer
- 26 | Punts                          | away punts                     | home punts                     | integer
+ 26 | Punts                          | away punt COUNT                | home punt COUNT                | integer (count of punts, NOT yards or average)
  27 | Penalties                      | away penalties count           | home penalties count           | integer
  28 | Penalty Yards                  | away penalty yards             | home penalty yards             | integer
  29 | Poss Minutes                   | away possession minutes        | home possession minutes        | integer (0-60)
