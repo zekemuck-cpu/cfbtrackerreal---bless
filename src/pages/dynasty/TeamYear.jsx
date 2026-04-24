@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear } from '../../context/DynastyContext'
@@ -253,6 +253,67 @@ const AWARD_ORDER = [
   'louGroza', 'rayGuy', 'returnerOfTheYear',
   'bearBryantCoachOfTheYear', 'broyles'
 ]
+
+// Tab bar with a single underline that slides between tabs.
+function TabBar({ tabs, activeKey, onSelect, accentColor }) {
+  const containerRef = useRef(null)
+  const buttonRefs = useRef({})
+  const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false })
+
+  const measure = () => {
+    const btn = buttonRefs.current[activeKey]
+    const container = containerRef.current
+    if (!btn || !container) return
+    // offsetLeft is relative to the offsetParent; the container is positioned
+    // so this gives us the inner-x within the tab strip.
+    setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth, ready: true })
+  }
+
+  useLayoutEffect(() => {
+    measure()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey])
+
+  useEffect(() => {
+    const onResize = () => measure()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey])
+
+  return (
+    <div ref={containerRef} className="relative border-b border-surface-4 flex overflow-x-auto no-scrollbar">
+      {tabs.map(tab => {
+        const isActive = activeKey === tab.key
+        return (
+          <button
+            key={tab.key}
+            ref={el => { if (el) buttonRefs.current[tab.key] = el; else delete buttonRefs.current[tab.key] }}
+            onClick={() => onSelect(tab.key)}
+            className={`px-4 sm:px-6 py-3 label-sm whitespace-nowrap transition-colors ${
+              isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
+            }`}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+      <span
+        className="absolute bottom-0 h-[2px] pointer-events-none"
+        style={{
+          backgroundColor: accentColor,
+          transform: `translateX(${indicator.left}px)`,
+          width: `${indicator.width}px`,
+          // Skip the slide on first paint so the indicator just appears in
+          // the right spot; only animate subsequent activeKey changes.
+          transition: indicator.ready ? 'transform 300ms ease-out, width 300ms ease-out' : 'none',
+          opacity: indicator.ready ? 1 : 0,
+        }}
+        aria-hidden="true"
+      />
+    </div>
+  )
+}
 
 export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
@@ -2593,38 +2654,20 @@ export default function TeamYear() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="border-b border-surface-4 flex overflow-x-auto no-scrollbar">
-        {[
+      {/* Tab Navigation — single sliding underline */}
+      <TabBar
+        tabs={[
           { key: 'home', label: 'Home' },
           { key: 'schedule', label: 'Schedule' },
           { key: 'stats', label: 'Stats' },
           { key: 'roster', label: 'Roster' },
           { key: 'recruiting', label: 'Recruiting' },
           { key: 'history', label: 'History' }
-        ].map(tab => {
-          const isActive = activeTab === tab.key
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`relative px-4 sm:px-6 py-3 label-sm whitespace-nowrap transition-colors ${
-                isActive ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
-              }`}
-            >
-              {tab.label}
-              <span
-                className="absolute left-0 right-0 bottom-0 h-[2px] origin-left transition-transform duration-300 ease-out"
-                style={{
-                  backgroundColor: teamInfo.backgroundColor,
-                  transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
-                }}
-                aria-hidden="true"
-              />
-            </button>
-          )
-        })}
-      </div>
+        ]}
+        activeKey={activeTab}
+        onSelect={setActiveTab}
+        accentColor={teamInfo.backgroundColor}
+      />
 
       <div key={activeTab} className="reveal">
 
