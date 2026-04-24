@@ -1934,8 +1934,7 @@ export default function DangerZone() {
 
     setV2ConsolidateStatus('running')
     try {
-      const dynasty = currentDynasty
-      const { migrated, report } = migrateDynastyToV2(dynasty)
+      const { dynasty: migrated, report } = migrateDynastyToV2(currentDynasty)
       const currentYear = migrated.currentYear
 
       // Pass 2: every surviving player through syncDerivedFieldsFromV2
