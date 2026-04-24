@@ -1744,7 +1744,7 @@ export default function Game() {
             ].filter(Boolean)
 
             return (
-              <div className="px-5 py-6 sm:px-6 sm:py-7 grid grid-cols-1 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,280px)] gap-y-8 lg:gap-x-8 xl:gap-x-10">
+              <div className="px-5 py-6 sm:px-6 sm:py-7 grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 lg:gap-x-8 xl:gap-x-12">
                 {/* LEFT: Game Leaders — one unified panel, category rows inside */}
                 <aside className="order-2 lg:order-1 min-w-0">
                   <SectionHead>Game Leaders</SectionHead>
@@ -1784,7 +1784,7 @@ export default function Game() {
                 {/* CENTER: Recap — display only. Edit via the game editor. */}
                 <section className="order-1 lg:order-2 min-w-0">
                   <SectionHead>Game Recap</SectionHead>
-                  <div className="max-w-prose">
+                  <div className="max-w-prose mx-auto">
                     <RecapCenter />
                   </div>
                 </section>
