@@ -353,13 +353,18 @@ export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
   const parts = fullName.split(' ')
   if (parts.length <= 1) return fullName
 
-  // Common two-word mascots that we need to handle
+  // Common two-word mascots that we need to handle. Keep in sync with the
+  // fallback list in src/pages/dynasty/Player.jsx — missing an entry here
+  // produces buggy renders like "Tulsa Golden" instead of "Tulsa".
   const twoWordMascots = [
     'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
+    'Golden Hurricane', 'Golden Knights',
     'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',
     'Red Raiders', 'Red Wolves', 'Mean Green', 'Green Wave', 'Horned Frogs',
     'Nittany Lions', 'Scarlet Knights', 'Orange Men', 'Fighting Irish',
-    'Demon Deacons', 'Crimson Tide', 'War Eagles', 'Runnin Utes', 'Fightin Blue Hens'
+    'Demon Deacons', 'Crimson Tide', 'War Eagles', 'Runnin Utes', 'Fightin Blue Hens',
+    'Thundering Herd', 'Tar Heels', "Ragin' Cajuns", 'Wolf Pack', 'Fighting Illini',
+    'Rainbow Warriors',
   ]
 
   // Check if the last two words form a known two-word mascot
