@@ -264,3 +264,125 @@ export const SCHEMA_VERSION = 2
 export function isV2(player) {
   return player?._schemaVersion >= 2
 }
+
+// ─── SYNC DERIVED FIELDS FROM V2 ────────────────────────────────────────────
+//
+// Collapses every legacy top-level roster field into a DERIVED mirror of the
+// v2 canonical data. Run this on every player write so:
+//   player.year      === classByYear[currentYear]
+//   player.team      === teamsByYear[currentYear] (tid)
+//   player.overall   === overallByYear[currentYear]
+//   player.devTrait  === devTraitByYear[currentYear]
+//   player.movements === [] (deleted — movementByYear is authoritative)
+//
+// Drops legacy junk fields that no v2 code path needs anymore. Missing
+// canonical values leave the derived field as null (never guessed).
+// _schemaVersion is stamped to 2 so the DynastyMigrationModal doesn't
+// re-prompt for this player next load.
+//
+// IMPORTANT: this never removes nested year keys. It only rewrites the
+// "current year convenience" top-level copies and strips deprecated arrays.
+export function syncDerivedFieldsFromV2(player, currentYear) {
+  if (!player) return player
+
+  // Coerce all per-year keys to Number (Firestore can return string keys).
+  const normalizedClassByYear = {}
+  for (const [k, v] of Object.entries(player.classByYear || {})) {
+    const n = Number(k)
+    if (Number.isFinite(n) && v != null && v !== '') normalizedClassByYear[n] = v
+  }
+  const normalizedTeamsByYear = {}
+  for (const [k, v] of Object.entries(player.teamsByYear || {})) {
+    const n = Number(k)
+    if (!Number.isFinite(n)) continue
+    if (v == null || v === '') continue
+    const asNum = Number(v)
+    normalizedTeamsByYear[n] = Number.isFinite(asNum) ? asNum : v
+  }
+  const normalizedOverallByYear = {}
+  for (const [k, v] of Object.entries(player.overallByYear || {})) {
+    const n = Number(k)
+    const val = Number(v)
+    if (Number.isFinite(n) && Number.isFinite(val)) normalizedOverallByYear[n] = val
+  }
+  const normalizedDevTraitByYear = {}
+  for (const [k, v] of Object.entries(player.devTraitByYear || {})) {
+    const n = Number(k)
+    if (Number.isFinite(n) && v != null && v !== '') normalizedDevTraitByYear[n] = v
+  }
+
+  // Collapse any remaining legacy movements[] entries into movementByYear,
+  // richer-entry-wins on collision. Output is authoritative v2.
+  const normalizedMovementByYear = { ...(player.movementByYear || {}) }
+  const richness = (o) => Object.values(o || {}).filter(x => x != null && x !== '').length
+  for (const m of player.movements || []) {
+    const n = Number(m?.year)
+    if (!Number.isFinite(n)) continue
+    const canonical = legacyMovementToCanonical(m)
+    if (!canonical || canonical.type === 'unknown') continue
+    const existing = normalizedMovementByYear[n] || normalizedMovementByYear[String(n)]
+    if (!existing || richness(canonical) > richness(existing)) {
+      normalizedMovementByYear[n] = canonical
+    }
+  }
+  // Re-key movementByYear to Number keys too.
+  const finalMovementByYear = {}
+  for (const [k, v] of Object.entries(normalizedMovementByYear)) {
+    const n = Number(k)
+    if (!Number.isFinite(n)) continue
+    if (!v) continue
+    finalMovementByYear[n] = v
+  }
+
+  // Derive the four top-level "current year" mirrors from canonical state.
+  // Falls back to the existing top-level value only when canonical has
+  // nothing for currentYear — that covers the case where the caller hasn't
+  // yet populated the current year's class/overall (e.g. mid-edit).
+  const cy = Number(currentYear)
+  const derivedClass = Number.isFinite(cy) && normalizedClassByYear[cy] != null
+    ? normalizedClassByYear[cy]
+    : (player.year || null)
+  const derivedTid = Number.isFinite(cy) && normalizedTeamsByYear[cy] != null
+    ? normalizedTeamsByYear[cy]
+    : (player.team != null ? player.team : null)
+  const derivedOverall = Number.isFinite(cy) && normalizedOverallByYear[cy] != null
+    ? normalizedOverallByYear[cy]
+    : (player.overall != null ? Number(player.overall) : null)
+  const derivedDevTrait = Number.isFinite(cy) && normalizedDevTraitByYear[cy]
+    ? normalizedDevTraitByYear[cy]
+    : (player.devTrait || null)
+
+  const out = {
+    ...player,
+    classByYear: normalizedClassByYear,
+    teamsByYear: normalizedTeamsByYear,
+    overallByYear: normalizedOverallByYear,
+    devTraitByYear: normalizedDevTraitByYear,
+    movementByYear: finalMovementByYear,
+    year: derivedClass,
+    team: derivedTid,
+    overall: derivedOverall,
+    devTrait: derivedDevTrait,
+    _schemaVersion: SCHEMA_VERSION,
+  }
+
+  // Strip deprecated keys that have no v2 equivalent. Their job was to
+  // describe state that is now fully represented in the per-year maps
+  // above, and leaving them around invites drift.
+  delete out.movements
+  delete out.teamHistory
+  delete out._legacy_teamsByYear
+  delete out.entryYear
+  delete out.entryClass
+  delete out.leftTeam
+  delete out.leftYear
+  delete out.leftReason
+  delete out.leavingYear
+  delete out.leavingReason
+  delete out.transferredTo
+  delete out.pendingDeparture
+  // Legacy 'teams' array (list of abbrs) — superseded by teamsByYear.
+  if (Array.isArray(out.teams)) delete out.teams
+
+  return out
+}

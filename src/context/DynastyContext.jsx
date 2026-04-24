@@ -57,6 +57,7 @@ import {
   addCareerEntry
 } from '../data/teamRegistry'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
+import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
@@ -5019,8 +5020,20 @@ export function DynastyProvider({ children }) {
         // CRITICAL: Track this player update to prevent listener from overwriting with stale data
         lastPlayersUpdateTimestampRef.current = Date.now()
         lastPlayersUpdateDynastyIdRef.current = dynastyId
+        // Normalize every player through the v2 sync layer so the top-level
+        // player.year / .team / .overall / .devTrait fields are always a
+        // consistent mirror of the canonical per-year maps. Drops legacy
+        // movements[] / teamHistory / leftTeam / etc. Keeps v2 canonical.
+        const currentYearForSync = dynasty?.currentYear
+        const normalizedPlayers = mainDocUpdates.players.map(p =>
+          syncDerivedFieldsFromV2(p, currentYearForSync)
+        )
+        // Also write normalized players back into updatesWithTimestamp so
+        // the local-state update at the bottom of this function shows the
+        // same normalized shape that was persisted to Firestore.
+        updatesWithTimestamp.players = normalizedPlayers
         subcollectionPromises.push(
-          savePlayersToSubcollection(dynastyId, mainDocUpdates.players, { deleteOrphans: true, forceOverwrite })
+          savePlayersToSubcollection(dynastyId, normalizedPlayers, { deleteOrphans: true, forceOverwrite })
         )
         // Don't save players to main doc - they're in subcollection now
         delete mainDocUpdates.players
@@ -9245,6 +9258,11 @@ export function DynastyProvider({ children }) {
         lastPlayersUpdateTimestampRef.current = Date.now()
         lastPlayersUpdateDynastyIdRef.current = dynastyId
 
+        // Normalize through v2 sync so legacy top-level fields (player.year,
+        // .team, .overall, .devTrait, .movements[]) stay in lockstep with
+        // the canonical per-year maps. Single source of truth.
+        finalPlayer = syncDerivedFieldsFromV2(finalPlayer, dynasty?.currentYear)
+
         // Save single player to Firestore subcollection (1 write instead of N)
         await savePlayerToSubcollection(dynastyId, finalPlayer)
         lastPlayersUpdateTimestampRef.current = Date.now()
@@ -9353,6 +9371,9 @@ export function DynastyProvider({ children }) {
           lastPlayersUpdateDynastyIdRef.current = dynastyId
           lastGamesUpdateTimestampRef.current = Date.now()
           lastGamesUpdateDynastyIdRef.current = dynastyId
+
+          // Normalize through v2 sync.
+          finalPlayer = syncDerivedFieldsFromV2(finalPlayer, dynasty?.currentYear)
 
           // Save the player
           await savePlayerToSubcollection(dynastyId, finalPlayer)

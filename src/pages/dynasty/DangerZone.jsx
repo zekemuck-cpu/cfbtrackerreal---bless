@@ -13,6 +13,8 @@ import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/s
 import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from '../../data/cfpConstants'
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
+import { migrateDynastyToV2 } from '../../data/migrateDynastyV2'
+import { syncDerivedFieldsFromV2 } from '../../data/rosterModel'
 import {
   PageHero,
   Card,
@@ -71,6 +73,9 @@ export default function DangerZone() {
 
   // Departure fix state
   const [departureFixStatus, setDepartureFixStatus] = useState(null)
+
+  // v2 Consolidation state
+  const [v2ConsolidateStatus, setV2ConsolidateStatus] = useState(null)
 
   // Duplicate player merge state
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
@@ -1905,6 +1910,65 @@ export default function DangerZone() {
   }
 
   // ==========================================================
+  // V2 CONSOLIDATION — ONE-CLICK FULL CLEANUP
+  // ==========================================================
+  //
+  // Runs the v2 migration (consolidates movements[] → movementByYear,
+  // drops ghost records, trims stale teamsByYear entries past departure)
+  // AND rewrites every player through syncDerivedFieldsFromV2 so the
+  // top-level player.year / .team / .overall / .devTrait fields are a
+  // consistent mirror of the canonical per-year maps. Persists with
+  // forceOverwrite so legacy keys actually get stripped from Firestore.
+  // Stamps _schemaVersion: 2 on the dynasty.
+  //
+  // Safe to re-run. No-op on a dynasty that's already v2-clean.
+  //
+  const handleV2Consolidate = async () => {
+    const ok = await confirm({
+      title: 'Consolidate all players to v2?',
+      message: 'Rewrites every player using the canonical v2 schema and strips legacy fields. Recommended for existing dynasties to prevent roster drift bugs. Safe to re-run.',
+      confirmLabel: 'Consolidate',
+      variant: 'primary',
+    })
+    if (!ok) return
+
+    setV2ConsolidateStatus('running')
+    try {
+      const dynasty = currentDynasty
+      const { migrated, report } = migrateDynastyToV2(dynasty)
+      const currentYear = migrated.currentYear
+
+      // Pass 2: every surviving player through syncDerivedFieldsFromV2
+      // to normalize derived top-level fields and strip deprecated keys.
+      const normalizedPlayers = (migrated.players || []).map(p =>
+        syncDerivedFieldsFromV2(p, currentYear)
+      )
+
+      await updateDynasty(
+        currentDynasty.id,
+        {
+          _schemaVersion: 2,
+          _normalizedAt: migrated._normalizedAt || new Date().toISOString(),
+          players: normalizedPlayers,
+        },
+        { forceOverwrite: true }
+      )
+
+      setV2ConsolidateStatus({
+        success: true,
+        message:
+          `Consolidated ${normalizedPlayers.length} players to v2. ` +
+          `Dropped ${report.playersDropped.length} ghost/placeholder records, ` +
+          `resolved ${report.collisionsResolved} movement collisions, ` +
+          `trimmed ${report.staleTeamsByYearTrimmed} stale post-departure entries.`,
+      })
+    } catch (error) {
+      console.error('[v2 consolidate] failed:', error)
+      setV2ConsolidateStatus({ success: false, message: 'Consolidate failed: ' + error.message })
+    }
+  }
+
+  // ==========================================================
   // STINT DATA CLEANUP HANDLER
   // ==========================================================
 
@@ -3048,6 +3112,22 @@ export default function DangerZone() {
             </div>
           </Card>
         </div>
+      </div>
+
+      {/* v2 Consolidation — THE recommended cleanup */}
+      <div>
+        <SectionHeader
+          size="sm"
+          title="Consolidate All Players to v2"
+          subtitle="One-click roster cleanup — recommended"
+        />
+        <ActionCard
+          title="Consolidate to v2"
+          description="Recommended for every existing dynasty. Collapses the old dual-schema (legacy top-level fields + per-year v2 maps) into a single consistent shape: v2 is canonical, top-level player.year / .team / .overall / .devTrait become derived mirrors that can't drift. Drops ghost records, resolves movement collisions, trims stale post-departure entries, and strips deprecated keys. Safe to re-run."
+          buttonText="Consolidate"
+          onClick={handleV2Consolidate}
+          status={v2ConsolidateStatus}
+        />
       </div>
 
       {/* Stint Data Cleanup */}
