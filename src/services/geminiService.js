@@ -1861,6 +1861,7 @@ USING THE DATA:
 - Include yards per carry, yards per attempt, completion percentage when the numbers are notable
 - Use records/schedule context for big-picture framing (e.g., "The win moves Wisconsin to 8-1 overall and 6-0 in Big Ten play")
 - Only mention rankings if explicitly shown - don't assume teams are ranked based on reputation
+- Player stat lines show the player's class in brackets when available (Fr = freshman, RS Fr = redshirt freshman, So = sophomore, RS So = redshirt sophomore, Jr = junior, RS Jr = redshirt junior, Sr = senior, RS Sr = redshirt senior). Use this accurately — never guess a player's year. If no class is shown for a player, omit year-level references for them entirely rather than inventing one.
 
 GAME FLOW:
 When a scoring summary is provided, track the running score after each play to understand lead changes. Walk through the game quarter by quarter, describing how momentum shifted. A "comeback win" means a team was losing and then won.
@@ -2094,6 +2095,17 @@ ${ctx.isConferenceGame ? `Conference game: ${ctx.conference}` : ''}`
   if (ctx.boxScore) {
     const team1Name = ctx.boxScore.team1Name
     const team2Name = ctx.boxScore.team2Name
+    // Build "Sr HB" / "Jr QB" tag from whatever class/position we resolved.
+    // AI writers need this so they don't guess a player's year (e.g., calling
+    // a senior a "junior"). We still emit a clean line when either is missing.
+    const formatPlayerLine = (p, teamName) => {
+      const tagParts = []
+      if (p.class) tagParts.push(p.class)
+      if (p.position) tagParts.push(p.position)
+      const tag = tagParts.length ? `${tagParts.join(' ')}, ` : ''
+      return `  ${p.player} [${tag}${teamName}]: ${p.stats}`
+    }
+
     const team1Stats = ctx.boxScore.team1
     if (team1Stats) {
       prompt += `\n
@@ -2104,33 +2116,23 @@ ${team1Name.toUpperCase()} INDIVIDUAL STATS
 
       if (team1Stats.passing.length > 0) {
         prompt += `\n\n${team1Name.toUpperCase()} PASSING:`
-        team1Stats.passing.forEach(p => {
-          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
-        })
+        team1Stats.passing.forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
       }
       if (team1Stats.rushing.length > 0) {
         prompt += `\n\n${team1Name.toUpperCase()} RUSHING:`
-        team1Stats.rushing.forEach(p => {
-          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
-        })
+        team1Stats.rushing.forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
       }
       if (team1Stats.receiving.length > 0) {
         prompt += `\n\n${team1Name.toUpperCase()} RECEIVING:`
-        team1Stats.receiving.forEach(p => {
-          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
-        })
+        team1Stats.receiving.forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
       }
       if (team1Stats.defense.length > 0) {
         prompt += `\n\n${team1Name.toUpperCase()} DEFENSE:`
-        team1Stats.defense.forEach(p => {
-          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
-        })
+        team1Stats.defense.forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
       }
       if (team1Stats.kicking.length > 0) {
         prompt += `\n\n${team1Name.toUpperCase()} KICKING:`
-        team1Stats.kicking.forEach(p => {
-          prompt += `\n  ${p.player} [${team1Name}]: ${p.stats}`
-        })
+        team1Stats.kicking.forEach(p => { prompt += `\n${formatPlayerLine(p, team1Name)}` })
       }
     }
 
@@ -2144,27 +2146,19 @@ ${team2Name.toUpperCase()} INDIVIDUAL STATS
 
       if (team2Stats.passing.length > 0) {
         prompt += `\n\n${team2Name.toUpperCase()} PASSING:`
-        team2Stats.passing.forEach(p => {
-          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
-        })
+        team2Stats.passing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
       }
       if (team2Stats.rushing.length > 0) {
         prompt += `\n\n${team2Name.toUpperCase()} RUSHING:`
-        team2Stats.rushing.forEach(p => {
-          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
-        })
+        team2Stats.rushing.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
       }
       if (team2Stats.receiving.length > 0) {
         prompt += `\n\n${team2Name.toUpperCase()} RECEIVING:`
-        team2Stats.receiving.forEach(p => {
-          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
-        })
+        team2Stats.receiving.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
       }
       if (team2Stats.defense.length > 0) {
         prompt += `\n\n${team2Name.toUpperCase()} DEFENSE:`
-        team2Stats.defense.forEach(p => {
-          prompt += `\n  ${p.player} [${team2Name}]: ${p.stats}`
-        })
+        team2Stats.defense.forEach(p => { prompt += `\n${formatPlayerLine(p, team2Name)}` })
       }
     }
   }
