@@ -2,7 +2,7 @@
 // This allows Google Sheets to work with free tier (IndexedDB) users who have signed in with Google
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
-import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS } from '../data/boxScoreConstants'
+import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
@@ -11072,19 +11072,34 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
         properties: {
           title: `${teamAbbr} Stats - Week ${week} vs ${opponentAbbr} (${year})`
         },
-        sheets: STAT_TAB_ORDER.map(key => {
-          const tab = STAT_TABS[key]
-          return {
-            properties: {
-              title: tab.title,
-              gridProperties: {
-                rowCount: tab.rowCount + 1, // +1 for header
-                columnCount: tab.headers.length,
-                frozenRowCount: 1
+        sheets: [
+          ...STAT_TAB_ORDER.map(key => {
+            const tab = STAT_TABS[key]
+            return {
+              properties: {
+                title: tab.title,
+                gridProperties: {
+                  rowCount: tab.rowCount + 1, // +1 for header
+                  columnCount: tab.headers.length,
+                  frozenRowCount: 1
+                }
               }
             }
-          }
-        })
+          }),
+          // 10th tab: AI All-In-One — entire team's stats on one tab.
+          (() => {
+            const layout = computeUnifiedTabLayout()
+            return {
+              properties: {
+                title: AI_UNIFIED_TAB.title,
+                gridProperties: {
+                  rowCount: layout.totalRows,
+                  columnCount: layout.maxCols,
+                }
+              }
+            }
+          })()
+        ]
       })
     })
 
@@ -11096,18 +11111,21 @@ export async function createGameBoxScoreSheet(teamName, teamAbbr, opponentAbbr, 
 
     const sheet = await response.json()
 
-    // Extract sheet IDs for each tab
+    // Extract sheet IDs for each tab; the unified tab is at the end.
     const sheetIds = {}
-    sheet.sheets.forEach((s, idx) => {
-      sheetIds[STAT_TAB_ORDER[idx]] = s.properties.sheetId
+    STAT_TAB_ORDER.forEach((key, idx) => {
+      sheetIds[key] = sheet.sheets[idx].properties.sheetId
     })
+    const unifiedSheetId = sheet.sheets[STAT_TAB_ORDER.length].properties.sheetId
 
     // Initialize all tabs with headers and formatting
     await initializeBoxScoreSheet(sheet.spreadsheetId, accessToken, sheetIds, isUserTeam, rosterPlayers)
+    await initializeUnifiedAITab(sheet.spreadsheetId, accessToken, unifiedSheetId, isUserTeam, rosterPlayers)
 
     // Pre-fill with existing player stats data if provided
     if (existingData) {
       await prefillPlayerStatsData(sheet.spreadsheetId, accessToken, existingData)
+      await prefillUnifiedAITab(sheet.spreadsheetId, accessToken, existingData)
     }
 
     // Share sheet publicly for embedding
@@ -11291,6 +11309,243 @@ async function prefillPlayerStatsData(spreadsheetId, accessToken, existingData) 
       console.error(`Failed to prefill player stats for ${tab.title}:`, error)
       // Don't throw - sheet is still usable, just without prefilled data
     }
+  }
+}
+
+// ============================================
+// AI ALL-IN-ONE TAB
+// Single-tab layout: every player-stat category stacked vertically with
+// section banners + column headers + per-section data rows. Lets users (or
+// an AI) paste the entire team's stats in one go at cell A1.
+// ============================================
+
+// Initialize the unified AI tab: write banners, column headers, set
+// formatting, apply roster dropdown to each section's data rows.
+async function initializeUnifiedAITab(spreadsheetId, accessToken, sheetId, isUserTeam, rosterPlayers) {
+  const layout = computeUnifiedTabLayout()
+  const requests = []
+
+  // Default cell formatting (consistent with the 9 individual tabs)
+  requests.push({
+    repeatCell: {
+      range: { sheetId },
+      cell: {
+        userEnteredFormat: {
+          textFormat: { fontFamily: 'Barlow', fontSize: 10 },
+          horizontalAlignment: 'CENTER',
+          verticalAlignment: 'MIDDLE',
+        },
+      },
+      fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)',
+    },
+  })
+
+  for (const section of layout.sections) {
+    // Section banner: merge across the full width and write title centered
+    requests.push({
+      mergeCells: {
+        range: {
+          sheetId,
+          startRowIndex: section.bannerRow - 1,
+          endRowIndex: section.bannerRow,
+          startColumnIndex: 0,
+          endColumnIndex: layout.maxCols,
+        },
+        mergeType: 'MERGE_ALL',
+      },
+    })
+    requests.push({
+      updateCells: {
+        range: {
+          sheetId,
+          startRowIndex: section.bannerRow - 1,
+          endRowIndex: section.bannerRow,
+          startColumnIndex: 0,
+          endColumnIndex: 1,
+        },
+        rows: [
+          {
+            values: [
+              {
+                userEnteredValue: { stringValue: `═══ ${section.title.toUpperCase()} ═══` },
+                userEnteredFormat: {
+                  textFormat: { bold: true, fontSize: 12, fontFamily: 'Barlow' },
+                  horizontalAlignment: 'CENTER',
+                  backgroundColor: { red: 0.92, green: 0.92, blue: 0.95 },
+                },
+              },
+            ],
+          },
+        ],
+        fields: 'userEnteredValue,userEnteredFormat(textFormat,horizontalAlignment,backgroundColor)',
+      },
+    })
+
+    // Column header row
+    requests.push({
+      updateCells: {
+        range: {
+          sheetId,
+          startRowIndex: section.headerRow - 1,
+          endRowIndex: section.headerRow,
+          startColumnIndex: 0,
+          endColumnIndex: section.headers.length,
+        },
+        rows: [
+          {
+            values: section.headers.map(h => ({
+              userEnteredValue: { stringValue: h },
+              userEnteredFormat: {
+                textFormat: { bold: true, italic: true, fontSize: 10, fontFamily: 'Barlow' },
+                horizontalAlignment: 'CENTER',
+                backgroundColor: { red: 0.97, green: 0.97, blue: 0.98 },
+              },
+            })),
+          },
+        ],
+        fields: 'userEnteredValue,userEnteredFormat(textFormat,horizontalAlignment,backgroundColor)',
+      },
+    })
+
+    // Roster dropdown on column A across this section's data rows
+    if (isUserTeam && rosterPlayers.length > 0) {
+      requests.push({
+        setDataValidation: {
+          range: {
+            sheetId,
+            startRowIndex: section.dataStart - 1,
+            endRowIndex: section.dataEnd,
+            startColumnIndex: 0,
+            endColumnIndex: 1,
+          },
+          rule: {
+            condition: {
+              type: 'ONE_OF_LIST',
+              values: rosterPlayers.map(name => ({ userEnteredValue: name })),
+            },
+            showCustomUi: true,
+            strict: true,
+          },
+        },
+      })
+    }
+  }
+
+  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ requests }),
+  })
+
+  if (!batchResponse.ok) {
+    const error = await batchResponse.json()
+    console.error('Failed to initialize AI All-In-One tab:', error)
+    // Non-fatal: the 9 individual tabs are still usable.
+  }
+}
+
+// Pre-fill the unified tab with existing data (same shape as the 9-tab
+// prefill: existingData[key] is an array of player stat objects).
+async function prefillUnifiedAITab(spreadsheetId, accessToken, existingData) {
+  if (!existingData) return
+  const layout = computeUnifiedTabLayout()
+
+  // Build one full-tab values matrix (totalRows × maxCols)
+  const matrix = Array.from({ length: layout.totalRows }, () => Array(layout.maxCols).fill(''))
+
+  for (const section of layout.sections) {
+    const tabData = existingData[section.key]
+    if (!Array.isArray(tabData) || tabData.length === 0) continue
+
+    // Same key-derivation logic as prefillPlayerStatsData
+    const headerToKey = {}
+    section.headers.forEach((header, idx) => {
+      if (idx === 0) headerToKey[idx] = 'playerName'
+      else headerToKey[idx] = header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
+    })
+
+    const capacity = section.dataEnd - section.dataStart + 1
+    const rows = tabData.slice(0, capacity).map(playerStats =>
+      section.headers.map((_, idx) => {
+        const v = playerStats[headerToKey[idx]]
+        return v !== null && v !== undefined ? String(v) : ''
+      })
+    )
+
+    rows.forEach((rowVals, idx) => {
+      const targetRow = section.dataStart - 1 + idx
+      rowVals.forEach((v, col) => {
+        matrix[targetRow][col] = v
+      })
+    })
+  }
+
+  const lastColLetter = String.fromCharCode(65 + layout.maxCols - 1)
+  const range = `'${AI_UNIFIED_TAB.title}'!A1:${lastColLetter}${layout.totalRows}`
+  const response = await fetch(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ range, majorDimension: 'ROWS', values: matrix }),
+    }
+  )
+  if (!response.ok) {
+    const error = await response.json()
+    console.error('Failed to prefill AI All-In-One tab:', error)
+  }
+}
+
+// Read the unified tab back into the same { passing: [...], rushing: [...], ... } shape
+// the 9-tab reader produces. Sections with no rows return [].
+export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
+  try {
+    const accessToken = await getAccessToken()
+    const layout = computeUnifiedTabLayout()
+    const lastColLetter = String.fromCharCode(65 + layout.maxCols - 1)
+    const range = `'${AI_UNIFIED_TAB.title}'!A1:${lastColLetter}${layout.totalRows}`
+
+    const response = await fetch(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+    if (!response.ok) {
+      // Tab missing or unreadable — caller should fall back to 9-tab read.
+      return null
+    }
+    const data = await response.json()
+    const rows = data.values || []
+
+    const boxScore = {}
+    for (const section of layout.sections) {
+      const aliases = BOX_SCORE_HEADER_ALIASES[section.key] || {}
+      const sectionRows = []
+      for (let r = section.dataStart; r <= section.dataEnd; r++) {
+        const row = rows[r - 1] || []
+        const playerName = (row[0] || '').trim()
+        if (!playerName) continue
+
+        const entry = { playerName }
+        section.headers.forEach((header, idx) => {
+          if (idx === 0) return
+          const value = row[idx] || ''
+          const camelKey = aliases[header] || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
+          entry[camelKey] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
+        })
+        sectionRows.push(entry)
+      }
+      boxScore[section.key] = sectionRows
+    }
+    return boxScore
+  } catch (error) {
+    console.error('Error reading unified AI tab:', error)
+    return null
   }
 }
 
@@ -11667,6 +11922,23 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
           })
           return entry
         })
+    }
+
+    // Merge in data from the AI All-In-One unified tab. If a section has
+    // data in the unified tab, prefer it (the user pasted there); otherwise
+    // keep what came from the dedicated tab.
+    try {
+      const unified = await readGameBoxScoreFromUnifiedTab(spreadsheetId)
+      if (unified) {
+        for (const key of STAT_TAB_ORDER) {
+          const unifiedRows = unified[key]
+          if (Array.isArray(unifiedRows) && unifiedRows.length > 0) {
+            boxScore[key] = unifiedRows
+          }
+        }
+      }
+    } catch (e) {
+      // Unified tab may not exist on legacy sheets — fine, we already have 9-tab data.
     }
 
     return boxScore

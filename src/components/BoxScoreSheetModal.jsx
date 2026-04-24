@@ -20,6 +20,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import { AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import SheetLoadingHint from './SheetLoadingHint'
 
 /**
@@ -487,17 +488,33 @@ FINAL CHECK before you send
     const playerStatsRoster = config.isUserControlled
       ? (sheetType === 'homeStats' ? homeRosterObjects : awayRosterObjects)
       : []
+    const layout = computeUnifiedTabLayout()
+    const sectionSummary = layout.sections
+      .map(s => `  ${s.title}: rows ${s.dataStart}–${s.dataEnd} (${s.rowCount} data rows)`)
+      .join('\n')
+
+    // Per-section row spec for the prompt — what each row should contain
+    const rowSpec = layout.sections.map((s, idx) => {
+      const isLast = idx === layout.sections.length - 1
+      const lines = []
+      lines.push(`Row ${s.bannerRow}:        ═══ ${s.title.toUpperCase()} ═══   (this exact text in column A)`)
+      lines.push(`Row ${s.headerRow}:        ${s.headers.join(' | ')}   (tab-separated column headers)`)
+      lines.push(`Rows ${s.dataStart}–${s.dataEnd}: ${s.rowCount} data row slots — fill stat-earners from the top, leave any unused slots BLANK (just an empty line)`)
+      if (!isLast) lines.push(`Row ${s.dataEnd + 1}:       blank separator`)
+      return lines.join('\n')
+    }).join('\n\n')
+
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
       roster: playerStatsRoster,
-      structure: `This sheet has NINE tabs, one per stat category. Every tab uses Player Name as column A. You fill in the stat values (and the player name) for each player who recorded a stat in that category. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
+      structure: `This Google Sheet contains a tab named "${AI_UNIFIED_TAB.title}" that holds EVERY stat category for the ${teamAbbr} team in one place. Your job: produce ONE giant tab-separated block that the user can paste at cell A1 of that tab to fill the entire layout in a single paste. Stats are for the ${teamAbbr} team only (opponent: ${opponentAbbrLabel}).
 
 ═══════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS — do this first
 ═══════════════════════════════════════════════════════════
 The user pastes screenshots from EA College Football 26's post-game stats screens. Each screenshot shows ONE stat category for BOTH teams side-by-side. Before you write a single TSV row:
 
-1. IDENTIFY THE TEAM COLUMN. Each screenshot shows the two team helmets/names as column headers. "${teamAbbr}" is the team you're writing stats for RIGHT NOW. Only use rows from the ${teamAbbr} column. Never mix in opponent (${opponentAbbrLabel}) rows — those go on a different sheet.
+1. IDENTIFY THE TEAM COLUMN. Each screenshot shows the two team helmets/names as column headers. "${teamAbbr}" is the team you're writing stats for RIGHT NOW. Only use rows from the ${teamAbbr} column. Never mix in opponent (${opponentAbbrLabel}) rows.
 
 2. TACKLES SPLIT: the defense screenshot shows "TOTAL" tackles as a single number (e.g. "8"). The sheet needs SOLO and ASSISTS as SEPARATE columns. EA's in-game screen shows them split as "SOLO/AST" like "6/2". If the screenshot shows only a combined total with no split, enter the total under Solo and leave Assists blank — NEVER invent a split.
 
@@ -514,143 +531,84 @@ The user pastes screenshots from EA College Football 26's post-game stats screen
 
 5. KICKING RANGE SPLITS: CFB26 shows FG attempts per distance range. Map attempts and makes to the pairs FGA 29/FGM 29 (0-29 yd), FGA 39/FGM 39 (30-39 yd), FGA 49/FGM 49 (40-49 yd), FGA 50+/FGM 50+ (50 yd+). If the screenshot lists one combined FG line with no splits, enter FGM / FGA on the summary columns and leave the range columns BLANK.
 
-6. JERSEY NUMBERS IN SCREENSHOTS: CFB26 shows "#12 J. Smith" style entries. Map that to the full roster name from the roster block above — NEVER output "#12" or "J. Smith". Always the full name from the roster dropdown.
+6. JERSEY NUMBERS IN SCREENSHOTS: CFB26 shows "#12 J. Smith" style entries. Map to the full roster name from the roster block above — NEVER output "#12" or "J. Smith". Always the full name from the roster dropdown.
 
 7. BLANKS VS ZEROS: the screenshot lists only players who TOUCHED that category. For those players, 0 means "played but didn't produce" and is valid. A player who didn't appear on the screenshot should not be in your output at all — don't pad with zero rows.
 
 ═══════════════════════════════════════════════════════════
-CRITICAL RULES — read before anything else
+OUTPUT SHAPE — read carefully
 ═══════════════════════════════════════════════════════════
-1. Output NINE separate TSV blocks, one per tab, in the exact tab order below. Label each block with the tab name and paste cell.
-2. Column A (Player Name) IS editable by you — paste at cell A2 of each tab. If this is the user's own team, Player Name is a STRICT dropdown of the roster shown in the screenshot — use EXACT roster spelling, no nicknames, no initials. If this is the OPPONENT team, you may type any reasonable player name (no dropdown).
-3. Every tab has a FIXED row count (see below). Output ONLY rows for players with stats; LEAVE UNUSED ROWS COMPLETELY BLANK — do not output filler rows. So a tab with 15 rows that only has 3 stat-earners: output just 3 lines under that tab's block.
-4. Each output row must have EXACTLY the column count listed for that tab (tab-separated). Player Name column first, stat columns in the listed order.
-5. NO COMMAS in numbers. "1234" never "1,234".
-6. INTEGERS for all stat values EXCEPT Passing "Rtg" (passer rating) which may be a decimal to one place (e.g. "148.3"). No "pts" text, no minus signs for yardage totals (except a negative rush yardage is OK, like -3).
-7. BLANK CELL for truly unknown stats. Use 0 only when the stat is genuinely zero.
-8. If an entire tab has no players with stats (e.g. no one had a kick return), output the tab label line followed by NO rows (zero rows under that block).
-9. No header row inside any block (the pre-filled header row 1 is protected). No commentary, no explanation.
-10. Tab names are case-sensitive. Use the EXACT tab names listed.
+Output EXACTLY ${layout.totalRows} lines. Each line corresponds to ONE row of the "${AI_UNIFIED_TAB.title}" tab when pasted at cell A1. Within a line, fields are TAB-separated (real tab character \\t, not the literal text "\\t"). Empty slots = an empty line (just \\n).
 
-═══════════════════════════════════════════════════════════
-TAB ORDER AND COLUMN SPECS
-═══════════════════════════════════════════════════════════
+The tab is divided into 9 sections stacked vertically. Each section has:
+  • a banner row (column A only, the section title)
+  • a column-header row (one cell per stat)
+  • a fixed number of data row slots
+  • a blank separator (except after the last section)
 
-TAB 1: "Passing" — max 6 data rows × 8 columns
-  Paste at cell A2 of the "Passing" tab
-  Col order:  Player Name | Rtg  | Comp | Att  | Yards | TD  | INT | Long
-  Formats:    name text   | decimal (e.g. "148.3") | integer | integer | integer | integer | integer | integer
+Section row ranges (1-indexed):
+${sectionSummary}
 
-TAB 2: "Rushing" — max 15 data rows × 9 columns
-  Paste at cell A2 of the "Rushing" tab
-  Col order:  Player Name | Carries | Yards | TD  | Fumbles | BT  | YAC | 20+ | Long
-  Formats:    name text   | integer | integer | integer | integer | integer | integer | integer | integer
-  (BT = Broken Tackles; YAC = Yards After Contact; "20+" = runs of 20+ yards)
-
-TAB 3: "Receiving" — max 15 data rows × 7 columns
-  Paste at cell A2 of the "Receiving" tab
-  Col order:  Player Name | Receptions | Yards | TD  | RAC | Drops | Long
-  Formats:    name text   | integer    | integer | integer | integer | integer | integer
-  (RAC = Receiving Yards After Catch)
-
-TAB 4: "Blocking" — max 20 data rows × 3 columns
-  Paste at cell A2 of the "Blocking" tab
-  Col order:  Player Name | Pancakes | Sacks Allowed
-  Formats:    name text   | integer  | integer
-
-TAB 5: "Defense" — max 30 data rows × 15 columns
-  Paste at cell A2 of the "Defense" tab
-  Col order:  Player Name | Solo | Assists | TFL | Sack | INT | INT Yards | INT Long | Deflections | FF  | FR  | Fumble Yards | Blocks | Safeties | TD
-  Formats:    name text   | integer (all 14 stat columns)
-  (TFL = Tackles For Loss; FF = Forced Fumbles; FR = Fumble Recoveries; Blocks = kicks/punts blocked; TD = defensive TDs)
-
-TAB 6: "Kicking" — max 3 data rows × 18 columns
-  Paste at cell A2 of the "Kicking" tab
-  Col order:  Player Name | FGM | FGA | FG Long | FG Block | XPM | XPA | XPB | FGA 29 | FGM 29 | FGA 39 | FGM 39 | FGA 49 | FGM 49 | FGA 50+ | FGM 50+ | Kickoffs | Touchbacks
-  Formats:    name text   | integer (all 17 stat columns)
-  (FGA 29 = FG attempts from 0-29 yards; FGM 29 = FG made from 0-29; and so on for 39, 49, 50+ ranges. XPM/XPA/XPB = extra points made/attempted/blocked.)
-
-TAB 7: "Punting" — max 3 data rows × 8 columns
-  Paste at cell A2 of the "Punting" tab
-  Col order:  Player Name | Punts | Yards | Net Yards | Block | In20 | TB  | Long
-  Formats:    name text   | integer (all 7 stat columns)
-  (Block = punts blocked; In20 = punts downed inside the 20; TB = touchbacks)
-
-TAB 8: "Kick Return" — max 6 data rows × 5 columns
-  Paste at cell A2 of the "Kick Return" tab
-  Col order:  Player Name | KR  | Yards | Long | TD
-  Formats:    name text   | integer (all 4 stat columns)
-
-TAB 9: "Punt Return" — max 6 data rows × 5 columns
-  Paste at cell A2 of the "Punt Return" tab
-  Col order:  Player Name | PR  | Yards | Long | TD
-  Formats:    name text   | integer (all 4 stat columns)
+Total rows: ${layout.totalRows}. Max columns: ${layout.maxCols}.
 
 ═══════════════════════════════════════════════════════════
-REQUIRED OUTPUT FORMAT
+EXACT ROW-BY-ROW LAYOUT — emit each row in this order
 ═══════════════════════════════════════════════════════════
-=== PASSING — paste at cell A2 of "Passing" tab ===
-<name>\\t<Rtg>\\t<Comp>\\t<Att>\\t<Yards>\\t<TD>\\t<INT>\\t<Long>
-... (0-6 rows)
+${rowSpec}
 
-=== RUSHING — paste at cell A2 of "Rushing" tab ===
-<name>\\t<Carries>\\t<Yards>\\t<TD>\\t<Fumbles>\\t<BT>\\t<YAC>\\t<20+>\\t<Long>
-... (0-15 rows)
+═══════════════════════════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════════════════════════
+1. Output EXACTLY ${layout.totalRows} lines. Count them. The user pastes the entire output at cell A1 of the "${AI_UNIFIED_TAB.title}" tab — every line MUST land on the correct row.
+2. Banner rows: output ONLY the banner text in column A (no tabs). Example: \`═══ PASSING ═══\`. Do NOT add any other columns to a banner line.
+3. Column header rows: output the EXACT header text for that section, tab-separated, with NO extra columns past the section's stat list. The header row for "Passing" has 8 cells; for "Defense" it has 15.
+4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
+5. Empty data slots (rows where no player stat-earner exists): output a TRULY EMPTY LINE (just \\n) — no tabs, no spaces.
+6. Blank separator rows (between sections): output a TRULY EMPTY LINE.
+7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only EXCEPT Passing Rtg which is one decimal (e.g. "148.3").
+8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent, any reasonable name. NEVER "#12" or "J. Smith" when a full name exists in the roster.
+9. ${teamAbbr} players ONLY. No ${opponentAbbrLabel} players in this output.
+10. No commentary, no explanation, no markdown fencing. SINGLE block of ${layout.totalRows} lines.
 
-=== RECEIVING — paste at cell A2 of "Receiving" tab ===
-<name>\\t<Receptions>\\t<Yards>\\t<TD>\\t<RAC>\\t<Drops>\\t<Long>
-... (0-15 rows)
+═══════════════════════════════════════════════════════════
+COLUMN SPEC PER SECTION (for reference)
+═══════════════════════════════════════════════════════════
+${layout.sections.map(s => `${s.title} (${s.headers.length} cols): ${s.headers.join(' | ')}`).join('\n')}
 
-=== BLOCKING — paste at cell A2 of "Blocking" tab ===
-<name>\\t<Pancakes>\\t<Sacks Allowed>
-... (0-20 rows)
-
-=== DEFENSE — paste at cell A2 of "Defense" tab ===
-<name>\\t<Solo>\\t<Assists>\\t<TFL>\\t<Sack>\\t<INT>\\t<INT Yards>\\t<INT Long>\\t<Deflections>\\t<FF>\\t<FR>\\t<Fumble Yards>\\t<Blocks>\\t<Safeties>\\t<TD>
-... (0-30 rows)
-
-=== KICKING — paste at cell A2 of "Kicking" tab ===
-<name>\\t<FGM>\\t<FGA>\\t<FG Long>\\t<FG Block>\\t<XPM>\\t<XPA>\\t<XPB>\\t<FGA 29>\\t<FGM 29>\\t<FGA 39>\\t<FGM 39>\\t<FGA 49>\\t<FGM 49>\\t<FGA 50+>\\t<FGM 50+>\\t<Kickoffs>\\t<Touchbacks>
-... (0-3 rows)
-
-=== PUNTING — paste at cell A2 of "Punting" tab ===
-<name>\\t<Punts>\\t<Yards>\\t<Net Yards>\\t<Block>\\t<In20>\\t<TB>\\t<Long>
-... (0-3 rows)
-
-=== KICK RETURN — paste at cell A2 of "Kick Return" tab ===
-<name>\\t<KR>\\t<Yards>\\t<Long>\\t<TD>
-... (0-6 rows)
-
-=== PUNT RETURN — paste at cell A2 of "Punt Return" tab ===
-<name>\\t<PR>\\t<Yards>\\t<Long>\\t<TD>
-... (0-6 rows)
-
-(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+Notes:
+  • Passing: Rtg is decimal one-place (e.g. 148.3); all others integer.
+  • Rushing: BT = Broken Tackles, YAC = Yards After Contact, "20+" = runs of 20+ yards.
+  • Receiving: RAC = Receiving Yards After Catch.
+  • Defense: TFL = Tackles For Loss, FF = Forced Fumbles, FR = Fumble Recoveries, Blocks = kicks/punts blocked, TD = defensive TDs.
+  • Kicking: FGA/FGM 29/39/49/50+ = field goals by distance bucket; XPM/XPA/XPB = extra points made/attempted/blocked.
+  • Punting: Block = punts blocked, In20 = punts downed inside the 20, TB = touchbacks.
 
 ═══════════════════════════════════════════════════════════
 COMMON MISTAKES — actively avoid these
 ═══════════════════════════════════════════════════════════
-✗ Putting ${opponentAbbrLabel} players in this sheet (they belong on a different tab, not here)
+✗ Putting ${opponentAbbrLabel} players in this sheet (they belong on a different tab)
 ✗ Using "J. Smith" or jersey-number-only when the roster has the full name
 ✗ Guessing split Solo/Assists when the screenshot shows only a total
-✗ Inventing 20+ / BT / YAC / RAC / Drops when those columns aren't visible in the screenshot
+✗ Inventing 20+ / BT / YAC / RAC / Drops when those columns aren't visible
 ✗ Outputting decimal numbers for anything except Passing Rtg
 ✗ Adding commas to totals ("1,234" → wrong; "1234" is correct)
-✗ Padding tabs with 0-rows for players who didn't appear in that category
-✗ Reordering columns — the column order per tab is FIXED
-✗ Mixing the "Long" value with TD yardage (Long is the longest SINGLE play, not TD yardage)
+✗ Reordering columns — the column order per section is FIXED
+✗ Mixing the "Long" value with TD yardage (Long is the longest SINGLE play)
+✗ Skipping empty rows: every row position MUST be present in the output, even as a blank line
+✗ Outputting fewer or more than ${layout.totalRows} total lines
+✗ Adding any text outside the ${layout.totalRows}-line block (no "here is the output:", no markdown fences, no trailing notes)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] All 9 block labels present, in the exact order above
-[ ] Each row inside a block has the EXACT column count listed for that tab
-[ ] Row counts per tab are within the max: Passing≤6, Rushing≤15, Receiving≤15, Blocking≤20, Defense≤30, Kicking≤3, Punting≤3, Kick Return≤6, Punt Return≤6
-[ ] Player names match the roster spelling (strict dropdown on the user's team) — NO "#12" or "J. Smith" anywhere
-[ ] All stats are for ${teamAbbr} players only (no ${opponentAbbrLabel} players mixed in)
+[ ] EXACTLY ${layout.totalRows} lines emitted (count them)
+[ ] Banner lines contain ONLY the section title text (no tabs)
+[ ] Each non-empty data row has the exact column count for its section
+[ ] Empty data slots and separator rows are TRULY EMPTY lines
+[ ] Player names match the roster spelling — NO "#12" or "J. Smith"
+[ ] All stats are for ${teamAbbr} players only
 [ ] No commas in numbers; Rtg may have one decimal; all other stats are integers
-[ ] Tabs with no stat-earners have zero rows under the label (just the label line)
-[ ] No header row inside any block; no commentary outside the blocks`,
+[ ] No commentary, no markdown fences, no headers around the block`,
       includeTeamMap: true,
     })
   }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear])

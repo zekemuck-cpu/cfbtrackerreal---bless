@@ -6,19 +6,19 @@ export const STAT_TABS = {
     key: 'passing',
     title: 'Passing',
     headers: ['Player Name', 'Rtg', 'Comp', 'Att', 'Yards', 'TD', 'INT', 'Long'],
-    rowCount: 6
+    rowCount: 8
   },
   rushing: {
     key: 'rushing',
     title: 'Rushing',
     headers: ['Player Name', 'Carries', 'Yards', 'TD', 'Fumbles', 'BT', 'YAC', '20+', 'Long'],
-    rowCount: 15
+    rowCount: 20
   },
   receiving: {
     key: 'receiving',
     title: 'Receiving',
     headers: ['Player Name', 'Receptions', 'Yards', 'TD', 'RAC', 'Drops', 'Long'],
-    rowCount: 15
+    rowCount: 25
   },
   blocking: {
     key: 'blocking',
@@ -30,31 +30,31 @@ export const STAT_TABS = {
     key: 'defense',
     title: 'Defense',
     headers: ['Player Name', 'Solo', 'Assists', 'TFL', 'Sack', 'INT', 'INT Yards', 'INT Long', 'Deflections', 'FF', 'FR', 'Fumble Yards', 'Blocks', 'Safeties', 'TD'],
-    rowCount: 30
+    rowCount: 40
   },
   kicking: {
     key: 'kicking',
     title: 'Kicking',
     headers: ['Player Name', 'FGM', 'FGA', 'FG Long', 'FG Block', 'XPM', 'XPA', 'XPB', 'FGA 29', 'FGM 29', 'FGA 39', 'FGM 39', 'FGA 49', 'FGM 49', 'FGA 50+', 'FGM 50+', 'Kickoffs', 'Touchbacks'],
-    rowCount: 3
+    rowCount: 5
   },
   punting: {
     key: 'punting',
     title: 'Punting',
     headers: ['Player Name', 'Punts', 'Yards', 'Net Yards', 'Block', 'In20', 'TB', 'Long'],
-    rowCount: 3
+    rowCount: 5
   },
   kickReturn: {
     key: 'kickReturn',
     title: 'Kick Return',
     headers: ['Player Name', 'KR', 'Yards', 'Long', 'TD'],
-    rowCount: 6
+    rowCount: 10
   },
   puntReturn: {
     key: 'puntReturn',
     title: 'Punt Return',
     headers: ['Player Name', 'PR', 'Yards', 'Long', 'TD'],
-    rowCount: 6
+    rowCount: 10
   }
 }
 
@@ -70,6 +70,44 @@ export const STAT_TAB_ORDER = [
   'kickReturn',
   'puntReturn'
 ]
+
+// AI All-In-One tab — appended after the 9 individual tabs.
+// One paste fills the whole tab (banners + headers + data) at A1.
+export const AI_UNIFIED_TAB = { key: 'aiAllInOne', title: 'AI All-In-One' }
+
+// Compute the unified-tab layout: per-section banner row, header row, and
+// inclusive 1-indexed data row range, plus the total row count and the max
+// column width across all sections.
+//
+// Returns:
+//   { sections: [{ key, title, headers, rowCount, bannerRow, headerRow, dataStart, dataEnd }],
+//     totalRows: <int>,
+//     maxCols:   <int> }
+export function computeUnifiedTabLayout() {
+  const sections = []
+  let row = 1
+  STAT_TAB_ORDER.forEach((key, idx) => {
+    const tab = STAT_TABS[key]
+    const bannerRow = row
+    const headerRow = row + 1
+    const dataStart = row + 2
+    const dataEnd = dataStart + tab.rowCount - 1
+    sections.push({
+      key,
+      title: tab.title,
+      headers: tab.headers,
+      rowCount: tab.rowCount,
+      bannerRow,
+      headerRow,
+      dataStart,
+      dataEnd,
+    })
+    row = dataEnd + 1
+    if (idx < STAT_TAB_ORDER.length - 1) row += 1 // separator blank row
+  })
+  const maxCols = Math.max(...STAT_TAB_ORDER.map(k => STAT_TABS[k].headers.length))
+  return { sections, totalRows: row - 1, maxCols }
+}
 
 // Scoring Summary configuration
 export const SCORING_SUMMARY = {
