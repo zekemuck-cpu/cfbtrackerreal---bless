@@ -3286,17 +3286,14 @@ export default function TeamYear() {
 
       {/* ROSTER TAB */}
       {activeTab === 'roster' && (
-      <div className="space-y-6">
+      <div className="space-y-4">
           {/* Roster Section - All Teams */}
           {sortedTeamPlayers.length > 0 && (
-        <div className="card overflow-hidden">
-          {/* Team-color accent stripe */}
-          <div className="h-[2px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
-
-          {/* Filter + sort bar */}
-          <div className="bg-surface-2 border-b border-surface-4">
+        <div>
+          {/* Filter bar — flows with the page instead of floating in a card */}
+          <div className="border-b border-surface-4">
             {/* Position filter with per-group counts */}
-            <div className="px-3 sm:px-4 py-2 flex items-center gap-1 flex-wrap">
+            <div className="py-2 flex items-center gap-1 flex-wrap">
               {[
                 { key: 'all', label: 'All' },
                 { key: 'QB', label: 'QB' },
