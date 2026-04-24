@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.24.0050'
+const APP_VERSION = '2026.04.24.0051'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -500,7 +500,7 @@ export default function Layout({ children }) {
 
   return (
     <div
-      className="min-h-dvh flex flex-col [overflow-x:clip]"
+      className="min-h-dvh flex flex-col"
       style={{ backgroundColor: pageBg }}
     >
       <a
@@ -789,7 +789,7 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main id="main" tabIndex={-1} className={`flex-1 ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
+      <main id="main" tabIndex={-1} className={`flex-1 [overflow-x:clip] ${isHomePage || isAccountPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
         {isDynastyPage ? (
           <div key={location.pathname} className="max-w-[1440px] mx-auto w-full page-enter">
             {children}
