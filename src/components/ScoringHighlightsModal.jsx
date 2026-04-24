@@ -5,8 +5,9 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 
 const PLAY_DURATION = 30 // seconds per play before auto-advance
 
-// Extract video embed URL from various platforms
-function getEmbedUrl(url) {
+// Extract video embed URL from various platforms.
+// Exported so the inline highlights widget can reuse the same parsing.
+export function getEmbedUrl(url) {
   if (!url) return null
 
   // YouTube: youtu.be/VIDEO_ID?t=SECONDS or youtube.com/watch?v=VIDEO_ID&t=SECONDS
