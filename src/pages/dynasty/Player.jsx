@@ -1906,9 +1906,7 @@ export default function Player() {
                   // Newest first for the sidebar
                   const yearsDesc = [...timelineYears]
                   return (
-                    <div className="relative px-4 py-3">
-                      {/* Vertical line */}
-                      <div className="absolute left-[22px] top-4 bottom-4 w-px bg-surface-4" aria-hidden />
+                    <div className="px-4 py-3">
                       <ul className="space-y-3">
                         {yearsDesc.map(year => {
                           const tid = teamsByYear[year]
@@ -1922,12 +1920,7 @@ export default function Player() {
                           const transition = transitionForYear(year)
                           const inYear = inYearEvent(year)
                           return (
-                            <li key={year} className="relative pl-7">
-                              <span
-                                className="absolute left-[6px] top-[6px] w-3 h-3 rounded-full ring-2"
-                                style={{ backgroundColor: teamInfo.backgroundColor, boxShadow: '0 0 0 2px var(--bg-surface-1, #0b0b0f)' }}
-                                aria-hidden
-                              />
+                            <li key={year}>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold tabular-nums" style={{ color: primaryText }}>{year}</span>
                                 {logo && <img src={logo} alt="" className="w-4 h-4 object-contain" />}
