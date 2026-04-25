@@ -7,6 +7,7 @@ import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
+import { useAuth } from '../context/AuthContext'
 
 export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, currentYear, isViewOnly, shareCode, dynasty: dynastyProp }) {
   const location = useLocation()
@@ -24,6 +25,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     exportDynasty = null
   }
   const currentDynasty = dynastyProp || contextDynasty
+  const { isPremium } = useAuth()
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -240,14 +242,28 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
             ) : (
               <>
                 <button
-                  onClick={() => setShowShareModal(true)}
-                  className="w-full flex items-center justify-center px-3 py-2.5 rounded-md text-sm font-semibold transition-colors"
-                  style={{
-                    backgroundColor: teamColors.primary,
-                    color: primaryBgText,
+                  onClick={() => {
+                    if (!isPremium) {
+                      toast.info('Sharing dynasties is a Premium feature. Upgrade in Account.')
+                      return
+                    }
+                    setShowShareModal(true)
                   }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: isPremium ? teamColors.primary : 'var(--surface-3)',
+                    color: isPremium ? primaryBgText : 'var(--text-secondary)',
+                    border: isPremium ? 'none' : '1px solid var(--surface-5)',
+                    cursor: isPremium ? 'pointer' : 'not-allowed',
+                  }}
+                  title={isPremium ? 'Share this dynasty' : 'Premium required'}
                 >
                   Share Dynasty
+                  {!isPremium && (
+                    <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--surface-4)', color: 'var(--accent-warning)' }}>
+                      Premium
+                    </span>
+                  )}
                 </button>
 
                 <button

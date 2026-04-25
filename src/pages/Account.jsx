@@ -1,11 +1,15 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import BouncingLogos from '../components/BouncingLogos'
-import { doc, setDoc, Timestamp } from 'firebase/firestore'
-import { db } from '../config/firebase'
 import { PageHero, Card, Button, Badge } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
+import { useConfirm } from '../components/ui/ConfirmDialog'
+import {
+  adminGrantPremium,
+  adminRevokePremium,
+  deleteAccount,
+} from '../services/subscriptionService'
 
 const PLAN_FEATURES = [
   { name: 'Dynasty Tracking', free: true, premium: true },
@@ -16,6 +20,11 @@ const PLAN_FEATURES = [
   { name: 'Automatic Backups', free: false, premium: true },
   { name: 'Share Dynasties', free: false, premium: true },
 ]
+
+// Hard-coded admin allowlist for the dev tools panel. The server enforces
+// the same allowlist on /api/admin/* endpoints, so this is just a UI
+// nicety — the panel's buttons are inert for non-admins.
+const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
 function PlanCell({ value }) {
   if (value === true) {
@@ -28,65 +37,37 @@ function PlanCell({ value }) {
 }
 
 export default function Account() {
-  const { user, isPremium, upgradeToPremium, manageSubscription, subscription } = useAuth()
+  const { user, isPremium, upgradeToPremium, manageSubscription, subscription, signOut } = useAuth()
   const { toast } = useToast()
+  const { confirm } = useConfirm()
+  const navigate = useNavigate()
   const [upgrading, setUpgrading] = useState(false)
   const [devStatus, setDevStatus] = useState(null)
   const [showDevTools, setShowDevTools] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const isAdmin = !!user?.email && ADMIN_EMAILS.has(user.email.toLowerCase())
 
   const handleGrantPremium = async () => {
-    if (!user) return
     setDevStatus('granting')
     try {
-      const thirtyDaysFromNow = new Date()
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
-
-      await setDoc(doc(db, 'users', user.uid), {
-        tier: 'premium',
-        subscriptionStatus: 'active',
-        currentPeriodEnd: Timestamp.fromDate(thirtyDaysFromNow),
-        updatedAt: Timestamp.now(),
-        _devGranted: true
-      }, { merge: true })
-
+      await adminGrantPremium()
       setDevStatus('granted')
     } catch (error) {
       console.error('Failed to grant premium:', error)
+      toast.error(error.message || 'Failed to grant premium')
       setDevStatus('error')
     }
   }
 
   const handleRevokePremium = async () => {
-    if (!user) return
     setDevStatus('revoking')
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        tier: 'free',
-        subscriptionStatus: null,
-        currentPeriodEnd: null,
-        updatedAt: Timestamp.now(),
-        _devGranted: false,
-        pendingDowngrade: true
-      }, { merge: true })
-
+      await adminRevokePremium()
       setDevStatus('revoked')
     } catch (error) {
       console.error('Failed to revoke premium:', error)
-      setDevStatus('error')
-    }
-  }
-
-  const handleTriggerMigration = async () => {
-    if (!user) return
-    setDevStatus('migrating')
-    try {
-      await setDoc(doc(db, 'users', user.uid), {
-        pendingDowngrade: true,
-        updatedAt: Timestamp.now()
-      }, { merge: true })
-      setDevStatus('migration_triggered')
-    } catch (error) {
-      console.error('Failed to trigger migration:', error)
+      toast.error(error.message || 'Failed to revoke premium')
       setDevStatus('error')
     }
   }
@@ -101,6 +82,40 @@ export default function Account() {
       toast.error('Failed to start upgrade. Please try again.')
     } finally {
       setUpgrading(false)
+    }
+  }
+
+  // Two-step delete confirmation: a dialog AND a typed-email check on the
+  // server. Single click can't nuke an account.
+  const handleDeleteAccount = async () => {
+    if (!user?.email) return
+    const confirmed = await confirm({
+      title: 'Delete account permanently?',
+      message:
+        'This will cancel any active subscription, permanently delete every dynasty saved to the cloud, and remove your sign-in. Local-storage dynasties on this device are not affected. This cannot be undone.',
+      confirmLabel: 'Delete account',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
+    setDeleting(true)
+    try {
+      const result = await deleteAccount(user.email)
+      if (result?.ok) {
+        toast.info('Account deleted.')
+        // Force-clear local sign-in state. Auth deletion already invalidated
+        // the token, so any subsequent Firestore call would 401.
+        try { await signOut() } catch { /* ignore */ }
+        navigate('/')
+      } else {
+        const errs = (result?.errors || []).join('; ')
+        toast.error(`Account deletion partially failed: ${errs || 'unknown error'}`)
+      }
+    } catch (e) {
+      console.error('[Account] delete failed:', e)
+      toast.error(e.message || 'Failed to delete account')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -181,7 +196,7 @@ export default function Account() {
                     <span className="font-semibold tabular">{billingEnd}</span>
                   </div>
                   <div className="text-xs mt-1 opacity-80">
-                    Your dynasties will be migrated to local storage when premium ends.
+                    When premium ends, your cloud dynasties will be auto-copied to local storage.
                   </div>
                 </div>
               ) : (
@@ -262,8 +277,10 @@ export default function Account() {
           </p>
         </Card>
 
-        {/* Dev Tools */}
-        {user && (
+        {/* Dev Tools — admin allowlist only. Non-admins don't even see the
+            section header. The server enforces the same gate, so even if a
+            non-admin re-enables this client-side, the API will 403. */}
+        {isAdmin && (
           <Card padding="none">
             <button
               onClick={() => setShowDevTools(!showDevTools)}
@@ -326,22 +343,8 @@ export default function Account() {
                   )}
                 </div>
 
-                {!isPremium && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleTriggerMigration}
-                    disabled={devStatus === 'migrating'}
-                  >
-                    {devStatus === 'migrating' ? 'Triggering...' : 'Migrate Cloud → Local (Dev)'}
-                  </Button>
-                )}
-
                 {devStatus === 'granted' && (
                   <p className="text-sm text-center" style={{ color: 'var(--accent-success)' }}>Premium granted for 30 days.</p>
-                )}
-                {devStatus === 'migration_triggered' && (
-                  <p className="text-sm text-center" style={{ color: 'var(--accent-info)' }}>Migration triggered — refresh the page.</p>
                 )}
                 {devStatus === 'revoked' && (
                   <p className="text-sm text-center text-txt-tertiary">Premium revoked, back to free tier.</p>
@@ -351,12 +354,30 @@ export default function Account() {
                 )}
 
                 <p className="text-xs text-txt-tertiary text-center">
-                  This bypasses Stripe for testing. In production, use real payment flow.
+                  Server-gated to admin email. Use real payment flow for normal testing.
                 </p>
               </div>
             )}
           </Card>
         )}
+
+        {/* Danger Zone — account deletion. Always shown so we honor the
+            promise made in the privacy policy / terms. */}
+        <Card>
+          <h3 className="label-sm text-txt-primary mb-2">Danger Zone</h3>
+          <p className="text-sm text-txt-tertiary mb-4">
+            Delete your account permanently. This cancels any active subscription, removes your
+            cloud dynasties, and signs you out. Local dynasties on this device are not affected.
+          </p>
+          <Button
+            variant="danger"
+            className="w-full"
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete Account'}
+          </Button>
+        </Card>
 
         <Link
           to="/"

@@ -4599,16 +4599,54 @@ export function DynastyProvider({ children }) {
     // Note: We don't remove data when empty to avoid accidental data loss
   }, [dynasties, loading])
 
-  // Clear pendingDowngrade flag if set (legacy from old auto-migration system)
-  // We no longer auto-migrate - instead cloud dynasties become read-only for non-premium users
-  // Users must manually export and import as local to continue editing
+  // When the user's premium subscription ends (cancel, refund, dispute,
+  // customer deletion), the webhook flips tier→free and sets
+  // pendingDowngrade: true on the user doc. We pick that up here and
+  // copy all of the user's cloud dynasties into local storage, so they
+  // don't lose access to their data. Cloud copies are removed after
+  // the local copy succeeds; Firestore rules still allow read of
+  // owned dynasties even when not premium so this migration works.
+  //
+  // Guarded by a ref so concurrent re-renders don't try to migrate twice.
+  const migratingDowngradeRef = useRef(false)
   useEffect(() => {
     if (!user || !subscription?.pendingDowngrade) return
+    if (migratingDowngradeRef.current) return
+    migratingDowngradeRef.current = true
 
-    // Just clear the flag - no auto-migration
-    updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
-      .catch(err => console.error('Failed to clear pendingDowngrade flag:', err))
-  }, [user, subscription?.pendingDowngrade])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const result = await storageService.migrateToLocal()
+        if (cancelled) return
+
+        // Reload all dynasties so the UI reflects the migrated copies.
+        const all = await storageService.getDynasties()
+        if (!cancelled) setDynasties(all)
+
+        if (result?.migratedCount > 0) {
+          toast.info(
+            `Premium ended — ${result.migratedCount} cloud ${result.migratedCount === 1 ? 'dynasty' : 'dynasties'} copied to this device.`
+          )
+        }
+      } catch (err) {
+        console.error('[DynastyContext] auto-export on downgrade failed:', err)
+        // Don't clear the flag if migration failed — leave it so we
+        // retry on the next session.
+        migratingDowngradeRef.current = false
+        return
+      }
+
+      // Clear the flag only after migration succeeded.
+      try {
+        await updateDoc(doc(db, 'users', user.uid), { pendingDowngrade: false })
+      } catch (err) {
+        console.error('Failed to clear pendingDowngrade flag:', err)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [user, subscription?.pendingDowngrade, toast])
 
   const createDynasty = async (dynastyData) => {
     const startYear = parseInt(dynastyData.startYear)

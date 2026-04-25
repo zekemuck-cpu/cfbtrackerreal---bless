@@ -1,21 +1,22 @@
 import Stripe from 'stripe';
+import { verifyAuth } from './_verifyAuth.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Verify the caller's Firebase ID token. The uid we use to attribute
+  // payment ALWAYS comes from the verified token — never from the request
+  // body — so an attacker can't make someone else's account premium.
+  const decoded = await verifyAuth(req, res);
+  if (!decoded) return;
+  const userId = decoded.uid;
+  const userEmail = decoded.email;
+
   try {
-    const { userId, userEmail } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
-    }
-
-    // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -25,12 +26,22 @@ export default async function handler(req, res) {
           quantity: 1,
         },
       ],
-      // Pass Firebase userId in metadata so we can link payment to user
+      // firebaseUserId is what the webhook uses to locate the Firestore doc.
       metadata: {
         firebaseUserId: userId,
       },
+      // subscription_data.metadata so the same uid is on the subscription
+      // object too — webhook events that don't include the checkout session
+      // (e.g. customer.subscription.updated, customer.subscription.deleted)
+      // still get a uid hint without relying on a stripeCustomerId lookup.
+      subscription_data: {
+        metadata: {
+          firebaseUserId: userId,
+        },
+      },
       customer_email: userEmail || undefined,
-      // Where to redirect after payment
+      // Pass the uid through to the success URL so the client can poll for
+      // the webhook-applied premium status on return.
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.vercel.app'}/?payment=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.vercel.app'}/?payment=canceled`,
     });

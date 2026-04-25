@@ -246,12 +246,14 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Upgrade to premium subscription
+  // Upgrade to premium subscription. The API now derives uid from the
+  // verified ID token, not from the request body, so no args are needed
+  // (and supplying them wouldn't change anything).
   const upgradeToPremium = async () => {
     if (!user) {
       throw new Error('Must be signed in to upgrade')
     }
-    await redirectToCheckout(user.uid, user.email)
+    await redirectToCheckout()
   }
 
   // Open subscription management portal
@@ -259,7 +261,7 @@ export function AuthProvider({ children }) {
     if (!user) {
       throw new Error('Must be signed in to manage subscription')
     }
-    await redirectToPortal(user.uid)
+    await redirectToPortal()
   }
 
   // Auto-refresh when token is about to expire

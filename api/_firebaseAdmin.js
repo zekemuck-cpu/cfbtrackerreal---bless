@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 let firestoreDb = null;
 
@@ -46,7 +47,20 @@ export function initAdmin() {
   }
 }
 
-// Lazy getter for db
+// Lazy getter for db. Forwards .collection(), .doc(), .runTransaction(),
+// and .batch() — the surfaces the API routes use.
 export const db = {
   collection: (...args) => initAdmin().collection(...args),
+  doc: (...args) => initAdmin().doc(...args),
+  runTransaction: (...args) => initAdmin().runTransaction(...args),
+  batch: (...args) => initAdmin().batch(...args),
 };
+
+// Re-export Admin Auth and FieldValue so API routes don't have to import
+// from firebase-admin directly (and hit the init-order trap).
+export const adminAuth = () => {
+  initAdmin(); // ensure default app is initialized
+  return getAuth();
+};
+
+export { FieldValue };

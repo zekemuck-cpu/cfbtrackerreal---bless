@@ -3,24 +3,23 @@
  *
  * Handles premium subscription operations:
  * - Fetch user subscription status from Firestore
- * - Create Stripe checkout sessions
- * - Manage subscription portal
+ * - Create Stripe checkout / portal sessions (auth-verified)
+ * - Admin grant / revoke premium (server-gated to admin email)
+ * - Delete account (cancels Stripe sub, wipes Firestore data, deletes Auth)
  */
 
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from '../config/firebase';
 
-/**
- * Get user's subscription data from Firestore
- * @param {string} userId - Firebase user ID
- * @returns {Promise<Object|null>} User subscription data
- */
+// ─────────────────────────────────────────────────────────────────────
+// Subscription state reads
+// ─────────────────────────────────────────────────────────────────────
+
 export async function getUserSubscription(userId) {
   try {
     const userDoc = await getDoc(doc(db, 'users', userId));
-    if (userDoc.exists()) {
-      return userDoc.data();
-    }
+    if (userDoc.exists()) return userDoc.data();
     return null;
   } catch (error) {
     console.error('[Subscription] Error fetching user subscription:', error);
@@ -28,153 +27,143 @@ export async function getUserSubscription(userId) {
   }
 }
 
-/**
- * Subscribe to real-time subscription updates
- * @param {string} userId - Firebase user ID
- * @param {Function} callback - Called with subscription data on changes
- * @returns {Function} Unsubscribe function
- */
 export function subscribeToUserSubscription(userId, callback) {
   const userRef = doc(db, 'users', userId);
-
-  return onSnapshot(userRef, (doc) => {
-    if (doc.exists()) {
-      callback(doc.data());
-    } else {
-      callback(null);
-    }
+  return onSnapshot(userRef, (snap) => {
+    callback(snap.exists() ? snap.data() : null);
   }, (error) => {
     console.error('[Subscription] Error subscribing to updates:', error);
     callback(null);
   });
 }
 
+// How long after a payment failure (past_due) we still treat the user as
+// premium. Stripe retries failed payments for ~3 weeks; this grace lets
+// a transient card decline self-heal without bricking the user immediately.
+const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 /**
- * Check if user has an active premium subscription
- * @param {Object} subscriptionData - User subscription data from Firestore
- * @returns {boolean}
+ * Check if user has an active premium subscription.
+ * Honors a 7-day grace window on past_due so a single failed renewal
+ * doesn't lock the user out while Stripe is still retrying.
  */
 export function isPremiumSubscription(subscriptionData) {
   if (!subscriptionData) return false;
 
-  const { tier, subscriptionStatus, currentPeriodEnd } = subscriptionData;
-
-  // Check if tier is premium and subscription is active
+  const { tier, subscriptionStatus, currentPeriodEnd, updatedAt } = subscriptionData;
   if (tier !== 'premium') return false;
 
-  // Check subscription status
-  const activeStatuses = ['active', 'trialing'];
-  if (!activeStatuses.includes(subscriptionStatus)) return false;
-
-  // Check if subscription hasn't expired
-  if (currentPeriodEnd) {
-    const endDate = currentPeriodEnd.toDate ? currentPeriodEnd.toDate() : new Date(currentPeriodEnd);
-    if (endDate < new Date()) return false;
+  // active / trialing → premium until period end
+  if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
+    if (currentPeriodEnd) {
+      const endDate = currentPeriodEnd.toDate ? currentPeriodEnd.toDate() : new Date(currentPeriodEnd);
+      if (endDate < new Date()) return false;
+    }
+    return true;
   }
 
-  return true;
+  // past_due → grace period from when it transitioned to past_due
+  if (subscriptionStatus === 'past_due') {
+    const ref = updatedAt?.toDate ? updatedAt.toDate() : (updatedAt ? new Date(updatedAt) : null);
+    if (!ref) return true; // no anchor → grant grace until next event
+    return (Date.now() - ref.getTime()) < PAST_DUE_GRACE_MS;
+  }
+
+  return false;
 }
 
-/**
- * Create a Stripe checkout session for upgrading to premium
- * @param {string} userId - Firebase user ID
- * @param {string} userEmail - User's email (optional, for prefilling)
- * @returns {Promise<string>} Checkout URL to redirect to
- */
-export async function createCheckoutSession(userId, userEmail) {
-  // Check if we're in development mode (Replit/localhost)
-  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('replit');
+// ─────────────────────────────────────────────────────────────────────
+// Auth helper for API calls
+// ─────────────────────────────────────────────────────────────────────
 
-  if (isDev) {
+/**
+ * Returns Authorization header value for the current user's API calls,
+ * or throws if no signed-in user / token is available.
+ */
+async function authHeader() {
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('Not signed in');
+  const token = await user.getIdToken();
+  return `Bearer ${token}`;
+}
+
+// Wrapper that POSTs JSON to an API route with the auth header attached
+// and parses errors uniformly.
+async function postAuthed(path, body = {}) {
+  const auth = await authHeader();
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: auth,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    let msg = `Request to ${path} failed (${response.status})`;
+    try { msg = JSON.parse(text).error || msg; } catch { /* not JSON */ }
+    throw new Error(msg);
+  }
+  return response.json();
+}
+
+const isLocalDev = () =>
+  import.meta.env.DEV ||
+  window.location.hostname === 'localhost' ||
+  window.location.hostname.includes('replit');
+
+// ─────────────────────────────────────────────────────────────────────
+// Stripe checkout & portal
+// ─────────────────────────────────────────────────────────────────────
+
+export async function createCheckoutSession() {
+  if (isLocalDev()) {
     throw new Error('Stripe checkout is only available in production. Deploy to Vercel to test payments.');
   }
-
-  try {
-    const response = await fetch('/api/create-checkout-session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId, userEmail }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Failed to create checkout session';
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorMessage;
-      } catch {
-        // Response wasn't JSON
-      }
-      throw new Error(errorMessage);
-    }
-
-    const { url } = await response.json();
-    return url;
-  } catch (error) {
-    console.error('[Subscription] Error creating checkout session:', error);
-    throw error;
-  }
+  const { url } = await postAuthed('/api/create-checkout-session');
+  return url;
 }
 
-/**
- * Create a Stripe customer portal session for managing subscription
- * @param {string} userId - Firebase user ID
- * @returns {Promise<string>} Portal URL to redirect to
- */
-export async function createPortalSession(userId) {
-  // Check if we're in development mode (Replit/localhost)
-  const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname.includes('replit');
-
-  if (isDev) {
+export async function createPortalSession() {
+  if (isLocalDev()) {
     throw new Error('Stripe portal is only available in production. Deploy to Vercel to manage subscriptions.');
   }
-
-  try {
-    const response = await fetch('/api/create-portal-session', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ userId }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = 'Failed to create portal session';
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorMessage;
-      } catch {
-        // Response wasn't JSON
-      }
-      throw new Error(errorMessage);
-    }
-
-    const { url } = await response.json();
-    return url;
-  } catch (error) {
-    console.error('[Subscription] Error creating portal session:', error);
-    throw error;
-  }
+  const { url } = await postAuthed('/api/create-portal-session');
+  return url;
 }
 
-/**
- * Redirect to Stripe checkout for premium upgrade
- * @param {string} userId - Firebase user ID
- * @param {string} userEmail - User's email
- */
-export async function redirectToCheckout(userId, userEmail) {
-  const url = await createCheckoutSession(userId, userEmail);
+export async function redirectToCheckout() {
+  const url = await createCheckoutSession();
   window.location.href = url;
 }
 
-/**
- * Redirect to Stripe customer portal for subscription management
- * @param {string} userId - Firebase user ID
- */
-export async function redirectToPortal(userId) {
-  const url = await createPortalSession(userId);
+export async function redirectToPortal() {
+  const url = await createPortalSession();
   window.location.href = url;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Admin (gated server-side to the admin email allowlist)
+// ─────────────────────────────────────────────────────────────────────
+
+export async function adminGrantPremium() {
+  return postAuthed('/api/admin/grant-premium', { action: 'grant' });
+}
+
+export async function adminRevokePremium() {
+  return postAuthed('/api/admin/grant-premium', { action: 'revoke' });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Account deletion (Stripe cancel + Firestore wipe + Auth delete)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Permanently delete the signed-in user's account.
+ * Caller must pass their own email as confirmEmail; the server checks it
+ * matches the verified token's email before proceeding.
+ */
+export async function deleteAccount(confirmEmail) {
+  return postAuthed('/api/account/delete', { confirmEmail });
 }

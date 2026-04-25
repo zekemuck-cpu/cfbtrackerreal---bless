@@ -201,6 +201,10 @@ export default function Home() {
   const handleShareClick = (e, dynasty) => {
     e.preventDefault()
     e.stopPropagation()
+    if (!isPremium) {
+      toast.info('Sharing dynasties is a Premium feature. Upgrade in Account.')
+      return
+    }
     setShareDynasty(dynasty)
     setShowShareModal(true)
   }

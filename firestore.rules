@@ -1,0 +1,126 @@
+rules_version = '2';
+
+// CFB Dynasty Tracker — Firestore Security Rules
+//
+// Source-of-truth principles:
+//   1. The `users/{uid}` doc is server-controlled for subscription fields.
+//      The webhook (admin SDK, bypasses rules) writes tier / status / etc.
+//      Clients can READ their own user doc but cannot WRITE the
+//      subscription fields directly. They can write a small allowlisted
+//      set of profile fields (none currently — leaving room).
+//   2. Cloud dynasties are owned by `userId`. The owner can always READ
+//      them (including after subscription lapse — needed for the
+//      auto-export-to-local migration). Only PREMIUM owners can WRITE.
+//   3. Public dynasties (`isPublic == true` with a `shareCode`) are
+//      readable by anyone, including unauthenticated visitors. Only the
+//      owner can flip the public flag, and only premium owners can
+//      do so (sharing is a premium feature).
+//   4. `webhookEvents` and `stripeEvents` are server-only — clients
+//      can't read or write them.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ──────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Read the requesting user's subscription doc to determine premium
+    // status. Includes past_due so a transient card decline doesn't
+    // immediately revoke write access while Stripe is still retrying.
+    function isPremium() {
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let exists = exists(userPath);
+      let userData = exists ? get(userPath).data : {};
+      return isSignedIn()
+        && userData.tier == 'premium'
+        && (userData.subscriptionStatus == 'active'
+            || userData.subscriptionStatus == 'trialing'
+            || userData.subscriptionStatus == 'past_due');
+    }
+
+    // ─── users/{uid} ─────────────────────────────────────────────────
+    // Read: only the owner. (Public profile data lives elsewhere.)
+    // Write: rejected from clients. The Stripe webhook (admin SDK)
+    //   bypasses these rules and is the only path that updates
+    //   subscription state. The dev-grant flow goes through the admin
+    //   API (admin SDK) and is also exempt from these rules.
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // ─── dynasties/{id} ──────────────────────────────────────────────
+    // Read:
+    //   - The owner can always read (premium or not). Needed so the
+    //     auto-export-to-local migration works after a subscription ends.
+    //   - Anyone can read a doc that is currently public.
+    // Create:
+    //   - Must be the owner AND premium AND the doc must declare
+    //     storageType: 'cloud' (clients can't accidentally create
+    //     local dynasties in Firestore).
+    // Update:
+    //   - Must be the owner AND premium.
+    //   - userId cannot be changed (no ownership transfer via update).
+    // Delete:
+    //   - Owner can delete regardless of premium (needed for cleanup
+    //     when account-delete flow runs).
+    match /dynasties/{dynastyId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid
+                  || (resource.data.isPublic == true);
+
+      allow create: if isPremium()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.storageType == 'cloud';
+
+      allow update: if isOwner(resource.data.userId)
+                    && isPremium()
+                    && request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isOwner(resource.data.userId);
+
+      // Subcollections: same scoping as the parent dynasty.
+      // We can't easily get(parent) here cheaply for every read, so we
+      // mirror the rules — cloud-dynasty subdocs are protected by the
+      // parent's userId field via the parent document. To keep this
+      // robust, we reference the parent on each operation.
+      match /players/{playerId} {
+        allow read: if isSignedIn()
+                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
+                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+
+        allow write: if isPremium()
+                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+      }
+
+      match /games/{gameId} {
+        allow read: if isSignedIn()
+                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
+                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+
+        allow write: if isPremium()
+                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+      }
+    }
+
+    // ─── Server-only collections ─────────────────────────────────────
+    match /webhookEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /stripeEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    // ─── Default deny ────────────────────────────────────────────────
+    // Any collection not explicitly allowed above is server-only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

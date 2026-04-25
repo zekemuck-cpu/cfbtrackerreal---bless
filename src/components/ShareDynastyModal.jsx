@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import { useDynasty } from '../context/DynastyContext'
+import { useAuth } from '../context/AuthContext'
 import { generateShareCode } from '../services/dynastyService'
 import { getModalColors } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
@@ -9,6 +10,7 @@ import { useToast } from './ui/Toast'
 export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty: dynastyProp }) {
   const { currentDynasty: contextDynasty, updateDynasty } = useDynasty()
   const { toast } = useToast()
+  const { isPremium } = useAuth()
   // Use prop dynasty if provided (from Home page), otherwise use context dynasty (from Sidebar)
   const dynasty = dynastyProp || contextDynasty
   const [isPublic, setIsPublic] = useState(false)
@@ -27,6 +29,16 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
 
   const handleToggleSharing = async () => {
     if (!dynasty) return
+
+    // Belt-and-suspenders gate: the Sidebar entry already blocks non-
+    // premium users from opening the modal, but we re-check here so
+    // any other entry point (deep link, programmatic open) can't bypass.
+    // Server-side, Firestore rules require premium to update isPublic
+    // on cloud dynasties anyway.
+    if (!isPremium && !isPublic) {
+      toast.info('Sharing dynasties is a Premium feature.')
+      return
+    }
 
     setLoading(true)
     try {
