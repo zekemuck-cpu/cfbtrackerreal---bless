@@ -1845,11 +1845,51 @@ function formatEnhancedPlayerLine(p, category) {
  * Default writing instructions for game recaps
  * Placeholder [HOME_TEAM] will be replaced with the actual home team at generation time
  */
-export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `Write a professional game recap article like a college football writer for ESPN or The Athletic.
+export const DEFAULT_GAME_RECAP_INSTRUCTIONS = `You are writing a professional game recap article — top-byline quality, the kind of work that runs at The Athletic, ESPN, or Sports Illustrated. Treat this as serious sportswriting, not a chat reply.
 
 CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats, drive details, time remaining, etc.) MUST be directly supported by the data provided above. Do not make up any numbers, injuries, rankings, or plays. It's fine to add neutral connecting language (e.g., "Clemson took control in the fourth quarter") but don't invent extra drives, turnovers, or scoring plays that aren't in the data.
 
 DATA HYGIENE RULE: If any value in the data above is missing, blank, "undefined", "N/A", or a 0-0 score for a completed game, treat that entry as unavailable and ignore it silently. Never write phrases like "undefined defeated undefined", "they are 0-0 against them", or "record unavailable". Do not mention the gap — just leave that fact out of the article. Pull the narrative from the fields that ARE populated.
+
+═══════════════════════════════════════════════════════════
+THINK BEFORE YOU WRITE — this is mandatory
+═══════════════════════════════════════════════════════════
+Take your time. Do not start drafting the article on your first response. The quality bar here is professional reporting; rushing produces hallucinations and weak prose. Even if you feel ready, force yourself through these steps in your head (or in <thinking> if your interface supports it) before writing a single word of the article:
+
+1. INVENTORY THE DATA. Walk through every section above (Final Score, Quarter Scores, Scoring Summary, Team Stats, Player Stats, Records, Rankings, Conference, Recent Schedule, etc.). For each, note: fully populated, partial, or absent. You cannot write about what isn't there.
+
+2. PICK THE STORYLINE FROM THE DATA. Choose one or two threads that the data actually supports — e.g., "QB X dominates with 4 TD passes," "comeback after trailing by 17," "defense forces 4 turnovers," "lopsided road blowout extends streak." Do NOT pick a storyline the data can't carry. If the data is thin, the article is thin — that is correct.
+
+3. LIST EVERY CONCRETE CLAIM you intend to make (every score, stat, record, player name, play, ranking) and point each one at the specific row in the data that supports it. If you can't find the source, drop the claim. Things that ARE NEVER in the data and must NEVER appear in the article unless explicitly given: jersey numbers, weather, attendance figures, injuries, suspensions, quotes from players or coaches, sideline reactions, crowd noise, recruiting context, draft stock, family ties, prior-season head-to-head unless shown.
+
+4. PLAN THE ARC. Decide your headline, dateline, lead, two or three middle beats, and closing line BEFORE drafting. The article should read like you knew where it was going.
+
+═══════════════════════════════════════════════════════════
+SELF-CHECK BEFORE EMITTING
+═══════════════════════════════════════════════════════════
+Re-read your draft against the data, line by line, before sending. For every:
+- Numeric claim (score, yards, %, distance, time): the exact number must be in the data.
+- Player name: spelled exactly as the data has it.
+- Player class/position: only if their bracket tag exists; otherwise drop the descriptor.
+- Drive description: only as detailed as the scoring summary supports — don't invent intermediate plays.
+- Quoted text: there are no quotes in the data. If you wrote a quote, delete it.
+- Causal language ("because," "due to," "after he was benched," "with confidence rebuilt"): is this stated in the data, or are you inferring? If inferring, soften to neutral or cut it.
+- Comparisons to past games or seasons: only when the data explicitly provides that history.
+
+If anything fails, fix it before emitting. A shorter, 100% accurate article is much better than a longer one with fabrications.
+
+═══════════════════════════════════════════════════════════
+VOICE & STYLE — write like a top byline, not a fan
+═══════════════════════════════════════════════════════════
+- Open with a SPECIFIC moment, fact, or stat — not "In a thrilling matchup..." or "It was a game for the ages." Show the drama through what actually happened.
+- Vary sentence length. Short for impact. Long for context. Avoid metronome rhythm.
+- Active voice. "Garrett threw 27 of 35" — not "27 of 35 passes were thrown by Garrett."
+- After first reference, use last names. Don't repeat full names every sentence.
+- Numbers under 10 are written as words ("three touchdowns") EXCEPT in stat lines where digits read better ("4-of-5," "27 of 35," "62 yards"). Scores, years, and rankings are always digits.
+- Cut clichés ruthlessly: hard-fought, tough as nails, fought tooth and nail, dug deep, left it all on the field, gritty, gutsy, must-win, statement game, signature win (unless the data shows the explicit ranked-vs-ranked context that earns the phrase).
+- Skip throwaway transitions like "Meanwhile," "On the other side of the ball," "All in all," "At the end of the day."
+- Don't tell the reader the game was exciting. Show it through plays and numbers.
+- One precise verb beats two adverbs. Reach for the right word.
 
 OUTPUT WRAPPER — READ THIS FIRST:
 Your ENTIRE response must be wrapped in a single fenced code block so the user can copy the raw markdown out of the chat UI without losing the formatting markers. That means:
@@ -1903,7 +1943,7 @@ SCALING LENGTH:
 - Moderate data (some stats, quarter scores): Write 4-8 paragraphs, no subheadings needed
 - Limited data (just final score): Write 2-3 short paragraphs focusing on the result and any available context
 
-A shorter, accurate article is always better than a longer one padded with invented details.`
+A shorter, accurate article is always better than a longer one padded with invented details. Before you submit, run the self-check above. Every fact ties to the data, every player name spelled correctly, no fabricated quotes, no fabricated plays, no clichés — top-byline quality only.`
 
 /**
  * Build the prompt for a game recap
