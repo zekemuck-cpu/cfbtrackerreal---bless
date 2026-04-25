@@ -1168,8 +1168,11 @@ export default function Game() {
         {gameIsPlayed && hasQuarterScores && (
           <div className="hidden lg:block px-8 py-6">
             <div className="flex items-center justify-between">
-              {/* Left Team */}
-              <div className={`flex items-center gap-4 flex-1 ${!leftData.isWinner ? 'opacity-75' : ''}`}>
+              {/* Left Team — collapsed to content width so score sits next
+                  to the name. justify-between on the row above distributes
+                  the open space between this cluster, the quarter table,
+                  and the right cluster. */}
+              <div className={`flex items-center gap-6 ${!leftData.isWinner ? 'opacity-75' : ''}`}>
                 <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
                   <div className="relative flex-shrink-0">
                     <div
@@ -1200,8 +1203,10 @@ export default function Game() {
                     )}
                   </div>
                 </Link>
-                {/* Score with winner triangle */}
-                <div className="flex items-center gap-2 ml-auto">
+                {/* Score with winner triangle — sits next to the team
+                    cluster (no ml-auto) so it doesn't drift toward the
+                    quarter table. */}
+                <div className="flex items-center gap-2">
                   <div
                     className={`text-6xl font-black tabular-nums ${leftData.isWinner ? 'text-white' : 'text-txt-muted'}`}
                     style={leftData.isWinner ? { textShadow: '0 0 20px rgba(255,255,255,0.3)' } : {}}
@@ -1293,10 +1298,11 @@ export default function Game() {
                 </div>
               </div>
 
-              {/* Right Team */}
-              <div className={`flex items-center gap-4 flex-1 justify-end ${!rightData.isWinner ? 'opacity-75' : ''}`}>
+              {/* Right Team — mirrors the left cluster: collapsed to
+                  content, score sits next to the team. */}
+              <div className={`flex items-center gap-6 ${!rightData.isWinner ? 'opacity-75' : ''}`}>
                 {/* Score with winner triangle */}
-                <div className="flex items-center gap-2 mr-auto">
+                <div className="flex items-center gap-2">
                   {rightData.isWinner && (
                     <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M9 5v14l7-7-7-7z" />
