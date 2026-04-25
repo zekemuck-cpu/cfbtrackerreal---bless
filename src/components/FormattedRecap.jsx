@@ -13,6 +13,36 @@ function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// Recap prompt instructs the AI to wrap its entire output in a fenced
+// markdown code block so the iOS Claude app preserves the markdown markers
+// when the user copies the text. Strip that wrapper here before parsing,
+// while staying tolerant of:
+//   - users who paste raw markdown (no fences)
+//   - opening fences that include a language hint (```markdown / ```md)
+//   - leading/trailing whitespace or blank lines around the fences
+//   - stray AI commentary above or below the fence (we extract just the
+//     fenced contents)
+function unwrapCodeFence(text) {
+  if (!text) return text
+  const lines = text.split('\n')
+  const isOpenFence = (l) => /^```[a-zA-Z]*\s*$/.test(l.trim())
+  const isCloseFence = (l) => /^```\s*$/.test(l.trim())
+
+  let openIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (isOpenFence(lines[i])) { openIdx = i; break }
+  }
+  if (openIdx === -1) return text
+
+  let closeIdx = -1
+  for (let i = lines.length - 1; i > openIdx; i--) {
+    if (isCloseFence(lines[i])) { closeIdx = i; break }
+  }
+  if (closeIdx === -1) return text
+
+  return lines.slice(openIdx + 1, closeIdx).join('\n')
+}
+
 function compilePlayerRegex(playerLinks) {
   if (!playerLinks?.length) return null
   // Sort DESC by length so multi-word matches beat single-word matches
@@ -95,7 +125,10 @@ export default function FormattedRecap({ text, className = '', playerLinks = nul
     }
   }
 
-  const blocks = text.split(/\n{2,}/)
+  // Strip any outer ```markdown ... ``` wrapper added by the AI per our
+  // recap prompt before splitting into paragraphs.
+  const unwrapped = unwrapCodeFence(text)
+  const blocks = unwrapped.split(/\n{2,}/)
 
   // Headings intentionally skip player linking. A linked name inside a bold
   // heading ends up rendered at the same size but non-bold (our link forces

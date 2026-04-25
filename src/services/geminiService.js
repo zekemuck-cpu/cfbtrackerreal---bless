@@ -1851,13 +1851,22 @@ CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats
 
 DATA HYGIENE RULE: If any value in the data above is missing, blank, "undefined", "N/A", or a 0-0 score for a completed game, treat that entry as unavailable and ignore it silently. Never write phrases like "undefined defeated undefined", "they are 0-0 against them", or "record unavailable". Do not mention the gap — just leave that fact out of the article. Pull the narrative from the fields that ARE populated.
 
-FORMAT:
+OUTPUT WRAPPER — READ THIS FIRST:
+Your ENTIRE response must be wrapped in a single fenced code block so the user can copy the raw markdown out of the chat UI without losing the formatting markers. That means:
+
+- The very first line of your response is exactly: \`\`\`markdown
+- Every line of the article goes between the fences
+- The very last line of your response is exactly: \`\`\`
+- Output NOTHING outside the fences — no preamble like "Here you go:", no notes, no follow-up offer to revise. Anything outside the fences ends up pasted into the user's tracker as garbage.
+- Do NOT add additional code fences inside the article. The outer fence is the only one.
+
+FORMAT (the markdown that goes INSIDE the fence):
 - Start with a strong headline on its own line as a level-1 markdown heading (e.g., "# Talley, Brink Lift No. 5 Wisconsin Past No. 8 Penn State in Wild Final Minute")
 - Begin the article body with a dateline in EXACTLY this format: City, State — (two-letter state abbreviation, a space, then a true em-dash "—", then a space, then the first sentence). Do NOT use a period, a hyphen, or an en-dash between the dateline and the first sentence — it MUST be the em-dash character "—". Examples: "Madison, WI — The Badgers..." or "Tuscaloosa, AL — Alabama jumped out...". Use the home team's city. For neutral site games (bowls, CFP, conference championships), omit the dateline.
 - For longer articles with rich data, use level-2 markdown subheadings to break up sections (e.g., "## Early fireworks and a heavyweight feel", "## Fourth-quarter chaos: lead changes and clutch plays")
 - Use **bold** for pivotal moments, decisive plays, and standout stat lines — things you want the reader's eye to land on. Examples: **"Shembo completed 27 of 28 passes for 266 yards and three touchdowns"**, **the 48-yard field goal with 0:03 left**. Don't over-bold — 3 to 8 boldings across the whole article is the sweet spot.
 - Use *italic* sparingly, for a quoted phrase, a team nickname on first mention, or a moment of narrative emphasis. Skip it if you're not sure.
-- Use these markdown markers only. Do not use bullet lists, tables, code fences, links, or any other markdown syntax. Separate paragraphs with a blank line.
+- Use these markdown markers only. Do not use bullet lists, tables, links, inner code fences, or any other markdown syntax. Separate paragraphs with a blank line.
 
 USING THE DATA:
 - Use the SCORING SUMMARY to walk through scoring plays chronologically with times and running scores
