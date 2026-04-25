@@ -77,7 +77,6 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
 
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
-        // Check if click is on the dropdown portal
         const dropdown = document.getElementById('player-search-dropdown')
         if (dropdown && dropdown.contains(e.target)) return
         setIsOpen(false)
@@ -138,12 +137,10 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
         }
         break
       case 'Tab':
-        // Auto-select highlighted player and let Tab continue to next field
         if (filteredPlayers.length > 0) {
           const playerToSelect = filteredPlayers[highlightedIndex] || filteredPlayers[0]
           handleSelectPlayer(playerToSelect)
         }
-        // Don't prevent default - allow Tab to move focus to position selector
         break
       case 'Escape':
         setIsOpen(false)
@@ -152,14 +149,13 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
     }
   }
 
-  // Render dropdown via portal to escape overflow clipping
   const renderDropdown = () => {
     if (!isOpen || selectedPlayer || !dropdownPos) return null
 
     return createPortal(
       <div
         id="player-search-dropdown"
-        className="fixed z-[10000] bg-white border border-surface-4 rounded-lg shadow-xl overflow-y-auto"
+        className="fixed z-[10000] bg-surface-2 border border-surface-5 rounded-lg shadow-2xl overflow-y-auto"
         style={dropdownPos}
       >
         {filteredPlayers.length > 0 ? (
@@ -168,21 +164,21 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
               key={player.pid}
               data-index={idx}
               onClick={() => handleSelectPlayer(player)}
-              className={`px-3 py-3 cursor-pointer flex justify-between items-center transition-colors ${
-                idx === highlightedIndex ? 'bg-blue-50' : 'hover:bg-surface-2'
+              className={`px-3 py-2.5 cursor-pointer flex justify-between items-center transition-colors text-txt-primary ${
+                idx === highlightedIndex ? 'bg-surface-4' : 'hover:bg-surface-3'
               }`}
             >
-              <span className="font-medium text-txt-primary">{player.name}</span>
+              <span className="font-medium">{player.name}</span>
               <span
-                className="text-xs px-2.5 py-1 rounded font-bold text-white"
-                style={{ backgroundColor: primaryColor }}
+                className="text-xs px-2 py-0.5 rounded font-bold"
+                style={{ backgroundColor: primaryColor, color: getContrastTextColor(primaryColor) }}
               >
                 {player.position}
               </span>
             </div>
           ))
         ) : (
-          <div className="px-3 py-4 text-txt-muted text-sm text-center">No players found</div>
+          <div className="px-3 py-4 text-txt-tertiary text-sm text-center">No players found</div>
         )}
       </div>,
       document.body
@@ -192,16 +188,17 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
   return (
     <div className="relative" ref={containerRef}>
       {selectedPlayer ? (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-white rounded-lg border border-surface-4 shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 rounded-lg border border-surface-5">
           <div className="flex-1 min-w-0">
-            <span className="font-semibold text-txt-primary">{selectedPlayer.name}</span>
+            <span className="font-semibold text-txt-primary truncate">{selectedPlayer.name}</span>
           </div>
-          <button aria-label="Close"
+          <button
+            aria-label="Clear"
             onClick={handleClear}
-            className="p-1 hover:bg-surface-3 rounded transition-colors"
+            className="p-1 hover:bg-surface-4 rounded transition-colors"
             type="button"
           >
-            <svg className="w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -216,9 +213,10 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
             onFocus={() => setIsOpen(true)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full px-3 py-2.5 bg-white rounded-lg border border-surface-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none text-txt-primary placeholder-gray-400 shadow-sm"
+            className="w-full px-3 py-2 bg-surface-2 rounded-lg border border-surface-5 focus:border-team-primary focus:outline-none text-txt-primary placeholder:text-txt-tertiary"
+            style={{ '--tw-ring-color': primaryColor }}
           />
-          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
@@ -229,8 +227,8 @@ function PlayerSearchInput({ value, players, onSelect, primaryColor, placeholder
   )
 }
 
-// Position selector - custom dropdown with viewport-aware positioning
-function PositionSelector({ value, onChange, disabled, excludePosition }) {
+// Position selector — custom dropdown with viewport-aware positioning
+function PositionSelector({ value, onChange, disabled, excludePosition, primaryColor }) {
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
   const [dropdownPos, setDropdownPos] = useState(null)
@@ -262,7 +260,6 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
   useEffect(() => {
     if (isOpen) {
       updatePosition()
-      // Set initial highlight to current value
       const currentIdx = availablePositions.indexOf(value)
       setHighlightedIndex(currentIdx >= 0 ? currentIdx : 0)
     }
@@ -292,7 +289,6 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
     }
   }, [isOpen])
 
-  // Scroll highlighted item into view
   useEffect(() => {
     if (isOpen && highlightedIndex >= 0) {
       const dropdown = document.getElementById(dropdownId)
@@ -354,21 +350,26 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
     return createPortal(
       <div
         id={dropdownId}
-        className="fixed z-[10000] bg-white border border-surface-4 rounded-lg shadow-xl overflow-y-auto"
+        className="fixed z-[10000] bg-surface-2 border border-surface-5 rounded-lg shadow-2xl overflow-y-auto"
         style={dropdownPos}
       >
-        {availablePositions.map((pos, idx) => (
-          <div
-            key={pos}
-            data-index={idx}
-            onClick={() => handleSelect(pos)}
-            className={`px-3 py-2.5 cursor-pointer text-center font-semibold transition-colors ${
-              idx === highlightedIndex ? 'bg-blue-50 text-blue-700' : 'text-txt-primary hover:bg-surface-2'
-            } ${pos === value ? 'bg-blue-100' : ''}`}
-          >
-            {pos}
-          </div>
-        ))}
+        {availablePositions.map((pos, idx) => {
+          const isSelected = pos === value
+          const isHighlighted = idx === highlightedIndex
+          return (
+            <div
+              key={pos}
+              data-index={idx}
+              onClick={() => handleSelect(pos)}
+              className={`px-3 py-2 cursor-pointer text-center font-semibold transition-colors text-txt-primary ${
+                isHighlighted ? 'bg-surface-4' : 'hover:bg-surface-3'
+              }`}
+              style={isSelected ? { backgroundColor: primaryColor, color: getContrastTextColor(primaryColor) } : undefined}
+            >
+              {pos}
+            </div>
+          )
+        })}
       </div>,
       document.body
     )
@@ -381,11 +382,13 @@ function PositionSelector({ value, onChange, disabled, excludePosition }) {
         onClick={() => !disabled && setIsOpen(!isOpen)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        className={`w-full px-3 py-2.5 bg-white rounded-lg border border-surface-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none font-semibold text-center shadow-sm flex items-center justify-center gap-1 ${
-          disabled ? 'bg-surface-3 text-txt-muted cursor-not-allowed' : 'text-txt-primary'
+        className={`w-full px-3 py-2 rounded-lg border font-semibold text-center flex items-center justify-center gap-1 transition-colors ${
+          disabled
+            ? 'bg-surface-3 border-surface-4 text-txt-tertiary cursor-not-allowed'
+            : 'bg-surface-2 border-surface-5 text-txt-primary hover:bg-surface-3'
         }`}
       >
-        <span>{value || 'Select...'}</span>
+        <span>{value || 'Select…'}</span>
         <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -530,31 +533,27 @@ export default function PositionChangesModal({
 
   return (
     <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
       <div
-        className="bg-surface-2 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col"
+        className="bg-surface-1 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col border border-surface-4"
         style={{ maxHeight: '85vh' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="p-5 rounded-t-2xl flex-shrink-0"
-          style={{ backgroundColor: primaryColor }}
-        >
-          <div className="flex justify-between items-center">
+        {/* Header — accent bar in team color, dark surface body */}
+        <div className="rounded-t-2xl flex-shrink-0 overflow-hidden">
+          <div className="h-1" style={{ backgroundColor: primaryColor }} aria-hidden />
+          <div className="px-5 py-4 bg-surface-2 flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-bold" style={{ color: primaryBgText }}>Position Changes</h2>
-              <p className="text-sm mt-1" style={{ color: primaryBgText, opacity: 0.8 }}>
-                Update player positions for your roster
-              </p>
+              <h2 className="text-xl font-bold text-txt-primary">Position Changes</h2>
+              <p className="text-sm mt-1 text-txt-tertiary">Update player positions for your roster</p>
             </div>
-            <button aria-label="Close"
+            <button
+              aria-label="Close"
               onClick={onClose}
-              className="p-2 rounded-lg transition-colors hover:bg-black/10"
-              style={{ color: primaryBgText }}
+              className="p-2 -mr-2 -mt-1 rounded-lg hover:bg-surface-3 text-txt-tertiary hover:text-txt-primary transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -564,39 +563,39 @@ export default function PositionChangesModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-3 bg-surface-2">
+        <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {positionChanges.map((change, index) => (
             <div
               key={index}
-              className={`rounded-xl p-4 transition-all ${
+              className={`rounded-xl p-4 transition-colors ${
                 change.playerId
-                  ? 'bg-white border border-surface-4 shadow-sm'
-                  : 'bg-surface-3 border-2 border-dashed border-surface-4'
+                  ? 'bg-surface-2 border border-surface-4'
+                  : 'bg-transparent border border-dashed border-surface-4'
               }`}
             >
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
                 {/* Player Search */}
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 uppercase tracking-wide">Player</label>
+                  <label className="block text-[11px] font-semibold text-txt-tertiary mb-1.5 uppercase tracking-wider">Player</label>
                   <PlayerSearchInput
                     value={change.playerId}
                     players={getAvailablePlayers(index)}
                     onSelect={(playerId) => handlePlayerSelect(index, playerId)}
                     primaryColor={primaryColor}
-                    placeholder="Search by name or position..."
+                    placeholder="Search by name or position…"
                   />
                 </div>
 
                 {/* Position Change Display */}
-                <div className="flex items-end gap-2 sm:gap-3">
+                <div className="flex items-end gap-2">
                   {/* Old Position */}
                   <div className="w-20">
-                    <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wide">From</label>
+                    <label className="block text-[11px] font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wider">From</label>
                     <div
-                      className={`px-3 py-2.5 rounded-lg font-bold text-center text-sm ${
+                      className={`px-2 py-2 rounded-lg font-bold text-center text-sm border ${
                         change.oldPosition
-                          ? 'bg-surface-4 text-txt-secondary'
-                          : 'bg-surface-3 text-txt-muted border-2 border-dashed border-surface-4'
+                          ? 'bg-surface-3 border-surface-4 text-txt-secondary'
+                          : 'bg-transparent border-dashed border-surface-4 text-txt-tertiary'
                       }`}
                     >
                       {change.oldPosition || '—'}
@@ -604,9 +603,9 @@ export default function PositionChangesModal({
                   </div>
 
                   {/* Arrow */}
-                  <div className="flex items-center justify-center pb-1">
+                  <div className="flex items-center justify-center pb-2">
                     <svg
-                      className={`w-5 h-5 ${change.playerId ? 'text-txt-muted' : 'text-txt-muted'}`}
+                      className="w-5 h-5 text-txt-tertiary"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -617,7 +616,7 @@ export default function PositionChangesModal({
 
                   {/* New Position */}
                   <div className="w-28">
-                    <label className="block text-xs font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wide">To</label>
+                    <label className="block text-[11px] font-semibold text-txt-tertiary mb-1.5 text-center uppercase tracking-wider">To</label>
                     <PositionSelector
                       value={change.newPosition}
                       onChange={(pos) => handleNewPositionSelect(index, pos)}
@@ -632,7 +631,7 @@ export default function PositionChangesModal({
                     {(positionChanges.length > 1 || change.playerId) && (
                       <button
                         onClick={() => handleRemoveEntry(index)}
-                        className="p-2 hover:bg-red-50 rounded-lg text-txt-muted hover:text-red-500 transition-colors"
+                        className="p-2 rounded-lg text-txt-tertiary hover:bg-surface-3 hover:text-danger transition-colors"
                         title="Remove"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -643,27 +642,13 @@ export default function PositionChangesModal({
                   </div>
                 </div>
               </div>
-
-              {/* Success indicator when change is complete */}
-              {change.playerId && change.newPosition && change.newPosition !== change.oldPosition && (
-                <div className="mt-3 pt-3 border-t border-surface-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-sm text-txt-tertiary">
-                    <span className="text-txt-primary font-semibold">{change.playerName}</span> will change from{' '}
-                    <span className="font-bold text-txt-secondary">{change.oldPosition}</span> to{' '}
-                    <span className="font-bold" style={{ color: primaryColor }}>{change.newPosition}</span>
-                  </span>
-                </div>
-              )}
             </div>
           ))}
 
           {/* Add Another Button */}
           <button
             onClick={handleAddEntry}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-surface-4 text-txt-muted hover:border-surface-5 hover:text-txt-tertiary hover:bg-white transition-all flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl border-2 border-dashed border-surface-4 text-txt-tertiary hover:border-surface-5 hover:text-txt-secondary hover:bg-surface-2 transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -673,40 +658,41 @@ export default function PositionChangesModal({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-surface-4 flex-shrink-0 bg-white rounded-b-2xl">
+        <div className="px-5 py-4 border-t border-surface-4 flex-shrink-0 bg-surface-2 rounded-b-2xl">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <div className="flex items-center gap-2">
               {validChangesCount > 0 ? (
                 <>
                   <div
-                    className="w-2.5 h-2.5 rounded-full animate-pulse"
+                    className="w-2 h-2 rounded-full animate-pulse"
                     style={{ backgroundColor: primaryColor }}
+                    aria-hidden
                   />
-                  <span className="text-sm text-txt-tertiary">
-                    <span className="font-bold text-txt-primary">{validChangesCount}</span> position change{validChangesCount !== 1 ? 's' : ''} ready
+                  <span className="text-sm text-txt-secondary">
+                    <span className="font-bold text-txt-primary">{validChangesCount}</span> change{validChangesCount !== 1 ? 's' : ''} ready
                   </span>
                 </>
               ) : (
-                <span className="text-sm text-txt-muted">No changes to save</span>
+                <span className="text-sm text-txt-tertiary">No changes to save</span>
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={onClose}
-                className="px-5 py-2.5 rounded-lg font-semibold bg-surface-4 text-txt-secondary hover:bg-surface-4 transition-colors"
+                className="px-4 py-2 rounded-lg font-semibold bg-surface-3 text-txt-secondary hover:bg-surface-4 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-5 py-2.5 rounded-lg font-semibold transition-all disabled:opacity-50 shadow-sm"
+                className="px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50"
                 style={{
                   backgroundColor: primaryColor,
                   color: primaryBgText
                 }}
               >
-                {saving ? 'Saving...' : (validChangesCount > 0 ? 'Save Changes' : 'Done')}
+                {saving ? 'Saving…' : (validChangesCount > 0 ? 'Save Changes' : 'Done')}
               </button>
             </div>
           </div>
