@@ -264,7 +264,7 @@ export default function Home() {
     }
   }
 
-  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/q1pbpmhc12bchz13tbmob/UK_2033_Week0.json?rlkey=6f85wvdl4x4e8wqrekgbkmqne&st=6fb65f5s&dl=0'
+  const TEST_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/bqgceluggmpoc9ucpf2ol/UK_2034_Week1.json?rlkey=minmu1f3o5g6uei562tsjoomg&st=nn3mvxw4&dl=0'
 
   const handleTestImport = async () => {
     setImporting(true)
