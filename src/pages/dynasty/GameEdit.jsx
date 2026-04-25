@@ -13,6 +13,8 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea } from '../../components/ui'
+import { getTeamColors } from '../../data/teamColors'
+import { getContrastTextColor } from '../../utils/colorUtils'
 
 // Map abbreviations to mascot names for logo lookup
 function getMascotName(abbr, teamsData = null) {
@@ -1239,231 +1241,331 @@ export default function GameEdit() {
         </div>
       )}
 
-      <PageHero
-        eyebrow={gameSubtitle}
-        title={isNewGame ? 'New Game' : (gameTitle || 'Edit Game')}
-        actions={
-          <>
-            <Button variant="outline" size="sm" onClick={handleCancel}>Cancel</Button>
-            <Button variant="primary" size="sm" accentColor="#ffffff" onClick={handleSave}>Save</Button>
-          </>
-        }
-      />
+      {/* Hero — mirrors the actual Game page hero so editing/viewing share
+          a visual surface. The gradient header carries Save/Cancel; the
+          body has team logos, names, big editable score inputs, and an
+          inline editable quarter table. */}
+      {(() => {
+        const leftColors = getTeamColors(leftTeamName, teamsSource) || { primary: '#444', secondary: '#fff' }
+        const rightColors = getTeamColors(rightTeamName, teamsSource) || { primary: '#444', secondary: '#fff' }
+        // 50/50 gradient — winner highlight isn't meaningful while editing.
+        const headerGradient = `linear-gradient(90deg, ${leftColors.primary} 0%, ${leftColors.primary} 40%, ${rightColors.primary} 60%, ${rightColors.primary} 100%)`
+        const titleText = isNewGame ? 'New Game' : (gameTitle || 'Edit Game')
+        const quartersDisabled = false // always editable in the hero quarter inputs
+        const otCount = formData.overtimes.length
 
-      <Card>
-        <div className="flex items-center justify-center gap-2 sm:gap-8 w-full">
-          <div className="flex-1 min-w-0 text-center">
-            <div className="flex flex-col items-center gap-2 min-w-0">
-              <div
-                className="w-14 h-14 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2 shrink-0"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
+        // Inline quarter input — styled to match the read-only quarter cell
+        // on the live Game page so the editor and viewer feel like the same surface.
+        const QuarterInput = ({ value, onChange, onBlur }) => (
+          <input
+            type="number"
+            value={value ?? ''}
+            onChange={onChange}
+            onBlur={onBlur}
+            className="w-12 text-center tabular-nums text-sm rounded-sm py-1 bg-transparent text-txt-secondary focus:outline-none focus:ring-1 focus:ring-white/40"
+            style={{ border: '1px solid var(--surface-5)' }}
+            min="0"
+            placeholder="0"
+          />
+        )
+
+        return (
+          <div className="bg-surface-1 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Top bar: Cancel — title — Save */}
+            <div
+              className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2"
+              style={{ background: headerGradient }}
+            >
+              <button
+                onClick={handleCancel}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm bg-white/15 text-white hover:bg-white/25 transition-colors backdrop-blur-sm"
               >
-                {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
-              </div>
-              <div className="text-xs sm:text-sm font-medium truncate max-w-full text-txt-primary">
-                {leftTeamName}
-              </div>
-              {formData[`${displayLeftTeam}Rank`] && (
-                <div className="text-xs tabular" style={{ color: 'var(--accent-warning)' }}>
-                  #{formData[`${displayLeftTeam}Rank`]}
-                </div>
-              )}
-            </div>
-          </div>
+                Cancel
+              </button>
 
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <input
-              type="number"
-              value={formData[`${displayLeftTeam}Score`]}
-              onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
-              className={`w-14 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
-              style={{
-                backgroundColor: 'var(--surface-3)',
-                border: '2px solid var(--surface-5)',
-                color: 'var(--text-primary)'
-              }}
-              disabled={hasQuarterScores()}
-              min="0"
-            />
-            <span className="text-xl sm:text-2xl font-bold text-txt-tertiary">–</span>
-            <input
-              type="number"
-              value={formData[`${displayRightTeam}Score`]}
-              onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
-              className={`w-14 sm:w-20 stat-lg text-center rounded-sm py-2 ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
-              style={{
-                backgroundColor: 'var(--surface-3)',
-                border: '2px solid var(--surface-5)',
-                color: 'var(--text-primary)'
-              }}
-              disabled={hasQuarterScores()}
-              min="0"
-            />
-          </div>
+              <div className="text-white text-center min-w-0 px-2">
+                <div className="text-sm sm:text-lg font-bold drop-shadow-md truncate">{titleText}</div>
+                <div className="text-[10px] sm:text-xs opacity-90 truncate">{gameSubtitle}</div>
+              </div>
 
-          <div className="flex-1 min-w-0 text-center">
-            <div className="flex flex-col items-center gap-2 min-w-0">
-              <div
-                className="w-14 h-14 sm:w-20 sm:h-20 rounded-sm flex items-center justify-center p-2 shrink-0"
-                style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-5)' }}
+              <button
+                onClick={handleSave}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs sm:text-sm bg-white text-surface-1 hover:bg-white/90 transition-colors"
               >
-                {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
-              </div>
-              <div className="text-xs sm:text-sm font-medium truncate max-w-full text-txt-primary">
-                {rightTeamName}
-              </div>
-              {formData[`${displayRightTeam}Rank`] && (
-                <div className="text-xs tabular" style={{ color: 'var(--accent-warning)' }}>
-                  #{formData[`${displayRightTeam}Rank`]}
+                Save
+              </button>
+            </div>
+
+            {/* Desktop: integrated layout — left team / quarter inputs / right team */}
+            <div className="hidden lg:block px-8 py-6">
+              <div className="flex items-center justify-between">
+                {/* Left team cluster */}
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 shadow-xl bg-white shrink-0"
+                    >
+                      {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
+                    </div>
+                    <div className="text-left">
+                      {formData[`${displayLeftTeam}Rank`] && (
+                        <div className="text-amber-400 text-xs font-bold">#{formData[`${displayLeftTeam}Rank`]}</div>
+                      )}
+                      <div className="text-white font-bold text-lg">{leftTeamName}</div>
+                    </div>
+                  </div>
+                  <input
+                    type="number"
+                    value={formData[`${displayLeftTeam}Score`]}
+                    onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
+                    disabled={hasQuarterScores()}
+                    className={`w-20 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                    min="0"
+                  />
                 </div>
-              )}
+
+                {/* Center quarter inputs table */}
+                <div className="flex-shrink-0 mx-4">
+                  <table className="text-center">
+                    <thead>
+                      <tr className="text-xs text-txt-muted uppercase">
+                        <th className="px-2 py-1"></th>
+                        <th className="px-3 py-1">1</th>
+                        <th className="px-3 py-1">2</th>
+                        <th className="px-3 py-1">3</th>
+                        <th className="px-3 py-1">4</th>
+                        {formData.overtimes.map((_, i) => (
+                          <th key={i} className="px-3 py-1">OT{i > 0 ? i + 1 : ''}</th>
+                        ))}
+                        <th className="px-3 py-1 pl-4 border-l border-surface-4">T</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="pr-3 py-1.5 text-left text-sm font-bold text-txt-tertiary">{leftTeamAbbr}</td>
+                        {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                          <td key={q} className="px-1 py-1.5">
+                            <QuarterInput
+                              value={formData.quarters?.[displayLeftTeam]?.[q]}
+                              onChange={(e) => handleQuarterChange(displayLeftTeam, q, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleQuarterChange(displayLeftTeam, q, '0') }}
+                            />
+                          </td>
+                        ))}
+                        {formData.overtimes.map((ot, idx) => (
+                          <td key={idx} className="px-1 py-1.5">
+                            <QuarterInput
+                              value={ot[displayLeftTeam]}
+                              onChange={(e) => handleOvertimeChange(idx, displayLeftTeam, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleOvertimeChange(idx, displayLeftTeam, '0') }}
+                            />
+                          </td>
+                        ))}
+                        <td className="px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black text-white tabular-nums">
+                          {formData[`${displayLeftTeam}Score`] || '0'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="pr-3 py-1.5 text-left text-sm font-bold text-txt-tertiary">{rightTeamAbbr}</td>
+                        {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                          <td key={q} className="px-1 py-1.5">
+                            <QuarterInput
+                              value={formData.quarters?.[displayRightTeam]?.[q]}
+                              onChange={(e) => handleQuarterChange(displayRightTeam, q, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleQuarterChange(displayRightTeam, q, '0') }}
+                            />
+                          </td>
+                        ))}
+                        {formData.overtimes.map((ot, idx) => (
+                          <td key={idx} className="px-1 py-1.5">
+                            <QuarterInput
+                              value={ot[displayRightTeam]}
+                              onChange={(e) => handleOvertimeChange(idx, displayRightTeam, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleOvertimeChange(idx, displayRightTeam, '0') }}
+                            />
+                          </td>
+                        ))}
+                        <td className="px-3 py-1.5 pl-4 border-l border-surface-4 text-xl font-black text-white tabular-nums">
+                          {formData[`${displayRightTeam}Score`] || '0'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Right team cluster */}
+                <div className="flex items-center gap-6">
+                  <input
+                    type="number"
+                    value={formData[`${displayRightTeam}Score`]}
+                    onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
+                    disabled={hasQuarterScores()}
+                    className={`w-20 text-6xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                    min="0"
+                  />
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      {formData[`${displayRightTeam}Rank`] && (
+                        <div className="text-amber-400 text-xs font-bold">#{formData[`${displayRightTeam}Rank`]}</div>
+                      )}
+                      <div className="text-white font-bold text-lg">{rightTeamName}</div>
+                    </div>
+                    <div
+                      className="w-16 h-16 rounded-full flex items-center justify-center p-2 shadow-xl bg-white shrink-0"
+                    >
+                      {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile / tablet: stacked logos+score-inputs, then quarter inputs below */}
+            <div className="lg:hidden">
+              <div className="px-3 py-4 sm:px-6 sm:py-6">
+                <div className="flex items-center justify-between gap-2 sm:gap-4">
+                  {/* Left team */}
+                  <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center p-1.5 sm:p-2 shadow-xl bg-white shrink-0">
+                      {leftTeamLogo && <img src={leftTeamLogo} alt={leftTeamName} className="w-full h-full object-contain" />}
+                    </div>
+                    <div className="text-center min-w-0 w-full">
+                      {formData[`${displayLeftTeam}Rank`] && (
+                        <div className="text-amber-400 text-[10px] font-bold">#{formData[`${displayLeftTeam}Rank`]}</div>
+                      )}
+                      <div className="text-white font-bold text-xs sm:text-sm leading-tight truncate">{leftTeamName}</div>
+                    </div>
+                  </div>
+
+                  {/* Score inputs */}
+                  <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <input
+                      type="number"
+                      value={formData[`${displayLeftTeam}Score`]}
+                      onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayLeftTeam}Score`]: e.target.value })}
+                      disabled={hasQuarterScores()}
+                      className={`w-14 sm:w-20 text-3xl sm:text-5xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                      min="0"
+                    />
+                    <span className="text-lg sm:text-2xl font-bold text-txt-tertiary">–</span>
+                    <input
+                      type="number"
+                      value={formData[`${displayRightTeam}Score`]}
+                      onChange={(e) => !hasQuarterScores() && setFormData({ ...formData, [`${displayRightTeam}Score`]: e.target.value })}
+                      disabled={hasQuarterScores()}
+                      className={`w-14 sm:w-20 text-3xl sm:text-5xl font-black tabular-nums bg-transparent text-center text-white focus:outline-none focus:ring-2 focus:ring-white/30 rounded-md ${hasQuarterScores() ? 'cursor-not-allowed opacity-60' : ''}`}
+                      min="0"
+                    />
+                  </div>
+
+                  {/* Right team */}
+                  <div className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center p-1.5 sm:p-2 shadow-xl bg-white shrink-0">
+                      {rightTeamLogo && <img src={rightTeamLogo} alt={rightTeamName} className="w-full h-full object-contain" />}
+                    </div>
+                    <div className="text-center min-w-0 w-full">
+                      {formData[`${displayRightTeam}Rank`] && (
+                        <div className="text-amber-400 text-[10px] font-bold">#{formData[`${displayRightTeam}Rank`]}</div>
+                      )}
+                      <div className="text-white font-bold text-xs sm:text-sm leading-tight truncate">{rightTeamName}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile quarter inputs */}
+              <div className="px-3 sm:px-4 pb-4 overflow-x-auto">
+                <table className="w-full text-center min-w-[400px]">
+                  <thead>
+                    <tr className="text-[10px] sm:text-xs text-txt-tertiary uppercase tracking-wider">
+                      <th className="text-left py-2 px-2 font-semibold">Team</th>
+                      <th className="py-2 px-1 font-semibold">1st</th>
+                      <th className="py-2 px-1 font-semibold">2nd</th>
+                      <th className="py-2 px-1 font-semibold">3rd</th>
+                      <th className="py-2 px-1 font-semibold">4th</th>
+                      {formData.overtimes.map((_, i) => (
+                        <th key={i} className="py-2 px-1 font-semibold">OT{i > 0 ? i + 1 : ''}</th>
+                      ))}
+                      <th className="py-2 px-2 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm">
+                    {[
+                      { prefix: displayLeftTeam, abbr: leftTeamAbbr, logo: leftTeamLogo },
+                      { prefix: displayRightTeam, abbr: rightTeamAbbr, logo: rightTeamLogo },
+                    ].map(({ prefix, abbr, logo }, idx) => (
+                      <tr key={prefix} className={idx === 0 ? 'border-b border-surface-4' : ''}>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-2">
+                            {logo && <img src={logo} alt="" className="w-6 h-6 object-contain shrink-0" />}
+                            <span className="text-sm font-bold text-txt-primary">{abbr}</span>
+                          </div>
+                        </td>
+                        {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
+                          <td key={q} className="py-2 px-1">
+                            <QuarterInput
+                              value={formData.quarters?.[prefix]?.[q]}
+                              onChange={(e) => handleQuarterChange(prefix, q, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleQuarterChange(prefix, q, '0') }}
+                            />
+                          </td>
+                        ))}
+                        {formData.overtimes.map((ot, otIdx) => (
+                          <td key={otIdx} className="py-2 px-1">
+                            <QuarterInput
+                              value={ot[prefix]}
+                              onChange={(e) => handleOvertimeChange(otIdx, prefix, e.target.value)}
+                              onBlur={(e) => { if (e.target.value === '') handleOvertimeChange(otIdx, prefix, '0') }}
+                            />
+                          </td>
+                        ))}
+                        <td className="py-2 px-2 text-lg font-black text-white tabular-nums">
+                          {formData[`${prefix}Score`] || '0'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        )
+      })()}
 
+      {/* Compact team details — both teams in a single card so they read as
+          one row instead of two competing card columns. Per-team: rank,
+          OVR/OFF/DEF, plus record fields for the opponent. */}
       <Card>
-        <h3 className="label-sm text-txt-primary mb-2">Quarter-by-Quarter Scoring</h3>
-        <p className="text-xs text-txt-tertiary mb-4">Enter quarter scores to auto-calculate total, or enter total directly above.</p>
-
-        <div className="overflow-x-auto">
-          <div className="min-w-[400px]">
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
-              <div className="label-xs text-txt-tertiary">Team</div>
-              <div className="label-xs text-txt-tertiary text-center">Q1</div>
-              <div className="label-xs text-txt-tertiary text-center">Q2</div>
-              <div className="label-xs text-txt-tertiary text-center">Q3</div>
-              <div className="label-xs text-txt-tertiary text-center">Q4</div>
-              {formData.overtimes.map((_, idx) => (
-                <div key={`ot-header-${idx}`} className="label-xs text-txt-tertiary text-center">OT{idx + 1}</div>
-              ))}
-              <div className="label-xs text-txt-tertiary text-center">Total</div>
-            </div>
-
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
+        <h3 className="label-sm text-txt-primary mb-3">Team Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          {[
+            { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
+            { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
+          ].map(({ prefix, name, logo, isUser }) => (
+            <div key={prefix} className="space-y-3 pb-4 md:pb-0 border-b md:border-b-0 md:border-r border-surface-4 last:border-0 md:pr-6 md:last:pr-0">
               <div className="flex items-center gap-2">
-                {leftTeamLogo && <img src={leftTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate text-txt-primary">{leftTeamAbbr}</span>
-              </div>
-              {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-                <Input
-                  key={q}
-                  type="number"
-                  value={formData.quarters?.[displayLeftTeam]?.[q] ?? ''}
-                  onChange={(e) => handleQuarterChange(displayLeftTeam, q, e.target.value)}
-                  onBlur={(e) => {
-                    if (e.target.value === '') handleQuarterChange(displayLeftTeam, q, '0')
-                  }}
-                  size="sm"
-                  className="text-center tabular"
-                  min="0"
-                  placeholder="0"
-                />
-              ))}
-              {formData.overtimes.map((ot, idx) => (
-                <Input
-                  key={`ot-left-${idx}`}
-                  type="number"
-                  value={ot[displayLeftTeam] ?? ''}
-                  onChange={(e) => handleOvertimeChange(idx, displayLeftTeam, e.target.value)}
-                  onBlur={(e) => {
-                    if (e.target.value === '') handleOvertimeChange(idx, displayLeftTeam, '0')
-                  }}
-                  size="sm"
-                  className="text-center tabular"
-                  min="0"
-                  placeholder="0"
-                />
-              ))}
-              <div className="text-center stat-md tabular" style={{ color: 'var(--text-primary)' }}>
-                {formData[`${displayLeftTeam}Score`] || '0'}
-              </div>
-            </div>
-
-            <div className="grid gap-2 items-center mb-2" style={{ gridTemplateColumns: `1fr repeat(${4 + formData.overtimes.length}, 50px) 60px` }}>
-              <div className="flex items-center gap-2">
-                {rightTeamLogo && <img src={rightTeamLogo} alt="" className="w-6 h-6 object-contain" />}
-                <span className="text-sm font-medium truncate text-txt-primary">{rightTeamAbbr}</span>
-              </div>
-              {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => (
-                <Input
-                  key={q}
-                  type="number"
-                  value={formData.quarters?.[displayRightTeam]?.[q] ?? ''}
-                  onChange={(e) => handleQuarterChange(displayRightTeam, q, e.target.value)}
-                  onBlur={(e) => {
-                    if (e.target.value === '') handleQuarterChange(displayRightTeam, q, '0')
-                  }}
-                  size="sm"
-                  className="text-center tabular"
-                  min="0"
-                  placeholder="0"
-                />
-              ))}
-              {formData.overtimes.map((ot, idx) => (
-                <Input
-                  key={`ot-right-${idx}`}
-                  type="number"
-                  value={ot[displayRightTeam] ?? ''}
-                  onChange={(e) => handleOvertimeChange(idx, displayRightTeam, e.target.value)}
-                  onBlur={(e) => {
-                    if (e.target.value === '') handleOvertimeChange(idx, displayRightTeam, '0')
-                  }}
-                  size="sm"
-                  className="text-center tabular"
-                  min="0"
-                  placeholder="0"
-                />
-              ))}
-              <div className="text-center stat-md tabular" style={{ color: 'var(--text-primary)' }}>
-                {formData[`${displayRightTeam}Score`] || '0'}
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
-          { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
-        ].map(({ prefix, name, logo, isUser }) => (
-          <Card key={prefix} accent="top">
-            <div className="flex items-center gap-3 mb-4">
-              {logo && <img src={logo} alt="" className="w-10 h-10 object-contain" />}
-              <h3 className="text-lg font-bold text-txt-primary">{name}</h3>
-            </div>
-
-            <div className="mb-4">
-              <label className="label-sm text-txt-secondary block mb-1">National Rank</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={formData[`${prefix}Rank`]}
-                  onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
-                  size="md"
-                  className="w-20 text-center tabular"
-                  min="1" max="133" placeholder="#"
-                />
-                {formData[`${prefix}Rank`] ? (
-                  <span className="text-lg font-semibold text-txt-secondary">{getOrdinalSuffix(formData[`${prefix}Rank`])}</span>
-                ) : (
-                  <span className="text-sm text-txt-tertiary">Unranked</span>
+                {logo && <img src={logo} alt="" className="w-8 h-8 object-contain shrink-0" />}
+                <div className="text-sm font-bold text-txt-primary truncate">{name}</div>
+                {isUser && (
+                  <span className="ml-auto label-xs text-txt-tertiary">Your team</span>
                 )}
               </div>
-            </div>
 
-            <div className="mb-4">
-              <label className="label-sm text-txt-secondary block mb-2">
-                Team Ratings
-                {isUser && formData[`${prefix}Overall`] && (
-                  <span className="font-normal text-xs ml-2" style={{ color: 'var(--accent-success)' }}>(auto-filled)</span>
-                )}
-              </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <label className="label-xs text-txt-tertiary block mb-1">Rank</label>
+                  <Input
+                    type="number"
+                    value={formData[`${prefix}Rank`]}
+                    onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
+                    size="sm"
+                    className="text-center tabular"
+                    min="1" max="133" placeholder="—"
+                  />
+                </div>
                 {['Overall', 'Offense', 'Defense'].map(field => (
                   <div key={field}>
-                    <label className="label-xs text-txt-tertiary block mb-1">{field}</label>
+                    <label className="label-xs text-txt-tertiary block mb-1">{field.slice(0, 3).toUpperCase()}</label>
                     <Input
                       type="number"
                       value={formData[`${prefix}${field}`]}
@@ -1475,16 +1577,11 @@ export default function GameEdit() {
                   </div>
                 ))}
               </div>
-            </div>
 
-            {!isUser && (
-              <div>
-                <label className="label-sm text-txt-secondary block mb-2">
-                  Season Record <span className="font-normal text-txt-tertiary">(after game)</span>
-                </label>
+              {!isUser && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="label-xs text-txt-tertiary block mb-1">Overall</label>
+                    <label className="label-xs text-txt-tertiary block mb-1">Record (after)</label>
                     <Input
                       type="text"
                       value={formData[`${prefix}Record`]}
@@ -1495,7 +1592,7 @@ export default function GameEdit() {
                     />
                   </div>
                   <div>
-                    <label className="label-xs text-txt-tertiary block mb-1">Conference</label>
+                    <label className="label-xs text-txt-tertiary block mb-1">Conf</label>
                     <Input
                       type="text"
                       value={formData[`${prefix}ConfRecord`]}
@@ -1506,11 +1603,11 @@ export default function GameEdit() {
                     />
                   </div>
                 </div>
-              </div>
-            )}
-          </Card>
-        ))}
-      </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <Card>
         <h3 className="label-sm text-txt-primary mb-2">Box Score &amp; Stats</h3>
