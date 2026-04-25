@@ -237,7 +237,7 @@ FINAL CHECK before you send the answer
 
     setSyncing(true)
     try {
-      const schedule = await readScheduleFromScheduleSheet(sheetId)
+      const schedule = await readScheduleFromScheduleSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
       await onSave(schedule)
       onClose()
     } catch (error) {
@@ -253,7 +253,7 @@ FINAL CHECK before you send the answer
 
     setDeletingSheet(true)
     try {
-      const schedule = await readScheduleFromScheduleSheet(sheetId)
+      const schedule = await readScheduleFromScheduleSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
       await onSave(schedule)
 
       await deleteGoogleSheet(sheetId)

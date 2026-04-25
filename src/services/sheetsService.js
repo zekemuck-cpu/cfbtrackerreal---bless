@@ -1735,7 +1735,7 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
 }
 
 // Read schedule data from a Schedule-only sheet
-export async function readScheduleFromScheduleSheet(spreadsheetId) {
+export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
