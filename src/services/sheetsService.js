@@ -1767,8 +1767,15 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
         const userTeamAbbr = (row[1] || '').toUpperCase()
         const opponentAbbr = row[2].toUpperCase()
 
+        // parseInt("0") is 0 (falsy), so a plain `|| index + 1` fallback
+        // would silently re-assign Week 0 entries to the row index + 1 and
+        // shift the entire schedule down. Only fall back when the parse
+        // genuinely failed.
+        const parsedWeek = parseInt(row[0])
+        const week = Number.isFinite(parsedWeek) ? parsedWeek : (index + 1)
+
         return {
-          week: parseInt(row[0]) || index + 1,
+          week,
           userTeam: userTeamAbbr,
           userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr, dynastyTeams) : null,
           opponent: opponentAbbr,
@@ -1967,8 +1974,14 @@ export async function readScheduleFromSheet(spreadsheetId, dynastyTeams = null) 
         const userTeamAbbr = (row[1] || '').toUpperCase()
         const opponentAbbr = row[2].toUpperCase()
 
+        // Same Week-0 guard as readScheduleFromScheduleSheet: parseInt("0")
+        // is 0 (falsy), so a plain `|| index + 1` fallback shifts Week 0
+        // entries down. Only fall back on actual parse failure.
+        const parsedWeek = parseInt(row[0])
+        const week = Number.isFinite(parsedWeek) ? parsedWeek : (index + 1)
+
         return {
-          week: parseInt(row[0]) || index + 1,
+          week,
           userTeam: userTeamAbbr,
           userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr, dynastyTeams) : null,
           opponent: opponentAbbr,

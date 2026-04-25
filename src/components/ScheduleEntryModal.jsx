@@ -357,7 +357,7 @@ FINAL CHECK before you send the answer
                 Creating Schedule Sheet...
               </p>
               <p className="text-sm mt-2 text-txt-secondary">
-                Setting up 12-game schedule
+                Setting up regular-season schedule (Weeks 0–15)
               </p>
               <SheetLoadingHint active={isLoading} />
             </div>
@@ -469,7 +469,7 @@ FINAL CHECK before you send the answer
 
                 <div className="text-xs mt-2 space-y-1 text-txt-tertiary">
                   <p><strong className="text-txt-primary">Columns:</strong> Week | User Team | CPU Team | Site</p>
-                  <p>Enter your 12-game regular season schedule. Select opponents and Home/Road/Neutral for each game.</p>
+                  <p>Enter your regular-season schedule (Weeks 0 through 15). Select opponents and Home/Road/Neutral for each game; use "BYE" for bye weeks.</p>
                 </div>
               </>
             ) : (
@@ -487,7 +487,7 @@ FINAL CHECK before you send the answer
                     </li>
                     <li className="flex gap-3">
                       <span className="font-bold text-txt-primary tabular-nums">2.</span>
-                      <span>Enter your 12-game schedule (Week, User Team, CPU Team, Site)</span>
+                      <span>Fill in opponents and sites for Weeks 0–15 (use "BYE" for bye weeks)</span>
                     </li>
                     <li className="flex gap-3">
                       <span className="font-bold text-txt-primary tabular-nums">3.</span>
