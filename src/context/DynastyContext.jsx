@@ -2011,73 +2011,214 @@ export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
 }
 
 /**
- * Create game records from schedule entries
- * Called when schedule is saved to link schedule entries to actual games
- * @param {Object} dynasty - The dynasty object
- * @param {Array} schedule - Array of schedule entries
- * @param {number} userTid - User's team tid
- * @param {number} year - Schedule year
- * @returns {Object} { newGames: [...], updatedSchedule: [...] }
+ * Heuristic: has this game record been "played" — i.e., does it carry
+ * score, result, or boxScore data we should be careful about destroying?
  */
-export function createGamesFromSchedule(dynasty, schedule, userTid, year) {
-  const existingGames = dynasty.games || []
-  const newGames = []
+function isGamePlayed(g) {
+  if (!g) return false
+  if (g.isPlayed === true) return true
+  const r = g.result
+  if (r === 'win' || r === 'loss' || r === 'W' || r === 'L' || r === 'tie') return true
+  if (g.boxScore && typeof g.boxScore === 'object' && Object.keys(g.boxScore).length > 0) return true
+  // Non-zero score also implies played even if isPlayed flag missing.
+  if ((Number(g.team1Score) || 0) !== 0 || (Number(g.team2Score) || 0) !== 0) return true
+  return false
+}
 
-  const updatedSchedule = schedule.map((entry, index) => {
-    // Handle BYE weeks - no game created
+/**
+ * Compute the diff between a new schedule and the existing game records.
+ * The output drives both the confirm modal (so the user sees exactly what
+ * will change) and the apply step (so the games array stays in sync).
+ *
+ * Scope discipline: only touches gameType==='regular' games for the given
+ * team and year. CFP, bowls, conference championships, and other teams'
+ * games are immune.
+ *
+ * @returns {{
+ *   toAdd: Array,        // entries with no matching game record yet
+ *   toUpdate: Array,     // entries whose game record needs an opponent or site change
+ *   toRemove: Array,     // existing games whose week is no longer in the schedule (or now BYE)
+ *   toKeep: Array,       // entries already in sync
+ *   playedAffected: Array, // subset of toUpdate + toRemove with played-game data
+ *   updatedSchedule: Array // the schedule with gameId/opponentTid/isBye filled in
+ * }}
+ */
+export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
+  const existingGames = dynasty.games || []
+
+  // Existing user-team regular-season games for this year, keyed by week.
+  // Legacy game records sometimes omit gameType — treat missing as 'regular'
+  // so older dynasties don't get bypassed by the diff and accumulate ghosts.
+  const existingByWeek = new Map()
+  existingGames.forEach(g => {
+    const gType = g.gameType || 'regular'
+    if (gType !== 'regular') return
+    if (Number(g.year) !== Number(year)) return
+    const matchesUser = g.team1Tid === userTid || g.team2Tid === userTid || g.userTid === userTid
+    if (!matchesUser) return
+    existingByWeek.set(Number(g.week), g)
+  })
+
+  const opponentTidOf = (g) => (g.team1Tid === userTid ? g.team2Tid : g.team1Tid)
+  const locationOf = (g) => {
+    const oppTid = opponentTidOf(g)
+    if (g.homeTeamTid === userTid) return 'home'
+    if (g.homeTeamTid === oppTid) return 'away'
+    return 'neutral'
+  }
+  const teamsLookup = dynasty?.teams || TEAMS
+  const abbrFor = (tid) => (tid && getAbbrFromTid(teamsLookup, tid)) || (tid ? `tid-${tid}` : '')
+
+  const toAdd = []
+  const toUpdate = []
+  const toKeep = []
+  const updatedSchedule = []
+  const referencedWeeks = new Set()
+
+  // Stable id base for any new games created in this batch
+  const idBase = Date.now()
+
+  newSchedule.forEach((entry, index) => {
+    const week = Number(entry.week)
+    referencedWeeks.add(week)
+
     const isBye = entry.opponent?.toUpperCase() === 'BYE' || entry.isBye
+
     if (isBye) {
-      return { ...entry, isBye: true, gameId: null, opponentTid: null }
+      // BYE rows never have a game record; if one existed it'll be removed below.
+      updatedSchedule.push({ ...entry, week, isBye: true, gameId: null, opponentTid: null })
+      return
     }
 
     const opponentTid = entry.opponentTid || getTidFromAbbr(entry.opponent, dynasty)
-
-    // If entry already has gameId, check if game exists
-    if (entry.gameId) {
-      const existingGame = existingGames.find(g => g.id === entry.gameId)
-      if (existingGame) return { ...entry, opponentTid } // Game exists, keep link
-    }
-
-    // Try to find an existing game by week/year that matches this schedule entry
-    // This allows retroactive linking of existing games to schedule entries
-    const matchingGame = existingGames.find(g =>
-      Number(g.week) === Number(entry.week) &&
-      Number(g.year) === Number(year) &&
-      g.gameType === 'regular' &&
-      (g.team1Tid === userTid || g.team2Tid === userTid || g.userTid === userTid)
-    )
-
-    if (matchingGame) {
-      // Link to existing game instead of creating new one
-      return { ...entry, gameId: matchingGame.id, opponentTid, isBye: false }
-    }
-
-    // No existing game found - create new game record
     const isHome = entry.location === 'home'
     const isAway = entry.location === 'away'
+    const expectedHomeTid = isHome ? userTid : (isAway ? opponentTid : null)
 
-    // Generate unique game ID
-    const newGameId = `game-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 5)}`
-    const newGame = {
-      id: newGameId,
-      week: Number(entry.week),
-      year: Number(year),
-      gameType: 'regular',
-      team1Tid: userTid,
-      team2Tid: opponentTid,
-      team1Score: 0,
-      team2Score: 0,
-      homeTeamTid: isHome ? userTid : (isAway ? opponentTid : null),
-      isPlayed: false,
-      userTid: userTid,
-      opponentTid: opponentTid
+    const existing = existingByWeek.get(week)
+
+    if (!existing) {
+      const newGameId = `game-${idBase}-${index}-${Math.random().toString(36).substr(2, 5)}`
+      const newGame = {
+        id: newGameId,
+        week,
+        year: Number(year),
+        gameType: 'regular',
+        team1Tid: userTid,
+        team2Tid: opponentTid,
+        team1Score: 0,
+        team2Score: 0,
+        homeTeamTid: expectedHomeTid,
+        isPlayed: false,
+        userTid,
+        opponentTid,
+      }
+      toAdd.push({
+        week,
+        opponent: entry.opponent,
+        opponentAbbr: entry.opponent,
+        location: entry.location || 'home',
+        gameRecord: newGame,
+      })
+      updatedSchedule.push({ ...entry, week, gameId: newGameId, opponentTid, isBye: false })
+      return
     }
 
-    newGames.push(newGame)
-    return { ...entry, gameId: newGameId, opponentTid, isBye: false }
+    // Has an existing game — compare to detect change
+    const existingOpponentTid = opponentTidOf(existing)
+    const existingLocation = locationOf(existing)
+    const opponentMatches = existingOpponentTid === opponentTid
+    const homeTidMatches = (existing.homeTeamTid ?? null) === expectedHomeTid
+
+    if (opponentMatches && homeTidMatches) {
+      toKeep.push({ week, opponent: entry.opponent })
+      updatedSchedule.push({ ...entry, week, gameId: existing.id, opponentTid, isBye: false })
+      return
+    }
+
+    // Build the patch we'll apply on save. userTid stays on whichever side
+    // it currently sits; we only swap the opponent slot and home flag.
+    const userIsTeam1 = existing.team1Tid === userTid
+    const patch = {
+      homeTeamTid: expectedHomeTid,
+      opponentTid,
+      ...(userIsTeam1 ? { team2Tid: opponentTid } : { team1Tid: opponentTid }),
+    }
+
+    toUpdate.push({
+      week,
+      gameId: existing.id,
+      oldOpponent: abbrFor(existingOpponentTid),
+      oldOpponentTid: existingOpponentTid,
+      newOpponent: entry.opponent,
+      newOpponentTid: opponentTid,
+      oldLocation: existingLocation,
+      newLocation: entry.location || 'home',
+      isPlayed: isGamePlayed(existing),
+      hasBoxScore: !!(existing.boxScore && Object.keys(existing.boxScore).length > 0),
+      patch,
+    })
+    updatedSchedule.push({ ...entry, week, gameId: existing.id, opponentTid, isBye: false })
   })
 
-  return { newGames, updatedSchedule }
+  // toRemove: existing games whose week isn't in the new schedule, or is now BYE
+  const toRemove = []
+  existingByWeek.forEach((g, week) => {
+    const newEntry = newSchedule.find(e => Number(e.week) === week)
+    const isBye = newEntry && (newEntry.opponent?.toUpperCase() === 'BYE' || newEntry.isBye)
+    const stillReferenced = referencedWeeks.has(week) && !isBye
+    if (stillReferenced) return
+
+    const oppTid = opponentTidOf(g)
+    toRemove.push({
+      week,
+      gameId: g.id,
+      opponent: abbrFor(oppTid),
+      opponentTid: oppTid,
+      isPlayed: isGamePlayed(g),
+      hasBoxScore: !!(g.boxScore && Object.keys(g.boxScore).length > 0),
+    })
+  })
+
+  const playedAffected = [...toUpdate, ...toRemove].filter(x => x.isPlayed || x.hasBoxScore)
+
+  return { toAdd, toUpdate, toRemove, toKeep, playedAffected, updatedSchedule }
+}
+
+/**
+ * Apply a schedule diff to the dynasty's games array, returning the next
+ * games array. Pure function — no DB writes here.
+ */
+export function applyScheduleDiff(games, diff) {
+  const removeIds = new Set(diff.toRemove.map(r => r.gameId))
+  const updateById = new Map(diff.toUpdate.map(u => [u.gameId, u]))
+
+  // 1. Strip removed games
+  const surviving = (games || []).filter(g => !removeIds.has(g.id))
+
+  // 2. Apply patches in place
+  const patched = surviving.map(g => {
+    const update = updateById.get(g.id)
+    return update ? { ...g, ...update.patch } : g
+  })
+
+  // 3. Append new games
+  const newRecords = diff.toAdd.map(a => a.gameRecord)
+  return [...patched, ...newRecords]
+}
+
+/**
+ * Legacy wrapper kept for any external callers — internally now uses the
+ * diff. Only returns the (additive) shape it always did, so existing
+ * call sites don't break, but it does NOT remove or patch anything. New
+ * code should use computeScheduleDiff + applyScheduleDiff directly.
+ */
+export function createGamesFromSchedule(dynasty, schedule, userTid, year) {
+  const diff = computeScheduleDiff(dynasty, schedule, userTid, year)
+  return {
+    newGames: diff.toAdd.map(a => a.gameRecord),
+    updatedSchedule: diff.updatedSchedule,
+  }
 }
 
 /**
@@ -8253,17 +8394,14 @@ export function DynastyProvider({ children }) {
     const existingYearData = existingByYear[year] || {}
     const existingYearSetup = existingYearData.preseasonSetup || {}
 
-    // Create game records for schedule entries (links schedule to games)
-    const { newGames, updatedSchedule } = createGamesFromSchedule(dynasty, schedule, tid, year)
+    // Compute the diff (adds + updates + removes) and apply it to the games
+    // array, so re-submitting a schedule actually keeps games in sync rather
+    // than only ever appending new records.
+    const diff = computeScheduleDiff(dynasty, schedule, tid, year)
+    const allGames = applyScheduleDiff(dynasty.games || [], diff)
 
-    // Merge new games with existing games (avoid duplicates)
-    const existingGames = dynasty.games || []
-    const existingGameIds = new Set(existingGames.map(g => g.id))
-    const gamesToAdd = newGames.filter(g => !existingGameIds.has(g.id))
-    const allGames = [...existingGames, ...gamesToAdd]
-
-    // Use updatedSchedule (with gameIds) instead of raw schedule
-    const scheduleToSave = updatedSchedule
+    // Use updatedSchedule (with gameIds + opponentTid + isBye) instead of raw schedule
+    const scheduleToSave = diff.updatedSchedule
 
     // Base updates - always save to team-specific structures
     let scheduleUpdates

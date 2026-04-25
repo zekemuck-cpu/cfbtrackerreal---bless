@@ -8,14 +8,15 @@ import {
   deleteGoogleSheet,
   getSingleSheetEmbedUrl
 } from '../services/sheetsService'
-import { useDynasty, getCurrentSchedule, getScheduleForTeam } from '../context/DynastyContext'
-import { getAbbrFromTid } from '../data/teamRegistry'
+import { useDynasty, getCurrentSchedule, getScheduleForTeam, computeScheduleDiff } from '../context/DynastyContext'
+import { getAbbrFromTid, getTidFromAbbr } from '../data/teamRegistry'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
 import { useConfirm } from './ui/ConfirmDialog'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import ScheduleSaveConfirmModal from './ScheduleSaveConfirmModal'
 
 export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYear, teamColors, teamTid, teamName }) {
   const { currentDynasty, updateDynasty } = useDynasty()
@@ -43,6 +44,10 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [showAIPrompt, setShowAIPrompt] = useState(false)
+  // Pending save kept around while the confirmation modal is open. The
+  // ref-style shape lets a single modal handle both sync-only and
+  // sync-and-delete flows.
+  const [pendingSave, setPendingSave] = useState(null)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${displayTeamName} ${currentYear} Schedule`,
@@ -232,18 +237,103 @@ FINAL CHECK before you send the answer
     }
   }
 
+  // Resolve the tid/year used for the diff. Mirrors the logic inside
+  // saveSchedule so the user sees exactly what saveSchedule will write.
+  const resolveTargetTid = () => {
+    if (teamTid) return teamTid
+    if (currentDynasty?.currentTid) return currentDynasty.currentTid
+    const userAbbr = currentDynasty?.teamName
+    return userAbbr ? getTidFromAbbr(userAbbr) : null
+  }
+
+  // Common save path: read schedule → compute diff → maybe show confirm
+  // modal → call onSave + post-save side effect.
+  // The CALLER is responsible for closing the modal after a successful
+  // safe-path save (so flows like "Save & Move to Trash" can defer close
+  // for a "Sheet deleted" toast).
+  //
+  //   onSafeDone: () => void   // ran after onSave + postSave succeed when
+  //                            //   no confirm was needed
+  //   onConfirmedDone: same, but ran when the user confirmed in the modal
+  //   postSave: () => Promise  // optional side effect after onSave (e.g.
+  //                            //   delete the Google Sheet)
+  //   finallyFn: () => void    // always ran (success, fail, cancel)
+  const submitSchedule = async ({ schedule, postSave, onSafeDone, onConfirmedDone, finallyFn }) => {
+    const targetTid = resolveTargetTid()
+    let diff = null
+    try {
+      if (targetTid) {
+        diff = computeScheduleDiff(currentDynasty, schedule, targetTid, currentYear)
+      }
+    } catch (e) {
+      console.warn('computeScheduleDiff failed; saving without preview', e)
+      diff = null
+    }
+
+    const empty = diff && diff.toAdd.length === 0 && diff.toUpdate.length === 0 && diff.toRemove.length === 0
+    if (diff && empty) {
+      toast.info('No schedule changes to save.')
+      if (finallyFn) finallyFn()
+      onClose()
+      return
+    }
+
+    const needsConfirm = diff && (diff.toUpdate.length > 0 || diff.toRemove.length > 0)
+    if (needsConfirm) {
+      setPendingSave({ schedule, diff, postSave, onConfirmedDone, finallyFn })
+      return
+    }
+
+    // Safe path: only adds (or unknown — fall through to save).
+    try {
+      await onSave(schedule)
+      if (typeof postSave === 'function') await postSave()
+      if (typeof onSafeDone === 'function') onSafeDone()
+      else onClose()
+    } catch (error) {
+      toast.error('Failed to save schedule.')
+      console.error(error)
+    } finally {
+      if (finallyFn) finallyFn()
+    }
+  }
+
+  const handleConfirmSave = async () => {
+    if (!pendingSave) return
+    const { schedule, postSave, onConfirmedDone, finallyFn } = pendingSave
+    setPendingSave(null)
+    try {
+      await onSave(schedule)
+      if (typeof postSave === 'function') await postSave()
+      if (typeof onConfirmedDone === 'function') onConfirmedDone()
+      else onClose()
+    } catch (error) {
+      toast.error('Failed to save schedule.')
+      console.error(error)
+    } finally {
+      if (finallyFn) finallyFn()
+    }
+  }
+
+  const handleCancelConfirm = () => {
+    const { finallyFn } = pendingSave || {}
+    setPendingSave(null)
+    if (finallyFn) finallyFn()
+  }
+
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
 
     setSyncing(true)
     try {
       const schedule = await readScheduleFromScheduleSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
-      await onSave(schedule)
-      onClose()
+      await submitSchedule({
+        schedule,
+        finallyFn: () => setSyncing(false),
+      })
     } catch (error) {
       toast.error('Failed to sync from Google Sheets. Make sure data is properly formatted.')
       console.error(error)
-    } finally {
       setSyncing(false)
     }
   }
@@ -252,22 +342,28 @@ FINAL CHECK before you send the answer
     if (!sheetId) return
 
     setDeletingSheet(true)
-    try {
-      const schedule = await readScheduleFromScheduleSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
-      await onSave(schedule)
-
-      await deleteGoogleSheet(sheetId)
-      await updateDynasty(currentDynasty.id, { scheduleSheetId: null })
-
+    // Defer onClose until after the "sheet deleted" note has been visible
+    const finishWithDeletedNote = () => {
       setSheetId(null)
       setShowDeletedNote(true)
-      setTimeout(() => {
-        onClose()
-      }, 2500)
+      setTimeout(() => onClose(), 2500)
+    }
+
+    try {
+      const schedule = await readScheduleFromScheduleSheet(sheetId, currentDynasty?.teams || currentDynasty?.customTeams)
+      await submitSchedule({
+        schedule,
+        postSave: async () => {
+          await deleteGoogleSheet(sheetId)
+          await updateDynasty(currentDynasty.id, { scheduleSheetId: null })
+        },
+        onSafeDone: finishWithDeletedNote,
+        onConfirmedDone: finishWithDeletedNote,
+        finallyFn: () => setDeletingSheet(false),
+      })
     } catch (error) {
       console.error('Failed to sync/move to trash:', error)
       toast.error(`Failed to sync/move to trash: ${error.message || 'Unknown error'}`)
-    } finally {
       setDeletingSheet(false)
     }
   }
@@ -617,6 +713,14 @@ FINAL CHECK before you send the answer
         onClose={() => setShowAIPrompt(false)}
         title={`${displayTeamName} ${currentYear} Schedule`}
         prompt={aiPrompt}
+      />
+
+      <ScheduleSaveConfirmModal
+        isOpen={!!pendingSave}
+        diff={pendingSave?.diff}
+        primaryColor={teamColors?.primary}
+        onClose={handleCancelConfirm}
+        onConfirm={handleConfirmSave}
       />
     </div>,
     document.body,
