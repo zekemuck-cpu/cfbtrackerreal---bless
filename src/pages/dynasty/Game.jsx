@@ -1480,9 +1480,11 @@ export default function Game() {
         </div>
       </div>
 
-      {/* Scoring Summary - Dark theme continuation (hidden on desktop when integrated) */}
+      {/* Scoring Summary - Dark theme continuation (hidden on desktop when integrated).
+          Surface matches the hero card above and the tabs card below
+          (bg-surface-1) so the table doesn't read as a brighter slab. */}
       {hasQuarterScores && (
-        <div className="lg:hidden bg-surface-2 rounded-xl overflow-hidden shadow-lg">
+        <div className="lg:hidden bg-surface-1 rounded-xl overflow-hidden shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
