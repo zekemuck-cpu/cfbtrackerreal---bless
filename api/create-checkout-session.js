@@ -42,8 +42,8 @@ export default async function handler(req, res) {
       customer_email: userEmail || undefined,
       // Pass the uid through to the success URL so the client can poll for
       // the webhook-applied premium status on return.
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.vercel.app'}/?payment=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.vercel.app'}/?payment=canceled`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.app'}/?payment=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.app'}/?payment=canceled`,
     });
 
     return res.status(200).json({ url: session.url });

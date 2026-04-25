@@ -2836,7 +2836,7 @@ export default function Game() {
                     {/* Imgur embed iframe */}
                     <div className="relative w-full" style={{ minHeight: '500px' }}>
                       <iframe
-                        src={`https://imgur.com/a/${albumId}/embed?pub=true&ref=https://dynastytracker.vercel.app&analytics=false`}
+                        src={`https://imgur.com/a/${albumId}/embed?pub=true&ref=https://dynastytracker.app&analytics=false`}
                         width="100%"
                         height="500"
                         frameBorder="0"

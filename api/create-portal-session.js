@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.vercel.app'}/`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.app'}/`,
     });
 
     return res.status(200).json({ url: session.url });

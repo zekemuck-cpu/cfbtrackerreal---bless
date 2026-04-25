@@ -14,13 +14,13 @@ both Production and Preview environments.
 | `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard → Developers → Webhooks → endpoint → Signing secret | `/api/webhook` |
 | `STRIPE_PRICE_ID` | Stripe Dashboard → Products → \$4.99/mo Price → API ID (`price_...`) | `/api/create-checkout-session` |
 | `FIREBASE_SERVICE_ACCOUNT` | Firebase Console → Project settings → Service accounts → Generate new private key. Paste the **entire JSON** as a single-line string. | All `/api/*` |
-| `NEXT_PUBLIC_APP_URL` | `https://dynastytracker.vercel.app` (or your custom domain) | Checkout redirect URLs |
+| `NEXT_PUBLIC_APP_URL` | `https://dynastytracker.app` (or your custom domain) | Checkout redirect URLs |
 
 ## Stripe webhook endpoint
 
 In the Stripe Dashboard → Developers → Webhooks → **Add endpoint**:
 
-- **Endpoint URL**: `https://dynastytracker.vercel.app/api/webhook`
+- **Endpoint URL**: `https://dynastytracker.app/api/webhook`
 - **Events to send** (subscribe exactly these — extras are harmless but unused):
   - `checkout.session.completed`
   - `customer.subscription.created`

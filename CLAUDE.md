@@ -23,7 +23,7 @@ We are actively working on the **Player Editor** (`/dynasty/:id/player/:pid/edit
 
 CFB Dynasty Tracker - React web app for tracking College Football dynasty mode.
 
-- **Production URL**: https://dynastytracker.vercel.app
+- **Production URL**: https://dynastytracker.app
 - **Hosting**: Vercel (auto-deploys from `main` branch)
 - **Firebase Project**: `cfbtracker-200ab`
 
