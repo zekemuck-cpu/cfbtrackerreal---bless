@@ -10935,13 +10935,17 @@ export function DynastyProvider({ children }) {
       setMemberLeagues([])
       return
     }
+    console.log('[Multiplayer DEBUG] subscribeToMemberLeagues starting for uid:', user.uid)
     const unsub = subscribeToMemberLeagues(user.uid, (leagues) => {
+      console.log(`[Multiplayer DEBUG] subscribeToMemberLeagues returned ${leagues.length} dynasty(ies):`,
+        leagues.map(d => ({ id: d.id, name: d.dynastyName || d.teamName, userId: d.userId, memberUids: d.memberUids })))
       // Tag as cloud + drop dynasties the user owns (they come via
       // subscribeToDynasties; including them here would dedup them
       // anyway but the filter is cheaper).
       const tagged = leagues
         .filter(d => d.userId !== user.uid)
         .map(d => ({ ...d, storageType: 'cloud' }))
+      console.log(`[Multiplayer DEBUG] After filter (excluding user-owned), ${tagged.length} member-only league(s)`)
       setMemberLeagues(applyMigrations(tagged))
     })
     return unsub
