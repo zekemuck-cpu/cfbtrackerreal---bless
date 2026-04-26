@@ -4,6 +4,7 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
+import { isCommish } from '../data/leagueModel'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
@@ -25,7 +26,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     exportDynasty = null
   }
   const currentDynasty = dynastyProp || contextDynasty
-  const { isPremium } = useAuth()
+  const { isPremium, user } = useAuth()
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -74,6 +75,11 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
 
+  // Commish always sees League Settings — that's the door into
+  // multiplayer (where they invite the first member). Hiding it for
+  // solo-of-1 would be chicken-and-egg.
+  const userIsCommish = !isViewOnly && user && isCommish(currentDynasty, user.uid)
+
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
@@ -89,6 +95,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
+    ...(userIsCommish ? [{ name: 'League Settings', path: `${pathPrefix}/league`, isAdmin: true }] : []),
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 

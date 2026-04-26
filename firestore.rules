@@ -63,56 +63,138 @@ service cloud.firestore {
     }
 
     // ─── dynasties/{id} ──────────────────────────────────────────────
+    // MULTIPLAYER MODEL: every dynasty has a members[] array (legacy
+    // solo dynasties get auto-migrated to members-of-1 on load). The
+    // cheap-lookup mirror `memberUids[]` is what we check in rules
+    // (array-contains is O(1); scanning members[] for nested fields
+    // is not supported in security rules). Until a dynasty has been
+    // written post-multiplayer-launch, memberUids may not exist — fall
+    // back to the legacy userId check so existing solo dynasties keep
+    // reading.
+    //
     // Read:
-    //   - The owner can always read (premium or not). Needed so the
-    //     auto-export-to-local migration works after a subscription ends.
-    //   - Anyone can read a doc that is currently public.
+    //   - Legacy owner (resource.data.userId) can always read
+    //   - Active member (uid in memberUids) can read
+    //   - Anyone can read a doc that is currently public
     // Create:
-    //   - Must be the owner AND premium AND the doc must declare
-    //     storageType: 'cloud' (clients can't accidentally create
-    //     local dynasties in Firestore).
+    //   - Must be the owner AND premium AND storageType: 'cloud'
+    //   - On create, userId must equal the requester (no impersonation)
     // Update:
-    //   - Must be the owner AND premium.
-    //   - userId cannot be changed (no ownership transfer via update).
+    //   - Owner OR active member (write authority is enforced by
+    //     application code in Phase 1; Phase 3 will tighten this rule
+    //     to only allow team-owners and permission holders)
+    //   - Owner must remain premium
+    //   - userId cannot be changed
     // Delete:
-    //   - Owner can delete regardless of premium (needed for cleanup
-    //     when account-delete flow runs).
+    //   - Owner only (Phase 1)
+    function isMember() {
+      return isSignedIn()
+        && resource.data.memberUids is list
+        && request.auth.uid in resource.data.memberUids;
+    }
+
     match /dynasties/{dynastyId} {
       allow read: if isSignedIn() && resource.data.userId == request.auth.uid
+                  || isMember()
                   || (resource.data.isPublic == true);
 
       allow create: if isPremium()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.storageType == 'cloud';
 
+      // Phase 1: keep writes owner-only. Members can read but can't
+      // write yet — Phase 3 will gate writes by team ownership +
+      // permissions matrix. The OR isMember() will be added then with
+      // additional per-action checks (which fields each member can edit).
       allow update: if isOwner(resource.data.userId)
                     && isPremium()
                     && request.resource.data.userId == resource.data.userId;
 
       allow delete: if isOwner(resource.data.userId);
 
-      // Subcollections: same scoping as the parent dynasty.
-      // We can't easily get(parent) here cheaply for every read, so we
-      // mirror the rules — cloud-dynasty subdocs are protected by the
-      // parent's userId field via the parent document. To keep this
-      // robust, we reference the parent on each operation.
+      // Subcollections: members can read; writes still owner-only in
+      // Phase 1. Helper inlined since security rules don't support
+      // module-style helpers.
+      function parentDynasty() {
+        return get(/databases/$(database)/documents/dynasties/$(dynastyId)).data;
+      }
+      function isMemberOfParent() {
+        let pd = parentDynasty();
+        return isSignedIn()
+          && pd.memberUids is list
+          && request.auth.uid in pd.memberUids;
+      }
+
       match /players/{playerId} {
-        allow read: if isSignedIn()
-                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
-                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+        allow read: if isSignedIn() && (
+          parentDynasty().userId == request.auth.uid
+          || isMemberOfParent()
+          || parentDynasty().isPublic == true
+        );
 
         allow write: if isPremium()
-                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+                     && parentDynasty().userId == request.auth.uid;
       }
 
       match /games/{gameId} {
-        allow read: if isSignedIn()
-                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
-                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+        allow read: if isSignedIn() && (
+          parentDynasty().userId == request.auth.uid
+          || isMemberOfParent()
+          || parentDynasty().isPublic == true
+        );
 
         allow write: if isPremium()
-                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+                     && parentDynasty().userId == request.auth.uid;
       }
+    }
+
+    // ─── invitations/{id} ────────────────────────────────────────────
+    // League invitation docs. The commish creates them; the invitee can
+    // read their own pending invites and update status to accepted/declined.
+    //
+    //   {
+    //     dynastyId: string,
+    //     dynastyName: string,
+    //     dynastyOwnerUid: string,        — for commish-only update gate
+    //     commissionerEmail: string,
+    //     inviteeEmail: string (lowercase) — primary join key
+    //     inviteeUid: string|null         — populated on accept
+    //     status: 'pending'|'accepted'|'declined'|'revoked'
+    //     initialTeams: number[],
+    //     createdAt: Timestamp,
+    //     respondedAt: Timestamp|null,
+    //   }
+    //
+    // Read:
+    //   - The invitee (matched by email — works even before they have
+    //     a uid mapping, e.g. when invited by email pre-signup)
+    //   - The dynasty's commish (so they can see status of sent invites)
+    // Create: only the dynasty's commish (must equal request.auth.uid)
+    // Update: invitee can change status to accepted/declined; commish
+    //         can change status to revoked.
+    // Delete: server-only (audit trail).
+    match /invitations/{inviteId} {
+      allow read: if isSignedIn() && (
+        request.auth.token.email != null
+        && resource.data.inviteeEmail == request.auth.token.email.lower()
+        || resource.data.dynastyOwnerUid == request.auth.uid
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.dynastyOwnerUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      allow update: if isSignedIn() && (
+        // Invitee responding
+        (request.auth.token.email != null
+         && resource.data.inviteeEmail == request.auth.token.email.lower()
+         && request.resource.data.status in ['accepted', 'declined'])
+        // Commish revoking
+        || (resource.data.dynastyOwnerUid == request.auth.uid
+            && request.resource.data.status == 'revoked')
+      );
+
+      allow delete: if false;
     }
 
     // ─── Server-only collections ─────────────────────────────────────

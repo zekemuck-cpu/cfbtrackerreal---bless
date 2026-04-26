@@ -13,6 +13,7 @@ import {
   adminRecoverOrphan,
   deleteAccount,
 } from '../services/subscriptionService'
+import PendingInvitationsCard from '../components/PendingInvitationsCard'
 
 const PLAN_FEATURES = [
   { name: 'Dynasty Tracking', free: true, premium: true },
@@ -198,6 +199,9 @@ export default function Account() {
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-6 space-y-4">
         <PageHero title="Account" />
+
+        {/* League invitations — only renders when there are pending */}
+        <PendingInvitationsCard />
 
         {/* Profile Card */}
         <Card>

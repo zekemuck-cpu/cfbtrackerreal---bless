@@ -4,6 +4,7 @@ import { useToast } from '../components/ui/Toast'
 import {
   getUserDynasties,
   subscribeToDynasties,
+  subscribeToMemberLeagues,
   createDynasty as createDynastyInFirestore,
   updateDynasty as updateDynastyInFirestore,
   deleteDynasty as deleteDynastyFromFirestore,
@@ -59,6 +60,7 @@ import {
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
+import { migrateDynastyToMembers, computeMemberUids, needsMembersMigration } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -4389,6 +4391,19 @@ export function DynastyProvider({ children }) {
 
       if (coachTeamByYearUpdated) {
         migrated.coachTeamByYear = updatedCoachTeamByYear
+      }
+
+      // MULTIPLAYER MIGRATION: every dynasty gets a members[] on first
+      // load. Solo dynasties become "multiplayer of 1" — the sole owner
+      // is auto-commish. The unified codepath means there is no
+      // single-vs-multi mode flag; everything reads from members[].
+      // Falls back to the currently-signed-in user's email when the
+      // dynasty doc doesn't carry the owner's email (legacy).
+      if (needsMembersMigration(migrated)) {
+        migrated = migrateDynastyToMembers(migrated, user?.email || '')
+      } else if (!Array.isArray(migrated.memberUids) || migrated.memberUids.length === 0) {
+        // Members exist but the cheap-lookup mirror is missing — recompute.
+        migrated = { ...migrated, memberUids: computeMemberUids(migrated.members) }
       }
 
       return migrated
@@ -10908,8 +10923,41 @@ export function DynastyProvider({ children }) {
   // They can view but not edit until they export and import as local
   const isViewOnly = currentDynasty?.storageType === 'cloud' && !isPremium
 
+  // ─── Multiplayer: subscribe to leagues where the user is a member
+  // (but not the owner). The owner-side subscription above pulls in
+  // dynasties they own; this fills in the rest. We merge into the
+  // dynasties list via a derived value below so existing consumers
+  // keep working without changes.
+  const [memberLeagues, setMemberLeagues] = useState([])
+  useEffect(() => {
+    if (!user?.uid) {
+      setMemberLeagues([])
+      return
+    }
+    const unsub = subscribeToMemberLeagues(user.uid, (leagues) => {
+      // Tag as cloud + drop dynasties the user owns (they come via
+      // subscribeToDynasties; including them here would dedup them
+      // anyway but the filter is cheaper).
+      const tagged = leagues
+        .filter(d => d.userId !== user.uid)
+        .map(d => ({ ...d, storageType: 'cloud' }))
+      setMemberLeagues(applyMigrations(tagged))
+    })
+    return unsub
+  }, [user?.uid])
+
+  // Merge owner dynasties + member leagues, deduplicated by id. Owner
+  // entries win (they have full subcollection data; member-league
+  // entries are metadata until selected for lazy load).
+  const dynastiesWithMemberLeagues = (() => {
+    if (!memberLeagues.length) return dynasties
+    const ownerIds = new Set(dynasties.map(d => d.id))
+    const onlyMember = memberLeagues.filter(d => !ownerIds.has(d.id))
+    return [...dynasties, ...onlyMember]
+  })()
+
   const value = {
-    dynasties,
+    dynasties: dynastiesWithMemberLeagues,
     currentDynasty,
     customTeams,
     loading,
