@@ -115,6 +115,26 @@ const getOrdinalSuffix = (num) => {
   }
 }
 
+// Inline quarter input — module-scoped so its component identity is
+// stable across renders. If we redefined this inside the GameEdit
+// render body, every keystroke would create a new component reference,
+// React would unmount/remount the input, and focus would drop after
+// each character. (Lesson learned the painful way.)
+function QuarterInput({ value, onChange, onBlur }) {
+  return (
+    <input
+      type="number"
+      value={value ?? ''}
+      onChange={onChange}
+      onBlur={onBlur}
+      className="w-12 text-center tabular-nums text-sm rounded-sm py-1 bg-transparent text-txt-secondary focus:outline-none focus:ring-1 focus:ring-white/40"
+      style={{ border: '1px solid var(--surface-5)' }}
+      min="0"
+      placeholder="0"
+    />
+  )
+}
+
 export default function GameEdit() {
   const { id, gameId } = useParams()
   const [searchParams] = useSearchParams()
@@ -1251,23 +1271,9 @@ export default function GameEdit() {
         // 50/50 gradient — winner highlight isn't meaningful while editing.
         const headerGradient = `linear-gradient(90deg, ${leftColors.primary} 0%, ${leftColors.primary} 40%, ${rightColors.primary} 60%, ${rightColors.primary} 100%)`
         const titleText = isNewGame ? 'New Game' : (gameTitle || 'Edit Game')
-        const quartersDisabled = false // always editable in the hero quarter inputs
-        const otCount = formData.overtimes.length
-
-        // Inline quarter input — styled to match the read-only quarter cell
-        // on the live Game page so the editor and viewer feel like the same surface.
-        const QuarterInput = ({ value, onChange, onBlur }) => (
-          <input
-            type="number"
-            value={value ?? ''}
-            onChange={onChange}
-            onBlur={onBlur}
-            className="w-12 text-center tabular-nums text-sm rounded-sm py-1 bg-transparent text-txt-secondary focus:outline-none focus:ring-1 focus:ring-white/40"
-            style={{ border: '1px solid var(--surface-5)' }}
-            min="0"
-            placeholder="0"
-          />
-        )
+        // QuarterInput is defined at module scope (top of this file) so its
+        // component identity is stable across renders — see the comment up
+        // there for why.
 
         return (
           <div className="bg-surface-1 rounded-2xl overflow-hidden shadow-2xl">

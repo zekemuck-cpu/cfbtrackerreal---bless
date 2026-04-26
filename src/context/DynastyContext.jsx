@@ -9818,6 +9818,12 @@ export function DynastyProvider({ children }) {
 
       // Mark as using subcollections
       mainDocData._subcollectionsMigrated = true
+      // CRITICAL: this branch writes to Firestore, so the doc MUST declare
+      // storageType: 'cloud'. Earlier in this function we defaulted to
+      // 'local' (line ~9776) for the IndexedDB path; override it here.
+      // The Firestore security rule rejects cloud-collection creates
+      // unless storageType is exactly 'cloud'.
+      mainDocData.storageType = 'cloud'
 
       // Stage 2: Create the main dynasty document (without players/games)
       reportProgress('creating', 'Creating dynasty record...', 15)
