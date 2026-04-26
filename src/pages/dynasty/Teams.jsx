@@ -72,7 +72,7 @@ export default function Teams() {
           {filteredTeams.map(team => (
             <Link
               key={team.tid}
-              to={`${pathPrefix}/team/${team.tid}`}
+              to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
               className="team-card group relative flex items-center gap-3 pl-4 pr-3 py-3 rounded-lg bg-surface-2 transition-all duration-200"
               style={{
                 border: '1px solid var(--rule-soft, var(--surface-4))',

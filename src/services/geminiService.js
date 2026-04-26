@@ -176,24 +176,40 @@ function isUnplayedGame(g) {
 }
 
 /**
- * Get team ratings for a team/year
- * Checks tid-based storage first, then falls back to legacy abbr-based storage
+ * Get team ratings for a team/year. Tid-based primary path; legacy abbr
+ * fallback is drift-aware (scans all keys and resolves each as a possible
+ * old-abbr for this team) so a teambuilder team renamed mid-dynasty
+ * still surfaces its old-year ratings.
  */
 function getTeamRatings(dynasty, teamAbbr, year) {
-  // Try tid-based lookup first (new format)
+  // Resolve target tid up-front.
+  let targetTid = null
   if (dynasty?.teams) {
-    // Find tid from abbr
     for (const [tid, teamData] of Object.entries(dynasty.teams)) {
       if (teamData?.abbr === teamAbbr || teamData?.name?.includes(teamAbbr)) {
+        targetTid = Number(tid)
         const tidRatings = teamData?.byYear?.[year]?.teamRatings
         if (tidRatings) return tidRatings
+        break
       }
     }
   }
 
-  // Fall back to legacy abbr-based lookup
-  if (dynasty?.teamRatingsByTeamYear?.[teamAbbr]?.[year]) {
-    return dynasty.teamRatingsByTeamYear[teamAbbr][year]
+  const structure = dynasty?.teamRatingsByTeamYear
+  if (structure) {
+    // Direct hits first.
+    if (structure[teamAbbr]?.[year]) return structure[teamAbbr][year]
+    if (targetTid != null && structure[targetTid]?.[year]) return structure[targetTid][year]
+    // Drift recovery — for renamed teambuilder teams.
+    if (targetTid != null) {
+      for (const key of Object.keys(structure)) {
+        if (key === teamAbbr || key === String(targetTid)) continue
+        const keyTid = dynasty?.teams && Object.entries(dynasty.teams).find(([, td]) => td?.abbr === key)?.[0]
+        if (keyTid != null && Number(keyTid) === targetTid && structure[key]?.[year]) {
+          return structure[key][year]
+        }
+      }
+    }
   }
 
   return null
@@ -1510,23 +1526,30 @@ export function buildGameRecapContext(dynasty, game) {
     isUserTeam1InGameData = game.team1Tid === currentGamePerspective.userTid
   }
 
-  // Determine which box score side has which team's stats by checking teamAbbr
-  // The box score teamStats has home.teamAbbr and away.teamAbbr to identify teams
+  // Determine which box score side has which team's stats. Tid-based via
+  // game.homeTeamTid (canonical) so a teambuilder team renamed mid-dynasty
+  // still attributes pre-rename game stats to the right side. Abbr fallback
+  // for legacy games where homeTeamTid isn't stored.
   let team1Side = 'home'
   let team2Side = 'away'
 
   if (game.boxScore?.teamStats) {
-    const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-    const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-
-    // Match team1 to the correct side by abbreviation
-    if (homeAbbr && awayAbbr) {
-      if (awayAbbr === team1?.toUpperCase()) {
-        // team1's stats are in 'away' position
-        team1Side = 'away'
-        team2Side = 'home'
+    const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
+    const t1Tid = team1Tid != null ? Number(team1Tid) : null
+    if (homeTid != null && t1Tid != null) {
+      // team1 is on the home side iff its tid matches homeTeamTid
+      if (homeTid === t1Tid) {
+        team1Side = 'home'; team2Side = 'away'
+      } else {
+        team1Side = 'away'; team2Side = 'home'
       }
-      // else: team1's stats are in 'home' position (default)
+    } else {
+      // Legacy abbr path
+      const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
+      const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
+      if (homeAbbr && awayAbbr && awayAbbr === team1?.toUpperCase()) {
+        team1Side = 'away'; team2Side = 'home'
+      }
     }
   }
 

@@ -37,15 +37,28 @@ export const conferenceTeams = {
   ]
 }
 
-// Get conference for a team abbreviation
+// Get conference for a team abbreviation OR tid.
 // If customConferences is provided, it will be checked first before falling back to defaults
 // customTeams object is used to resolve replaced team lookups (teambuilder teams)
-export function getTeamConference(abbr, customConferences = null, customTeams = null) {
+//
+// `abbrOrTid` may be: an abbr string (legacy), a numeric tid (preferred), or
+// a numeric-string tid. Tid input is normalized through customTeams to the
+// team's CURRENT abbr — important for teambuilder teams whose abbr drifted
+// since the lookup site cached it.
+export function getTeamConference(abbrOrTid, customConferences = null, customTeams = null) {
+  // Normalize input: tid → current abbr
+  let abbr = abbrOrTid
+  if (customTeams && (typeof abbrOrTid === 'number' || (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid)))) {
+    const tidKey = String(abbrOrTid)
+    const teamRec = customTeams[tidKey] || customTeams[Number(tidKey)]
+    if (teamRec) abbr = teamRec.abbr || teamRec.abbreviation || abbr
+  }
+
   // Check if this is a teambuilder team - if so, look up the conference of the team it replaced
   let lookupAbbr = abbr
   if (customTeams) {
     // Check if abbr is a teambuilder team's abbreviation
-    const teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === abbr)
+    const teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === abbr || t.abbr === abbr)
     if (teambuilderTeam && teambuilderTeam.replacesTeam) {
       // Use the replaced team's abbreviation to find the conference
       lookupAbbr = teambuilderTeam.replacesTeam

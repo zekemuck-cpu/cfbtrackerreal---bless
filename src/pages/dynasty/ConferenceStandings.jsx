@@ -245,18 +245,23 @@ export default function ConferenceStandings() {
     )
   }
 
-  // Team row component
+  // Team row component. Tid-first identity so a renamed teambuilder team
+  // still resolves to current logo/name/link — `team.team` is the abbr at
+  // sheet-write time and may have drifted since.
   const TeamRow = ({ team, rank }) => {
-    const teamAbbr = team.team
-    const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const logo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#666', secondary: '#fff' }
+    const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
+    const teamFromTid = team.tid != null ? teamsSource?.[team.tid] : null
+    const teamAbbr = teamFromTid?.abbr || team.team
+    const mascotName = teamFromTid?.name || getMascotName(teamAbbr, teamsSource)
+    const logo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
+    const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#666', secondary: '#fff' }
     const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
     const diffColor = pointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
+    const linkTid = team.tid != null ? Number(team.tid) : resolveTid(teamAbbr, teamsSource || TEAMS)
 
     return (
       <Link
-        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${displayYear}`}
+        to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
         className="standings-row group relative flex items-center gap-3 py-2 px-3 transition-all duration-150"
         style={{ borderTop: '1px solid var(--rule-soft, var(--surface-4))' }}
       >

@@ -2,9 +2,9 @@ import { useState, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid } from '../../data/teams'
 import { getTeamName } from '../../data/teamAbbreviations'
-import { getAbbrFromTeamName } from '../../data/teamRegistry'
+import { getAbbrFromTeamName, getAbbrFromTid } from '../../data/teamRegistry'
 import {
   PageHero,
   Card,
@@ -125,13 +125,35 @@ export default function DynastyRecords() {
     return currentDynasty.players.filter(p => !p.isHonorOnly)
   }
 
-  // Get player info
+  // Get player info. player.team may be a tid (modern format), an abbr
+  // (legacy), or a full team name (older legacy). Resolve all three so the
+  // leaderboard's team logo / name doesn't break for tid-stored players.
   const getPlayerInfo = (pid) => {
     const player = currentDynasty?.players?.find(p => p.pid === pid)
+    const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
     const playerTeamRaw = player?.team || currentDynasty?.teamName
-    const teamAbbr = getAbbrFromTeamName(playerTeamRaw) || playerTeamRaw
-    const teamFullName = getTeamName(teamAbbr) || playerTeamRaw
-    const teamLogo = getTeamLogo(teamFullName, currentDynasty?.teams || currentDynasty?.customTeams)
+
+    // tid-first resolution. Numeric tid → abbr/name/logo via registry.
+    let teamAbbr = null
+    let teamFullName = null
+    let teamLogo = null
+    if (typeof playerTeamRaw === 'number' || (typeof playerTeamRaw === 'string' && /^\d+$/.test(playerTeamRaw))) {
+      const tid = Number(playerTeamRaw)
+      teamAbbr = getAbbrFromTid(teamsSource, tid)
+      teamFullName = teamsSource?.[tid]?.name || (teamAbbr ? getTeamName(teamAbbr) : null)
+      teamLogo = getTeamLogoByTid(tid, teamsSource)
+    }
+    // Fall back to abbr / team-name handling for legacy player records.
+    if (!teamAbbr) {
+      teamAbbr = getAbbrFromTeamName(playerTeamRaw) || playerTeamRaw
+    }
+    if (!teamFullName) {
+      teamFullName = getTeamName(teamAbbr) || playerTeamRaw
+    }
+    if (!teamLogo) {
+      teamLogo = getTeamLogo(teamFullName, teamsSource)
+    }
+
     return {
       name: player?.name || `Player ${pid}`,
       position: player?.position || '',

@@ -115,16 +115,24 @@ export default function Rankings() {
 
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
   const yearStandings = standingsByYear[displayYear] || {}
+  // Index records by BOTH tid and abbr — abbr lookup is the legacy path,
+  // tid lookup survives teambuilder renames. Sheet readers store both
+  // (`team` + `tid`) on each row.
   const teamRecords = {}
+  const teamRecordsByTid = {}
   Object.values(yearStandings).forEach(conferenceTeams => {
     if (Array.isArray(conferenceTeams)) {
       conferenceTeams.forEach(team => {
-        if (team.team) {
-          teamRecords[team.team] = { wins: team.wins || 0, losses: team.losses || 0 }
-        }
+        const rec = { wins: team.wins || 0, losses: team.losses || 0 }
+        if (team.team) teamRecords[team.team] = rec
+        if (team.tid != null) teamRecordsByTid[Number(team.tid)] = rec
       })
     }
   })
+  const lookupRecord = (abbr, tid) => {
+    if (tid != null && teamRecordsByTid[Number(tid)]) return teamRecordsByTid[Number(tid)]
+    return teamRecords[abbr] || null
+  }
 
   const handleYearChange = (year) => navigate(`${pathPrefix}/rankings/${year}`)
 
@@ -142,16 +150,23 @@ export default function Rankings() {
     )
   }
 
-  const PlayoffTeamCard = ({ rank, teamAbbr, year }) => {
-    const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#6e6e78', secondary: '#fff' }
-    const record = teamRecords[teamAbbr]
-    const schoolName = getSchoolName(mascotName) || teamAbbr
+  const PlayoffTeamCard = ({ rank, teamAbbr, teamTid, year }) => {
+    const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
+    // Tid-first resolution — survives teambuilder renames since the abbr
+    // stored on the poll row may have drifted.
+    const teamFromTid = teamTid != null ? teamsSource?.[teamTid] : null
+    const resolvedAbbr = teamFromTid?.abbr || teamAbbr
+    const mascotName = teamFromTid?.name || getMascotName(resolvedAbbr, teamsSource)
+    const teamLogo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
+    const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#6e6e78', secondary: '#fff' }
+    const record = lookupRecord(resolvedAbbr, teamTid)
+    const schoolName = getSchoolName(mascotName) || resolvedAbbr
+
+    const linkTid = teamTid != null ? Number(teamTid) : resolveTid(resolvedAbbr, teamsSource || TEAMS)
 
     return (
       <Link
-        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
+        to={`${pathPrefix}/team/${linkTid}/${year}`}
         className="playoff-card group relative flex flex-col items-center text-center px-3 pt-5 pb-4 rounded-lg bg-surface-2 transition-all duration-200 overflow-hidden"
         style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
@@ -178,7 +193,7 @@ export default function Rankings() {
               className="w-full h-full rounded-full flex items-center justify-center font-bold"
               style={{ backgroundColor: colors.primary, color: colors.secondary }}
             >
-              {teamAbbr.charAt(0)}
+              {(resolvedAbbr || '').charAt(0)}
             </div>
           )}
         </div>
@@ -194,15 +209,19 @@ export default function Rankings() {
     )
   }
 
-  const RankingRow = ({ rank, teamAbbr, year }) => {
-    const mascotName = getMascotName(teamAbbr, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#6e6e78', secondary: '#fff' }
-    const record = teamRecords[teamAbbr]
+  const RankingRow = ({ rank, teamAbbr, teamTid, year }) => {
+    const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
+    const teamFromTid = teamTid != null ? teamsSource?.[teamTid] : null
+    const resolvedAbbr = teamFromTid?.abbr || teamAbbr
+    const mascotName = teamFromTid?.name || getMascotName(resolvedAbbr, teamsSource)
+    const teamLogo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
+    const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#6e6e78', secondary: '#fff' }
+    const record = lookupRecord(resolvedAbbr, teamTid)
+    const linkTid = teamTid != null ? Number(teamTid) : resolveTid(resolvedAbbr, teamsSource || TEAMS)
 
     return (
       <Link
-        to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${year}`}
+        to={`${pathPrefix}/team/${linkTid}/${year}`}
         className="ranking-row group relative flex items-center gap-3 px-3 py-2.5 transition-all duration-150"
         style={{ borderBottom: '1px solid var(--rule-soft, var(--surface-4))' }}
       >
@@ -225,12 +244,12 @@ export default function Rankings() {
               className="w-full h-full rounded-full flex items-center justify-center text-xs font-bold"
               style={{ backgroundColor: colors.primary, color: colors.secondary }}
             >
-              {teamAbbr.charAt(0)}
+              {(resolvedAbbr || '').charAt(0)}
             </div>
           )}
         </div>
         <span className="flex-1 font-medium text-sm text-txt-primary truncate transition-colors group-hover:text-white">
-          {getSchoolName(mascotName) || teamAbbr}
+          {getSchoolName(mascotName) || resolvedAbbr}
         </span>
         {record && (
           <span className="text-xs text-txt-tertiary tabular flex-shrink-0">
@@ -274,6 +293,7 @@ export default function Rankings() {
                     key={`${pollType}-top-${entry.rank}`}
                     rank={entry.rank}
                     teamAbbr={entry.team}
+                    teamTid={entry.tid}
                     year={displayYear}
                   />
                 ))}
@@ -287,6 +307,7 @@ export default function Rankings() {
                     key={`${pollType}-${entry.rank}`}
                     rank={entry.rank}
                     teamAbbr={entry.team}
+                    teamTid={entry.tid}
                     year={displayYear}
                   />
                 ))}

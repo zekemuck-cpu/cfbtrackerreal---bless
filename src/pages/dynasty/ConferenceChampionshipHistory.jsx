@@ -164,16 +164,34 @@ export default function ConferenceChampionshipHistory() {
       return team1Conf === conferenceName || team2Conf === conferenceName
     })
 
-    const results = ccGames.map(g => ({
-      year: g.year,
-      conference: g.conference,
-      team1: getTeamAbbr(g, true),
-      team2: getTeamAbbr(g, false),
-      team1Score: g.team1Score,
-      team2Score: g.team2Score,
-      winner: g.winner,
-      gameRef: g
-    }))
+    // winner MUST be derived from the same team1/team2 we just resolved
+    // (current registry abbrs, tid-aware), not from the stored g.winner
+    // which may hold a stale abbr from before a teambuilder rename and
+    // would no longer === game.team1 / game.team2 in the comparisons
+    // downstream — silently un-highlighting the actual winner.
+    const results = ccGames.map(g => {
+      const t1 = getTeamAbbr(g, true)
+      const t2 = getTeamAbbr(g, false)
+      let winner = null
+      if (g.winnerTid != null) {
+        if (g.team1Tid != null && Number(g.team1Tid) === Number(g.winnerTid)) winner = t1
+        else if (g.team2Tid != null && Number(g.team2Tid) === Number(g.winnerTid)) winner = t2
+      }
+      if (!winner && (g.team1Score != null || g.team2Score != null)) {
+        if (g.team1Score > g.team2Score) winner = t1
+        else if (g.team2Score > g.team1Score) winner = t2
+      }
+      return {
+        year: g.year,
+        conference: g.conference,
+        team1: t1,
+        team2: t2,
+        team1Score: g.team1Score,
+        team2Score: g.team2Score,
+        winner,
+        gameRef: g
+      }
+    })
 
     return results.sort((a, b) => b.year - a.year)
   }

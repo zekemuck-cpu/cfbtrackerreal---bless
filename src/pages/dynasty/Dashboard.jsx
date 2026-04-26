@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -177,21 +177,13 @@ export default function Dashboard() {
       // Get our player box score (for defensive stats like sacks, INTs)
       const ourPlayerBoxScore = isHome ? game.boxScore.home : game.boxScore.away
 
-      // Aggregate offense from team stats
+      // Aggregate offense from team stats. Pick side via isHome (tid-derived)
+      // so a teambuilder team renamed mid-dynasty still aggregates pre-rename
+      // games — comparing teamStats.home.teamAbbr (stored at game time) to
+      // currentTeamAbbr (current registry value) silently dropped them.
       if (game.boxScore.teamStats) {
-        const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-        const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-
-        let ourTeamStats = null
-        let oppTeamStats = null
-
-        if (homeAbbr === currentTeamAbbr) {
-          ourTeamStats = game.boxScore.teamStats.home
-          oppTeamStats = game.boxScore.teamStats.away
-        } else if (awayAbbr === currentTeamAbbr) {
-          ourTeamStats = game.boxScore.teamStats.away
-          oppTeamStats = game.boxScore.teamStats.home
-        }
+        const ourTeamStats = isHome ? game.boxScore.teamStats.home : game.boxScore.teamStats.away
+        const oppTeamStats = isHome ? game.boxScore.teamStats.away : game.boxScore.teamStats.home
 
         if (ourTeamStats) {
           gamesWithStats++
@@ -7149,9 +7141,15 @@ export default function Dashboard() {
                         return true
                       })
                       const hasTransfers = transfers.length > 0
-                      // Check team-centric path (where data is actually saved)
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
-                      const transferDestinationsData = currentDynasty?.transferDestinationsByTeamYear?.[teamAbbr]?.[offseasonDataYear]
+                      // Check team-centric path (where data is actually saved).
+                      // Uses lookupByTeamYear so teambuilder renames don't
+                      // orphan the previously-saved data under an old abbr key.
+                      const transferDestinationsData = lookupByTeamYear(
+                        currentDynasty?.transferDestinationsByTeamYear,
+                        currentDynasty,
+                        getCurrentTeamTid(currentDynasty),
+                        offseasonDataYear
+                      )
                       const hasTransferDestinationsData = Array.isArray(transferDestinationsData) && transferDestinationsData.length > 0
                       const transferDestinationsCount = transferDestinationsData?.length || 0
 
@@ -7215,8 +7213,12 @@ export default function Dashboard() {
 
                     {/* Task 2: Recruiting Class Rank (only on National Signing Day) */}
                     {recruitingWeekNum === 5 && (() => {
-                      const teamAbbr = getCurrentTeamAbbr(currentDynasty)
-                      const classRank = currentDynasty.recruitingClassRankByTeamYear?.[teamAbbr]?.[offseasonDataYear]
+                      const classRank = lookupByTeamYear(
+                        currentDynasty.recruitingClassRankByTeamYear,
+                        currentDynasty,
+                        getCurrentTeamTid(currentDynasty),
+                        offseasonDataYear
+                      )
                       const hasClassRank = !!classRank
 
                       return (
@@ -9234,12 +9236,17 @@ export default function Dashboard() {
           // CRITICAL FIX: Preserve user's game that was entered separately
           const weekKey = `week${week}`
           const existingWeekGames = existingYearData[weekKey] || []
-          const userExistingGame = existingWeekGames.find(g =>
-            g && (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
-          )
-          const userGameInSheet = cfpGames.some(g =>
-            g && (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
-          )
+          // Tid match for "is this the user's CFP game" before falling back
+          // to abbr — abbr drift would make the merge create duplicate games
+          // (or lose the user's game on subsequent saves) for renamed
+          // teambuilder teams.
+          const isUsersCFPGame = (g) => {
+            if (!g) return false
+            if (userTeamTid != null && (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))) return true
+            return g.team1 === userTeamAbbr || g.team2 === userTeamAbbr
+          }
+          const userExistingGame = existingWeekGames.find(isUsersCFPGame)
+          const userGameInSheet = cfpGames.some(isUsersCFPGame)
           const mergedCFPGames = userExistingGame && !userGameInSheet
             ? [...cfpGames, userExistingGame]
             : cfpGames
@@ -9782,7 +9789,7 @@ export default function Dashboard() {
         isOpen={showRecruitingClassRankModal}
         onClose={() => setShowRecruitingClassRankModal(false)}
         onSave={handleRecruitingClassRankSave}
-        currentRank={currentDynasty?.recruitingClassRankByTeamYear?.[getCurrentTeamAbbr(currentDynasty)]?.[offseasonDataYear]}
+        currentRank={lookupByTeamYear(currentDynasty?.recruitingClassRankByTeamYear, currentDynasty, getCurrentTeamTid(currentDynasty), offseasonDataYear)}
         teamColors={teamColors}
       />
 

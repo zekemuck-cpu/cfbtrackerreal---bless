@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor, getContrastRatio } from '../../utils/colorUtils'
@@ -1095,16 +1095,31 @@ export default function TeamYear() {
       if (Number(game.year) !== selectedYear) return
       if (!game.boxScore?.teamStats) return
 
-      // Check if this team's stats are in the home or away slot
-      const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
-      const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
-      const targetAbbr = teamAbbr.toUpperCase()
+      // Pick this team's stats side via tid first (survives teambuilder
+      // renames). Fall back to abbr only when neither side has team1/team2
+      // tids on the game.
+      const t1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+      const t2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
+      const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
+      const isTeam1 = t1Tid != null && t1Tid === Number(tid)
+      const isTeam2 = t2Tid != null && t2Tid === Number(tid)
 
       let teamStats = null
-      if (homeAbbr === targetAbbr) {
-        teamStats = game.boxScore.teamStats.home
-      } else if (awayAbbr === targetAbbr) {
-        teamStats = game.boxScore.teamStats.away
+      if (isTeam1) {
+        teamStats = (homeTid === Number(tid))
+          ? game.boxScore.teamStats.home
+          : game.boxScore.teamStats.away
+      } else if (isTeam2) {
+        teamStats = (homeTid === Number(tid))
+          ? game.boxScore.teamStats.home
+          : game.boxScore.teamStats.away
+      } else {
+        // Legacy fallback for games with no team1Tid/team2Tid
+        const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
+        const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
+        const targetAbbr = teamAbbr.toUpperCase()
+        if (homeAbbr === targetAbbr) teamStats = game.boxScore.teamStats.home
+        else if (awayAbbr === targetAbbr) teamStats = game.boxScore.teamStats.away
       }
 
       if (!teamStats) return
@@ -1217,8 +1232,7 @@ export default function TeamYear() {
   // console.log(`[TeamYear:${teamAbbr}] Record for ${yearNum}: source=${recordSource}`, displayRecord)
 
   // Get team ratings for this year (try both tid and abbr keys for backwards compatibility)
-  const teamRatings = currentDynasty.teamRatingsByTeamYear?.[tid]?.[selectedYear] ||
-                      currentDynasty.teamRatingsByTeamYear?.[teamAbbr]?.[selectedYear] || null
+  const teamRatings = lookupByTeamYear(currentDynasty.teamRatingsByTeamYear, currentDynasty, tid, selectedYear) || null
 
   // Get final poll rankings for this team in this year (tid-based)
   const getFinalPollRankings = () => {
@@ -1779,20 +1793,22 @@ export default function TeamYear() {
         if (favoriteStatus === 'underdog') underdogGames.push(gameWithPerspective)
       }
 
-      // Get box score stats
+      // Get box score stats. Tid path FIRST so a teambuilder team renamed
+      // mid-dynasty still aggregates pre-rename games — comparing the
+      // boxScore's stored teamAbbr (snapshot at game time) against the
+      // current registry abbr was silently dropping those games entirely.
       if (!game.boxScore) return
 
-      const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr?.toUpperCase()
-      const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr?.toUpperCase()
-      const targetAbbr = teamAbbr?.toUpperCase()
-
       let teamSide = null
-      if (homeAbbr === targetAbbr) teamSide = 'home'
-      else if (awayAbbr === targetAbbr) teamSide = 'away'
+      if (isTeam1) teamSide = game.homeTeamTid === tid ? 'home' : 'away'
+      else if (isTeam2) teamSide = game.homeTeamTid === tid ? 'away' : 'home'
 
       if (!teamSide) {
-        if (isTeam1) teamSide = game.homeTeamTid === tid ? 'home' : 'away'
-        else if (isTeam2) teamSide = game.homeTeamTid === tid ? 'away' : 'home'
+        const homeAbbr = game.boxScore.teamStats?.home?.teamAbbr?.toUpperCase()
+        const awayAbbr = game.boxScore.teamStats?.away?.teamAbbr?.toUpperCase()
+        const targetAbbr = teamAbbr?.toUpperCase()
+        if (homeAbbr === targetAbbr) teamSide = 'home'
+        else if (awayAbbr === targetAbbr) teamSide = 'away'
       }
 
       if (!teamSide) return
@@ -2151,7 +2167,7 @@ export default function TeamYear() {
                   onClick={() => {
                     setEditWins(displayRecord?.wins?.toString() || '')
                     setEditLosses(displayRecord?.losses?.toString() || '')
-                    setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
+                    setEditConference(lookupByTeamYear(currentDynasty.conferenceByTeamYear, currentDynasty, tid, selectedYear) || conference || '')
                     setShowTeamEditModal(true)
                   }}
                   className="p-1.5 rounded-lg transition-colors hover:bg-surface-3 flex-shrink-0 text-txt-secondary hover:text-txt-primary"
@@ -4479,19 +4495,27 @@ export default function TeamYear() {
               const isLoss = displayResult === 'loss' || displayResult === 'L'
               const hasResult = isWin || isLoss
 
-              // Get team stats from boxScore if available
+              // Get team stats from boxScore. Tid-based side selection so
+              // a teambuilder team renamed mid-dynasty still gets its
+              // pre-rename game stats; abbr fallback for legacy games
+              // missing team1Tid/team2Tid.
               const getGameStats = () => {
                 if (!game.boxScore?.teamStats) return null
+                const t1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+                const t2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
+                const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : null
+                const tNum = Number(tid)
+                if (t1Tid === tNum || t2Tid === tNum) {
+                  return (homeTid === tNum)
+                    ? game.boxScore.teamStats.home
+                    : game.boxScore.teamStats.away
+                }
                 const homeAbbr = game.boxScore.teamStats.home?.teamAbbr?.toUpperCase()
                 const awayAbbr = game.boxScore.teamStats.away?.teamAbbr?.toUpperCase()
                 const targetAbbr = teamAbbr.toUpperCase()
-                let stats = null
-                if (homeAbbr === targetAbbr) {
-                  stats = game.boxScore.teamStats.home
-                } else if (awayAbbr === targetAbbr) {
-                  stats = game.boxScore.teamStats.away
-                }
-                return stats
+                if (homeAbbr === targetAbbr) return game.boxScore.teamStats.home
+                if (awayAbbr === targetAbbr) return game.boxScore.teamStats.away
+                return null
               }
               const gameStats = getGameStats()
 
@@ -5152,7 +5176,7 @@ export default function TeamYear() {
           return (a.name || '').localeCompare(b.name || '')
         })
         const classScore = calculateRecruitingClassScore(commits)
-        const nationalRank = currentDynasty?.recruitingClassRankByTeamYear?.[teamAbbr]?.[selectedYear] ?? null
+        const nationalRank = lookupByTeamYear(currentDynasty?.recruitingClassRankByTeamYear, currentDynasty, tid, selectedYear) ?? null
         const starCounts = [5, 4, 3, 2, 1].map(n => ({
           count: n,
           total: commits.filter(c => Number(c.stars) === n).length

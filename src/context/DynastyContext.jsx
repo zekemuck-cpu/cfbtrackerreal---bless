@@ -943,6 +943,51 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 }
 
 /**
+ * Generic drift-safe lookup for any `*ByTeamYear` storage shape — i.e.
+ * objects of the form `{ [teamKey]: { [year]: value, ... }, ... }` where
+ * `teamKey` may be either a tid or an abbr depending on when the entry
+ * was written. After a teambuilder rename, old entries sit under the old
+ * abbr; new entries land under the new abbr; callers don't know which.
+ *
+ * Strategy:
+ *   1. tid lookup (modern)
+ *   2. current-abbr lookup (most common)
+ *   3. scan all keys; for each abbr-keyed entry, resolve to tid via the
+ *      registry; if it matches the requested team's tid, return.
+ *
+ * Step 3 only kicks in for teams that have been renamed; ordinary teams
+ * hit step 2 and return immediately.
+ */
+export function lookupByTeamYear(structure, dynasty, tidOrAbbr, year) {
+  if (!structure || !dynasty || tidOrAbbr == null || year == null) return undefined
+  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : Number(tidOrAbbr)
+  const abbr = typeof tidOrAbbr === 'number'
+    ? (dynasty.teams?.[tidOrAbbr]?.abbr || getAbbrFromTid(dynasty.teams, tidOrAbbr))
+    : tidOrAbbr
+
+  // 1. tid-keyed (covers structures that have already migrated)
+  if (tid != null && structure[tid]?.[year] !== undefined) return structure[tid][year]
+  // 2. current-abbr keyed (most common)
+  if (abbr && structure[abbr]?.[year] !== undefined) return structure[abbr][year]
+  // 3. drift recovery — scan keys, resolve each to a tid via current
+  //    registry, see if any old-abbr entry now points to our tid.
+  if (tid != null) {
+    for (const key of Object.keys(structure)) {
+      // Skip the current-abbr key we already tried.
+      if (key === abbr) continue
+      // Skip numeric keys we already tried.
+      if (key === String(tid)) continue
+      // Resolve key as abbr → tid; if matches, return.
+      const keyTid = getTidFromAbbr(key, dynasty)
+      if (keyTid != null && Number(keyTid) === Number(tid) && structure[key]?.[year] !== undefined) {
+        return structure[key][year]
+      }
+    }
+  }
+  return undefined
+}
+
+/**
  * Get the team record (single source of truth)
  * Priority:
  * 1. Calculate from actual games (if team has games in games[])
@@ -5244,8 +5289,18 @@ export function DynastyProvider({ children }) {
 
     let isCPUGame = false
     if (hasUnifiedFormat) {
-      // Unified format: CPU game if neither team is the user's current team
-      isCPUGame = cleanGameData.team1Tid !== currentUserTid && cleanGameData.team2Tid !== currentUserTid
+      // Unified format: CPU game if neither team is the user's coached team.
+      // Check the CURRENT user team AND the user team for this game's year
+      // (coachTeamByYear) — multi-stint coaches need games from prior stints
+      // to still be classified as user games, not CPU.
+      const t1 = cleanGameData.team1Tid != null ? Number(cleanGameData.team1Tid) : null
+      const t2 = cleanGameData.team2Tid != null ? Number(cleanGameData.team2Tid) : null
+      const cur = currentUserTid != null ? Number(currentUserTid) : null
+      const stintTidRaw = currentDynasty?.coachTeamByYear?.[cleanGameData.year]?.tid
+      const stintTid = stintTidRaw != null ? Number(stintTidRaw) : null
+      const matchesAnyUserTid = (slot) =>
+        slot != null && ((cur != null && slot === cur) || (stintTid != null && slot === stintTid))
+      isCPUGame = !matchesAnyUserTid(t1) && !matchesAnyUserTid(t2)
     } else if (hasLegacyTeamFormat && !hasLegacyUserFormat) {
       // Legacy format: CPU game if has team1/team2 but no userTeam/opponent
       isCPUGame = true

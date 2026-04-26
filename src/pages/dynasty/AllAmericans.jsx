@@ -229,10 +229,30 @@ export default function AllAmericans() {
     freshman: allAmericans.filter(p => p.designation === 'freshman')
   }
 
-  const findPlayerByNameAndSchool = (playerName, school) => {
+  const findPlayerByNameAndSchool = (playerName, school, schoolTid = null) => {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
     const normalizedSchool = school?.toUpperCase()
+    const tidNum = schoolTid != null ? Number(schoolTid) : null
+
+    // Tid match — survives teambuilder rename. Compares the AA entry's
+    // schoolTid (resolved at sheet-read time) to any team identifier the
+    // player carries (current p.team if numeric, OR any tid in teamsByYear,
+    // OR the tid resolved from any of the player's stored allAmericans/
+    // allConference school abbrs against the current registry).
+    const playerMatchesTid = (p) => {
+      if (tidNum == null) return false
+      if (typeof p.team === 'number' && Number(p.team) === tidNum) return true
+      if (p.teamsByYear) {
+        for (const v of Object.values(p.teamsByYear)) {
+          if (v != null && Number(v) === tidNum) return true
+        }
+      }
+      // Honor entries on the player carry tid sometimes (post-pass-2 reads).
+      if (p.allAmericans?.some(aa => aa.schoolTid != null && Number(aa.schoolTid) === tidNum)) return true
+      if (p.allConference?.some(ac => ac.schoolTid != null && Number(ac.schoolTid) === tidNum)) return true
+      return false
+    }
 
     const playerMatchesSchool = (p) => {
       if (!normalizedSchool) return false
@@ -281,6 +301,10 @@ export default function AllAmericans() {
     if (nameMatches.length === 0) return null
     if (nameMatches.length === 1) return nameMatches[0]
 
+    // Tid disambiguation first; abbr fallback only if tid not provided
+    // or didn't disambiguate.
+    const tidMatch = nameMatches.find(p => playerMatchesTid(p))
+    if (tidMatch) return tidMatch
     const schoolMatch = nameMatches.find(p => playerMatchesSchool(p))
     if (schoolMatch) return schoolMatch
 
@@ -291,7 +315,7 @@ export default function AllAmericans() {
     const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
     const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : { primary: '#64748b', secondary: '#fff' }
-    const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school)
+    const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school, player.schoolTid)
     const schoolName = getSchoolName(mascotName) || player.school
 
     return (

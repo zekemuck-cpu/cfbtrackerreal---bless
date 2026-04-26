@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getRecruitingCommitments } from '../../context/DynastyContext'
+import { useDynasty, getRecruitingCommitments, lookupByTeamYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr } from '../../data/teamRegistry'
@@ -661,7 +661,7 @@ export default function Recruiting() {
       if (typeof year !== 'number') return
       const commits = flattenClassCommitments(getRecruitingCommitments(currentDynasty, selectedTid, year))
       const score = calculateRecruitingClassScore(commits)
-      const rank = currentDynasty?.recruitingClassRankByTeamYear?.[teamAbbr]?.[year] ?? null
+      const rank = lookupByTeamYear(currentDynasty?.recruitingClassRankByTeamYear, currentDynasty, selectedTid, year) ?? null
       if (commits.length === 0 && !rank && !score) return
       rows.push({ year, score, rank, count: commits.length })
     })
@@ -690,7 +690,9 @@ export default function Recruiting() {
     })
   }
 
-  const nationalRank = !isAllSeasons ? currentDynasty.recruitingClassRankByTeamYear?.[teamAbbr]?.[selectedYear] : null
+  const nationalRank = !isAllSeasons
+    ? (lookupByTeamYear(currentDynasty.recruitingClassRankByTeamYear, currentDynasty, selectedTid, selectedYear) ?? null)
+    : null
 
   const hasHSandPortal = true
 

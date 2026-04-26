@@ -649,31 +649,40 @@ export default function Game() {
   let userScore, opponentScore, userWon
 
   if (isCPUGame) {
-    // CPU game - pick a viewing team (winner or team1)
-    const viewingAbbr = game.viewingTeamAbbr || (() => {
-      // Try to get team abbreviations from tids or fallback to legacy fields
-      const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
-      const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
-      const team1Abbr = team1Info?.abbr || game.team1
-      const team2Abbr = team2Info?.abbr || game.team2
-      // Default to team1 or winner
-      return (game.team1Score > game.team2Score) ? team1Abbr : (game.team2Score > game.team1Score) ? team2Abbr : team1Abbr
-    })()
-
-    displayTeamAbbr = viewingAbbr
-    displayTeam = getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
-
-    // Determine opponent based on which team is being displayed
+    // CPU game - pick a viewing team (winner or team1). Tid-based identity
+    // throughout: a stored viewingTeamAbbr can drift relative to the
+    // registry's current abbr after a teambuilder rename, which would
+    // mis-classify the side and silently swap opponent/scores in the
+    // displayed perspective. Use viewingTeamTid (synthesized at game-find
+    // time) when available, fall back to abbr.
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
     const team2Abbr = team2Info?.abbr || game.team2
 
-    const isDisplayTeam1 = displayTeamAbbr === team1Abbr
+    const viewingTid = game.viewingTeamTid != null ? Number(game.viewingTeamTid) :
+      (game.team1Score > game.team2Score
+        ? (game.team1Tid != null ? Number(game.team1Tid) : null)
+        : game.team2Score > game.team1Score
+          ? (game.team2Tid != null ? Number(game.team2Tid) : null)
+          : (game.team1Tid != null ? Number(game.team1Tid) : null))
+
+    let isDisplayTeam1
+    if (viewingTid != null && game.team1Tid != null && game.team2Tid != null) {
+      isDisplayTeam1 = Number(game.team1Tid) === viewingTid
+    } else {
+      const viewingAbbr = game.viewingTeamAbbr ||
+        (game.team1Score > game.team2Score ? team1Abbr :
+         game.team2Score > game.team1Score ? team2Abbr : team1Abbr)
+      isDisplayTeam1 = viewingAbbr === team1Abbr
+    }
+
+    displayTeamAbbr = isDisplayTeam1 ? team1Abbr : team2Abbr
+    displayTeam = getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
+
     opponentAbbr = isDisplayTeam1 ? team2Abbr : team1Abbr
     opponent = getMascotName(opponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || opponentAbbr
 
-    // Get scores for display team perspective
     userScore = isDisplayTeam1 ? game.team1Score : game.team2Score
     opponentScore = isDisplayTeam1 ? game.team2Score : game.team1Score
     userWon = userScore > opponentScore
