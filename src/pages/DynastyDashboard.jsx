@@ -23,7 +23,7 @@ const getInitialSidebarState = () => {
 export default function DynastyDashboard() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { dynasties, currentDynasty, selectDynasty } = useDynasty()
+  const { dynasties, currentDynasty, selectDynasty, loading } = useDynasty()
   const [sidebarOpen, setSidebarOpen] = useState(getInitialSidebarState)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -40,18 +40,18 @@ export default function DynastyDashboard() {
   }, [id, currentDynasty, selectDynasty])
 
   useEffect(() => {
-    // Only redirect if:
-    // 1. Dynasties are loaded
-    // 2. No currentDynasty is set
-    // 3. The requested dynasty ID doesn't exist in the dynasties list (invalid ID)
-    // This prevents redirecting during the brief moment between selectDynasty call and state update
-    if (dynasties.length > 0 && !currentDynasty) {
-      const requestedDynastyExists = id && dynasties.some(d => d.id === id)
-      if (!requestedDynastyExists) {
-        navigate('/')
-      }
+    // Only redirect if dynasties have FULLY loaded (loading=false flips after
+    // both local + cloud have resolved) AND the requested ID isn't in the
+    // list. The previous check fired the moment local-only dynasties loaded,
+    // racing the cloud subscription — refresh on a cloud dynasty page would
+    // briefly see [local-only], not find the cloud ID, and bounce home.
+    if (loading) return
+    if (currentDynasty) return
+    const requestedDynastyExists = id && dynasties.some(d => d.id === id)
+    if (!requestedDynastyExists) {
+      navigate('/')
     }
-  }, [dynasties, currentDynasty, navigate, id])
+  }, [loading, dynasties, currentDynasty, navigate, id])
 
   // Expose sidebar toggle to parent (Layout)
   useEffect(() => {
