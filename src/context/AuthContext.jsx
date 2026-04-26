@@ -10,8 +10,16 @@ import {
   subscribeToUserSubscription,
   isPremiumSubscription,
   redirectToCheckout,
-  redirectToPortal
+  redirectToPortal,
+  adminGrantPremium as svcAdminGrant,
+  adminRevokePremium as svcAdminRevoke,
+  deleteAccount as svcDeleteAccount
 } from '../services/subscriptionService'
+
+// The single Google account permitted to use the in-app dev/admin panel.
+// Server enforces this same allowlist on /api/admin/* endpoints — this
+// client-side check just hides the UI; spoofing it gains nothing.
+const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
 const AuthContext = createContext()
 
@@ -264,6 +272,25 @@ export function AuthProvider({ children }) {
     await redirectToPortal()
   }
 
+  const isAdmin = !!user?.email && ADMIN_EMAILS.has(user.email.toLowerCase())
+
+  // Admin-only premium grant/revoke (server enforces email allowlist).
+  const adminGrantPremium = async () => {
+    if (!isAdmin) throw new Error('Not authorized')
+    return svcAdminGrant()
+  }
+  const adminRevokePremium = async () => {
+    if (!isAdmin) throw new Error('Not authorized')
+    return svcAdminRevoke()
+  }
+
+  // Account deletion: cancels Stripe sub, deletes Firestore data, deletes Auth.
+  // Caller must pass current user email as confirmEmail (server re-checks).
+  const deleteAccount = async (confirmEmail) => {
+    if (!user) throw new Error('Must be signed in to delete account')
+    return svcDeleteAccount(confirmEmail)
+  }
+
   // Auto-refresh when token is about to expire
   // This runs silently in the background - if it works, user never sees the warning
   const autoRefreshAttemptedRef = useRef(false)
@@ -301,7 +328,11 @@ export function AuthProvider({ children }) {
     refreshSession,
     autoRefreshToken,
     upgradeToPremium,
-    manageSubscription
+    manageSubscription,
+    isAdmin,
+    adminGrantPremium,
+    adminRevokePremium,
+    deleteAccount
   }
 
   return (
