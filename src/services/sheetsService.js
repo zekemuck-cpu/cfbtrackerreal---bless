@@ -5623,81 +5623,104 @@ const TAB_TO_BOXSCORE_CATEGORY = {
   'Punt Return': 'puntReturn'
 }
 
-// Mapping from detailed stats column names to box score field names
+// Mapping from detailed stats column names to box score field names —
+// keyed by box-score CATEGORY so identical column labels can resolve to
+// different fields per tab. Concrete reason: "Touchbacks" means
+// `touchbacks` in Kicking but `tB` in Punting; "Yards" varies similarly.
+// A flat name->field map silently mis-routed punting data into kicking
+// fields and vice versa.
 const COLUMN_TO_BOXSCORE_FIELD = {
-  // Passing
-  'Completions': 'comp',
-  'Attempts': 'attempts',
-  'Yards': 'yards',
-  'Touchdowns': 'tD',
-  'Interceptions': 'iNT',
-  'Passing Long': 'long',
-  'Sacks Taken': 'sacks',
-  // Rushing
-  'Carries': 'carries',
-  'Rushing Long': 'long',
-  'Fumbles': 'fumbles',
-  '20+ Yard Runs': '20+',
-  'Broken Tackles': 'brokenTackles',
-  'Yards After Contact': 'yAC',
-  // Receiving
-  'Receptions': 'receptions',
-  'Receiving Long': 'long',
-  'Yards After Catch': 'rAC',
-  'Run After Catch': 'rAC', // Legacy support
-  'Drops': 'drops',
-  // Blocking
-  'Sacks Allowed': 'sacksAllowed',
-  'Pancakes': 'pancakes',
-  // Defensive
-  'Solo Tackles': 'solo',
-  'Assisted Tackles': 'assists',
-  'Tackles for Loss': 'tFL',
-  'Sacks': 'sack',
-  'INT Return Yards': 'iNTYards',
-  'INT Long': 'iNTLong',
-  'Defensive TDs': 'tD',
-  'Deflections': 'deflections',
-  'Forced Fumbles': 'fF',
-  'Fumble Recoveries': 'fR',
-  'Fumble Return Yards': 'fumbleYards',
-  'Blocks': 'blocks',
-  'Safeties': 'safeties',
-  // Kicking
-  'FG Made': 'fGM',
-  'FG Attempted': 'fGA',
-  'FG Long': 'fGLong',
-  'XP Made': 'xPM',
-  'XP Attempted': 'xPA',
-  'Kickoffs': 'kickoffs',
-  'Touchbacks': 'touchbacks',
-  'FG Blocked': 'fGBlock',
-  'XP Blocked': 'xPB',
-  'FG Made (0-29)': 'fGM29',
-  'FG Att (0-29)': 'fGA29',
-  'FG Made (30-39)': 'fGM39',
-  'FG Att (30-39)': 'fGA39',
-  'FG Made (40-49)': 'fGM49',
-  'FG Att (40-49)': 'fGA49',
-  'FG Made (50+)': 'fGM50+',
-  'FG Att (50+)': 'fGA50+',
-  // Punting
-  'Punts': 'punts',
-  'Punting Yards': 'yards',
-  'Net Punting Yards': 'netYards',
-  'Punts Inside 20': 'in20',
-  'Punt Long': 'long',
-  'Punts Blocked': 'block',
-  // Kick Return
-  'Kickoff Returns': 'kR',
-  'KR Yardage': 'yards',
-  'KR Touchdowns': 'tD',
-  'KR Long': 'long',
-  // Punt Return
-  'Punt Returns': 'pR',
-  'PR Yardage': 'yards',
-  'PR Touchdowns': 'tD',
-  'PR Long': 'long'
+  passing: {
+    'Completions': 'comp',
+    'Attempts': 'attempts',
+    'Yards': 'yards',
+    'Touchdowns': 'tD',
+    'Interceptions': 'iNT',
+    'Passing Long': 'long',
+    'Sacks Taken': 'sacks',
+    'Net Yards/Attempt': 'netYardsPerAttempt',
+    'Adjusted Net Yards/Attempt': 'adjNetYardsPerAttempt'
+  },
+  rushing: {
+    'Carries': 'carries',
+    'Yards': 'yards',
+    'Touchdowns': 'tD',
+    'Rushing Long': 'long',
+    'Fumbles': 'fumbles',
+    '20+ Yard Runs': '20+',
+    'Broken Tackles': 'brokenTackles',
+    'Yards After Contact': 'yAC'
+  },
+  receiving: {
+    'Receptions': 'receptions',
+    'Yards': 'yards',
+    'Touchdowns': 'tD',
+    'Receiving Long': 'long',
+    'Yards After Catch': 'rAC',
+    'Run After Catch': 'rAC', // Legacy alias
+    'Drops': 'drops'
+  },
+  blocking: {
+    'Sacks Allowed': 'sacksAllowed',
+    'Pancakes': 'pancakes'
+  },
+  defense: {
+    'Solo Tackles': 'solo',
+    'Assisted Tackles': 'assists',
+    'Tackles for Loss': 'tFL',
+    'Sacks': 'sack',
+    'Interceptions': 'iNT',
+    'INT Return Yards': 'iNTYards',
+    'INT Long': 'iNTLong',
+    'Defensive TDs': 'tD',
+    'Deflections': 'deflections',
+    'Catches Allowed': 'catchesAllowed',
+    'Forced Fumbles': 'fF',
+    'Fumble Recoveries': 'fR',
+    'Fumble Return Yards': 'fumbleYards',
+    'Blocks': 'blocks',
+    'Safeties': 'safeties'
+  },
+  kicking: {
+    'FG Made': 'fGM',
+    'FG Attempted': 'fGA',
+    'FG Long': 'fGLong',
+    'XP Made': 'xPM',
+    'XP Attempted': 'xPA',
+    'Kickoffs': 'kickoffs',
+    'Touchbacks': 'touchbacks',
+    'FG Blocked': 'fGBlock',
+    'XP Blocked': 'xPB',
+    'FG Made (0-29)': 'fGM29',
+    'FG Att (0-29)': 'fGA29',
+    'FG Made (30-39)': 'fGM39',
+    'FG Att (30-39)': 'fGA39',
+    'FG Made (40-49)': 'fGM49',
+    'FG Att (40-49)': 'fGA49',
+    'FG Made (50+)': 'fGM50+',
+    'FG Att (50+)': 'fGA50+'
+  },
+  punting: {
+    'Punts': 'punts',
+    'Punting Yards': 'yards',
+    'Net Punting Yards': 'netYards',
+    'Punts Inside 20': 'in20',
+    'Touchbacks': 'tB', // ← was silently routed to kicking's 'touchbacks'
+    'Punt Long': 'long',
+    'Punts Blocked': 'block'
+  },
+  kickReturn: {
+    'Kickoff Returns': 'kR',
+    'KR Yardage': 'yards',
+    'KR Touchdowns': 'tD',
+    'KR Long': 'long'
+  },
+  puntReturn: {
+    'Punt Returns': 'pR',
+    'PR Yardage': 'yards',
+    'PR Touchdowns': 'tD',
+    'PR Long': 'long'
+  }
 }
 
 // Initialize a single tab of the detailed stats sheet
@@ -5849,7 +5872,7 @@ async function initializeDetailedStatsTab(spreadsheetId, accessToken, sheetId, t
       const categoryStats = playerAggStats[boxScoreCategory]
       if (!categoryStats) return null
 
-      const fieldName = COLUMN_TO_BOXSCORE_FIELD[columnName]
+      const fieldName = COLUMN_TO_BOXSCORE_FIELD[boxScoreCategory]?.[columnName]
       if (!fieldName) return null
 
       const value = categoryStats[fieldName]
@@ -11305,16 +11328,9 @@ async function prefillPlayerStatsData(spreadsheetId, accessToken, existingData) 
 
     const tab = STAT_TABS[key]
 
-    // Build header key mapping (same logic as read function)
-    const headerToKey = {}
-    tab.headers.forEach((header, idx) => {
-      if (idx === 0) {
-        headerToKey[idx] = 'playerName'
-      } else {
-        const camelKey = header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-        headerToKey[idx] = camelKey
-      }
-    })
+    // Use the SAME helper the readers use — alias-aware so canonical keys
+    // like qBRating / attempts / brokenTackles round-trip correctly.
+    const headerToKey = buildHeaderKeyMap(key, tab.headers)
 
     // Convert player stat objects to row arrays
     const rows = tabData.map(playerStats => {
@@ -11505,12 +11521,9 @@ async function prefillUnifiedAITab(spreadsheetId, accessToken, existingData) {
     const tabData = existingData[section.key]
     if (!Array.isArray(tabData) || tabData.length === 0) continue
 
-    // Same key-derivation logic as prefillPlayerStatsData
-    const headerToKey = {}
-    section.headers.forEach((header, idx) => {
-      if (idx === 0) headerToKey[idx] = 'playerName'
-      else headerToKey[idx] = header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-    })
+    // Use the SAME alias-aware helper the readers use. Without this, the
+    // unified-tab writer also silently wipes RTG/Att/BT on every prefill.
+    const headerToKey = buildHeaderKeyMap(section.key, section.headers)
 
     const capacity = section.dataEnd - section.dataStart + 1
     const rows = tabData.slice(0, capacity).map(playerStats =>
@@ -11569,7 +11582,7 @@ export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
 
     const boxScore = {}
     for (const section of layout.sections) {
-      const aliases = BOX_SCORE_HEADER_ALIASES[section.key] || {}
+      const headerToKey = buildHeaderKeyMap(section.key, section.headers)
       const sectionRows = []
       for (let r = section.dataStart; r <= section.dataEnd; r++) {
         const row = rows[r - 1] || []
@@ -11580,8 +11593,7 @@ export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
         section.headers.forEach((header, idx) => {
           if (idx === 0) return
           const value = row[idx] || ''
-          const camelKey = aliases[header] || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-          entry[camelKey] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
+          entry[headerToKey[idx]] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
         })
         sectionRows.push(entry)
       }
@@ -11917,6 +11929,25 @@ const BOX_SCORE_HEADER_ALIASES = {
   rushing: { 'BT': 'brokenTackles' }
 }
 
+// Single source of truth for header → JS key mapping. MUST be used by both
+// readers and writers — drift between them causes silent data wipe on
+// round-trip (real bug from 2026-04: RTG/Att/BT vanished after re-open
+// because the writers used naive camelize while only the readers consulted
+// the alias table). The first column is always the player name.
+function buildHeaderKeyMap(sectionKey, headers) {
+  const aliases = BOX_SCORE_HEADER_ALIASES[sectionKey] || {}
+  const map = {}
+  headers.forEach((header, idx) => {
+    if (idx === 0) {
+      map[idx] = 'playerName'
+    } else {
+      map[idx] = aliases[header]
+        || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
+    }
+  })
+  return map
+}
+
 // Read all stats from a game box score sheet (9 tabs)
 export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
@@ -11947,7 +11978,7 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
       const data = await response.json()
       const rows = data.values || []
 
-      const aliases = BOX_SCORE_HEADER_ALIASES[key] || {}
+      const headerToKey = buildHeaderKeyMap(key, tab.headers)
 
       // Parse rows into objects using headers
       boxScore[key] = rows
@@ -11956,13 +11987,11 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
           const entry = {}
           tab.headers.forEach((header, idx) => {
             const value = row[idx] || ''
-            // Convert to number for numeric columns (all except Player Name)
+            const k = headerToKey[idx]
             if (idx === 0) {
               entry.playerName = value.trim()
             } else {
-              const camelKey = aliases[header]
-                || header.replace(/\s+/g, '').replace(/^./, c => c.toLowerCase())
-              entry[camelKey] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
+              entry[k] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
             }
           })
           return entry

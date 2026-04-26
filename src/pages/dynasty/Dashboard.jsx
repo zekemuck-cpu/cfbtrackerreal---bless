@@ -9411,15 +9411,21 @@ export default function Dashboard() {
             'Punting': 'punting', 'Kick Return': 'kickReturn', 'Punt Return': 'puntReturn'
           }
 
-          // Mapping from sheet column names to internal stat keys
+          // Mapping from sheet column names to internal stat keys.
+          // Every column in DETAILED_STATS_TABS (sheetsService.js) MUST
+          // appear here, otherwise convertToInternal falls back to the
+          // literal column-name string as the key — silently storing
+          // user-entered data under a key the app never reads.
           const SHEET_TO_INTERNAL = {
             passing: {
               Completions: 'cmp', Attempts: 'att', Yards: 'yds', Touchdowns: 'td',
-              Interceptions: 'int', 'Passing Long': 'lng', 'Sacks Taken': 'sacks'
+              Interceptions: 'int', 'Passing Long': 'lng', 'Sacks Taken': 'sacks',
+              'Net Yards/Attempt': 'nyPerAtt', 'Adjusted Net Yards/Attempt': 'adjNyPerAtt'
             },
             rushing: {
               Carries: 'car', Yards: 'yds', Touchdowns: 'td', 'Rushing Long': 'lng',
-              Fumbles: 'fum', 'Broken Tackles': 'bt', 'Yards After Contact': 'yac'
+              Fumbles: 'fum', 'Broken Tackles': 'bt', 'Yards After Contact': 'yac',
+              '20+ Yard Runs': 'twentyPlus'
             },
             receiving: {
               Receptions: 'rec', Yards: 'yds', Touchdowns: 'td', 'Receiving Long': 'lng',
@@ -9431,7 +9437,12 @@ export default function Dashboard() {
             defense: {
               'Solo Tackles': 'soloTkl', 'Assisted Tackles': 'astTkl', 'Tackles for Loss': 'tfl',
               Sacks: 'sacks', Interceptions: 'int', 'INT Return Yards': 'intYds',
-              Deflections: 'pd', 'Forced Fumbles': 'ff', 'Fumble Recoveries': 'fr', 'Defensive TDs': 'td'
+              'INT Long': 'intLng',
+              Deflections: 'pd', 'Catches Allowed': 'catchesAllowed',
+              'Forced Fumbles': 'ff', 'Fumble Recoveries': 'fr',
+              'Fumble Return Yards': 'fumbleYds',
+              Blocks: 'blocks', Safeties: 'safeties',
+              'Defensive TDs': 'td'
             },
             kicking: {
               'FG Made': 'fgm', 'FG Attempted': 'fga', 'FG Long': 'lng',

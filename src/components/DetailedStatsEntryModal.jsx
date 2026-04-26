@@ -17,13 +17,31 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 
-// Mapping from internal stat keys (player.statsByYear) to box score format (used by sheet)
+// Mapping from internal stat keys (player.statsByYear) to box score format
+// (used by sheet). MUST stay in lock-step with SHEET_TO_INTERNAL in
+// Dashboard.jsx — every internal key the sheet round-trips needs an entry
+// here so write-back to the sheet doesn't drop fields.
 const INTERNAL_TO_BOXSCORE = {
-  passing: { cmp: 'comp', att: 'attempts', yds: 'yards', td: 'tD', int: 'iNT', lng: 'long', sacks: 'sacks' },
-  rushing: { car: 'carries', yds: 'yards', td: 'tD', lng: 'long', fum: 'fumbles', bt: 'brokenTackles', yac: 'yAC' },
+  passing: {
+    cmp: 'comp', att: 'attempts', yds: 'yards', td: 'tD', int: 'iNT',
+    lng: 'long', sacks: 'sacks', rating: 'qBRating',
+    nyPerAtt: 'netYardsPerAttempt', adjNyPerAtt: 'adjNetYardsPerAttempt'
+  },
+  rushing: {
+    car: 'carries', yds: 'yards', td: 'tD', lng: 'long', fum: 'fumbles',
+    bt: 'brokenTackles', yac: 'yAC', twentyPlus: '20+'
+  },
   receiving: { rec: 'receptions', yds: 'yards', td: 'tD', lng: 'long', drops: 'drops', rac: 'rAC' },
   blocking: { sacksAllowed: 'sacksAllowed', pancakes: 'pancakes' },
-  defense: { soloTkl: 'solo', solo: 'solo', astTkl: 'assists', assists: 'assists', tfl: 'tFL', sacks: 'sack', sack: 'sack', int: 'iNT', intYds: 'iNTYards', pd: 'deflections', deflections: 'deflections', ff: 'fF', fr: 'fR', td: 'tD' },
+  defense: {
+    soloTkl: 'solo', solo: 'solo', astTkl: 'assists', assists: 'assists',
+    tfl: 'tFL', sacks: 'sack', sack: 'sack', int: 'iNT',
+    intYds: 'iNTYards', intLng: 'iNTLong',
+    pd: 'deflections', deflections: 'deflections',
+    catchesAllowed: 'catchesAllowed',
+    ff: 'fF', fr: 'fR', fumbleYds: 'fumbleYards',
+    blocks: 'blocks', safeties: 'safeties', td: 'tD'
+  },
   kicking: {
     fgm: 'fGM', fga: 'fGA', xpm: 'xPM', xpa: 'xPA', lng: 'fGLong',
     kickoffs: 'kickoffs', touchbacks: 'touchbacks',
