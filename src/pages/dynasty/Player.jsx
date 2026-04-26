@@ -670,8 +670,18 @@ export default function Player() {
         // for the 10th TD). Walk the full scoring summary for this game,
         // track both sides' running totals, then emit the player's plays
         // with the correct per-play running score attached.
-        const playerTeamAbbr = (dynasty.teams?.[player.teamsByYear?.[game.year]]?.abbr
+        // Player-team-for-this-game — must be derived per game.year, not
+        // currentYear, so transferred players show the correct team logo
+        // and score attribution for prior-year highlights.
+        const playerTeamTid = player.teamsByYear?.[game.year]
+        const playerTeamAbbr = (dynasty.teams?.[playerTeamTid]?.abbr
           || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+        const playerTeamLogo = playerTeamTid
+          ? getTeamLogoByTid(playerTeamTid, dynasty.teams)
+          : null
+        const opponentLogo = game.opponentTid
+          ? getTeamLogoByTid(game.opponentTid, dynasty.teams)
+          : null
         let playerTeamScore = 0
         let opponentScore = 0
         const enriched = scoringSummary.map(play => {
@@ -696,6 +706,10 @@ export default function Player() {
               year: game.year,
               opponent: game.opponent,
               opponentTid: game.opponentTid,
+              opponentLogo,
+              playerTeamTid,
+              playerTeamAbbr,
+              playerTeamLogo,
               result: game.result,
             }
           }))
@@ -4778,12 +4792,20 @@ export default function Player() {
                           return 0
                         }
 
-                        // Calculate running scores for all plays
+                        // Per-game player team — derive from teamsByYear so
+                        // prior-year highlights credit the correct side and
+                        // show the correct logo even after a transfer.
+                        const gamePlayerTeamTid = player.teamsByYear?.[game.year]
+                        const gamePlayerTeamAbbr = (dynasty.teams?.[gamePlayerTeamTid]?.abbr
+                          || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+                        const gamePlayerTeamLogo = gamePlayerTeamTid
+                          ? getTeamLogoByTid(gamePlayerTeamTid, dynasty.teams)
+                          : null
                         let playerTeamScore = 0
                         let opponentScore = 0
                         const playsWithRunningScore = scoringSummary.map(play => {
                           const points = getPlayPoints(play)
-                          const isPlayerTeam = play.team?.toUpperCase() === (dynasty.teams?.[player.teamsByYear?.[game.year]]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+                          const isPlayerTeam = play.team?.toUpperCase() === gamePlayerTeamAbbr
 
                           if (isPlayerTeam) {
                             playerTeamScore += points
@@ -4802,6 +4824,9 @@ export default function Player() {
                               opponent: game.opponent,
                               opponentTid: game.opponentTid,
                               opponentLogo: game.opponentTid ? getTeamLogoByTid(game.opponentTid, dynasty.teams) : null,
+                              playerTeamTid: gamePlayerTeamTid,
+                              playerTeamAbbr: gamePlayerTeamAbbr,
+                              playerTeamLogo: gamePlayerTeamLogo,
                               result: game.result
                             }
                           }

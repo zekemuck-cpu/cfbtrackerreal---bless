@@ -430,9 +430,12 @@ export default function ScoringHighlightsModal({
   const scorerPlayer = findPlayer(currentPlay?.scorer)
   const passerPlayer = findPlayer(currentPlay?.passer)
 
-  // Get team logos for score display
-  const team1LogoUrl = team1Logo
-  // For "All Games" mode, use the opponent logo from the current play's gameInfo
+  // Get team logos + abbrs for the score row. Prefer per-play values from
+  // gameInfo so a player who switched teams shows their correct team for
+  // each year's highlights — the static team1* props reflect only the
+  // page's "current year" team, which would mis-label prior-year clips.
+  const team1LogoUrl = currentPlay?.gameInfo?.playerTeamLogo || team1Logo
+  const team1AbbrForAlt = currentPlay?.gameInfo?.playerTeamAbbr || team1Abbr
   const team2LogoUrl = currentPlay?.gameInfo?.opponentLogo || team2Logo
 
   const progressPct = totalPlays > 0 ? ((currentIndex + 1) / totalPlays) * 100 : 0
@@ -678,7 +681,7 @@ export default function ScoringHighlightsModal({
             const scoreInner = (
               <>
                 {team1LogoUrl && (
-                  <img src={team1LogoUrl} alt={team1Abbr} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+                  <img src={team1LogoUrl} alt={team1AbbrForAlt} className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
                 )}
                 <span className="text-white font-bold text-base sm:text-lg tabular-nums">
                   {runningScore.score1}
