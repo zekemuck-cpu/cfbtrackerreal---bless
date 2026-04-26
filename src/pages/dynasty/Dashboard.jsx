@@ -3386,7 +3386,9 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Recruiting sidebar — always rendered, works on bye weeks too */}
+                    {/* Recruiting sidebar — always rendered, works on bye weeks too.
+                        No top accent strip — match the Enter Game card's plain
+                        edge so the two siblings read as a matched pair. */}
                     <div
                       className="relative rounded-xl overflow-hidden flex flex-col"
                       style={hasCommitmentsData ? {
@@ -3397,11 +3399,6 @@ export default function Dashboard() {
                         border: '1px solid var(--rule-soft)'
                       }}
                     >
-                      <div
-                        className="absolute top-0 left-0 right-0 h-[2px]"
-                        style={{ backgroundColor: hasCommitmentsData ? '#22c55e' : teamColors.primary }}
-                        aria-hidden="true"
-                      />
                       <div className="p-4 flex flex-col flex-1 gap-3">
                         {/* Eyebrow row with inline tool icons */}
                         <div className="flex items-center justify-between gap-2">
