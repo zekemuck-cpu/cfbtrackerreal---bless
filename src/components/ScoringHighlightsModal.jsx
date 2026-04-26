@@ -590,40 +590,88 @@ export default function ScoringHighlightsModal({
 
         {/* Footer — play info + controls + score in one row */}
         <div className="flex items-center gap-3 sm:gap-4 px-4 py-2.5 bg-surface-2 flex-shrink-0">
-          {/* Play info (left) */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {(scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl) && (
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block">
-                <img
-                  src={scorerPlayer?.pictureUrl || passerPlayer?.pictureUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm leading-tight">
-                <span className="text-white font-semibold truncate">
-                  {currentPlay?.scoreType}
-                  {currentPlay?.yards && ` · ${currentPlay.yards} yd`}
-                </span>
-                {currentPlay?.patResult && (
-                  <span className="text-txt-muted text-xs hidden sm:inline whitespace-nowrap">
-                    ({currentPlay.patResult})
-                  </span>
+          {/* Play info (left). Picture + names link to the player page when
+              we have a pid AND pathPrefix; without pathPrefix (e.g. embedded
+              in a context with no router prefix) we fall back to plain text. */}
+          {(() => {
+            // Picture defaults to scorer; falls back to passer. The link
+            // target should match whichever player is actually being shown.
+            const picturePlayer = scorerPlayer?.pictureUrl ? scorerPlayer : (passerPlayer?.pictureUrl ? passerPlayer : null)
+            const goToPlayer = (p) => {
+              if (!p?.pid || !pathPrefix) return
+              navigate(`${pathPrefix}/player/${p.pid}`)
+              onClose?.()
+            }
+            const NameLink = ({ player, label }) => {
+              if (player?.pid && pathPrefix) {
+                return (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); goToPlayer(player) }}
+                    className="hover:text-white hover:underline transition-colors cursor-pointer"
+                  >
+                    {label}
+                  </button>
+                )
+              }
+              return <span>{label}</span>
+            }
+            return (
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                {picturePlayer?.pictureUrl && (
+                  picturePlayer.pid && pathPrefix ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); goToPlayer(picturePlayer) }}
+                      className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block ring-1 ring-transparent hover:ring-blue-500/60 transition-all cursor-pointer"
+                      title={`View ${picturePlayer.name}`}
+                      aria-label={`View ${picturePlayer.name}`}
+                    >
+                      <img
+                        src={picturePlayer.pictureUrl}
+                        alt={picturePlayer.name}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ) : (
+                    <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-surface-3 hidden sm:block">
+                      <img
+                        src={picturePlayer.pictureUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )
                 )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm leading-tight">
+                    <span className="text-white font-semibold truncate">
+                      {currentPlay?.scoreType}
+                      {currentPlay?.yards && ` · ${currentPlay.yards} yd`}
+                    </span>
+                    {currentPlay?.patResult && (
+                      <span className="text-txt-muted text-xs hidden sm:inline whitespace-nowrap">
+                        ({currentPlay.patResult})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-txt-muted truncate mt-0.5">
+                    <span className="tabular-nums">Q{currentPlay?.quarter} {currentPlay?.timeLeft}</span>
+                    <span className="mx-1.5 opacity-50">·</span>
+                    {isPassingTD && currentPlay?.passer ? (
+                      <>
+                        <NameLink player={passerPlayer} label={currentPlay.passer} />
+                        {' → '}
+                        <NameLink player={scorerPlayer} label={currentPlay.scorer} />
+                      </>
+                    ) : (
+                      <NameLink player={scorerPlayer} label={currentPlay?.scorer} />
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="text-xs text-txt-muted truncate mt-0.5">
-                <span className="tabular-nums">Q{currentPlay?.quarter} {currentPlay?.timeLeft}</span>
-                <span className="mx-1.5 opacity-50">·</span>
-                {isPassingTD && currentPlay?.passer ? (
-                  <>{currentPlay.passer} → {currentPlay.scorer}</>
-                ) : (
-                  currentPlay?.scorer
-                )}
-              </div>
-            </div>
-          </div>
+            )
+          })()}
 
           {/* Controls (center) */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
