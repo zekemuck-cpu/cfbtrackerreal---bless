@@ -73,8 +73,13 @@ export async function createInvitation({
   }
 
   // Reject duplicates: any pending invite for the same dynasty + email.
+  // Constrains on dynastyOwnerUid so the query is provably safe under
+  // the Firestore read rule (rule allows read when dynastyOwnerUid ==
+  // request.auth.uid OR invitee email matches; the dup check is run by
+  // the commish so the dynastyOwnerUid filter satisfies it).
   const existing = await getDocs(query(
     collection(db, INVITATIONS),
+    where('dynastyOwnerUid', '==', dynastyOwnerUid),
     where('dynastyId', '==', dynastyId),
     where('inviteeEmail', '==', email),
     where('status', '==', 'pending'),
@@ -169,15 +174,16 @@ export function subscribeToMyInvitations(email, callback) {
 /**
  * Subscribe to all invitations for a given dynasty. Commish uses this
  * on the league settings page to see who's been invited and the status
- * of each.
+ * of each. Constrains on dynastyOwnerUid for rule compatibility.
  */
-export function subscribeToDynastyInvitations(dynastyId, callback) {
-  if (!dynastyId) {
+export function subscribeToDynastyInvitations(dynastyId, dynastyOwnerUid, callback) {
+  if (!dynastyId || !dynastyOwnerUid) {
     callback([])
     return () => {}
   }
   const q = query(
     collection(db, INVITATIONS),
+    where('dynastyOwnerUid', '==', dynastyOwnerUid),
     where('dynastyId', '==', dynastyId),
   )
   return onSnapshot(q, (snap) => {
@@ -197,10 +203,11 @@ export function subscribeToDynastyInvitations(dynastyId, callback) {
  * and the invitation can be left in 'accepted' state as the audit
  * record. This is called from DynastyContext on dynasty-load.
  */
-export async function fetchAcceptedInvitationsForDynasty(dynastyId) {
-  if (!dynastyId) return []
+export async function fetchAcceptedInvitationsForDynasty(dynastyId, dynastyOwnerUid) {
+  if (!dynastyId || !dynastyOwnerUid) return []
   const q = query(
     collection(db, INVITATIONS),
+    where('dynastyOwnerUid', '==', dynastyOwnerUid),
     where('dynastyId', '==', dynastyId),
     where('status', '==', 'accepted'),
   )

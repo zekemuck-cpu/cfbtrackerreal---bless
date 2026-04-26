@@ -1,0 +1,44 @@
+{
+  "indexes": [
+    {
+      "comment": "subscribeToMyInvitations — invitee polls pending invites by email",
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviteeEmail", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "comment": "subscribeToDynastyInvitations — commish lists all invites for their dynasty",
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
+        { "fieldPath": "dynastyId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "comment": "fetchAcceptedInvitationsForDynasty — commish reconciles accepted invites",
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
+        { "fieldPath": "dynastyId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "comment": "createInvitation duplicate check — pending invite already exists?",
+      "collectionGroup": "invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
+        { "fieldPath": "dynastyId", "order": "ASCENDING" },
+        { "fieldPath": "inviteeEmail", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

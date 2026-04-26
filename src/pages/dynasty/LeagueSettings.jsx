@@ -64,12 +64,18 @@ export default function LeagueSettings() {
     return out.sort((a, b) => (a.abbr || '').localeCompare(b.abbr || ''))
   }, [teamsSource])
 
-  // Subscribe to invitations for this dynasty.
+  // Subscribe to invitations for this dynasty. Need dynastyOwnerUid to
+  // satisfy the rule's safe-query check (commish-side reads constrained
+  // to invitations they own).
   useEffect(() => {
-    if (!currentDynasty?.id) return
-    const unsub = subscribeToDynastyInvitations(currentDynasty.id, setInvitations)
+    if (!currentDynasty?.id || !currentDynasty?.userId) return
+    const unsub = subscribeToDynastyInvitations(
+      currentDynasty.id,
+      currentDynasty.userId,
+      setInvitations,
+    )
     return unsub
-  }, [currentDynasty?.id])
+  }, [currentDynasty?.id, currentDynasty?.userId])
 
   // Reconciliation: detect newly-accepted invitations and add the user
   // to members[]. Guarded by a ref-tracked seen set so we don't process
@@ -83,10 +89,14 @@ export default function LeagueSettings() {
     const accepted = invitations.filter(i => i.status === 'accepted')
     if (accepted.length === 0) return
 
+    // Track which invitation IDs map to which new members so the error
+    // path can reset only the ones we actually attempted (newMembers
+    // skips entries already-member or already-reconciled, so the
+    // indexes don't align with `accepted`).
     const newMembers = []
+    const newMemberInviteIds = []
     for (const inv of accepted) {
       if (reconciledInviteIdsRef.current.has(inv.id)) continue
-      // Skip if this email is already a member
       if (getMemberByEmail(currentDynasty, inv.inviteeEmail)) {
         reconciledInviteIdsRef.current.add(inv.id)
         continue
@@ -97,6 +107,7 @@ export default function LeagueSettings() {
         teams: inv.initialTeams || [],
         isCommish: false,
       }))
+      newMemberInviteIds.push(inv.id)
       reconciledInviteIdsRef.current.add(inv.id)
     }
 
@@ -108,8 +119,8 @@ export default function LeagueSettings() {
       memberUids: computeMemberUids(merged),
     }).catch(err => {
       console.error('[LeagueSettings] reconciliation failed:', err)
-      // Reset the seen flags so we retry next time
-      newMembers.forEach((_, i) => reconciledInviteIdsRef.current.delete(accepted[i]?.id))
+      // Reset the seen flags so we retry on next render
+      newMemberInviteIds.forEach(id => reconciledInviteIdsRef.current.delete(id))
     })
   }, [invitations, currentDynasty, members, user, updateDynasty])
 
