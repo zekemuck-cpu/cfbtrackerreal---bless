@@ -960,27 +960,44 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
  */
 export function lookupByTeamYear(structure, dynasty, tidOrAbbr, year) {
   if (!structure || !dynasty || tidOrAbbr == null || year == null) return undefined
-  const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : Number(tidOrAbbr)
-  const abbr = typeof tidOrAbbr === 'number'
+  const tid = typeof tidOrAbbr === 'string' && !/^\d+$/.test(tidOrAbbr)
+    ? getTidFromAbbr(tidOrAbbr, dynasty)
+    : Number(tidOrAbbr)
+  const abbr = typeof tidOrAbbr === 'number' || (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr))
     ? (dynasty.teams?.[tidOrAbbr]?.abbr || getAbbrFromTid(dynasty.teams, tidOrAbbr))
     : tidOrAbbr
 
+  // Year keys may be number or string depending on write path. Try both.
+  const pickYear = (sub) => {
+    if (!sub) return undefined
+    if (sub[year] !== undefined) return sub[year]
+    const ys = String(year)
+    if (sub[ys] !== undefined) return sub[ys]
+    const yn = Number(year)
+    if (Number.isFinite(yn) && sub[yn] !== undefined) return sub[yn]
+    return undefined
+  }
+
   // 1. tid-keyed (covers structures that have already migrated)
-  if (tid != null && structure[tid]?.[year] !== undefined) return structure[tid][year]
+  if (tid != null) {
+    const v = pickYear(structure[tid])
+    if (v !== undefined) return v
+  }
   // 2. current-abbr keyed (most common)
-  if (abbr && structure[abbr]?.[year] !== undefined) return structure[abbr][year]
+  if (abbr) {
+    const v = pickYear(structure[abbr])
+    if (v !== undefined) return v
+  }
   // 3. drift recovery — scan keys, resolve each to a tid via current
   //    registry, see if any old-abbr entry now points to our tid.
   if (tid != null) {
     for (const key of Object.keys(structure)) {
-      // Skip the current-abbr key we already tried.
       if (key === abbr) continue
-      // Skip numeric keys we already tried.
       if (key === String(tid)) continue
-      // Resolve key as abbr → tid; if matches, return.
       const keyTid = getTidFromAbbr(key, dynasty)
-      if (keyTid != null && Number(keyTid) === Number(tid) && structure[key]?.[year] !== undefined) {
-        return structure[key][year]
+      if (keyTid != null && Number(keyTid) === Number(tid)) {
+        const v = pickYear(structure[key])
+        if (v !== undefined) return v
       }
     }
   }
@@ -1024,8 +1041,8 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
     }
   }
 
-  // Check legacy abbr-based storage
-  const legacyRecord = dynasty.teamRecordsByTeamYear?.[abbr]?.[year]
+  // Check legacy abbr-based storage (drift-aware via tid)
+  const legacyRecord = lookupByTeamYear(dynasty.teamRecordsByTeamYear, dynasty, tid ?? abbr, year)
   if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
     return {
       wins: legacyRecord.wins || 0,
@@ -2013,9 +2030,10 @@ export function getCurrentSchedule(dynasty) {
     return dynasty.teams[tid].byYear[year].schedule
   }
 
-  // Try old team-centric structure (schedulesByTeamYear) - need abbr for legacy lookup
+  // Try old team-centric structure (schedulesByTeamYear) — drift-aware so
+  // a teambuilder team renamed mid-dynasty still finds its old data.
   const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
-  const teamYearSchedule = dynasty.schedulesByTeamYear?.[teamAbbr]?.[year]
+  const teamYearSchedule = lookupByTeamYear(dynasty.schedulesByTeamYear, dynasty, tid, year)
   if (teamYearSchedule) {
     return teamYearSchedule
   }
@@ -2055,10 +2073,9 @@ export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[year].schedule
   }
 
-  // Try old team-centric structure (schedulesByTeamYear)
-  if (teamAbbr && dynasty.schedulesByTeamYear?.[teamAbbr]?.[year]) {
-    return dynasty.schedulesByTeamYear[teamAbbr][year]
-  }
+  // Try old team-centric structure (drift-aware)
+  const teamYearSchedule = lookupByTeamYear(dynasty.schedulesByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYearSchedule) return teamYearSchedule
 
   return []
 }
@@ -2517,9 +2534,8 @@ export function getCurrentPreseasonSetup(dynasty) {
     return dynasty.teams[tid].byYear[year].preseasonSetup
   }
 
-  // Try old team-centric structure (preseasonSetupByTeamYear) - need abbr for legacy lookup
-  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
-  const teamYearSetup = dynasty.preseasonSetupByTeamYear?.[teamAbbr]?.[year]
+  // Try old team-centric structure (drift-aware via tid)
+  const teamYearSetup = lookupByTeamYear(dynasty.preseasonSetupByTeamYear, dynasty, tid, year)
   if (teamYearSetup) {
     return teamYearSetup
   }
@@ -2551,9 +2567,8 @@ export function getCurrentTeamRatings(dynasty) {
     return dynasty.teams[tid].byYear[year].teamRatings
   }
 
-  // Try old team-centric structure (teamRatingsByTeamYear) - need abbr for legacy lookup
-  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
-  const teamYearRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[year]
+  // Try old team-centric structure (drift-aware via tid)
+  const teamYearRatings = lookupByTeamYear(dynasty.teamRatingsByTeamYear, dynasty, tid, year)
   if (teamYearRatings) {
     return teamYearRatings
   }
@@ -2605,14 +2620,10 @@ export function getTeamRatingsForYear(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[String(yearNum)].teamRatings
   }
 
-  // PRIORITY 3: Try legacy teamRatingsByTeamYear (uses abbr)
-  const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(dynasty.teams, tid)
-  if (teamAbbr) {
-    const legacyRatings = dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[yearNum] ||
-                          dynasty.teamRatingsByTeamYear?.[teamAbbr]?.[String(yearNum)]
-    if (legacyRatings) {
-      return legacyRatings
-    }
+  // PRIORITY 3: Try legacy teamRatingsByTeamYear (drift-aware via tid)
+  const legacyRatings = lookupByTeamYear(dynasty.teamRatingsByTeamYear, dynasty, tid ?? tidOrAbbr, yearNum)
+  if (legacyRatings) {
+    return legacyRatings
   }
 
   return defaultRatings
@@ -2636,9 +2647,8 @@ export function getCurrentCoachingStaff(dynasty) {
     return dynasty.teams[tid].byYear[year].coachingStaff
   }
 
-  // Try old team-centric structure (coachingStaffByTeamYear) - need abbr for legacy lookup
-  const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
-  const teamYearStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
+  // Try old team-centric structure (drift-aware via tid)
+  const teamYearStaff = lookupByTeamYear(dynasty.coachingStaffByTeamYear, dynasty, tid, year)
   if (teamYearStaff) {
     return teamYearStaff
   }
@@ -2648,7 +2658,7 @@ export function getCurrentCoachingStaff(dynasty) {
   if (tid && dynasty.teams?.[tid]?.byYear?.[year - 1]?.coachingStaff) {
     return dynasty.teams[tid].byYear[year - 1].coachingStaff
   }
-  const previousYearStaff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year - 1]
+  const previousYearStaff = lookupByTeamYear(dynasty.coachingStaffByTeamYear, dynasty, tid, year - 1)
   if (previousYearStaff) {
     return previousYearStaff
   }
@@ -2671,8 +2681,21 @@ export function getCurrentGoogleSheet(dynasty) {
   const tid = getCurrentTeamTid(dynasty)
   const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
 
-  // Try new team-centric structure first
-  const teamSheet = dynasty.googleSheetsByTeam?.[teamAbbr]
+  // Try new team-centric structure first. Drift-aware: check the
+  // resolved abbr AND scan all keys for any abbr that resolves to this
+  // tid (handles teambuilder rename).
+  const sheetsByTeam = dynasty.googleSheetsByTeam || {}
+  let teamSheet = sheetsByTeam[teamAbbr] || (tid != null ? sheetsByTeam[tid] : null)
+  if (!teamSheet && tid != null) {
+    for (const key of Object.keys(sheetsByTeam)) {
+      if (key === teamAbbr || key === String(tid)) continue
+      const keyTid = getTidFromAbbr(key, dynasty)
+      if (keyTid != null && Number(keyTid) === Number(tid)) {
+        teamSheet = sheetsByTeam[key]
+        if (teamSheet) break
+      }
+    }
+  }
   if (teamSheet) {
     return teamSheet
   }
@@ -2699,9 +2722,9 @@ export function getCurrentRecruits(dynasty) {
     return dynasty.teams[tid].byYear[year].recruits
   }
 
-  // Try old team-centric structure (recruitsByTeamYear) - need abbr for legacy lookup
+  // Try old team-centric structure (drift-aware via tid)
   const teamAbbr = getAbbrFromTid(dynasty.teams, tid) || dynasty.teamName
-  const teamYearRecruits = dynasty.recruitsByTeamYear?.[teamAbbr]?.[year]
+  const teamYearRecruits = lookupByTeamYear(dynasty.recruitsByTeamYear, dynasty, tid, year)
   if (teamYearRecruits) {
     return teamYearRecruits
   }
@@ -2952,9 +2975,9 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
   // Try NEW tid-based byYear structure first (Phase 7 migration)
   let staff = tid && dynasty.teams?.[tid]?.byYear?.[year]?.lockedCoachingStaff
 
-  // Fall back to locked coaching staff (old format, set at end of Week 12)
-  if (!staff && teamAbbr) {
-    staff = dynasty.lockedCoachingStaffByYear?.[teamAbbr]?.[year]
+  // Fall back to locked coaching staff (drift-aware)
+  if (!staff) {
+    staff = lookupByTeamYear(dynasty.lockedCoachingStaffByYear, dynasty, tid ?? teamAbbr, year)
   }
 
   // Fall back to team-centric coaching staff from new structure
@@ -2962,9 +2985,9 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     staff = dynasty.teams?.[tid]?.byYear?.[year]?.coachingStaff
   }
 
-  // Fall back to team-centric coaching staff (old format, may have been updated after firings)
-  if (!staff && teamAbbr) {
-    staff = dynasty.coachingStaffByTeamYear?.[teamAbbr]?.[year]
+  // Fall back to team-centric coaching staff (old format) — drift-aware
+  if (!staff) {
+    staff = lookupByTeamYear(dynasty.coachingStaffByTeamYear, dynasty, tid ?? teamAbbr, year)
   }
 
   // ONLY fall back to legacy coaching staff if this is the user's CURRENT team
@@ -3657,12 +3680,9 @@ export function getPlayersLeaving(dynasty, tidOrAbbr, year) {
   // Get abbr for legacy lookup
   const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
 
-  // Check team-centric structure (old format)
-  if (abbr) {
-    const teamYear = dynasty.playersLeavingByTeamYear?.[abbr]?.[year] ||
-                     dynasty.playersLeavingByTeamYear?.[abbr]?.[String(year)]
-    if (teamYear) return teamYear
-  }
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.playersLeavingByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
   return dynasty.playersLeavingByYear?.[year] || dynasty.playersLeavingByYear?.[String(year)] || []
@@ -3687,14 +3707,9 @@ export function getConferenceChampionshipData(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[year].conferenceChampionshipData
   }
 
-  // Fall back to abbr-based structure (old format)
-  // Need abbr for legacy lookup
-  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
-  if (abbr) {
-    const teamYear = dynasty.conferenceChampionshipDataByTeamYear?.[abbr]?.[year] ||
-                     dynasty.conferenceChampionshipDataByTeamYear?.[abbr]?.[String(year)]
-    if (teamYear) return teamYear
-  }
+  // Fall back to abbr-based structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.conferenceChampionshipDataByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
   return dynasty.conferenceChampionshipDataByYear?.[year] ||
@@ -3714,9 +3729,8 @@ export function getBowlEligibilityData(dynasty, teamAbbr, year) {
     return dynasty.teams[tid].byYear[year].bowlEligibilityData
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.bowlEligibilityDataByTeamYear?.[teamAbbr]?.[String(year)]
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.bowlEligibilityDataByTeamYear, dynasty, tid ?? teamAbbr, year)
   if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
@@ -3737,9 +3751,8 @@ export function getDraftResults(dynasty, teamAbbr, year) {
     return dynasty.teams[tid].byYear[year].draftResults
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.draftResultsByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.draftResultsByTeamYear?.[teamAbbr]?.[String(year)]
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.draftResultsByTeamYear, dynasty, tid ?? teamAbbr, year)
   if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
@@ -3760,9 +3773,8 @@ export function getTransferDestinations(dynasty, teamAbbr, year) {
     return dynasty.teams[tid].byYear[year].transferDestinations
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.transferDestinationsByTeamYear?.[teamAbbr]?.[String(year)]
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.transferDestinationsByTeamYear, dynasty, tid ?? teamAbbr, year)
   if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
@@ -3789,14 +3801,9 @@ export function getTrainingResults(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[year].trainingResults
   }
 
-  // Fall back to abbr-based structure (old format)
-  // Need abbr for legacy lookup
-  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
-  if (abbr) {
-    const teamYear = dynasty.trainingResultsByTeamYear?.[abbr]?.[year] ||
-                     dynasty.trainingResultsByTeamYear?.[abbr]?.[String(year)]
-    if (teamYear) return teamYear
-  }
+  // Fall back to abbr-based structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.trainingResultsByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
   return dynasty.trainingResultsByYear?.[year] ||
@@ -3816,9 +3823,8 @@ export function getPortalTransferClass(dynasty, teamAbbr, year) {
     return dynasty.teams[tid].byYear[year].portalTransferClass
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.portalTransferClassByTeamYear?.[teamAbbr]?.[String(year)]
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.portalTransferClassByTeamYear, dynasty, tid ?? teamAbbr, year)
   if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
@@ -3839,9 +3845,8 @@ export function getFringeCaseClass(dynasty, teamAbbr, year) {
     return dynasty.teams[tid].byYear[year].fringeCaseClass
   }
 
-  // Check team-centric structure (old format)
-  const teamYear = dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[year] ||
-                   dynasty.fringeCaseClassByTeamYear?.[teamAbbr]?.[String(year)]
+  // Check team-centric structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.fringeCaseClassByTeamYear, dynasty, tid ?? teamAbbr, year)
   if (teamYear) return teamYear
 
   // Fall back to year-only structure (legacy format)
@@ -3868,14 +3873,9 @@ export function getEncourageTransfers(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[year].encourageTransfers
   }
 
-  // Fall back to abbr-based structure (old format)
-  // Need abbr for legacy lookup
-  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
-  if (abbr) {
-    const teamYear = dynasty.encourageTransfersByTeamYear?.[abbr]?.[year] ||
-                     dynasty.encourageTransfersByTeamYear?.[abbr]?.[String(year)]
-    if (teamYear) return teamYear
-  }
+  // Fall back to abbr-based structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.encourageTransfersByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYear) return teamYear
 
   return []
 }
@@ -3899,14 +3899,9 @@ export function getRecruitingCommitments(dynasty, tidOrAbbr, year) {
     return dynasty.teams[tid].byYear[year].recruitingCommitments
   }
 
-  // Fall back to abbr-based structure (old format)
-  // Need abbr for legacy lookup
-  const abbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : (dynasty.teams?.[tid]?.abbr || getOriginalTeamAbbr(tid))
-  if (abbr) {
-    const teamYear = dynasty.recruitingCommitmentsByTeamYear?.[abbr]?.[year] ||
-                     dynasty.recruitingCommitmentsByTeamYear?.[abbr]?.[String(year)]
-    if (teamYear) return teamYear
-  }
+  // Fall back to abbr-based structure (drift-aware via tid)
+  const teamYear = lookupByTeamYear(dynasty.recruitingCommitmentsByTeamYear, dynasty, tid ?? tidOrAbbr, year)
+  if (teamYear) return teamYear
 
   return {}
 }

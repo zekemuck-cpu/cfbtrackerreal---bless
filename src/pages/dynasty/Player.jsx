@@ -348,41 +348,58 @@ export default function Player() {
   // Determine if player has transferred out (to another team)
   const hasTransferredOut = departureMovement?.type === 'transfer' && departureMovement?.to
 
-  // Determine the player's team - use the most recent year in teamsByYear as source of truth
-  // This correctly reflects transfers (e.g., player who transferred from Wisconsin to Kentucky shows Kentucky)
+  // Determine the player's team - use the most recent year in teamsByYear
+  // as source of truth. Value can be a tid (number, modern) or an abbr
+  // (string, legacy) depending on when the entry was written.
   const currentYear = dynasty?.currentYear
-  const playerTeamAbbr = (() => {
+  const playerTeamRaw = (() => {
     const tby = player?.teamsByYear
     if (tby) {
-      // First try currentYear
       const currentYearTeam = tby[currentYear] || tby[String(currentYear)]
       if (currentYearTeam) return currentYearTeam
-      // Otherwise use the most recent year in teamsByYear
       const years = Object.keys(tby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
       if (years.length > 0) return tby[years[0]] || tby[String(years[0])]
     }
     return player?.team || getCurrentTeamAbbr(dynasty) || ''
   })()
 
+  // Resolve to the registry team object via tid first (drift-safe). For
+  // legacy abbr-string values, do a current-abbr scan then fall back to
+  // searching dynasty.teams by abbr at all. The resolved abbr from the
+  // registry is the AUTHORITATIVE current abbr — use it for downstream
+  // logo / color / name lookups so a renamed teambuilder team renders.
+  const playerTeam = (() => {
+    if (playerTeamRaw == null || playerTeamRaw === '') return null
+    if (typeof playerTeamRaw === 'number') {
+      return dynasty?.teams?.[playerTeamRaw] || null
+    }
+    if (typeof playerTeamRaw === 'string' && /^\d+$/.test(playerTeamRaw)) {
+      return dynasty?.teams?.[Number(playerTeamRaw)] || dynasty?.teams?.[playerTeamRaw] || null
+    }
+    if (dynasty?.teams) {
+      return Object.values(dynasty.teams).find(t => t.abbr === playerTeamRaw) || null
+    }
+    return null
+  })()
+
+  // Effective abbr for legacy display lookups: prefer the registry's
+  // current value over any drifted snapshot.
+  const playerTeamAbbr = playerTeam?.abbr || (typeof playerTeamRaw === 'string' ? playerTeamRaw : '')
+
   // For outgoing transfers, get the team they transferred FROM
   const transferredFromTeam = hasTransferredOut
     ? departureMovement?.from
     : null
 
-  // Get the full team name from the abbreviation (pass teams for tid-based lookup)
-  const playerTeamName = getMascotName(playerTeamAbbr, dynasty?.teams || dynasty?.customTeams)
+  // Get the full team name (prefer the registry team's name; fall back to
+  // mascot resolution from the resolved abbr).
+  const playerTeamName = playerTeam?.name
+    || getMascotName(playerTeamAbbr, dynasty?.teams || dynasty?.customTeams)
     || dynasty?.teamName
     || ''
 
   // IMPORTANT: All hooks must be called before any early returns
   const teamColors = useTeamColors(playerTeamName, dynasty?.teams || dynasty?.customTeams)
-
-  // Get team object for new styling system (matching TeamYear.jsx)
-  const playerTeam = typeof playerTeamAbbr === 'number'
-    ? dynasty?.teams?.[playerTeamAbbr]
-    : dynasty?.teams
-      ? Object.values(dynasty.teams).find(t => t.abbr === playerTeamAbbr)
-      : null
 
   const teamInfo = playerTeam ? {
     name: playerTeam.name,

@@ -2981,13 +2981,21 @@ export default function GameEntryModal({
               // Compute home/away teams for button labels
               // For CPU games: team1 = "home", team2 = "away" in box score
               // For user games: based on location (home/neutral = user is home)
+              // Resolve home/away ABBR from tids first when present so a
+              // teambuilder team renamed since the game was saved shows
+              // its CURRENT abbr in the button labels (otherwise we'd
+              // surface the stale snapshot).
               let homeAbbr, awayAbbr
+              const teamsSrc = currentDynasty?.teams || TEAMS
+              const t1FromTid = effectiveGame?.team1Tid != null ? getGameTeamInfo(teamsSrc, effectiveGame.team1Tid)?.abbr : null
+              const t2FromTid = effectiveGame?.team2Tid != null ? getGameTeamInfo(teamsSrc, effectiveGame.team2Tid)?.abbr : null
               if (isCPUGame) {
-                homeAbbr = effectiveGame?.team1 || passedTeam1 || 'Team 1'
-                awayAbbr = effectiveGame?.team2 || passedTeam2 || 'Team 2'
+                homeAbbr = t1FromTid || effectiveGame?.team1 || passedTeam1 || 'Team 1'
+                awayAbbr = t2FromTid || effectiveGame?.team2 || passedTeam2 || 'Team 2'
               } else {
                 const teamAbbr = effectiveTeamAbbr || effectiveTeamName || ''
-                const rawOppAbbr = gameData.opponent || existingGame?.opponent || ''
+                const oppFromTid = effectiveGame?.opponentTid != null ? getGameTeamInfo(teamsSrc, effectiveGame.opponentTid)?.abbr : null
+                const rawOppAbbr = oppFromTid || gameData.opponent || existingGame?.opponent || ''
                 const oppAbbr = getAbbrFromTeamName(rawOppAbbr) || rawOppAbbr
                 const isTeamHome = gameData.location === 'home' || gameData.location === 'neutral'
                 homeAbbr = isTeamHome ? teamAbbr : oppAbbr

@@ -326,11 +326,14 @@ export function useTickerSections(dynasty) {
       const teamPlayers = dynasty.players.filter(p => {
         const playerTeamVal = p.teamsByYear?.[displayYear]
         if (!playerTeamVal || !p.statsByYear?.[displayYear]) return false
-        // Check if value is tid (number) or abbr (string)
-        if (typeof playerTeamVal === 'number') {
-          return playerTeamVal === currentTeamTid
-        }
-        return playerTeamVal === teamAbbr
+        // Tid match wins. For string values, also try resolving the
+        // string as an abbr → tid against the current registry, so a
+        // teambuilder team renamed mid-dynasty still matches its
+        // (now stale) old abbr stored on the player.
+        if (typeof playerTeamVal === 'number') return playerTeamVal === currentTeamTid
+        if (playerTeamVal === teamAbbr) return true
+        const resolvedTid = getTidFromAbbr(playerTeamVal, dynasty)
+        return resolvedTid != null && Number(resolvedTid) === Number(currentTeamTid)
       })
       const items = []
 
@@ -430,7 +433,9 @@ export function useTickerSections(dynasty) {
         const playerTeamVal = p.teamsByYear?.[displayYear]
         if (!playerTeamVal || !p.statsByYear?.[displayYear]) return false
         if (typeof playerTeamVal === 'number') return playerTeamVal === currentTeamTid
-        return playerTeamVal === teamAbbr
+        if (playerTeamVal === teamAbbr) return true
+        const resolvedTid = getTidFromAbbr(playerTeamVal, dynasty)
+        return resolvedTid != null && Number(resolvedTid) === Number(currentTeamTid)
       })
 
       const milestoneItems = []

@@ -651,36 +651,79 @@ function getNextCFPOpponent(dynasty, game) {
 
   const year = game.year
   const cfpResults = dynasty.cfpResultsByYear?.[year] || {}
-  const seeds = cfpResults.seeds || {}
   const allGames = dynasty.games || []
 
-  // Reverse lookup: team -> seed
+  // Tid-keyed seed lookup is the primary source; the legacy abbr-keyed
+  // map is a fallback. Build BOTH maps so a renamed teambuilder team
+  // (whose abbr drifted between when seeds were stored and now) is
+  // still findable via tid.
+  const tidToSeed = {}
+  const tidToAbbr = {}
+  const tidsInBracket = []
+  const yearTidArray = dynasty.cfpSeedsByYear?.[year] || []
+  if (Array.isArray(yearTidArray)) {
+    yearTidArray.forEach(entry => {
+      if (entry && entry.tid != null && entry.seed != null) {
+        const t = Number(entry.tid)
+        tidToSeed[t] = entry.seed
+        tidToAbbr[t] = (dynasty.teams?.[t]?.abbr) || entry.team || null
+        tidsInBracket.push(t)
+      }
+    })
+  }
+  // Legacy abbr-keyed seeds (only used when tid map is empty for this year)
+  const legacySeeds = cfpResults.seeds || {}
   const teamToSeed = {}
-  Object.entries(seeds).forEach(([team, seed]) => {
+  Object.entries(legacySeeds).forEach(([team, seed]) => {
     if (seed) teamToSeed[team] = seed
   })
 
-  // Helper to find a team by seed
-  const getTeamBySeed = (seed) => {
-    return Object.entries(seeds).find(([team, s]) => Number(s) === Number(seed))?.[0] || `#${seed} seed`
+  // Resolve any team-identifier (tid or abbr) to its seed.
+  const resolveSeed = (tid, abbr) => {
+    if (tid != null && tidToSeed[Number(tid)] != null) return tidToSeed[Number(tid)]
+    if (abbr && teamToSeed[abbr] != null) return teamToSeed[abbr]
+    return null
   }
 
-  // Helper to find winner of a first round matchup
-  const getFirstRoundWinner = (seed1, seed2) => {
-    const frGame = allGames.find(g =>
-      Number(g.year) === Number(year) &&
-      g.isCFPFirstRound &&
-      g.team1Score != null &&
-      ((teamToSeed[g.team1] == seed1 && teamToSeed[g.team2] == seed2) ||
-       (teamToSeed[g.team1] == seed2 && teamToSeed[g.team2] == seed1))
-    )
-    if (frGame) {
-      return frGame.team1Score > frGame.team2Score ? frGame.team1 : frGame.team2
+  // Find current display abbr for a seed (used to render opponent names
+  // in the AI prompt). Tid path first.
+  const getTeamAbbrBySeed = (seed) => {
+    for (const t of tidsInBracket) {
+      if (Number(tidToSeed[t]) === Number(seed)) return tidToAbbr[t] || `#${seed} seed`
+    }
+    const legacy = Object.entries(legacySeeds).find(([, s]) => Number(s) === Number(seed))?.[0]
+    return legacy || `#${seed} seed`
+  }
+
+  // Find the abbr of a winner from a game using tid + scores.
+  const winnerAbbr = (g) => {
+    if (!g) return null
+    if (g.team1Score != null && g.team2Score != null && g.team1Tid != null && g.team2Tid != null) {
+      const wTid = g.team1Score > g.team2Score ? Number(g.team1Tid) : Number(g.team2Tid)
+      return dynasty.teams?.[wTid]?.abbr || (wTid === Number(g.team1Tid) ? g.team1 : g.team2)
+    }
+    if (g.team1Score != null && g.team2Score != null) {
+      return g.team1Score > g.team2Score ? g.team1 : g.team2
+    }
+    if (g.result && g.userTeam) {
+      return (g.result === 'win' || g.result === 'W') ? g.userTeam : g.opponent
     }
     return null
   }
 
-  // Helper to find winner of a quarterfinal by bowl name
+  // Find first-round game by seed pair (tid-resolved seeds).
+  const getFirstRoundWinner = (seed1, seed2) => {
+    const frGame = allGames.find(g => {
+      if (Number(g.year) !== Number(year) || !g.isCFPFirstRound) return false
+      if (g.team1Score == null) return false
+      const s1 = resolveSeed(g.team1Tid, g.team1)
+      const s2 = resolveSeed(g.team2Tid, g.team2)
+      return (Number(s1) === Number(seed1) && Number(s2) === Number(seed2)) ||
+             (Number(s1) === Number(seed2) && Number(s2) === Number(seed1))
+    })
+    return winnerAbbr(frGame)
+  }
+
   const getQuarterfinalWinner = (bowlName) => {
     const qfGame = allGames.find(g =>
       Number(g.year) === Number(year) &&
@@ -688,17 +731,9 @@ function getNextCFPOpponent(dynasty, game) {
       g.bowlName === bowlName &&
       (g.team1Score != null || g.teamScore != null)
     )
-    if (qfGame) {
-      if (qfGame.team1Score != null) {
-        return qfGame.team1Score > qfGame.team2Score ? qfGame.team1 : qfGame.team2
-      } else {
-        return qfGame.result === 'win' || qfGame.result === 'W' ? qfGame.userTeam : qfGame.opponent
-      }
-    }
-    return null
+    return winnerAbbr(qfGame)
   }
 
-  // Helper to find winner of a semifinal by bowl name
   const getSemifinalWinner = (bowlName) => {
     const sfGame = allGames.find(g =>
       Number(g.year) === Number(year) &&
@@ -706,21 +741,15 @@ function getNextCFPOpponent(dynasty, game) {
       g.bowlName === bowlName &&
       (g.team1Score != null || g.teamScore != null)
     )
-    if (sfGame) {
-      if (sfGame.team1Score != null) {
-        return sfGame.team1Score > sfGame.team2Score ? sfGame.team1 : sfGame.team2
-      } else {
-        return sfGame.result === 'win' || sfGame.result === 'W' ? sfGame.userTeam : sfGame.opponent
-      }
-    }
-    return null
+    return winnerAbbr(sfGame)
   }
 
-  // Determine current game's teams and their seeds
+  // Determine current game's teams and their seeds (tid-resolved).
   const team1 = game.team1 || game.userTeam
   const team2 = game.team2 || game.opponent
-  const team1Seed = teamToSeed[team1]
-  const team2Seed = teamToSeed[team2]
+  const team1Seed = resolveSeed(game.team1Tid, team1)
+  const team2Seed = resolveSeed(game.team2Tid, team2)
+  const getTeamBySeed = getTeamAbbrBySeed
 
   if (game.isCFPFirstRound) {
     // First round winners play a top-4 seed in quarterfinals
@@ -819,15 +848,21 @@ function getCFPBracketContext(dynasty, game) {
     (g.isCFPFirstRound || g.isCFPQuarterfinal || g.isCFPSemifinal || g.isCFPChampionship)
   )
 
-  // Add completed CFP games to bracket context
+  // Add completed CFP games to bracket context. Tid-first winner/loser
+  // resolution so a renamed teambuilder team appears under its CURRENT
+  // abbr in the AI's bracket context.
   for (const g of cfpGames) {
     if (g.id === game.id) continue // Skip current game
 
     let winner, loser, score
     if (g.team1 && g.team2 && g.team1Score != null) {
       const t1Won = g.team1Score > g.team2Score
-      winner = t1Won ? g.team1 : g.team2
-      loser = t1Won ? g.team2 : g.team1
+      const t1Tid = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2Tid = g.team2Tid != null ? Number(g.team2Tid) : null
+      const t1Abbr = (t1Tid != null && dynasty.teams?.[t1Tid]?.abbr) || g.team1
+      const t2Abbr = (t2Tid != null && dynasty.teams?.[t2Tid]?.abbr) || g.team2
+      winner = t1Won ? t1Abbr : t2Abbr
+      loser = t1Won ? t2Abbr : t1Abbr
       score = `${Math.max(g.team1Score, g.team2Score)}-${Math.min(g.team1Score, g.team2Score)}`
     } else if (g.teamScore != null && g.opponentScore != null) {
       const userWon = g.result === 'win' || g.result === 'W'

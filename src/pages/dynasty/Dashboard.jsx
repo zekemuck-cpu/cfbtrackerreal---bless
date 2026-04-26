@@ -7618,8 +7618,21 @@ export default function Dashboard() {
               const allPlayers = currentDynasty?.players || []
               const currentYear = currentDynasty.currentYear
 
-              // Helper to check if a teamsByYear value matches our team (handles both tid and abbr)
-              const matchesTeam = (value) => value === teamTid || value === teamAbbr
+              // Helper to check if a teamsByYear value matches our team. Handles
+              // tid (number or numeric string), abbr (case-insensitive), and
+              // teambuilder rename (legacy abbr that resolves to current tid).
+              const matchesTeam = (value) => {
+                if (value == null) return false
+                if (typeof value === 'number' || /^\d+$/.test(String(value))) {
+                  return Number(value) === Number(teamTid)
+                }
+                if (typeof value === 'string') {
+                  if (value.toUpperCase() === String(teamAbbr).toUpperCase()) return true
+                  const tid = getTidFromAbbr(value, currentDynasty)
+                  return tid != null && Number(tid) === Number(teamTid)
+                }
+                return false
+              }
 
               // Get RETURNING players (was on team last year, still on team this year)
               // Uses isPlayerOnRoster which handles both stint-based and legacy players
@@ -9092,10 +9105,15 @@ export default function Dashboard() {
               g && g.isBowlGame && g.bowlWeek === 'week2' && Number(g.year) === Number(year) &&
               (isTeamInGame(g, userTeamTid) || g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
             )
-            // Check if user's game is already in the new data from the sheet
-            const userGameInSheet = sanitizedBowlGames.some(g =>
-              g && (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
-            )
+            // Check if user's game is already in the new data from the sheet.
+            // Tid-first match — sheet rows now carry tids (pass 2 fix);
+            // abbr fallback only for legacy sheets.
+            const userIsInSheetGame = (g) => {
+              if (!g) return false
+              if (userTeamTid != null && (Number(g.team1Tid) === Number(userTeamTid) || Number(g.team2Tid) === Number(userTeamTid))) return true
+              return g.team1 === userTeamAbbr || g.team2 === userTeamAbbr
+            }
+            const userGameInSheet = sanitizedBowlGames.some(userIsInSheetGame)
             // Merge: keep user's game if it exists and wasn't in the sheet
             const mergedBowlGames = userExistingBowlGame && !userGameInSheet
               ? [...sanitizedBowlGames, userExistingBowlGame]
@@ -9108,10 +9126,8 @@ export default function Dashboard() {
               Number(g.year) === Number(year) &&
               (isTeamInGame(g, userTeamTid) || g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
             )
-            // Check if user's CFP game is already in the new data from the sheet
-            const userCFPGameInSheet = cfpQuarterfinals.some(g =>
-              g && (g.team1 === userTeamAbbr || g.team2 === userTeamAbbr)
-            )
+            // Same tid-first pattern for CFP quarterfinal sheet matching.
+            const userCFPGameInSheet = cfpQuarterfinals.some(userIsInSheetGame)
             // Merge: keep user's CFP game if it exists and wasn't in the sheet
             const mergedCFPQuarterfinals = userExistingCFPGame && !userCFPGameInSheet
               ? [...cfpQuarterfinals, userExistingCFPGame]

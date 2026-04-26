@@ -2025,6 +2025,23 @@ export default function Game() {
               return playU === lAbbrU
             }
 
+            // Resolve a play's team to current-registry data (abbr, logo, colors).
+            // play.team is the abbr stored at game time; if a teambuilder team
+            // was renamed since, that stale abbr won't resolve via the registry
+            // helpers. Map play.team → tid via the game's two teams, then look
+            // up by tid for stable colors / logos.
+            const resolvePlayTeamData = (play) => {
+              const playU = play.team?.toUpperCase()
+              const tid = playU === lAbbrU ? lTid : playU === rAbbrU ? rTid : null
+              const sideData = tid === lTid ? leftData : tid === rTid ? rightData : null
+              return {
+                abbr: sideData?.abbr || play.team,
+                logo: sideData?.logo || null,
+                colors: sideData?.colors || null,
+                name: sideData?.name || null,
+              }
+            }
+
             // Calculate running scores
             let leftRunning = 0
             let rightRunning = 0
@@ -2061,7 +2078,10 @@ export default function Game() {
                 )}
                 <div className="divide-y divide-surface-3/50">
                 {playsWithScores.map((play, idx) => {
-                  const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
+                  const resolvedPlayTeam = resolvePlayTeamData(play)
+                  const playTeamColors = resolvedPlayTeam.colors
+                    || getTeamColorsRobust(resolvedPlayTeam.abbr)
+                    || { primary: '#666', secondary: '#333' }
                   const scorerPID = getPlayerPID(play.scorer)
                   const passerPID = play.passer ? getPlayerPID(play.passer) : null
                   const isLeftTeam = isPlayOnLeftSide(play)
@@ -2099,11 +2119,13 @@ export default function Game() {
                             {play.runningRightScore}
                           </span>
                         </div>
-                        {/* Team logo */}
+                        {/* Team logo — uses tid-resolved registry data so a
+                            renamed teambuilder team's logo still renders. */}
                         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-2/50 p-1">
                           <img
-                            src={getTeamLogo(getMascotName(play.team, currentDynasty?.teams || currentDynasty?.customTeams) || play.team)}
-                            alt={play.team}
+                            src={resolvedPlayTeam.logo
+                              || getTeamLogo(getMascotName(resolvedPlayTeam.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || resolvedPlayTeam.abbr)}
+                            alt={resolvedPlayTeam.abbr}
                             className="w-full h-full object-contain"
                           />
                         </div>

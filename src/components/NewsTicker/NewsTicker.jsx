@@ -6,9 +6,14 @@ import { getTeamLogo } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 
 function getLogoUrl(teamIdentifier, teams = null) {
-  if (!teamIdentifier) return null
-  // Check dynasty teams first (handles teambuilder teams by abbr or name)
+  if (teamIdentifier == null || teamIdentifier === '') return null
+  // tid input → direct registry lookup (drift-safe)
   if (teams) {
+    if (typeof teamIdentifier === 'number' || (typeof teamIdentifier === 'string' && /^\d+$/.test(teamIdentifier))) {
+      const t = teams[teamIdentifier] || teams[Number(teamIdentifier)]
+      if (t?.logo) return t.logo
+    }
+    // abbr or name match
     const customEntry = Object.values(teams).find(t => t.abbr === teamIdentifier || t.name === teamIdentifier)
     if (customEntry?.logo) return customEntry.logo
   }

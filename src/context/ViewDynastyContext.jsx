@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { getPublicDynastyWithSubcollections } from '../services/dynastyService'
-import { getCurrentTeamAbbr, getTidFromAbbr } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr } from '../data/teamRegistry'
+import { lookupByTeamYear } from './DynastyContext'
 import DynastyContext from './DynastyContext'
 
 const ViewDynastyContext = createContext()
@@ -134,9 +135,18 @@ export function ViewDynastyProvider({ shareCode, children }) {
     // Helper functions that work in view mode (read-only)
     getCurrentSchedule: () => {
       if (!dynasty) return []
-      const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+      const tid = getCurrentTeamTid(dynasty)
       const year = dynasty.currentYear
-      return dynasty.schedulesByTeamYear?.[teamAbbr]?.[year] || dynasty.schedule || []
+      // Tid-based byYear is the primary source; legacy abbr-keyed
+      // schedulesByTeamYear is checked drift-aware via lookupByTeamYear so
+      // a teambuilder team renamed since the schedule was saved still
+      // surfaces its data.
+      if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.schedule) {
+        return dynasty.teams[tid].byYear[year].schedule
+      }
+      const fromByTeamYear = lookupByTeamYear(dynasty.schedulesByTeamYear, dynasty, tid, year)
+      if (fromByTeamYear) return fromByTeamYear
+      return dynasty.schedule || []
     },
 
     getCurrentRoster: () => {

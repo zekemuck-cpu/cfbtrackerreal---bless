@@ -514,21 +514,28 @@ export default function CFPBracket() {
   const CONNECTOR_GAP = 60 // Gap between columns for connector lines
 
   // Team slot component
-  // TeamSlot now accepts isParentClickable to avoid nested anchors
-  const TeamSlot = ({ team, seed, score, isWinner, isParentClickable }) => {
+  // TeamSlot now accepts isParentClickable to avoid nested anchors. Tid
+  // input wins for registry lookup (logo/colors) — survives teambuilder
+  // rename. Abbr is the display fallback.
+  const TeamSlot = ({ team, teamTid, seed, score, isWinner, isParentClickable }) => {
     const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams
-    const customEntry = dynastyTeams && team ? Object.values(dynastyTeams).find(t => t.abbr === team || t.name === team) : null
-    const teamData = team ? teamAbbreviations[team] : null
-    const bgColor = teamData?.backgroundColor || '#4B5563'
-    const txtColor = teamData?.textColor || '#D1D5DB'
-    const mascotName = customEntry?.name || (team ? mascotMap[team] : null)
+    const customEntry = (teamTid != null && dynastyTeams?.[teamTid])
+      || (dynastyTeams && team ? Object.values(dynastyTeams).find(t => t.abbr === team || t.name === team) : null)
+    const resolvedAbbr = customEntry?.abbr || team
+    const teamData = resolvedAbbr ? teamAbbreviations[resolvedAbbr] : null
+    const bgColor = customEntry?.primaryColor || teamData?.backgroundColor || '#4B5563'
+    const txtColor = customEntry?.secondaryColor || teamData?.textColor || '#D1D5DB'
+    const mascotName = customEntry?.name || (resolvedAbbr ? mascotMap[resolvedAbbr] : null)
     const logo = customEntry?.logo || (mascotName ? getTeamLogo(mascotName, dynastyTeams) : null)
     const isLoser = score !== undefined && !isWinner
 
     // When parent is clickable (a Link), use span to avoid nested anchors
-    // When parent is not clickable, use Link to allow team navigation
+    // When parent is not clickable, use Link to allow team navigation.
+    // Use the tid input directly when present so the link is stable across
+    // teambuilder renames; fall back to abbr-resolution.
+    const linkTid = teamTid != null ? Number(teamTid) : (resolvedAbbr ? resolveTid(resolvedAbbr, dynastyTeams || TEAMS) : null)
     const TeamName = () => {
-      if (!team) {
+      if (!resolvedAbbr) {
         return (
           <span className="text-xl font-semibold" style={{ color: txtColor }}>
             TBD
@@ -537,23 +544,21 @@ export default function CFPBracket() {
       }
 
       if (isParentClickable) {
-        // Render as span to avoid nested <a> tags
         return (
           <span className="text-xl font-semibold" style={{ color: txtColor }}>
-            {getShortName(team)}
+            {getShortName(resolvedAbbr)}
           </span>
         )
       }
 
-      // Render as Link when parent is not clickable
       return (
         <Link
-          to={`${pathPrefix}/team/${resolveTid(team, currentDynasty?.teams || TEAMS)}/${displayYear}`}
+          to={`${pathPrefix}/team/${linkTid}/${displayYear}`}
           onClick={(e) => e.stopPropagation()}
           className="text-xl font-semibold hover:underline"
           style={{ color: txtColor }}
         >
-          {getShortName(team)}
+          {getShortName(resolvedAbbr)}
         </Link>
       )
     }
@@ -626,10 +631,12 @@ export default function CFPBracket() {
     const hasTeams = team1 && team2
     const isClickable = (hasResult || hasGameShell || hasTeams) && gameId
 
+    // Pass tid through when available so TeamSlot can resolve registry
+    // data without depending on the (possibly stale) abbr string.
     const matchupContent = (
       <>
-        <TeamSlot team={team1} seed={seed1} score={score1} isWinner={winner === team1} isParentClickable={isClickable} />
-        <TeamSlot team={team2} seed={seed2} score={score2} isWinner={winner === team2} isParentClickable={isClickable} />
+        <TeamSlot team={team1} teamTid={gameData?.team1Tid} seed={seed1} score={score1} isWinner={winner === team1} isParentClickable={isClickable} />
+        <TeamSlot team={team2} teamTid={gameData?.team2Tid} seed={seed2} score={score2} isWinner={winner === team2} isParentClickable={isClickable} />
       </>
     )
 
