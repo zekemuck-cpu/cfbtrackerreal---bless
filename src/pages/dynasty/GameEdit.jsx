@@ -115,6 +115,18 @@ const getOrdinalSuffix = (num) => {
   }
 }
 
+// Compact labeled-stat field used in the Team Details card. Tiny
+// uppercase label sits above the input so a row of 4–6 of these reads
+// as a tidy stat strip rather than a cramped grid.
+function StatField({ label, children }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] uppercase tracking-wider text-txt-tertiary text-center">{label}</label>
+      {children}
+    </div>
+  )
+}
+
 // Inline quarter input — module-scoped so its component identity is
 // stable across renders. If we redefined this inside the GameEdit
 // render body, every keystroke would create a new component reference,
@@ -1538,78 +1550,83 @@ export default function GameEdit() {
         )
       })()}
 
-      {/* Compact team details — both teams in a single card so they read as
-          one row instead of two competing card columns. Per-team: rank,
-          OVR/OFF/DEF, plus record fields for the opponent. */}
+      {/* Team details — stacked rows, one per team. Each row is the
+          team identity (logo + name + 'Your team' chip when applicable)
+          followed by a single inline cluster of compact stat inputs.
+          Avoids the cramped 4-input grid the previous design forced. */}
       <Card>
-        <h3 className="label-sm text-txt-primary mb-3">Team Details</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        <h3 className="label-sm text-txt-primary mb-4">Team Details</h3>
+        <div className="divide-y divide-surface-4">
           {[
             { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },
             { prefix: displayRightTeam, name: rightTeamName, abbr: rightTeamAbbr, logo: rightTeamLogo, isUser: isRightUserTeam }
-          ].map(({ prefix, name, logo, isUser }) => (
-            <div key={prefix} className="space-y-3 pb-4 md:pb-0 border-b md:border-b-0 md:border-r border-surface-4 last:border-0 md:pr-6 md:last:pr-0">
-              <div className="flex items-center gap-2">
-                {logo && <img src={logo} alt="" className="w-8 h-8 object-contain shrink-0" />}
-                <div className="text-sm font-bold text-txt-primary truncate">{name}</div>
-                {isUser && (
-                  <span className="ml-auto label-xs text-txt-tertiary">Your team</span>
-                )}
+          ].map(({ prefix, name, logo, isUser }, idx) => (
+            <div key={prefix} className={`flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6 ${idx === 0 ? 'pb-4' : 'pt-4'}`}>
+              {/* Team identity */}
+              <div className="flex items-center gap-3 lg:flex-1 lg:min-w-0">
+                {logo && <img src={logo} alt="" className="w-9 h-9 object-contain shrink-0" />}
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-txt-primary truncate">{name}</div>
+                  {isUser && (
+                    <div className="text-[10px] uppercase tracking-wider text-txt-tertiary mt-0.5">Your team</div>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <label className="label-xs text-txt-tertiary block mb-1">Rank</label>
+              {/* Stat inputs — single inline cluster, compact labels above
+                  small fixed-width inputs. Wraps on narrow viewports. */}
+              <div className="flex flex-wrap gap-x-3 gap-y-2 lg:gap-x-4">
+                <StatField label="Rank">
                   <Input
                     type="number"
                     value={formData[`${prefix}Rank`]}
                     onChange={(e) => setFormData({ ...formData, [`${prefix}Rank`]: e.target.value })}
                     size="sm"
-                    className="text-center tabular"
+                    className="w-14 text-center tabular"
                     min="1" max="133" placeholder="—"
                   />
-                </div>
-                {['Overall', 'Offense', 'Defense'].map(field => (
-                  <div key={field}>
-                    <label className="label-xs text-txt-tertiary block mb-1">{field.slice(0, 3).toUpperCase()}</label>
+                </StatField>
+                {[
+                  ['Overall', 'OVR'],
+                  ['Offense', 'OFF'],
+                  ['Defense', 'DEF'],
+                ].map(([field, label]) => (
+                  <StatField key={field} label={label}>
                     <Input
                       type="number"
                       value={formData[`${prefix}${field}`]}
                       onChange={(e) => setFormData({ ...formData, [`${prefix}${field}`]: e.target.value })}
                       size="sm"
-                      className="text-center tabular"
+                      className="w-14 text-center tabular"
                       min="0" max="99"
                     />
-                  </div>
+                  </StatField>
                 ))}
+                {!isUser && (
+                  <>
+                    <StatField label="Record">
+                      <Input
+                        type="text"
+                        value={formData[`${prefix}Record`]}
+                        onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
+                        size="sm"
+                        className="w-16 text-center tabular"
+                        placeholder="0–0"
+                      />
+                    </StatField>
+                    <StatField label="Conf">
+                      <Input
+                        type="text"
+                        value={formData[`${prefix}ConfRecord`]}
+                        onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
+                        size="sm"
+                        className="w-16 text-center tabular"
+                        placeholder="0–0"
+                      />
+                    </StatField>
+                  </>
+                )}
               </div>
-
-              {!isUser && (
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="label-xs text-txt-tertiary block mb-1">Record (after)</label>
-                    <Input
-                      type="text"
-                      value={formData[`${prefix}Record`]}
-                      onChange={(e) => setFormData({ ...formData, [`${prefix}Record`]: e.target.value })}
-                      size="sm"
-                      className="text-center tabular"
-                      placeholder="0-0"
-                    />
-                  </div>
-                  <div>
-                    <label className="label-xs text-txt-tertiary block mb-1">Conf</label>
-                    <Input
-                      type="text"
-                      value={formData[`${prefix}ConfRecord`]}
-                      onChange={(e) => setFormData({ ...formData, [`${prefix}ConfRecord`]: e.target.value })}
-                      size="sm"
-                      className="text-center tabular"
-                      placeholder="0-0"
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
