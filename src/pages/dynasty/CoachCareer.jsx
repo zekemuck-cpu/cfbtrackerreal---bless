@@ -241,14 +241,28 @@ export default function CoachCareer() {
     }).sort((a, b) => a.startYear - b.startYear)
 
     const currentTeamFullName = currentDynasty.teamName
+    const currentTid = currentDynasty.currentTid != null ? Number(currentDynasty.currentTid) : null
     teamStints.forEach(stint => {
-      const isCurrentTeam = stint.teamAbbr === currentTeamAbbr ||
-                           stint.teamName === currentTeamFullName
+      // Tid match wins; abbr/name only as fallback for legacy stints that
+      // predate tid storage.
+      const isCurrentTeam = (currentTid != null && stint.teamTid != null && Number(stint.teamTid) === currentTid)
+        || stint.teamAbbr === currentTeamAbbr
+        || stint.teamName === currentTeamFullName
       stint.isCurrent = isCurrentTeam
       stint.isPast = !isCurrentTeam
       stint.position = currentDynasty.coachPosition || 'HC'
       stint.conference = isCurrentTeam ? currentDynasty.conference : ''
-      stint.nationalChampionships = (stint.cfpGames || []).filter(g => detectGameType(g) === GAME_TYPES.CFP_CHAMPIONSHIP && isWin(g)).length
+      // National-championship count: use winnerTid (tid-based, drift-safe)
+      // when available; fall back to perspective.userWon (which can fail
+      // if coachTeamByYear is missing for the year) only if tid isn't on
+      // the game record at all.
+      stint.nationalChampionships = (stint.cfpGames || []).filter(g => {
+        if (detectGameType(g) !== GAME_TYPES.CFP_CHAMPIONSHIP) return false
+        if (g.winnerTid != null && stint.teamTid != null) {
+          return Number(g.winnerTid) === Number(stint.teamTid)
+        }
+        return isWin(g)
+      }).length
     })
 
     const hasCurrentTeam = teamStints.some(s => s.isCurrent)
@@ -306,9 +320,23 @@ export default function CoachCareer() {
     for (let year = stint.startYear; year <= stint.endYear; year++) {
       const yearAwards = awardsByYear[year] || {}
 
+      // Awards are stored with team as an abbr string (Google-Sheets-driven
+      // shape). Resolve to tid against the current registry, then compare to
+      // the stint's tid — survives teambuilder renames since tid is stable.
+      // Falls back to abbr compare when either side can't be resolved.
+      const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams
+      const matchesAwardTeamToStint = (awardTeam) => {
+        if (!awardTeam) return false
+        const awardTid = getTidFromAbbr(awardTeam, dynastyTeams)
+        if (awardTid != null && stint.teamTid != null) {
+          return Number(awardTid) === Number(stint.teamTid)
+        }
+        return awardTeam === stint.teamAbbr
+      }
+
       const bryantAward = yearAwards.bearBryantCoachOfTheYear
       if (bryantAward) {
-        const matchesTeam = bryantAward.team === stint.teamAbbr
+        const matchesTeam = matchesAwardTeamToStint(bryantAward.team)
         const matchesName = coachName && bryantAward.player?.toLowerCase().includes(coachName.toLowerCase())
         if (matchesTeam || matchesName) {
           stintAwards.push({
@@ -322,7 +350,7 @@ export default function CoachCareer() {
 
       const broylesAward = yearAwards.broyles
       if (broylesAward) {
-        if (broylesAward.team === stint.teamAbbr) {
+        if (matchesAwardTeamToStint(broylesAward.team)) {
           stintAwards.push({
             year,
             award: 'Broyles Award',

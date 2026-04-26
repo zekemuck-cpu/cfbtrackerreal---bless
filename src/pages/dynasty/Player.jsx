@@ -4657,12 +4657,36 @@ export default function Player() {
               return 0
             }
 
+            // Tid-based "is this play from the player's team?" — same
+            // pattern as allPlayerScoringPlays (above) and the per-game
+            // path. Falls back to abbr compare for legacy games without
+            // team1Tid/team2Tid.
+            const inT1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+            const inT2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
+            const inT1Abbr = inT1Tid != null ? dynasty.teams?.[inT1Tid]?.abbr?.toUpperCase() : null
+            const inT2Abbr = inT2Tid != null ? dynasty.teams?.[inT2Tid]?.abbr?.toUpperCase() : null
+            const inPlayerTid = player.teamsByYear?.[game.year] != null
+              ? Number(player.teamsByYear[game.year])
+              : null
+            const inPlayerAbbr = (
+              inPlayerTid != null && inPlayerTid === inT1Tid ? inT1Abbr :
+              inPlayerTid != null && inPlayerTid === inT2Tid ? inT2Abbr :
+              (dynasty.teams?.[inPlayerTid]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+            )
+
             // Calculate running scores for all plays
             let playerTeamScore = 0
             let opponentScore = 0
             const playsWithRunningScore = scoringSummary.map(play => {
               const points = getPlayPoints(play)
-              const isPlayerTeam = play.team?.toUpperCase() === (dynasty.teams?.[player.teamsByYear?.[game.year]]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+              const playU = play.team?.toUpperCase()
+              let isPlayerTeam
+              if (inT1Tid != null && inT2Tid != null && inPlayerTid != null && inT1Abbr && inT2Abbr) {
+                const playTid = playU === inT1Abbr ? inT1Tid : (playU === inT2Abbr ? inT2Tid : null)
+                isPlayerTeam = playTid != null ? playTid === inPlayerTid : (playU === inPlayerAbbr)
+              } else {
+                isPlayerTeam = playU === inPlayerAbbr
+              }
 
               if (isPlayerTeam) {
                 playerTeamScore += points
@@ -5098,6 +5122,8 @@ export default function Player() {
           scoringPlays={selectedGameScoringPlays.plays}
           team1Abbr={dynasty.teams?.[player.teamsByYear?.[currentYear]]?.abbr || getCurrentTeamAbbr(dynasty)}
           team2Abbr={selectedGameScoringPlays.opponent === 'All Games' ? null : selectedGameScoringPlays.opponent}
+          team1Tid={player.teamsByYear?.[currentYear] != null ? Number(player.teamsByYear[currentYear]) : null}
+          team2Tid={selectedGameScoringPlays.game?.opponentTid != null ? Number(selectedGameScoringPlays.game.opponentTid) : null}
           team1Logo={getTeamLogoByTid(player.teamsByYear?.[currentYear], dynasty.teams)}
           team2Logo={selectedGameScoringPlays.game?.opponentTid ? getTeamLogoByTid(selectedGameScoringPlays.game.opponentTid, dynasty.teams) : null}
           players={dynasty.players || []}

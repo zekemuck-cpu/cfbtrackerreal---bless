@@ -869,14 +869,19 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
   const { upToGameId, upToWeek, includeUpToWeek = true } = options
   const abbr = getAbbrFromTid(tid)
 
-  // Filter to year and team
+  // Filter to year and team. Tid checks come first (modern data); abbr
+  // checks cover legacy CPU-vs-CPU games stored without tids. Includes
+  // both team1/team2 abbr forms to defend against teambuilder games
+  // recorded before tid migration but matching the team's CURRENT abbr.
   let teamGames = games.filter(g => {
     if (Number(g.year) !== Number(year)) return false
 
-    // Check if team is involved (multiple format checks)
-    const isInGame = g.team1Tid === tid || g.team2Tid === tid ||
-      g.userTid === tid || g.opponentTid === tid ||
-      g.userTeam === abbr || g.opponent === abbr
+    const tidNum = Number(tid)
+    const isInGame =
+      Number(g.team1Tid) === tidNum || Number(g.team2Tid) === tidNum ||
+      Number(g.userTid) === tidNum || Number(g.opponentTid) === tidNum ||
+      g.userTeam === abbr || g.opponent === abbr ||
+      g.team1 === abbr || g.team2 === abbr
 
     if (!isInGame) return false
     if (!hasValidScores(g)) return false
@@ -990,7 +995,10 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
   if (standings) {
     for (const [conf, teams] of Object.entries(standings)) {
       if (!Array.isArray(teams)) continue
-      const teamEntry = teams.find(t => t.abbr === abbr || t.team === abbr || t.tid === tid)
+      // Tid match is strongest (survives abbr drift); guard the strict
+      // equality with `tid != null` so an unresolvable lookup (tid=null)
+      // doesn't accidentally match a row with no tid.
+      const teamEntry = teams.find(t => (tid != null && Number(t.tid) === Number(tid)) || t.abbr === abbr || t.team === abbr)
       if (teamEntry && (teamEntry.wins > 0 || teamEntry.losses > 0)) {
         return {
           wins: teamEntry.wins || 0,
@@ -1043,7 +1051,7 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
   // Priority 1: Check final polls (end of season ranking, most authoritative)
   const finalPolls = dynasty.finalPollsByYear?.[year]
   if (finalPolls?.media?.length > 0) {
-    const teamEntry = finalPolls.media.find(p => p && (p.team === abbr || p.tid === tid))
+    const teamEntry = finalPolls.media.find(p => p && ((tid != null && Number(p.tid) === Number(tid)) || p.team === abbr))
     if (teamEntry?.rank) {
       return { rank: teamEntry.rank, source: 'final_poll' }
     }
@@ -2653,9 +2661,15 @@ export function getCurrentRecruits(dynasty) {
     return teamYearRecruits
   }
 
-  // Fall back to legacy recruits (filter by team if they have team field)
+  // Fall back to legacy recruits (filter by team if they have team field).
+  // Tid match first; abbr fallback only if r.team is a string. Survives
+  // teambuilder renames since tid is stable across abbr changes.
   const legacyRecruits = dynasty.recruits || []
-  return legacyRecruits.filter(r => !r.team || r.team === teamAbbr)
+  return legacyRecruits.filter(r => {
+    if (!r.team) return true
+    if (tid != null && (Number(r.team) === Number(tid) || Number(r.tid) === Number(tid))) return true
+    return r.team === teamAbbr
+  })
 }
 
 /**
@@ -2920,9 +2934,17 @@ export function getLockedCoachingStaff(dynasty, year, teamAbbr = null) {
     staff = { hcName: null, ocName: null, dcName: null }
   }
 
-  // Check if the user was coaching this team in this year and add their name
+  // Check if the user was coaching this team in this year and add their name.
+  // coachTeamByYear.team is documented as "ALWAYS use tid" (see
+  // getCoachTeamForYear) — compare by tid first, fall back to abbr only for
+  // pre-migration legacy records that may still hold an abbr string.
   const coachTeamForYear = getCoachTeamForYear(dynasty, year)
-  if (coachTeamForYear && coachTeamForYear.team === teamAbbr && dynasty.coachName) {
+  const coachTid = coachTeamForYear?.team
+  const matchesTeam = coachTeamForYear && (
+    (tid != null && coachTid != null && Number(coachTid) === Number(tid)) ||
+    coachTid === teamAbbr
+  )
+  if (matchesTeam && dynasty.coachName) {
     staff = { ...staff }
     if (coachTeamForYear.position === 'HC') {
       staff.hcName = dynasty.coachName
@@ -6447,12 +6469,23 @@ export function DynastyProvider({ children }) {
           newJobData: newJobData // Save the accepted job offer to restore on revert
         }
 
-        // Calculate record at current team for this stint
-        const currentTeamGames = (dynasty.games || []).filter(g =>
-          g.userTeam === dynasty.teamName ||
-          g.userTeam === getCurrentTeamAbbr(dynasty) ||
-          (!g.userTeam && !g.team1 && !g.team2) // Legacy games without userTeam (not CPU games which have team1/team2)
-        )
+        // Calculate record at current team for this stint. Tid match is
+        // the source of truth — survives teambuilder team renames since
+        // tid is stable. Abbr/teamName checks remain as legacy fallbacks
+        // for very old games saved before tids were stored on games.
+        const currentTid = dynasty.currentTid != null ? Number(dynasty.currentTid) : null
+        const currentTeamGames = (dynasty.games || []).filter(g => {
+          if (currentTid != null && (
+            Number(g.userTid) === currentTid ||
+            Number(g.team1Tid) === currentTid ||
+            Number(g.team2Tid) === currentTid
+          )) return true
+          if (g.userTeam === dynasty.teamName) return true
+          if (g.userTeam === getCurrentTeamAbbr(dynasty)) return true
+          // Legacy games without userTeam (not CPU games which have team1/team2)
+          if (!g.userTeam && !g.team1 && !g.team2) return true
+          return false
+        })
         const currentStintGames = currentTeamGames.filter(g => {
           // Get the start year of the current stint
           const existingHistory = dynasty.coachingHistory || []

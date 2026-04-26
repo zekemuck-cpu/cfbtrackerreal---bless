@@ -167,6 +167,11 @@ export default function ScoringHighlightsModal({
   team2Abbr,
   team1Logo,
   team2Logo,
+  // Optional: tid-based identity for the two teams in this game. When
+  // provided, the fallback running-score calc resolves play.team → tid
+  // instead of comparing strings, which survives teambuilder abbr drift.
+  team1Tid,
+  team2Tid,
   players,
   getTeamLogo,
   getMascotName,
@@ -209,13 +214,20 @@ export default function ScoringHighlightsModal({
     const seen = new Set()
     playsWithVideo.forEach(play => {
       if (play.gameInfo) {
-        const key = `${play.gameInfo.year}-${play.gameInfo.week}-${play.gameInfo.opponent}`
+        // Include opponentTid in the dedup key when available — survives
+        // a teambuilder opponent rename (otherwise plays from the same
+        // game pre/post-rename would split into two dropdown entries).
+        const oppKey = play.gameInfo.opponentTid != null
+          ? `tid:${play.gameInfo.opponentTid}`
+          : `abbr:${play.gameInfo.opponent}`
+        const key = `${play.gameInfo.year}-${play.gameInfo.week}-${oppKey}`
         if (!seen.has(key)) {
           seen.add(key)
           uniqueGames.push({
             year: play.gameInfo.year,
             week: play.gameInfo.week,
             opponent: play.gameInfo.opponent,
+            opponentTid: play.gameInfo.opponentTid ?? null,
             opponentLogo: play.gameInfo.opponentLogo,
             label: `${play.gameInfo.year} Week ${play.gameInfo.week} vs ${play.gameInfo.opponent}`
           })
@@ -234,13 +246,20 @@ export default function ScoringHighlightsModal({
     }
   }
 
-  // Jump to first play of selected game
+  // Jump to first play of selected game. Tid match for opponent is
+  // preferred; abbr fallback for legacy plays.
   const jumpToGame = (gameKey) => {
-    const [year, week, opponent] = gameKey.split('|||')
+    const [year, week, opponentField] = gameKey.split('|||')
+    const isTidKey = opponentField?.startsWith('tid:')
+    const targetTid = isTidKey ? Number(opponentField.slice(4)) : null
+    const targetAbbr = isTidKey ? null : opponentField
     const index = playsWithVideo.findIndex(p =>
       p.gameInfo?.year === parseInt(year) &&
       p.gameInfo?.week === parseInt(week) &&
-      p.gameInfo?.opponent === opponent
+      (
+        (targetTid != null && Number(p.gameInfo?.opponentTid) === targetTid) ||
+        (targetAbbr != null && p.gameInfo?.opponent === targetAbbr)
+      )
     )
     if (index !== -1) {
       setCurrentIndex(index)
@@ -281,17 +300,36 @@ export default function ScoringHighlightsModal({
       }
     }
 
-    // Fallback to old calculation for backwards compatibility (single game mode)
+    // Fallback to old calculation for backwards compatibility (single game mode).
+    // Tid-based when team1Tid/team2Tid are passed in; falls back to abbr compare
+    // for legacy callers that only know abbrs.
     let score1 = 0
     let score2 = 0
+
+    const t1Tid = team1Tid != null ? Number(team1Tid) : null
+    const t2Tid = team2Tid != null ? Number(team2Tid) : null
+    const t1Abbr = (t1Tid != null && teamsData?.[t1Tid]?.abbr) || team1Abbr
+    const t2Abbr = (t2Tid != null && teamsData?.[t2Tid]?.abbr) || team2Abbr
+    const t1AbbrU = t1Abbr?.toUpperCase()
+    const t2AbbrU = t2Abbr?.toUpperCase()
 
     for (let i = 0; i <= upToIndex; i++) {
       const play = playsWithVideo[i]
       if (!play) continue
 
-      const isTeam1 = play.team?.toUpperCase() === team1Abbr?.toUpperCase()
-      let points = 0
+      // Map play.team (abbr string) → tid via this game's two teams when
+      // both tids are known. Compare tids if possible; fall back to abbr
+      // compare for legacy single-tid / no-tid callers.
+      const playUpper = play.team?.toUpperCase()
+      let isTeam1
+      if (t1Tid != null && t2Tid != null && t1AbbrU && t2AbbrU) {
+        const playTid = playUpper === t1AbbrU ? t1Tid : (playUpper === t2AbbrU ? t2Tid : null)
+        isTeam1 = playTid != null ? playTid === t1Tid : (playUpper === t1AbbrU)
+      } else {
+        isTeam1 = playUpper === team1Abbr?.toUpperCase()
+      }
 
+      let points = 0
       if (play.scoreType?.includes('TD')) {
         points = 6
         if (play.patResult === 'Made XP') points += 1
@@ -307,7 +345,7 @@ export default function ScoringHighlightsModal({
     }
 
     return { score1, score2 }
-  }, [playsWithVideo, team1Abbr])
+  }, [playsWithVideo, team1Abbr, team2Abbr, team1Tid, team2Tid, teamsData])
 
   // Clear timer on unmount
   useEffect(() => {
@@ -499,15 +537,20 @@ export default function ScoringHighlightsModal({
               {showGameDropdown && (
                 <div className="absolute right-0 top-full mt-1 min-w-[260px] bg-surface-3 border border-surface-4 rounded-lg shadow-xl max-h-72 overflow-y-auto z-50">
                   {games.map(game => {
+                    // Same tid-prefer-then-abbr logic as the dedup key.
+                    const oppKey = game.opponentTid != null
+                      ? `tid:${game.opponentTid}`
+                      : `abbr:${game.opponent}`
                     const isActive =
                       currentPlay?.gameInfo?.year === game.year &&
                       currentPlay?.gameInfo?.week === game.week &&
-                      currentPlay?.gameInfo?.opponent === game.opponent
+                      ((game.opponentTid != null && Number(currentPlay?.gameInfo?.opponentTid) === Number(game.opponentTid)) ||
+                       (game.opponentTid == null && currentPlay?.gameInfo?.opponent === game.opponent))
                     return (
                       <button
-                        key={`${game.year}-${game.week}-${game.opponent}`}
+                        key={`${game.year}-${game.week}-${oppKey}`}
                         onClick={() => {
-                          jumpToGame(`${game.year}|||${game.week}|||${game.opponent}`)
+                          jumpToGame(`${game.year}|||${game.week}|||${oppKey}`)
                           setShowGameDropdown(false)
                         }}
                         className={`flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left ${

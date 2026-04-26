@@ -333,14 +333,33 @@ FINAL CHECK before you send the answer
                 }
               }
 
+              // Carry tids alongside abbrs so downstream "did the user
+              // win their first-round game?" check can compare by tid
+              // (survives teambuilder abbr drift, defends against two
+              // teams with the same abbr).
+              const team1Tid = g.team1Tid != null ? Number(g.team1Tid) :
+                (perspective?.userTid != null && (perspective.userTid === g.userTid || g.userTeam === team1)
+                  ? Number(perspective.userTid)
+                  : null)
+              const team2Tid = g.team2Tid != null ? Number(g.team2Tid) :
+                (perspective?.opponentTid != null
+                  ? Number(perspective.opponentTid)
+                  : (g.opponentTid != null ? Number(g.opponentTid) : null))
+              const winnerTid = g.winnerTid != null ? Number(g.winnerTid) :
+                (perspective ? (perspective.userWon ? team1Tid : team2Tid) :
+                  (g.result === 'win' || g.result === 'W' ? team1Tid : team2Tid))
+
               return {
                 seed1,
                 seed2,
                 team1,
                 team2,
+                team1Tid,
+                team2Tid,
                 team1Score: g.team1Score,
                 team2Score: g.team2Score,
-                winner
+                winner,
+                winnerTid
               }
             })
 
@@ -365,8 +384,15 @@ FINAL CHECK before you send the answer
             }
             // Seeds 5-12 who won First Round also play in QF
             else if (userCFPSeed >= 5 && userCFPSeed <= 12) {
-              // Check if user won their First Round game
-              const userFirstRoundGame = firstRoundResults.find(g => g && g.winner === userTeamAbbr)
+              // Check if user won their First Round game. Tid-first; fall
+              // back to abbr only if no tid is available on either side.
+              const userFirstRoundGame = firstRoundResults.find(g => {
+                if (!g) return false
+                if (userTeamTid != null && g.winnerTid != null) {
+                  return Number(g.winnerTid) === Number(userTeamTid)
+                }
+                return g.winner === userTeamAbbr
+              })
               if (userFirstRoundGame) {
                 const qfGameName = getCFPQuarterfinalGameName(userCFPSeed, firstRoundResults, cfpBowlConfigForExclude)
                 if (qfGameName) {

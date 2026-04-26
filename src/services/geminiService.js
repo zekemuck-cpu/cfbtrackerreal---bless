@@ -285,9 +285,15 @@ function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder) 
     .filter(g => {
       if (Number(g.year) !== Number(year)) return false
       if (getGameOrder(g) >= currentGameOrder) return false
-      // Must be a user game for this team (check both legacy and unified formats)
+      // Must be a user game for this team (check both legacy and unified
+      // formats). Tid checks must include team2Tid as well — user can be
+      // in the team2 slot for CCG / neutral-site bowl rows.
       const isUserTeamLegacy = g.userTeam === teamAbbr
-      const isUserTeamUnified = teamTid && (g.userTid === teamTid || g.team1Tid === teamTid)
+      const isUserTeamUnified = teamTid && (
+        Number(g.userTid) === Number(teamTid) ||
+        Number(g.team1Tid) === Number(teamTid) ||
+        Number(g.team2Tid) === Number(teamTid)
+      )
       if (!isUserTeamLegacy && !isUserTeamUnified) return false
       if (isUnplayedGame(g)) return false
       return true
@@ -847,18 +853,25 @@ function getCFPBracketContext(dynasty, game) {
  */
 function getBowlHistory(allGames, teamAbbr, currentYear, maxGames = 3) {
   const history = []
+  const teamTid = getTidFromAbbr(teamAbbr)
 
   for (const g of allGames) {
     if (Number(g.year) >= Number(currentYear)) continue
     if (!g.isBowlGame && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship) continue
 
-    // Check if this team was in the game
-    const teamInGame = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
+    // Check if this team was in the game. Tid match first (modern data,
+    // survives teambuilder rename); abbr match for legacy.
+    const teamInGameUnified = teamTid && (
+      Number(g.team1Tid) === Number(teamTid) ||
+      Number(g.team2Tid) === Number(teamTid) ||
+      Number(g.userTid) === Number(teamTid)
+    )
+    const teamInGameLegacy = g.userTeam === teamAbbr || g.team1 === teamAbbr || g.team2 === teamAbbr
 
-    if (teamInGame) {
+    if (teamInGameUnified || teamInGameLegacy) {
       let won, opponent, score, gameName
       if (g.team1 && g.team2) {
-        const isTeam1 = g.team1 === teamAbbr
+        const isTeam1 = (teamTid && Number(g.team1Tid) === Number(teamTid)) || g.team1 === teamAbbr
         won = isTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
         opponent = isTeam1 ? g.team2 : g.team1
         score = `${isTeam1 ? g.team1Score : g.team2Score}-${isTeam1 ? g.team2Score : g.team1Score}`
@@ -998,19 +1011,29 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
       seasonsByYear[gYear] = { year: gYear, wins: 0, losses: 0, confWins: 0, confLosses: 0 }
     }
 
-    // Determine if team won (handle all formats)
+    // Determine if team won (handle all formats). Tid checks first; abbr
+    // fallbacks for legacy data. Critically, the final `else` branch only
+    // assumes team2 when we've EXPLICITLY confirmed the team is in the
+    // team2 slot — otherwise we skip the game (continue) so a renamed
+    // teambuilder team doesn't get silently mis-attributed.
     let won
-    if (g.userTeam === teamAbbr || (teamTid && g.userTid === teamTid)) {
-      // User game - check result field or scores
+    const isUserSide = g.userTeam === teamAbbr || (teamTid && Number(g.userTid) === Number(teamTid))
+    const isTeam1 = g.team1 === teamAbbr || (teamTid && Number(g.team1Tid) === Number(teamTid))
+    const isTeam2 = g.team2 === teamAbbr || (teamTid && Number(g.team2Tid) === Number(teamTid))
+    if (isUserSide) {
       if (g.result) {
         won = g.result === 'win' || g.result === 'W'
       } else {
         won = (g.teamScore || g.team1Score) > (g.opponentScore || g.team2Score)
       }
-    } else if (g.team1 === teamAbbr || (teamTid && g.team1Tid === teamTid)) {
+    } else if (isTeam1) {
       won = g.team1Score > g.team2Score
-    } else {
+    } else if (isTeam2) {
       won = g.team2Score > g.team1Score
+    } else {
+      // Game claimed to involve the team via one matcher but no slot is
+      // identifiable now — skip rather than guess wrong (drift safety).
+      continue
     }
 
     if (won) {
@@ -1047,11 +1070,32 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
     if (getGameOrder(g) >= currentGameOrder) continue
     if (isUnplayedGame(g)) continue
 
-    // Check if opponent was in this game
+    // Check if opponent was in this game. Try unified (tid-based) FIRST
+    // so a renamed teambuilder team is still found via stable tid even if
+    // a legacy abbr branch would also (incorrectly) match the wrong row.
     let opponentWon, oppScore, otherTeam, otherScore, found = false
 
-    // Legacy format: userTeam/opponent
-    if (g.userTeam === opponentAbbr) {
+    if (opponentTid && Number(g.team1Tid) === Number(opponentTid)) {
+      opponentWon = g.team1Score > g.team2Score
+      oppScore = g.team1Score
+      otherTeam = getAbbrFromTid(g.team2Tid) || g.team2
+      otherScore = g.team2Score
+      found = true
+    } else if (opponentTid && Number(g.team2Tid) === Number(opponentTid)) {
+      opponentWon = g.team2Score > g.team1Score
+      oppScore = g.team2Score
+      otherTeam = getAbbrFromTid(g.team1Tid) || g.team1
+      otherScore = g.team1Score
+      found = true
+    } else if (opponentTid && Number(g.userTid) === Number(opponentTid)) {
+      opponentWon = g.result === 'win' || g.result === 'W'
+      oppScore = g.teamScore
+      otherTeam = g.opponent
+      otherScore = g.opponentScore
+      found = true
+    }
+    // Legacy format fallbacks: userTeam/opponent and team1/team2 abbrs
+    else if (g.userTeam === opponentAbbr) {
       opponentWon = g.result === 'win' || g.result === 'W'
       oppScore = g.teamScore
       otherTeam = g.opponent
@@ -1073,20 +1117,6 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
       opponentWon = g.team2Score > g.team1Score
       oppScore = g.team2Score
       otherTeam = g.team1
-      otherScore = g.team1Score
-      found = true
-    }
-    // Unified format: team1Tid/team2Tid
-    else if (opponentTid && g.team1Tid === opponentTid) {
-      opponentWon = g.team1Score > g.team2Score
-      oppScore = g.team1Score
-      otherTeam = getAbbrFromTid(g.team2Tid) || g.team2
-      otherScore = g.team2Score
-      found = true
-    } else if (opponentTid && g.team2Tid === opponentTid) {
-      opponentWon = g.team2Score > g.team1Score
-      oppScore = g.team2Score
-      otherTeam = getAbbrFromTid(g.team1Tid) || g.team1
       otherScore = g.team1Score
       found = true
     }
@@ -1293,6 +1323,11 @@ export function buildGameRecapContext(dynasty, game) {
   // CRITICAL: For user games, team1 MUST be user's team and team2 MUST be opponent
   // because boxScore.home ALWAYS contains user's stats regardless of location
   let team1, team2, team1Score, team2Score
+  // Tids carried alongside abbrs so downstream scoring/lead-flow logic can
+  // resolve play.team (abbr string) → tid via the game's two teams. Critical
+  // for teambuilder teams whose abbr can drift after the game was recorded.
+  let team1Tid = null
+  let team2Tid = null
   if (isCurrentGameUserGame) {
     // User game - use perspective to ensure correct team alignment
     // This works for both unified format and legacy format user games
@@ -1300,24 +1335,32 @@ export function buildGameRecapContext(dynasty, game) {
     const oppInfo = currentGamePerspective.opponentTid ? getGameTeamInfo(teams, currentGamePerspective.opponentTid) : null
     team1 = userInfo?.abbr || game.userTeam || userTeamAbbr
     team2 = oppInfo?.abbr || game.opponent
+    team1Tid = currentGamePerspective.userTid != null ? Number(currentGamePerspective.userTid) : null
+    team2Tid = currentGamePerspective.opponentTid != null ? Number(currentGamePerspective.opponentTid) : null
     team1Score = currentGamePerspective.userScore ?? game.teamScore
     team2Score = currentGamePerspective.opponentScore ?? game.opponentScore
   } else if (hasUnifiedFormat) {
     // CPU game with unified format - use tids directly
     team1 = getAbbrFromTid(game.team1Tid) || game.team1
     team2 = getAbbrFromTid(game.team2Tid) || game.team2
+    team1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+    team2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else if (isCPUGame) {
     // Legacy CPU game format
     team1 = game.team1
     team2 = game.team2
+    team1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+    team2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
     team1Score = game.team1Score
     team2Score = game.team2Score
   } else {
     // Fallback for legacy user games without perspective
     team1 = game.userTeam || userTeamAbbr
     team2 = game.opponent
+    team1Tid = game.userTid != null ? Number(game.userTid) : null
+    team2Tid = game.opponentTid != null ? Number(game.opponentTid) : null
     team1Score = game.teamScore
     team2Score = game.opponentScore
   }
@@ -1571,6 +1614,10 @@ export function buildGameRecapContext(dynasty, game) {
     // Team info (abbreviations)
     team1,
     team2,
+    // Tids alongside abbrs so play-attribution loops can compare by tid
+    // (survives teambuilder abbr drift).
+    team1Tid,
+    team2Tid,
     // Team info (full names) - USE THESE IN PROMPTS
     team1FullName,
     team2FullName,
@@ -2023,6 +2070,21 @@ FOCUS: Write from ${ctx.userTeamName}'s perspective as the primary team.
 ===========================================
 SCORING SUMMARY (in chronological order)
 ===========================================`
+    // Tid-based "is this play team1's?" — play.team is an abbr string and
+    // teambuilder team abbrs can drift after the game was recorded. We
+    // resolve play.team → tid via this game's two team tids + their
+    // current registry abbrs, then compare tids. Falls back to abbr
+    // compare for legacy games where neither tid is available.
+    const ctxT1U = ctx.team1?.toUpperCase()
+    const ctxT2U = ctx.team2?.toUpperCase()
+    const isPlayTeam1 = (play) => {
+      const u = play.team?.toUpperCase()
+      if (ctx.team1Tid != null && ctx.team2Tid != null && ctxT1U && ctxT2U) {
+        const tid = u === ctxT1U ? ctx.team1Tid : (u === ctxT2U ? ctx.team2Tid : null)
+        if (tid != null) return tid === ctx.team1Tid
+      }
+      return u === ctxT1U
+    }
     let team1Running = 0
     let team2Running = 0
     ctx.scoringSummary.forEach((play, idx) => {
@@ -2043,8 +2105,8 @@ SCORING SUMMARY (in chronological order)
         points = 2
       }
 
-      // Update running score - check against abbreviation since play.team uses abbr
-      const isTeam1 = play.team?.toUpperCase() === ctx.team1?.toUpperCase()
+      // Update running score (tid-resolved when possible, see isPlayTeam1)
+      const isTeam1 = isPlayTeam1(play)
       if (isTeam1) team1Running += points
       else team2Running += points
 
@@ -2052,8 +2114,7 @@ SCORING SUMMARY (in chronological order)
       const timeLeft = play.timeLeft || ''
       const scorer = play.scorer || 'Unknown'
       const passer = play.passer ? ` from ${play.passer}` : ''
-      // Convert team abbreviation to full name in the output
-      const playTeamFullName = play.team?.toUpperCase() === ctx.team1?.toUpperCase() ? ctx.team1FullName : ctx.team2FullName
+      const playTeamFullName = isTeam1 ? ctx.team1FullName : ctx.team2FullName
 
       prompt += `\n${idx + 1}. Q${quarter} ${timeLeft} - ${playTeamFullName}: ${scorer}${passer} (${scoreType}${patResult ? ', ' + patResult : ''}) → Score: ${ctx.team1FullName} ${team1Running}, ${ctx.team2FullName} ${team2Running}`
     })
@@ -2090,7 +2151,8 @@ SCORING SUMMARY (in chronological order)
       } else if (scoreType === 'Field Goal') pts = 3
       else if (scoreType === 'Safety') pts = 2
       else if (scoreType.includes('2PT') && scoreType.includes('Converted')) pts = 2
-      const isTeam1 = play.team?.toUpperCase() === ctx.team1?.toUpperCase()
+      // Reuse tid-resolved attribution from above (same logic).
+      const isTeam1 = isPlayTeam1(play)
       if (isTeam1) t1 += pts
       else t2 += pts
       const qr = quarterRankForFlow(play.quarter)

@@ -390,21 +390,41 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
 
         console.log(`[CFPSemifinalsModal] ${sf.id} teams:`, { qf1Winner, qf2Winner, team1, team2, team1Tid, team2Tid })
 
-        // Check if user's team is in this game
-        const userInThisGame = userTeamAbbr && (team1 === userTeamAbbr || team2 === userTeamAbbr)
+        // Check if user's team is in this game. Tid-first so a renamed
+        // teambuilder team is still classified as the user's game even
+        // when the abbr displayed in this slot has drifted.
+        const userTidNum = userTid != null ? Number(userTid) : null
+        const userInThisGame = (
+          (userTidNum != null && (Number(team1Tid) === userTidNum || Number(team2Tid) === userTidNum)) ||
+          (userTeamAbbr && (team1 === userTeamAbbr || team2 === userTeamAbbr))
+        )
 
         // If user is in this game
         if (userInThisGame) {
-          const userIsTeam1 = team1 === userTeamAbbr
+          // Tid wins, then abbr fallback. team1Tid/team2Tid are the
+          // canonical identifiers for this slot.
+          const userIsTeam1 = (userTidNum != null && Number(team1Tid) === userTidNum)
+            ? true
+            : (userTidNum != null && Number(team2Tid) === userTidNum)
+              ? false
+              : (team1 === userTeamAbbr)
 
           // PRIORITY: Check user's game from games[] array (source of truth)
           // Handle both unified format (team1Score) and legacy format (teamScore)
           if (userSFGame) {
             let userScore, oppScore
             if (userSFGame.team1Score !== undefined && userSFGame.team1Score !== '') {
-              // Unified format - scores are in team1Score/team2Score
-              userScore = userSFGame.userTeam === userSFGame.team1 ? userSFGame.team1Score : userSFGame.team2Score
-              oppScore = userSFGame.userTeam === userSFGame.team1 ? userSFGame.team2Score : userSFGame.team1Score
+              // Unified format. Prefer tid match for which side is the user;
+              // abbr match only when tids aren't both available.
+              const sfT1Tid = userSFGame.team1Tid != null ? Number(userSFGame.team1Tid) : null
+              const sfT2Tid = userSFGame.team2Tid != null ? Number(userSFGame.team2Tid) : null
+              const userIsSFTeam1 = (userTidNum != null && sfT1Tid === userTidNum)
+                ? true
+                : (userTidNum != null && sfT2Tid === userTidNum)
+                  ? false
+                  : (userSFGame.userTeam === userSFGame.team1)
+              userScore = userIsSFTeam1 ? userSFGame.team1Score : userSFGame.team2Score
+              oppScore = userIsSFTeam1 ? userSFGame.team2Score : userSFGame.team1Score
             } else if (userSFGame.teamScore !== undefined && userSFGame.teamScore !== '') {
               // Legacy format - scores are in teamScore/opponentScore
               userScore = userSFGame.teamScore

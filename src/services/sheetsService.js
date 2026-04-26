@@ -6735,6 +6735,9 @@ export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null
     const media = []
     const coaches = []
 
+    // Resolve abbr → tid at read time. Storing the tid alongside the abbr
+    // means downstream poll lookups (Rankings page, TeamYear, CoachCareer
+    // year-by-year) work even after a teambuilder team is renamed.
     rows.forEach(row => {
       const rank = parseInt(row[0]) || 0
       const mediaTeam = row[1]?.trim().toUpperCase() || ''
@@ -6742,10 +6745,12 @@ export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null
 
       if (rank >= 1 && rank <= 25) {
         if (mediaTeam) {
-          media.push({ rank, team: mediaTeam })
+          const tid = getTidFromAbbr(mediaTeam, dynastyTeams)
+          media.push({ rank, team: mediaTeam, tid: tid != null ? Number(tid) : null })
         }
         if (coachesTeam) {
-          coaches.push({ rank, team: coachesTeam })
+          const tid = getTidFromAbbr(coachesTeam, dynastyTeams)
+          coaches.push({ rank, team: coachesTeam, tid: tid != null ? Number(tid) : null })
         }
       }
     })
@@ -7556,10 +7561,14 @@ export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = nu
           .replace(/[^a-z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
           .replace(/^./, str => str.toLowerCase())
 
+        // Resolve abbr → tid so downstream consumers (CoachCareer stint
+        // attribution, Awards player lookup) survive teambuilder renames.
+        const tid = team ? getTidFromAbbr(team, dynastyTeams) : null
         awards[key] = {
           player,
           position,
           team,
+          tid: tid != null ? Number(tid) : null,
           class: playerClass
         }
       }
@@ -8170,7 +8179,12 @@ export async function readAllAmericansFromSheet(spreadsheetId, year, dynastyTeam
     const data = await response.json()
     const rows = data.values || []
 
-    // Helper to extract team data from rows
+    // Helper to extract team data from rows. Resolve school abbr → tid at
+    // read time so post-rename teambuilder teams keep their honor links.
+    const tidFor = (abbr) => {
+      const t = abbr ? getTidFromAbbr(abbr, dynastyTeams) : null
+      return t != null ? Number(t) : null
+    }
     const extractTeamData = (startRow, teamLabel) => {
       const result = []
       for (let i = 0; i < numPositions; i++) {
@@ -8178,36 +8192,42 @@ export async function readAllAmericansFromSheet(spreadsheetId, year, dynastyTeam
 
         // First-Team (cols 0-3)
         if (row[1]) { // Player name exists
+          const school = (row[2] || '').toUpperCase()
           result.push({
             team: teamLabel,
             designation: 'first',
             position: row[0] || ALL_AMERICAN_POSITIONS[i],
             player: row[1],
-            school: (row[2] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[3] || ''
           })
         }
 
         // Second-Team (cols 4-7)
         if (row[5]) {
+          const school = (row[6] || '').toUpperCase()
           result.push({
             team: teamLabel,
             designation: 'second',
             position: row[4] || ALL_AMERICAN_POSITIONS[i],
             player: row[5],
-            school: (row[6] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[7] || ''
           })
         }
 
         // Freshman Team (cols 8-11)
         if (row[9]) {
+          const school = (row[10] || '').toUpperCase()
           result.push({
             team: teamLabel,
             designation: 'freshman',
             position: row[8] || ALL_AMERICAN_POSITIONS[i],
             player: row[9],
-            school: (row[10] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[11] || ''
           })
         }
@@ -9087,43 +9107,55 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
       const data = await response.json()
       const rows = data.values || []
 
-      // Extract All-Conference data starting at row 4 (index 3)
+      // Extract All-Conference data starting at row 4 (index 3). Resolve
+      // school abbr → tid at read time so post-rename teambuilder teams
+      // keep their honor links.
+      const tidFor = (abbr) => {
+        const t = abbr ? getTidFromAbbr(abbr, dynastyTeams) : null
+        return t != null ? Number(t) : null
+      }
       const confEntries = []
       for (let i = 0; i < numPositions; i++) {
         const row = rows[3 + i] || []
 
         // First-Team (cols 0-3)
         if (row[1]) {
+          const school = (row[2] || '').toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'first',
             position: row[0] || ALL_AMERICAN_POSITIONS[i],
             player: row[1],
-            school: (row[2] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[3] || ''
           })
         }
 
         // Second-Team (cols 4-7)
         if (row[5]) {
+          const school = (row[6] || '').toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'second',
             position: row[4] || ALL_AMERICAN_POSITIONS[i],
             player: row[5],
-            school: (row[6] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[7] || ''
           })
         }
 
         // Freshman Team (cols 8-11)
         if (row[9]) {
+          const school = (row[10] || '').toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'freshman',
             position: row[8] || ALL_AMERICAN_POSITIONS[i],
             player: row[9],
-            school: (row[10] || '').toUpperCase(),
+            school,
+            schoolTid: tidFor(school),
             class: row[11] || ''
           })
         }

@@ -498,7 +498,13 @@ export default function Game() {
 
       if (cfpGame) {
         const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-        const isUserGame = cfpGame.team1 === userTeamAbbr || cfpGame.team2 === userTeamAbbr
+        // tid-based involvement check; abbr fallback only when tids are
+        // missing from either side (legacy CFP entry).
+        const userTid = currentDynasty?.currentTid != null ? Number(currentDynasty.currentTid) : null
+        const cfpT1Tid = cfpGame.team1Tid != null ? Number(cfpGame.team1Tid) : null
+        const cfpT2Tid = cfpGame.team2Tid != null ? Number(cfpGame.team2Tid) : null
+        const isUserGame = (userTid != null && (cfpT1Tid === userTid || cfpT2Tid === userTid))
+          || (cfpT1Tid == null && cfpT2Tid == null && (cfpGame.team1 === userTeamAbbr || cfpGame.team2 === userTeamAbbr))
         return {
           ...cfpGame,
           id: gameId,
@@ -570,7 +576,16 @@ export default function Game() {
           g.team1 && g.team2 && g.team1Score != null
         )
         if (bowlGame) {
-          const winner = bowlGame.team1Score > bowlGame.team2Score ? bowlGame.team1 : bowlGame.team2
+          // Resolve viewing perspective via tid when possible — abbr stored
+          // on a legacy bowl row may have drifted if either team is a
+          // teambuilder team that was renamed since the bowl ran.
+          const team1Won = bowlGame.team1Score > bowlGame.team2Score
+          const winner = team1Won ? bowlGame.team1 : bowlGame.team2
+          const winnerTid = bowlGame.winnerTid != null
+            ? Number(bowlGame.winnerTid)
+            : (team1Won
+                ? (bowlGame.team1Tid != null ? Number(bowlGame.team1Tid) : null)
+                : (bowlGame.team2Tid != null ? Number(bowlGame.team2Tid) : null))
           return {
             ...bowlGame,
             id: gameId,
@@ -578,6 +593,7 @@ export default function Game() {
             isBowlGame: true,
             // No userTeam field = CPU game (legacy bowl from bowlGamesByYear)
             viewingTeamAbbr: winner,
+            viewingTeamTid: winnerTid,
             gameTitle: bowlGame.bowlName
           }
         }
@@ -1982,13 +1998,30 @@ export default function Game() {
             // passed to ScoringHighlightsModal matches the modal's own ordering.
             const chronoPlays = sortPlaysChronologically(game.boxScore.scoringSummary)
 
+            // Tid-based "is this play on the left side?" check. Each play's
+            // team is stored as an abbr; we resolve via the game's two team
+            // tids (and current registry abbrs) and compare tids instead of
+            // strings — survives teambuilder abbr drift. Falls back to abbr
+            // compare for legacy games missing a tid.
+            const lTid = leftData.tid != null ? Number(leftData.tid) : null
+            const rTid = rightData.tid != null ? Number(rightData.tid) : null
+            const lAbbrU = leftData.abbr?.toUpperCase()
+            const rAbbrU = rightData.abbr?.toUpperCase()
+            const isPlayOnLeftSide = (play) => {
+              const playU = play.team?.toUpperCase()
+              if (lTid != null && rTid != null && lAbbrU && rAbbrU) {
+                const playTid = playU === lAbbrU ? lTid : (playU === rAbbrU ? rTid : null)
+                if (playTid != null) return playTid === lTid
+              }
+              return playU === lAbbrU
+            }
+
             // Calculate running scores
             let leftRunning = 0
             let rightRunning = 0
             const playsWithScores = chronoPlays.map((play) => {
               const points = getPlayPoints(play)
-              const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
-              if (isLeftTeam) {
+              if (isPlayOnLeftSide(play)) {
                 leftRunning += points
               } else {
                 rightRunning += points
@@ -2022,7 +2055,7 @@ export default function Game() {
                   const playTeamColors = getTeamColorsRobust(play.team) || { primary: '#666', secondary: '#333' }
                   const scorerPID = getPlayerPID(play.scorer)
                   const passerPID = play.passer ? getPlayerPID(play.passer) : null
-                  const isLeftTeam = play.team?.toUpperCase() === leftData.abbr?.toUpperCase()
+                  const isLeftTeam = isPlayOnLeftSide(play)
                   return (
                     <div key={idx} className="flex items-stretch">
                       {/* Team color bar on left */}
@@ -2913,6 +2946,8 @@ export default function Game() {
         }))}
         team1Abbr={leftData?.abbr}
         team2Abbr={rightData?.abbr}
+        team1Tid={leftData?.tid}
+        team2Tid={rightData?.tid}
         team1Logo={leftData?.logo}
         team2Logo={rightData?.logo}
         players={currentDynasty?.players || []}
