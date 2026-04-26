@@ -103,9 +103,13 @@ service cloud.firestore {
       allow read: if isSignedIn()
                   && resource.data.userId == request.auth.uid;
 
+      // CANONICAL `in resource.data.X` form for array-contains queries.
+      // Use `.get(field, [])` so missing field returns empty list (no
+      // type-check needed). The Firestore safe-query analyzer matches
+      // this pattern against `where('memberUids', 'array-contains', X)`
+      // — the `is list` form failed the analyzer's matching step.
       allow read: if isSignedIn()
-                  && resource.data.memberUids is list
-                  && request.auth.uid in resource.data.memberUids;
+                  && request.auth.uid in resource.data.get('memberUids', []);
 
       allow read: if resource.data.isPublic == true;
 
@@ -133,8 +137,7 @@ service cloud.firestore {
         allow read: if isSignedIn()
                     && parentDynasty().userId == request.auth.uid;
         allow read: if isSignedIn()
-                    && parentDynasty().memberUids is list
-                    && request.auth.uid in parentDynasty().memberUids;
+                    && request.auth.uid in parentDynasty().get('memberUids', []);
         allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
@@ -145,8 +148,7 @@ service cloud.firestore {
         allow read: if isSignedIn()
                     && parentDynasty().userId == request.auth.uid;
         allow read: if isSignedIn()
-                    && parentDynasty().memberUids is list
-                    && request.auth.uid in parentDynasty().memberUids;
+                    && request.auth.uid in parentDynasty().get('memberUids', []);
         allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
