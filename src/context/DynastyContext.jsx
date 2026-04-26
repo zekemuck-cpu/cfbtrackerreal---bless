@@ -1005,6 +1005,42 @@ export function lookupByTeamYear(structure, dynasty, tidOrAbbr, year) {
 }
 
 /**
+ * Produce dot-notation Firestore-style updates that write a value to
+ * BOTH the tid key and the current-abbr key of a `*ByTeamYear` structure.
+ * Pair with `lookupByTeamYear` (drift-recovery on read) so a teambuilder
+ * team renamed mid-dynasty:
+ *   - retains its old data (still under old abbr, recoverable via scan)
+ *   - new writes land under the new abbr AND the stable tid
+ *   - reads find it via tid even if the abbr drifts again
+ *
+ * Returns a plain object suitable for spreading into an `updateDynasty`
+ * payload. Year may be number or string; we write under whichever the
+ * caller supplies (downstream readers tolerate both via the helper).
+ *
+ *   { ...buildByTeamYearUpdates('teamRecordsByTeamYear', dynasty, tidOrAbbr, year, value) }
+ *
+ * Both keys are written even if one resolves to the same string as the
+ * other (de-duped), so callers don't have to check.
+ */
+export function buildByTeamYearUpdates(structureName, dynasty, tidOrAbbr, year, value) {
+  if (!structureName || tidOrAbbr == null || year == null) return {}
+  const tid = typeof tidOrAbbr === 'string' && !/^\d+$/.test(tidOrAbbr)
+    ? getTidFromAbbr(tidOrAbbr, dynasty)
+    : Number(tidOrAbbr)
+  const abbr = typeof tidOrAbbr === 'number' || (typeof tidOrAbbr === 'string' && /^\d+$/.test(tidOrAbbr))
+    ? (dynasty?.teams?.[tidOrAbbr]?.abbr || getAbbrFromTid(dynasty?.teams, tidOrAbbr))
+    : tidOrAbbr
+  const updates = {}
+  if (tid != null && Number.isFinite(tid)) {
+    updates[`${structureName}.${tid}.${year}`] = value
+  }
+  if (abbr && abbr !== String(tid)) {
+    updates[`${structureName}.${abbr}.${year}`] = value
+  }
+  return updates
+}
+
+/**
  * Get the team record (single source of truth)
  * Priority:
  * 1. Calculate from actual games (if team has games in games[])
@@ -1220,13 +1256,15 @@ export function buildRecordUpdatePayload(dynasty, tid, year) {
   // New tid-based structure
   updates[`teams.${tid}.byYear.${year}.record`] = record
 
-  // Legacy structure
-  updates[`teamRecordsByTeamYear.${abbr}.${year}`] = {
+  // Legacy structure — dual-write tid + abbr keys so the data stays
+  // findable even if the team is renamed (lookupByTeamYear scans both).
+  const recordPayload = {
     wins: record.wins,
     losses: record.losses,
     confWins: record.confWins,
     confLosses: record.confLosses
   }
+  Object.assign(updates, buildByTeamYearUpdates('teamRecordsByTeamYear', dynasty, tid, year, recordPayload))
 
   return updates
 }
@@ -7569,21 +7607,33 @@ export function DynastyProvider({ children }) {
       coachingStaff: currentCoachingStaff,
       // Clear pending hires since we've applied them
       pendingCoordinatorHires: null,
-      // Store coaching staff for new year using team-centric pattern
+      // Store coaching staff for new year — dual-keyed (rename-safe).
       coachingStaffByTeamYear: {
         ...existingCoachingStaffByTeamYear,
         [teamAbbr]: {
-          ...teamCoachingStaff,
+          ...(existingCoachingStaffByTeamYear[teamAbbr] || {}),
           [currentSeasonYear]: currentCoachingStaff
-        }
+        },
+        ...(teamTid ? {
+          [teamTid]: {
+            ...(existingCoachingStaffByTeamYear[teamTid] || {}),
+            [currentSeasonYear]: currentCoachingStaff
+          }
+        } : {})
       },
-      // Initialize preseason setup for new year using team-centric pattern
+      // Initialize preseason setup for new year — dual-keyed (rename-safe).
       preseasonSetupByTeamYear: {
         ...existingPreseasonSetup,
         [teamAbbr]: {
-          ...teamPreseasonSetup,
+          ...(existingPreseasonSetup[teamAbbr] || {}),
           [currentSeasonYear]: newYearPreseasonSetup
-        }
+        },
+        ...(teamTid ? {
+          [teamTid]: {
+            ...(existingPreseasonSetup[teamTid] || {}),
+            [currentSeasonYear]: newYearPreseasonSetup
+          }
+        } : {})
       }
     }
 
@@ -8552,24 +8602,35 @@ export function DynastyProvider({ children }) {
             }
           }
         },
-        // Store in old team-centric structure (for backward compatibility)
+        // Store in old team-centric structure — dual-key under tid AND
+        // current abbr so a teambuilder rename doesn't orphan the data.
         schedulesByTeamYear: {
           ...existingSchedulesByTeamYear,
           [teamAbbr]: {
-            ...teamSchedules,
+            ...(existingSchedulesByTeamYear[teamAbbr] || {}),
             [year]: scheduleToSave
-          }
+          },
+          ...(tid ? { [tid]: { ...(existingSchedulesByTeamYear[tid] || {}), [year]: scheduleToSave } } : {})
         },
-        // Update old team-centric preseason setup
+        // Update old team-centric preseason setup (dual-keyed)
         preseasonSetupByTeamYear: {
           ...existingPreseasonSetupByTeamYear,
           [teamAbbr]: {
-            ...teamSetups,
+            ...(existingPreseasonSetupByTeamYear[teamAbbr] || {}),
             [year]: {
-              ...currentSetup,
+              ...((existingPreseasonSetupByTeamYear[teamAbbr] || {})[year] || {}),
               scheduleEntered: true
             }
-          }
+          },
+          ...(tid ? {
+            [tid]: {
+              ...(existingPreseasonSetupByTeamYear[tid] || {}),
+              [year]: {
+                ...((existingPreseasonSetupByTeamYear[tid] || {})[year] || {}),
+                scheduleEntered: true
+              }
+            }
+          } : {})
         },
         // Save created games
         games: allGames
@@ -8584,14 +8645,15 @@ export function DynastyProvider({ children }) {
         }
       }
     } else {
-      // Firestore: use dot notation for nested updates
+      // Firestore: use dot notation for nested updates. Dual-write tid +
+      // current-abbr keys so the data survives a teambuilder rename.
       scheduleUpdates = {
         // NEW tid-based byYear structure
         [`teams.${tid}.byYear.${year}.schedule`]: scheduleToSave,
         [`teams.${tid}.byYear.${year}.preseasonSetup.scheduleEntered`]: true,
-        // Old structures (for backward compatibility)
-        [`schedulesByTeamYear.${teamAbbr}.${year}`]: scheduleToSave,
-        [`preseasonSetupByTeamYear.${teamAbbr}.${year}.scheduleEntered`]: true,
+        // Old structures — dual-key writes
+        ...buildByTeamYearUpdates('schedulesByTeamYear', dynasty, tid, year, scheduleToSave),
+        ...buildByTeamYearUpdates('preseasonSetupByTeamYear', dynasty, tid, `${year}.scheduleEntered`, true),
         // Save created games
         games: allGames
       }
@@ -8871,16 +8933,25 @@ export function DynastyProvider({ children }) {
               }
             }
           },
-          // Update old team-centric preseason setup (for backward compatibility)
+          // Update old team-centric preseason setup — dual-keyed (rename-safe)
           preseasonSetupByTeamYear: {
             ...existingPreseasonSetupByTeamYear,
             [teamAbbr]: {
-              ...teamSetups,
+              ...(existingPreseasonSetupByTeamYear[teamAbbr] || {}),
               [year]: {
-                ...currentSetup,
+                ...((existingPreseasonSetupByTeamYear[teamAbbr] || {})[year] || {}),
                 rosterEntered: true
               }
-            }
+            },
+            ...(tid ? {
+              [tid]: {
+                ...(existingPreseasonSetupByTeamYear[tid] || {}),
+                [year]: {
+                  ...((existingPreseasonSetupByTeamYear[tid] || {})[year] || {}),
+                  rosterEntered: true
+                }
+              }
+            } : {})
           },
           // Also update legacy preseason setup
           preseasonSetup: {
@@ -8893,8 +8964,8 @@ export function DynastyProvider({ children }) {
           nextPID: newNextPID,
           // NEW tid-based byYear structure
           [`teams.${tid}.byYear.${year}.preseasonSetup.rosterEntered`]: true,
-          // Old structures (for backward compatibility)
-          [`preseasonSetupByTeamYear.${teamAbbr}.${year}.rosterEntered`]: true,
+          // Old structures — dual-write tid + abbr key (rename-safe)
+          ...buildByTeamYearUpdates('preseasonSetupByTeamYear', dynasty, tid, `${year}.rosterEntered`, true),
           'preseasonSetup.rosterEntered': true
         }
 
@@ -8954,25 +9025,35 @@ export function DynastyProvider({ children }) {
               }
             }
           },
-          // Store in old team-centric structure (for backward compatibility)
+          // Store in old team-centric structure — dual-keyed (rename-safe)
           teamRatingsByTeamYear: {
             ...existingTeamRatingsByTeamYear,
             [teamAbbr]: {
-              ...teamRatingsForTeam,
+              ...(existingTeamRatingsByTeamYear[teamAbbr] || {}),
               [year]: ratings
-            }
+            },
+            ...(tid ? { [tid]: { ...(existingTeamRatingsByTeamYear[tid] || {}), [year]: ratings } } : {})
           },
           // Also update legacy for backwards compatibility
           teamRatings: ratings,
           preseasonSetupByTeamYear: {
             ...existingPreseasonSetupByTeamYear,
             [teamAbbr]: {
-              ...teamSetups,
+              ...(existingPreseasonSetupByTeamYear[teamAbbr] || {}),
               [year]: {
-                ...currentSetup,
+                ...((existingPreseasonSetupByTeamYear[teamAbbr] || {})[year] || {}),
                 teamRatingsEntered: true
               }
-            }
+            },
+            ...(tid ? {
+              [tid]: {
+                ...(existingPreseasonSetupByTeamYear[tid] || {}),
+                [year]: {
+                  ...((existingPreseasonSetupByTeamYear[tid] || {})[year] || {}),
+                  teamRatingsEntered: true
+                }
+              }
+            } : {})
           },
           preseasonSetup: {
             ...dynasty.preseasonSetup,
@@ -8984,10 +9065,10 @@ export function DynastyProvider({ children }) {
           // NEW tid-based byYear structure
           [`teams.${tid}.byYear.${year}.teamRatings`]: ratings,
           [`teams.${tid}.byYear.${year}.preseasonSetup.teamRatingsEntered`]: true,
-          // Old structures (for backward compatibility)
-          [`teamRatingsByTeamYear.${teamAbbr}.${year}`]: ratings,
+          // Old structures — dual-write tid + abbr keys (rename-safe)
+          ...buildByTeamYearUpdates('teamRatingsByTeamYear', dynasty, tid, year, ratings),
+          ...buildByTeamYearUpdates('preseasonSetupByTeamYear', dynasty, tid, `${year}.teamRatingsEntered`, true),
           teamRatings: ratings,
-          [`preseasonSetupByTeamYear.${teamAbbr}.${year}.teamRatingsEntered`]: true,
           'preseasonSetup.teamRatingsEntered': true
         }
 
@@ -9049,11 +9130,11 @@ export function DynastyProvider({ children }) {
           }
         }
       } else {
-        // Firestore dot notation
+        // Firestore dot notation. Dual-write tid + abbr keys (rename-safe).
         if (tid) {
           updates[`teams.${tid}.byYear.${year}.teamRecord`] = recordData
         }
-        updates[`teamRecordsByTeamYear.${teamAbbr}.${year}`] = recordData
+        Object.assign(updates, buildByTeamYearUpdates('teamRecordsByTeamYear', dynasty, tid ?? teamAbbr, year, recordData))
       }
     }
 
@@ -9093,11 +9174,11 @@ export function DynastyProvider({ children }) {
           }
         }
       } else {
-        // Firestore dot notation
+        // Firestore dot notation. Dual-write tid + abbr (rename-safe).
         if (tid) {
           updates[`teams.${tid}.byYear.${year}.conference`] = info.conference
         }
-        updates[`conferenceByTeamYear.${teamAbbr}.${year}`] = info.conference
+        Object.assign(updates, buildByTeamYearUpdates('conferenceByTeamYear', dynasty, tid ?? teamAbbr, year, info.conference))
       }
     }
 
@@ -9159,25 +9240,35 @@ export function DynastyProvider({ children }) {
               }
             }
           },
-          // Store in old team-centric structure (for backward compatibility)
+          // Store in old team-centric structure — dual-keyed (rename-safe)
           coachingStaffByTeamYear: {
             ...existingCoachingStaffByTeamYear,
             [teamAbbr]: {
-              ...coachingStaffForTeam,
+              ...(existingCoachingStaffByTeamYear[teamAbbr] || {}),
               [year]: staff
-            }
+            },
+            ...(tid ? { [tid]: { ...(existingCoachingStaffByTeamYear[tid] || {}), [year]: staff } } : {})
           },
           // Also update legacy for backwards compatibility
           coachingStaff: staff,
           preseasonSetupByTeamYear: {
             ...existingPreseasonSetupByTeamYear,
             [teamAbbr]: {
-              ...teamSetups,
+              ...(existingPreseasonSetupByTeamYear[teamAbbr] || {}),
               [year]: {
-                ...currentSetup,
+                ...((existingPreseasonSetupByTeamYear[teamAbbr] || {})[year] || {}),
                 coachingStaffEntered: true
               }
-            }
+            },
+            ...(tid ? {
+              [tid]: {
+                ...(existingPreseasonSetupByTeamYear[tid] || {}),
+                [year]: {
+                  ...((existingPreseasonSetupByTeamYear[tid] || {})[year] || {}),
+                  coachingStaffEntered: true
+                }
+              }
+            } : {})
           },
           preseasonSetup: {
             ...dynasty.preseasonSetup,
@@ -9189,10 +9280,10 @@ export function DynastyProvider({ children }) {
           // NEW tid-based byYear structure
           [`teams.${tid}.byYear.${year}.coachingStaff`]: staff,
           [`teams.${tid}.byYear.${year}.preseasonSetup.coachingStaffEntered`]: true,
-          // Old structures (for backward compatibility)
-          [`coachingStaffByTeamYear.${teamAbbr}.${year}`]: staff,
+          // Old structures — dual-write tid + abbr keys (rename-safe)
+          ...buildByTeamYearUpdates('coachingStaffByTeamYear', dynasty, tid, year, staff),
+          ...buildByTeamYearUpdates('preseasonSetupByTeamYear', dynasty, tid, `${year}.coachingStaffEntered`, true),
           coachingStaff: staff,
-          [`preseasonSetupByTeamYear.${teamAbbr}.${year}.coachingStaffEntered`]: true,
           'preseasonSetup.coachingStaffEntered': true
         }
 

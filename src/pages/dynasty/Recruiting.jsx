@@ -111,11 +111,13 @@ export default function Recruiting() {
         }
       })
     }
-    if (teamAbbr && currentDynasty?.recruitingCommitmentsByTeamYear?.[teamAbbr]) {
-      Object.keys(currentDynasty.recruitingCommitmentsByTeamYear[teamAbbr]).forEach(year => {
-        yearsSet.add(Number(year))
-      })
-    }
+    // Years from team-centric structure — check tid AND abbr keys (dual-keyed
+    // since pass-5 migration; either may exist).
+    const teamCentric = currentDynasty?.recruitingCommitmentsByTeamYear || {}
+    const fromAbbr = teamAbbr ? teamCentric[teamAbbr] : null
+    const fromTid = selectedTid != null ? teamCentric[selectedTid] : null
+    Object.keys(fromAbbr || {}).forEach(year => yearsSet.add(Number(year)))
+    Object.keys(fromTid || {}).forEach(year => yearsSet.add(Number(year)))
     const years = Array.from(yearsSet)
     if (currentDynasty?.currentYear && !years.includes(currentDynasty.currentYear)) {
       years.push(currentDynasty.currentYear)
@@ -331,13 +333,14 @@ export default function Recruiting() {
     }
 
     const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-    const existingForTeam = existingByTeamYear[teamAbbr] || {}
+    // dual-keyed (rename-safe)
     updates.recruitingCommitmentsByTeamYear = {
       ...existingByTeamYear,
       [teamAbbr]: {
-        ...existingForTeam,
+        ...(existingByTeamYear[teamAbbr] || {}),
         [selectedYear]: commitmentData
-      }
+      },
+      ...(selectedTid ? { [selectedTid]: { ...(existingByTeamYear[selectedTid] || {}), [selectedYear]: commitmentData } } : {})
     }
 
     await updateDynasty(currentDynasty.id, updates)
@@ -531,7 +534,13 @@ export default function Recruiting() {
         })
       }
 
-      const allYearsData = currentDynasty.recruitingCommitmentsByTeamYear?.[teamAbbr] || {}
+      // Pull all-years commits from BOTH the tid key and the abbr key
+      // (dual-keyed since pass 5; old data may live under either).
+      const teamCentric = currentDynasty.recruitingCommitmentsByTeamYear || {}
+      const allYearsData = {
+        ...(selectedTid != null ? (teamCentric[selectedTid] || {}) : {}),
+        ...(teamCentric[teamAbbr] || {})
+      }
       Object.entries(allYearsData).forEach(([year, yearCommitments]) => {
         if (processedYears.has(Number(year))) return
         Object.entries(yearCommitments).forEach(([key, weekCommitments]) => {

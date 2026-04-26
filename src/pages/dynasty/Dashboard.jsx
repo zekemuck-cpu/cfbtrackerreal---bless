@@ -736,13 +736,14 @@ export default function Dashboard() {
     const existingByYear = currentDynasty.conferenceChampionshipDataByYear || {}
 
     const updates = {
-      // Write to team-centric structure
+      // Write to team-centric structure — dual-keyed (rename-safe)
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
-          ...existingForTeam,
+          ...(existingByTeamYear[teamAbbr] || {}),
           [year]: ccData
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: ccData } } : {})
       },
       // Also write to year-only structure for backward compatibility with restore useEffect
       conferenceChampionshipDataByYear: {
@@ -792,13 +793,14 @@ export default function Dashboard() {
     const existingByYearOnly = currentDynasty.conferenceChampionshipDataByYear || {}
 
     const updates = {
-      // Write to team-centric structure
+      // Write to team-centric structure — dual-keyed (rename-safe)
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
-          ...existingForTeam,
+          ...(existingByTeamYear[teamAbbr] || {}),
           [year]: ccData
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: ccData } } : {})
       },
       // Also write to year-only structure for backward compatibility
       conferenceChampionshipDataByYear: {
@@ -877,13 +879,14 @@ export default function Dashboard() {
     const existingByYearOnly = currentDynasty.conferenceChampionshipDataByYear || {}
 
     const updates = {
-      // Write to team-centric structure
+      // Write to team-centric structure — dual-keyed (rename-safe)
       conferenceChampionshipDataByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
-          ...existingForTeam,
+          ...(existingByTeamYear[teamAbbr] || {}),
           [year]: ccData
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: ccData } } : {})
       },
       // Also write to year-only structure for backward compatibility
       conferenceChampionshipDataByYear: {
@@ -1171,13 +1174,14 @@ export default function Dashboard() {
         ...existingByYear,
         [year]: playersWithPids
       },
-      // Team-centric format
+      // Team-centric format — dual-keyed (rename-safe)
       playersLeavingByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...(existingByTeamYear[teamAbbr] || {}),
           [year]: playersWithPids
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: playersWithPids } } : {})
       },
       players: updatedPlayers
     }
@@ -1271,12 +1275,14 @@ export default function Dashboard() {
 
     const updates = {
       players: updatedPlayers,
+      // dual-keyed (rename-safe)
       draftResultsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...(existingByTeamYear[teamAbbr] || {}),
           [year]: resultsWithPids
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: resultsWithPids } } : {})
       }
     }
 
@@ -1378,12 +1384,14 @@ export default function Dashboard() {
     const tid = getTidFromAbbr(teamAbbr)
 
     const updates = {
+      // dual-keyed (rename-safe)
       transferDestinationsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
           ...(existingByTeamYear[teamAbbr] || {}),
           [year]: destinations
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: destinations } } : {})
       },
       players: updatedPlayers
     }
@@ -1423,12 +1431,14 @@ export default function Dashboard() {
     const tid = getTidFromAbbr(teamAbbr)
 
     const updates = {
+      // dual-keyed (rename-safe)
       recruitingClassRankByTeamYear: {
         ...existingRanks,
         [teamAbbr]: {
           ...(existingRanks[teamAbbr] || {}),
           [year]: rank
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingRanks[tid] || {}), [year]: rank } } : {})
       }
     }
 
@@ -2253,12 +2263,14 @@ export default function Dashboard() {
 
       // Store in TEAM-CENTRIC structure - store all commits for this commitment key
       const updates = {
+        // dual-keyed (rename-safe)
         recruitingCommitmentsByTeamYear: {
           ...existingByTeamYear,
           [teamAbbr]: {
-            ...existingForTeam,
+            ...(existingByTeamYear[teamAbbr] || {}),
             [year]: commitmentData
-          }
+          },
+          ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: commitmentData } } : {})
         },
         players: updatedPlayers,
         nextPID: nextPID
@@ -2367,14 +2379,15 @@ export default function Dashboard() {
       [commitmentKey]: []
     }
 
-    // Store empty array to mark as completed
+    // Store empty array to mark as completed — dual-keyed (rename-safe)
     const updates = {
       recruitingCommitmentsByTeamYear: {
         ...existingByTeamYear,
         [teamAbbr]: {
-          ...existingForTeam,
+          ...(existingByTeamYear[teamAbbr] || {}),
           [year]: commitmentData
-        }
+        },
+        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: commitmentData } } : {})
       }
     }
 
