@@ -45,14 +45,21 @@ service cloud.firestore {
     }
 
     // ─── users/{uid} ─────────────────────────────────────────────────
-    // Read: only the owner. (Public profile data lives elsewhere.)
-    // Write: rejected from clients. The Stripe webhook (admin SDK)
-    //   bypasses these rules and is the only path that updates
-    //   subscription state. The dev-grant flow goes through the admin
-    //   API (admin SDK) and is also exempt from these rules.
+    // Read: only the owner.
+    // Write: rejected from clients EXCEPT a narrow case — the owner may
+    //   flip `pendingDowngrade` from true to false to signal that the
+    //   client has finished auto-exporting cloud dynasties to local
+    //   storage. Any other field change goes through the webhook
+    //   (admin SDK, bypasses these rules) or the admin API.
+    // Create / delete: server-only.
     match /users/{uid} {
       allow read: if isOwner(uid);
-      allow write: if false;
+
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingDowngrade'])
+        && request.resource.data.pendingDowngrade == false;
+
+      allow create, delete: if false;
     }
 
     // ─── dynasties/{id} ──────────────────────────────────────────────
