@@ -673,20 +673,53 @@ export default function Player() {
         // Player-team-for-this-game — must be derived per game.year, not
         // currentYear, so transferred players show the correct team logo
         // and score attribution for prior-year highlights.
-        const playerTeamTid = player.teamsByYear?.[game.year]
-        const playerTeamAbbr = (dynasty.teams?.[playerTeamTid]?.abbr
-          || getCurrentTeamAbbr(dynasty))?.toUpperCase()
-        const playerTeamLogo = playerTeamTid
+        //
+        // tid is the source of truth, not abbr. play.team is stored as a
+        // string abbr (legacy data shape we can't change without a
+        // migration), so we resolve play.team → tid via the game's two
+        // teams, then compare tids. This survives teambuilder teams whose
+        // abbr was renamed after the game was recorded.
+        const t1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+        const t2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
+        const t1Abbr = t1Tid != null ? dynasty.teams?.[t1Tid]?.abbr?.toUpperCase() : null
+        const t2Abbr = t2Tid != null ? dynasty.teams?.[t2Tid]?.abbr?.toUpperCase() : null
+
+        const playerTeamTid = player.teamsByYear?.[game.year] != null
+          ? Number(player.teamsByYear[game.year])
+          : null
+        // Prefer the matching game-side's current abbr so a renamed
+        // teambuilder team still surfaces with its current display.
+        const playerTeamAbbr = (
+          playerTeamTid != null && playerTeamTid === t1Tid ? t1Abbr :
+          playerTeamTid != null && playerTeamTid === t2Tid ? t2Abbr :
+          (dynasty.teams?.[playerTeamTid]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+        )
+        const playerTeamLogo = playerTeamTid != null
           ? getTeamLogoByTid(playerTeamTid, dynasty.teams)
           : null
         const opponentLogo = game.opponentTid
           ? getTeamLogoByTid(game.opponentTid, dynasty.teams)
           : null
+
+        // Resolve a play's team-string to a tid via the game's two teams.
+        // Returns null for legacy games missing tids or for plays whose
+        // abbr matches neither side (abbr drift / bad data).
+        const resolvePlayTid = (playTeamStr) => {
+          const u = playTeamStr?.toUpperCase()
+          if (!u) return null
+          if (t1Abbr && u === t1Abbr) return t1Tid
+          if (t2Abbr && u === t2Abbr) return t2Tid
+          return null
+        }
+
         let playerTeamScore = 0
         let opponentScore = 0
         const enriched = scoringSummary.map(play => {
           const pts = getPlayPoints(play)
-          const isPlayerTeam = play.team?.toUpperCase() === playerTeamAbbr
+          const playTid = resolvePlayTid(play.team)
+          const isPlayerTeam = playTid != null && playerTeamTid != null
+            ? playTid === playerTeamTid
+            : play.team?.toUpperCase() === playerTeamAbbr
           if (isPlayerTeam) playerTeamScore += pts
           else opponentScore += pts
           return { ...play, runningPlayerScore: playerTeamScore, runningOpponentScore: opponentScore }
@@ -4795,17 +4828,41 @@ export default function Player() {
                         // Per-game player team — derive from teamsByYear so
                         // prior-year highlights credit the correct side and
                         // show the correct logo even after a transfer.
-                        const gamePlayerTeamTid = player.teamsByYear?.[game.year]
-                        const gamePlayerTeamAbbr = (dynasty.teams?.[gamePlayerTeamTid]?.abbr
-                          || getCurrentTeamAbbr(dynasty))?.toUpperCase()
-                        const gamePlayerTeamLogo = gamePlayerTeamTid
+                        // Tid-based resolution; see allPlayerScoringPlays
+                        // for the full rationale (abbr drift on teambuilder
+                        // teams).
+                        const gT1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
+                        const gT2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
+                        const gT1Abbr = gT1Tid != null ? dynasty.teams?.[gT1Tid]?.abbr?.toUpperCase() : null
+                        const gT2Abbr = gT2Tid != null ? dynasty.teams?.[gT2Tid]?.abbr?.toUpperCase() : null
+                        const gamePlayerTeamTid = player.teamsByYear?.[game.year] != null
+                          ? Number(player.teamsByYear[game.year])
+                          : null
+                        const gamePlayerTeamAbbr = (
+                          gamePlayerTeamTid != null && gamePlayerTeamTid === gT1Tid ? gT1Abbr :
+                          gamePlayerTeamTid != null && gamePlayerTeamTid === gT2Tid ? gT2Abbr :
+                          (dynasty.teams?.[gamePlayerTeamTid]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
+                        )
+                        const gamePlayerTeamLogo = gamePlayerTeamTid != null
                           ? getTeamLogoByTid(gamePlayerTeamTid, dynasty.teams)
                           : null
+
+                        const resolveGamePlayTid = (playTeamStr) => {
+                          const u = playTeamStr?.toUpperCase()
+                          if (!u) return null
+                          if (gT1Abbr && u === gT1Abbr) return gT1Tid
+                          if (gT2Abbr && u === gT2Abbr) return gT2Tid
+                          return null
+                        }
+
                         let playerTeamScore = 0
                         let opponentScore = 0
                         const playsWithRunningScore = scoringSummary.map(play => {
                           const points = getPlayPoints(play)
-                          const isPlayerTeam = play.team?.toUpperCase() === gamePlayerTeamAbbr
+                          const playTid = resolveGamePlayTid(play.team)
+                          const isPlayerTeam = playTid != null && gamePlayerTeamTid != null
+                            ? playTid === gamePlayerTeamTid
+                            : play.team?.toUpperCase() === gamePlayerTeamAbbr
 
                           if (isPlayerTeam) {
                             playerTeamScore += points
