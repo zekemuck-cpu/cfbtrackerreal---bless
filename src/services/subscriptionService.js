@@ -155,6 +155,15 @@ export async function adminRevokePremium() {
   return postAuthed('/api/admin/grant-premium', { action: 'revoke' });
 }
 
+/**
+ * Admin-only: pull orphan subcollections from a deleted/abandoned cloud
+ * dynasty ID. Returns players + games arrays. Caller is responsible for
+ * writing the result into a local IndexedDB dynasty.
+ */
+export async function adminRecoverOrphan(oldDynastyId) {
+  return postAuthed('/api/admin/recover-orphan', { oldDynastyId });
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Account deletion (Stripe cancel + Firestore wipe + Auth delete)
 // ─────────────────────────────────────────────────────────────────────

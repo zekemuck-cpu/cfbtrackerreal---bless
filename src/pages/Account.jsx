@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useDynasty } from '../context/DynastyContext'
+import { storageService } from '../services/storage'
 import BouncingLogos from '../components/BouncingLogos'
-import { PageHero, Card, Button, Badge } from '../components/ui'
+import { PageHero, Card, Button, Badge, Input } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 import { useConfirm } from '../components/ui/ConfirmDialog'
 import {
   adminGrantPremium,
   adminRevokePremium,
+  adminRecoverOrphan,
   deleteAccount,
 } from '../services/subscriptionService'
 
@@ -38,6 +41,7 @@ function PlanCell({ value }) {
 
 export default function Account() {
   const { user, isPremium, upgradeToPremium, manageSubscription, subscription, signOut } = useAuth()
+  const { dynasties } = useDynasty()
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const navigate = useNavigate()
@@ -45,6 +49,12 @@ export default function Account() {
   const [devStatus, setDevStatus] = useState(null)
   const [showDevTools, setShowDevTools] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Orphan-recovery form state. Used to pull players + games from a
+  // pre-bug-fix cloud dynasty whose main doc was deleted but whose
+  // subcollections are still in Firestore.
+  const [recoverOldId, setRecoverOldId] = useState('')
+  const [recoverTargetId, setRecoverTargetId] = useState('')
+  const [recovering, setRecovering] = useState(false)
 
   const isAdmin = !!user?.email && ADMIN_EMAILS.has(user.email.toLowerCase())
 
@@ -69,6 +79,48 @@ export default function Account() {
       console.error('Failed to revoke premium:', error)
       toast.error(error.message || 'Failed to revoke premium')
       setDevStatus('error')
+    }
+  }
+
+  const handleRecoverOrphan = async () => {
+    if (!recoverOldId.trim() || !recoverTargetId.trim()) {
+      toast.error('Both fields are required')
+      return
+    }
+    setRecovering(true)
+    try {
+      // Step 1: pull orphan subcollections from Firestore via admin API
+      const orphan = await adminRecoverOrphan(recoverOldId.trim())
+      if (!orphan?.ok) {
+        toast.error(orphan?.error || 'Recovery fetch failed')
+        return
+      }
+      if (orphan.playerCount === 0 && orphan.gameCount === 0) {
+        toast.warning(`No data found at ${recoverOldId.trim()}. Either it's empty or already cleaned.`)
+        return
+      }
+
+      // Step 2: write into the chosen target dynasty (local or cloud)
+      const result = await storageService.recoverOrphanIntoTarget(
+        recoverTargetId.trim(),
+        orphan.players,
+        orphan.games
+      )
+      if (!result.success) {
+        toast.error(result.error || 'Recovery write failed')
+        return
+      }
+
+      toast.success(
+        `Recovered ${orphan.playerCount} players and ${orphan.gameCount} games. Reload to see them.`
+      )
+      setRecoverOldId('')
+      setRecoverTargetId('')
+    } catch (err) {
+      console.error('[Account] recovery failed:', err)
+      toast.error(err.message || 'Recovery failed')
+    } finally {
+      setRecovering(false)
     }
   }
 
@@ -356,6 +408,52 @@ export default function Account() {
                 <p className="text-xs text-txt-tertiary text-center">
                   Server-gated to admin email. Use real payment flow for normal testing.
                 </p>
+
+                {/* Orphan subcollection recovery — pulls players + games
+                    from a pre-bug-fix cloud dynasty (whose main doc was
+                    deleted but whose subcollections survived) and writes
+                    them into a chosen target dynasty here. Server route
+                    uses admin SDK to bypass Firestore rules. */}
+                <div className="pt-4 border-t border-surface-4 space-y-2">
+                  <div className="text-xs font-semibold text-txt-secondary">Recover orphan subcollections</div>
+                  <p className="text-[11px] text-txt-tertiary leading-snug">
+                    Pulls players + games from a deleted cloud dynasty's surviving subcollections and writes them into the target dynasty (local or cloud). Used after a migrate-to-local that lost data.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] text-txt-tertiary mb-1">Orphan dynasty ID (old cloud)</label>
+                    <Input
+                      type="text"
+                      value={recoverOldId}
+                      onChange={(e) => setRecoverOldId(e.target.value)}
+                      placeholder="pX7tm2OUceJRo8LY7HtR"
+                      className="font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-txt-tertiary mb-1">Target dynasty</label>
+                    <select
+                      value={recoverTargetId}
+                      onChange={(e) => setRecoverTargetId(e.target.value)}
+                      className="w-full text-xs px-2 py-1.5 rounded border bg-surface-2 text-txt-primary"
+                      style={{ borderColor: 'var(--surface-5)' }}
+                    >
+                      <option value="">— pick a dynasty —</option>
+                      {(dynasties || []).map(d => (
+                        <option key={d.id} value={d.id}>
+                          {(d.dynastyName || d.teamName || d.id)} · {d.storageType} · {d.id.slice(0, 8)}…
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={handleRecoverOrphan}
+                    disabled={recovering || !recoverOldId.trim() || !recoverTargetId.trim()}
+                  >
+                    {recovering ? 'Recovering…' : 'Recover orphan'}
+                  </Button>
+                </div>
               </div>
             )}
           </Card>

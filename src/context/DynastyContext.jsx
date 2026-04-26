@@ -4617,7 +4617,12 @@ export function DynastyProvider({ children }) {
     let cancelled = false
     ;(async () => {
       try {
-        const result = await storageService.migrateToLocal()
+        // deleteFromCloud: false — keep cloud copies as a soft backup.
+        // If the migrate-to-local step fails partway (network, permissions,
+        // bug), we want the source data preserved in Firestore. User can
+        // re-subscribe and get back to the original cloud dynasties later,
+        // and we still have an escape hatch for recovery.
+        const result = await storageService.migrateToLocal({ deleteFromCloud: false })
         if (cancelled) return
 
         // Reload all dynasties so the UI reflects the migrated copies.

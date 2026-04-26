@@ -380,29 +380,68 @@ export const storageService = {
   },
 
   /**
-   * Migrate a single dynasty from cloud to local
+   * Migrate a single dynasty from cloud to local.
+   *
+   * Cloud dynasties store players + games in subcollections
+   * (dynasties/{id}/players and /games) to stay under Firestore's 1MB
+   * doc limit. Local IndexedDB dynasties are single-doc — we MUST pull
+   * the subcollections out of the cloud and embed them as arrays on
+   * the local dynasty before deleting the cloud copy, otherwise the
+   * local copy is empty and the round-trip back to cloud loses
+   * everything.
+   *
    * @param {string} dynastyId
-   * @returns {Promise<{success: boolean, dynasty?: Object}>}
+   * @param {Object} options
+   * @param {boolean} [options.deleteFromCloud=true] — when false, the
+   *   cloud copy is left in place as a backup. Cancel-time auto-export
+   *   uses this so a user who lapses but later re-subscribes (or who
+   *   simply needs to recover) hasn't lost their cloud data.
+   * @returns {Promise<{success: boolean, dynasty?: Object, players?: number, games?: number}>}
    */
-  async migrateDynastyToLocal(dynastyId) {
+  async migrateDynastyToLocal(dynastyId, options = {}) {
+    const { deleteFromCloud = true } = options;
     try {
-      // Get the cloud dynasty
       const dynasty = await firebaseStorage.getDynasty(dynastyId);
       if (!dynasty) {
         return { success: false, error: 'Dynasty not found' };
       }
 
-      // Create locally
+      // Pull subcollections — these are the actual game data. If this
+      // step fails, we abort BEFORE deleting the cloud copy.
+      let players = [];
+      let games = [];
+      try {
+        players = (await firebaseStorage.getPlayers(dynastyId)) || [];
+        games = (await firebaseStorage.getGames(dynastyId)) || [];
+        log(`Pulled ${players.length} players + ${games.length} games from cloud subcollections for ${dynastyId}`);
+      } catch (subErr) {
+        console.error('[Storage] Failed to fetch subcollections during migrate-to-local:', subErr);
+        return {
+          success: false,
+          error: `Could not fetch dynasty contents from cloud: ${subErr.message}`,
+        };
+      }
+
+      // Create locally with the full payload embedded.
       const localDynasty = await indexedDBStorage.createDynasty({
         ...dynasty,
-        storageType: STORAGE_TYPE.LOCAL
+        players,
+        games,
+        storageType: STORAGE_TYPE.LOCAL,
+        _subcollectionsMigrated: undefined, // local format doesn't use this flag
       });
 
-      // Delete from cloud
-      await firebaseStorage.deleteDynasty(dynastyId);
+      // Only delete cloud copy after local save succeeded AND caller
+      // explicitly opted in. NOTE: deleteDynasty currently deletes only
+      // the main doc; subcollections are orphaned at the old id. That's
+      // intentional for now — it acts as a soft backup if migration
+      // ever loses data.
+      if (deleteFromCloud) {
+        await firebaseStorage.deleteDynasty(dynastyId);
+      }
 
-      log(`Migrated dynasty ${dynastyId} to local`);
-      return { success: true, dynasty: localDynasty };
+      log(`Migrated dynasty ${dynastyId} to local (players=${players.length}, games=${games.length}, deletedCloud=${deleteFromCloud})`);
+      return { success: true, dynasty: localDynasty, players: players.length, games: games.length };
     } catch (error) {
       console.error('[Storage] Migration to local failed:', error);
       return { success: false, error: error.message };
@@ -452,14 +491,70 @@ export const storageService = {
     return this.migrateAllToCloud();
   },
 
-  async migrateToLocal() {
-    // Migrate all cloud dynasties to local
+  /**
+   * Write orphan-recovered players + games arrays into a target dynasty,
+   * picking the right backend based on the target's storageType.
+   * Used by the admin "Recover Orphan" flow after the API has pulled
+   * the orphan subcollections out of Firestore.
+   *
+   * Behavior:
+   *   • Local target: dynasty.players and .games arrays are REPLACED
+   *     (not merged) so re-running recovery doesn't duplicate.
+   *   • Cloud target: subcollections are written via the standard
+   *     savePlayersToSubcollection / saveGamesToSubcollection helpers.
+   *     Existing subcollection docs are overwritten by ID; any items
+   *     present in the target but not in the recovery payload are
+   *     left in place.
+   */
+  async recoverOrphanIntoTarget(targetDynastyId, players, games) {
+    const target = await this.getDynasty(targetDynastyId);
+    if (!target) return { success: false, error: 'Target dynasty not found' };
+
+    try {
+      if (target.storageType === STORAGE_TYPE.CLOUD) {
+        if (Array.isArray(players) && players.length > 0) {
+          await savePlayersToSubcollection(targetDynastyId, players);
+        }
+        if (Array.isArray(games) && games.length > 0) {
+          await saveGamesToSubcollection(targetDynastyId, games);
+        }
+        await firebaseStorage.updateDynasty(targetDynastyId, {
+          _subcollectionsMigrated: true,
+          _playerCount: players?.length || 0,
+          _gameCount: games?.length || 0,
+        });
+      } else {
+        await indexedDBStorage.updateDynasty(targetDynastyId, {
+          players: Array.isArray(players) ? players : [],
+          games: Array.isArray(games) ? games : [],
+        });
+      }
+      log(`Recovery wrote players=${players?.length || 0}, games=${games?.length || 0} into ${target.storageType} dynasty ${targetDynastyId}`);
+      return { success: true, players: players?.length || 0, games: games?.length || 0 };
+    } catch (err) {
+      console.error('[Storage] Recovery write failed:', err);
+      return { success: false, error: err.message };
+    }
+  },
+
+  /**
+   * Bulk migrate every cloud dynasty owned by the current user to local.
+   * Used by the cancel-time auto-export when a subscription ends.
+   *
+   * @param {Object} options
+   * @param {boolean} [options.deleteFromCloud=true] — pass false to
+   *   preserve the cloud copies as a backup. The cancel flow uses
+   *   false so a lapsed user doesn't lose Firestore data on the way
+   *   back to local.
+   */
+  async migrateToLocal(options = {}) {
+    const { deleteFromCloud = true } = options;
     try {
       const cloudDynasties = await firebaseStorage.getDynasties();
       let migratedCount = 0;
 
       for (const dynasty of cloudDynasties) {
-        const result = await this.migrateDynastyToLocal(dynasty.id);
+        const result = await this.migrateDynastyToLocal(dynasty.id, { deleteFromCloud });
         if (result.success) {
           migratedCount++;
         }
