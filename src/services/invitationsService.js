@@ -203,6 +203,57 @@ export function subscribeToDynastyInvitations(dynastyId, dynastyOwnerUid, callba
  * and the invitation can be left in 'accepted' state as the audit
  * record. This is called from DynastyContext on dynasty-load.
  */
+/**
+ * Reconciliation pass: scans for accepted invitations for a dynasty and
+ * adds the corresponding members to dynasty.members[]. Idempotent —
+ * safe to call repeatedly. Caller passes the dynasty + the current user
+ * (must be the commish for any work to happen) + a writer function.
+ *
+ * Returns the count of new members added (0 if nothing to do).
+ *
+ * Called from:
+ *   - DynastyContext on every currentDynasty load (auto)
+ *   - LeagueSettings page via its own live-subscription effect (snappy
+ *     in-page update without waiting for a navigation)
+ */
+export async function reconcileAcceptedInvitations({
+  dynasty,
+  currentUserUid,
+  updateDynasty,
+  // Helpers passed from leagueModel to avoid circular import.
+  getMembers,
+  getMemberByEmail,
+  isCommish,
+  createMember,
+  computeMemberUids,
+}) {
+  if (!dynasty?.id || !dynasty?.userId || !currentUserUid) return 0
+  if (!isCommish(dynasty, currentUserUid)) return 0
+
+  const accepted = await fetchAcceptedInvitationsForDynasty(dynasty.id, dynasty.userId)
+  if (accepted.length === 0) return 0
+
+  const existingMembers = getMembers(dynasty)
+  const newMembers = []
+  for (const inv of accepted) {
+    if (getMemberByEmail(dynasty, inv.inviteeEmail)) continue
+    newMembers.push(createMember({
+      uid: inv.inviteeUid || null,
+      email: inv.inviteeEmail,
+      teams: inv.initialTeams || [],
+      isCommish: false,
+    }))
+  }
+  if (newMembers.length === 0) return 0
+
+  const merged = [...existingMembers, ...newMembers]
+  await updateDynasty(dynasty.id, {
+    members: merged,
+    memberUids: computeMemberUids(merged),
+  })
+  return newMembers.length
+}
+
 export async function fetchAcceptedInvitationsForDynasty(dynastyId, dynastyOwnerUid) {
   if (!dynastyId || !dynastyOwnerUid) return []
   const q = query(

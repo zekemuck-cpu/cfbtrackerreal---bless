@@ -60,7 +60,8 @@ import {
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
-import { migrateDynastyToMembers, computeMemberUids, needsMembersMigration } from '../data/leagueModel'
+import { migrateDynastyToMembers, computeMemberUids, needsMembersMigration, getMembers, getMemberByEmail, isCommish, createMember } from '../data/leagueModel'
+import { reconcileAcceptedInvitations } from '../services/invitationsService'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -10955,6 +10956,35 @@ export function DynastyProvider({ children }) {
     const onlyMember = memberLeagues.filter(d => !ownerIds.has(d.id))
     return [...dynasties, ...onlyMember]
   })()
+
+  // ─── Auto-reconciliation: when the commish opens any dynasty page,
+  // sweep accepted invitations for that dynasty and add new members to
+  // members[]/memberUids[]. Without this, the invitee couldn't see the
+  // league until the commish manually opened LeagueSettings — bad UX.
+  // Guarded by a ref so we only run once per dynasty per session
+  // (subsequent loads skip the network call unless the user changes).
+  const reconciledDynastyIdsRef = useRef(new Set())
+  useEffect(() => {
+    if (!currentDynasty?.id || !user?.uid) return
+    if (reconciledDynastyIdsRef.current.has(currentDynasty.id)) return
+    if (!isCommish(currentDynasty, user.uid)) return
+
+    reconciledDynastyIdsRef.current.add(currentDynasty.id)
+    reconcileAcceptedInvitations({
+      dynasty: currentDynasty,
+      currentUserUid: user.uid,
+      updateDynasty,
+      getMembers, getMemberByEmail, isCommish, createMember, computeMemberUids,
+    }).then(addedCount => {
+      if (addedCount > 0) {
+        console.log(`[Multiplayer] Auto-reconciled ${addedCount} accepted invitation(s)`)
+      }
+    }).catch(err => {
+      console.error('[Multiplayer] Auto-reconciliation failed:', err)
+      // Allow retry on next load
+      reconciledDynastyIdsRef.current.delete(currentDynasty.id)
+    })
+  }, [currentDynasty?.id, user?.uid])
 
   const value = {
     dynasties: dynastiesWithMemberLeagues,
