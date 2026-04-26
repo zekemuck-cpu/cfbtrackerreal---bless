@@ -87,16 +87,27 @@ service cloud.firestore {
     //   - userId cannot be changed
     // Delete:
     //   - Owner only (Phase 1)
-    function isMember() {
-      return isSignedIn()
-        && resource.data.memberUids is list
-        && request.auth.uid in resource.data.memberUids;
-    }
-
     match /dynasties/{dynastyId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid
-                  || isMember()
-                  || (resource.data.isPublic == true);
+      // SPLIT-RULE FORM: each allow-read is independently provable for
+      // its query shape. A single combined `||` expression confuses
+      // Firestore's query-safety analysis — specifically, the
+      // `subscribeToMemberLeagues` query (`array-contains memberUids`)
+      // can't be proved safe when wrapped in an OR with the legacy
+      // owner check. Splitting into discrete rules lets Firestore
+      // prove safety per query path.
+      //
+      // Each allow-read covers one access vector:
+      //   1. legacy owner read (userId match)
+      //   2. multiplayer member read (uid in memberUids array)
+      //   3. public-share read (isPublic flag, no auth required)
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+
+      allow read: if isSignedIn()
+                  && resource.data.memberUids is list
+                  && request.auth.uid in resource.data.memberUids;
+
+      allow read: if resource.data.isPublic == true;
 
       allow create: if isPremium()
                     && request.resource.data.userId == request.auth.uid
@@ -104,8 +115,7 @@ service cloud.firestore {
 
       // Phase 1: keep writes owner-only. Members can read but can't
       // write yet — Phase 3 will gate writes by team ownership +
-      // permissions matrix. The OR isMember() will be added then with
-      // additional per-action checks (which fields each member can edit).
+      // permissions matrix.
       allow update: if isOwner(resource.data.userId)
                     && isPremium()
                     && request.resource.data.userId == resource.data.userId;
@@ -113,35 +123,31 @@ service cloud.firestore {
       allow delete: if isOwner(resource.data.userId);
 
       // Subcollections: members can read; writes still owner-only in
-      // Phase 1. Helper inlined since security rules don't support
-      // module-style helpers.
+      // Phase 1. Same split-rule treatment as the parent so each access
+      // vector is independently provable.
       function parentDynasty() {
         return get(/databases/$(database)/documents/dynasties/$(dynastyId)).data;
       }
-      function isMemberOfParent() {
-        let pd = parentDynasty();
-        return isSignedIn()
-          && pd.memberUids is list
-          && request.auth.uid in pd.memberUids;
-      }
 
       match /players/{playerId} {
-        allow read: if isSignedIn() && (
-          parentDynasty().userId == request.auth.uid
-          || isMemberOfParent()
-          || parentDynasty().isPublic == true
-        );
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && parentDynasty().memberUids is list
+                    && request.auth.uid in parentDynasty().memberUids;
+        allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
                      && parentDynasty().userId == request.auth.uid;
       }
 
       match /games/{gameId} {
-        allow read: if isSignedIn() && (
-          parentDynasty().userId == request.auth.uid
-          || isMemberOfParent()
-          || parentDynasty().isPublic == true
-        );
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && parentDynasty().memberUids is list
+                    && request.auth.uid in parentDynasty().memberUids;
+        allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
                      && parentDynasty().userId == request.auth.uid;
