@@ -135,6 +135,23 @@ export default function Account() {
     }
   }
 
+  const handleManageSubscription = async () => {
+    if (!manageSubscription) return
+    try {
+      await manageSubscription()
+    } catch (err) {
+      console.error('[Account] manage subscription failed:', err)
+      // Most common failure: user is dev/beta-granted (no Stripe customer)
+      // and shouldn't see this button at all. We hide it for those users
+      // below, but if it slips through, show the error rather than failing
+      // silently — the previous build had this onClick swallow the error.
+      const msg = err?.message?.includes('no subscription')
+        ? 'No Stripe subscription on this account — nothing to manage.'
+        : (err?.message || 'Could not open the subscription portal. Try again later.')
+      toast.error(msg)
+    }
+  }
+
   const handleUpgrade = async () => {
     if (!upgradeToPremium) return
     setUpgrading(true)
@@ -238,13 +255,21 @@ export default function Account() {
           </div>
         </Card>
 
-        {/* Premium Member Card */}
+        {/* Premium Member Card. Two variants:
+            - Real Stripe subscribers (have stripeCustomerId): show billing
+              date + amount and a working "Manage Subscription" button that
+              opens the Stripe portal.
+            - Dev/beta-granted users (no stripeCustomerId): show grant
+              expiry only. No portal button — there's no Stripe customer
+              to manage, and the previous build's button failed silently. */}
         {isPremium && (
           <Card accent="top">
             <div className="flex items-center justify-between mb-3">
               <div className="label-sm text-txt-primary">Premium Member</div>
               {subscription?.cancelAtPeriodEnd ? (
                 <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Canceling</span>
+              ) : subscription?._devGranted ? (
+                <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Beta access</span>
               ) : (
                 <span className="label-xs text-txt-tertiary">Thanks for your support</span>
               )}
@@ -262,6 +287,17 @@ export default function Account() {
                     When premium ends, your cloud dynasties will be auto-copied to local storage.
                   </div>
                 </div>
+              ) : subscription?._devGranted ? (
+                <div className="text-txt-secondary space-y-1">
+                  <div className="flex justify-between">
+                    <span>Access type</span>
+                    <span className="font-medium text-txt-primary">Beta (free)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Expires</span>
+                    <span className="font-medium text-txt-primary tabular">{billingEnd}</span>
+                  </div>
+                </div>
               ) : (
                 <div className="text-txt-secondary space-y-1">
                   <div className="flex justify-between">
@@ -276,9 +312,11 @@ export default function Account() {
               )}
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => manageSubscription?.()}>
-              Manage Subscription
-            </Button>
+            {!subscription?._devGranted && (
+              <Button variant="outline" className="w-full" onClick={handleManageSubscription}>
+                Manage Subscription
+              </Button>
+            )}
           </Card>
         )}
 
