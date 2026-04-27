@@ -5255,17 +5255,37 @@ export function DynastyProvider({ children }) {
     }
 
     // MULTIPLAYER: when a non-owner member opens a league, override the
-    // in-memory currentTid to point at THEIR assigned team (or first team
-    // if they own multiple). This is a Phase 1.5 shortcut that gets the
-    // dashboard / sidebar / etc. to render their team's perspective
-    // without the full Phase 2 refactor of every getCurrent* helper. The
-    // override is read-only — we only mutate the in-memory copy, never
-    // persist back to Firestore. Members are read-only in Phase 1 anyway.
+    // in-memory currentTid AND remap the team[].userId='currentUser'
+    // flag so all the existing helpers (currentTid + getUserTeamTid)
+    // report THIS user's team. Read-only mutation — we don't persist.
     if (user?.uid && dynasty.userId !== user.uid && Array.isArray(dynasty.members)) {
       const member = dynasty.members.find(m => m && m.uid === user.uid)
       const memberFirstTid = member?.teams?.[0]
-      if (memberFirstTid != null && Number(memberFirstTid) !== Number(dynasty.currentTid)) {
-        dynasty = { ...dynasty, currentTid: Number(memberFirstTid) }
+      if (memberFirstTid != null) {
+        const overrideTid = Number(memberFirstTid)
+        // Build a new teams map: clear userId='currentUser' from any
+        // team that has it (the commish's team), set it on the member's
+        // team. Other team properties stay intact so display still works.
+        const remappedTeams = {}
+        if (dynasty.teams) {
+          for (const [tidStr, team] of Object.entries(dynasty.teams)) {
+            const isOurTeam = Number(tidStr) === overrideTid
+            const wasCurrentUser = team?.userId === 'currentUser'
+            if (isOurTeam && !wasCurrentUser) {
+              remappedTeams[tidStr] = { ...team, userId: 'currentUser' }
+            } else if (!isOurTeam && wasCurrentUser) {
+              const { userId: _drop, ...rest } = team
+              remappedTeams[tidStr] = rest
+            } else {
+              remappedTeams[tidStr] = team
+            }
+          }
+        }
+        dynasty = {
+          ...dynasty,
+          currentTid: overrideTid,
+          teams: Object.keys(remappedTeams).length > 0 ? remappedTeams : dynasty.teams,
+        }
       }
     }
 
