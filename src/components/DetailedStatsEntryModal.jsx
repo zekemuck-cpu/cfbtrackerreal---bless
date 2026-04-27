@@ -123,6 +123,7 @@ export default function DetailedStatsEntryModal({
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Detailed Stats Entry`,
     roster: userRoster,
+    multiBlock: true,
     structure: `This sheet has NINE tabs, one per stat category. Each tab's row 1 (header) and columns A (Name) and B (Snaps) are PRE-FILLED and PROTECTED. Players on each tab are filtered by position and sorted by Snaps DESCENDING. Your output is the stat columns ONLY, starting at column C, with row order matching column A exactly.
 
 ═══════════════════════════════════════════════════════════
