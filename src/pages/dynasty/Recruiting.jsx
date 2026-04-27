@@ -794,7 +794,7 @@ export default function Recruiting() {
               type="button"
               onClick={() => setShowHistoryModal(true)}
               disabled={classHistory.length <= 1}
-              className="flex items-center gap-6 px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
+              className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
               title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
               aria-label="View recruiting class history"
             >
@@ -812,7 +812,7 @@ export default function Recruiting() {
               </span>
             </button>
           ) : (
-            <div className="flex items-center gap-6 px-5 py-3 flex-shrink-0">
+            <div className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                   {classStats.total}
@@ -824,7 +824,7 @@ export default function Recruiting() {
 
           {/* View toggle */}
           {hasHSandPortal && (
-            <div className="flex items-center gap-1 px-4 py-3 flex-shrink-0">
+            <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-shrink-0">
               {VIEW_MODE_OPTIONS.map(opt => {
                 const active = viewMode === opt.value
                 const count = opt.value === 'both'
@@ -848,15 +848,17 @@ export default function Recruiting() {
             </div>
           )}
 
-          {/* Star filter chips */}
-          <div className="flex items-center gap-1 px-4 py-3 flex-1 min-w-0 flex-wrap">
+          {/* Star filter chips — horizontal scroll on mobile so the toolbar
+              doesn't balloon to 3 rows; wraps freely from sm: up. The
+              `no-scrollbar` class hides the scrollbar; users can still swipe. */}
+          <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-1 min-w-0 flex-nowrap sm:flex-wrap overflow-x-auto sm:overflow-x-visible no-scrollbar">
             {starTiles.map(tile => {
               const selected = selectedStars.includes(tile.count)
               return (
                 <button
                   key={tile.count}
                   onClick={() => toggleStarFilter(tile.count)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
                   style={{
                     backgroundColor: selected ? 'var(--team-primary-faded)' : 'transparent',
                     border: `1px solid ${selected ? 'var(--team-primary)' : 'var(--surface-4)'}`,

@@ -60,7 +60,7 @@ export default function Tabs({
   return (
     <div
       role="tablist"
-      className={`flex items-center gap-1 overflow-x-auto ${className}`.trim()}
+      className={`flex items-center gap-1 overflow-x-auto no-scrollbar ${className}`.trim()}
       style={{ borderBottom: '1px solid var(--surface-4)' }}
       {...rest}
     >

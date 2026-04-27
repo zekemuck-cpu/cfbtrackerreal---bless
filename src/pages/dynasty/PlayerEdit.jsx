@@ -826,7 +826,7 @@ export default function PlayerEdit() {
               {showImageUpload && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowImageUpload(false)} />
-                  <div className="absolute top-full left-0 mt-2 w-72 card-elevated z-50 p-4">
+                  <div className="absolute top-full left-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] card-elevated z-50 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-txt-primary">Player Photo</h4>
                       <button aria-label="Close"
@@ -1011,7 +1011,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Name Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       First Name
@@ -1039,7 +1039,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Position, Class, Jersey, OVR Row */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Position
@@ -1103,7 +1103,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Archetype, Dev Trait Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Archetype
@@ -1149,7 +1149,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Hometown Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Hometown
@@ -1841,7 +1841,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Stars and Rankings Row */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Stars
@@ -1919,7 +1919,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Portal Transfer Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Portal Transfer
@@ -2087,7 +2087,7 @@ export default function PlayerEdit() {
                 {['QB'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Passing</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'passComp', label: 'Comp' },
                         { key: 'passAtt', label: 'Att' },
@@ -2118,7 +2118,7 @@ export default function PlayerEdit() {
                 {['QB', 'HB', 'FB', 'WR', 'TE'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Rushing</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'rushAtt', label: 'Carries' },
                         { key: 'rushYds', label: 'Yards' },
@@ -2147,7 +2147,7 @@ export default function PlayerEdit() {
                 {['HB', 'FB', 'WR', 'TE'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Receiving</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'receptions', label: 'Rec' },
                         { key: 'recYds', label: 'Yards' },
@@ -2176,7 +2176,7 @@ export default function PlayerEdit() {
                 {['LEDG', 'REDG', 'DT', 'SAM', 'MIKE', 'WILL', 'CB', 'FS', 'SS'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Defense</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'tackles', label: 'Tackles' },
                         { key: 'tfl', label: 'TFL' },
@@ -2210,7 +2210,7 @@ export default function PlayerEdit() {
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">
                       {formData.position === 'K' ? 'Kicking' : 'Punting'}
                     </h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {formData.position === 'K' ? [
                         { key: 'fgm', label: 'FG Made' },
                         { key: 'fga', label: 'FG Att' },
@@ -2371,7 +2371,7 @@ export default function PlayerEdit() {
       {/* Mobile action bar */}
       {!isViewOnly && (
         <div
-          className="sm:hidden fixed bottom-[36px] left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
+          className="sm:hidden fixed bottom-10 left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />
