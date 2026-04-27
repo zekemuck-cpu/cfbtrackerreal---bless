@@ -5254,6 +5254,21 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // MULTIPLAYER: when a non-owner member opens a league, override the
+    // in-memory currentTid to point at THEIR assigned team (or first team
+    // if they own multiple). This is a Phase 1.5 shortcut that gets the
+    // dashboard / sidebar / etc. to render their team's perspective
+    // without the full Phase 2 refactor of every getCurrent* helper. The
+    // override is read-only — we only mutate the in-memory copy, never
+    // persist back to Firestore. Members are read-only in Phase 1 anyway.
+    if (user?.uid && dynasty.userId !== user.uid && Array.isArray(dynasty.members)) {
+      const member = dynasty.members.find(m => m && m.uid === user.uid)
+      const memberFirstTid = member?.teams?.[0]
+      if (memberFirstTid != null && Number(memberFirstTid) !== Number(dynasty.currentTid)) {
+        dynasty = { ...dynasty, currentTid: Number(memberFirstTid) }
+      }
+    }
+
     // Set the dynasty immediately (may not have players/games yet if cloud and unloaded)
     setCurrentDynasty(dynasty)
 
