@@ -29,6 +29,14 @@ const PLAN_FEATURES = [
 // nicety — the panel's buttons are inert for non-admins.
 const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
+// Emails permitted to self-grant a free beta premium pass while Stripe
+// checkout is disabled. Must mirror BETA_GRANT_EMAILS in
+// api/_verifyAuth.js — the server is the actual gate; this client list
+// only controls whether the "Beta Access" card is shown. Keep in sync.
+const BETA_GRANT_EMAILS = new Set([
+  'skater1932@gmail.com',
+])
+
 function PlanCell({ value }) {
   if (value === true) {
     return <span className="tabular" style={{ color: 'var(--accent-success)' }}>Yes</span>
@@ -56,7 +64,10 @@ export default function Account() {
   const [recoverTargetId, setRecoverTargetId] = useState('')
   const [recovering, setRecovering] = useState(false)
 
-  const isAdmin = !!user?.email && ADMIN_EMAILS.has(user.email.toLowerCase())
+  const userEmailLower = user?.email?.toLowerCase()
+  const isAdmin = !!userEmailLower && ADMIN_EMAILS.has(userEmailLower)
+  // Anyone allowed to self-grant beta premium (admins are implicitly allowed).
+  const canBetaGrant = !!userEmailLower && (BETA_GRANT_EMAILS.has(userEmailLower) || ADMIN_EMAILS.has(userEmailLower))
 
   const handleGrantPremium = async () => {
     setDevStatus('granting')
@@ -302,22 +313,91 @@ export default function Account() {
 
           {!isPremium && (
             <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--surface-4)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="label-sm text-txt-primary">Upgrade to Premium</span>
-                <span className="stat-md tabular text-txt-primary">$4.99<span className="text-xs text-txt-tertiary">/mo</span></span>
+              <div className="mb-4">
+                <span className="label-sm text-txt-primary">Premium Access</span>
               </div>
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={handleUpgrade}
-                disabled={upgrading}
-              >
-                {upgrading ? 'Processing...' : 'Upgrade to Premium'}
-              </Button>
-              <p className="text-center text-txt-tertiary text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
+              {/* Stripe checkout is disabled while the app is in beta.
+                  Users email the dev to be added to the allowlist; once
+                  added, the "Beta Premium Access" card below appears for
+                  them and they self-grant. */}
+              <div className="rounded-lg p-4 mb-3" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+                <p className="text-sm text-txt-primary mb-2">
+                  <span className="font-semibold">Beta is free.</span>
+                </p>
+                <p className="text-sm text-txt-secondary">
+                  While the app is in beta, premium is on me. Reach out from the Contact page with the
+                  email you sign in with and I&apos;ll get you access.
+                </p>
+              </div>
+              <Link to="/contact" className="block">
+                <Button variant="primary" className="w-full">
+                  Contact Me for Free Premium
+                </Button>
+              </Link>
+              <p className="text-center text-txt-tertiary text-xs mt-3">
+                No payment required during beta.
+              </p>
             </div>
           )}
         </Card>
+
+        {/* Beta Premium Access card — visible only to users on the
+            BETA_GRANT_EMAILS allowlist (and admins). Lets them self-grant
+            a 30-day pass without going through Stripe. */}
+        {canBetaGrant && !isAdmin && (
+          <Card>
+            <h2 className="label-sm text-txt-primary mb-2">Beta Premium Access</h2>
+            <p className="text-sm text-txt-secondary mb-4">
+              You&apos;ve been added to the beta allowlist. Use the button below to grant yourself
+              30 days of premium. After it expires, just come back and grant again — no charge during beta.
+            </p>
+            <div className="p-3 rounded-lg text-xs space-y-1 mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+              <div className="flex justify-between">
+                <span className="text-txt-tertiary">Tier</span>
+                <span className={isPremium ? '' : 'text-txt-primary'} style={isPremium ? { color: 'var(--accent-warning)' } : undefined}>
+                  {subscription?.tier || 'free'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-txt-tertiary">Status</span>
+                <span className="text-txt-primary">{subscription?.subscriptionStatus || 'none'}</span>
+              </div>
+              {subscription?.currentPeriodEnd && (
+                <div className="flex justify-between">
+                  <span className="text-txt-tertiary">Expires</span>
+                  <span className="text-txt-primary tabular">
+                    {subscription.currentPeriodEnd.toDate?.()?.toLocaleDateString() ||
+                      new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+            {!isPremium ? (
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleGrantPremium}
+                disabled={devStatus === 'granting'}
+              >
+                {devStatus === 'granting' ? 'Granting...' : 'Grant Myself 30 Days Premium'}
+              </Button>
+            ) : (
+              <p className="text-sm text-center text-txt-secondary">
+                You already have premium access — enjoy. Come back here when it expires.
+              </p>
+            )}
+            {devStatus === 'granted' && (
+              <p className="text-sm text-center mt-3" style={{ color: 'var(--accent-success)' }}>
+                Premium granted for 30 days. Refresh the page to see it everywhere.
+              </p>
+            )}
+            {devStatus === 'error' && (
+              <p className="text-sm text-center mt-3 text-red-400">
+                Grant failed. Make sure the email you signed in with matches what you sent the dev.
+              </p>
+            )}
+          </Card>
+        )}
 
         {/* Transparency Note */}
         <Card>

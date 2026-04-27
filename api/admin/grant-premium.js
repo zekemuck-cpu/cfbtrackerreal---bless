@@ -1,10 +1,12 @@
 import { db, FieldValue } from '../_firebaseAdmin.js';
-import { verifyAdmin } from '../_verifyAuth.js';
+import { verifyBetaGrant } from '../_verifyAuth.js';
 
 /**
- * Admin-only: grant or revoke a 30-day developer premium pass on the caller's
- * own user doc. Gated to the email allowlist in _verifyAuth.js so a
- * compromised non-admin token can't escalate.
+ * Self-grant or revoke a 30-day premium pass on the CALLER's own user
+ * doc. Gated to BETA_GRANT_EMAILS (and admins, who are a superset) in
+ * _verifyAuth.js, so a random user can't escalate themselves. Only the
+ * verified token's uid is written — never anything from the request
+ * body — so an attacker can't grant someone else premium either.
  *
  * Body: { action: 'grant' | 'revoke' }
  */
@@ -13,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const decoded = await verifyAdmin(req, res);
+  const decoded = await verifyBetaGrant(req, res);
   if (!decoded) return;
 
   const { action } = req.body || {};
