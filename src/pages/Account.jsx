@@ -379,15 +379,17 @@ export default function Account() {
           )}
         </Card>
 
-        {/* Beta Premium Access card — visible only to users on the
-            BETA_GRANT_EMAILS allowlist (and admins). Lets them self-grant
-            a 30-day pass without going through Stripe. */}
-        {canBetaGrant && !isAdmin && (
+        {/* Beta Premium Access card — visible to anyone allowed to
+            self-grant (BETA_GRANT_EMAILS + admins). Single source of
+            truth for granting / revoking the 30-day beta pass; the Dev
+            Tools panel below no longer duplicates these buttons. */}
+        {canBetaGrant && (
           <Card>
             <h2 className="label-sm text-txt-primary mb-2">Beta Premium Access</h2>
             <p className="text-sm text-txt-secondary mb-4">
-              You&apos;ve been added to the beta allowlist. Use the button below to grant yourself
-              30 days of premium. After it expires, just come back and grant again — no charge during beta.
+              {isPremium
+                ? 'Your beta pass is active. When it expires, come back here and grant yourself another 30 days — no charge during beta.'
+                : "You're on the beta allowlist. Click below to grant yourself 30 days of premium. After it expires, just come back and grant again."}
             </p>
             <div className="p-3 rounded-lg text-xs space-y-1 mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
               <div className="flex justify-between">
@@ -420,18 +422,28 @@ export default function Account() {
                 {devStatus === 'granting' ? 'Granting...' : 'Grant Myself 30 Days Premium'}
               </Button>
             ) : (
-              <p className="text-sm text-center text-txt-secondary">
-                You already have premium access — enjoy. Come back here when it expires.
-              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRevokePremium}
+                disabled={devStatus === 'revoking'}
+              >
+                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke My Beta Pass'}
+              </Button>
             )}
             {devStatus === 'granted' && (
               <p className="text-sm text-center mt-3" style={{ color: 'var(--accent-success)' }}>
                 Premium granted for 30 days. Refresh the page to see it everywhere.
               </p>
             )}
+            {devStatus === 'revoked' && (
+              <p className="text-sm text-center mt-3 text-txt-secondary">
+                Beta pass revoked. Refresh to see it everywhere.
+              </p>
+            )}
             {devStatus === 'error' && (
               <p className="text-sm text-center mt-3 text-red-400">
-                Grant failed. Make sure the email you signed in with matches what you sent the dev.
+                Action failed. Make sure the email you signed in with matches the allowlist.
               </p>
             )}
           </Card>
@@ -491,41 +503,11 @@ export default function Account() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  {!isPremium ? (
-                    <Button
-                      variant="primary"
-                      className="flex-1"
-                      onClick={handleGrantPremium}
-                      disabled={devStatus === 'granting'}
-                    >
-                      {devStatus === 'granting' ? 'Granting...' : 'Grant Premium (Dev)'}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      className="flex-1"
-                      onClick={handleRevokePremium}
-                      disabled={devStatus === 'revoking'}
-                    >
-                      {devStatus === 'revoking' ? 'Revoking...' : 'Revoke Premium (Dev)'}
-                    </Button>
-                  )}
-                </div>
-
-                {devStatus === 'granted' && (
-                  <p className="text-sm text-center" style={{ color: 'var(--accent-success)' }}>Premium granted for 30 days.</p>
-                )}
-                {devStatus === 'revoked' && (
-                  <p className="text-sm text-center text-txt-tertiary">Premium revoked, back to free tier.</p>
-                )}
-                {devStatus === 'error' && (
-                  <p className="text-sm text-center" style={{ color: 'var(--accent-error)' }}>Error — check console for details.</p>
-                )}
-
-                <p className="text-xs text-txt-tertiary text-center">
-                  Server-gated to admin email. Use real payment flow for normal testing.
-                </p>
+                {/* Grant / revoke buttons live in the "Beta Premium
+                    Access" card above (visible to admins and beta users
+                    alike), so we no longer duplicate them here. Dev Tools
+                    is now admin-only stuff: user-info display + orphan
+                    subcollection recovery below. */}
 
                 {/* Orphan subcollection recovery — pulls players + games
                     from a pre-bug-fix cloud dynasty (whose main doc was
