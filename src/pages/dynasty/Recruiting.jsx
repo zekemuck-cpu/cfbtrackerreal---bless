@@ -848,25 +848,35 @@ export default function Recruiting() {
             </div>
           )}
 
-          {/* Star filter chips — horizontal scroll on mobile so the toolbar
-              doesn't balloon to 3 rows; wraps freely from sm: up. The
-              `no-scrollbar` class hides the scrollbar; users can still swipe. */}
-          <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-1 min-w-0 flex-nowrap sm:flex-wrap overflow-x-auto sm:overflow-x-visible no-scrollbar">
+          {/* Star filter chips — wrap freely. On mobile we show a compact
+              "5★" form (rating number + single star) so all five chips fit
+              alongside the view toggle on small viewports; the full 1–5
+              star pattern only appears from sm: up where there's room. */}
+          <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-1 min-w-0 flex-wrap">
             {starTiles.map(tile => {
               const selected = selectedStars.includes(tile.count)
               return (
                 <button
                   key={tile.count}
                   onClick={() => toggleStarFilter(tile.count)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
                   style={{
                     backgroundColor: selected ? 'var(--team-primary-faded)' : 'transparent',
                     border: `1px solid ${selected ? 'var(--team-primary)' : 'var(--surface-4)'}`,
                     color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
                   }}
                   aria-pressed={selected}
+                  aria-label={`Filter ${tile.count}-star recruits (${tile.label} total)`}
                 >
-                  <span className="flex items-center gap-0.5">
+                  {/* Mobile: compact "5★" */}
+                  <span className="flex items-center gap-0.5 sm:hidden">
+                    <span className="tabular text-txt-primary leading-none">{tile.count}</span>
+                    <svg className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </span>
+                  {/* Desktop+: full 1–5 star pattern */}
+                  <span className="hidden sm:flex items-center gap-0.5">
                     {[...Array(tile.count)].map((_, i) => (
                       <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
