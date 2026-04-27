@@ -4593,7 +4593,18 @@ export function DynastyProvider({ children }) {
             setCurrentDynasty(updated)
           }
         } else {
-          setCurrentDynasty(null)
+          // Dynasty not in OWNED list. For multiplayer member leagues,
+          // the dynasty lives in memberLeagues state instead. Don't
+          // clobber currentDynasty in that case — only nuke it if it's
+          // genuinely gone (deleted, or user lost access). The check:
+          // is the current dynasty owned by this user (userId match)?
+          // If not, leave it alone — member-league subscription manages it.
+          const isOwnedByUser = currentDynasty.userId === user?.uid
+          if (isOwnedByUser) {
+            setCurrentDynasty(null)
+          }
+          // else: it's a member league; member-league subscription is the
+          // source of truth for this dynasty, not the owner subscription.
         }
       }
 
@@ -5226,8 +5237,19 @@ export function DynastyProvider({ children }) {
   }
 
   const selectDynasty = async (dynastyId) => {
-    const dynasty = dynasties.find(d => d.id === dynastyId)
+    // Look in BOTH owned dynasties AND member leagues — for an invitee
+    // navigating into a league they were invited to, the dynasty lives
+    // in memberLeagues until the merge happens via the context value.
+    // Searching both directly avoids a race where this function captures
+    // the closure before merge has propagated.
+    let dynasty = dynasties.find(d => d.id === dynastyId)
+      || memberLeagues.find(d => d.id === dynastyId)
     if (!dynasty) {
+      // Don't clear currentDynasty if we're still loading — the dynasty
+      // may arrive shortly via the cloud or member-league subscriptions.
+      // Clearing now would briefly null currentDynasty and force the
+      // page into the "redirect home" path.
+      if (loading) return
       setCurrentDynasty(null)
       return
     }
@@ -10935,17 +10957,13 @@ export function DynastyProvider({ children }) {
       setMemberLeagues([])
       return
     }
-    console.log('[Multiplayer DEBUG] subscribeToMemberLeagues starting for uid:', user.uid)
     const unsub = subscribeToMemberLeagues(user.uid, (leagues) => {
-      console.log(`[Multiplayer DEBUG] subscribeToMemberLeagues returned ${leagues.length} dynasty(ies):`,
-        leagues.map(d => ({ id: d.id, name: d.dynastyName || d.teamName, userId: d.userId, memberUids: d.memberUids })))
       // Tag as cloud + drop dynasties the user owns (they come via
       // subscribeToDynasties; including them here would dedup them
       // anyway but the filter is cheaper).
       const tagged = leagues
         .filter(d => d.userId !== user.uid)
         .map(d => ({ ...d, storageType: 'cloud' }))
-      console.log(`[Multiplayer DEBUG] After filter (excluding user-owned), ${tagged.length} member-only league(s)`)
       setMemberLeagues(applyMigrations(tagged))
     })
     return unsub

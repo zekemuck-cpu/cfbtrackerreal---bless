@@ -37,7 +37,7 @@ export default function DynastyDashboard() {
     if (id && (!currentDynasty || currentDynasty.id !== id)) {
       selectDynasty(id)
     }
-  }, [id, currentDynasty, selectDynasty])
+  }, [id, currentDynasty, selectDynasty, dynasties])
 
   useEffect(() => {
     // Only redirect if dynasties have FULLY loaded (loading=false flips after
