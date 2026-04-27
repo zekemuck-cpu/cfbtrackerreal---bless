@@ -169,11 +169,25 @@ export default async function handler(req, res) {
         // we processed for this user. Prevents a stale "active" event
         // arriving after a "deleted" event from re-promoting the user.
         const userSnap = await userRef.get();
-        const lastProcessed = userSnap.data()?.lastStripeEventCreated;
+        const userData = userSnap.data() || {};
+        const lastProcessed = userData.lastStripeEventCreated;
         const lastProcessedMs = lastProcessed?.toMillis ? lastProcessed.toMillis() : (lastProcessed?._seconds * 1000);
         if (lastProcessedMs && lastProcessedMs > event.created * 1000) {
           console.log(`[Webhook] ${event.type} older than last processed; skipping`);
           await logEvent(event, 'skipped_stale');
+          break;
+        }
+
+        // Don't clobber a manual beta/dev grant. While Stripe checkout
+        // is disabled (beta phase), users with _devGranted: true got
+        // their premium from the self-grant flow, NOT from this Stripe
+        // subscription. If we're cleaning up an old paid sub for a
+        // user who has since moved to a beta grant, the Stripe webhook
+        // would otherwise overwrite their tier back to whatever Stripe
+        // reports.
+        if (userData._devGranted) {
+          console.log(`[Webhook] ${event.type}: user ${userRef.id} has _devGranted, skipping Stripe state write`);
+          await logEvent(event, 'skipped_dev_granted');
           break;
         }
 
@@ -204,6 +218,17 @@ export default async function handler(req, res) {
         if (!userRef) {
           console.warn(`[Webhook] subscription.deleted: no matching user for customer ${customerId}`);
           await logEvent(event, 'skipped_no_user');
+          break;
+        }
+
+        // Same _devGranted guard as the .updated path: don't downgrade
+        // a user who has moved to a beta grant. Their premium source is
+        // no longer this Stripe sub.
+        const userSnap = await userRef.get();
+        const userData = userSnap.data() || {};
+        if (userData._devGranted) {
+          console.log(`[Webhook] subscription.deleted: user ${userRef.id} has _devGranted, skipping downgrade`);
+          await logEvent(event, 'skipped_dev_granted');
           break;
         }
 
@@ -273,6 +298,15 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
+        // Don't clobber a beta self-grant when refunding a (separate)
+        // old Stripe charge.
+        const userSnap = await userRef.get();
+        if (userSnap.data()?._devGranted) {
+          console.log(`[Webhook] charge.refunded: user ${userRef.id} has _devGranted, skipping`);
+          await logEvent(event, 'skipped_dev_granted');
+          break;
+        }
+
         if (fullRefund) {
           await userRef.set({
             tier: 'free',
@@ -298,6 +332,15 @@ export default async function handler(req, res) {
 
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
+
+        // Disputes from a stranger shouldn't reach a beta-granted user
+        // either — defensive consistency with the refund path.
+        const userSnap = await userRef.get();
+        if (userSnap.data()?._devGranted) {
+          console.log(`[Webhook] dispute.created: user ${userRef.id} has _devGranted, skipping`);
+          await logEvent(event, 'skipped_dev_granted');
+          break;
+        }
 
         await userRef.set({
           tier: 'free',
