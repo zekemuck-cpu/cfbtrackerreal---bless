@@ -504,6 +504,39 @@ FINAL CHECK before you send
       return lines.join('\n')
     }).join('\n\n')
 
+    // Banner-position table — gives the AI an absolute-row checklist it
+    // can verify against its own draft. The previous version of this
+    // prompt only specified row ranges per section; the AI would
+    // sometimes undershoot data rows in an earlier section and every
+    // later banner would shift down a row, landing inside the next
+    // section's data area (e.g. "═══ DEFENSE ═══" appearing in a
+    // Blocking data row). Pinning each banner to its absolute line
+    // number — and asking the AI to physically count and verify —
+    // makes the misalignment self-detectable.
+    const bannerPositionTable = layout.sections
+      .map(s => `  Line ${s.bannerRow}: "═══ ${s.title.toUpperCase()} ═══"`)
+      .join('\n')
+
+    // Pre-built skeleton the AI fills in. Every banner, header, blank
+    // separator, and empty data slot is laid out as the literal text
+    // the AI must emit. Only the player-data lines are placeholders.
+    // This is the simplest way to make the row count physically
+    // unambiguous — the AI replaces `<EMPTY>` / `<DATA>` placeholders
+    // and never generates the structure freehand.
+    const skeleton = (() => {
+      const out = []
+      layout.sections.forEach((s, idx) => {
+        const isLast = idx === layout.sections.length - 1
+        out.push(`${s.bannerRow}\t═══ ${s.title.toUpperCase()} ═══`)
+        out.push(`${s.headerRow}\t${s.headers.join('\\t')}`)
+        for (let i = 0; i < s.rowCount; i++) {
+          out.push(`${s.dataStart + i}\t<DATA-OR-EMPTY>`)
+        }
+        if (!isLast) out.push(`${s.dataEnd + 1}\t<EMPTY-SEPARATOR>`)
+      })
+      return out.join('\n')
+    })()
+
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
       roster: playerStatsRoster,
@@ -557,6 +590,23 @@ EXACT ROW-BY-ROW LAYOUT — emit each row in this order
 ${rowSpec}
 
 ═══════════════════════════════════════════════════════════
+BANNER POSITIONS — these line numbers are non-negotiable
+═══════════════════════════════════════════════════════════
+The output is exactly ${layout.totalRows} lines (1-indexed). The 9
+section banners MUST land on these exact line numbers. If your draft
+puts a banner anywhere else, your data-row counts in earlier
+sections are wrong — go back and fix them.
+
+${bannerPositionTable}
+
+If line N starts with "═══ X ═══", line N MUST be one of the lines
+above. There are NO other banner lines, EVER. Banner text never
+appears mid-section, never appears in a data row's column A as a
+"value", never appears with tab characters or trailing data. Any
+"═══ ... ═══" you see anywhere except the lines above means your
+output is misaligned.
+
+═══════════════════════════════════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════════════════════════════════
 1. Output EXACTLY ${layout.totalRows} lines. Count them. The user pastes the entire output at cell A1 of the "${AI_UNIFIED_TAB.title}" tab — every line MUST land on the correct row.
@@ -599,16 +649,53 @@ COMMON MISTAKES — actively avoid these
 ✗ Adding any text outside the ${layout.totalRows}-line block (no "here is the output:", no markdown fences, no trailing notes)
 
 ═══════════════════════════════════════════════════════════
-FINAL CHECK before you send
+FINAL CHECK before you send — actually run these on your draft
 ═══════════════════════════════════════════════════════════
-[ ] EXACTLY ${layout.totalRows} lines emitted (count them)
-[ ] Banner lines contain ONLY the section title text (no tabs)
-[ ] Each non-empty data row has the exact column count for its section
-[ ] Empty data slots and separator rows are TRULY EMPTY lines
-[ ] Player names match the roster spelling — NO "#12" or "J. Smith"
-[ ] All stats are for ${teamAbbr} players only
-[ ] No commas in numbers; Rtg may have one decimal; all other stats are integers
-[ ] No commentary, no markdown fences, no headers around the block`,
+Don't just glance at this list. Physically execute each check
+against the lines you just wrote. Misalignment is the #1 failure
+mode of this output and it will silently corrupt the user's sheet.
+
+[ ] LINE COUNT: split your draft on newlines. The result MUST
+    contain EXACTLY ${layout.totalRows} elements. If it's anything
+    else, you're done — go fix.
+
+[ ] BANNER POSITIONS: for each banner line number listed above, look
+    at THAT line of your draft (1-indexed) and confirm the line
+    contains exactly the expected banner text and NOTHING else (no
+    tabs, no trailing data). If line ${layout.sections[0]?.bannerRow ?? 1} is not
+    "═══ ${layout.sections[0]?.title?.toUpperCase() ?? 'PASSING'} ═══", the rest of the output is shifted; fix the
+    section above it.
+
+[ ] STRAY BANNERS: search your draft for the string "═══". Every
+    occurrence MUST be on one of the banner-position lines above.
+    Any "═══ X ═══" appearing in a data row position means an
+    earlier section is short on rows.
+
+[ ] EMPTY-LINE COUNT: there should be ${layout.sections.length - 1} blank separator lines
+    between sections, plus however many empty data slots you didn't
+    fill. An empty line is a TRULY EMPTY line — \\n only, no
+    spaces, no tabs.
+
+[ ] BANNER ROW SHAPE: for each banner line, confirm there are zero
+    tab characters on that line. Banners are column A only.
+
+[ ] HEADER ROW SHAPE: for each header line, confirm the column
+    count matches the section's stat list (e.g. Passing header has
+    8 cells, Defense header has 15).
+
+[ ] PLAYER NAMES: match the roster spelling — NO "#12" or "J. Smith".
+
+[ ] TEAM SCOPE: all stats are for ${teamAbbr} players only. No ${opponentAbbrLabel}.
+
+[ ] NUMBER FORMAT: no commas in any number. Rtg may have one
+    decimal; every other stat is integer.
+
+[ ] NO COMMENTARY: no markdown fences, no "here is the output:",
+    no trailing notes. The block is exactly ${layout.totalRows} lines and nothing
+    else surrounds it.
+
+If ANY of these fails, fix and re-run the checks. Do not send
+output that fails any of them.`,
       includeTeamMap: true,
     })
   }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear])
