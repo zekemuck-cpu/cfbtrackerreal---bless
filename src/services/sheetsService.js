@@ -2,6 +2,7 @@
 // This allows Google Sheets to work with free tier (IndexedDB) users who have signed in with Google
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
 import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
+import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeams'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
 
@@ -4730,19 +4731,13 @@ export async function readCFPQuarterfinalsFromSheet(spreadsheetId, dynastyTeams 
 // ==================== CUSTOM CONFERENCES SHEET ====================
 
 // Default EA CFB 26 conference alignment
-const DEFAULT_CONFERENCES = {
-  "ACC": ["BC", "CAL", "CLEM", "DUKE", "FSU", "GT", "LOU", "MIA", "NCST", "UNC", "PITT", "SMU", "SYR", "STAN", "UVA", "VT", "WAKE"],
-  "American": ["ARMY", "CHAR", "ECU", "FAU", "MEM", "NAVY", "UNT", "RICE", "TULN", "TLSA", "UAB", "USF", "UTSA"],
-  "Big 12": ["ARIZ", "ASU", "BU", "BYU", "UC", "COLO", "UH", "ISU", "KU", "KSU", "OKST", "TCU", "TTU", "UCF", "UTAH", "WVU"],
-  "Big Ten": ["ILL", "IU", "IOWA", "UMD", "MICH", "MSU", "MINN", "NEB", "NU", "OSU", "ORE", "PSU", "PUR", "RUTG", "UCLA", "USC", "WASH", "WIS"],
-  "Conference USA": ["FIU", "KENN", "LIB", "LT", "MTSU", "NMSU", "SHSU", "UTEP", "WKU"],
-  "Independent": ["ND", "CONN", "MASS"],
-  "MAC": ["AKR", "BALL", "BGSU", "BUFF", "CMU", "EMU", "KENT", "M-OH", "NIU", "OHIO", "TOL", "WMU"],
-  "Mountain West": ["AFA", "BOIS", "CSU", "FRES", "HAW", "NEV", "SDSU", "SJSU", "UNLV", "USU", "WYO"],
-  "Pac-12": ["ORST", "WSU"],
-  "SEC": ["BAMA", "ARK", "AUB", "FLA", "UGA", "UK", "LSU", "MISS", "MSST", "MIZ", "OU", "SCAR", "UT", "TEX", "TAMU", "VAN"],
-  "Sun Belt": ["APP", "ARST", "CCU", "GASO", "GSU", "JMU", "JKST", "ULM", "UL", "MRSH", "ODU", "USA", "TXST", "TROY"]
-}
+// Use the canonical FBS-conference layout from data/conferenceTeams.js
+// as the seed for newly-created Conferences sheets and the fallback
+// for users who haven't saved a custom layout yet. Re-pointed (was a
+// duplicate copy that drifted — missed Delaware, Missouri State,
+// Temple, New Mexico, and Southern Miss after CFB 26's realignment,
+// causing read-back validation to fail with "Missing 5 teams").
+const DEFAULT_CONFERENCES = CANONICAL_CONFERENCES
 
 // Get default conferences
 export function getDefaultConferences() {
