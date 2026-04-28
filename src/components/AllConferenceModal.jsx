@@ -275,7 +275,16 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       // Read from all conference tabs
-      const data = await readAllConferenceFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+      // Pass the conference list (matching the tabs we created) as arg 2,
+      // and dynastyTeams as arg 3. Previously the dynasty.teams object
+      // was being passed as `conferences` by mistake — `for (const c of {})`
+      // threw "{} is not iterable" and the sync silently failed.
+      const customConferences = currentDynasty?.conferencesByYear?.[currentYear] || null
+      const conferenceTabs = customConferences && Object.keys(customConferences).length > 0
+        ? Object.keys(customConferences).sort()
+        : undefined // let the function fall back to ALL_CONFERENCES default
+      const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams || null
+      const data = await readAllConferenceFromSheet(sheetId, conferenceTabs, dynastyTeams)
       await onSave(data)
       onClose()
     } catch (error) {
@@ -294,7 +303,16 @@ FINAL CHECK before you send
     if (!sheetId) return
     setDeletingSheet(true)
     try {
-      const data = await readAllConferenceFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+      // Pass the conference list (matching the tabs we created) as arg 2,
+      // and dynastyTeams as arg 3. Previously the dynasty.teams object
+      // was being passed as `conferences` by mistake — `for (const c of {})`
+      // threw "{} is not iterable" and the sync silently failed.
+      const customConferences = currentDynasty?.conferencesByYear?.[currentYear] || null
+      const conferenceTabs = customConferences && Object.keys(customConferences).length > 0
+        ? Object.keys(customConferences).sort()
+        : undefined // let the function fall back to ALL_CONFERENCES default
+      const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams || null
+      const data = await readAllConferenceFromSheet(sheetId, conferenceTabs, dynastyTeams)
       await onSave(data)
       await deleteGoogleSheet(sheetId)
       setSheetId(null)
