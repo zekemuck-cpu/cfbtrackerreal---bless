@@ -33,15 +33,33 @@ service cloud.firestore {
     // Read the requesting user's subscription doc to determine premium
     // status. Includes past_due so a transient card decline doesn't
     // immediately revoke write access while Stripe is still retrying.
+    //
+    // Mirrors the client-side check in services/subscriptionService.js:
+    //   - tier must be 'premium'
+    //   - status must be active / trialing / past_due
+    //   - if currentPeriodEnd is set, it must be in the future
+    //
+    // The currentPeriodEnd check is what makes beta-granted users
+    // (`_devGranted: true`) lose server-side write access when their
+    // 30-day grant lapses, even though their Firestore doc still
+    // says tier='premium' and status='active'. Without this check, the
+    // client UI would correctly go read-only at expiry but a stale
+    // tab could still POST writes. We allow the field to be missing
+    // for backward compat with any user docs that pre-date the field.
     function isPremium() {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       let exists = exists(userPath);
       let userData = exists ? get(userPath).data : {};
+      let hasPaidStatus = userData.subscriptionStatus == 'active'
+                          || userData.subscriptionStatus == 'trialing'
+                          || userData.subscriptionStatus == 'past_due';
+      let withinPeriod = !('currentPeriodEnd' in userData)
+                         || userData.currentPeriodEnd == null
+                         || userData.currentPeriodEnd > request.time;
       return isSignedIn()
         && userData.tier == 'premium'
-        && (userData.subscriptionStatus == 'active'
-            || userData.subscriptionStatus == 'trialing'
-            || userData.subscriptionStatus == 'past_due');
+        && hasPaidStatus
+        && withinPeriod;
     }
 
     // ─── users/{uid} ─────────────────────────────────────────────────
