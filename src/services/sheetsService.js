@@ -4833,6 +4833,12 @@ export async function createConferencesSheet(dynastyName, currentYear, conferenc
         conferencesData = (fallbackYear && conferencesByYear?.[fallbackYear]) || DEFAULT_CONFERENCES
       }
 
+      // Translate any stale abbreviations to the user's current ones so a
+      // teambuilder rename (e.g. BAMA → ALA) doesn't make the user
+      // hand-edit every cell — and so the read-back validator (which now
+      // checks against the dynasty's actual team registry) matches.
+      conferencesData = translateConferencesToCurrentAbbrs(conferencesData, customTeams)
+
       const sortedConferences = Object.keys(conferencesData).sort()
 
       await initializeConferencesSheet(spreadsheet.spreadsheetId, accessToken, sheetId, sortedConferences, maxTeams, conferencesData, customTeams)
@@ -5086,6 +5092,32 @@ function getAllExpectedTeams() {
   return allTeams
 }
 
+// Translate a conferences object whose team abbrs may be stale (e.g.
+// the static DEFAULT_CONFERENCES list, or saved data from before a
+// teambuilder rename) into one that uses the user's CURRENT
+// abbreviations. Looks each abbr up by tid via the static team
+// registry, then prefers the abbr in the user's dynasty registry.
+//
+// No-op for non-teambuilder dynasties (current abbr == default abbr)
+// and when dynastyTeams is missing — safe to apply unconditionally.
+function translateConferencesToCurrentAbbrs(conferences, dynastyTeams) {
+  if (!conferences || !dynastyTeams || typeof dynastyTeams !== 'object') return conferences
+  const defaultAbbrToTid = {}
+  Object.entries(DEFAULT_TEAMS).forEach(([tid, team]) => {
+    if (team?.abbr) defaultAbbrToTid[team.abbr.toUpperCase()] = Number(tid)
+  })
+  const out = {}
+  Object.entries(conferences).forEach(([conf, teams]) => {
+    out[conf] = (teams || []).map(abbr => {
+      const upper = String(abbr || '').toUpperCase()
+      const tid = defaultAbbrToTid[upper]
+      const currentAbbr = tid != null ? dynastyTeams[tid]?.abbr : null
+      return currentAbbr ? currentAbbr.toUpperCase() : upper
+    })
+  })
+  return out
+}
+
 // Helper to parse a single sheet tab's conference data
 function parseConferenceSheetData(rows) {
   if (!rows || rows.length === 0) return {}
@@ -5111,8 +5143,15 @@ function parseConferenceSheetData(rows) {
   return conferences
 }
 
-// Validate conference data for a single year
-function validateConferenceData(conferences, yearLabel = '') {
+// Validate conference data for a single year.
+//
+// `dynastyTeams` (when provided) is the user's tid-keyed team registry
+// from currentDynasty.teams. We use it to derive the expected FBS team
+// set from the user's CURRENT abbreviations — that way a teambuilder
+// rename (e.g. BAMA → ALA) doesn't get reported as a missing team. We
+// also gracefully accept extra teams that aren't in the static default
+// list (FCS additions like Delaware joining C-USA).
+function validateConferenceData(conferences, yearLabel = '', dynastyTeams = null) {
   const allTeamsInSheet = []
   const teamToConference = {}
 
@@ -5127,7 +5166,8 @@ function validateConferenceData(conferences, yearLabel = '') {
     })
   })
 
-  // Check for duplicates
+  // Check for duplicates — still a hard error since it corrupts the
+  // team→conference relationship downstream.
   const duplicates = Object.entries(teamToConference)
     .filter(([team, confs]) => confs.length > 1)
     .map(([team, confs]) => `${team} (in ${confs.join(', ')})`)
@@ -5136,13 +5176,36 @@ function validateConferenceData(conferences, yearLabel = '') {
     throw new Error(`${yearLabel ? `[${yearLabel}] ` : ''}Duplicate teams found: ${duplicates.join('; ')}. Each team can only be in one conference.`)
   }
 
-  // Check for missing teams
-  const expectedTeams = getAllExpectedTeams()
+  // Build the expected set. Prefer the dynasty's actual team registry
+  // when available (covers teambuilder renames); fall back to the
+  // static default list for older callers that don't pass it in.
+  let expectedTeams
+  if (dynastyTeams && typeof dynastyTeams === 'object') {
+    expectedTeams = new Set()
+    Object.values(dynastyTeams).forEach(team => {
+      // Only require FBS teams (not FCS-only additions). isFCS is the
+      // canonical flag in the team registry.
+      if (team && !team.isFCS && team.abbr) {
+        expectedTeams.add(team.abbr.toUpperCase())
+      }
+    })
+    // Defensive fallback: if registry produced nothing usable (corrupt
+    // or empty), drop back to the static list rather than skip the
+    // missing check entirely.
+    if (expectedTeams.size === 0) {
+      expectedTeams = getAllExpectedTeams()
+    }
+  } else {
+    expectedTeams = getAllExpectedTeams()
+  }
+
   const teamsInSheet = new Set(allTeamsInSheet)
   const missingTeams = [...expectedTeams].filter(team => !teamsInSheet.has(team))
 
   if (missingTeams.length > 0) {
-    throw new Error(`${yearLabel ? `[${yearLabel}] ` : ''}Missing teams: ${missingTeams.join(', ')}. All FBS teams must be assigned to a conference.`)
+    const preview = missingTeams.slice(0, 8).join(', ')
+    const more = missingTeams.length > 8 ? ` (+${missingTeams.length - 8} more)` : ''
+    throw new Error(`${yearLabel ? `[${yearLabel}] ` : ''}Missing ${missingTeams.length} team${missingTeams.length === 1 ? '' : 's'} from your sheet: ${preview}${more}. Add them to a conference column and save again. (Renamed teams use your custom abbreviation.)`)
   }
 }
 
@@ -5191,7 +5254,7 @@ export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = nul
 
         const data = await response.json()
         const conferences = parseConferenceSheetData(data.values)
-        validateConferenceData(conferences)
+        validateConferenceData(conferences, '', dynastyTeams)
         return conferences
       }
       return {}
@@ -5218,7 +5281,7 @@ export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = nul
 
       const data = await response.json()
       const conferences = parseConferenceSheetData(data.values)
-      validateConferenceData(conferences, yearTab)
+      validateConferenceData(conferences, yearTab, dynastyTeams)
       conferencesByYear[yearTab] = conferences
     }
 
