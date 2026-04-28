@@ -43,6 +43,7 @@ export const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com']);
 // Keep alphabetised for easy auditing when the list grows.
 export const BETA_GRANT_EMAILS = new Set([
   'skater1932@gmail.com',
+  'zekemuck@gmail.com',
 ]);
 
 /**

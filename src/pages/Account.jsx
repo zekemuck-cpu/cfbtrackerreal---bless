@@ -35,6 +35,7 @@ const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 // only controls whether the "Beta Access" card is shown. Keep in sync.
 const BETA_GRANT_EMAILS = new Set([
   'skater1932@gmail.com',
+  'zekemuck@gmail.com',
 ])
 
 function PlanCell({ value }) {
