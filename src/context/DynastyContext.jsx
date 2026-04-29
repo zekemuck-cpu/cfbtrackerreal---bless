@@ -869,7 +869,7 @@ export function calculateTeamRecordFromGames(dynasty, tid, year, options = {}) {
 
   const games = dynasty.games || []
   const { upToGameId, upToWeek, includeUpToWeek = true } = options
-  const abbr = getAbbrFromTid(tid)
+  const abbr = getAbbrFromTid(dynasty.teams, tid)
 
   // Filter to year and team. Tid checks come first (modern data); abbr
   // checks cover legacy CPU-vs-CPU games stored without tids. Includes
@@ -1057,7 +1057,7 @@ export function getTeamRecord(dynasty, tidOrAbbr, year) {
 
   // Handle abbr input for backward compatibility
   const tid = typeof tidOrAbbr === 'string' ? getTidFromAbbr(tidOrAbbr, dynasty) : tidOrAbbr
-  const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(tidOrAbbr) : tidOrAbbr
+  const abbr = typeof tidOrAbbr === 'number' ? getAbbrFromTid(dynasty.teams, tidOrAbbr) : tidOrAbbr
 
   // Priority 1: Calculate from actual games
   const calculatedRecord = calculateTeamRecordFromGames(dynasty, tid, year)
@@ -1246,7 +1246,7 @@ export function buildRecordUpdatePayload(dynasty, tid, year) {
   if (!dynasty || !tid || !year) return {}
 
   const record = calculateTeamRecordFromGames(dynasty, tid, year)
-  const abbr = getAbbrFromTid(tid)
+  const abbr = getAbbrFromTid(dynasty.teams, tid)
 
   if (!abbr) return {}
 
@@ -2102,7 +2102,7 @@ export function getScheduleForTeam(dynasty, tidOrAbbr, year) {
 
   // Resolve tid and abbr
   const tid = typeof tidOrAbbr === 'number' ? tidOrAbbr : getTidFromAbbr(tidOrAbbr, dynasty)
-  const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(tidOrAbbr)
+  const teamAbbr = typeof tidOrAbbr === 'string' ? tidOrAbbr : getAbbrFromTid(dynasty.teams, tidOrAbbr)
 
   // Try NEW tid-based byYear structure first
   if (tid && dynasty.teams?.[tid]?.byYear?.[year]?.schedule) {
@@ -8731,16 +8731,31 @@ export function DynastyProvider({ children }) {
     // Derive storage type from dynasty's storageType field
     const useLocalStorage = dynasty.storageType !== 'cloud'
 
-    // Get team and year - use provided values or fall back to current user's team
+    // Get team and year - use provided values or fall back to current user's team.
+    // getAbbrFromTid expects (teams, tid) — pass dynasty.teams so a TB
+    // takeover's CURRENT abbr is used (not the static FBS abbr that
+    // used to live in this slot).
     const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const targetTid = options.teamTid || getTidFromAbbr(userTeamAbbr)
     const targetYear = options.year || dynasty.currentYear
-    const teamAbbr = options.teamTid ? getAbbrFromTid(options.teamTid) : userTeamAbbr
+    const teamAbbr = options.teamTid
+      ? getAbbrFromTid(dynasty.teams, options.teamTid)
+      : userTeamAbbr
     const year = targetYear
     const tid = targetTid
 
-    // Determine if this is the user's current team and year (for preseason setup tracking)
-    const isUserCurrentTeamYear = !options.teamTid && !options.year
+    // Determine if this is the user's current team + year. Editing
+    // your OWN team's schedule via the TeamYear page passes teamTid +
+    // year explicitly; we still want the legacy root-level flags
+    // (preseasonSetup.scheduleEntered, dynasty.schedule) to update so
+    // the Dashboard to-do reflects the change. Treat "no options
+    // passed" OR "tid+year match the user's current team+year" both
+    // as the user's own.
+    const userCurrentTid = getCurrentTeamTid(dynasty)
+    const matchesUserTeam = Number(tid) === Number(userCurrentTid)
+    const matchesCurrentYear = Number(year) === Number(dynasty.currentYear)
+    const isUserCurrentTeamYear = (!options.teamTid && !options.year)
+      || (matchesUserTeam && matchesCurrentYear)
 
     // Build team-centric schedule storage (old structure)
     const existingSchedulesByTeamYear = dynasty.schedulesByTeamYear || {}
