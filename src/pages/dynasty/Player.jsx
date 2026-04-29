@@ -2092,6 +2092,42 @@ export default function Player() {
                     },
                   ].filter(c => c.has)
 
+                  // Sort the visible category tabs so the player's
+                  // primary role appears first (a WR opens to
+                  // Receiving, a QB to Passing, an EDGE to Defense,
+                  // a kicker to Kicking, etc.). Categories not in
+                  // the position's priority list keep their existing
+                  // order at the end.
+                  const POSITION_TAB_ORDER = {
+                    QB:   ['passing', 'rushing', 'receiving', 'defense', 'kicking'],
+                    HB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    FB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    RB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    WR:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                    TE:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                  }
+                  const DEFENSIVE_POSITIONS = new Set([
+                    'LEDG','REDG','DT','DE','DL','NT',
+                    'SAM','MIKE','WILL','OLB','MLB','ILB','LB',
+                    'CB','FS','SS','S','DB',
+                  ])
+                  const KICK_POSITIONS = new Set(['K', 'P'])
+                  const playerPos = (player?.position || '').toUpperCase()
+                  const tabOrder =
+                    POSITION_TAB_ORDER[playerPos]
+                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'rushing', 'receiving', 'passing', 'kicking'] : null)
+                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'passing', 'rushing', 'receiving', 'defense'] : null)
+                    || ['passing', 'rushing', 'receiving', 'defense', 'kicking']
+
+                  categories.sort((a, b) => {
+                    const ai = tabOrder.indexOf(a.key)
+                    const bi = tabOrder.indexOf(b.key)
+                    if (ai === -1 && bi === -1) return 0
+                    if (ai === -1) return 1
+                    if (bi === -1) return -1
+                    return ai - bi
+                  })
+
                   if (categories.length === 0) {
                     return (
                       <>
