@@ -146,6 +146,18 @@ const STAT_CATEGORIES = {
 
 const CATEGORY_ORDER = ['production', 'passing', 'rushing', 'receiving', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
 
+// Stat fields that are MAX-style (single-best) rather than count-style
+// (cumulative). Career aggregation needs Math.max for these instead of
+// summing — otherwise a player's "longest pass" career stat becomes the
+// sum of their seasonal longs, which is meaningless and produces
+// 200-yard "passes" on the leaderboard.
+const MAX_FIELDS = new Set([
+  'lng',     // longest pass / run / reception / FG / punt / return — every category names it `lng`
+  'intLng',  // longest defensive INT return
+  'fgLong',  // alt key seen in some box-score paths
+])
+const isMaxField = (key) => MAX_FIELDS.has(key)
+
 export default function DynastyRecords() {
   const { id: dynastyId, category: categoryParam } = useParams()
   const { currentDynasty } = useDynasty()
@@ -294,7 +306,19 @@ export default function DynastyRecords() {
         Object.entries(catStats).forEach(([statKey, value]) => {
           if (typeof value === 'number') {
             if (mode === 'career') {
-              playerTotals[playerKey][statKey] = (playerTotals[playerKey][statKey] || 0) + value
+              // "Long" stats (longest pass / run / reception / FG /
+              // punt / return) are MAX fields, not sum fields.
+              // Career-summing them gave nonsense like a 245-yard
+              // longest pass (sum of 3 seasonal longs). Take the
+              // max across seasons instead.
+              if (isMaxField(statKey)) {
+                playerTotals[playerKey][statKey] = Math.max(
+                  playerTotals[playerKey][statKey] || 0,
+                  value
+                )
+              } else {
+                playerTotals[playerKey][statKey] = (playerTotals[playerKey][statKey] || 0) + value
+              }
             } else {
               playerTotals[playerKey][statKey] = value
             }
