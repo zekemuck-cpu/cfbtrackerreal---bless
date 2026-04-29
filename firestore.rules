@@ -10,12 +10,17 @@ rules_version = '2';
 //      set of profile fields (none currently — leaving room).
 //   2. Cloud dynasties are owned by `userId`. The owner can always READ
 //      them (including after subscription lapse — needed for the
-//      auto-export-to-local migration). Only PREMIUM owners can WRITE.
-//   3. Public dynasties (`isPublic == true` with a `shareCode`) are
+//      auto-export-to-local migration). Premium owners can WRITE.
+//   3. Shared dynasties: any uid in `editors[]` has full read+write.
+//      Editors must themselves be premium to write — the dynasty itself
+//      is paid for by the owner. Roles / per-team ownership / commish
+//      gates are deliberately out of scope here; everyone in editors[]
+//      is fully trusted.
+//   4. Public dynasties (`isPublic == true` with a `shareCode`) are
 //      readable by anyone, including unauthenticated visitors. Only the
 //      owner can flip the public flag, and only premium owners can
 //      do so (sharing is a premium feature).
-//   4. `webhookEvents` and `stripeEvents` are server-only — clients
+//   5. `webhookEvents` and `stripeEvents` are server-only — clients
 //      can't read or write them.
 
 service cloud.firestore {
@@ -38,14 +43,6 @@ service cloud.firestore {
     //   - tier must be 'premium'
     //   - status must be active / trialing / past_due
     //   - if currentPeriodEnd is set, it must be in the future
-    //
-    // The currentPeriodEnd check is what makes beta-granted users
-    // (`_devGranted: true`) lose server-side write access when their
-    // 30-day grant lapses, even though their Firestore doc still
-    // says tier='premium' and status='active'. Without this check, the
-    // client UI would correctly go read-only at expiry but a stale
-    // tab could still POST writes. We allow the field to be missing
-    // for backward compat with any user docs that pre-date the field.
     function isPremium() {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       let exists = exists(userPath);
@@ -81,55 +78,84 @@ service cloud.firestore {
     }
 
     // ─── dynasties/{id} ──────────────────────────────────────────────
+    // SHARING MODEL: every dynasty has an `editors[]` array of uids that
+    // are allowed to read+write. Legacy solo dynasties auto-migrate on
+    // load to `editors: [userId]`. Until that migration runs, the
+    // owner's read still works via the legacy `userId` check.
+    //
     // Read:
-    //   - The owner can always read (premium or not). Needed so the
-    //     auto-export-to-local migration works after a subscription ends.
-    //   - Anyone can read a doc that is currently public.
+    //   - Legacy owner (resource.data.userId) — keeps pre-migration
+    //     dynasties readable
+    //   - Anyone in editors[] (post-migration; owner is included here)
+    //   - Anyone (no auth required) for currently-public docs
     // Create:
-    //   - Must be the owner AND premium AND the doc must declare
-    //     storageType: 'cloud' (clients can't accidentally create
-    //     local dynasties in Firestore).
+    //   - Premium owner; userId must equal the requester (no impersonation)
+    //   - storageType must be 'cloud'
     // Update:
-    //   - Must be the owner AND premium.
-    //   - userId cannot be changed (no ownership transfer via update).
+    //   - Owner OR uid in editors[]
+    //   - Writer must themselves be premium
+    //   - userId cannot be changed (ownership transfer is out of scope)
     // Delete:
-    //   - Owner can delete regardless of premium (needed for cleanup
-    //     when account-delete flow runs).
+    //   - Owner only
     match /dynasties/{dynastyId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid
-                  || (resource.data.isPublic == true);
+      // Each allow-read covers one access vector (split form is needed
+      // so Firestore can prove each query path's safety independently —
+      // a single combined OR confuses the safe-query analyzer for
+      // array-contains queries).
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+
+      allow read: if isSignedIn()
+                  && request.auth.uid in resource.data.get('editors', []);
+
+      allow read: if resource.data.isPublic == true;
 
       allow create: if isPremium()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.storageType == 'cloud';
 
-      allow update: if isOwner(resource.data.userId)
-                    && isPremium()
+      allow update: if isPremium()
+                    && (
+                      isOwner(resource.data.userId)
+                      || request.auth.uid in resource.data.get('editors', [])
+                    )
                     && request.resource.data.userId == resource.data.userId;
 
       allow delete: if isOwner(resource.data.userId);
 
-      // Subcollections: same scoping as the parent dynasty.
-      // We can't easily get(parent) here cheaply for every read, so we
-      // mirror the rules — cloud-dynasty subdocs are protected by the
-      // parent's userId field via the parent document. To keep this
-      // robust, we reference the parent on each operation.
+      // Subcollections inherit the same access vectors. Owner OR
+      // any uid in the parent's editors[] can read+write, provided
+      // the writer is themselves premium.
+      function parentDynasty() {
+        return get(/databases/$(database)/documents/dynasties/$(dynastyId)).data;
+      }
+
       match /players/{playerId} {
         allow read: if isSignedIn()
-                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
-                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
-                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+                     && (
+                       parentDynasty().userId == request.auth.uid
+                       || request.auth.uid in parentDynasty().get('editors', [])
+                     );
       }
 
       match /games/{gameId} {
         allow read: if isSignedIn()
-                    && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid
-                    || get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.isPublic == true;
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
-                     && get(/databases/$(database)/documents/dynasties/$(dynastyId)).data.userId == request.auth.uid;
+                     && (
+                       parentDynasty().userId == request.auth.uid
+                       || request.auth.uid in parentDynasty().get('editors', [])
+                     );
       }
     }
 

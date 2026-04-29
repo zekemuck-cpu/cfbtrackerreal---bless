@@ -107,6 +107,34 @@ export function subscribeToDynasties(userId, callback) {
   })
 }
 
+/**
+ * Subscribe to dynasties the user has been granted edit access to but
+ * doesn't own. Owner-side dynasties arrive via subscribeToDynasties;
+ * this fills in the rest. Callers should dedupe by id since `editors`
+ * may include the owner's uid (some dynasties auto-include the owner
+ * for rule simplicity).
+ */
+export function subscribeToSharedDynasties(userId, callback) {
+  if (!userId) {
+    callback([])
+    return () => {}
+  }
+  const q = query(
+    collection(db, DYNASTIES_COLLECTION),
+    where('editors', 'array-contains', userId)
+  )
+  return onSnapshot(q, (snapshot) => {
+    const dynasties = snapshot.docs.map(doc => {
+      const data = doc.data()
+      const { id: _, ...cleanData } = data
+      return { id: doc.id, ...cleanData }
+    })
+    callback(dynasties)
+  }, (error) => {
+    console.error('Error in shared-dynasties subscription:', error)
+  })
+}
+
 // Create a new dynasty
 export async function createDynasty(userId, dynastyData) {
   try {

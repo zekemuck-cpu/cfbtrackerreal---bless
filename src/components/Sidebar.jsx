@@ -4,6 +4,7 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
+import { isEditor } from '../data/leagueModel'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
@@ -25,7 +26,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     exportDynasty = null
   }
   const currentDynasty = dynastyProp || contextDynasty
-  const { isPremium } = useAuth()
+  const { isPremium, user } = useAuth()
   const [showShareModal, setShowShareModal] = useState(false)
   const [copying, setCopying] = useState(false)
   const primaryBgText = getContrastTextColor(teamColors.primary)
@@ -74,6 +75,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
 
+  // Members link: visible to anyone with edit access (commish + members).
+  // Action buttons inside the page are gated separately by role.
+  const userCanSeeMembers = !isViewOnly && user && isEditor(currentDynasty, user.uid)
+
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
@@ -89,6 +94,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
+    ...(userCanSeeMembers ? [{ name: 'Members', path: `${pathPrefix}/league`, isAdmin: true }] : []),
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 

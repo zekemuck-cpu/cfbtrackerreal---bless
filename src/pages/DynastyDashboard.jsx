@@ -5,6 +5,7 @@ import { useDynasty } from '../context/DynastyContext'
 import { useTeamColors } from '../hooks/useTeamColors'
 import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
+import TeamSwitcher from '../components/TeamSwitcher'
 
 // Check if we're on a desktop-sized screen
 const isDesktop = () => typeof window !== 'undefined' && window.innerWidth >= 1024
@@ -37,7 +38,7 @@ export default function DynastyDashboard() {
     if (id && (!currentDynasty || currentDynasty.id !== id)) {
       selectDynasty(id)
     }
-  }, [id, currentDynasty, selectDynasty])
+  }, [id, currentDynasty, selectDynasty, dynasties])
 
   useEffect(() => {
     // Only redirect if dynasties have FULLY loaded (loading=false flips after
@@ -86,6 +87,9 @@ export default function DynastyDashboard() {
           <Outlet />
         </Suspense>
       </div>
+
+      {/* Team switcher (visible when user controls 2+ teams) */}
+      <TeamSwitcher />
 
       {/* News ticker at bottom */}
       <NewsTicker dynasty={currentDynasty} />

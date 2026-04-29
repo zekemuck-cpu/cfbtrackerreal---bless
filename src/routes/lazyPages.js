@@ -34,6 +34,7 @@ export const CFPBracket = lazyWithPreload(() => import('../pages/dynasty/CFPBrac
 export const Game = lazyWithPreload(() => import('../pages/dynasty/Game'))
 export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'))
 export const DangerZone = lazyWithPreload(() => import('../pages/dynasty/DangerZone'))
+export const LeagueSettings = lazyWithPreload(() => import('../pages/dynasty/LeagueSettings'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.

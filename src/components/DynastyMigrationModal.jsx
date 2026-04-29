@@ -10,16 +10,39 @@ export default function DynastyMigrationModal({ dynasty, isOpen, onMigrate, onDi
 
   if (!dynasty) return null
 
-  const handleBackup = () => {
+  const handleBackup = async () => {
     try {
       const json = JSON.stringify(dynasty, null, 2)
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
       const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
       const safeName = (dynasty.name || dynasty.teamName || 'dynasty').replace(/[^\w]+/g, '_')
+      const filename = `${safeName}_backup_pre_v2_${stamp}.json`
+
+      // Prefer Save As dialog when supported.
+      if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{
+              description: 'Dynasty backup (JSON)',
+              accept: { 'application/json': ['.json'] },
+            }],
+          })
+          const writable = await handle.createWritable()
+          await writable.write(json)
+          await writable.close()
+          return
+        } catch (err) {
+          if (err?.name === 'AbortError') return
+          console.warn('showSaveFilePicker failed, falling back to direct download:', err)
+        }
+      }
+
+      // Legacy fallback
+      const blob = new Blob([json], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${safeName}_backup_pre_v2_${stamp}.json`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

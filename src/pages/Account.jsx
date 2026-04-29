@@ -256,6 +256,32 @@ export default function Account() {
           </div>
         </Card>
 
+        {/* Your User ID — used to be granted access to a friend's
+            shared dynasty. */}
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <div className="label-sm text-txt-primary">Your User ID</div>
+            <button
+              type="button"
+              className="text-xs px-2 py-1 rounded-md border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
+              onClick={() => {
+                navigator.clipboard?.writeText(user.uid).then(
+                  () => toast.success('Copied to clipboard'),
+                  () => toast.error('Copy failed'),
+                )
+              }}
+            >
+              Copy
+            </button>
+          </div>
+          <code className="block px-3 py-2 rounded-md bg-surface-2 text-txt-primary text-xs font-mono break-all border border-surface-4">
+            {user.uid}
+          </code>
+          <p className="text-xs text-txt-tertiary mt-2">
+            Share this ID with a dynasty owner to be granted edit access to their dynasty.
+          </p>
+        </Card>
+
         {/* Premium Member Card. Two variants:
             - Real Stripe subscribers (have stripeCustomerId): show billing
               date + amount and a working "Manage Subscription" button that
