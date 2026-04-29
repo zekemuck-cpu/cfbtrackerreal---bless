@@ -494,16 +494,10 @@ FINAL CHECK before you send
       .map(s => `  ${s.title}: rows ${s.dataStart}–${s.dataEnd} (${s.rowCount} data rows)`)
       .join('\n')
 
-    // Per-section row spec for the prompt — what each row should contain
-    const rowSpec = layout.sections.map((s, idx) => {
-      const isLast = idx === layout.sections.length - 1
-      const lines = []
-      lines.push(`Row ${s.bannerRow}:        ═══ ${s.title.toUpperCase()} ═══   (this exact text in column A)`)
-      lines.push(`Row ${s.headerRow}:        ${s.headers.join(' | ')}   (tab-separated column headers)`)
-      lines.push(`Rows ${s.dataStart}–${s.dataEnd}: ${s.rowCount} data row slots — fill stat-earners from the top, leave any unused slots BLANK (just an empty line)`)
-      if (!isLast) lines.push(`Row ${s.dataEnd + 1}:       blank separator`)
-      return lines.join('\n')
-    }).join('\n\n')
+    // (rowSpec used to be a per-section prose list of "Row N: do X".
+    // Replaced by the literal templateBlock below — which is the same
+    // information but in a form the AI fills in by replacing
+    // placeholders rather than constructing from a description.)
 
     // Banner-position table — gives the AI an absolute-row checklist it
     // can verify against its own draft. The previous version of this
@@ -518,23 +512,58 @@ FINAL CHECK before you send
       .map(s => `  Line ${s.bannerRow}: "═══ ${s.title.toUpperCase()} ═══"`)
       .join('\n')
 
-    // Pre-built skeleton the AI fills in. Every banner, header, blank
-    // separator, and empty data slot is laid out as the literal text
-    // the AI must emit. Only the player-data lines are placeholders.
-    // This is the simplest way to make the row count physically
-    // unambiguous — the AI replaces `<EMPTY>` / `<DATA>` placeholders
-    // and never generates the structure freehand.
-    const skeleton = (() => {
+    // The literal fill-in-the-blank template the AI must produce.
+    //
+    // Reduces the AI's job from "construct a 28-line block with banners
+    // and headers in the right positions" to "copy this template, fill
+    // the data placeholders, leave the rest verbatim". Banner + header
+    // lines are LITERAL strings; the only thing the AI generates is the
+    // data-row content. The structural integrity of the output is
+    // therefore baked into the template — there's no math the AI can
+    // miscount.
+    //
+    // We use <TAB> as the literal tab marker in the headers because
+    // showing real tabs inside a JS template literal makes the prompt
+    // hard for the user to read in the modal. The AI is told to
+    // replace each <TAB> with a real tab character. Real tabs are also
+    // shown beside the header line for unambiguity.
+    const templateBlock = (() => {
       const out = []
       layout.sections.forEach((s, idx) => {
         const isLast = idx === layout.sections.length - 1
-        out.push(`${s.bannerRow}\t═══ ${s.title.toUpperCase()} ═══`)
-        out.push(`${s.headerRow}\t${s.headers.join('\\t')}`)
-        for (let i = 0; i < s.rowCount; i++) {
-          out.push(`${s.dataStart + i}\t<DATA-OR-EMPTY>`)
+        // Banner line — literal, column A only.
+        out.push(`═══ ${s.title.toUpperCase()} ═══`)
+        // Column-header line — tab-separated. Shown with both the <TAB>
+        // notation (readable) and the literal real-tab joined version
+        // would be redundant; keep just <TAB> notation and remind the
+        // AI in the rules to substitute real tabs.
+        out.push(s.headers.join('<TAB>'))
+        // Data slots — placeholders. For each, the AI either fills with
+        // a player row (N tab-separated values matching the header
+        // count) or emits an empty line.
+        for (let i = 1; i <= s.rowCount; i++) {
+          out.push(`<<${s.title.toUpperCase()}-DATA-${i} or empty line>>`)
         }
-        if (!isLast) out.push(`${s.dataEnd + 1}\t<EMPTY-SEPARATOR>`)
+        // Blank separator (except after the last section).
+        if (!isLast) out.push('<<BLANK SEPARATOR — emit a single empty line here>>')
       })
+      return out.join('\n')
+    })()
+
+    // Worked example showing the Passing section filled in. Gives the
+    // AI a concrete pattern of "what a filled-in template looks like"
+    // so it doesn't have to derive the format from rules alone.
+    const passingSection = layout.sections.find(s => s.key === 'passing') || layout.sections[0]
+    const exampleSection = (() => {
+      if (!passingSection) return ''
+      const out = []
+      out.push(`═══ ${passingSection.title.toUpperCase()} ═══`)
+      out.push(passingSection.headers.join('<TAB>'))
+      // One example data row + then empty data slots
+      const headerCount = passingSection.headers.length
+      const exampleRow = ['Trent Dilfer', '24', '32', '298', '2', '1', '47', '2', '142.6'].slice(0, headerCount)
+      out.push(exampleRow.join('<TAB>'))
+      for (let i = 1; i < passingSection.rowCount; i++) out.push('') // empty data slots
       return out.join('\n')
     })()
 
@@ -586,26 +615,76 @@ ${sectionSummary}
 Total rows: ${layout.totalRows}. Max columns: ${layout.maxCols}.
 
 ═══════════════════════════════════════════════════════════
-EXACT ROW-BY-ROW LAYOUT — emit each row in this order
+FILL-IN-THE-BLANK TEMPLATE — copy verbatim, replace placeholders
 ═══════════════════════════════════════════════════════════
-${rowSpec}
+DO NOT construct your output line by line from the section ranges
+above. Instead, take the literal template below, paste it as your
+output, and replace ONLY the <<...>> placeholders. Banner lines
+("═══ X ═══") and column-header lines are FIXED — copy them
+character-for-character exactly as shown. Do not retype them. Do
+not paraphrase them. Do not add extra spaces. Do not shift them.
+
+In the template, "<TAB>" represents a single real tab character
+(U+0009). Replace every "<TAB>" with a real tab character when you
+emit your output. The user is pasting into Google Sheets — real
+tabs are what split fields into cells.
+
+For each "<<X-DATA-N or empty line>>" placeholder you have two
+choices:
+  • Replace it with a single line of N tab-separated values
+    matching the section's column count, OR
+  • Replace it with a TRULY EMPTY LINE (just \\n, no spaces, no
+    tabs) if no player has stats for that slot.
+
+For each "<<BLANK SEPARATOR — emit a single empty line here>>"
+placeholder, replace it with a TRULY EMPTY LINE (just \\n).
+
+NEVER:
+  • Move a banner line to a different position
+  • Move a column-header line to a different position
+  • Output a banner line OR a column-header line in a data slot
+  • Output an extra banner or extra header that isn't in the template
+  • Skip an empty data slot (every <<...DATA-N>> must produce one
+    line of output even if empty)
+
+THE TEMPLATE (your output is exactly ${layout.totalRows} lines long
+and follows this shape):
+
+\`\`\`
+${templateBlock}
+\`\`\`
 
 ═══════════════════════════════════════════════════════════
-BANNER POSITIONS — these line numbers are non-negotiable
+WORKED EXAMPLE — what a filled-in section looks like
 ═══════════════════════════════════════════════════════════
-The output is exactly ${layout.totalRows} lines (1-indexed). The 9
-section banners MUST land on these exact line numbers. If your draft
-puts a banner anywhere else, your data-row counts in earlier
-sections are wrong — go back and fix them.
+Below is what the FIRST section (${passingSection?.title || 'Passing'}) might look
+like after you fill in one player and leave the rest empty.
+Notice:
+  • The banner line is unchanged
+  • The header line is unchanged
+  • Trent Dilfer is on data line 1 with tab-separated values
+  • The remaining ${(passingSection?.rowCount || 1) - 1} data lines are EMPTY (just \\n)
+
+\`\`\`
+${exampleSection}
+\`\`\`
+
+(The "<TAB>" tokens above stand for real tab characters when you
+emit your output. Do not literally write "<TAB>".)
+
+═══════════════════════════════════════════════════════════
+BANNER POSITIONS — sanity check (computed from the template above)
+═══════════════════════════════════════════════════════════
+If you copied the template correctly, your banners land on these
+line numbers (1-indexed). Use this list as a sanity check, NOT as
+your source of truth — the template is the source of truth.
 
 ${bannerPositionTable}
 
 If line N starts with "═══ X ═══", line N MUST be one of the lines
-above. There are NO other banner lines, EVER. Banner text never
-appears mid-section, never appears in a data row's column A as a
-"value", never appears with tab characters or trailing data. Any
-"═══ ... ═══" you see anywhere except the lines above means your
-output is misaligned.
+above. Any "═══ ... ═══" appearing in a data row position means
+the template wasn't copied correctly — go back and start from the
+template, don't try to fix it inline.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
@@ -656,21 +735,27 @@ Don't just glance at this list. Physically execute each check
 against the lines you just wrote. Misalignment is the #1 failure
 mode of this output and it will silently corrupt the user's sheet.
 
+[ ] TEMPLATE STRUCTURE: take YOUR DRAFT and the TEMPLATE above. Walk
+    line-by-line in parallel. Banner lines and header lines in
+    your draft must EQUAL the corresponding lines in the template
+    character-for-character (after substituting <TAB> with real
+    tabs). If ANY banner or header line differs from the template,
+    you generated it from scratch instead of copying — go back and
+    re-copy from the template.
+
 [ ] LINE COUNT: split your draft on newlines. The result MUST
     contain EXACTLY ${layout.totalRows} elements. If it's anything
     else, you're done — go fix.
 
-[ ] BANNER POSITIONS: for each banner line number listed above, look
-    at THAT line of your draft (1-indexed) and confirm the line
-    contains exactly the expected banner text and NOTHING else (no
-    tabs, no trailing data). If line ${layout.sections[0]?.bannerRow ?? 1} is not
-    "═══ ${layout.sections[0]?.title?.toUpperCase() ?? 'PASSING'} ═══", the rest of the output is shifted; fix the
-    section above it.
-
-[ ] STRAY BANNERS: search your draft for the string "═══". Every
-    occurrence MUST be on one of the banner-position lines above.
-    Any "═══ X ═══" appearing in a data row position means an
-    earlier section is short on rows.
+[ ] STRAY BANNERS / HEADERS: search your draft for the string "═══".
+    Every occurrence MUST be on one of the banner-position lines
+    listed above. Search your draft for the literal text "Player
+    Name" — every occurrence MUST be on one of the column-header
+    lines listed in the template (header lines start with "Player
+    Name" followed by tabs and stat labels). Any "Player Name" or
+    "═══ ... ═══" found in a DATA row position means a header /
+    banner line was duplicated into a data slot. Delete the
+    duplicate.
 
 [ ] EMPTY-LINE COUNT: there should be ${layout.sections.length - 1} blank separator lines
     between sections, plus however many empty data slots you didn't
@@ -682,7 +767,12 @@ mode of this output and it will silently corrupt the user's sheet.
 
 [ ] HEADER ROW SHAPE: for each header line, confirm the column
     count matches the section's stat list (e.g. Passing header has
-    8 cells, Defense header has 15).
+    9 cells, Defense header has 15).
+
+[ ] DATA ROW SHAPE: for each non-empty data row, confirm the field
+    count matches the section's column count. A Passing data row
+    has exactly 9 fields (8 tabs); a Defense row has 15 fields
+    (14 tabs); etc.
 
 [ ] PLAYER NAMES: match the roster spelling — NO "#12" or "J. Smith".
 
