@@ -15,7 +15,7 @@ import logo from '../assets/logo.png'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 
 // Version format: YYYY.MM.DD.build
-const APP_VERSION = '2026.04.29.0025'
+const APP_VERSION = '2026.04.29.0026'
 
 export default function Layout({ children }) {
   const location = useLocation()

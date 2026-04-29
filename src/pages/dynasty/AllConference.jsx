@@ -296,13 +296,11 @@ export default function AllConference() {
         }
       }
       // Dynasty-local teams (including teambuilder replacements) must be
-      // resolved before the static TEAMS table — same rule as
-      // AllAmericans: a custom team can share an abbr with a real FBS
-      // team and we want the dynasty's version to win.
+      // resolved before the static TEAMS table — a TB takeover slot
+      // can share an abbr with a real FBS team and we want the
+      // dynasty's version to win.
       const resolveAbbrForTid = (tid) => {
-        const t = currentDynasty?.teams?.[tid]
-          || currentDynasty?.customTeams?.[tid]
-          || TEAMS[tid]
+        const t = currentDynasty?.teams?.[tid] || TEAMS[tid]
         return t?.abbr?.toUpperCase() || null
       }
       if (p.team) {

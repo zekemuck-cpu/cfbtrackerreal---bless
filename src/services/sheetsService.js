@@ -144,7 +144,7 @@ function isTidBasedTeams(teamsObj) {
 // textColor } }`) from `dynasty.teams[tid]`. Single tid-based path:
 // every TB slot is just an entry in dynasty.teams whose `abbr` is the
 // TB's chosen one (the original FBS team's abbr is gone from that
-// slot). No legacy customTeams handling — that field is now dead
+// slot). No legacy dynastyTeams handling — that field is now dead
 // schema and migrated away on load.
 //
 // Falls back to DEFAULT_TEAMS only when called with no dynasty context
@@ -165,16 +165,16 @@ function getTeamsWithCustom(dynastyTeams = null) {
   return teams
 }
 
-// Get list of team abbreviations with customTeams support
-function getTeamAbbreviationsListWithCustom(customTeams = null) {
-  const teams = getTeamsWithCustom(customTeams)
+// Get list of team abbreviations with dynastyTeams support
+function getTeamAbbreviationsListWithCustom(dynastyTeams = null) {
+  const teams = getTeamsWithCustom(dynastyTeams)
   return Object.keys(teams).sort()
 }
 
 // Generate conditional formatting rules for team colors (case-insensitive)
-function generateTeamFormattingRules(sheetId, columnIndex, customTeams = null) {
+function generateTeamFormattingRules(sheetId, columnIndex, dynastyTeams = null) {
   const rules = []
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
 
   for (const [abbr, teamData] of Object.entries(teams)) {
     // Add rule for uppercase version
@@ -242,9 +242,9 @@ function generateTeamFormattingRules(sheetId, columnIndex, customTeams = null) {
 }
 
 // Generate conditional formatting rules for team colors with variable row range
-function generateTeamFormattingRulesForRange(sheetId, columnIndex, startRowIndex, endRowIndex, customTeams = null) {
+function generateTeamFormattingRulesForRange(sheetId, columnIndex, startRowIndex, endRowIndex, dynastyTeams = null) {
   const rules = []
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
 
   for (const [abbr, teamData] of Object.entries(teams)) {
     // Add rule for uppercase version
@@ -312,7 +312,7 @@ function generateTeamFormattingRulesForRange(sheetId, columnIndex, startRowIndex
 }
 
 // Generate team abbreviation dropdown validation for a range
-function generateTeamValidation(sheetId, columnIndex, startRowIndex, endRowIndex, customTeams = null) {
+function generateTeamValidation(sheetId, columnIndex, startRowIndex, endRowIndex, dynastyTeams = null) {
   return {
     setDataValidation: {
       range: {
@@ -325,7 +325,7 @@ function generateTeamValidation(sheetId, columnIndex, startRowIndex, endRowIndex
       rule: {
         condition: {
           type: 'ONE_OF_LIST',
-          values: getTeamAbbreviationsListWithCustom(customTeams).map(abbr => ({ userEnteredValue: abbr }))
+          values: getTeamAbbreviationsListWithCustom(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
         },
         showCustomUi: true,
         strict: true
@@ -394,10 +394,10 @@ function generateClassValidation(sheetId, columnIndex, startRowIndex, endRowInde
 }
 
 // Initialize sheet headers
-async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetId, rosterSheetId, userTeamName, customTeams = null) {
+async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetId, rosterSheetId, userTeamName, dynastyTeams = null) {
   try {
     // Get user team abbreviation
-    const userTeamAbbr = getAbbrFromTeamName(userTeamName, customTeams)
+    const userTeamAbbr = getAbbrFromTeamName(userTeamName, dynastyTeams)
 
     const requests = [
       // Schedule headers
@@ -629,7 +629,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSelectableTeamsList(customTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: getSelectableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
             },
             showCustomUi: true,
             strict: true
@@ -649,7 +649,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSchedulableTeamsList(customTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: getSchedulableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
             },
             showCustomUi: true,
             strict: true
@@ -922,11 +922,11 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
     ]
 
     // Add conditional formatting rules for User Team column (column B, index 1)
-    const userTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 1, customTeams)
+    const userTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 1, dynastyTeams)
     requests.push(...userTeamFormattingRules)
 
     // Add conditional formatting rules for CPU Team column (column C, index 2)
-    const cpuTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 2, customTeams)
+    const cpuTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 2, dynastyTeams)
     requests.push(...cpuTeamFormattingRules)
 
     // Add auto-filter to roster header row for sorting/filtering
@@ -967,7 +967,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
 }
 
 // Create a Schedule-only Google Sheet
-export async function createScheduleSheet(dynastyName, year, userTeamName, existingSchedule = [], customTeams = null) {
+export async function createScheduleSheet(dynastyName, year, userTeamName, existingSchedule = [], dynastyTeams = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
@@ -1008,7 +1008,7 @@ export async function createScheduleSheet(dynastyName, year, userTeamName, exist
     const scheduleSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize schedule headers and optionally pre-fill with existing schedule
-    await initializeScheduleSheetOnly(sheet.spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule, customTeams)
+    await initializeScheduleSheetOnly(sheet.spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule, dynastyTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -1081,9 +1081,9 @@ export async function createRosterSheet(dynastyName, year) {
 }
 
 // Initialize Schedule-only sheet headers and formatting
-async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule = [], customTeams = null) {
+async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleSheetId, userTeamName, existingSchedule = [], dynastyTeams = null) {
   try {
-    const userTeamAbbr = getAbbrFromTeamName(userTeamName, customTeams)
+    const userTeamAbbr = getAbbrFromTeamName(userTeamName, dynastyTeams)
 
     // Build schedule data rows - either from existing schedule or empty
     // Week 0-15 = 16 weeks of regular season
@@ -1247,7 +1247,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSelectableTeamsList(customTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: getSelectableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
             },
             showCustomUi: true,
             strict: true
@@ -1267,7 +1267,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: ['BYE', ...getSchedulableTeamsList(customTeams)].map(abbr => ({ userEnteredValue: abbr }))
+              values: ['BYE', ...getSchedulableTeamsList(dynastyTeams)].map(abbr => ({ userEnteredValue: abbr }))
             },
             showCustomUi: true,
             strict: true
@@ -1301,11 +1301,11 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
     ]
 
     // Add conditional formatting rules for User Team column (column B, index 1)
-    const userTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 1, customTeams)
+    const userTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 1, dynastyTeams)
     requests.push(...userTeamFormattingRules)
 
     // Add conditional formatting rules for CPU Team column (column C, index 2)
-    const cpuTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 2, customTeams)
+    const cpuTeamFormattingRules = generateTeamFormattingRules(scheduleSheetId, 2, dynastyTeams)
     requests.push(...cpuTeamFormattingRules)
 
     const response = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
@@ -2305,7 +2305,7 @@ export async function writeExistingDataToSheet(spreadsheetId, schedule, players,
 
 // Create a Conference Championship sheet
 // excludeConference: optional conference name to exclude (if user already played their CC game)
-export async function createConferenceChampionshipSheet(dynastyName, year, excludeConference = null, existingData = [], customTeams = null) {
+export async function createConferenceChampionshipSheet(dynastyName, year, excludeConference = null, existingData = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -2366,7 +2366,7 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
     const ccSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data
-    await initializeConferenceChampionshipSheet(sheet.spreadsheetId, accessToken, ccSheetId, conferences, existingData, customTeams)
+    await initializeConferenceChampionshipSheet(sheet.spreadsheetId, accessToken, ccSheetId, conferences, existingData, dynastyTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -2382,9 +2382,9 @@ export async function createConferenceChampionshipSheet(dynastyName, year, exclu
 }
 
 // Generate conditional formatting rules for team colors in CC sheet
-function generateCCTeamFormattingRules(sheetId, columnIndex, rowCount, customTeams = null) {
+function generateCCTeamFormattingRules(sheetId, columnIndex, rowCount, dynastyTeams = null) {
   const rules = []
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
 
   for (const [abbr, teamData] of Object.entries(teams)) {
     // Add rule for uppercase version
@@ -2452,9 +2452,9 @@ function generateCCTeamFormattingRules(sheetId, columnIndex, rowCount, customTea
 }
 
 // Initialize the Conference Championship sheet with headers and conference rows
-async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken, sheetId, conferences, existingData = [], customTeams = null) {
+async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken, sheetId, conferences, existingData = [], dynastyTeams = null) {
   // Get team abbreviations for dropdown validation
-  const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
   const rowCount = conferences.length
 
   // Get existing data for a conference (guard against null entries)
@@ -2641,9 +2641,9 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
-    ...generateCCTeamFormattingRules(sheetId, 1, rowCount, customTeams),
+    ...generateCCTeamFormattingRules(sheetId, 1, rowCount, dynastyTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateCCTeamFormattingRules(sheetId, 2, rowCount, customTeams)
+    ...generateCCTeamFormattingRules(sheetId, 2, rowCount, dynastyTeams)
   ]
 
   // Execute batch update
@@ -2833,7 +2833,7 @@ const ALL_BOWL_GAMES = [...BOWL_GAMES_WEEK_1, ...BOWL_GAMES_WEEK_2]
 
 // Create Bowl Week 1 sheet with all bowl games (including CFP First Round with pre-filled teams)
 // excludeGames: array of game names to exclude (user's CFP First Round game, user's bowl game)
-export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], excludeGames = [], existingBowlWeek1 = [], existingCFPFirstRound = [], customTeams = null) {
+export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], excludeGames = [], existingBowlWeek1 = [], existingCFPFirstRound = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -2877,7 +2877,7 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
     const bowlSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data (pass cfpSeeds to pre-fill CFP First Round teams, and existing data for prefill)
-    await initializeBowlWeek1Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, existingBowlWeek1, existingCFPFirstRound, customTeams)
+    await initializeBowlWeek1Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, existingBowlWeek1, existingCFPFirstRound, dynastyTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -2893,9 +2893,9 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
 }
 
 // Generate conditional formatting rules for team colors in bowl sheet
-function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount, customTeams = null) {
+function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount, dynastyTeams = null) {
   const rules = []
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
 
   for (const [abbr, teamData] of Object.entries(teams)) {
     rules.push({
@@ -2932,16 +2932,16 @@ function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount, customT
 }
 
 // Initialize the Bowl Week 1 sheet with headers and bowl game rows
-async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], existingBowlWeek1 = [], existingCFPFirstRound = [], customTeams = null) {
-  const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
+async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], existingBowlWeek1 = [], existingCFPFirstRound = [], dynastyTeams = null) {
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
   const rowCount = bowlGames.length
 
   // Build pre-filled team data for CFP First Round games (tid-based lookup)
   const getTeamBySeed = (seed) => {
     const seedEntry = cfpSeeds?.find(s => s.seed === seed)
     if (!seedEntry?.tid) return ''
-    // Look up in customTeams first, then DEFAULT_TEAMS
-    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    // Look up in dynastyTeams first, then DEFAULT_TEAMS
+    const teamData = dynastyTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
     return teamData?.abbr || ''
   }
 
@@ -3177,9 +3177,9 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
-    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, customTeams),
+    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, dynastyTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, customTeams)
+    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, dynastyTeams)
   ]
 
   // Execute batch update
@@ -3358,7 +3358,7 @@ export function getCFPQuarterfinalGameName(seed, firstRoundResults = [], cfpBowl
 // Create Bowl Week 2 sheet with CFP Quarterfinals teams pre-filled
 // excludeGames: array of game names to exclude (user's QF game, user's Week 2 bowl game)
 // cfpBowlConfig: { seed1: 'Sugar Bowl', seed2: 'Cotton Bowl', ... } - determines which bowls host CFP QF
-export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], firstRoundResults = [], excludeGames = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null, cfpBowlConfig = null) {
+export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], firstRoundResults = [], excludeGames = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], dynastyTeams = null, cfpBowlConfig = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -3404,7 +3404,7 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
     const bowlSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data with CFP teams pre-filled and existing data
-    await initializeBowlWeek2Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, firstRoundResults, existingBowlWeek2, existingCFPQuarterfinals, customTeams, cfpBowlConfig)
+    await initializeBowlWeek2Sheet(sheet.spreadsheetId, accessToken, bowlSheetId, bowlGames, cfpSeeds, firstRoundResults, existingBowlWeek2, existingCFPQuarterfinals, dynastyTeams, cfpBowlConfig)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -3420,8 +3420,8 @@ export async function createBowlWeek2Sheet(dynastyName, year, cfpSeeds = [], fir
 }
 
 // Initialize the Bowl Week 2 sheet with headers and bowl game rows
-async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], firstRoundResults = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], customTeams = null, cfpBowlConfig = null) {
-  const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
+async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bowlGames, cfpSeeds = [], firstRoundResults = [], existingBowlWeek2 = [], existingCFPQuarterfinals = [], dynastyTeams = null, cfpBowlConfig = null) {
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
   const rowCount = bowlGames.length
 
   // Build dynamic CFP QF matchups based on config
@@ -3443,8 +3443,8 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
   const getTeamBySeed = (seed) => {
     const seedEntry = cfpSeeds?.find(s => s.seed === seed)
     if (!seedEntry?.tid) return ''
-    // Look up in customTeams first, then DEFAULT_TEAMS
-    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    // Look up in dynastyTeams first, then DEFAULT_TEAMS
+    const teamData = dynastyTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
     return teamData?.abbr || ''
   }
 
@@ -3684,9 +3684,9 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
       }
     },
     // Add conditional formatting for team colors (Team 1 column)
-    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, customTeams),
+    ...generateBowlTeamFormattingRules(sheetId, 1, rowCount, dynastyTeams),
     // Add conditional formatting for team colors (Team 2 column)
-    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, customTeams)
+    ...generateBowlTeamFormattingRules(sheetId, 2, rowCount, dynastyTeams)
   ]
 
   // Execute batch update
@@ -3774,7 +3774,7 @@ export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = 
 // ==================== CFP SHEETS ====================
 
 // Create CFP Seeds sheet (for entering seeds 1-12)
-export async function createCFPSeedsSheet(dynastyName, year, existingSeeds = [], customTeams = null) {
+export async function createCFPSeedsSheet(dynastyName, year, existingSeeds = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -3814,7 +3814,7 @@ export async function createCFPSeedsSheet(dynastyName, year, existingSeeds = [],
     const cfpSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data
-    await initializeCFPSeedsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, customTeams)
+    await initializeCFPSeedsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, dynastyTeams)
 
     // Pre-fill with existing seeds data if provided
     if (existingSeeds && existingSeeds.length > 0) {
@@ -3874,11 +3874,11 @@ async function prefillCFPSeedsData(spreadsheetId, accessToken, existingSeeds) {
 }
 
 // Initialize CFP Seeds sheet
-async function initializeCFPSeedsSheet(spreadsheetId, accessToken, sheetId, customTeams = null) {
-  const teamList = getTeamAbbreviationsListWithCustom(customTeams)
+async function initializeCFPSeedsSheet(spreadsheetId, accessToken, sheetId, dynastyTeams = null) {
+  const teamList = getTeamAbbreviationsListWithCustom(dynastyTeams)
 
   // Generate team color formatting rules for the Team column (column B / index 1)
-  const teamFormattingRules = generateTeamFormattingRules(sheetId, 1, customTeams)
+  const teamFormattingRules = generateTeamFormattingRules(sheetId, 1, dynastyTeams)
 
   const requests = [
     // Headers
@@ -4084,7 +4084,7 @@ export async function readCFPSeedsFromSheet(spreadsheetId, dynastyTeams = null) 
 }
 
 // Create CFP First Round sheet (4 games - seeds 5-12 play)
-export async function createCFPFirstRoundSheet(dynastyName, year, existingData = [], customTeams = null) {
+export async function createCFPFirstRoundSheet(dynastyName, year, existingData = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4124,7 +4124,7 @@ export async function createCFPFirstRoundSheet(dynastyName, year, existingData =
     const cfpSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize headers and data
-    await initializeCFPFirstRoundSheet(sheet.spreadsheetId, accessToken, cfpSheetId, existingData, customTeams)
+    await initializeCFPFirstRoundSheet(sheet.spreadsheetId, accessToken, cfpSheetId, existingData, dynastyTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -4140,8 +4140,8 @@ export async function createCFPFirstRoundSheet(dynastyName, year, existingData =
 }
 
 // Initialize CFP First Round sheet
-async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId, existingData = [], customTeams = null) {
-  const teamList = getTeamAbbreviationsListWithCustom(customTeams)
+async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId, existingData = [], dynastyTeams = null) {
+  const teamList = getTeamAbbreviationsListWithCustom(dynastyTeams)
 
   // CFP First Round matchups (seeds play each other: 5v12, 6v11, 7v10, 8v9)
   const games = [
@@ -4319,9 +4319,9 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
       }
     },
     // Add conditional formatting for team colors (Higher Seed column - column B)
-    ...generateBowlTeamFormattingRules(sheetId, 1, 4, customTeams),
+    ...generateBowlTeamFormattingRules(sheetId, 1, 4, dynastyTeams),
     // Add conditional formatting for team colors (Lower Seed column - column C)
-    ...generateBowlTeamFormattingRules(sheetId, 2, 4, customTeams)
+    ...generateBowlTeamFormattingRules(sheetId, 2, 4, dynastyTeams)
   ]
 
   await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
@@ -4392,7 +4392,7 @@ export async function readCFPFirstRoundFromSheet(spreadsheetId, dynastyTeams = n
 }
 
 // Create CFP Quarterfinals sheet with auto-filled teams
-export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, customTeams = null) {
+export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4430,7 +4430,7 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
     const cfpSheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize sheet with headers and auto-filled teams (pass bowl config for correct bowl names)
-    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals, bowlConfig, customTeams)
+    await initializeCFPQuarterfinalsSheet(sheet.spreadsheetId, accessToken, cfpSheetId, cfpSeeds, firstRoundResults, existingQuarterfinals, bowlConfig, dynastyTeams)
 
     // Share sheet publicly so it can be embedded in iframe
     await shareSheetPublicly(sheet.spreadsheetId, accessToken)
@@ -4446,13 +4446,13 @@ export async function createCFPQuarterfinalsSheet(dynastyName, year, cfpSeeds, f
 }
 
 // Initialize CFP Quarterfinals sheet with teams
-async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, customTeams = null) {
+async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheetId, cfpSeeds, firstRoundResults, existingQuarterfinals = [], bowlConfig = null, dynastyTeams = null) {
   // Get seed teams (tid-based lookup)
   const getTeamBySeed = (seed) => {
     const seedEntry = cfpSeeds?.find(s => s.seed === seed)
     if (!seedEntry?.tid) return ''
-    // Look up in customTeams first, then DEFAULT_TEAMS
-    const teamData = customTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
+    // Look up in dynastyTeams first, then DEFAULT_TEAMS
+    const teamData = dynastyTeams?.[seedEntry.tid] || DEFAULT_TEAMS[seedEntry.tid]
     return teamData?.abbr || ''
   }
 
@@ -4703,7 +4703,7 @@ export function getDefaultConferences() {
 }
 
 // Create Custom Conferences sheet with multiple year tabs
-export async function createConferencesSheet(dynastyName, currentYear, conferencesByYear = null, customTeams = null) {
+export async function createConferencesSheet(dynastyName, currentYear, conferencesByYear = null, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -4790,11 +4790,11 @@ export async function createConferencesSheet(dynastyName, currentYear, conferenc
       // teambuilder rename (e.g. BAMA → ALA) doesn't make the user
       // hand-edit every cell — and so the read-back validator (which now
       // checks against the dynasty's actual team registry) matches.
-      conferencesData = translateConferencesToCurrentAbbrs(conferencesData, customTeams)
+      conferencesData = translateConferencesToCurrentAbbrs(conferencesData, dynastyTeams)
 
       const sortedConferences = Object.keys(conferencesData).sort()
 
-      await initializeConferencesSheet(spreadsheet.spreadsheetId, accessToken, sheetId, sortedConferences, maxTeams, conferencesData, customTeams)
+      await initializeConferencesSheet(spreadsheet.spreadsheetId, accessToken, sheetId, sortedConferences, maxTeams, conferencesData, dynastyTeams)
     }
 
     // Share sheet publicly so it can be embedded in iframe
@@ -4811,9 +4811,9 @@ export async function createConferencesSheet(dynastyName, currentYear, conferenc
 }
 
 // Generate conditional formatting rules for team colors in conferences sheet
-function generateConferencesTeamFormattingRules(sheetId, columnIndex, rowCount, customTeams = null) {
+function generateConferencesTeamFormattingRules(sheetId, columnIndex, rowCount, dynastyTeams = null) {
   const rules = []
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
 
   for (const [abbr, teamData] of Object.entries(teams)) {
     // Add rule for uppercase version
@@ -4881,8 +4881,8 @@ function generateConferencesTeamFormattingRules(sheetId, columnIndex, rowCount, 
 }
 
 // Initialize the Conferences sheet with headers and team data
-async function initializeConferencesSheet(spreadsheetId, accessToken, sheetId, sortedConferences, maxTeams, conferencesData, customTeams = null) {
-  const teamAbbrs = getTeamAbbreviationsListWithCustom(customTeams)
+async function initializeConferencesSheet(spreadsheetId, accessToken, sheetId, sortedConferences, maxTeams, conferencesData, dynastyTeams = null) {
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
 
   const requests = [
     // Set conference headers
@@ -5014,7 +5014,7 @@ async function initializeConferencesSheet(spreadsheetId, accessToken, sheetId, s
     },
     // Add conditional formatting for team colors for each column
     ...sortedConferences.flatMap((conf, colIndex) =>
-      generateConferencesTeamFormattingRules(sheetId, colIndex, maxTeams, customTeams)
+      generateConferencesTeamFormattingRules(sheetId, colIndex, maxTeams, dynastyTeams)
     )
   ]
 
@@ -6055,7 +6055,7 @@ const TEAMS_PER_CONFERENCE = 20
  * Create a Google Sheet for conference standings entry
  * All conferences stacked with 20 team slots each
  */
-export async function createConferenceStandingsSheet(year, existingStandings = {}, customTeams = null) {
+export async function createConferenceStandingsSheet(year, existingStandings = {}, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -6260,10 +6260,10 @@ export async function createConferenceStandingsSheet(year, existingStandings = {
     })
 
     // Add team dropdown validation for Team column (column C, index 2)
-    requests.push(generateTeamValidation(sheetId, 2, 1, totalRows, customTeams))
+    requests.push(generateTeamValidation(sheetId, 2, 1, totalRows, dynastyTeams))
 
     // Add conditional formatting for team colors in Team column
-    requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, totalRows, customTeams))
+    requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, totalRows, dynastyTeams))
 
     // Execute all requests
     const batchResponse = await fetch(
@@ -6463,7 +6463,7 @@ export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTea
  * Create a Google Sheet for final Top 25 polls entry
  * Three columns: # | Media | Coaches with 25 rows
  */
-export async function createFinalPollsSheet(year, existingPolls = {}, customTeams = null) {
+export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -6638,16 +6638,16 @@ export async function createFinalPollsSheet(year, existingPolls = {}, customTeam
     })
 
     // Add team dropdown validation for Media column (column B, index 1)
-    requests.push(generateTeamValidation(sheetId, 1, 1, 26, customTeams))
+    requests.push(generateTeamValidation(sheetId, 1, 1, 26, dynastyTeams))
 
     // Add team dropdown validation for Coaches column (column C, index 2)
-    requests.push(generateTeamValidation(sheetId, 2, 1, 26, customTeams))
+    requests.push(generateTeamValidation(sheetId, 2, 1, 26, dynastyTeams))
 
     // Add conditional formatting for team colors in Media column
-    requests.push(...generateTeamFormattingRulesForRange(sheetId, 1, 1, 26, customTeams))
+    requests.push(...generateTeamFormattingRulesForRange(sheetId, 1, 1, 26, dynastyTeams))
 
     // Add conditional formatting for team colors in Coaches column
-    requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, 26, customTeams))
+    requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, 26, dynastyTeams))
 
     // Execute all requests
     const batchResponse = await fetch(
@@ -7175,9 +7175,9 @@ const AWARDS_LIST = [
  * Creates multiple tabs: current year (blank) + past years (pre-filled)
  * @param {number} currentYear - The current season year
  * @param {object} awardsByYear - Object mapping year to awards data for pre-fill
- * @param {object} customTeams - Custom teambuilder teams
+ * @param {object} dynastyTeams - Custom teambuilder teams
  */
-export async function createAwardsSheet(currentYear, awardsByYear = {}, customTeams = null) {
+export async function createAwardsSheet(currentYear, awardsByYear = {}, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -7449,16 +7449,16 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, customTe
       }
 
       // Add team dropdown validation for Team column (column D, index 3) - all rows
-      requests.push(generateTeamValidation(sheetId, 3, 1, AWARDS_LIST.length + 1, customTeams))
+      requests.push(generateTeamValidation(sheetId, 3, 1, AWARDS_LIST.length + 1, dynastyTeams))
 
       // Add conditional formatting for team colors in Team column
-      requests.push(...generateTeamFormattingRulesForRange(sheetId, 3, 1, AWARDS_LIST.length + 1, customTeams))
+      requests.push(...generateTeamFormattingRulesForRange(sheetId, 3, 1, AWARDS_LIST.length + 1, dynastyTeams))
 
       // Also add team validation and formatting to merged coach award cells (column C which is now part of merged)
       coachAwardIndices.forEach(awardIndex => {
         const rowIndex = awardIndex + 1
-        requests.push(generateTeamValidation(sheetId, 2, rowIndex, rowIndex + 1, customTeams))
-        requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, rowIndex, rowIndex + 1, customTeams))
+        requests.push(generateTeamValidation(sheetId, 2, rowIndex, rowIndex + 1, dynastyTeams))
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, rowIndex, rowIndex + 1, dynastyTeams))
       })
     } // End of for loop over years
 
@@ -7636,7 +7636,7 @@ const ALL_AMERICAN_POSITIONS = [
  * Two tables: All-Americans on top, All-Conference below
  * Each year gets its own tab; past years are pre-filled with existing data
  */
-export async function createAllAmericansSheet(currentYear, allAmericansByYear = {}, customTeams = null) {
+export async function createAllAmericansSheet(currentYear, allAmericansByYear = {}, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -8046,12 +8046,12 @@ export async function createAllAmericansSheet(currentYear, allAmericansByYear = 
 
       teamColumnIndices.forEach(colIndex => {
         // All-Americans section
-        requests.push(generateTeamValidation(sheetId, colIndex, 3, 3 + numPositions, customTeams))
-        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, 3 + numPositions, customTeams))
+        requests.push(generateTeamValidation(sheetId, colIndex, 3, 3 + numPositions, dynastyTeams))
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, 3 + numPositions, dynastyTeams))
 
         // All-Conference section
-        requests.push(generateTeamValidation(sheetId, colIndex, 32, 32 + numPositions, customTeams))
-        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 32, 32 + numPositions, customTeams))
+        requests.push(generateTeamValidation(sheetId, colIndex, 32, 32 + numPositions, dynastyTeams))
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 32, 32 + numPositions, dynastyTeams))
       })
 
       // Add class dropdown validation for Class columns (indices 3, 7, 11)
@@ -8302,7 +8302,7 @@ const ALL_CONFERENCES = [
  * 12 columns (3 teams × 4 cols each: Position, Player, Team, Class)
  * 28 rows total: 1 header + 2 team headers + 25 position rows
  */
-export async function createAllAmericansOnlySheet(currentYear, allAmericansByYear = {}, customTeams = null) {
+export async function createAllAmericansOnlySheet(currentYear, allAmericansByYear = {}, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -8549,9 +8549,9 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
       const classColumns = [3, 7, 11]
 
       teamColumns.forEach(colIndex => {
-        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, customTeams))
+        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, dynastyTeams))
         // Add conditional formatting for team colors
-        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, customTeams))
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, dynastyTeams))
       })
 
       classColumns.forEach(colIndex => {
@@ -8755,7 +8755,7 @@ export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynasty
  * 12 columns (3 teams × 4 cols each: Position, Player, Team, Class)
  * 28 rows total: 1 header + 2 team headers + 25 position rows
  */
-export async function createAllConferenceSheet(year, allConferenceByConference = {}, customConferences = null, customTeams = null) {
+export async function createAllConferenceSheet(year, allConferenceByConference = {}, customConferences = null, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -8995,9 +8995,9 @@ export async function createAllConferenceSheet(year, allConferenceByConference =
       const classColumns = [3, 7, 11]
 
       teamColumns.forEach(colIndex => {
-        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, customTeams))
+        requests.push(generateTeamValidation(sheetId, colIndex, 3, totalRows, dynastyTeams))
         // Add conditional formatting for team colors
-        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, customTeams))
+        requests.push(...generateTeamFormattingRulesForRange(sheetId, colIndex, 3, totalRows, dynastyTeams))
       })
 
       classColumns.forEach(colIndex => {
@@ -9851,12 +9851,12 @@ function starsNumberToSymbol(num) {
 
 // Create Recruiting Commitments sheet
 // Max scholarships per class is 35, so we use 35 rows
-export async function createRecruitingSheet(dynastyName, year, customTeams = null, existingCommitments = []) {
+export async function createRecruitingSheet(dynastyName, year, dynastyTeams = null, existingCommitments = []) {
   try {
     const accessToken = await getAccessToken()
 
     // Get teams from dynasty.teams (tid-based) - source of truth
-    const teams = getTeamsWithCustom(customTeams)
+    const teams = getTeamsWithCustom(dynastyTeams)
     const teamAbbrs = Object.keys(teams).sort()
 
     const totalRows = Math.max(35, existingCommitments.length + 10) // Max 35 scholarships per class
@@ -11066,9 +11066,9 @@ export async function readRecruitOverallsFromSheet(spreadsheetId, dynastyTeams =
 // ============================================
 
 // Generate conditional formatting rules for team colors in scoring summary
-function generateScoringTeamFormattingRules(sheetId, teamAbbr1, teamAbbr2, rowCount, customTeams = null) {
+function generateScoringTeamFormattingRules(sheetId, teamAbbr1, teamAbbr2, rowCount, dynastyTeams = null) {
   const rules = []
-  const teamsData = getTeamsWithCustom(customTeams)
+  const teamsData = getTeamsWithCustom(dynastyTeams)
   const teamAbbrs = [teamAbbr1, teamAbbr2]
 
   for (const abbr of teamAbbrs) {
@@ -11624,7 +11624,7 @@ export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
 
 // Create a scoring summary sheet
 // existingData: optional array of scoring plays to pre-fill (from game.boxScore.scoringSummary)
-export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year, week, homeRoster = [], awayRoster = [], existingData = [], customTeams = null) {
+export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year, week, homeRoster = [], awayRoster = [], existingData = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -11662,7 +11662,7 @@ export async function createScoringSummarySheet(homeTeamAbbr, awayTeamAbbr, year
     const sheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize with headers, formatting, and dropdowns
-    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, customTeams)
+    await initializeScoringSummarySheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster, awayRoster, dynastyTeams)
 
     // Pre-fill with existing scoring data if provided
     if (existingData && existingData.length > 0) {
@@ -11726,7 +11726,7 @@ async function prefillScoringSummaryData(spreadsheetId, accessToken, scoringData
 }
 
 // Initialize scoring summary sheet with headers, formatting, and dropdowns
-async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster = [], awayRoster = [], customTeams = null) {
+async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, homeRoster = [], awayRoster = [], dynastyTeams = null) {
   // Combine both rosters for player dropdown
   const allPlayers = [...homeRoster, ...awayRoster].sort()
 
@@ -11915,7 +11915,7 @@ async function initializeScoringSummarySheet(spreadsheetId, accessToken, sheetId
   }
 
   // Add conditional formatting for team colors
-  const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, customTeams)
+  const teamFormattingRules = generateScoringTeamFormattingRules(sheetId, homeTeamAbbr, awayTeamAbbr, SCORING_SUMMARY.rowCount, dynastyTeams)
   requests.push(...teamFormattingRules)
 
   // Send batch update
@@ -12125,7 +12125,7 @@ const TEAM_STATS_ROWS = [
 
 // Create a game team stats sheet with a single tab (columns for away and home teams)
 // existingData: optional object { home: {...}, away: {...} } to pre-fill (from game.boxScore.teamStats)
-export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null, customTeams = null) {
+export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year, week, existingData = null, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -12167,7 +12167,7 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
     const sheetId = sheet.sheets[0].properties.sheetId
 
     // Initialize the tab with headers, stat labels, and formatting
-    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, customTeams)
+    await initializeTeamStatsSheet(sheet.spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams)
 
     // Pre-fill with existing team stats data if provided
     if (existingData && (existingData.home || existingData.away)) {
@@ -12190,11 +12190,11 @@ export async function createGameTeamStatsSheet(homeTeamAbbr, awayTeamAbbr, year,
 }
 
 // Initialize team stats sheet with single tab, 3 columns (Stat, Away, Home)
-async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, customTeams = null) {
+async function initializeTeamStatsSheet(spreadsheetId, accessToken, sheetId, homeTeamAbbr, awayTeamAbbr, dynastyTeams = null) {
   const requests = []
 
   // Get team colors from dynasty.teams (source of truth)
-  const teams = getTeamsWithCustom(customTeams)
+  const teams = getTeamsWithCustom(dynastyTeams)
   const awayTeamData = teams[awayTeamAbbr]
   const homeTeamData = teams[homeTeamAbbr]
   const awayBgColor = awayTeamData ? hexToRgb(awayTeamData.backgroundColor) : { red: 0.2, green: 0.2, blue: 0.2 }
@@ -12526,7 +12526,7 @@ async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
  * @param {Array} transferringPlayers - Players who are transferring out
  * @returns {Object} { spreadsheetId, spreadsheetUrl }
  */
-export async function createTransferDestinationsSheet(dynastyName, year, transferringPlayers, customTeams = null) {
+export async function createTransferDestinationsSheet(dynastyName, year, transferringPlayers, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
@@ -12577,8 +12577,8 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
     const spreadsheetId = spreadsheet.spreadsheetId
     const sheetId = spreadsheet.sheets[0].properties.sheetId
 
-    // Get all team abbreviations for dropdown (uses customTeams if provided)
-    const teams = getTeamsWithCustom(customTeams)
+    // Get all team abbreviations for dropdown (uses dynastyTeams if provided)
+    const teams = getTeamsWithCustom(dynastyTeams)
     const teamAbbrs = Object.keys(teams).sort()
 
     // Build batch update requests
@@ -12798,11 +12798,11 @@ export async function readTransferDestinationsFromSheet(spreadsheetId, dynastyTe
  * Create a Roster History sheet for bulk-updating teamsByYear
  * Columns: Player Name | PID | 2025 Team | 2026 Team
  */
-export async function createRosterHistorySheet(dynastyName, years = [2025, 2026], customTeams = null) {
+export async function createRosterHistorySheet(dynastyName, years = [2025, 2026], dynastyTeams = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
     const accessToken = await getAccessToken()
-    const teams = getTeamsWithCustom(customTeams)
+    const teams = getTeamsWithCustom(dynastyTeams)
     const allTeamAbbrs = Object.keys(teams).sort()
 
     // Create spreadsheet
