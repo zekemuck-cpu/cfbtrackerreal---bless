@@ -10,12 +10,17 @@ rules_version = '2';
 //      set of profile fields (none currently — leaving room).
 //   2. Cloud dynasties are owned by `userId`. The owner can always READ
 //      them (including after subscription lapse — needed for the
-//      auto-export-to-local migration). Only PREMIUM owners can WRITE.
-//   3. Public dynasties (`isPublic == true` with a `shareCode`) are
+//      auto-export-to-local migration). Premium owners can WRITE.
+//   3. Shared dynasties: any uid in `editors[]` has full read+write.
+//      Editors must themselves be premium to write — the dynasty itself
+//      is paid for by the owner. Roles / per-team ownership / commish
+//      gates are deliberately out of scope here; everyone in editors[]
+//      is fully trusted.
+//   4. Public dynasties (`isPublic == true` with a `shareCode`) are
 //      readable by anyone, including unauthenticated visitors. Only the
 //      owner can flip the public flag, and only premium owners can
 //      do so (sharing is a premium feature).
-//   4. `webhookEvents` and `stripeEvents` are server-only — clients
+//   5. `webhookEvents` and `stripeEvents` are server-only — clients
 //      can't read or write them.
 
 service cloud.firestore {
@@ -38,14 +43,6 @@ service cloud.firestore {
     //   - tier must be 'premium'
     //   - status must be active / trialing / past_due
     //   - if currentPeriodEnd is set, it must be in the future
-    //
-    // The currentPeriodEnd check is what makes beta-granted users
-    // (`_devGranted: true`) lose server-side write access when their
-    // 30-day grant lapses, even though their Firestore doc still
-    // says tier='premium' and status='active'. Without this check, the
-    // client UI would correctly go read-only at expiry but a stale
-    // tab could still POST writes. We allow the field to be missing
-    // for backward compat with any user docs that pre-date the field.
     function isPremium() {
       let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
       let exists = exists(userPath);
@@ -81,53 +78,35 @@ service cloud.firestore {
     }
 
     // ─── dynasties/{id} ──────────────────────────────────────────────
-    // MULTIPLAYER MODEL: every dynasty has a members[] array (legacy
-    // solo dynasties get auto-migrated to members-of-1 on load). The
-    // cheap-lookup mirror `memberUids[]` is what we check in rules
-    // (array-contains is O(1); scanning members[] for nested fields
-    // is not supported in security rules). Until a dynasty has been
-    // written post-multiplayer-launch, memberUids may not exist — fall
-    // back to the legacy userId check so existing solo dynasties keep
-    // reading.
+    // SHARING MODEL: every dynasty has an `editors[]` array of uids that
+    // are allowed to read+write. Legacy solo dynasties auto-migrate on
+    // load to `editors: [userId]`. Until that migration runs, the
+    // owner's read still works via the legacy `userId` check.
     //
     // Read:
-    //   - Legacy owner (resource.data.userId) can always read
-    //   - Active member (uid in memberUids) can read
-    //   - Anyone can read a doc that is currently public
+    //   - Legacy owner (resource.data.userId) — keeps pre-migration
+    //     dynasties readable
+    //   - Anyone in editors[] (post-migration; owner is included here)
+    //   - Anyone (no auth required) for currently-public docs
     // Create:
-    //   - Must be the owner AND premium AND storageType: 'cloud'
-    //   - On create, userId must equal the requester (no impersonation)
+    //   - Premium owner; userId must equal the requester (no impersonation)
+    //   - storageType must be 'cloud'
     // Update:
-    //   - Owner OR active member (write authority is enforced by
-    //     application code in Phase 1; Phase 3 will tighten this rule
-    //     to only allow team-owners and permission holders)
-    //   - Owner must remain premium
-    //   - userId cannot be changed
+    //   - Owner OR uid in editors[]
+    //   - Writer must themselves be premium
+    //   - userId cannot be changed (ownership transfer is out of scope)
     // Delete:
-    //   - Owner only (Phase 1)
+    //   - Owner only
     match /dynasties/{dynastyId} {
-      // SPLIT-RULE FORM: each allow-read is independently provable for
-      // its query shape. A single combined `||` expression confuses
-      // Firestore's query-safety analysis — specifically, the
-      // `subscribeToMemberLeagues` query (`array-contains memberUids`)
-      // can't be proved safe when wrapped in an OR with the legacy
-      // owner check. Splitting into discrete rules lets Firestore
-      // prove safety per query path.
-      //
-      // Each allow-read covers one access vector:
-      //   1. legacy owner read (userId match)
-      //   2. multiplayer member read (uid in memberUids array)
-      //   3. public-share read (isPublic flag, no auth required)
+      // Each allow-read covers one access vector (split form is needed
+      // so Firestore can prove each query path's safety independently —
+      // a single combined OR confuses the safe-query analyzer for
+      // array-contains queries).
       allow read: if isSignedIn()
                   && resource.data.userId == request.auth.uid;
 
-      // CANONICAL `in resource.data.X` form for array-contains queries.
-      // Use `.get(field, [])` so missing field returns empty list (no
-      // type-check needed). The Firestore safe-query analyzer matches
-      // this pattern against `where('memberUids', 'array-contains', X)`
-      // — the `is list` form failed the analyzer's matching step.
       allow read: if isSignedIn()
-                  && request.auth.uid in resource.data.get('memberUids', []);
+                  && request.auth.uid in resource.data.get('editors', []);
 
       allow read: if resource.data.isPublic == true;
 
@@ -135,18 +114,18 @@ service cloud.firestore {
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.storageType == 'cloud';
 
-      // Phase 1: keep writes owner-only. Members can read but can't
-      // write yet — Phase 3 will gate writes by team ownership +
-      // permissions matrix.
-      allow update: if isOwner(resource.data.userId)
-                    && isPremium()
+      allow update: if isPremium()
+                    && (
+                      isOwner(resource.data.userId)
+                      || request.auth.uid in resource.data.get('editors', [])
+                    )
                     && request.resource.data.userId == resource.data.userId;
 
       allow delete: if isOwner(resource.data.userId);
 
-      // Subcollections: members can read; writes still owner-only in
-      // Phase 1. Same split-rule treatment as the parent so each access
-      // vector is independently provable.
+      // Subcollections inherit the same access vectors. Owner OR
+      // any uid in the parent's editors[] can read+write, provided
+      // the writer is themselves premium.
       function parentDynasty() {
         return get(/databases/$(database)/documents/dynasties/$(dynastyId)).data;
       }
@@ -155,72 +134,29 @@ service cloud.firestore {
         allow read: if isSignedIn()
                     && parentDynasty().userId == request.auth.uid;
         allow read: if isSignedIn()
-                    && request.auth.uid in parentDynasty().get('memberUids', []);
+                    && request.auth.uid in parentDynasty().get('editors', []);
         allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
-                     && parentDynasty().userId == request.auth.uid;
+                     && (
+                       parentDynasty().userId == request.auth.uid
+                       || request.auth.uid in parentDynasty().get('editors', [])
+                     );
       }
 
       match /games/{gameId} {
         allow read: if isSignedIn()
                     && parentDynasty().userId == request.auth.uid;
         allow read: if isSignedIn()
-                    && request.auth.uid in parentDynasty().get('memberUids', []);
+                    && request.auth.uid in parentDynasty().get('editors', []);
         allow read: if parentDynasty().isPublic == true;
 
         allow write: if isPremium()
-                     && parentDynasty().userId == request.auth.uid;
+                     && (
+                       parentDynasty().userId == request.auth.uid
+                       || request.auth.uid in parentDynasty().get('editors', [])
+                     );
       }
-    }
-
-    // ─── invitations/{id} ────────────────────────────────────────────
-    // League invitation docs. The commish creates them; the invitee can
-    // read their own pending invites and update status to accepted/declined.
-    //
-    //   {
-    //     dynastyId: string,
-    //     dynastyName: string,
-    //     dynastyOwnerUid: string,        — for commish-only update gate
-    //     commissionerEmail: string,
-    //     inviteeEmail: string (lowercase) — primary join key
-    //     inviteeUid: string|null         — populated on accept
-    //     status: 'pending'|'accepted'|'declined'|'revoked'
-    //     initialTeams: number[],
-    //     createdAt: Timestamp,
-    //     respondedAt: Timestamp|null,
-    //   }
-    //
-    // Read:
-    //   - The invitee (matched by email — works even before they have
-    //     a uid mapping, e.g. when invited by email pre-signup)
-    //   - The dynasty's commish (so they can see status of sent invites)
-    // Create: only the dynasty's commish (must equal request.auth.uid)
-    // Update: invitee can change status to accepted/declined; commish
-    //         can change status to revoked.
-    // Delete: server-only (audit trail).
-    match /invitations/{inviteId} {
-      allow read: if isSignedIn() && (
-        request.auth.token.email != null
-        && resource.data.inviteeEmail == request.auth.token.email.lower()
-        || resource.data.dynastyOwnerUid == request.auth.uid
-      );
-
-      allow create: if isSignedIn()
-        && request.resource.data.dynastyOwnerUid == request.auth.uid
-        && request.resource.data.status == 'pending';
-
-      allow update: if isSignedIn() && (
-        // Invitee responding
-        (request.auth.token.email != null
-         && resource.data.inviteeEmail == request.auth.token.email.lower()
-         && request.resource.data.status in ['accepted', 'declined'])
-        // Commish revoking
-        || (resource.data.dynastyOwnerUid == request.auth.uid
-            && request.resource.data.status == 'revoked')
-      );
-
-      allow delete: if false;
     }
 
     // ─── Server-only collections ─────────────────────────────────────

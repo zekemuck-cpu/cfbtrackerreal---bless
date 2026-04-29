@@ -1,272 +1,378 @@
 /**
- * League model — the unified members + permissions schema that backs both
- * solo and multiplayer dynasties.
+ * League sharing model — multiplayer access + roles.
  *
- * CORE PRINCIPLE: every dynasty has a `members[]`. A solo dynasty is a
- * multiplayer-of-1: a single member who is auto-commish and owns all teams.
- * There is no "isMultiplayer" mode flag — N members === N members. The
- * codepath is unified.
+ * Schema on the dynasty doc:
+ *   editors:      string[]               — uids with read+write access
+ *   coCommishes:  string[]               — subset of editors with extra
+ *                                           management rights
+ *   memberLabels: { [uid]: string }      — user-friendly display names
+ *                                           visible to everyone
+ *   memberTeams:  { [uid]: number[] }    — tids each user "controls".
+ *                                           Members are capped at 1 (UI
+ *                                           gate); commish + co-commish
+ *                                           can hold multiple to manage
+ *                                           teams for non-premium users.
  *
- * Schema additions to dynasty:
- *   members:    [Member]   — see Member shape below
- *   memberUids: string[]   — flat array of active member uids; mirrors
- *                            members[].uid for cheap Firestore rule checks
- *                            (`array-contains`) and "leagues I'm in" queries
+ * Roles:
+ *   - commish:  the dynasty owner (`userId`). Full control: invite,
+ *               remove, rename, assign teams, transfer commish,
+ *               promote/demote co-commishes.
+ *   - cocommish: uid in coCommishes (must also be in editors). Same
+ *               powers as commish EXCEPT cannot remove or demote the
+ *               commish, cannot promote new co-commishes, and cannot
+ *               touch other co-commishes.
+ *   - member:   uid in editors but not the commish or a co-commish.
+ *               Read+write on dynasty data, no membership management.
+ *   - null:     no access.
  *
- * Member shape:
- *   {
- *     uid:        string|null   — null only while invitation is pending
- *                                 (we know the email but not the uid yet)
- *     email:      string        — lowercase, used as the join key for invites
- *     displayName:string|null   — optional, populated from auth on accept
- *     isCommish:  boolean       — exactly one commish per dynasty (today;
- *                                 transfer-commish is a future feature)
- *     teams:      number[]      — tids the member owns (full read+write)
- *     permissions: Permissions  — see ALL_PERMISSIONS below
- *     joinedAt:   Timestamp|Date|number — when they accepted
- *   }
- *
- * Permissions matrix:
- *   leagueSettings: bool   — edit league name, custom conferences, etc.
- *   scheduleEdit:   bool   — edit schedules for any team
- *   confSetup:      bool   — edit conference assignments
- *   pollEntry:      bool   — fill in polls / CFP seeds
- *   yearAdvance:    bool   — advance the season / week
- *   cpuGameTids:    'ALL' | number[]
- *                          — CPU teams the user can save games for. 'ALL'
- *                            means every CPU team (commish default).
- *
- * Phase 1 enforces NO write authority — these flags exist but reads are the
- * only thing gated. Phase 3 will wire them into Firestore rules + UI gates.
+ * The owner is implicitly an editor — `isEditor()` treats them as such
+ * even if their uid isn't in the array.
  */
 
-// Sentinel value meaning "all CPU teams" (commish default).
-export const CPU_GAMES_ALL = 'ALL'
-
-// Default permission grant for a commish — full access to everything.
-export const ALL_PERMISSIONS = Object.freeze({
-  leagueSettings: true,
-  scheduleEdit: true,
-  confSetup: true,
-  pollEntry: true,
-  yearAdvance: true,
-  cpuGameTids: CPU_GAMES_ALL,
-})
-
-// Default permission grant for a non-commish member — empty until commish
-// hands out responsibilities. They can still write to their own teams'
-// rosters and games (that's gated by `teams[]`, not by permissions).
-export const NO_PERMISSIONS = Object.freeze({
-  leagueSettings: false,
-  scheduleEdit: false,
-  confSetup: false,
-  pollEntry: false,
-  yearAdvance: false,
-  cpuGameTids: [],
-})
-
-// Hard cap matching CFB 26's 32-team online dynasty cap.
-export const MAX_MEMBERS_PER_LEAGUE = 32
-
 // ─────────────────────────────────────────────────────────────────────
-// Constructors
+// Lookups
 // ─────────────────────────────────────────────────────────────────────
 
-/**
- * Build a member object. Pass `isCommish: true` to grant ALL_PERMISSIONS;
- * non-commish members start with NO_PERMISSIONS and the commish hands out
- * teams + responsibilities later.
- */
-export function createMember({
-  uid = null,
-  email,
-  displayName = null,
-  isCommish = false,
-  teams = [],
-  permissions = null,
-  joinedAt = null,
-} = {}) {
-  if (!email) {
-    throw new Error('createMember: email is required')
-  }
-  return {
-    uid: uid || null,
-    email: String(email).toLowerCase().trim(),
-    displayName: displayName || null,
-    isCommish: !!isCommish,
-    teams: (teams || []).map(Number).filter(Number.isFinite),
-    permissions: permissions || (isCommish ? { ...ALL_PERMISSIONS } : { ...NO_PERMISSIONS }),
-    joinedAt: joinedAt || new Date(),
-  }
+export function getEditors(dynasty) {
+  return Array.isArray(dynasty?.editors) ? dynasty.editors : []
+}
+
+export function getCoCommishes(dynasty) {
+  return Array.isArray(dynasty?.coCommishes) ? dynasty.coCommishes : []
+}
+
+/** True iff this uid is the owner OR appears in editors[]. */
+export function isEditor(dynasty, uid) {
+  if (!dynasty || !uid) return false
+  if (dynasty.userId === uid) return true
+  return getEditors(dynasty).includes(uid)
+}
+
+/** True iff this uid is the dynasty's owner (commish). */
+export function isOwner(dynasty, uid) {
+  return !!(dynasty && uid && dynasty.userId === uid)
+}
+
+/** True iff this uid is a co-commish (and an editor). */
+export function isCoCommish(dynasty, uid) {
+  if (!dynasty || !uid) return false
+  if (isOwner(dynasty, uid)) return false
+  return getCoCommishes(dynasty).includes(uid) && isEditor(dynasty, uid)
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Roles
+// ─────────────────────────────────────────────────────────────────────
+
+export const ROLE_COMMISH = 'commish'
+export const ROLE_COCOMMISH = 'cocommish'
+export const ROLE_MEMBER = 'member'
+
+/** Returns 'commish' | 'cocommish' | 'member' | null. */
+export function getRole(dynasty, uid) {
+  if (!dynasty || !uid) return null
+  if (isOwner(dynasty, uid)) return ROLE_COMMISH
+  if (!isEditor(dynasty, uid)) return null
+  if (getCoCommishes(dynasty).includes(uid)) return ROLE_COCOMMISH
+  return ROLE_MEMBER
+}
+
+/** Commishes and co-commishes can manage members. */
+export function canManageMembers(dynasty, uid) {
+  const r = getRole(dynasty, uid)
+  return r === ROLE_COMMISH || r === ROLE_COCOMMISH
+}
+
+/** Only the commish can transfer their own role. */
+export function canTransferCommish(dynasty, uid) {
+  return getRole(dynasty, uid) === ROLE_COMMISH
+}
+
+/** Only the commish can promote new co-commishes (or demote them). */
+export function canManageCoCommishes(dynasty, uid) {
+  return getRole(dynasty, uid) === ROLE_COMMISH
 }
 
 /**
- * Recompute the cheap-lookup `memberUids` array from members. Excludes
- * pending (uid===null) members — Firestore rules and "find leagues I'm in"
- * queries care only about active members.
+ * Whether `actorUid` is allowed to remove/edit/manage `targetUid`.
+ *   - The commish can act on anyone (except themselves for removal).
+ *   - Co-commishes can act only on members — never on the commish or
+ *     other co-commishes.
+ *   - Members can never act on others.
  */
-export function computeMemberUids(members) {
-  if (!Array.isArray(members)) return []
-  return members
-    .filter(m => m && m.uid)
-    .map(m => m.uid)
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// One-shot migration — every legacy dynasty gets a members[] on first
-// load. Idempotent: returns the same dynasty unmodified if already
-// migrated. The currentTid stays as the active-team value for now;
-// Phase 2 will replace it with a per-user-session active team derived
-// from the current member's teams[].
-// ─────────────────────────────────────────────────────────────────────
-
-export function needsMembersMigration(dynasty) {
-  return !!dynasty
-    && (!Array.isArray(dynasty.members) || dynasty.members.length === 0)
-}
-
-/**
- * Build a default members[] for a legacy solo dynasty. The dynasty owner
- * becomes the auto-commish + auto-owner of currentTid (their team).
- *
- * @param dynasty   - the legacy dynasty
- * @param fallbackEmail - email to use if the dynasty's owner has no
- *                        recorded email (e.g. local IndexedDB dynasty
- *                        created before sign-in). The currently-signed-in
- *                        user's email is the natural fallback when this
- *                        runs at load time.
- */
-export function buildDefaultMembers(dynasty, fallbackEmail = '') {
-  const ownerUid = dynasty?.userId || null
-  const ownerEmail = dynasty?.userEmail || fallbackEmail || ''
-  const ownerTid = dynasty?.currentTid != null ? Number(dynasty.currentTid) : null
-  const teams = Number.isFinite(ownerTid) ? [ownerTid] : []
-  return [
-    createMember({
-      uid: ownerUid,
-      email: ownerEmail,
-      isCommish: true,
-      teams,
-      permissions: { ...ALL_PERMISSIONS },
-    }),
-  ]
-}
-
-/**
- * Apply the members migration to a dynasty. Idempotent — returns the
- * input unchanged when already migrated.
- *
- * Returns a NEW object only when migration runs (so callers can detect
- * "did this need persisting").
- */
-export function migrateDynastyToMembers(dynasty, fallbackEmail = '') {
-  if (!needsMembersMigration(dynasty)) return dynasty
-  const members = buildDefaultMembers(dynasty, fallbackEmail)
-  const memberUids = computeMemberUids(members)
-  return {
-    ...dynasty,
-    members,
-    memberUids,
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Member lookups
-// ─────────────────────────────────────────────────────────────────────
-
-export function getMembers(dynasty) {
-  return Array.isArray(dynasty?.members) ? dynasty.members : []
-}
-
-/** Find a member by uid. Returns null if not found. */
-export function getMemberByUid(dynasty, uid) {
-  if (!uid) return null
-  return getMembers(dynasty).find(m => m && m.uid === uid) || null
-}
-
-/** Find a member by lowercased email. Returns null if not found. */
-export function getMemberByEmail(dynasty, email) {
-  if (!email) return null
-  const target = String(email).toLowerCase().trim()
-  return getMembers(dynasty).find(m => m && m.email === target) || null
-}
-
-/** Returns the commish member (or null). There is exactly one in v1. */
-export function getCommishMember(dynasty) {
-  return getMembers(dynasty).find(m => m && m.isCommish) || null
-}
-
-export function isCommish(dynasty, uid) {
-  if (!uid) return false
-  const m = getMemberByUid(dynasty, uid)
-  return !!(m && m.isCommish)
-}
-
-/** True iff this user owns the given tid in this dynasty. */
-export function userOwnsTeam(dynasty, uid, tid) {
-  if (!uid || tid == null) return false
-  const m = getMemberByUid(dynasty, uid)
-  if (!m) return false
-  const tNum = Number(tid)
-  return (m.teams || []).some(t => Number(t) === tNum)
-}
-
-/**
- * Returns the array of tids this user owns in this dynasty. For a solo
- * dynasty this is the legacy currentTid. For multiplayer it's whatever
- * the commish has assigned.
- */
-export function getOwnedTeams(dynasty, uid) {
-  if (!uid) return []
-  const m = getMemberByUid(dynasty, uid)
-  return m ? (m.teams || []).slice() : []
-}
-
-/**
- * Permission check. Commish always returns true. Non-commish: looks up
- * the named permission on their grant. For cpuGameTids, pass an optional
- * tid to check whether they can write that specific CPU team's games.
- *
- * @param permission - one of: leagueSettings, scheduleEdit, confSetup,
- *                     pollEntry, yearAdvance, cpuGames
- * @param tid - only used when permission === 'cpuGames'
- */
-export function userHasPermission(dynasty, uid, permission, tid = null) {
-  if (!uid || !permission) return false
-  const m = getMemberByUid(dynasty, uid)
-  if (!m) return false
-  if (m.isCommish) return true
-
-  const perms = m.permissions || {}
-  if (permission === 'cpuGames') {
-    const cpu = perms.cpuGameTids
-    if (cpu === CPU_GAMES_ALL) return true
-    if (Array.isArray(cpu) && tid != null) {
-      const tNum = Number(tid)
-      return cpu.some(t => Number(t) === tNum)
-    }
-    return false
-  }
-  return !!perms[permission]
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// "Is this dynasty actually a multiplayer league?" — used for UI hints
-// (e.g. show team picker only when meaningful). NOT used for codepath
-// branching; everything else treats every dynasty as members[].
-// ─────────────────────────────────────────────────────────────────────
-
-/**
- * True iff this dynasty has more than one member, OR a single member who
- * owns multiple teams. Useful for deciding "should we show the team
- * picker UI" — irrelevant for a solo single-team user.
- */
-export function isMultiTeamLeague(dynasty) {
-  const members = getMembers(dynasty)
-  if (members.length > 1) return true
-  if (members.length === 1) {
-    const teams = members[0]?.teams || []
-    return teams.length > 1
-  }
+export function canActOnUser(dynasty, actorUid, targetUid) {
+  if (!dynasty || !actorUid || !targetUid) return false
+  if (actorUid === targetUid) return false
+  const actor = getRole(dynasty, actorUid)
+  const target = getRole(dynasty, targetUid)
+  if (actor === ROLE_COMMISH) return target !== null && target !== ROLE_COMMISH
+  if (actor === ROLE_COCOMMISH) return target === ROLE_MEMBER
   return false
+}
+
+/** Members are capped at 1 team; commish + co-commishes are uncapped. */
+export function maxTeamsForRole(role) {
+  if (role === ROLE_COMMISH || role === ROLE_COCOMMISH) return Infinity
+  return 1
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Migration — every legacy dynasty gets a clean editors[] on first load.
+// ─────────────────────────────────────────────────────────────────────
+
+export function needsEditorsMigration(dynasty) {
+  return !!dynasty && !Array.isArray(dynasty.editors)
+}
+
+function harvestLegacyEditors(dynasty) {
+  const ownerUid = dynasty?.userId || null
+  const out = ownerUid ? [ownerUid] : []
+  if (Array.isArray(dynasty?.memberUids)) {
+    for (const uid of dynasty.memberUids) {
+      if (uid && !out.includes(uid)) out.push(uid)
+    }
+  }
+  if (Array.isArray(dynasty?.members)) {
+    for (const m of dynasty.members) {
+      if (m?.uid && !out.includes(m.uid)) out.push(m.uid)
+    }
+  }
+  return out
+}
+
+export function migrateDynastyToEditors(dynasty) {
+  if (!needsEditorsMigration(dynasty)) return dynasty
+  return { ...dynasty, editors: harvestLegacyEditors(dynasty) }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Editors[] mutations — pure functions returning a new array.
+// ─────────────────────────────────────────────────────────────────────
+
+export function addEditor(dynasty, uid) {
+  if (!uid) return getEditors(dynasty)
+  if (isOwner(dynasty, uid)) return getEditors(dynasty)
+  const existing = getEditors(dynasty)
+  if (existing.includes(uid)) return existing
+  return [...existing, uid]
+}
+
+export function removeEditor(dynasty, uid) {
+  if (!uid) return getEditors(dynasty)
+  if (isOwner(dynasty, uid)) return getEditors(dynasty)
+  return getEditors(dynasty).filter(u => u !== uid)
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Co-commish mutations.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Promote uid to co-commish. Caller must already have ensured uid is
+ *  in editors (i.e. an active member). */
+export function addCoCommish(dynasty, uid) {
+  if (!uid) return getCoCommishes(dynasty)
+  if (isOwner(dynasty, uid)) return getCoCommishes(dynasty)
+  const existing = getCoCommishes(dynasty)
+  if (existing.includes(uid)) return existing
+  return [...existing, uid]
+}
+
+/** Demote uid back to a regular member. */
+export function removeCoCommish(dynasty, uid) {
+  if (!uid) return getCoCommishes(dynasty)
+  return getCoCommishes(dynasty).filter(u => u !== uid)
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Member metadata: per-uid display label.
+// ─────────────────────────────────────────────────────────────────────
+
+export function getMemberLabel(dynasty, uid) {
+  if (!dynasty || !uid) return ''
+  return dynasty.memberLabels?.[uid] || ''
+}
+
+export function setMemberLabelValue(dynasty, uid, label) {
+  const map = { ...(dynasty?.memberLabels || {}) }
+  const trimmed = (label || '').trim()
+  if (!trimmed) delete map[uid]
+  else map[uid] = trimmed
+  return map
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Member team assignments.
+//
+// Each user can be assigned one or more tids (the teams they "control"
+// in the dynasty). Members are capped at 1 by UI gates; commish + co-
+// commishes are uncapped so they can shepherd teams whose owners don't
+// have premium write access yet.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Returns the array of tids assigned to this uid. */
+export function getMemberTeams(dynasty, uid) {
+  if (!dynasty || !uid) return []
+  const arr = dynasty.memberTeams?.[uid]
+  if (!Array.isArray(arr)) return []
+  return arr.map(Number).filter(Number.isFinite)
+}
+
+/** Returns the FIRST tid assigned to this uid (convenience for single-team callers). */
+export function getMemberTeam(dynasty, uid) {
+  const arr = getMemberTeams(dynasty, uid)
+  return arr.length > 0 ? arr[0] : null
+}
+
+/** Append `tid` to this uid's team list (no-op if already present). */
+export function addMemberTeam(dynasty, uid, tid) {
+  const map = { ...(dynasty?.memberTeams || {}) }
+  if (!uid) return map
+  const tNum = Number(tid)
+  if (!Number.isFinite(tNum)) return map
+  const existing = Array.isArray(map[uid]) ? map[uid].map(Number) : []
+  if (existing.includes(tNum)) return map
+  map[uid] = [...existing, tNum]
+  return map
+}
+
+/** Remove `tid` from this uid's team list. */
+export function removeMemberTeam(dynasty, uid, tid) {
+  const map = { ...(dynasty?.memberTeams || {}) }
+  if (!uid) return map
+  const tNum = Number(tid)
+  const existing = Array.isArray(map[uid]) ? map[uid].map(Number) : []
+  const next = existing.filter(t => t !== tNum)
+  if (next.length === 0) delete map[uid]
+  else map[uid] = next
+  return map
+}
+
+/** Replace this uid's team list with exactly `[tid]` (or clear if null). */
+export function setMemberTeam(dynasty, uid, tid) {
+  const map = { ...(dynasty?.memberTeams || {}) }
+  if (!uid) return map
+  if (tid == null || tid === '') {
+    delete map[uid]
+    return map
+  }
+  const tNum = Number(tid)
+  if (!Number.isFinite(tNum)) return map
+  map[uid] = [tNum]
+  return map
+}
+
+/** Drop the metadata + team assignments for a uid (used on Remove). */
+export function dropMemberMetadata(dynasty, uid) {
+  const labels = { ...(dynasty?.memberLabels || {}) }
+  const teams = { ...(dynasty?.memberTeams || {}) }
+  delete labels[uid]
+  delete teams[uid]
+  // memberTeamHistory is intentionally PRESERVED — even after a member
+  // is removed, their historical record remains so the Coach Career
+  // view can still show their past stints.
+  return { memberLabels: labels, memberTeams: teams }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Per-year team history.
+//
+// `memberTeamHistory: { [uid]: { [year]: number[] } }` records which
+// tids each member controlled in each season. Snapshotted on every
+// team-assignment write (current-year stamp) and on season advance
+// (previous-year carry-forward), so the Coach Career page can rebuild
+// each user's record independently.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Returns the snapshot of a uid's teams for a specific year (or empty array). */
+export function getMemberTeamsForYear(dynasty, uid, year) {
+  if (!dynasty || !uid) return []
+  const userHistory = dynasty.memberTeamHistory?.[uid]
+  if (userHistory) {
+    const stamped = userHistory[year] ?? userHistory[String(year)]
+    if (Array.isArray(stamped) && stamped.length > 0) {
+      return stamped.map(Number).filter(Number.isFinite)
+    }
+  }
+  // Live state covers the current year if no snapshot is recorded yet.
+  if (Number(year) === Number(dynasty?.currentYear)) {
+    return getMemberTeams(dynasty, uid)
+  }
+  return []
+}
+
+/**
+ * Returns a new memberTeamHistory map with `uid`'s teams for `year`
+ * set to `teams`. Pass an empty array to clear that year's snapshot.
+ */
+export function stampHistoryForYear(history, uid, year, teams) {
+  if (!uid) return history || {}
+  const yNum = Number(year)
+  if (!Number.isFinite(yNum)) return history || {}
+  const next = { ...(history || {}) }
+  const userMap = { ...(next[uid] || {}) }
+  const cleaned = (Array.isArray(teams) ? teams : [])
+    .map(Number)
+    .filter(Number.isFinite)
+  if (cleaned.length === 0) {
+    delete userMap[yNum]
+    delete userMap[String(yNum)]
+  } else {
+    delete userMap[String(yNum)]
+    userMap[yNum] = cleaned
+  }
+  if (Object.keys(userMap).length === 0) delete next[uid]
+  else next[uid] = userMap
+  return next
+}
+
+/**
+ * Snapshot every member's current team list into history under `year`.
+ * Used on season advance so the year that just ended has a fixed record
+ * even for users whose assignment didn't change during it.
+ */
+export function snapshotAllMembersForYear(dynasty, year) {
+  if (!dynasty) return dynasty?.memberTeamHistory || {}
+  const yNum = Number(year)
+  if (!Number.isFinite(yNum)) return dynasty?.memberTeamHistory || {}
+  const current = dynasty.memberTeams || {}
+  let history = { ...(dynasty.memberTeamHistory || {}) }
+  for (const uid of Object.keys(current)) {
+    const teams = current[uid]
+    if (!Array.isArray(teams) || teams.length === 0) continue
+    history = stampHistoryForYear(history, uid, yNum, teams)
+  }
+  return history
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Commish role transfer.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Transfer the commish role from the current owner to `newCommishUid`.
+ * The previous owner becomes a regular member (added to editors[]); the
+ * new commish gets the userId slot. Also strips the new commish out of
+ * coCommishes (they're commish now). Caller must persist all returned
+ * fields with a single updateDynasty call.
+ *
+ * Returns: { userId, editors, coCommishes }
+ * Throws if newCommishUid isn't an editor or is already commish.
+ */
+export function buildCommishTransfer(dynasty, newCommishUid) {
+  if (!dynasty || !newCommishUid) throw new Error('Missing dynasty or new commish uid')
+  if (isOwner(dynasty, newCommishUid)) {
+    throw new Error('That user is already the commish.')
+  }
+  if (!getEditors(dynasty).includes(newCommishUid)) {
+    throw new Error('Promote a current member only — that uid is not an editor.')
+  }
+  const prevOwner = dynasty.userId
+  const nextEditors = getEditors(dynasty).filter(u => u !== newCommishUid)
+  if (prevOwner && !nextEditors.includes(prevOwner)) nextEditors.push(prevOwner)
+  const nextCoCommishes = getCoCommishes(dynasty).filter(u => u !== newCommishUid)
+  return {
+    userId: newCommishUid,
+    editors: nextEditors,
+    coCommishes: nextCoCommishes,
+  }
 }

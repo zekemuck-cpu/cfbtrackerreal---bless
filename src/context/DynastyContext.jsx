@@ -4,7 +4,7 @@ import { useToast } from '../components/ui/Toast'
 import {
   getUserDynasties,
   subscribeToDynasties,
-  subscribeToMemberLeagues,
+  subscribeToSharedDynasties,
   createDynasty as createDynastyInFirestore,
   updateDynasty as updateDynastyInFirestore,
   deleteDynasty as deleteDynastyFromFirestore,
@@ -60,8 +60,7 @@ import {
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
 import { syncDerivedFieldsFromV2 } from '../data/rosterModel'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
-import { migrateDynastyToMembers, computeMemberUids, needsMembersMigration, getMembers, getMemberByEmail, isCommish, createMember } from '../data/leagueModel'
-import { reconcileAcceptedInvitations } from '../services/invitationsService'
+import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 
 const DynastyContext = createContext()
@@ -4208,8 +4207,13 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // Find the dynasty in state
-    const dynasty = dynasties.find(d => d.id === dynastyId)
+    // Find the dynasty in state — search BOTH owner dynasties AND
+    // shared dynasties (where the user is in editors[] but doesn't own).
+    const ownerDynasty = dynasties.find(d => d.id === dynastyId)
+    const sharedDynasty = !ownerDynasty
+      ? sharedDynasties.find(d => d.id === dynastyId)
+      : null
+    const dynasty = ownerDynasty || sharedDynasty
     if (!dynasty) {
       return
     }
@@ -4237,10 +4241,16 @@ export function DynastyProvider({ children }) {
       const dynastyWithData = { ...dynasty, players, games }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
-      // Update the dynasty in state with loaded data
-      setDynasties(prev => prev.map(d =>
-        d.id === dynastyId ? migratedDynasty : d
-      ))
+      // Write the loaded data back into whichever list owns it.
+      if (ownerDynasty) {
+        setDynasties(prev => prev.map(d =>
+          d.id === dynastyId ? migratedDynasty : d
+        ))
+      } else {
+        setSharedDynasties(prev => prev.map(d =>
+          d.id === dynastyId ? migratedDynasty : d
+        ))
+      }
 
       // If this is the current dynasty, update it too
       setCurrentDynasty(prev => {
@@ -4439,17 +4449,13 @@ export function DynastyProvider({ children }) {
         migrated.coachTeamByYear = updatedCoachTeamByYear
       }
 
-      // MULTIPLAYER MIGRATION: every dynasty gets a members[] on first
-      // load. Solo dynasties become "multiplayer of 1" — the sole owner
-      // is auto-commish. The unified codepath means there is no
-      // single-vs-multi mode flag; everything reads from members[].
-      // Falls back to the currently-signed-in user's email when the
-      // dynasty doc doesn't carry the owner's email (legacy).
-      if (needsMembersMigration(migrated)) {
-        migrated = migrateDynastyToMembers(migrated, user?.email || '')
-      } else if (!Array.isArray(migrated.memberUids) || migrated.memberUids.length === 0) {
-        // Members exist but the cheap-lookup mirror is missing — recompute.
-        migrated = { ...migrated, memberUids: computeMemberUids(migrated.members) }
+      // SHARING MIGRATION: every dynasty gets an `editors` array on
+      // first load. The owner's uid is always present so Firestore
+      // rules can use the same array-contains check for both owner and
+      // shared editors. Legacy `members[]` / `memberUids` are harvested
+      // into `editors` so existing collaborators don't lose access.
+      if (needsEditorsMigration(migrated)) {
+        migrated = migrateDynastyToEditors(migrated)
       }
 
       return migrated
@@ -4638,12 +4644,12 @@ export function DynastyProvider({ children }) {
             setCurrentDynasty(updated)
           }
         } else {
-          // Dynasty not in OWNED list. For multiplayer member leagues,
-          // the dynasty lives in memberLeagues state instead. Don't
-          // clobber currentDynasty in that case — only nuke it if it's
-          // genuinely gone (deleted, or user lost access). The check:
-          // is the current dynasty owned by this user (userId match)?
-          // If not, leave it alone — member-league subscription manages it.
+          // Dynasty not in OWNED list. For shared dynasties (uid in
+          // editors[]), it lives in sharedDynasties state instead.
+          // Don't clobber currentDynasty in that case — only nuke it
+          // if it's genuinely gone (deleted, or access revoked). The
+          // check: is the current dynasty owned by this user? If not,
+          // leave it alone — sharedDynasties subscription manages it.
           const isOwnedByUser = currentDynasty.userId === user?.uid
           if (isOwnedByUser) {
             setCurrentDynasty(null)
@@ -5317,57 +5323,25 @@ export function DynastyProvider({ children }) {
   }
 
   const selectDynasty = async (dynastyId) => {
-    // Look in BOTH owned dynasties AND member leagues — for an invitee
-    // navigating into a league they were invited to, the dynasty lives
-    // in memberLeagues until the merge happens via the context value.
-    // Searching both directly avoids a race where this function captures
-    // the closure before merge has propagated.
+    // Look in BOTH owned dynasties AND shared dynasties — for a user
+    // navigating into a dynasty they have edit access to, the dynasty
+    // lives in sharedDynasties until the merge happens via the context
+    // value. Searching both directly avoids a race where this function
+    // captures the closure before merge has propagated.
     let dynasty = dynasties.find(d => d.id === dynastyId)
-      || memberLeagues.find(d => d.id === dynastyId)
+      || sharedDynasties.find(d => d.id === dynastyId)
     if (!dynasty) {
       // Don't clear currentDynasty if we're still loading — the dynasty
-      // may arrive shortly via the cloud or member-league subscriptions.
-      // Clearing now would briefly null currentDynasty and force the
-      // page into the "redirect home" path.
+      // may arrive shortly via the cloud or shared-dynasty
+      // subscriptions. Clearing now would briefly null currentDynasty
+      // and force the page into the "redirect home" path.
       if (loading) return
       setCurrentDynasty(null)
       return
     }
 
-    // MULTIPLAYER: when a non-owner member opens a league, override the
-    // in-memory currentTid AND remap the team[].userId='currentUser'
-    // flag so all the existing helpers (currentTid + getUserTeamTid)
-    // report THIS user's team. Read-only mutation — we don't persist.
-    if (user?.uid && dynasty.userId !== user.uid && Array.isArray(dynasty.members)) {
-      const member = dynasty.members.find(m => m && m.uid === user.uid)
-      const memberFirstTid = member?.teams?.[0]
-      if (memberFirstTid != null) {
-        const overrideTid = Number(memberFirstTid)
-        // Build a new teams map: clear userId='currentUser' from any
-        // team that has it (the commish's team), set it on the member's
-        // team. Other team properties stay intact so display still works.
-        const remappedTeams = {}
-        if (dynasty.teams) {
-          for (const [tidStr, team] of Object.entries(dynasty.teams)) {
-            const isOurTeam = Number(tidStr) === overrideTid
-            const wasCurrentUser = team?.userId === 'currentUser'
-            if (isOurTeam && !wasCurrentUser) {
-              remappedTeams[tidStr] = { ...team, userId: 'currentUser' }
-            } else if (!isOurTeam && wasCurrentUser) {
-              const { userId: _drop, ...rest } = team
-              remappedTeams[tidStr] = rest
-            } else {
-              remappedTeams[tidStr] = team
-            }
-          }
-        }
-        dynasty = {
-          ...dynasty,
-          currentTid: overrideTid,
-          teams: Object.keys(remappedTeams).length > 0 ? remappedTeams : dynasty.teams,
-        }
-      }
-    }
+    // SHARING: shared editors see the same currentTid as the owner;
+    // per-user team selection is deferred to the permissions phase.
 
     // Set the dynasty immediately (may not have players/games yet if cloud and unloaded)
     setCurrentDynasty(dynasty)
@@ -7825,6 +7799,15 @@ export function DynastyProvider({ children }) {
       updates.customConferences = dynasty.customConferencesByYear[currentSeasonYear]
     }
 
+    // Snapshot the just-ended season's per-user team assignments into
+    // memberTeamHistory so the Coach Career page has a fixed record
+    // for every member (including users who didn't reassign during the
+    // year). Members-page writes already stamp the current year on
+    // change; this catches the unchanged carry-forward case.
+    if (Number.isFinite(previousSeasonYear)) {
+      updates.memberTeamHistory = snapshotAllMembersForYear(dynasty, previousSeasonYear)
+    }
+
     try {
       await updateDynasty(dynastyId, updates)
     } finally {
@@ -10019,8 +10002,11 @@ export function DynastyProvider({ children }) {
   }
 
   const exportDynasty = async (dynastyId) => {
-    // Find the dynasty to export
+    // Find the dynasty to export — search BOTH owner dynasties AND
+    // shared dynasties so editors (uid in editors[] but not the owner)
+    // can also download a backup.
     let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+      || sharedDynasties.find(d => String(d.id) === String(dynastyId))
 
     if (!dynasty) {
       toast.error('Dynasty not found')
@@ -10055,11 +10041,6 @@ export function DynastyProvider({ children }) {
     // Convert to JSON string with pretty formatting
     const jsonString = JSON.stringify(exportData, null, 2)
 
-    // Create a blob and download link
-    const blob = new Blob([jsonString], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-
     // Get team abbreviation
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName.replace(/\s+/g, '')
 
@@ -10076,6 +10057,35 @@ export function DynastyProvider({ children }) {
     // Create filename with team, year, and phase
     const filename = `${teamAbbr}_${dynasty.currentYear}_${phasePart}.json`
 
+    // Prefer the File System Access API so the browser shows a real
+    // "Save As" dialog and the user picks the destination. Falls back to
+    // the legacy anchor-click flow on browsers that don't support it
+    // (Firefox, Safari, in-app webviews).
+    if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: 'Dynasty backup (JSON)',
+            accept: { 'application/json': ['.json'] },
+          }],
+        })
+        const writable = await handle.createWritable()
+        await writable.write(jsonString)
+        await writable.close()
+        return
+      } catch (err) {
+        // User cancelled the picker — bail without falling back.
+        if (err?.name === 'AbortError') return
+        // Any other error: fall through to the legacy download path.
+        console.warn('showSaveFilePicker failed, falling back to direct download:', err)
+      }
+    }
+
+    // Legacy fallback: trigger an immediate download to the default folder.
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
     link.href = url
     link.download = filename
     document.body.appendChild(link)
@@ -11076,71 +11086,125 @@ export function DynastyProvider({ children }) {
   // They can view but not edit until they export and import as local
   const isViewOnly = currentDynasty?.storageType === 'cloud' && !isPremium
 
-  // ─── Multiplayer: subscribe to leagues where the user is a member
-  // (but not the owner). The owner-side subscription above pulls in
-  // dynasties they own; this fills in the rest. We merge into the
-  // dynasties list via a derived value below so existing consumers
-  // keep working without changes.
-  const [memberLeagues, setMemberLeagues] = useState([])
+  // ─── Sharing: subscribe to dynasties shared with the user (uid in
+  // editors[] but not the owner). Merged into the main dynasties list
+  // below so existing consumers keep working without changes.
+  const [sharedDynasties, setSharedDynasties] = useState([])
   useEffect(() => {
     if (!user?.uid) {
-      setMemberLeagues([])
+      setSharedDynasties([])
       return
     }
-    const unsub = subscribeToMemberLeagues(user.uid, (leagues) => {
-      // Tag as cloud + drop dynasties the user owns (they come via
-      // subscribeToDynasties; including them here would dedup them
-      // anyway but the filter is cheaper).
+    const unsub = subscribeToSharedDynasties(user.uid, (leagues) => {
       const tagged = leagues
         .filter(d => d.userId !== user.uid)
         .map(d => ({ ...d, storageType: 'cloud' }))
-      setMemberLeagues(applyMigrations(tagged))
+      setSharedDynasties(applyMigrations(tagged))
     })
     return unsub
   }, [user?.uid])
 
-  // Merge owner dynasties + member leagues, deduplicated by id. Owner
-  // entries win (they have full subcollection data; member-league
-  // entries are metadata until selected for lazy load).
-  const dynastiesWithMemberLeagues = (() => {
-    if (!memberLeagues.length) return dynasties
+  // Merge owner dynasties + shared dynasties, dedup by id. Owner entries
+  // win — they have full subcollection data; shared entries are
+  // metadata until selected for lazy load.
+  const dynastiesWithShared = (() => {
+    if (!sharedDynasties.length) return dynasties
     const ownerIds = new Set(dynasties.map(d => d.id))
-    const onlyMember = memberLeagues.filter(d => !ownerIds.has(d.id))
-    return [...dynasties, ...onlyMember]
+    const onlyShared = sharedDynasties.filter(d => !ownerIds.has(d.id))
+    return [...dynasties, ...onlyShared]
   })()
 
-  // ─── Auto-reconciliation: when the commish opens any dynasty page,
-  // sweep accepted invitations for that dynasty and add new members to
-  // members[]/memberUids[]. Without this, the invitee couldn't see the
-  // league until the commish manually opened LeagueSettings — bad UX.
-  // Guarded by a ref so we only run once per dynasty per session
-  // (subsequent loads skip the network call unless the user changes).
-  const reconciledDynastyIdsRef = useRef(new Set())
-  useEffect(() => {
-    if (!currentDynasty?.id || !user?.uid) return
-    if (reconciledDynastyIdsRef.current.has(currentDynasty.id)) return
-    if (!isCommish(currentDynasty, user.uid)) return
+  // ─── Per-user active team ────────────────────────────────────────
+  // Each user's "active team" is one of the tids they own via
+  // memberTeams[uid]. Commish + co-commishes can have several so they
+  // can manage non-premium users' teams; this state tracks which one
+  // they're currently focused on. Stored in localStorage keyed by
+  // (dynastyId, uid) so it sticks across reloads and only matters
+  // per-device.
+  const [activeTeamByKey, setActiveTeamByKey] = useState({})
 
-    reconciledDynastyIdsRef.current.add(currentDynasty.id)
-    reconcileAcceptedInvitations({
-      dynasty: currentDynasty,
-      currentUserUid: user.uid,
-      updateDynasty,
-      getMembers, getMemberByEmail, isCommish, createMember, computeMemberUids,
-    }).then(addedCount => {
-      if (addedCount > 0) {
-        console.log(`[Multiplayer] Auto-reconciled ${addedCount} accepted invitation(s)`)
+  const _activeTeamKey = (currentDynasty?.id && user?.uid)
+    ? `${currentDynasty.id}:${user.uid}`
+    : null
+
+  // Hydrate the cached active-team selection when the dynasty or user
+  // changes.
+  useEffect(() => {
+    if (!_activeTeamKey) return
+    try {
+      const saved = localStorage.getItem(`active-team:${_activeTeamKey}`)
+      if (saved != null) {
+        const tid = Number(saved)
+        if (Number.isFinite(tid)) {
+          setActiveTeamByKey(prev => prev[_activeTeamKey] === tid ? prev : { ...prev, [_activeTeamKey]: tid })
+        }
       }
-    }).catch(err => {
-      console.error('[Multiplayer] Auto-reconciliation failed:', err)
-      // Allow retry on next load
-      reconciledDynastyIdsRef.current.delete(currentDynasty.id)
-    })
-  }, [currentDynasty?.id, user?.uid])
+    } catch {}
+  }, [_activeTeamKey])
+
+  const setActiveTeam = (tid) => {
+    if (!_activeTeamKey) return
+    const tNum = Number(tid)
+    if (!Number.isFinite(tNum)) return
+    try { localStorage.setItem(`active-team:${_activeTeamKey}`, String(tNum)) } catch {}
+    setActiveTeamByKey(prev => ({ ...prev, [_activeTeamKey]: tNum }))
+  }
+
+  // The list of tids this user controls in the current dynasty, in the
+  // order they were assigned. Empty array if no assignments — callers
+  // fall back to the dynasty-doc-level currentTid.
+  const userTeams = (currentDynasty && user?.uid)
+    ? getMemberTeams(currentDynasty, user.uid)
+    : []
+
+  // The user's currently-focused tid: the saved active selection if it
+  // still belongs to them, else their first assigned team.
+  const activeUserTid = (() => {
+    if (!_activeTeamKey || userTeams.length === 0) return null
+    const saved = activeTeamByKey[_activeTeamKey]
+    if (saved != null && userTeams.includes(Number(saved))) return Number(saved)
+    return userTeams[0]
+  })()
+
+  // ─── Per-user dynasty override ───────────────────────────────────
+  // Re-stamps `currentTid` and `teams[].userId === 'currentUser'` to
+  // match the user's active team. Done as a derived layer at the
+  // context boundary so internal writes still flow through the
+  // un-overridden currentDynasty — no risk of persisting the override
+  // back to Firestore on partial saves.
+  const overriddenCurrentDynasty = (() => {
+    if (!currentDynasty || !user?.uid) return currentDynasty
+    const myTid = activeUserTid
+    if (myTid == null) return currentDynasty
+    if (Number(currentDynasty.currentTid) === Number(myTid)) return currentDynasty
+    const remappedTeams = {}
+    if (currentDynasty.teams) {
+      for (const [tidStr, team] of Object.entries(currentDynasty.teams)) {
+        const isOurTeam = Number(tidStr) === Number(myTid)
+        const wasCurrentUser = team?.userId === 'currentUser'
+        if (isOurTeam && !wasCurrentUser) {
+          remappedTeams[tidStr] = { ...team, userId: 'currentUser' }
+        } else if (!isOurTeam && wasCurrentUser) {
+          const { userId: _drop, ...rest } = team
+          remappedTeams[tidStr] = rest
+        } else {
+          remappedTeams[tidStr] = team
+        }
+      }
+    }
+    return {
+      ...currentDynasty,
+      currentTid: Number(myTid),
+      teams: Object.keys(remappedTeams).length > 0 ? remappedTeams : currentDynasty.teams,
+    }
+  })()
 
   const value = {
-    dynasties: dynastiesWithMemberLeagues,
-    currentDynasty,
+    dynasties: dynastiesWithShared,
+    currentDynasty: overriddenCurrentDynasty,
+    userTeams,
+    activeUserTid,
+    setActiveTeam,
     customTeams,
     loading,
     loadingDynastyId,

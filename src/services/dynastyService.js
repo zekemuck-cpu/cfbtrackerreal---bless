@@ -108,21 +108,20 @@ export function subscribeToDynasties(userId, callback) {
 }
 
 /**
- * Subscribe to dynasties where the user is a NON-OWNER member (multiplayer
- * leagues they've been invited to and accepted). Owner-side dynasties come
- * through subscribeToDynasties; this fills in the rest. Caller is
- * responsible for deduplicating across both subscriptions by doc id —
- * `memberUids` includes the owner's uid too, so a dynasty the user owns
- * appears in BOTH subscriptions until we filter.
+ * Subscribe to dynasties the user has been granted edit access to but
+ * doesn't own. Owner-side dynasties arrive via subscribeToDynasties;
+ * this fills in the rest. Callers should dedupe by id since `editors`
+ * may include the owner's uid (some dynasties auto-include the owner
+ * for rule simplicity).
  */
-export function subscribeToMemberLeagues(userId, callback) {
+export function subscribeToSharedDynasties(userId, callback) {
   if (!userId) {
     callback([])
     return () => {}
   }
   const q = query(
     collection(db, DYNASTIES_COLLECTION),
-    where('memberUids', 'array-contains', userId)
+    where('editors', 'array-contains', userId)
   )
   return onSnapshot(q, (snapshot) => {
     const dynasties = snapshot.docs.map(doc => {
@@ -132,7 +131,7 @@ export function subscribeToMemberLeagues(userId, callback) {
     })
     callback(dynasties)
   }, (error) => {
-    console.error('Error in member-leagues subscription:', error)
+    console.error('Error in shared-dynasties subscription:', error)
   })
 }
 

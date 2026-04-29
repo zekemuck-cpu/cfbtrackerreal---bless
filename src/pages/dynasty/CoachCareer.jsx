@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useDynasty, detectGameType, GAME_TYPES, getUserGamePerspective } from '../../context/DynastyContext'
+import { useDynasty, detectGameType, GAME_TYPES, getTeamGamePerspective } from '../../context/DynastyContext'
+import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getTidFromAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import {
+  getEditors,
+  getMemberLabel,
+  getMemberTeamsForYear,
+  getRole,
+  ROLE_COMMISH,
+  ROLE_COCOMMISH,
+} from '../../data/leagueModel'
 import {
   PageHero,
   Card,
@@ -43,16 +52,111 @@ const MODAL_TITLES = {
 
 export default function CoachCareer() {
   const { currentDynasty } = useDynasty()
+  const { user } = useAuth()
   const pathPrefix = usePathPrefix()
   const navigate = useNavigate()
   const [showGamesModal, setShowGamesModal] = useState(false)
   const [gamesModalType, setGamesModalType] = useState(null)
   const [selectedTeamForModal, setSelectedTeamForModal] = useState(null)
 
+  // The career being viewed. Defaults to the logged-in user; the
+  // inline picker below lets any signed-in viewer flip to another
+  // member's career instead.
+  const [selectedUid, setSelectedUid] = useState(() => user?.uid || currentDynasty?.userId || null)
+
   if (!currentDynasty) return null
 
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+
+  // Build the user picker options: commish first, then co-commishes,
+  // then members. Each entry shows the member label (or a sensible
+  // default) so the dropdown is human-readable.
+  const allEditors = (() => {
+    const ownerUid = currentDynasty.userId
+    const editors = getEditors(currentDynasty)
+    const ordered = ownerUid ? [ownerUid, ...editors.filter(u => u !== ownerUid)] : [...editors]
+    // Stable sort: commish → cocommish → member.
+    return ordered.sort((a, b) => {
+      const order = { [ROLE_COMMISH]: 0, [ROLE_COCOMMISH]: 1 }
+      const ra = order[getRole(currentDynasty, a)] ?? 2
+      const rb = order[getRole(currentDynasty, b)] ?? 2
+      return ra - rb
+    })
+  })()
+
+  const userOptions = allEditors.map(uid => {
+    const role = getRole(currentDynasty, uid)
+    const label = getMemberLabel(currentDynasty, uid)
+    const fallback = uid === currentDynasty.userId
+      ? (currentDynasty.coachName || 'Commish')
+      : (role === ROLE_COCOMMISH ? 'Co-Commish' : 'Member')
+    return {
+      uid,
+      role,
+      label: label || fallback,
+      isYou: user?.uid === uid,
+    }
+  })
+
+  // If the saved selection no longer applies (member was removed,
+  // for example), fall back to the logged-in user.
+  const effectiveSelectedUid = userOptions.some(o => o.uid === selectedUid)
+    ? selectedUid
+    : (user?.uid || currentDynasty.userId)
+
+  const selectedOption = userOptions.find(o => o.uid === effectiveSelectedUid) || null
+  const selectedDisplayName = selectedOption?.label || 'Coach'
+
+  // Resolve a uid's tids for a given year — preferred source is the
+  // per-year history snapshot; falls back to legacy coachTeamByYear
+  // for the dynasty owner (so existing solo dynasties still render).
+  const getUserTeamsForYear = (uid, year) => {
+    const yearNum = Number(year)
+    if (!Number.isFinite(yearNum) || !uid) return []
+    const fromHistory = getMemberTeamsForYear(currentDynasty, uid, yearNum)
+    if (fromHistory.length > 0) return fromHistory
+    if (uid === currentDynasty.userId) {
+      const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
+      if (cty?.tid != null) return [Number(cty.tid)]
+      if (cty?.team) {
+        const tid = getTidFromAbbr(cty.team)
+        if (tid) return [tid]
+      }
+    }
+    return []
+  }
+
+  // Project a game into the existing perspective shape from the angle
+  // of one of `uid`'s teams that played in it. Returns null when
+  // none of the user's teams participated that year.
+  const buildPerspectiveForUid = (game, uid) => {
+    const yearNum = Number(game.year)
+    if (!Number.isFinite(yearNum)) return null
+    const userTids = getUserTeamsForYear(uid, yearNum)
+    if (userTids.length === 0) return null
+    const matchedTid = userTids.find(tid =>
+      Number(game.team1Tid) === Number(tid) || Number(game.team2Tid) === Number(tid)
+    )
+    if (matchedTid == null) return null
+    const tp = getTeamGamePerspective(game, Number(matchedTid))
+    if (!tp) return null
+    const isTeam1 = Number(game.team1Tid) === Number(matchedTid)
+    return {
+      userTid: tp.teamTid,
+      opponentTid: tp.opponentTid,
+      userScore: tp.teamScore,
+      opponentScore: tp.opponentScore,
+      userWon: tp.won,
+      userRank: tp.teamRank,
+      opponentRank: tp.opponentRank,
+      userOverall: isTeam1 ? game.team1Overall : game.team2Overall,
+      opponentOverall: isTeam1 ? game.team2Overall : game.team1Overall,
+      isHome: tp.isHome,
+      isAway: tp.isAway,
+      isNeutral: tp.isNeutral,
+    }
+  }
 
   const isGamePlayed = (g) => {
     if (g.isPlayed) return true
@@ -138,12 +242,17 @@ export default function CoachCareer() {
 
   const buildCoachingHistory = () => {
     const history = []
+    const uid = effectiveSelectedUid
+    if (!uid) return history
+
     const userGames = (currentDynasty.games || [])
-      .filter(g => isGamePlayed(g) && getUserGamePerspective(g, currentDynasty, { useHistorical: true }) !== null)
-      .map(g => ({
-        ...g,
-        perspective: getUserGamePerspective(g, currentDynasty, { useHistorical: true })
-      }))
+      .map(g => {
+        if (!isGamePlayed(g)) return null
+        const perspective = buildPerspectiveForUid(g, uid)
+        if (!perspective) return null
+        return { ...g, perspective }
+      })
+      .filter(Boolean)
 
     const gamesByTeam = {}
     userGames.forEach(game => {
@@ -152,16 +261,17 @@ export default function CoachCareer() {
         const teamData = currentDynasty.teams?.[game.perspective.userTid]
         teamKey = teamData?.abbr || getAbbrFromTeamName(teamData?.name)
       }
-
-      if (!teamKey) {
+      // Owner-only legacy fallback — older dynasties may not have
+      // tids on every game record.
+      if (!teamKey && uid === currentDynasty.userId) {
         const gameYear = Number(game.year)
         const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear]
         teamKey = coachTeamEntry?.team
       }
-
-      if (!teamKey) {
+      if (!teamKey && uid === currentDynasty.userId) {
         teamKey = currentTeamAbbr
       }
+      if (!teamKey) return // skip games we can't attribute to a team
 
       if (!gamesByTeam[teamKey]) {
         gamesByTeam[teamKey] = []
@@ -241,13 +351,15 @@ export default function CoachCareer() {
     }).sort((a, b) => a.startYear - b.startYear)
 
     const currentTeamFullName = currentDynasty.teamName
-    const currentTid = currentDynasty.currentTid != null ? Number(currentDynasty.currentTid) : null
+    // "Current" team for the selected user is whichever team(s) they
+    // hold for the dynasty's current year — not the dynasty-doc-level
+    // currentTid (which the override layer may have already remapped
+    // to the viewer's own team).
+    const myCurrentTids = new Set(
+      getUserTeamsForYear(uid, currentDynasty.currentYear).map(Number)
+    )
     teamStints.forEach(stint => {
-      // Tid match wins; abbr/name only as fallback for legacy stints that
-      // predate tid storage.
-      const isCurrentTeam = (currentTid != null && stint.teamTid != null && Number(stint.teamTid) === currentTid)
-        || stint.teamAbbr === currentTeamAbbr
-        || stint.teamName === currentTeamFullName
+      const isCurrentTeam = stint.teamTid != null && myCurrentTids.has(Number(stint.teamTid))
       stint.isCurrent = isCurrentTeam
       stint.isPast = !isCurrentTeam
       stint.position = currentDynasty.coachPosition || 'HC'
@@ -274,12 +386,27 @@ export default function CoachCareer() {
         : (isInOffseason ? currentDynasty.currentYear + 1 : currentDynasty.startYear)
       const currentEndYear = Math.max(currentStartYear, currentDynasty.currentYear)
 
+      // Pick the user's primary "current team" for an empty-stint card.
+      // Prefer their actual assigned team for the current year; for the
+      // owner with no assignment, fall back to the dynasty-level team.
+      const myFirstCurrentTid = [...myCurrentTids][0]
+      const fallbackTid = uid === currentDynasty.userId
+        ? getTidFromAbbr(currentTeamAbbr)
+        : null
+      const placeholderTid = myFirstCurrentTid != null ? myFirstCurrentTid : fallbackTid
+      const placeholderTeam = placeholderTid != null ? currentDynasty.teams?.[placeholderTid] : null
+      const placeholderAbbr = placeholderTeam?.abbr || (placeholderTid == null ? '' : currentTeamAbbr)
+      const placeholderName = placeholderTeam?.name || (uid === currentDynasty.userId ? currentTeamFullName : '')
+
       history.push(...teamStints.map(s => ({ ...s, isPast: true, isCurrent: false })))
-      history.push({
-        teamAbbr: currentTeamAbbr,
-        teamTid: getTidFromAbbr(currentTeamAbbr),
-        teamName: currentTeamFullName,
-        conference: currentDynasty.conference,
+      // Only inject a placeholder current-stint if we actually have a
+      // team to attribute it to — otherwise the user genuinely has no
+      // current team in the dynasty (e.g., not yet assigned).
+      if (placeholderTid != null) history.push({
+        teamAbbr: placeholderAbbr,
+        teamTid: placeholderTid,
+        teamName: placeholderName,
+        conference: uid === currentDynasty.userId ? currentDynasty.conference : '',
         position: currentDynasty.coachPosition || 'HC',
         startYear: currentStartYear,
         endYear: currentEndYear,
@@ -312,7 +439,13 @@ export default function CoachCareer() {
   const coachingHistory = buildCoachingHistory()
 
   const awardsByYear = currentDynasty.awardsByYear || {}
-  const coachName = currentDynasty.coachName || ''
+  // Coach-name match for awards is meaningful only for the dynasty
+  // owner (who provides their name via dynasty.coachName). For other
+  // members, awards still match by team — the name path is just
+  // skipped.
+  const coachName = effectiveSelectedUid === currentDynasty.userId
+    ? (currentDynasty.coachName || '')
+    : ''
 
   coachingHistory.forEach(stint => {
     const stintAwards = []
@@ -404,7 +537,15 @@ export default function CoachCareer() {
     setShowGamesModal(true)
   }
 
-  const careerRange = `${currentDynasty.startYear} – Present`
+  // Career range for the selected user — earliest stint year through
+  // present. Falls back to the dynasty's start year for users who have
+  // no recorded stints yet (e.g., a member who hasn't played a game).
+  const careerStartYear = coachingHistory.length > 0
+    ? Math.min(...coachingHistory.map(s => s.startYear).filter(Number.isFinite))
+    : currentDynasty.startYear
+  const careerRange = Number.isFinite(careerStartYear)
+    ? `${careerStartYear} – Present`
+    : '—'
   const careerWinPct = (careerTotals.wins + careerTotals.losses) > 0
     ? ((careerTotals.wins / (careerTotals.wins + careerTotals.losses)) * 100).toFixed(1)
     : '0.0'
@@ -420,7 +561,29 @@ export default function CoachCareer() {
       <section className="card overflow-hidden reveal">
         <div className="px-6 py-7 sm:px-8 sm:py-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
           <div className="min-w-0 flex-1">
-            <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>Career</div>
+            <div className="label-xs text-txt-tertiary mb-2 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2px' }}>
+              <span>Career</span>
+              {userOptions.length > 1 && (
+                <>
+                  <span className="text-txt-muted">·</span>
+                  <span className="text-txt-tertiary normal-case" style={{ letterSpacing: '0' }}>Viewing</span>
+                  <select
+                    value={effectiveSelectedUid || ''}
+                    onChange={e => setSelectedUid(e.target.value)}
+                    aria-label="Switch career view"
+                    className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-blue-500 normal-case"
+                    style={{ letterSpacing: '0' }}
+                  >
+                    {userOptions.map(opt => (
+                      <option key={opt.uid} value={opt.uid}>
+                        {opt.label}{opt.isYou ? ' (you)' : ''}
+                        {opt.role === ROLE_COMMISH ? ' · Commish' : opt.role === ROLE_COCOMMISH ? ' · Co-Commish' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
             <h1
               className="m-0 text-txt-primary leading-[0.95] uppercase break-words"
               style={{
@@ -429,7 +592,7 @@ export default function CoachCareer() {
                 letterSpacing: '0.5px',
               }}
             >
-              {currentDynasty.coachName || 'Coach'}
+              {selectedDisplayName}
             </h1>
             <div className="flex items-center gap-2 mt-3 label-sm text-txt-tertiary flex-wrap">
               <span>{coachingHistory.length} {coachingHistory.length === 1 ? 'team' : 'teams'}</span>

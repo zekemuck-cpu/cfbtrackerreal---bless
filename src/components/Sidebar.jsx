@@ -4,7 +4,7 @@ import { getContrastTextColor } from '../utils/colorUtils'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
-import { isCommish } from '../data/leagueModel'
+import { isEditor } from '../data/leagueModel'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
@@ -75,10 +75,9 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 
   const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
 
-  // Commish always sees League Settings — that's the door into
-  // multiplayer (where they invite the first member). Hiding it for
-  // solo-of-1 would be chicken-and-egg.
-  const userIsCommish = !isViewOnly && user && isCommish(currentDynasty, user.uid)
+  // Members link: visible to anyone with edit access (commish + members).
+  // Action buttons inside the page are gated separately by role.
+  const userCanSeeMembers = !isViewOnly && user && isEditor(currentDynasty, user.uid)
 
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
@@ -95,7 +94,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     { name: 'All Players', path: `${pathPrefix}/players` },
-    ...(userIsCommish ? [{ name: 'League Settings', path: `${pathPrefix}/league`, isAdmin: true }] : []),
+    ...(userCanSeeMembers ? [{ name: 'Members', path: `${pathPrefix}/league`, isAdmin: true }] : []),
     { name: 'Danger Zone', path: `${pathPrefix}/admin`, isAdmin: true }
   ]
 

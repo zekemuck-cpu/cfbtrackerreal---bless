@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getCurrentTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
+import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
@@ -78,8 +79,12 @@ export default function Dashboard() {
 
   const teamColors = useTeamColors(userTeamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
-  // Build path prefix for links based on view mode
-  const pathPrefix = isViewOnly ? `/view/${shareCode}` : `/dynasty/${dynastyId}`
+  // Build path prefix from the actual route — `/view/:shareCode` for
+  // public viewers, `/dynasty/:id` for everyone else (owners + shared
+  // editors, premium or not). isViewOnly is unrelated to routing: a
+  // non-premium shared editor still navigates the regular `/dynasty/`
+  // path; their writes are blocked separately by the rules + UI gates.
+  const pathPrefix = usePathPrefix()
   const secondaryBgText = getContrastTextColor(teamColors.secondary)
   const primaryBgText = getContrastTextColor(teamColors.primary)
 
@@ -300,6 +305,24 @@ export default function Dashboard() {
   const [showRecruitOverallsModal, setShowRecruitOverallsModal] = useState(false)
   const [showPortalTransferClassModal, setShowPortalTransferClassModal] = useState(false)
   const [showFringeCaseClassModal, setShowFringeCaseClassModal] = useState(false)
+
+  // Read-only banner: collapses to a single-row pill. Persists user
+  // choice across sessions so they don't keep having to dismiss it.
+  const [readOnlyBannerExpanded, setReadOnlyBannerExpanded] = useState(() => {
+    try {
+      return localStorage.getItem('cloud-readonly-banner-collapsed') !== 'true'
+    } catch { return true }
+  })
+  const toggleReadOnlyBanner = () => {
+    setReadOnlyBannerExpanded(prev => {
+      const next = !prev
+      try {
+        if (next) localStorage.removeItem('cloud-readonly-banner-collapsed')
+        else localStorage.setItem('cloud-readonly-banner-collapsed', 'true')
+      } catch {}
+      return next
+    })
+  }
 
   // Roster sorting state
   const [rosterSort, setRosterSort] = useState('overall') // 'position', 'jerseyNumber', 'name', 'class', 'overall'
@@ -2629,43 +2652,64 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Cloud Read-Only Banner - show when user has cloud dynasty but no premium */}
+      {/* Read-only banner — collapses to a single pill via the chevron.
+          Visible whenever the user lacks write access on a cloud dynasty
+          (non-premium owner OR non-premium shared editor), but not on
+          public-share routes (where shareCode is set). */}
       {isViewOnly && currentDynasty?.storageType === 'cloud' && !shareCode && (
-        <div className="rounded-lg shadow-lg p-4 bg-amber-50 border-2 border-amber-300">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div
+          className="rounded-lg bg-surface-2 border border-surface-4 overflow-hidden"
+          style={{ boxShadow: 'inset 3px 0 0 0 var(--accent-warning)' }}
+        >
+          <button
+            type="button"
+            onClick={toggleReadOnlyBanner}
+            className="w-full flex items-center justify-between gap-3 px-3 py-2 hover:bg-surface-3 transition-colors group"
+            aria-expanded={readOnlyBannerExpanded}
+          >
+            <div className="flex items-center gap-2 text-sm min-w-0">
+              <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--accent-warning)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
+              <span className="font-semibold text-txt-primary">Read-only</span>
+              <span className="text-txt-tertiary truncate hidden sm:inline">· Premium required to edit</span>
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-semibold text-amber-800">Cloud Dynasty - Read Only</h3>
-              <p className="text-sm text-amber-700 mt-1">
-                This dynasty is stored in the cloud and requires Premium to edit.
-                Download a backup and import it as a new local dynasty to continue editing, or upgrade to Premium.
+            <svg
+              className={`w-4 h-4 flex-shrink-0 text-txt-tertiary group-hover:text-txt-secondary transition-transform ${readOnlyBannerExpanded ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {readOnlyBannerExpanded && (
+            <div className="px-4 py-3 border-t border-surface-4">
+              <p className="text-sm text-txt-secondary">
+                Premium is required to edit this dynasty. Download a backup and import it as a local dynasty to keep editing offline, or upgrade to Premium.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
+                  type="button"
                   onClick={() => exportDynasty(currentDynasty.id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md border border-surface-4 bg-surface-3 text-txt-primary hover:bg-surface-4 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   Download Backup
                 </button>
                 <Link
                   to="/account"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md text-white transition-colors"
+                  style={{ backgroundColor: 'var(--accent-premium, #8b5cf6)' }}
+                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(1.08)'}
+                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                  </svg>
                   Upgrade to Premium
                 </Link>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
