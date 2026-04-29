@@ -97,6 +97,12 @@ export default function LeagueSettings() {
 
   const canManage = canManageMembers(currentDynasty, user.uid)
   const canManageCo = canManageCoCommishes(currentDynasty, user.uid)
+  // Sharing actions only make sense on cloud dynasties — a local
+  // dynasty lives in this device's IndexedDB and there's nothing for
+  // a second account to read. Renaming + team assignment still work
+  // (they're useful for solo team-switching).
+  const isCloudDynasty = currentDynasty.storageType === 'cloud'
+  const canShareWithOthers = canManage && isCloudDynasty
   const teamsSource = currentDynasty?.teams || {}
 
   // Order: commish first, co-commishes next, members last.
@@ -322,9 +328,12 @@ export default function LeagueSettings() {
     const canAddMore = canManage && availableTeamOptions.length > 0 && (cap === Infinity || teams.length < cap)
     const isBusy = busyUid === uid
     const canActOnThis = canActOnUser(currentDynasty, user.uid, uid)
-    const canPromote = canManageCo && role === ROLE_MEMBER
-    const canDemote = canManageCo && role === ROLE_COCOMMISH
-    const canTransfer = canManageCo && role !== ROLE_COMMISH
+    // Promote / demote / transfer-commish only matter when there are
+    // (or could be) multiple users — i.e. on cloud dynasties. Local
+    // dynasties stay solo, so these buttons are hidden.
+    const canPromote = canManageCo && isCloudDynasty && role === ROLE_MEMBER
+    const canDemote = canManageCo && isCloudDynasty && role === ROLE_COCOMMISH
+    const canTransfer = canManageCo && isCloudDynasty && role !== ROLE_COMMISH
 
     const placeholder = role === ROLE_COMMISH ? 'Commish'
                        : role === ROLE_COCOMMISH ? 'Co-Commish'
@@ -473,7 +482,7 @@ export default function LeagueSettings() {
         </div>
       </Card>
 
-      {canManage && (
+      {canShareWithOthers && (
         <Card>
           <h3 className="label-sm text-txt-primary mb-3">Add a Member</h3>
           <form onSubmit={handleAdd} className="space-y-3">
@@ -494,6 +503,15 @@ export default function LeagueSettings() {
           </form>
           <p className="text-xs text-txt-tertiary mt-4">
             New members can read and edit this dynasty. They must sign in to the app first to obtain a User ID — find it on their Account page.
+          </p>
+        </Card>
+      )}
+
+      {canManage && !isCloudDynasty && (
+        <Card>
+          <h3 className="label-sm text-txt-primary mb-1">Sharing</h3>
+          <p className="text-xs text-txt-tertiary">
+            Local dynasties are stored only on this device. To share a dynasty with another account, upgrade to Premium and convert it to a cloud dynasty.
           </p>
         </Card>
       )}

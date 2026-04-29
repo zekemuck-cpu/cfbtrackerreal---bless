@@ -4947,6 +4947,17 @@ export function DynastyProvider({ children }) {
           teamName: dynastyData.teamName
         }
       },
+      // Multiplayer-of-1 by default: stamp the owner's uid into editors[]
+      // and seed memberTeams[ownerUid] with the team they're playing as.
+      // Solo dynasties stay solo; the schema is forward-compatible if
+      // they ever invite a second user via the Members page later.
+      ...(user?.uid && currentTid ? {
+        editors: [user.uid],
+        memberTeams: { [user.uid]: [Number(currentTid)] },
+        memberTeamHistory: {
+          [user.uid]: { [startYear]: [Number(currentTid)] },
+        },
+      } : {}),
       preseasonSetup: {
         scheduleEntered: false,
         rosterEntered: false,
