@@ -420,7 +420,19 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Standings`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Conference Standings`} prompt={aiPrompt} pasteTarget={[
+        'ACC → Cell C2 of the "Standings" tab',
+        'American → Cell C23 of the "Standings" tab',
+        'Big 12 → Cell C44 of the "Standings" tab',
+        'Big Ten → Cell C65 of the "Standings" tab',
+        'Conference USA → Cell C86 of the "Standings" tab',
+        'MAC → Cell C107 of the "Standings" tab',
+        'Mountain West → Cell C128 of the "Standings" tab',
+        'Pac-12 → Cell C149 of the "Standings" tab',
+        'SEC → Cell C170 of the "Standings" tab',
+        'Sun Belt → Cell C191 of the "Standings" tab',
+        'Independent → Cell C212 of the "Standings" tab',
+      ]} />
     </div>,
     document.body,
   )

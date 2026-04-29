@@ -421,6 +421,17 @@ button.card-elevated:hover {
   animation-play-state: paused;
 }
 
+/* Hide scrollbars while preserving scroll. Use on horizontal-scroll rows
+   (tab strips, filter chips on mobile) where a visible scrollbar steals
+   8-12px of width and looks like a stuck UI element. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 8px;

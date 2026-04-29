@@ -787,14 +787,18 @@ export default function Recruiting() {
       />
 
       <Card padding="none">
-        <div className="flex flex-wrap items-stretch divide-y md:divide-y-0 md:divide-x divide-surface-4">
+        {/* Toolbar — stacks vertically on mobile so each block (metrics,
+            view toggle, star filters) gets a full-width row instead of
+            cramming together and wrapping awkwardly. From md: up they sit
+            side-by-side with vertical dividers. */}
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-surface-4">
           {/* Metrics — entire block opens the class history modal */}
           {!isAllSeasons ? (
             <button
               type="button"
               onClick={() => setShowHistoryModal(true)}
               disabled={classHistory.length <= 1}
-              className="flex items-center gap-6 px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
+              className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0 text-left transition-colors hover:bg-surface-3 disabled:cursor-default disabled:hover:bg-transparent"
               title={classHistory.length > 1 ? 'View class scores by season' : 'NCAA Football 25 class score formula'}
               aria-label="View recruiting class history"
             >
@@ -812,7 +816,7 @@ export default function Recruiting() {
               </span>
             </button>
           ) : (
-            <div className="flex items-center gap-6 px-5 py-3 flex-shrink-0">
+            <div className="flex items-center gap-4 sm:gap-6 px-3 sm:px-5 py-3 flex-shrink-0">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black tabular text-txt-primary leading-none" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                   {classStats.total}
@@ -824,7 +828,7 @@ export default function Recruiting() {
 
           {/* View toggle */}
           {hasHSandPortal && (
-            <div className="flex items-center gap-1 px-4 py-3 flex-shrink-0">
+            <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-shrink-0">
               {VIEW_MODE_OPTIONS.map(opt => {
                 const active = viewMode === opt.value
                 const count = opt.value === 'both'
@@ -848,23 +852,35 @@ export default function Recruiting() {
             </div>
           )}
 
-          {/* Star filter chips */}
-          <div className="flex items-center gap-1 px-4 py-3 flex-1 min-w-0 flex-wrap">
+          {/* Star filter chips — wrap freely. On mobile we show a compact
+              "5★" form (rating number + single star) so all five chips fit
+              alongside the view toggle on small viewports; the full 1–5
+              star pattern only appears from sm: up where there's room. */}
+          <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-1 min-w-0 flex-wrap">
             {starTiles.map(tile => {
               const selected = selectedStars.includes(tile.count)
               return (
                 <button
                   key={tile.count}
                   onClick={() => toggleStarFilter(tile.count)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors flex-shrink-0"
                   style={{
                     backgroundColor: selected ? 'var(--team-primary-faded)' : 'transparent',
                     border: `1px solid ${selected ? 'var(--team-primary)' : 'var(--surface-4)'}`,
                     color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
                   }}
                   aria-pressed={selected}
+                  aria-label={`Filter ${tile.count}-star recruits (${tile.label} total)`}
                 >
-                  <span className="flex items-center gap-0.5">
+                  {/* Mobile: compact "5★" */}
+                  <span className="flex items-center gap-0.5 sm:hidden">
+                    <span className="tabular text-txt-primary leading-none">{tile.count}</span>
+                    <svg className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  </span>
+                  {/* Desktop+: full 1–5 star pattern */}
+                  <span className="hidden sm:flex items-center gap-0.5">
                     {[...Array(tile.count)].map((_, i) => (
                       <svg key={i} className="w-2.5 h-2.5" fill="var(--accent-warning)" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -901,6 +917,7 @@ export default function Recruiting() {
             const showBottomChips = recruit.devTrait || recruit.gemBust || recruit.previousTeam
 
             const starCount = Number(recruit.stars) || 0
+            const archAndSize = [recruit.archetype, sizeText].filter(Boolean).join(' · ')
             const cardContent = (
               <Card
                 padding="none"
@@ -908,19 +925,19 @@ export default function Recruiting() {
                 interactive={!!player}
                 className="h-full overflow-hidden group"
               >
-                <div className="p-3 flex flex-col h-full">
-                  {/* Top row — photo, name, position, stars */}
+                <div className="p-2.5 flex flex-col h-full">
+                  {/* Top row — photo, name, position+class+stars (2 rows of content) */}
                   <div className="flex items-start gap-2.5">
                     {player?.pictureUrl ? (
                       <img
                         src={player.pictureUrl}
                         alt={recruit.name}
-                        className="w-12 h-12 object-cover rounded-sm flex-shrink-0"
+                        className="w-11 h-11 object-cover rounded-sm flex-shrink-0"
                         style={{ border: '1px solid var(--surface-4)' }}
                       />
                     ) : (
                       <div
-                        className="w-12 h-12 rounded-sm flex-shrink-0 flex items-center justify-center"
+                        className="w-11 h-11 rounded-sm flex-shrink-0 flex items-center justify-center"
                         style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
                       >
                         <span
@@ -938,24 +955,26 @@ export default function Recruiting() {
                       >
                         {recruit.name || 'Unknown'}
                       </h3>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      {/* Position + class + stars on one row to keep the
+                          card top tight (was 3 stacked rows). */}
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <Badge variant="accent" size="sm">{recruit.position || 'ATH'}</Badge>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>
                           {recruit.class || 'HS'}
                           {isAllSeasons && recruit.recruitYear ? ` · ${recruit.recruitYear}` : ''}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-0.5 mt-1">
-                        {[...Array(5)].map((_, i) => (
-                          <svg
-                            key={i}
-                            className="w-3 h-3"
-                            fill={i < starCount ? 'var(--accent-warning)' : 'var(--surface-4)'}
-                            viewBox="0 0 20 20"
-                          >
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                          </svg>
-                        ))}
+                        <span className="flex items-center gap-0.5 ml-auto">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className="w-2.5 h-2.5"
+                              fill={i < starCount ? 'var(--accent-warning)' : 'var(--surface-4)'}
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -963,22 +982,22 @@ export default function Recruiting() {
                   {/* Rank strip — editorial, tabular */}
                   {(recruit.nationalRank || recruit.stateRank || recruit.positionRank) && (
                     <div
-                      className="mt-2 grid grid-cols-3 text-center rounded-sm overflow-hidden"
+                      className="mt-1.5 grid grid-cols-3 text-center rounded-sm overflow-hidden"
                       style={{ backgroundColor: 'var(--surface-1)', border: '1px solid var(--surface-4)' }}
                     >
-                      <div className="py-1 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                      <div className="py-0.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Natl</div>
                         <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.nationalRank ? `#${recruit.nationalRank}` : '—'}
                         </div>
                       </div>
-                      <div className="py-1 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
+                      <div className="py-0.5 px-1" style={{ borderRight: '1px solid var(--surface-4)' }}>
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.position || 'Pos'}</div>
                         <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.positionRank ? `#${recruit.positionRank}` : '—'}
                         </div>
                       </div>
-                      <div className="py-1 px-1">
+                      <div className="py-0.5 px-1">
                         <div className="text-[9px] font-bold uppercase tracking-widest text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{recruit.state || 'St'}</div>
                         <div className="text-xs font-black tabular text-txt-primary leading-none mt-0.5" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
                           {recruit.stateRank ? `#${recruit.stateRank}` : '—'}
@@ -987,33 +1006,22 @@ export default function Recruiting() {
                     </div>
                   )}
 
-                  {/* Meta info — compact stacked lines */}
-                  {(recruit.archetype || sizeText || hometownText) && (
-                    <div className="mt-2 space-y-0.5 text-[11px]">
-                      {recruit.archetype && (
-                        <div className="truncate">
-                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>Arch</span>
-                          <span className="font-semibold text-txt-primary">{recruit.archetype}</span>
-                        </div>
-                      )}
-                      {sizeText && (
-                        <div className="truncate">
-                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>Size</span>
-                          <span className="font-semibold text-txt-primary tabular">{sizeText}</span>
-                        </div>
+                  {/* Meta — archetype + size on one line, hometown on another.
+                      Labels dropped (the values are self-explanatory). */}
+                  {(archAndSize || hometownText) && (
+                    <div className="mt-1.5 text-[11px] leading-snug">
+                      {archAndSize && (
+                        <div className="truncate font-semibold text-txt-primary">{archAndSize}</div>
                       )}
                       {hometownText && (
-                        <div className="truncate">
-                          <span className="text-txt-tertiary uppercase tracking-wider text-[9px] mr-1" style={{ letterSpacing: '1.5px' }}>From</span>
-                          <span className="font-semibold text-txt-primary">{hometownText}</span>
-                        </div>
+                        <div className="truncate text-txt-tertiary">{hometownText}</div>
                       )}
                     </div>
                   )}
 
                   {/* Bottom chips */}
                   {showBottomChips && (
-                    <div className="flex items-center flex-wrap gap-1 mt-auto pt-2">
+                    <div className="flex items-center flex-wrap gap-1 mt-auto pt-1.5">
                       {recruit.devTrait && (
                         <Badge variant="outline" size="sm">
                           {recruit.devTrait}

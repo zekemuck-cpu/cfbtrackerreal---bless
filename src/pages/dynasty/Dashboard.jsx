@@ -302,7 +302,7 @@ export default function Dashboard() {
   const [showFringeCaseClassModal, setShowFringeCaseClassModal] = useState(false)
 
   // Roster sorting state
-  const [rosterSort, setRosterSort] = useState('position') // 'position', 'jerseyNumber', 'name', 'class'
+  const [rosterSort, setRosterSort] = useState('overall') // 'position', 'jerseyNumber', 'name', 'class', 'overall'
   const [rosterSortDir, setRosterSortDir] = useState('asc')
   const [mobileTab, setMobileTab] = useState('schedule') // 'schedule' or 'roster' - for mobile view
 
@@ -2851,7 +2851,7 @@ export default function Dashboard() {
                           onClick={() => setShowCoachingStaffPopup(false)}
                         />
                         <div
-                          className="fixed z-50 w-72 rounded-2xl overflow-hidden card-elevated"
+                          className="fixed z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl overflow-hidden card-elevated"
                           style={{
                             top: coachingStaffPopupPosition.top,
                             right: coachingStaffPopupPosition.right

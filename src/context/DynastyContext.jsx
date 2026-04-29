@@ -1736,10 +1736,18 @@ function applyBoxScoreDelta(players, newContribution, oldContribution, year) {
 }
 
 /**
- * Recompute "max" (long) fields only, by scanning all games for the year.
+ * Recompute "max" (long) fields by scanning all games for the year.
  * Needed because the delta path uses Math.max against current — it never
  * decreases a season long even if the game that originally set it was edited
  * down. Sum/count fields remain delta-tracked (cheap, correct).
+ *
+ * Exhaustive across all (player, category) pairs — for any player whose
+ * statsByYear[year][category] exists, we set every max field to the
+ * highest value found across all games' contributions, OR 0 if no game
+ * contains that player's stats for that category. Without the "OR 0"
+ * step, a wipe (Reset on a slice) would orphan max fields: the player
+ * disappears from every game's contribution but their season-long
+ * stays at the old value forever.
  */
 function recomputeMaxFieldsFromGames(players, allGames, year) {
   const yearNum = Number(year)
@@ -1769,22 +1777,59 @@ function recomputeMaxFieldsFromGames(players, allGames, year) {
     })
   })
 
+  // Pre-compute the (category, field) pairs we have to recompute, so we
+  // don't redo this work per-player.
+  const categoriesWithMax = []
+  Object.keys(BOX_SCORE_STATS).forEach(category => {
+    const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+    const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+    if (maxFields.length > 0) categoriesWithMax.push({ category, maxFields })
+  })
+
   return players.map(player => {
-    const normalized = normalizePlayerName(player.name)
-    const playerMax = maxByPlayer[normalized]
-    if (!playerMax) return player
     const existingStatsByYear = player.statsByYear || {}
-    const existingYearStats = { ...(existingStatsByYear[yearNum] || {}) }
-    Object.entries(playerMax).forEach(([category, fields]) => {
-      if (!existingYearStats[category]) existingYearStats[category] = {}
-      else existingYearStats[category] = { ...existingYearStats[category] }
-      Object.entries(fields).forEach(([field, value]) => {
-        existingYearStats[category][field] = value
+    const existingYearStats = existingStatsByYear[yearNum]
+    if (!existingYearStats) return player // Player has no stats this year — nothing to do.
+
+    const normalized = normalizePlayerName(player.name)
+    const playerMax = maxByPlayer[normalized] || {}
+
+    let modified = false
+    const updatedYearStats = { ...existingYearStats }
+
+    categoriesWithMax.forEach(({ category, maxFields }) => {
+      // Only touch categories the player already has stats in. If they
+      // never had Passing stats this year, we don't materialize a
+      // Passing entry just to write zeros into it.
+      const existingCat = updatedYearStats[category]
+      if (!existingCat) return
+
+      const computed = playerMax[category] || {}
+      let categoryModified = false
+      const nextCat = { ...existingCat }
+
+      maxFields.forEach(field => {
+        // Source of truth: highest value found across this year's games,
+        // or 0 if the player isn't in any game's contribution for this
+        // category. This is what makes the function exhaustive — we
+        // overwrite stale values, including with 0.
+        const newMax = computed[field] || 0
+        if (nextCat[field] !== newMax) {
+          nextCat[field] = newMax
+          categoryModified = true
+        }
       })
+
+      if (categoryModified) {
+        updatedYearStats[category] = nextCat
+        modified = true
+      }
     })
+
+    if (!modified) return player
     return {
       ...player,
-      statsByYear: { ...existingStatsByYear, [yearNum]: existingYearStats }
+      statsByYear: { ...existingStatsByYear, [yearNum]: updatedYearStats },
     }
   })
 }
@@ -4780,6 +4825,35 @@ export function DynastyProvider({ children }) {
     return () => { cancelled = true }
   }, [user, subscription?.pendingDowngrade, toast])
 
+  // Defensive read-only guard for mutation functions. The Firestore
+  // rules already reject writes from non-premium users on cloud
+  // dynasties, but a rejection at the network layer surfaces as an
+  // ugly "Missing or insufficient permissions" Firestore error in the
+  // console with no user feedback. This helper lets each mutation
+  // short-circuit cleanly with a friendly toast before the network
+  // call is even attempted.
+  //
+  // Returns true when the caller should bail. Pass the dynasty id of
+  // the operation; the helper looks it up in `dynasties` /
+  // `currentDynasty` and checks whether it's a cloud dynasty owned by
+  // a user without active premium. Local-only dynasties are always
+  // writable (this returns false for them).
+  const blockIfReadOnly = (dynastyId, actionLabel = 'this change') => {
+    let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty && String(currentDynasty?.id) === String(dynastyId)) {
+      dynasty = currentDynasty
+    }
+    if (!dynasty) return false // unknown dynasty — let the caller decide
+    const readOnly = dynasty.storageType === 'cloud' && !isPremium
+    if (readOnly) {
+      try {
+        toast.error('This cloud dynasty is read-only without active premium. Renew premium to save changes.')
+      } catch { /* toast may not be ready in early-mount paths */ }
+      console.warn(`[DynastyContext] blocked ${actionLabel} on ${dynastyId} (cloud + not premium)`)
+    }
+    return readOnly
+  }
+
   const createDynasty = async (dynastyData) => {
     const startYear = parseInt(dynastyData.startYear)
 
@@ -4945,6 +5019,12 @@ export function DynastyProvider({ children }) {
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
     const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false } = options
+
+    // Read-only chokepoint: most mutations route through updateDynasty,
+    // so guarding here catches every modal whose parent forgot to gate
+    // on isViewOnly. Per-feature mutations below also guard
+    // independently for a clean error message before they call us.
+    if (blockIfReadOnly(dynastyId, 'update dynasty')) return
 
     // Find the dynasty to determine its storage type
     let dynasty = dynasties.find(d => String(d.id) === String(dynastyId))
@@ -5342,6 +5422,7 @@ export function DynastyProvider({ children }) {
   }
 
   const addGame = async (dynastyId, gameData) => {
+    if (blockIfReadOnly(dynastyId, 'add game')) return
     console.log('[addGame] Called with:', { dynastyId, gameId: gameData.id, cfpSlot: gameData.cfpSlot, bowlName: gameData.bowlName, team1Tid: gameData.team1Tid, team2Tid: gameData.team2Tid, isCFPQuarterfinal: gameData.isCFPQuarterfinal })
 
     // Helper to recursively remove undefined values (Firestore doesn't accept undefined)
@@ -5858,6 +5939,7 @@ export function DynastyProvider({ children }) {
    * @param {Object} options - Optional config { recordUpdates, cfpGamesToPropagate }
    */
   const updateGame = async (dynastyId, gameData, options = {}) => {
+    if (blockIfReadOnly(dynastyId, 'update game')) return
     const { recordUpdates = {}, cfpGamesToPropagate = [] } = options
 
     console.log('[updateGame] Called with:', {
@@ -5970,6 +6052,7 @@ export function DynastyProvider({ children }) {
   // This ensures ALL games (user and CPU) are stored uniformly
   // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCPUBowlGames = async (dynastyId, bowlGames, year, week = 'week1') => {
+    if (blockIfReadOnly(dynastyId, 'save CPU bowl games')) return
     // Find dynasty from state first, then fallback to IndexedDB
     let dynasty = String(currentDynasty?.id) === String(dynastyId)
       ? currentDynasty
@@ -6084,6 +6167,7 @@ export function DynastyProvider({ children }) {
   // UPDATED: Now properly updates existing game shells created at seed entry time
   // FIXED: Now reads games from storage backend (not stale React state) to avoid race conditions
   const saveCFPGames = async (dynastyId, gamesData, year, roundType) => {
+    if (blockIfReadOnly(dynastyId, 'save CFP games')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -6306,6 +6390,7 @@ export function DynastyProvider({ children }) {
   // Add or update CPU conference championship games as proper game entries in the games[] array
   // This ensures ALL games (user and CPU) are stored uniformly
   const saveCPUConferenceChampionships = async (dynastyId, championships, year) => {
+    if (blockIfReadOnly(dynastyId, 'save conference championships')) return
     console.log('[saveCPUCC] Called with:', { dynastyId, championships, year })
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
@@ -6462,6 +6547,7 @@ export function DynastyProvider({ children }) {
   }
 
   const advanceWeek = async (dynastyId, classConfirmations = {}) => {
+    if (blockIfReadOnly(dynastyId, 'advance week')) return
     console.log('[advanceWeek] ========== STARTING ==========')
     console.log('[advanceWeek] dynastyId:', dynastyId)
     console.log('[advanceWeek] classConfirmations:', classConfirmations)
@@ -7405,6 +7491,7 @@ export function DynastyProvider({ children }) {
    * @param {string} dynastyId - The dynasty ID
    */
   const advanceToNewSeason = async (dynastyId) => {
+    if (blockIfReadOnly(dynastyId, 'advance to new season')) return
     // CRITICAL: Set phase transition flag to prevent listener from overwriting data
     phaseTransitionInProgressRef.current = true
     console.log('[advanceToNewSeason] Phase transition flag SET')
@@ -7751,6 +7838,7 @@ export function DynastyProvider({ children }) {
   }
 
   const revertWeek = async (dynastyId) => {
+    if (blockIfReadOnly(dynastyId, 'revert week')) return
     const dynasty = dynasties.find(d => d.id === dynastyId)
     if (!dynasty) return
 
@@ -8605,6 +8693,7 @@ export function DynastyProvider({ children }) {
   }
 
   const saveSchedule = async (dynastyId, schedule, options = {}) => {
+    if (blockIfReadOnly(dynastyId, 'save schedule')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -8742,6 +8831,7 @@ export function DynastyProvider({ children }) {
   }
 
   const saveRoster = async (dynastyId, players, options = {}) => {
+    if (blockIfReadOnly(dynastyId, 'save roster')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9046,6 +9136,7 @@ export function DynastyProvider({ children }) {
   }
 
   const saveTeamRatings = async (dynastyId, ratings) => {
+    if (blockIfReadOnly(dynastyId, 'save team ratings')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9150,6 +9241,7 @@ export function DynastyProvider({ children }) {
 
   // Save team year info (record, conference) for any team/year combination
   const saveTeamYearInfo = async (dynastyId, teamAbbr, year, info) => {
+    if (blockIfReadOnly(dynastyId, 'save team info')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9261,6 +9353,7 @@ export function DynastyProvider({ children }) {
   }
 
   const saveCoachingStaff = async (dynastyId, staff) => {
+    if (blockIfReadOnly(dynastyId, 'save coaching staff')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9364,6 +9457,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updatePlayer = async (dynastyId, updatedPlayer, yearStats = null) => {
+    if (blockIfReadOnly(dynastyId, 'update player')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 
@@ -9591,6 +9685,7 @@ export function DynastyProvider({ children }) {
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
+    if (blockIfReadOnly(dynastyId, 'delete player')) return
     // Use helper functions for consistent storage routing based on dynasty.storageType
     const dynasty = await findDynastyById(dynastyId)
 

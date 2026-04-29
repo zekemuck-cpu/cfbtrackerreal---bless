@@ -933,6 +933,7 @@ FINAL CHECK before you send the answer
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Bowl Week 2 Results`}
         prompt={aiPrompt}
+        pasteTarget={`Cell B2 of the "Bowl Games" tab`}
       />
     </div>,
     document.body,

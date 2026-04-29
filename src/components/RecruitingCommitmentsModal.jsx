@@ -581,6 +581,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Recruiting Commitments — ${recruitingLabel || ''}`.trim()}
         prompt={aiPrompt}
+        pasteTarget={`Cell A2 of the "Commitments" tab`}
       />
     </div>,
     document.body,

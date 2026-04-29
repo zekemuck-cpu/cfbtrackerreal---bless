@@ -383,7 +383,7 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Americans`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Americans`} prompt={aiPrompt} pasteTarget={`Cell A4 of the "${currentYear}" tab`} />
     </div>,
     document.body,
   )

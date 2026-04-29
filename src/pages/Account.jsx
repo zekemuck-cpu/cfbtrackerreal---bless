@@ -30,6 +30,15 @@ const PLAN_FEATURES = [
 // nicety — the panel's buttons are inert for non-admins.
 const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
+// Emails permitted to self-grant a free beta premium pass while Stripe
+// checkout is disabled. Must mirror BETA_GRANT_EMAILS in
+// api/_verifyAuth.js — the server is the actual gate; this client list
+// only controls whether the "Beta Access" card is shown. Keep in sync.
+const BETA_GRANT_EMAILS = new Set([
+  'skater1932@gmail.com',
+  'zekemuck@gmail.com',
+])
+
 function PlanCell({ value }) {
   if (value === true) {
     return <span className="tabular" style={{ color: 'var(--accent-success)' }}>Yes</span>
@@ -57,7 +66,10 @@ export default function Account() {
   const [recoverTargetId, setRecoverTargetId] = useState('')
   const [recovering, setRecovering] = useState(false)
 
-  const isAdmin = !!user?.email && ADMIN_EMAILS.has(user.email.toLowerCase())
+  const userEmailLower = user?.email?.toLowerCase()
+  const isAdmin = !!userEmailLower && ADMIN_EMAILS.has(userEmailLower)
+  // Anyone allowed to self-grant beta premium (admins are implicitly allowed).
+  const canBetaGrant = !!userEmailLower && (BETA_GRANT_EMAILS.has(userEmailLower) || ADMIN_EMAILS.has(userEmailLower))
 
   const handleGrantPremium = async () => {
     setDevStatus('granting')
@@ -122,6 +134,23 @@ export default function Account() {
       toast.error(err.message || 'Recovery failed')
     } finally {
       setRecovering(false)
+    }
+  }
+
+  const handleManageSubscription = async () => {
+    if (!manageSubscription) return
+    try {
+      await manageSubscription()
+    } catch (err) {
+      console.error('[Account] manage subscription failed:', err)
+      // Most common failure: user is dev/beta-granted (no Stripe customer)
+      // and shouldn't see this button at all. We hide it for those users
+      // below, but if it slips through, show the error rather than failing
+      // silently — the previous build had this onClick swallow the error.
+      const msg = err?.message?.includes('no subscription')
+        ? 'No Stripe subscription on this account — nothing to manage.'
+        : (err?.message || 'Could not open the subscription portal. Try again later.')
+      toast.error(msg)
     }
   }
 
@@ -231,13 +260,21 @@ export default function Account() {
           </div>
         </Card>
 
-        {/* Premium Member Card */}
+        {/* Premium Member Card. Two variants:
+            - Real Stripe subscribers (have stripeCustomerId): show billing
+              date + amount and a working "Manage Subscription" button that
+              opens the Stripe portal.
+            - Dev/beta-granted users (no stripeCustomerId): show grant
+              expiry only. No portal button — there's no Stripe customer
+              to manage, and the previous build's button failed silently. */}
         {isPremium && (
           <Card accent="top">
             <div className="flex items-center justify-between mb-3">
               <div className="label-sm text-txt-primary">Premium Member</div>
               {subscription?.cancelAtPeriodEnd ? (
                 <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Canceling</span>
+              ) : subscription?._devGranted ? (
+                <span className="label-xs" style={{ color: 'var(--accent-warning)' }}>Beta access</span>
               ) : (
                 <span className="label-xs text-txt-tertiary">Thanks for your support</span>
               )}
@@ -255,6 +292,17 @@ export default function Account() {
                     When premium ends, your cloud dynasties will be auto-copied to local storage.
                   </div>
                 </div>
+              ) : subscription?._devGranted ? (
+                <div className="text-txt-secondary space-y-1">
+                  <div className="flex justify-between">
+                    <span>Access type</span>
+                    <span className="font-medium text-txt-primary">Beta (free)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Expires</span>
+                    <span className="font-medium text-txt-primary tabular">{billingEnd}</span>
+                  </div>
+                </div>
               ) : (
                 <div className="text-txt-secondary space-y-1">
                   <div className="flex justify-between">
@@ -269,9 +317,11 @@ export default function Account() {
               )}
             </div>
 
-            <Button variant="outline" className="w-full" onClick={() => manageSubscription?.()}>
-              Manage Subscription
-            </Button>
+            {!subscription?._devGranted && (
+              <Button variant="outline" className="w-full" onClick={handleManageSubscription}>
+                Manage Subscription
+              </Button>
+            )}
           </Card>
         )}
 
@@ -306,22 +356,103 @@ export default function Account() {
 
           {!isPremium && (
             <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--surface-4)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="label-sm text-txt-primary">Upgrade to Premium</span>
-                <span className="stat-md tabular text-txt-primary">$4.99<span className="text-xs text-txt-tertiary">/mo</span></span>
+              <div className="mb-4">
+                <span className="label-sm text-txt-primary">Premium Access</span>
               </div>
-              <Button
-                variant="primary"
-                className="w-full"
-                onClick={handleUpgrade}
-                disabled={upgrading}
-              >
-                {upgrading ? 'Processing...' : 'Upgrade to Premium'}
-              </Button>
-              <p className="text-center text-txt-tertiary text-xs mt-3">Cancel anytime. Secure payment via Stripe.</p>
+              {/* Stripe checkout is disabled while the app is in beta.
+                  Users email the dev to be added to the allowlist; once
+                  added, the "Beta Premium Access" card below appears for
+                  them and they self-grant. */}
+              <div className="rounded-lg p-4 mb-3" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+                <p className="text-sm text-txt-primary mb-2">
+                  <span className="font-semibold">Beta is free.</span>
+                </p>
+                <p className="text-sm text-txt-secondary">
+                  While the app is in beta, premium is on me. Reach out from the Contact page with the
+                  email you sign in with and I&apos;ll get you access.
+                </p>
+              </div>
+              <Link to="/contact" className="block">
+                <Button variant="primary" className="w-full">
+                  Contact Me for Free Premium
+                </Button>
+              </Link>
+              <p className="text-center text-txt-tertiary text-xs mt-3">
+                No payment required during beta.
+              </p>
             </div>
           )}
         </Card>
+
+        {/* Beta Premium Access card — visible to anyone allowed to
+            self-grant (BETA_GRANT_EMAILS + admins). Single source of
+            truth for granting / revoking the 30-day beta pass; the Dev
+            Tools panel below no longer duplicates these buttons. */}
+        {canBetaGrant && (
+          <Card>
+            <h2 className="label-sm text-txt-primary mb-2">Beta Premium Access</h2>
+            <p className="text-sm text-txt-secondary mb-4">
+              {isPremium
+                ? 'Your beta pass is active. When it expires, come back here and grant yourself another 30 days — no charge during beta.'
+                : "You're on the beta allowlist. Click below to grant yourself 30 days of premium. After it expires, just come back and grant again."}
+            </p>
+            <div className="p-3 rounded-lg text-xs space-y-1 mb-4" style={{ backgroundColor: 'var(--surface-3)' }}>
+              <div className="flex justify-between">
+                <span className="text-txt-tertiary">Tier</span>
+                <span className={isPremium ? '' : 'text-txt-primary'} style={isPremium ? { color: 'var(--accent-warning)' } : undefined}>
+                  {subscription?.tier || 'free'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-txt-tertiary">Status</span>
+                <span className="text-txt-primary">{subscription?.subscriptionStatus || 'none'}</span>
+              </div>
+              {subscription?.currentPeriodEnd && (
+                <div className="flex justify-between">
+                  <span className="text-txt-tertiary">Expires</span>
+                  <span className="text-txt-primary tabular">
+                    {subscription.currentPeriodEnd.toDate?.()?.toLocaleDateString() ||
+                      new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+            {!isPremium ? (
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={handleGrantPremium}
+                disabled={devStatus === 'granting'}
+              >
+                {devStatus === 'granting' ? 'Granting...' : 'Grant Myself 30 Days Premium'}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRevokePremium}
+                disabled={devStatus === 'revoking'}
+              >
+                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke My Beta Pass'}
+              </Button>
+            )}
+            {devStatus === 'granted' && (
+              <p className="text-sm text-center mt-3" style={{ color: 'var(--accent-success)' }}>
+                Premium granted for 30 days. Refresh the page to see it everywhere.
+              </p>
+            )}
+            {devStatus === 'revoked' && (
+              <p className="text-sm text-center mt-3 text-txt-secondary">
+                Beta pass revoked. Refresh to see it everywhere.
+              </p>
+            )}
+            {devStatus === 'error' && (
+              <p className="text-sm text-center mt-3 text-red-400">
+                Action failed. Make sure the email you signed in with matches the allowlist.
+              </p>
+            )}
+          </Card>
+        )}
 
         {/* Transparency Note */}
         <Card>
@@ -377,41 +508,11 @@ export default function Account() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  {!isPremium ? (
-                    <Button
-                      variant="primary"
-                      className="flex-1"
-                      onClick={handleGrantPremium}
-                      disabled={devStatus === 'granting'}
-                    >
-                      {devStatus === 'granting' ? 'Granting...' : 'Grant Premium (Dev)'}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="danger"
-                      className="flex-1"
-                      onClick={handleRevokePremium}
-                      disabled={devStatus === 'revoking'}
-                    >
-                      {devStatus === 'revoking' ? 'Revoking...' : 'Revoke Premium (Dev)'}
-                    </Button>
-                  )}
-                </div>
-
-                {devStatus === 'granted' && (
-                  <p className="text-sm text-center" style={{ color: 'var(--accent-success)' }}>Premium granted for 30 days.</p>
-                )}
-                {devStatus === 'revoked' && (
-                  <p className="text-sm text-center text-txt-tertiary">Premium revoked, back to free tier.</p>
-                )}
-                {devStatus === 'error' && (
-                  <p className="text-sm text-center" style={{ color: 'var(--accent-error)' }}>Error — check console for details.</p>
-                )}
-
-                <p className="text-xs text-txt-tertiary text-center">
-                  Server-gated to admin email. Use real payment flow for normal testing.
-                </p>
+                {/* Grant / revoke buttons live in the "Beta Premium
+                    Access" card above (visible to admins and beta users
+                    alike), so we no longer duplicate them here. Dev Tools
+                    is now admin-only stuff: user-info display + orphan
+                    subcollection recovery below. */}
 
                 {/* Orphan subcollection recovery — pulls players + games
                     from a pre-bug-fix cloud dynasty (whose main doc was

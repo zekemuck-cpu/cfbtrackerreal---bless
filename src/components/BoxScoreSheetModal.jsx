@@ -7,6 +7,7 @@ import {
   createScoringSummarySheet,
   createGameTeamStatsSheet,
   readGameBoxScoreFromSheet,
+  readGameBoxScoreFromUnifiedTab,
   readScoringSummaryFromSheet,
   readGameTeamStatsFromSheet,
   deleteGoogleSheet,
@@ -46,7 +47,7 @@ export default function BoxScoreSheetModal({
   game,
   teamColors
 }) {
-  const { currentDynasty, updateDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -493,16 +494,78 @@ FINAL CHECK before you send
       .map(s => `  ${s.title}: rows ${s.dataStart}–${s.dataEnd} (${s.rowCount} data rows)`)
       .join('\n')
 
-    // Per-section row spec for the prompt — what each row should contain
-    const rowSpec = layout.sections.map((s, idx) => {
-      const isLast = idx === layout.sections.length - 1
-      const lines = []
-      lines.push(`Row ${s.bannerRow}:        ═══ ${s.title.toUpperCase()} ═══   (this exact text in column A)`)
-      lines.push(`Row ${s.headerRow}:        ${s.headers.join(' | ')}   (tab-separated column headers)`)
-      lines.push(`Rows ${s.dataStart}–${s.dataEnd}: ${s.rowCount} data row slots — fill stat-earners from the top, leave any unused slots BLANK (just an empty line)`)
-      if (!isLast) lines.push(`Row ${s.dataEnd + 1}:       blank separator`)
-      return lines.join('\n')
-    }).join('\n\n')
+    // (rowSpec used to be a per-section prose list of "Row N: do X".
+    // Replaced by the literal templateBlock below — which is the same
+    // information but in a form the AI fills in by replacing
+    // placeholders rather than constructing from a description.)
+
+    // Banner-position table — gives the AI an absolute-row checklist it
+    // can verify against its own draft. The previous version of this
+    // prompt only specified row ranges per section; the AI would
+    // sometimes undershoot data rows in an earlier section and every
+    // later banner would shift down a row, landing inside the next
+    // section's data area (e.g. "═══ DEFENSE ═══" appearing in a
+    // Blocking data row). Pinning each banner to its absolute line
+    // number — and asking the AI to physically count and verify —
+    // makes the misalignment self-detectable.
+    const bannerPositionTable = layout.sections
+      .map(s => `  Line ${s.bannerRow}: "═══ ${s.title.toUpperCase()} ═══"`)
+      .join('\n')
+
+    // The literal fill-in-the-blank template the AI must produce.
+    //
+    // Reduces the AI's job from "construct a 28-line block with banners
+    // and headers in the right positions" to "copy this template, fill
+    // the data placeholders, leave the rest verbatim". Banner + header
+    // lines are LITERAL strings; the only thing the AI generates is the
+    // data-row content. The structural integrity of the output is
+    // therefore baked into the template — there's no math the AI can
+    // miscount.
+    //
+    // We use <TAB> as the literal tab marker in the headers because
+    // showing real tabs inside a JS template literal makes the prompt
+    // hard for the user to read in the modal. The AI is told to
+    // replace each <TAB> with a real tab character. Real tabs are also
+    // shown beside the header line for unambiguity.
+    const templateBlock = (() => {
+      const out = []
+      layout.sections.forEach((s, idx) => {
+        const isLast = idx === layout.sections.length - 1
+        // Banner line — literal, column A only.
+        out.push(`═══ ${s.title.toUpperCase()} ═══`)
+        // Column-header line — tab-separated. Shown with both the <TAB>
+        // notation (readable) and the literal real-tab joined version
+        // would be redundant; keep just <TAB> notation and remind the
+        // AI in the rules to substitute real tabs.
+        out.push(s.headers.join('<TAB>'))
+        // Data slots — placeholders. For each, the AI either fills with
+        // a player row (N tab-separated values matching the header
+        // count) or emits an empty line.
+        for (let i = 1; i <= s.rowCount; i++) {
+          out.push(`<<${s.title.toUpperCase()}-DATA-${i} or empty line>>`)
+        }
+        // Blank separator (except after the last section).
+        if (!isLast) out.push('<<BLANK SEPARATOR — emit a single empty line here>>')
+      })
+      return out.join('\n')
+    })()
+
+    // Worked example showing the Passing section filled in. Gives the
+    // AI a concrete pattern of "what a filled-in template looks like"
+    // so it doesn't have to derive the format from rules alone.
+    const passingSection = layout.sections.find(s => s.key === 'passing') || layout.sections[0]
+    const exampleSection = (() => {
+      if (!passingSection) return ''
+      const out = []
+      out.push(`═══ ${passingSection.title.toUpperCase()} ═══`)
+      out.push(passingSection.headers.join('<TAB>'))
+      // One example data row + then empty data slots
+      const headerCount = passingSection.headers.length
+      const exampleRow = ['Trent Dilfer', '24', '32', '298', '2', '1', '47', '2', '142.6'].slice(0, headerCount)
+      out.push(exampleRow.join('<TAB>'))
+      for (let i = 1; i < passingSection.rowCount; i++) out.push('') // empty data slots
+      return out.join('\n')
+    })()
 
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
@@ -552,9 +615,76 @@ ${sectionSummary}
 Total rows: ${layout.totalRows}. Max columns: ${layout.maxCols}.
 
 ═══════════════════════════════════════════════════════════
-EXACT ROW-BY-ROW LAYOUT — emit each row in this order
+FILL-IN-THE-BLANK TEMPLATE — copy verbatim, replace placeholders
 ═══════════════════════════════════════════════════════════
-${rowSpec}
+DO NOT construct your output line by line from the section ranges
+above. Instead, take the literal template below, paste it as your
+output, and replace ONLY the <<...>> placeholders. Banner lines
+("═══ X ═══") and column-header lines are FIXED — copy them
+character-for-character exactly as shown. Do not retype them. Do
+not paraphrase them. Do not add extra spaces. Do not shift them.
+
+In the template, "<TAB>" represents a single real tab character
+(U+0009). Replace every "<TAB>" with a real tab character when you
+emit your output. The user is pasting into Google Sheets — real
+tabs are what split fields into cells.
+
+For each "<<X-DATA-N or empty line>>" placeholder you have two
+choices:
+  • Replace it with a single line of N tab-separated values
+    matching the section's column count, OR
+  • Replace it with a TRULY EMPTY LINE (just \\n, no spaces, no
+    tabs) if no player has stats for that slot.
+
+For each "<<BLANK SEPARATOR — emit a single empty line here>>"
+placeholder, replace it with a TRULY EMPTY LINE (just \\n).
+
+NEVER:
+  • Move a banner line to a different position
+  • Move a column-header line to a different position
+  • Output a banner line OR a column-header line in a data slot
+  • Output an extra banner or extra header that isn't in the template
+  • Skip an empty data slot (every <<...DATA-N>> must produce one
+    line of output even if empty)
+
+THE TEMPLATE (your output is exactly ${layout.totalRows} lines long
+and follows this shape):
+
+\`\`\`
+${templateBlock}
+\`\`\`
+
+═══════════════════════════════════════════════════════════
+WORKED EXAMPLE — what a filled-in section looks like
+═══════════════════════════════════════════════════════════
+Below is what the FIRST section (${passingSection?.title || 'Passing'}) might look
+like after you fill in one player and leave the rest empty.
+Notice:
+  • The banner line is unchanged
+  • The header line is unchanged
+  • Trent Dilfer is on data line 1 with tab-separated values
+  • The remaining ${(passingSection?.rowCount || 1) - 1} data lines are EMPTY (just \\n)
+
+\`\`\`
+${exampleSection}
+\`\`\`
+
+(The "<TAB>" tokens above stand for real tab characters when you
+emit your output. Do not literally write "<TAB>".)
+
+═══════════════════════════════════════════════════════════
+BANNER POSITIONS — sanity check (computed from the template above)
+═══════════════════════════════════════════════════════════
+If you copied the template correctly, your banners land on these
+line numbers (1-indexed). Use this list as a sanity check, NOT as
+your source of truth — the template is the source of truth.
+
+${bannerPositionTable}
+
+If line N starts with "═══ X ═══", line N MUST be one of the lines
+above. Any "═══ ... ═══" appearing in a data row position means
+the template wasn't copied correctly — go back and start from the
+template, don't try to fix it inline.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
@@ -599,16 +729,64 @@ COMMON MISTAKES — actively avoid these
 ✗ Adding any text outside the ${layout.totalRows}-line block (no "here is the output:", no markdown fences, no trailing notes)
 
 ═══════════════════════════════════════════════════════════
-FINAL CHECK before you send
+FINAL CHECK before you send — actually run these on your draft
 ═══════════════════════════════════════════════════════════
-[ ] EXACTLY ${layout.totalRows} lines emitted (count them)
-[ ] Banner lines contain ONLY the section title text (no tabs)
-[ ] Each non-empty data row has the exact column count for its section
-[ ] Empty data slots and separator rows are TRULY EMPTY lines
-[ ] Player names match the roster spelling — NO "#12" or "J. Smith"
-[ ] All stats are for ${teamAbbr} players only
-[ ] No commas in numbers; Rtg may have one decimal; all other stats are integers
-[ ] No commentary, no markdown fences, no headers around the block`,
+Don't just glance at this list. Physically execute each check
+against the lines you just wrote. Misalignment is the #1 failure
+mode of this output and it will silently corrupt the user's sheet.
+
+[ ] TEMPLATE STRUCTURE: take YOUR DRAFT and the TEMPLATE above. Walk
+    line-by-line in parallel. Banner lines and header lines in
+    your draft must EQUAL the corresponding lines in the template
+    character-for-character (after substituting <TAB> with real
+    tabs). If ANY banner or header line differs from the template,
+    you generated it from scratch instead of copying — go back and
+    re-copy from the template.
+
+[ ] LINE COUNT: split your draft on newlines. The result MUST
+    contain EXACTLY ${layout.totalRows} elements. If it's anything
+    else, you're done — go fix.
+
+[ ] STRAY BANNERS / HEADERS: search your draft for the string "═══".
+    Every occurrence MUST be on one of the banner-position lines
+    listed above. Search your draft for the literal text "Player
+    Name" — every occurrence MUST be on one of the column-header
+    lines listed in the template (header lines start with "Player
+    Name" followed by tabs and stat labels). Any "Player Name" or
+    "═══ ... ═══" found in a DATA row position means a header /
+    banner line was duplicated into a data slot. Delete the
+    duplicate.
+
+[ ] EMPTY-LINE COUNT: there should be ${layout.sections.length - 1} blank separator lines
+    between sections, plus however many empty data slots you didn't
+    fill. An empty line is a TRULY EMPTY line — \\n only, no
+    spaces, no tabs.
+
+[ ] BANNER ROW SHAPE: for each banner line, confirm there are zero
+    tab characters on that line. Banners are column A only.
+
+[ ] HEADER ROW SHAPE: for each header line, confirm the column
+    count matches the section's stat list (e.g. Passing header has
+    9 cells, Defense header has 15).
+
+[ ] DATA ROW SHAPE: for each non-empty data row, confirm the field
+    count matches the section's column count. A Passing data row
+    has exactly 9 fields (8 tabs); a Defense row has 15 fields
+    (14 tabs); etc.
+
+[ ] PLAYER NAMES: match the roster spelling — NO "#12" or "J. Smith".
+
+[ ] TEAM SCOPE: all stats are for ${teamAbbr} players only. No ${opponentAbbrLabel}.
+
+[ ] NUMBER FORMAT: no commas in any number. Rtg may have one
+    decimal; every other stat is integer.
+
+[ ] NO COMMENTARY: no markdown fences, no "here is the output:",
+    no trailing notes. The block is exactly ${layout.totalRows} lines and nothing
+    else surrounds it.
+
+If ANY of these fails, fix and re-run the checks. Do not send
+output that fails any of them.`,
       includeTeamMap: true,
     })
   }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear])
@@ -622,6 +800,31 @@ FINAL CHECK before you send
     if (sheetType === 'teamStats') return `${baseTitle} — Team Stats`
     return `${baseTitle} — ${config.teamAbbr || ''} Player Stats`
   }, [sheetType, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
+
+  // Where the user should paste the AI's reply. Surfaced prominently in
+  // the AI Prompt modal so the user doesn't have to fish through the
+  // prompt text to find it. Critically: for player-stats the user
+  // pastes into the consolidated "AI All in One" tab (NOT the
+  // individual category tabs like Passing / Rushing — those are driven
+  // by formulas off the AI All in One tab).
+  const aiPasteTarget = useMemo(() => {
+    if (sheetType === 'scoring') return `Cell A2 of the "Scoring Summary" tab`
+    if (sheetType === 'teamStats') return `Cell B2 of the "Team Stats" tab`
+    // Player-stats sheet: single mega-paste into the AI All in One tab.
+    return `Cell A1 of the "${AI_UNIFIED_TAB.title}" tab — DO NOT paste into the individual category tabs (Passing, Rushing, etc.); those are driven by formulas off the "${AI_UNIFIED_TAB.title}" tab.`
+  }, [sheetType])
+
+  // Short label used inside the Reset/Regenerate button text so the
+  // user can tell at a glance what's about to be wiped (e.g. "wipe
+  // BAMA stats" not just "wipe data"). Kept short on purpose — the
+  // confirm dialog has the full description.
+  const regenWipeShort = useMemo(() => {
+    if (sheetType === 'scoring') return 'scoring summary'
+    if (sheetType === 'teamStats') return 'team stats'
+    if (sheetType === 'homeStats') return `${homeTeamAbbr || 'home'} stats`
+    if (sheetType === 'awayStats') return `${awayTeamAbbr || 'away'} stats`
+    return 'saved data'
+  }, [sheetType, homeTeamAbbr, awayTeamAbbr])
 
   // Highlight save button when user returns to window
   useEffect(() => {
@@ -800,6 +1003,38 @@ FINAL CHECK before you send
   }
 
   // Sync data from sheet
+  // Read player-stats data — per-section merge with AI All in One as
+  // the override. The category tabs (Passing, Rushing, etc.) are
+  // normally formula-driven from AI All in One, but those formulas get
+  // clobbered when the user types directly into them. The semantic the
+  // user wants: "anything the user enters in the AI All in One tab
+  // overrides anything else in the sheet" — but only for the sections
+  // they actually populated. If they pasted only Passing into AI All
+  // in One, manual data in the Rushing tab should still be picked up.
+  //
+  // So we read both sources in parallel and merge per-section: unified
+  // wins for any category where it has data, individual tabs fill in
+  // categories where unified is empty.
+  const readPlayerStatsPreferUnified = async () => {
+    const teams = currentDynasty?.teams || currentDynasty?.customTeams
+    const [unified, fallback] = await Promise.all([
+      readGameBoxScoreFromUnifiedTab(sheetId),
+      readGameBoxScoreFromSheet(sheetId, teams),
+    ])
+    if (!unified) return fallback // AI All in One unreadable — fallback only
+
+    const merged = {}
+    const allKeys = new Set([
+      ...Object.keys(unified || {}),
+      ...Object.keys(fallback || {}),
+    ])
+    for (const key of allKeys) {
+      const unifiedHas = Array.isArray(unified[key]) && unified[key].length > 0
+      merged[key] = unifiedHas ? unified[key] : (fallback?.[key] || [])
+    }
+    return merged
+  }
+
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
 
@@ -811,7 +1046,7 @@ FINAL CHECK before you send
       } else if (sheetType === 'teamStats') {
         data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+        data = await readPlayerStatsPreferUnified()
       }
       await onSave(data)
       onClose()
@@ -840,7 +1075,7 @@ FINAL CHECK before you send
       } else if (sheetType === 'teamStats') {
         data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+        data = await readPlayerStatsPreferUnified()
       }
       await onSave(data)
 
@@ -865,14 +1100,40 @@ FINAL CHECK before you send
     }
   }
 
-  // Regenerate sheet
+  // Regenerate sheet — also wipes the saved box-score slice for this
+  // sheet type so we don't pre-fill the new sheet with the previous
+  // (possibly bad) data. Without this clear, regenerating after a
+  // misaligned AI paste would leave the corrupt rows persisted on
+  // game.boxScore even though the Google Sheet was rebuilt.
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
 
+    // Read-only safety: if the user has lost premium since opening
+    // this modal, addGame below would silently no-op via
+    // blockIfReadOnly. Without this guard we'd end up deleting the
+    // Google Sheet but failing to wipe the dynasty data — the worst
+    // possible inconsistency. Catch it up front.
+    if (isViewOnly) {
+      toast.error('This cloud dynasty is read-only without active premium. Renew premium to reset stats.')
+      return
+    }
+
+    // Match per-sheetType so the warning text reflects what's actually
+    // about to be wiped — players see "all team stats" vs "all home
+    // player stats" vs "scoring summary" depending on which sheet they
+    // opened, rather than a generic "data will be lost".
+    const wipeLabel = (() => {
+      if (sheetType === 'scoring') return 'the scoring summary for this game'
+      if (sheetType === 'teamStats') return 'the team stats for this game'
+      if (sheetType === 'homeStats') return `${homeTeamAbbr} player stats for this game`
+      if (sheetType === 'awayStats') return `${awayTeamAbbr} player stats for this game`
+      return 'the data for this sheet'
+    })()
+
     const confirmed = await confirm({
-      title: 'Regenerate sheet?',
-      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
-      confirmLabel: 'Regenerate',
+      title: 'Reset this sheet?',
+      message: `This deletes the Google Sheet AND wipes ${wipeLabel} from the dynasty. Player season totals are recalculated to subtract this game's contribution — so the bad stats won't linger anywhere. You'll start over with a fresh empty sheet. Other sheets and other games are not affected.`,
+      confirmLabel: `Reset & wipe ${wipeLabel.replace(/ for this game$/, '')}`.slice(0, 60),
       variant: 'danger',
     })
     if (!confirmed) return
@@ -881,16 +1142,46 @@ FINAL CHECK before you send
     try {
       await deleteGoogleSheet(sheetId)
 
-      // Clear sheet ID from game
+      // Clear sheet ID from game AND wipe the saved slice of
+      // game.boxScore that this sheet feeds into, so the next sheet
+      // creation starts from a clean slate (and the user's dynasty no
+      // longer holds the bad data).
+      //
+      // Use addGame instead of updateDynasty so player season totals
+      // get re-aggregated via the existing delta-tracking logic.
+      // Otherwise: data on the game would be cleared, but each
+      // affected player's statsByYear[year] would still include the
+      // bad contribution and the user would see ghost season stats.
       if (currentDynasty && game?.id) {
-        const games = [...(currentDynasty.games || [])]
-        const gameIndex = games.findIndex(g => g.id === game.id)
-        if (gameIndex !== -1) {
-          games[gameIndex] = {
-            ...games[gameIndex],
-            [config.sheetIdKey]: null
+        const games = currentDynasty.games || []
+        const prevGame = games.find(g => g.id === game.id)
+        if (prevGame) {
+          const prevBoxScore = prevGame?.boxScore || {}
+          const sliceKey =
+            sheetType === 'scoring' ? 'scoringSummary'
+            : sheetType === 'teamStats' ? 'teamStats'
+            : sheetType === 'homeStats' ? 'home'
+            : sheetType === 'awayStats' ? 'away'
+            : null
+          const nextBoxScore = sliceKey
+            ? { ...prevBoxScore, [sliceKey]: null }
+            : prevBoxScore
+          // For non-CPU games, addGame's box-score processing recomputes
+          // statsContributed from the new boxScore (correct delta).
+          // For CPU games (isCPUGame), addGame skips the box-score path
+          // entirely — without this explicit null, a stale
+          // statsContributed from a prior coaching-history era could
+          // linger and corrupt later operations. Setting it to null up
+          // front handles both cases:
+          //   non-CPU → overridden by the new computed value at line ~5754 of DynastyContext
+          //   CPU     → stays null, which is correct for an unaggregated game
+          const updatedGame = {
+            ...prevGame,
+            [config.sheetIdKey]: null,
+            boxScore: nextBoxScore,
+            statsContributed: null,
           }
-          await updateDynasty(currentDynasty.id, { games })
+          await addGame(currentDynasty.id, updatedGame)
         }
       }
 
@@ -1016,6 +1307,7 @@ FINAL CHECK before you send
                   <button
                     onClick={handleRegenerateSheet}
                     disabled={syncing || deletingSheet || regenerating}
+                    title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
                     className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
                     style={{
                       backgroundColor: 'transparent',
@@ -1023,7 +1315,7 @@ FINAL CHECK before you send
                       color: '#EF4444'
                     }}
                   >
-                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
+                    {regenerating ? 'Resetting...' : `Reset (regen sheet & wipe ${regenWipeShort})`}
                   </button>
                 </div>
               </div>
@@ -1162,10 +1454,14 @@ FINAL CHECK before you send
                   </button>
                 </div>
 
-                {/* Start Over Button */}
+                {/* Start Over button — does both: deletes the Google
+                    Sheet AND wipes the saved stats slice for this team
+                    / this game (with delta-tracking on player season
+                    totals). */}
                 <button
                   onClick={handleRegenerateSheet}
                   disabled={syncing || deletingSheet || regenerating}
+                  title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
                   className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
                   style={{
                     backgroundColor: 'transparent',
@@ -1173,7 +1469,7 @@ FINAL CHECK before you send
                     color: '#EF4444'
                   }}
                 >
-                  {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
+                  {regenerating ? 'Resetting...' : `Stats look weird? Reset (regen sheet & wipe ${regenWipeShort})`}
                 </button>
 
                 <div className="bg-surface-2 text-xs p-3 rounded-lg max-w-sm text-txt-secondary">
@@ -1230,6 +1526,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={aiPromptTitle}
         prompt={aiPrompt}
+        pasteTarget={aiPasteTarget}
       />
     </div>,
     document.body,

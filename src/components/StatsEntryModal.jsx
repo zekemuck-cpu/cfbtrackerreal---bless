@@ -605,6 +605,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} GP/Snaps Entry`}
         prompt={aiPrompt}
+        pasteTarget={`Cell A2 of the "GP/Snaps" tab`}
       />
     </div>,
     document.body

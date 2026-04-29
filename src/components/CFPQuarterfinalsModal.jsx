@@ -544,6 +544,7 @@ FINAL CHECK before you send the answer
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} CFP Quarterfinals Results`}
         prompt={aiPrompt}
+        pasteTarget={`Cell B2 of the "CFP Quarterfinals" tab`}
       />
     </div>,
     document.body

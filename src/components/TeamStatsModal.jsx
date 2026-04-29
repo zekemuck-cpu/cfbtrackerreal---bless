@@ -47,6 +47,7 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamName} Team Statistics`,
+    multiBlock: true,
     structure: `This sheet has TWO tabs ("Offense" and "Defense"). Each tab has 2 columns.
 Column A = stat name (pre-filled + PROTECTED). Column B = the value (empty, what you fill).
 
@@ -378,7 +379,10 @@ FINAL CHECK before you send the answer
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Team Statistics`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Team Statistics`} prompt={aiPrompt} pasteTarget={[
+        'Cell B1 of the "Offense" tab',
+        'Cell B1 of the "Defense" tab',
+      ]} />
     </div>,
     document.body,
   )

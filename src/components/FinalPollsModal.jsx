@@ -379,7 +379,7 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25 Polls`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25 Polls`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Polls" tab`} />
     </div>,
     document.body
   )

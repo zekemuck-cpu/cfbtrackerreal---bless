@@ -302,9 +302,10 @@ export default function Player() {
   })()
 
   // Get departure/transfer info - check movementByYear (source of truth from career editor) first,
-  // then fall back to legacy movements[] array
+  // then fall back to legacy movements[] array.
+  // Preserves the user-supplied `reason` (portal reason) so it can be shown
+  // as a tag on the player page.
   const departureMovement = (() => {
-    // Check movementByYear first (set by career editor)
     const mby = player?.movementByYear
     if (mby) {
       const years = Object.keys(mby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
@@ -318,24 +319,44 @@ export default function Player() {
           return { type: 'departure', reason: 'Graduating', year: y }
         }
         if (m.type === 'transferred_out') {
-          return { type: 'transfer', to: m.toTeamTid, from: player?.teamsByYear?.[y], year: y }
+          return {
+            type: 'transfer',
+            to: m.toTeamTid ?? null,
+            from: player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null,
+            year: y,
+            reason: m.reason || null,
+          }
         }
         if (m.type === 'encouraged_to_transfer') {
-          return { type: 'departure', reason: 'Encouraged Transfer', year: y }
+          return {
+            type: 'departure',
+            reason: 'Encouraged Transfer',
+            portalReason: m.reason || null,
+            year: y,
+          }
         }
         // 'recommitted' means player entered portal but came back - no departure badge
         if (m.type === 'recommitted') {
           return null
         }
-        // Unified 'entered_portal' — infer from next recorded year's team
+        // Unified 'entered_portal' — infer destination from next recorded
+        // year's team in teamsByYear (more robust than scanning movementByYear,
+        // since the next year may have only roster data without a movement).
         if (m.type === 'entered_portal') {
-          const thisTeam = player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)]
-          const laterYears = years.filter(yr => yr > y).sort((a, b) => a - b)
-          const nextYr = laterYears[0]
-          const nextTeam = nextYr != null ? (player?.teamsByYear?.[nextYr] ?? player?.teamsByYear?.[String(nextYr)]) : null
-          if (nextTeam != null && Number(nextTeam) === Number(thisTeam)) return null // recommit — no departure badge
-          if (nextTeam != null) return { type: 'transfer', to: nextTeam, from: thisTeam, year: y }
-          return null
+          const thisTeam = player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)] ?? null
+          const tby = player?.teamsByYear || {}
+          const laterTeamYears = Object.keys(tby)
+            .map(Number)
+            .filter(yr => Number.isFinite(yr) && yr > y)
+            .sort((a, b) => a - b)
+          const nextYr = laterTeamYears[0]
+          const nextTeam = nextYr != null ? (tby[nextYr] ?? tby[String(nextYr)]) : null
+          if (nextTeam != null && thisTeam != null && Number(nextTeam) === Number(thisTeam)) return null // recommit
+          if (nextTeam != null) {
+            return { type: 'transfer', to: nextTeam, from: thisTeam, year: y, reason: m.reason || null }
+          }
+          // Currently in portal, no destination yet
+          return { type: 'transfer', to: null, from: thisTeam, year: y, reason: m.reason || null }
         }
       }
     }
@@ -1504,41 +1525,64 @@ export default function Player() {
                   border: '1px solid rgba(245, 158, 11, 0.5)',
                   letterSpacing: '1px',
                 }}
-                title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}`}
+                title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
               >
                 <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
                 In Portal
+                {departureMovement.reason && (
+                  <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                )}
               </span>
             )}
             {/* Departure badge - show based on movements[] */}
             {departureMovement && departureMovement.type === 'departure' && (() => {
               const reason = departureMovement.reason
+              const portalReason = departureMovement.portalReason
               const year = departureMovement.year
               const draftRound = departureMovement.extra?.draftRound || player.draftRound
+              const label = reason === 'Pro Draft' && draftRound
+                ? `${year} NFL Draft - Round ${draftRound}`
+                : reason === 'Pro Draft'
+                ? `${year} NFL Draft`
+                : reason === 'Graduating'
+                ? `Graduated (${year})`
+                : reason === 'Encouraged Transfer'
+                ? `Transferred (${year})`
+                : ['Playing Style', 'Proximity to Home', 'Championship Contender', 'Program Tradition',
+                   'Campus Lifestyle', 'Stadium Atmosphere', 'Pro Potential', 'Brand Exposure',
+                   'Academic Prestige', 'Conference Prestige', 'Coach Stability', 'Coach Prestige',
+                   'Athletic Facilities'].includes(reason)
+                ? `Transfer: ${reason} (${year})`
+                : reason
+                ? `${reason} (${year})`
+                : `Left Team (${year})`
               return (
                 <span
                   className="px-2 py-0.5 rounded-full text-xs font-bold"
                   style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
+                  title={portalReason ? `Reason: ${portalReason}` : undefined}
                 >
-                  {reason === 'Pro Draft' && draftRound
-                    ? `${year} NFL Draft - Round ${draftRound}`
-                    : reason === 'Pro Draft'
-                    ? `${year} NFL Draft`
-                    : reason === 'Graduating'
-                    ? `Graduated (${year})`
-                    : reason === 'Encouraged Transfer'
-                    ? `Transferred (${year})`
-                    : ['Playing Style', 'Proximity to Home', 'Championship Contender', 'Program Tradition',
-                       'Campus Lifestyle', 'Stadium Atmosphere', 'Pro Potential', 'Brand Exposure',
-                       'Academic Prestige', 'Conference Prestige', 'Coach Stability', 'Coach Prestige',
-                       'Athletic Facilities'].includes(reason)
-                    ? `Transfer: ${reason} (${year})`
-                    : reason
-                    ? `${reason} (${year})`
-                    : `Left Team (${year})`}
+                  {label}
+                  {portalReason && reason === 'Encouraged Transfer' && (
+                    <span className="font-semibold opacity-90"> · {portalReason}</span>
+                  )}
                 </span>
               )
             })()}
+            {/* Finalized transfer (destination set) — reason chip alongside ← PREV */}
+            {departureMovement && departureMovement.type === 'transfer' && departureMovement.to && departureMovement.reason && (
+              <span
+                className="px-2 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                  color: '#60a5fa',
+                  border: '1px solid rgba(59, 130, 246, 0.5)',
+                }}
+                title={`Transferred for: ${departureMovement.reason}`}
+              >
+                Transfer: {departureMovement.reason}
+              </span>
+            )}
             {/* Transfer badge - show where player transferred FROM */}
             {transferredFromTeam && (() => {
               // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
@@ -1655,41 +1699,64 @@ export default function Player() {
                       border: '1px solid rgba(245, 158, 11, 0.5)',
                       letterSpacing: '1px',
                     }}
-                    title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}`}
+                    title={`In transfer portal${departureMovement.year ? ` since ${departureMovement.year}` : ''}${departureMovement.reason ? ` — ${departureMovement.reason}` : ''}`}
                   >
                     <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: '#fbbf24' }} aria-hidden="true" />
                     In Portal
+                    {departureMovement.reason && (
+                      <span className="font-semibold normal-case opacity-90 tracking-normal">· {departureMovement.reason}</span>
+                    )}
                   </span>
                 )}
                 {/* Departure badge - show based on movements[] */}
                 {departureMovement && departureMovement.type === 'departure' && (() => {
                   const reason = departureMovement.reason
+                  const portalReason = departureMovement.portalReason
                   const year = departureMovement.year
                   const draftRound = departureMovement.extra?.draftRound || player.draftRound
+                  const label = reason === 'Pro Draft' && draftRound
+                    ? `${year} NFL Draft - Round ${draftRound}`
+                    : reason === 'Pro Draft'
+                    ? `${year} NFL Draft`
+                    : reason === 'Graduating'
+                    ? `Graduated (${year})`
+                    : reason === 'Encouraged Transfer'
+                    ? `Transferred (${year})`
+                    : ['Playing Style', 'Proximity to Home', 'Championship Contender', 'Program Tradition',
+                       'Campus Lifestyle', 'Stadium Atmosphere', 'Pro Potential', 'Brand Exposure',
+                       'Academic Prestige', 'Conference Prestige', 'Coach Stability', 'Coach Prestige',
+                       'Athletic Facilities'].includes(reason)
+                    ? `Transfer: ${reason} (${year})`
+                    : reason
+                    ? `${reason} (${year})`
+                    : `Left Team (${year})`
                   return (
                     <span
                       className="px-2 py-0.5 rounded-full text-xs font-bold"
                       style={{ backgroundColor: '#6b7280', color: '#ffffff' }}
+                      title={portalReason ? `Reason: ${portalReason}` : undefined}
                     >
-                      {reason === 'Pro Draft' && draftRound
-                        ? `${year} NFL Draft - Round ${draftRound}`
-                        : reason === 'Pro Draft'
-                        ? `${year} NFL Draft`
-                        : reason === 'Graduating'
-                        ? `Graduated (${year})`
-                        : reason === 'Encouraged Transfer'
-                        ? `Transferred (${year})`
-                        : ['Playing Style', 'Proximity to Home', 'Championship Contender', 'Program Tradition',
-                           'Campus Lifestyle', 'Stadium Atmosphere', 'Pro Potential', 'Brand Exposure',
-                           'Academic Prestige', 'Conference Prestige', 'Coach Stability', 'Coach Prestige',
-                           'Athletic Facilities'].includes(reason)
-                        ? `Transfer: ${reason} (${year})`
-                        : reason
-                        ? `${reason} (${year})`
-                        : `Left Team (${year})`}
+                      {label}
+                      {portalReason && reason === 'Encouraged Transfer' && (
+                        <span className="font-semibold opacity-90"> · {portalReason}</span>
+                      )}
                     </span>
                   )
                 })()}
+                {/* Finalized transfer (destination set) — reason chip alongside ← PREV */}
+                {departureMovement && departureMovement.type === 'transfer' && departureMovement.to && departureMovement.reason && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-xs font-bold"
+                    style={{
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      color: '#60a5fa',
+                      border: '1px solid rgba(59, 130, 246, 0.5)',
+                    }}
+                    title={`Transferred for: ${departureMovement.reason}`}
+                  >
+                    Transfer: {departureMovement.reason}
+                  </span>
+                )}
                 {/* Transfer badge - show where player transferred FROM */}
                 {transferredFromTeam && (() => {
                   // Show where the player transferred FROM (not previousTeam which is portal recruit origin)
@@ -2091,6 +2158,42 @@ export default function Player() {
                       totalRow: [totals.kicking.fgm, totals.kicking.fga, totals.kicking.fga ? ((totals.kicking.fgm / totals.kicking.fga) * 100).toFixed(1) : '-', totals.kicking.xpm, totals.kicking.xpa, '-']
                     },
                   ].filter(c => c.has)
+
+                  // Sort the visible category tabs so the player's
+                  // primary role appears first (a WR opens to
+                  // Receiving, a QB to Passing, an EDGE to Defense,
+                  // a kicker to Kicking, etc.). Categories not in
+                  // the position's priority list keep their existing
+                  // order at the end.
+                  const POSITION_TAB_ORDER = {
+                    QB:   ['passing', 'rushing', 'receiving', 'defense', 'kicking'],
+                    HB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    FB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    RB:   ['rushing', 'receiving', 'passing', 'defense', 'kicking'],
+                    WR:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                    TE:   ['receiving', 'rushing', 'passing', 'defense', 'kicking'],
+                  }
+                  const DEFENSIVE_POSITIONS = new Set([
+                    'LEDG','REDG','DT','DE','DL','NT',
+                    'SAM','MIKE','WILL','OLB','MLB','ILB','LB',
+                    'CB','FS','SS','S','DB',
+                  ])
+                  const KICK_POSITIONS = new Set(['K', 'P'])
+                  const playerPos = (player?.position || '').toUpperCase()
+                  const tabOrder =
+                    POSITION_TAB_ORDER[playerPos]
+                    || (DEFENSIVE_POSITIONS.has(playerPos) ? ['defense', 'rushing', 'receiving', 'passing', 'kicking'] : null)
+                    || (KICK_POSITIONS.has(playerPos) ? ['kicking', 'passing', 'rushing', 'receiving', 'defense'] : null)
+                    || ['passing', 'rushing', 'receiving', 'defense', 'kicking']
+
+                  categories.sort((a, b) => {
+                    const ai = tabOrder.indexOf(a.key)
+                    const bi = tabOrder.indexOf(b.key)
+                    if (ai === -1 && bi === -1) return 0
+                    if (ai === -1) return 1
+                    if (bi === -1) return -1
+                    return ai - bi
+                  })
 
                   if (categories.length === 0) {
                     return (

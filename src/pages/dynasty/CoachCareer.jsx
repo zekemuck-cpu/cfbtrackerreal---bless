@@ -405,32 +405,75 @@ export default function CoachCareer() {
   }
 
   const careerRange = `${currentDynasty.startYear} – Present`
+  const careerWinPct = (careerTotals.wins + careerTotals.losses) > 0
+    ? ((careerTotals.wins / (careerTotals.wins + careerTotals.losses)) * 100).toFixed(1)
+    : '0.0'
 
   return (
-    <div className="space-y-4">
-      <PageHero
-        eyebrow="Career"
-        title={currentDynasty.coachName || 'Coach'}
-        meta={
-          <>
-            <span className="tabular font-semibold">
-              {careerTotals.wins}-{careerTotals.losses}
-            </span>
-            <span>·</span>
-            <span>{coachingHistory.length} {coachingHistory.length === 1 ? 'team' : 'teams'}</span>
-            <span>·</span>
-            <span className="tabular">{careerRange}</span>
-            {careerTotals.coachOfYearAwards > 0 && (
-              <>
-                <span>·</span>
-                <Badge variant="warning" size="sm">
-                  {careerTotals.coachOfYearAwards}× Coach of the Year
-                </Badge>
-              </>
-            )}
-          </>
-        }
-      />
+    <div className="space-y-5">
+      {/* Career hero — name as a heavy display headline with the win
+          record as a separate emphatic stat cluster on the right. The
+          old PageHero collapsed everything into a comma-separated
+          meta line which buried the most important number on the page
+          (the lifetime W-L). Now the headline carries the identity
+          and the stat block carries the math. */}
+      <section className="card overflow-hidden reveal">
+        <div className="px-6 py-7 sm:px-8 sm:py-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6">
+          <div className="min-w-0 flex-1">
+            <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '2px' }}>Career</div>
+            <h1
+              className="m-0 text-txt-primary leading-[0.95] uppercase break-words"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 'clamp(2.5rem, 6vw, 4.5rem)',
+                letterSpacing: '0.5px',
+              }}
+            >
+              {currentDynasty.coachName || 'Coach'}
+            </h1>
+            <div className="flex items-center gap-2 mt-3 label-sm text-txt-tertiary flex-wrap">
+              <span>{coachingHistory.length} {coachingHistory.length === 1 ? 'team' : 'teams'}</span>
+              <span>·</span>
+              <span className="tabular">{careerRange}</span>
+              {careerTotals.coachOfYearAwards > 0 && (
+                <>
+                  <span>·</span>
+                  <Badge variant="warning" size="sm">
+                    {careerTotals.coachOfYearAwards}× Coach of the Year
+                  </Badge>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-baseline gap-5 flex-shrink-0">
+            <div className="text-right">
+              <div
+                className="text-txt-primary leading-none tabular"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 'clamp(2.25rem, 4.5vw, 3.5rem)',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                {careerTotals.wins}–{careerTotals.losses}
+              </div>
+              <div className="label-xs text-txt-tertiary mt-1" style={{ letterSpacing: '1.5px' }}>Record</div>
+            </div>
+            <div className="text-right">
+              <div
+                className="text-txt-secondary leading-none tabular"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+                }}
+              >
+                {careerWinPct}%
+              </div>
+              <div className="label-xs text-txt-tertiary mt-1" style={{ letterSpacing: '1.5px' }}>Win&nbsp;pct</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {(Array.isArray(coachingHistory) ? [...coachingHistory].reverse() : []).map((stint) => {
         if (!stint) return null
@@ -446,25 +489,91 @@ export default function CoachCareer() {
         const bowlWins = parseInt(bowlParts[0]) || 0
         const bowlLosses = parseInt(bowlParts[1]) || 0
 
+        const showsBowls = bowlWins > 0 || bowlLosses > 0
+
+        // Mini stat-tile presentation. Each tile is value + label; the
+        // value is the eye magnet and the label sits below in small
+        // tracking. Replaces the previous comma-separated row of
+        // "<n> Seasons · <record> (<pct>%) · <bowls>". The previous
+        // version was scannable but generic; this version gives the
+        // page a signature.
+        const StatTile = ({ value, label, accent = false, onClick }) => {
+          const inner = (
+            <>
+              <div
+                className="leading-none tabular"
+                style={{
+                  fontFamily: "'Bebas Neue', sans-serif",
+                  fontSize: 'clamp(1.5rem, 2.5vw, 2rem)',
+                  color: accent ? 'var(--accent-warning)' : 'var(--text-primary)',
+                }}
+              >
+                {value}
+              </div>
+              <div
+                className="label-xs text-txt-tertiary mt-1"
+                style={{ letterSpacing: '1.5px' }}
+              >
+                {label}
+              </div>
+            </>
+          )
+          if (!onClick) {
+            return (
+              <div className="px-3 py-2 rounded-md" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+                {inner}
+              </div>
+            )
+          }
+          return (
+            <button
+              onClick={onClick}
+              className="px-3 py-2 rounded-md text-left transition-colors hover:bg-surface-3"
+              style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}
+            >
+              {inner}
+            </button>
+          )
+        }
+
         return (
-          <Card key={`${stint.teamName}-${stint.startYear}`} padding="none" accent="left">
-            <div className="p-5">
-              <div className="flex items-center gap-4 mb-5">
+          <Card
+            key={`${stint.teamName}-${stint.startYear}`}
+            padding="none"
+            className={stint.isCurrent ? '' : 'opacity-[0.94]'}
+          >
+            <div className="p-5 sm:p-6">
+              {/* Stint header — wider logo, Bebas Neue display name,
+                  meta below with semantic separators. Current vs past
+                  distinguished by the parent Card's accent + a more
+                  prominent "Current" badge here. Past stints stay
+                  visually muted (parent card is at 96% opacity). */}
+              <div className="flex items-center gap-4 sm:gap-5 mb-5">
                 {stint.teamTid && (
-                  <TeamLogo tid={stint.teamTid} teams={teamsData} size="lg" />
+                  <div className="flex-shrink-0">
+                    <TeamLogo tid={stint.teamTid} teams={teamsData} size="xl" />
+                  </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <Link
                       to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${stint.endYear}`}
-                      className="text-display-md text-txt-primary hover:underline m-0"
+                      className="text-txt-primary hover:opacity-80 transition-opacity m-0 leading-[0.95] uppercase break-words"
+                      style={{
+                        fontFamily: "'Bebas Neue', sans-serif",
+                        fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
+                        letterSpacing: '0.5px',
+                      }}
                     >
                       {stint.teamName}
                     </Link>
                     {stint.isCurrent && <Badge variant="accent" size="md">Current</Badge>}
+                    {!stint.isCurrent && <Badge variant="outline" size="sm">Past</Badge>}
                   </div>
-                  <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-1 flex-wrap">
-                    <span className="font-semibold text-txt-secondary">{getPositionLabel(stint.position)}</span>
+                  <div className="flex items-center gap-2 label-sm text-txt-tertiary mt-2 flex-wrap">
+                    <span className="font-semibold text-txt-secondary uppercase" style={{ letterSpacing: '1px', fontSize: '11px' }}>
+                      {getPositionLabel(stint.position)}
+                    </span>
                     <span>·</span>
                     <span className="tabular">{yearRange}</span>
                     {stint.conference && (
@@ -477,60 +586,46 @@ export default function CoachCareer() {
                 </div>
               </div>
 
-              <div
-                className="flex flex-wrap items-center gap-x-5 gap-y-2 px-3 py-2.5 mb-4 rounded-md"
-                style={{
-                  backgroundColor: 'var(--surface-2)',
-                  border: '1px solid var(--surface-4)',
-                }}
-              >
-                <span className="text-sm text-txt-secondary">
-                  <span className="font-bold tabular text-txt-primary">{numSeasons}</span>
-                  <span className="text-txt-tertiary"> Season{numSeasons !== 1 ? 's' : ''}</span>
-                </span>
-                <button
+              {/* Stat tiles — wrap on narrow viewports, stay on one row
+                  on tablet+. Clickable tiles open the games modal for
+                  that subset; informational tiles (Seasons) just
+                  display. National-championship tile gets the warning
+                  accent. */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                <StatTile value={numSeasons} label={numSeasons === 1 ? 'Season' : 'Seasons'} />
+                <StatTile
+                  value={stint.overallRecord}
+                  label={`Record · ${winPct}%`}
                   onClick={() => openGamesModal('all', stint.teamName)}
-                  className="text-sm text-txt-secondary hover:text-txt-primary transition-colors"
-                >
-                  <span className="font-bold tabular text-txt-primary">{stint.overallRecord}</span>
-                  <span className="text-txt-tertiary tabular"> ({winPct}%)</span>
-                </button>
+                />
                 {stint.nationalChampionships > 0 && (
-                  <button
+                  <StatTile
+                    value={stint.nationalChampionships}
+                    label={stint.nationalChampionships === 1 ? 'Natl Title' : 'Natl Titles'}
+                    accent
                     onClick={() => openGamesModal('cfp', stint.teamName)}
-                    className="text-sm hover:underline"
-                    style={{ color: 'var(--accent-warning)' }}
-                  >
-                    <span className="font-bold tabular">{stint.nationalChampionships}</span>
-                    <span> Natl Champ{stint.nationalChampionships !== 1 ? 's' : ''}</span>
-                  </button>
+                  />
                 )}
                 {stint.confChampionships > 0 && (
-                  <button
+                  <StatTile
+                    value={stint.confChampionships}
+                    label={stint.confChampionships === 1 ? 'Conf Title' : 'Conf Titles'}
                     onClick={() => openGamesModal('confChamp', stint.teamName)}
-                    className="text-sm text-txt-secondary hover:text-txt-primary transition-colors"
-                  >
-                    <span className="font-bold tabular text-txt-primary">{stint.confChampionships}</span>
-                    <span> Conf Champ{stint.confChampionships !== 1 ? 's' : ''}</span>
-                  </button>
+                  />
                 )}
                 {stint.playoffAppearances > 0 && (
-                  <button
+                  <StatTile
+                    value={stint.playoffAppearances}
+                    label={stint.playoffAppearances === 1 ? 'CFP App' : 'CFP Apps'}
                     onClick={() => openGamesModal('cfp', stint.teamName)}
-                    className="text-sm text-txt-secondary hover:text-txt-primary transition-colors"
-                  >
-                    <span className="font-bold tabular text-txt-primary">{stint.playoffAppearances}</span>
-                    <span> CFP App{stint.playoffAppearances !== 1 ? 's' : ''}</span>
-                  </button>
+                  />
                 )}
-                {(bowlWins > 0 || bowlLosses > 0) && (
-                  <button
+                {showsBowls && (
+                  <StatTile
+                    value={`${bowlWins}-${bowlLosses}`}
+                    label="Bowls"
                     onClick={() => openGamesModal('bowl', stint.teamName)}
-                    className="text-sm text-txt-secondary hover:text-txt-primary transition-colors"
-                  >
-                    <span className="font-bold tabular text-txt-primary">{bowlWins}-{bowlLosses}</span>
-                    <span> Bowls</span>
-                  </button>
+                  />
                 )}
               </div>
 
@@ -543,7 +638,7 @@ export default function CoachCareer() {
 
               {stint.coachAwards && stint.coachAwards.length > 0 && (
                 <div className="mt-4">
-                  <div className="label-xs text-txt-tertiary mb-2">Coaching Awards</div>
+                  <div className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1.5px' }}>Coaching Awards</div>
                   <div className="flex flex-wrap gap-2">
                     {stint.coachAwards.map((award, idx) => (
                       <Badge key={idx} variant="warning" size="md">
@@ -704,54 +799,85 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
   if (years.length === 0) return null
   years.sort((a, b) => b.year - a.year)
 
+  // Visual treatment per row:
+  // - Champion years: gold left rail + subtle gold tint background
+  // - CFP appearance (lost): team accent left rail
+  // - Bowl win: subtle success tint (left rail only)
+  // - Top-4 final rank: gold rank chip
+  // - Top-25 final rank: muted-warning rank text
+  // - Unranked: an em-dash in a faded color (not "N/R" — a code-y abbreviation
+  //   that broke the editorial feel of the rest of the page)
+  const rankTreatment = (rank) => {
+    if (!rank) return { text: '—', color: 'var(--text-tertiary)', bold: false }
+    if (rank <= 4)  return { text: `#${rank}`, color: 'var(--accent-warning)', bold: true }
+    if (rank <= 10) return { text: `#${rank}`, color: 'var(--accent-warning)', bold: false }
+    if (rank <= 25) return { text: `#${rank}`, color: 'var(--text-primary)', bold: false }
+    return { text: `#${rank}`, color: 'var(--text-secondary)', bold: false }
+  }
+
+  const rowAccent = (yr) => {
+    if (yr.isNationalChamp) return { rail: 'var(--accent-warning)', tint: 'rgba(234, 179, 8, 0.06)' }
+    if (yr.cfpResult?.type === 'lost') return { rail: 'var(--team-primary, var(--surface-5))', tint: 'transparent' }
+    if (yr.bowlResult?.won) return { rail: 'rgba(34, 197, 94, 0.45)', tint: 'transparent' }
+    return { rail: 'transparent', tint: 'transparent' }
+  }
+
   return (
     <Card padding="none">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: '1px solid var(--surface-4)' }}>
-              <th className="px-4 py-2 text-left label-xs text-txt-tertiary">Year</th>
-              <th className="px-4 py-2 text-left label-xs text-txt-tertiary">Record</th>
-              <th className="px-4 py-2 text-left label-xs text-txt-tertiary">Final Rank</th>
-              <th className="px-4 py-2 text-left label-xs text-txt-tertiary">Postseason</th>
+            <tr style={{ borderBottom: '1px solid var(--surface-4)', backgroundColor: 'var(--surface-1)' }}>
+              <th className="px-4 py-2.5 text-left label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Year</th>
+              <th className="px-4 py-2.5 text-left label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Record</th>
+              <th className="px-4 py-2.5 text-left label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Final Rank</th>
+              <th className="px-4 py-2.5 text-left label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Postseason</th>
             </tr>
           </thead>
           <tbody>
-            {years.map((yr, idx) => (
-              <tr
-                key={yr.year}
-                onClick={() => navigate(`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`)}
-                className="cursor-pointer hover:bg-surface-3 transition-colors"
-                style={{
-                  borderBottom: idx < years.length - 1 ? '1px solid var(--surface-4)' : 'none',
-                  borderLeft: yr.isNationalChamp ? '3px solid var(--accent-warning)' : '3px solid transparent',
-                }}
-              >
-                <td className="px-4 py-2.5 font-semibold tabular text-txt-primary">
-                  {yr.year}
-                </td>
-                <td
-                  className="px-4 py-2.5 font-semibold tabular"
-                  style={{ color: yr.hasRecord ? 'var(--text-primary)' : 'var(--text-tertiary)' }}
+            {years.map((yr, idx) => {
+              const rank = rankTreatment(yr.finalRank)
+              const accent = rowAccent(yr)
+              return (
+                <tr
+                  key={yr.year}
+                  onClick={() => navigate(`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`)}
+                  className="cursor-pointer hover:bg-surface-3 transition-colors"
+                  style={{
+                    borderBottom: idx < years.length - 1 ? '1px solid var(--surface-4)' : 'none',
+                    borderLeft: `3px solid ${accent.rail}`,
+                    backgroundColor: accent.tint,
+                  }}
                 >
-                  {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '—'}
-                </td>
-                <td
-                  className="px-4 py-2.5 tabular"
-                  style={{ color: yr.finalRank ? 'var(--accent-warning)' : 'var(--text-tertiary)' }}
-                >
-                  {yr.finalRank ? `#${yr.finalRank}` : 'N/R'}
-                </td>
-                <td
-                  className="px-4 py-2.5"
-                  style={{ color: yr.isNationalChamp ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
-                >
-                  {yr.isNationalChamp ? (
-                    <span className="font-semibold">{yr.postseasonText}</span>
-                  ) : yr.postseasonText}
-                </td>
-              </tr>
-            ))}
+                  <td className="px-4 py-3 font-semibold tabular text-txt-primary">
+                    {yr.year}
+                  </td>
+                  <td
+                    className="px-4 py-3 tabular"
+                    style={{
+                      color: yr.hasRecord ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      fontWeight: yr.hasRecord ? 600 : 400,
+                    }}
+                  >
+                    {yr.hasRecord ? `${yr.wins}-${yr.losses}` : '—'}
+                  </td>
+                  <td
+                    className="px-4 py-3 tabular"
+                    style={{ color: rank.color, fontWeight: rank.bold ? 700 : 500 }}
+                  >
+                    {rank.text}
+                  </td>
+                  <td
+                    className="px-4 py-3"
+                    style={{ color: yr.isNationalChamp ? 'var(--accent-warning)' : 'var(--text-secondary)' }}
+                  >
+                    {yr.isNationalChamp ? (
+                      <span className="font-semibold">{yr.postseasonText}</span>
+                    ) : yr.postseasonText}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

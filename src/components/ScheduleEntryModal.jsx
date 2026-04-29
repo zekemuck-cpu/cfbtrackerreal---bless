@@ -713,6 +713,7 @@ FINAL CHECK before you send the answer
         onClose={() => setShowAIPrompt(false)}
         title={`${displayTeamName} ${currentYear} Schedule`}
         prompt={aiPrompt}
+        pasteTarget={`Cell C2 of the "Schedule" tab`}
       />
 
       <ScheduleSaveConfirmModal

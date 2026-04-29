@@ -2305,7 +2305,7 @@ export default function TeamYear() {
                         onClick={() => setShowCoachingStaffPopup(false)}
                       />
                       <div
-                        className="fixed z-[9999] w-72 card-elevated overflow-hidden border-l-[3px]"
+                        className="fixed z-[9999] w-72 max-w-[calc(100vw-1.5rem)] card-elevated overflow-hidden border-l-[3px]"
                         style={{
                           borderLeftColor: teamInfo.backgroundColor,
                           top: coachingStaffPopupPosition.top,

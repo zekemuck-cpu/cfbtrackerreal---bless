@@ -1555,7 +1555,10 @@ export default function GameEdit() {
           followed by a single inline cluster of compact stat inputs.
           Avoids the cramped 4-input grid the previous design forced. */}
       <Card>
-        <h3 className="label-sm text-txt-primary mb-4">Team Details</h3>
+        <h3 className="label-sm text-txt-primary mb-1">Team Details</h3>
+        <p className="text-[11px] text-txt-tertiary mb-4">
+          <span className="font-semibold text-txt-secondary">Note:</span> Record and Conf are the opponent's record <span className="italic">after</span> this game finished — not the pregame record.
+        </p>
         <div className="divide-y divide-surface-4">
           {[
             { prefix: displayLeftTeam, name: leftTeamName, abbr: leftTeamAbbr, logo: leftTeamLogo, isUser: isLeftUserTeam },

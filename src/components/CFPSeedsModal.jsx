@@ -569,7 +569,7 @@ FINAL CHECK before you send the answer
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP Seeds (1-12)`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} CFP Seeds (1-12)`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "CFP Seeds" tab`} />
     </div>,
     document.body
   )

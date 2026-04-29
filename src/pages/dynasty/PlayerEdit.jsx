@@ -90,6 +90,9 @@ const nestedStatsToFlat = (yearStats) => {
   const defense = yearStats.defense || {}
   const kicking = yearStats.kicking || {}
   const punting = yearStats.punting || {}
+  const kickReturn = yearStats.kickReturn || {}
+  const puntReturn = yearStats.puntReturn || {}
+  const blocking = yearStats.blocking || {}
 
   return {
     // Passing
@@ -133,6 +136,19 @@ const nestedStatsToFlat = (yearStats) => {
     puntLong: punting.lng ?? punting.long ?? '',
     puntIn20: punting.in20 ?? '',
     touchbacks: punting.tb ?? punting.touchbacks ?? '',
+    // Kick Return
+    krRet: kickReturn.ret ?? '',
+    krYds: kickReturn.yds ?? '',
+    krTD: kickReturn.td ?? '',
+    krLong: kickReturn.lng ?? kickReturn.long ?? '',
+    // Punt Return
+    prRet: puntReturn.ret ?? '',
+    prYds: puntReturn.yds ?? '',
+    prTD: puntReturn.td ?? '',
+    prLong: puntReturn.lng ?? puntReturn.long ?? '',
+    // Blocking
+    pancakes: blocking.pancakes ?? '',
+    sacksAllowed: blocking.sacksAllowed ?? '',
     // General
     gamesPlayed: yearStats.gamesPlayed ?? yearStats.games ?? '',
     snapsPlayed: yearStats.snapsPlayed ?? yearStats.snaps ?? '',
@@ -216,6 +232,25 @@ const flatStatsToNested = (flatStats, existingYearStats = {}) => {
   if (flatStats.puntIn20 !== '') punting.in20 = num(flatStats.puntIn20)
   if (flatStats.touchbacks !== '') punting.tb = num(flatStats.touchbacks)
   if (Object.keys(punting).length > 0) result.punting = punting
+
+  const kickReturn = {}
+  if (flatStats.krRet !== '') kickReturn.ret = num(flatStats.krRet)
+  if (flatStats.krYds !== '') kickReturn.yds = num(flatStats.krYds)
+  if (flatStats.krTD !== '') kickReturn.td = num(flatStats.krTD)
+  if (flatStats.krLong !== '') kickReturn.lng = num(flatStats.krLong)
+  if (Object.keys(kickReturn).length > 0) result.kickReturn = kickReturn
+
+  const puntReturn = {}
+  if (flatStats.prRet !== '') puntReturn.ret = num(flatStats.prRet)
+  if (flatStats.prYds !== '') puntReturn.yds = num(flatStats.prYds)
+  if (flatStats.prTD !== '') puntReturn.td = num(flatStats.prTD)
+  if (flatStats.prLong !== '') puntReturn.lng = num(flatStats.prLong)
+  if (Object.keys(puntReturn).length > 0) result.puntReturn = puntReturn
+
+  const blocking = {}
+  if (flatStats.pancakes !== '') blocking.pancakes = num(flatStats.pancakes)
+  if (flatStats.sacksAllowed !== '') blocking.sacksAllowed = num(flatStats.sacksAllowed)
+  if (Object.keys(blocking).length > 0) result.blocking = blocking
 
   // General stats at top level
   if (flatStats.gamesPlayed !== '') result.gamesPlayed = num(flatStats.gamesPlayed)
@@ -826,7 +861,7 @@ export default function PlayerEdit() {
               {showImageUpload && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowImageUpload(false)} />
-                  <div className="absolute top-full left-0 mt-2 w-72 card-elevated z-50 p-4">
+                  <div className="absolute top-full left-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] card-elevated z-50 p-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-txt-primary">Player Photo</h4>
                       <button aria-label="Close"
@@ -1011,7 +1046,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Name Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       First Name
@@ -1039,7 +1074,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Position, Class, Jersey, OVR Row */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Position
@@ -1103,7 +1138,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Archetype, Dev Trait Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Archetype
@@ -1149,7 +1184,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Hometown Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Hometown
@@ -1339,11 +1374,14 @@ export default function PlayerEdit() {
                     delete movements[year]
                     delete movements[String(year)]
                   } else {
-                    // Drop fields that don't apply to the current type
-                    if (merged.type !== 'encouraged_to_transfer') {
+                    // Drop fields that don't apply to the current type.
+                    // `transferred_out` (origin: Players Leaving sheet) carries
+                    // both a destination tid and a portal reason — preserve both.
+                    const toTeamTypes = ['encouraged_to_transfer', 'transferred_out']
+                    if (!toTeamTypes.includes(merged.type)) {
                       delete merged.toTeamTid
                     }
-                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer']
+                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer', 'transferred_out']
                     if (!reasonTypes.includes(merged.type)) {
                       delete merged.reason
                     }
@@ -1841,7 +1879,7 @@ export default function PlayerEdit() {
 
               <div className="p-5 space-y-4">
                 {/* Stars and Rankings Row */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Stars
@@ -1919,7 +1957,7 @@ export default function PlayerEdit() {
                 </div>
 
                 {/* Portal Transfer Row */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-txt-muted uppercase tracking-wide mb-1.5">
                       Portal Transfer
@@ -2039,6 +2077,19 @@ export default function PlayerEdit() {
                         puntLong: totals.punting?.lng || '',
                         puntIn20: totals.punting?.in20 || '',
                         touchbacks: totals.punting?.tb || '',
+                        // Kick Return
+                        krRet: totals.kickReturn?.ret || '',
+                        krYds: totals.kickReturn?.yds || '',
+                        krTD: totals.kickReturn?.td || '',
+                        krLong: totals.kickReturn?.lng || '',
+                        // Punt Return
+                        prRet: totals.puntReturn?.ret || '',
+                        prYds: totals.puntReturn?.yds || '',
+                        prTD: totals.puntReturn?.td || '',
+                        prLong: totals.puntReturn?.lng || '',
+                        // Blocking
+                        pancakes: totals.blocking?.pancakes || '',
+                        sacksAllowed: totals.blocking?.sacksAllowed || '',
                       }
 
                       setFormData(prev => ({ ...prev, stats: newStats }))
@@ -2087,7 +2138,7 @@ export default function PlayerEdit() {
                 {['QB'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Passing</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'passComp', label: 'Comp' },
                         { key: 'passAtt', label: 'Att' },
@@ -2118,7 +2169,7 @@ export default function PlayerEdit() {
                 {['QB', 'HB', 'FB', 'WR', 'TE'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Rushing</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'rushAtt', label: 'Carries' },
                         { key: 'rushYds', label: 'Yards' },
@@ -2147,7 +2198,7 @@ export default function PlayerEdit() {
                 {['HB', 'FB', 'WR', 'TE'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Receiving</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'receptions', label: 'Rec' },
                         { key: 'recYds', label: 'Yards' },
@@ -2176,7 +2227,7 @@ export default function PlayerEdit() {
                 {['LEDG', 'REDG', 'DT', 'SAM', 'MIKE', 'WILL', 'CB', 'FS', 'SS'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Defense</h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'tackles', label: 'Tackles' },
                         { key: 'tfl', label: 'TFL' },
@@ -2204,13 +2255,94 @@ export default function PlayerEdit() {
                   </div>
                 )}
 
+                {/* Blocking — OL only */}
+                {['LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG'].includes(formData.position) && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Blocking</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { key: 'pancakes', label: 'Pancakes' },
+                        { key: 'sacksAllowed', label: 'Sacks Allowed' },
+                      ].map(stat => (
+                        <div key={stat.key}>
+                          <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                          <input
+                            type="number"
+                            value={formData.stats?.[stat.key] || ''}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                            }))}
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Returns — any skill or DB position can be a returner */}
+                {['HB', 'FB', 'WR', 'TE', 'CB', 'FS', 'SS'].includes(formData.position) && (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Kick Returns</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { key: 'krRet', label: 'Returns' },
+                          { key: 'krYds', label: 'Yards' },
+                          { key: 'krTD', label: 'TD' },
+                          { key: 'krLong', label: 'Long' },
+                        ].map(stat => (
+                          <div key={stat.key}>
+                            <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                            <input
+                              type="number"
+                              value={formData.stats?.[stat.key] || ''}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                              }))}
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Punt Returns</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { key: 'prRet', label: 'Returns' },
+                          { key: 'prYds', label: 'Yards' },
+                          { key: 'prTD', label: 'TD' },
+                          { key: 'prLong', label: 'Long' },
+                        ].map(stat => (
+                          <div key={stat.key}>
+                            <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                            <input
+                              type="number"
+                              value={formData.stats?.[stat.key] || ''}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                              }))}
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {/* Kicking */}
                 {['K', 'P'].includes(formData.position) && (
                   <div className="mb-6">
                     <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">
                       {formData.position === 'K' ? 'Kicking' : 'Punting'}
                     </h3>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {formData.position === 'K' ? [
                         { key: 'fgm', label: 'FG Made' },
                         { key: 'fga', label: 'FG Att' },
@@ -2371,7 +2503,7 @@ export default function PlayerEdit() {
       {/* Mobile action bar */}
       {!isViewOnly && (
         <div
-          className="sm:hidden fixed bottom-[36px] left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
+          className="sm:hidden fixed bottom-10 left-0 right-0 z-[60] bg-surface-2 border-t border-surface-4 shadow-2xl"
           style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
         >
           <div className="h-[3px] w-full" style={{ backgroundColor: teamColors.primary }} aria-hidden="true" />

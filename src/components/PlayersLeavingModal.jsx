@@ -102,6 +102,11 @@ REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
+[ ] COUNT FIRST: before writing any output, scroll through every
+    screenshot the user provided and count the visible departing
+    players. Write that number down. Your output line count MUST
+    equal that number — not "every player I noticed", that count.
+    Players cut off at the edge of a screenshot still count.
 [ ] One row per player in the uploaded screenshots — every single one, no skipping
 [ ] Every line has exactly 2 tab-separated columns (1 tab character)
 [ ] No header row, no commentary, no totals
@@ -502,7 +507,7 @@ FINAL CHECK before you send
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Players Leaving`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Players Leaving`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Players Leaving" tab`} />
     </div>,
     document.body,
   )
