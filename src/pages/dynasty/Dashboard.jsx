@@ -302,7 +302,7 @@ export default function Dashboard() {
   const [showFringeCaseClassModal, setShowFringeCaseClassModal] = useState(false)
 
   // Roster sorting state
-  const [rosterSort, setRosterSort] = useState('position') // 'position', 'jerseyNumber', 'name', 'class'
+  const [rosterSort, setRosterSort] = useState('overall') // 'position', 'jerseyNumber', 'name', 'class', 'overall'
   const [rosterSortDir, setRosterSortDir] = useState('asc')
   const [mobileTab, setMobileTab] = useState('schedule') // 'schedule' or 'roster' - for mobile view
 

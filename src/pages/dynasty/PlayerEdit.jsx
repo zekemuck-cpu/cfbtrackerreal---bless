@@ -1374,11 +1374,14 @@ export default function PlayerEdit() {
                     delete movements[year]
                     delete movements[String(year)]
                   } else {
-                    // Drop fields that don't apply to the current type
-                    if (merged.type !== 'encouraged_to_transfer') {
+                    // Drop fields that don't apply to the current type.
+                    // `transferred_out` (origin: Players Leaving sheet) carries
+                    // both a destination tid and a portal reason — preserve both.
+                    const toTeamTypes = ['encouraged_to_transfer', 'transferred_out']
+                    if (!toTeamTypes.includes(merged.type)) {
                       delete merged.toTeamTid
                     }
-                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer']
+                    const reasonTypes = ['entered_portal', 'encouraged_to_transfer', 'transferred_out']
                     if (!reasonTypes.includes(merged.type)) {
                       delete merged.reason
                     }
