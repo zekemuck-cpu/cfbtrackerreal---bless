@@ -26,9 +26,16 @@
  *   visible without splitting the player into two records.
  *
  * - Rough calibration was tuned by hand to match NFL AV intuition
- *   (top season ≈ 18, replacement starter ≈ 4-6, end-of-bench ≈ 0-2).
+ *   (top season ≈ 18-22, replacement starter ≈ 4-6, end-of-bench ≈ 0-2).
  *   Iterate the per-stat weights if specific positions feel under-
  *   or over-weighted in real dynasty data.
+ *
+ * - 2026-04-29 rebalance: WR/TE was running ~2.5× per-year over QB
+ *   and defenders (yards × per-reception × RAC compounded the
+ *   credit on the same play). Trimmed receiving yds 0.009→0.006,
+ *   td 0.5→0.4, rec 0.05→0.02, RAC 0.0015→0.0006. Bumped QB
+ *   yds 0.0035→0.0042, td 0.4→0.45, softened INT −0.5→−0.4.
+ *   RB receiving trimmed to match the new WR baseline.
  */
 
 // Position groups — used to dispatch to the right formula.
@@ -51,15 +58,15 @@ function qbValue(s) {
   let av = 0
   const p = s.passing
   if (p) {
-    av += (p.yds || 0) * 0.0035    // 4000 yds → 14
-    av += (p.td  || 0) * 0.4       // 30 TD   → 12
-    av -= (p.int || 0) * 0.5       // 10 INT  → -5
+    av += (p.yds || 0) * 0.0042    // 4000 yds → 16.8
+    av += (p.td  || 0) * 0.45      // 30 TD   → 13.5
+    av -= (p.int || 0) * 0.4       // 10 INT  → -4
     av -= (p.sacks || 0) * 0.1     // sack penalty
   }
   // Dual-threat bonus
   const r = s.rushing
   if (r) {
-    av += (r.yds || 0) * 0.005     // 600 rush yds → 3
+    av += (r.yds || 0) * 0.0055    // 600 rush yds → 3.3
     av += (r.td  || 0) * 0.5
     av -= (r.fum || 0) * 0.5
   }
@@ -80,8 +87,8 @@ function rbValue(s) {
   }
   const c = s.receiving
   if (c) {
-    av += (c.yds || 0) * 0.008     // dual-threat backs catch on
-    av += (c.td  || 0) * 0.5
+    av += (c.yds || 0) * 0.006     // dual-threat backs catch on
+    av += (c.td  || 0) * 0.4
     av -= (c.drops || 0) * 0.2
   }
   return Math.max(0, av)
@@ -91,17 +98,17 @@ function wrTeValue(s) {
   let av = 0
   const c = s.receiving
   if (c) {
-    av += (c.yds || 0) * 0.009     // 2000 rec yds → 18
-    av += (c.td  || 0) * 0.5       // 15 TD       → 7.5
-    av += (c.rec || 0) * 0.05      // possession-receiver bonus
-    av += (c.rac || 0) * 0.0015
+    av += (c.yds || 0) * 0.006     // 1500 rec yds → 9
+    av += (c.td  || 0) * 0.4       // 15 TD       → 6
+    av += (c.rec || 0) * 0.02      // small possession-receiver bonus
+    av += (c.rac || 0) * 0.0006    // RAC is a subset of yds — keep small
     av -= (c.drops || 0) * 0.25
   }
   // Trick-play / Wildcat / TE rushing
   const r = s.rushing
   if (r) {
-    av += (r.yds || 0) * 0.008
-    av += (r.td  || 0) * 0.5
+    av += (r.yds || 0) * 0.006
+    av += (r.td  || 0) * 0.4
   }
   return Math.max(0, av)
 }

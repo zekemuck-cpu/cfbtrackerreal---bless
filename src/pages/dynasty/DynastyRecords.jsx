@@ -195,6 +195,10 @@ export default function DynastyRecords() {
   // player-name substring while preserving each player's true rank in
   // the leaderboard. Reset on close.
   const [modalSearch, setModalSearch] = useState('')
+  // For the Production (AV) modal: which row is expanded to show its
+  // per-season breakdown. Key matches the modal row key (pid for career
+  // mode, `${pid}-${year}` for season mode). Null = nothing expanded.
+  const [expandedRowKey, setExpandedRowKey] = useState(null)
 
   // Get roster players
   const getRosterPlayers = () => {
@@ -981,7 +985,54 @@ export default function DynastyRecords() {
         const handleClose = () => {
           setModalStat(null)
           setModalSearch('')
+          setExpandedRowKey(null)
         }
+
+        // Production-tab analysis: expanding a row shows per-season
+        // contributions and the per-role breakdown that fed the total.
+        // Lets the user see *why* a player's AV is what it is — which
+        // years contributed, and which roles within each year.
+        const isAvStat = activeCategory === 'production' && modalStat === 'av'
+        const playerById = isAvStat
+          ? Object.fromEntries((currentDynasty?.players || []).map(p => [p.pid, p]))
+          : {}
+        const buildBreakdown = (entry) => {
+          const player = playerById[entry.pid]
+          if (!player) return null
+          const seasons = mode === 'career'
+            ? [...(entry.years || [])].sort((a, b) => a - b)
+            : [entry.year]
+          const rows = []
+          let total = 0
+          seasons.forEach(yr => {
+            const ys = player.statsByYear?.[yr] || player.statsByYear?.[String(yr)]
+            if (!ys) return
+            const positionForYear = player.positionByYear?.[yr]
+              || player.positionByYear?.[String(yr)]
+              || player.position
+            const { total: seasonAv, parts } = computeSeasonAV(
+              ys,
+              positionForYear,
+              { breakdown: true }
+            )
+            total += seasonAv
+            rows.push({ year: yr, position: positionForYear, av: seasonAv, parts })
+          })
+          return { rows, total: Math.round(total * 10) / 10 }
+        }
+        // Pretty labels for the role keys returned by computeSeasonAV.
+        const roleLabel = (k) => ({
+          qb: 'Passing role',
+          rb: 'Rushing role',
+          wrTe: 'Receiving role',
+          ol: 'Blocking',
+          dl: 'Defense (DL)',
+          lb: 'Defense (LB)',
+          db: 'Defense (DB)',
+          k: 'Kicking',
+          p: 'Punting',
+          returns: 'Returns',
+        })[k] || k
 
         // Top-3 rank colors — gold / silver / bronze. Subtle but
         // catches the eye on a long list.
@@ -1105,8 +1156,7 @@ export default function DynastyRecords() {
                 {/* List body. Top-3 get the podium treatment matching
                     the records cards: #1 with a gradient bg + a 3px
                     accent rail on the left, #2/#3 with rank colors but
-                    a flat row. Past rank 10 a subtle divider band
-                    signals "the long tail" without breaking the rhythm. */}
+                    a flat row. */}
                 {filtered.length === 0 ? (
                   <p className="text-sm text-txt-tertiary text-center py-10">
                     No players match "{modalSearch}".
@@ -1116,34 +1166,16 @@ export default function DynastyRecords() {
                     {filtered.map(({ entry, rank }, displayIdx) => {
                       const isTop3 = rank <= 3
                       const isFirst = rank === 1
-                      // Insert a thin tier divider above rank 4 (so the
-                      // podium ends visually before rank 4 starts) and
-                      // above rank 11 (long tail begins). Only show
-                      // when the previous row in `filtered` was
-                      // actually at the previous tier.
-                      const prev = filtered[displayIdx - 1]
-                      const showPodiumDivider = rank === 4 && prev?.rank === 3
-                      const showTailDivider = rank === 11 && prev?.rank === 10
+                      const rowKey = mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`
+                      const isExpanded = isAvStat && expandedRowKey === rowKey
+                      const breakdown = isExpanded ? buildBreakdown(entry) : null
                       return (
-                        <div key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}>
-                          {(showPodiumDivider || showTailDivider) && (
-                            <div
-                              className="px-6 py-1.5 text-[10px] font-bold uppercase text-txt-tertiary tabular"
-                              style={{
-                                letterSpacing: '2px',
-                                backgroundColor: 'var(--surface-1)',
-                                borderTop: '1px solid var(--rule-soft)',
-                                borderBottom: '1px solid var(--rule-soft)',
-                              }}
-                            >
-                              {showPodiumDivider ? '— Below the podium —' : '— Long tail —'}
-                            </div>
-                          )}
+                        <div key={rowKey}>
                           <div
                             className="relative flex items-center gap-3 px-6 transition-colors"
                             style={{
                               padding: isFirst ? '14px 24px 14px 27px' : (isTop3 ? '10px 24px' : '8px 24px'),
-                              borderTop: displayIdx > 0 && !showPodiumDivider && !showTailDivider ? '1px solid var(--rule-soft)' : 'none',
+                              borderTop: displayIdx > 0 ? '1px solid var(--rule-soft)' : 'none',
                               background: isFirst
                                 ? 'linear-gradient(90deg, rgba(234, 179, 8, 0.10) 0%, var(--surface-2) 70%)'
                                 : 'transparent',
@@ -1219,7 +1251,143 @@ export default function DynastyRecords() {
                             >
                               {formatValue(entry.value, stat.format)}
                             </div>
+
+                            {isAvStat && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
+                                className="flex-shrink-0 text-[10px] uppercase font-bold tabular px-2 py-1 rounded transition-colors"
+                                style={{
+                                  letterSpacing: '1px',
+                                  color: isExpanded ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                  border: '1px solid var(--rule-soft)',
+                                  backgroundColor: isExpanded ? 'var(--surface-3)' : 'transparent',
+                                }}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Hide breakdown' : 'Show breakdown'}
+                              >
+                                {isExpanded ? 'Hide' : 'Why?'}
+                              </button>
+                            )}
                           </div>
+
+                          {isExpanded && breakdown && (
+                            <div
+                              className="px-6 py-4"
+                              style={{
+                                backgroundColor: 'var(--surface-1)',
+                                borderTop: '1px solid var(--rule-soft)',
+                                borderBottom: '1px solid var(--rule-soft)',
+                              }}
+                            >
+                              <div
+                                className="text-[10px] uppercase font-bold text-txt-tertiary tabular mb-3"
+                                style={{ letterSpacing: '2px' }}
+                              >
+                                {mode === 'career' ? 'Season-by-season build-up' : 'Role contributions'}
+                              </div>
+
+                              {breakdown.rows.length === 0 ? (
+                                <p className="text-[12px] text-txt-tertiary">
+                                  No per-season stats found for this player.
+                                </p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {breakdown.rows.map(row => {
+                                    const partsList = Object.entries(row.parts || {})
+                                      .filter(([, v]) => v > 0)
+                                      .sort(([, a], [, b]) => b - a)
+                                    return (
+                                      <div
+                                        key={row.year}
+                                        className="rounded px-3 py-2"
+                                        style={{
+                                          backgroundColor: 'var(--surface-2)',
+                                          border: '1px solid var(--rule-soft)',
+                                        }}
+                                      >
+                                        <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                                          <div className="flex items-baseline gap-2 min-w-0">
+                                            <span
+                                              className="tabular"
+                                              style={{
+                                                fontFamily: "'Bebas Neue', sans-serif",
+                                                fontSize: '1rem',
+                                                fontWeight: 800,
+                                                letterSpacing: '0.5px',
+                                                color: 'var(--text-primary)',
+                                              }}
+                                            >
+                                              {row.year}
+                                            </span>
+                                            <span className="text-[11px] text-txt-tertiary tabular" style={{ letterSpacing: '0.5px' }}>
+                                              {row.position || '—'}
+                                            </span>
+                                          </div>
+                                          <span
+                                            className="tabular"
+                                            style={{
+                                              fontFamily: "'Bebas Neue', sans-serif",
+                                              fontSize: '1rem',
+                                              fontWeight: 800,
+                                              letterSpacing: '0.5px',
+                                              color: 'var(--text-primary)',
+                                            }}
+                                          >
+                                            {row.av.toFixed(1)} AV
+                                          </span>
+                                        </div>
+                                        {partsList.length > 0 ? (
+                                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                            {partsList.map(([k, v]) => (
+                                              <span
+                                                key={k}
+                                                className="text-[11px] text-txt-secondary tabular"
+                                              >
+                                                {roleLabel(k)}{' '}
+                                                <span className="text-txt-primary font-semibold">
+                                                  {v.toFixed(1)}
+                                                </span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <span className="text-[11px] text-txt-tertiary">
+                                            No qualifying stats this season.
+                                          </span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                  {mode === 'career' && (
+                                    <div
+                                      className="flex items-baseline justify-between pt-2"
+                                      style={{ borderTop: '1px dashed var(--rule-soft)' }}
+                                    >
+                                      <span
+                                        className="text-[10px] uppercase font-bold text-txt-tertiary tabular"
+                                        style={{ letterSpacing: '2px' }}
+                                      >
+                                        Career total
+                                      </span>
+                                      <span
+                                        className="tabular"
+                                        style={{
+                                          fontFamily: "'Bebas Neue', sans-serif",
+                                          fontSize: '1.1rem',
+                                          fontWeight: 900,
+                                          letterSpacing: '0.5px',
+                                          color: 'var(--text-primary)',
+                                        }}
+                                      >
+                                        {breakdown.total.toFixed(1)} AV
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )
                     })}
