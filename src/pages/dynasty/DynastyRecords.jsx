@@ -1256,17 +1256,32 @@ export default function DynastyRecords() {
                               <button
                                 type="button"
                                 onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
-                                className="flex-shrink-0 text-[10px] uppercase font-bold tabular px-2 py-1 rounded transition-colors"
+                                className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded transition-colors"
                                 style={{
-                                  letterSpacing: '1px',
                                   color: isExpanded ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                                  border: '1px solid var(--rule-soft)',
                                   backgroundColor: isExpanded ? 'var(--surface-3)' : 'transparent',
                                 }}
+                                onMouseEnter={(e) => { if (!isExpanded) e.currentTarget.style.backgroundColor = 'var(--surface-3)' }}
+                                onMouseLeave={(e) => { if (!isExpanded) e.currentTarget.style.backgroundColor = 'transparent' }}
                                 aria-expanded={isExpanded}
                                 aria-label={isExpanded ? 'Hide breakdown' : 'Show breakdown'}
                               >
-                                {isExpanded ? 'Hide' : 'Why?'}
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  style={{
+                                    transition: 'transform 150ms ease',
+                                    transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  }}
+                                >
+                                  <polyline points="6 9 12 15 18 9" />
+                                </svg>
                               </button>
                             )}
                           </div>
