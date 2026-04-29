@@ -24,8 +24,12 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
 
   // Resolve team name for display - use provided teamName or fall back to dynasty team
   const displayTeamName = teamName || currentDynasty?.teamName || 'Dynasty'
-  // Resolve team abbreviation for the sheet
-  const targetTeamAbbr = teamTid ? getAbbrFromTid(teamTid) : (currentDynasty?.teamName || '')
+  // Resolve team abbreviation for the sheet — must read from
+  // dynasty.teams[tid] so a TeamBuilder takeover's CURRENT abbr is
+  // returned, not the static FBS abbr that used to live in this slot.
+  const targetTeamAbbr = teamTid
+    ? getAbbrFromTid(currentDynasty?.teams, teamTid)
+    : (currentDynasty?.teamName || '')
   const { user, signOut, refreshSession } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()

@@ -112,13 +112,15 @@ function getPlayerRecentGames(playerName, allGames, year, currentGameOrder, team
 }
 
 /**
- * Get abbreviation from tid using TEAMS registry
+ * Get abbreviation from tid. Reads dynasty.teams[tid] (the only source
+ * of truth — TeamBuilder takeovers live there with their custom abbr)
+ * and falls back to the static TEAMS map only when there's no dynasty
+ * context. Callers MUST pass `dynasty` whenever they have it; without
+ * it, TB teams resolve to their original FBS abbr.
  */
 function getAbbrFromTid(tid, dynasty = null) {
   if (!tid) return null
-  // Dynasty-local teams win over the static TEAMS map so teambuilder
-  // replacements surface their custom abbr.
-  const teamData = dynasty?.teams?.[tid] || dynasty?.customTeams?.[tid] || TEAMS[tid]
+  const teamData = dynasty?.teams?.[tid] || TEAMS[tid]
   return teamData?.abbr || null
 }
 
@@ -292,7 +294,7 @@ function getCoachingStaff(dynasty, teamAbbr, year) {
  * Get all season results before this game
  * Supports both legacy (userTeam/opponent) and unified (team1Tid/team2Tid) formats
  */
-function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder) {
+function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder, dynasty = null) {
   if (!allGames) return []
 
   const teamTid = getTidFromAbbr(teamAbbr)
@@ -327,13 +329,13 @@ function getSeasonResultsBeforeGame(allGames, teamAbbr, year, currentGameOrder) 
         opponentRank = g.opponentRank
       } else if (teamTid && g.team1Tid === teamTid) {
         // Unified format - user is team1
-        opponent = getAbbrFromTid(g.team2Tid) || g.team2
+        opponent = getAbbrFromTid(g.team2Tid, dynasty) || g.team2
         teamScore = g.team1Score
         opponentScore = g.team2Score
         opponentRank = g.team2Rank
       } else if (teamTid && g.team2Tid === teamTid) {
         // Unified format - user is team2
-        opponent = getAbbrFromTid(g.team1Tid) || g.team1
+        opponent = getAbbrFromTid(g.team1Tid, dynasty) || g.team1
         teamScore = g.team2Score
         opponentScore = g.team1Score
         opponentRank = g.team1Rank
@@ -564,7 +566,7 @@ function buildEnhancedPlayerHighlights(boxScore, side, players, allGames, year, 
  * Get head-to-head history between two teams
  * Returns past matchups from all seasons in the dynasty
  */
-function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5) {
+function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5, dynasty = null) {
   const history = []
 
   // Get tids for unified format matching
@@ -599,8 +601,8 @@ function getHeadToHeadHistory(allGames, team1, team2, currentYear, maxGames = 5)
       const s1 = Number(g.team1Score) || 0
       const s2 = Number(g.team2Score) || 0
       const team1Won = s1 > s2
-      const team1Name = getTeamName(getAbbrFromTid(g.team1Tid)) || getAbbrFromTid(g.team1Tid)
-      const team2Name = getTeamName(getAbbrFromTid(g.team2Tid)) || getAbbrFromTid(g.team2Tid)
+      const team1Name = getTeamName(getAbbrFromTid(g.team1Tid, dynasty), dynasty?.teams) || getAbbrFromTid(g.team1Tid, dynasty)
+      const team2Name = getTeamName(getAbbrFromTid(g.team2Tid, dynasty), dynasty?.teams) || getAbbrFromTid(g.team2Tid, dynasty)
       winner = team1Won ? team1Name : team2Name
       loser = team1Won ? team2Name : team1Name
       winnerScore = team1Won ? s1 : s2
@@ -1112,7 +1114,7 @@ function getTeamSeasonHistory(allGames, teamAbbr, currentYear, maxSeasons = 3) {
  * Shows how the opponent has performed leading up to this matchup
  * Supports both legacy and unified game formats
  */
-function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder) {
+function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder, dynasty = null) {
   const results = []
   const opponentTid = getTidFromAbbr(opponentAbbr)
 
@@ -1129,13 +1131,13 @@ function getOpponentSeasonResults(allGames, opponentAbbr, year, currentGameOrder
     if (opponentTid && Number(g.team1Tid) === Number(opponentTid)) {
       opponentWon = g.team1Score > g.team2Score
       oppScore = g.team1Score
-      otherTeam = getAbbrFromTid(g.team2Tid) || g.team2
+      otherTeam = getAbbrFromTid(g.team2Tid, dynasty) || g.team2
       otherScore = g.team2Score
       found = true
     } else if (opponentTid && Number(g.team2Tid) === Number(opponentTid)) {
       opponentWon = g.team2Score > g.team1Score
       oppScore = g.team2Score
-      otherTeam = getAbbrFromTid(g.team1Tid) || g.team1
+      otherTeam = getAbbrFromTid(g.team1Tid, dynasty) || g.team1
       otherScore = g.team1Score
       found = true
     } else if (opponentTid && Number(g.userTid) === Number(opponentTid)) {
@@ -1550,7 +1552,7 @@ export function buildGameRecapContext(dynasty, game) {
 
   // Get full season results before this game (for user games)
   const seasonResults = !isCPUGame
-    ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder)
+    ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder, dynasty)
     : []
 
   // Determine if user is team1 or team2 in the original game data
@@ -1609,14 +1611,14 @@ export function buildGameRecapContext(dynasty, game) {
 
   // NEW: Get opponent's season results (how they've done this year)
   const team2SeasonResults = !isCPUGame
-    ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder)
+    ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder, dynasty)
     : []
 
-  // Get conferences for both teams
+  // Get conferences for both teams. dynasty.teams is the only team-data
+  // source — `customTeams` is gone post-refactor.
   const customConferences = dynasty?.conferencesByYear?.[year] || dynasty?.conferences || null
-  const customTeams = dynasty?.customTeams || null
-  const team1Conference = getTeamConference(team1, customConferences, customTeams)
-  const team2Conference = getTeamConference(team2, customConferences, customTeams)
+  const team1Conference = getTeamConference(team1, customConferences, dynasty?.teams)
+  const team2Conference = getTeamConference(team2, customConferences, dynasty?.teams)
 
   // Get prior year postseason results for both teams
   const team1PriorPostseason = getPriorYearPostseason(allGames, team1, year)
@@ -1755,7 +1757,7 @@ export function buildGameRecapContext(dynasty, game) {
 
     // HISTORICAL DATA
     // Head-to-head history between these two teams
-    headToHead: getHeadToHeadHistory(allGames, team1, team2, year),
+    headToHead: getHeadToHeadHistory(allGames, team1, team2, year, 5, dynasty),
 
     // CFP bracket context (only for CFP games)
     cfpBracket: getCFPBracketContext(dynasty, game),
