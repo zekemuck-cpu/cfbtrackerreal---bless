@@ -1733,10 +1733,18 @@ function applyBoxScoreDelta(players, newContribution, oldContribution, year) {
 }
 
 /**
- * Recompute "max" (long) fields only, by scanning all games for the year.
+ * Recompute "max" (long) fields by scanning all games for the year.
  * Needed because the delta path uses Math.max against current — it never
  * decreases a season long even if the game that originally set it was edited
  * down. Sum/count fields remain delta-tracked (cheap, correct).
+ *
+ * Exhaustive across all (player, category) pairs — for any player whose
+ * statsByYear[year][category] exists, we set every max field to the
+ * highest value found across all games' contributions, OR 0 if no game
+ * contains that player's stats for that category. Without the "OR 0"
+ * step, a wipe (Reset on a slice) would orphan max fields: the player
+ * disappears from every game's contribution but their season-long
+ * stays at the old value forever.
  */
 function recomputeMaxFieldsFromGames(players, allGames, year) {
   const yearNum = Number(year)
@@ -1766,22 +1774,59 @@ function recomputeMaxFieldsFromGames(players, allGames, year) {
     })
   })
 
+  // Pre-compute the (category, field) pairs we have to recompute, so we
+  // don't redo this work per-player.
+  const categoriesWithMax = []
+  Object.keys(BOX_SCORE_STATS).forEach(category => {
+    const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+    const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+    if (maxFields.length > 0) categoriesWithMax.push({ category, maxFields })
+  })
+
   return players.map(player => {
-    const normalized = normalizePlayerName(player.name)
-    const playerMax = maxByPlayer[normalized]
-    if (!playerMax) return player
     const existingStatsByYear = player.statsByYear || {}
-    const existingYearStats = { ...(existingStatsByYear[yearNum] || {}) }
-    Object.entries(playerMax).forEach(([category, fields]) => {
-      if (!existingYearStats[category]) existingYearStats[category] = {}
-      else existingYearStats[category] = { ...existingYearStats[category] }
-      Object.entries(fields).forEach(([field, value]) => {
-        existingYearStats[category][field] = value
+    const existingYearStats = existingStatsByYear[yearNum]
+    if (!existingYearStats) return player // Player has no stats this year — nothing to do.
+
+    const normalized = normalizePlayerName(player.name)
+    const playerMax = maxByPlayer[normalized] || {}
+
+    let modified = false
+    const updatedYearStats = { ...existingYearStats }
+
+    categoriesWithMax.forEach(({ category, maxFields }) => {
+      // Only touch categories the player already has stats in. If they
+      // never had Passing stats this year, we don't materialize a
+      // Passing entry just to write zeros into it.
+      const existingCat = updatedYearStats[category]
+      if (!existingCat) return
+
+      const computed = playerMax[category] || {}
+      let categoryModified = false
+      const nextCat = { ...existingCat }
+
+      maxFields.forEach(field => {
+        // Source of truth: highest value found across this year's games,
+        // or 0 if the player isn't in any game's contribution for this
+        // category. This is what makes the function exhaustive — we
+        // overwrite stale values, including with 0.
+        const newMax = computed[field] || 0
+        if (nextCat[field] !== newMax) {
+          nextCat[field] = newMax
+          categoryModified = true
+        }
       })
+
+      if (categoryModified) {
+        updatedYearStats[category] = nextCat
+        modified = true
+      }
     })
+
+    if (!modified) return player
     return {
       ...player,
-      statsByYear: { ...existingStatsByYear, [yearNum]: existingYearStats }
+      statsByYear: { ...existingStatsByYear, [yearNum]: updatedYearStats },
     }
   })
 }

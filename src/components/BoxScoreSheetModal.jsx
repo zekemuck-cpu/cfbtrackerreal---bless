@@ -47,7 +47,7 @@ export default function BoxScoreSheetModal({
   game,
   teamColors
 }) {
-  const { currentDynasty, updateDynasty, addGame } = useDynasty()
+  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
   const { user, signOut, refreshSession } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -1003,24 +1003,36 @@ output that fails any of them.`,
   }
 
   // Sync data from sheet
-  // Read player-stats data — prefers AI All in One tab so its values
-  // override anything the user may have manually pasted into the
-  // individual category tabs (Passing, Rushing, etc.). The category
-  // tabs are normally driven by formulas off AI All in One, but those
-  // formulas get clobbered if the user types directly into them. By
-  // reading AI All in One first and only falling back to the 9-tab
-  // read when AI All in One is empty / unreadable, the AI flow is
-  // authoritative.
+  // Read player-stats data — per-section merge with AI All in One as
+  // the override. The category tabs (Passing, Rushing, etc.) are
+  // normally formula-driven from AI All in One, but those formulas get
+  // clobbered when the user types directly into them. The semantic the
+  // user wants: "anything the user enters in the AI All in One tab
+  // overrides anything else in the sheet" — but only for the sections
+  // they actually populated. If they pasted only Passing into AI All
+  // in One, manual data in the Rushing tab should still be picked up.
+  //
+  // So we read both sources in parallel and merge per-section: unified
+  // wins for any category where it has data, individual tabs fill in
+  // categories where unified is empty.
   const readPlayerStatsPreferUnified = async () => {
     const teams = currentDynasty?.teams || currentDynasty?.customTeams
-    const unified = await readGameBoxScoreFromUnifiedTab(sheetId)
-    if (unified) {
-      const hasAnyData = Object.values(unified).some(arr => Array.isArray(arr) && arr.length > 0)
-      if (hasAnyData) return unified
+    const [unified, fallback] = await Promise.all([
+      readGameBoxScoreFromUnifiedTab(sheetId),
+      readGameBoxScoreFromSheet(sheetId, teams),
+    ])
+    if (!unified) return fallback // AI All in One unreadable — fallback only
+
+    const merged = {}
+    const allKeys = new Set([
+      ...Object.keys(unified || {}),
+      ...Object.keys(fallback || {}),
+    ])
+    for (const key of allKeys) {
+      const unifiedHas = Array.isArray(unified[key]) && unified[key].length > 0
+      merged[key] = unifiedHas ? unified[key] : (fallback?.[key] || [])
     }
-    // Empty AI All in One (or unreadable) → fall back so a manual
-    // workflow without the AI prompt still works.
-    return await readGameBoxScoreFromSheet(sheetId, teams)
+    return merged
   }
 
   const handleSyncFromSheet = async () => {
@@ -1096,6 +1108,16 @@ output that fails any of them.`,
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
 
+    // Read-only safety: if the user has lost premium since opening
+    // this modal, addGame below would silently no-op via
+    // blockIfReadOnly. Without this guard we'd end up deleting the
+    // Google Sheet but failing to wipe the dynasty data — the worst
+    // possible inconsistency. Catch it up front.
+    if (isViewOnly) {
+      toast.error('This cloud dynasty is read-only without active premium. Renew premium to reset stats.')
+      return
+    }
+
     // Match per-sheetType so the warning text reflects what's actually
     // about to be wiped — players see "all team stats" vs "all home
     // player stats" vs "scoring summary" depending on which sheet they
@@ -1144,10 +1166,20 @@ output that fails any of them.`,
           const nextBoxScore = sliceKey
             ? { ...prevBoxScore, [sliceKey]: null }
             : prevBoxScore
+          // For non-CPU games, addGame's box-score processing recomputes
+          // statsContributed from the new boxScore (correct delta).
+          // For CPU games (isCPUGame), addGame skips the box-score path
+          // entirely — without this explicit null, a stale
+          // statsContributed from a prior coaching-history era could
+          // linger and corrupt later operations. Setting it to null up
+          // front handles both cases:
+          //   non-CPU → overridden by the new computed value at line ~5754 of DynastyContext
+          //   CPU     → stays null, which is correct for an unaggregated game
           const updatedGame = {
             ...prevGame,
             [config.sheetIdKey]: null,
             boxScore: nextBoxScore,
+            statsContributed: null,
           }
           await addGame(currentDynasty.id, updatedGame)
         }
