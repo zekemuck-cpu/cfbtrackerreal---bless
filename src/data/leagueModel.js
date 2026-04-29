@@ -329,6 +329,13 @@ export function stampHistoryForYear(history, uid, year, teams) {
  * Snapshot every member's current team list into history under `year`.
  * Used on season advance so the year that just ended has a fixed record
  * even for users whose assignment didn't change during it.
+ *
+ * **Non-overwriting**: if a uid already has a snapshot for `year`, it's
+ * left alone. This matters for the new-job flow — the moment a job
+ * goes into effect (postseason → offseason) we stamp the just-ended
+ * year with the OLD team before swapping `memberTeams` to the new
+ * team. The later year-flip snapshot shouldn't undo that work just
+ * because `memberTeams` has since changed.
  */
 export function snapshotAllMembersForYear(dynasty, year) {
   if (!dynasty) return dynasty?.memberTeamHistory || {}
@@ -339,6 +346,8 @@ export function snapshotAllMembersForYear(dynasty, year) {
   for (const uid of Object.keys(current)) {
     const teams = current[uid]
     if (!Array.isArray(teams) || teams.length === 0) continue
+    const userMap = history[uid] || {}
+    if (userMap[yNum] != null || userMap[String(yNum)] != null) continue
     history = stampHistoryForYear(history, uid, yNum, teams)
   }
   return history

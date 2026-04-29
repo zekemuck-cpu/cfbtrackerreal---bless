@@ -178,7 +178,11 @@ export default function LeagueSettings() {
   }
 
   const handleRename = async (uid) => {
-    if (!canManage) return
+    // Anyone can rename their OWN row. Only the commish/co-commish can
+    // rename others.
+    const isSelf = uid === user.uid
+    if (!isSelf && !canManage) return
+
     const draft = nameDrafts[uid]
     const current = getMemberLabel(currentDynasty, uid)
     if (draft === undefined || draft.trim() === current) {
@@ -188,7 +192,15 @@ export default function LeagueSettings() {
     setBusyUid(uid)
     try {
       const next = setMemberLabelValue(currentDynasty, uid, draft)
-      await updateDynasty(currentDynasty.id, { memberLabels: next })
+      const updates = { memberLabels: next }
+      // For the dynasty owner, also keep dynasty.coachName in sync so
+      // the Layout header / Account / legacy single-coach surfaces all
+      // reflect the name change. (Other users' renames don't touch
+      // coachName — that field is owner-specific.)
+      if (uid === currentDynasty.userId) {
+        updates.coachName = draft.trim() || null
+      }
+      await updateDynasty(currentDynasty.id, updates)
       setNameDrafts(prev => ({ ...prev, [uid]: undefined }))
     } catch (err) {
       console.error('[Members] rename failed:', err)
@@ -343,9 +355,10 @@ export default function LeagueSettings() {
       <div key={uid} className="py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            {/* Name row */}
+            {/* Name row — anyone can edit their own row, commish/
+                co-commish can edit anyone's. */}
             <div className="flex items-center gap-2 flex-wrap">
-              {canManage ? (
+              {(canManage || isYou) ? (
                 <input
                   type="text"
                   value={draftValue}
@@ -474,7 +487,7 @@ export default function LeagueSettings() {
         <p className="text-xs text-txt-tertiary mb-2">
           {canManage
             ? 'Click a name to rename. Members get one team each; commish and co-commishes can hold multiple to manage teams for users without premium.'
-            : 'Names and team assignments are managed by the commish.'}
+            : 'Click your own name to rename it. Team assignments are managed by the commish.'}
         </p>
         <div className="divide-y divide-surface-3/50">
           {renderRow(currentDynasty.userId)}

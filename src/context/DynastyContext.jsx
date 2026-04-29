@@ -4947,16 +4947,21 @@ export function DynastyProvider({ children }) {
           teamName: dynastyData.teamName
         }
       },
-      // Multiplayer-of-1 by default: stamp the owner's uid into editors[]
-      // and seed memberTeams[ownerUid] with the team they're playing as.
-      // Solo dynasties stay solo; the schema is forward-compatible if
-      // they ever invite a second user via the Members page later.
+      // Multiplayer-of-1 by default: stamp the owner's uid into editors[],
+      // seed memberTeams[ownerUid] with the team they're playing as,
+      // and mirror the coach name into memberLabels so the Coach Career
+      // picker / Members page already show the user's name. Solo
+      // dynasties stay solo; the schema is forward-compatible if they
+      // ever invite a second user via the Members page later.
       ...(user?.uid && currentTid ? {
         editors: [user.uid],
         memberTeams: { [user.uid]: [Number(currentTid)] },
         memberTeamHistory: {
           [user.uid]: { [startYear]: [Number(currentTid)] },
         },
+        ...(dynastyData.coachName?.trim() ? {
+          memberLabels: { [user.uid]: dynastyData.coachName.trim() },
+        } : {}),
       } : {}),
       preseasonSetup: {
         scheduleEntered: false,
@@ -6954,6 +6959,42 @@ export function DynastyProvider({ children }) {
             for (const [tidStr, team] of Object.entries(teamsAfterFlip)) {
               if (team.userId || team.pendingUserId) {
                 console.log(`  tid ${tidStr} (${team.name}): userId=${team.userId}, pendingUserId=${team.pendingUserId}`)
+              }
+            }
+
+            // Sync the unified per-user team system to the job that
+            // just went into effect. The TIMING above (when the flip
+            // happens) is owned by applyPendingUserTeam — we just
+            // mirror its result into memberTeams + memberTeamHistory
+            // so the TeamSwitcher and Coach Career picker see the
+            // change immediately.
+            //
+            // Order matters: stamp memberTeamHistory for the year
+            // that just ended FIRST (with the OLD memberTeams, since
+            // the user coached that year on the old team), then swap
+            // memberTeams to the new team.
+            const ownerUid = dynasty.userId
+            const newUserTidEntry = Object.entries(teamsAfterFlip)
+              .find(([_, t]) => t.userId === 'currentUser')
+            if (ownerUid && newUserTidEntry) {
+              const newUserTid = Number(newUserTidEntry[0])
+              const seasonThatJustEnded = Number(dynasty.currentYear)
+              if (Number.isFinite(seasonThatJustEnded)) {
+                additionalUpdates.memberTeamHistory = snapshotAllMembersForYear(
+                  dynasty,
+                  seasonThatJustEnded,
+                )
+              }
+              const existingMemberTeams = dynasty.memberTeams || {}
+              const ownerCurrent = Array.isArray(existingMemberTeams[ownerUid])
+                ? existingMemberTeams[ownerUid].map(Number)
+                : []
+              const swapped = ownerCurrent.length > 0
+                ? [newUserTid, ...ownerCurrent.slice(1).filter(t => t !== newUserTid)]
+                : [newUserTid]
+              additionalUpdates.memberTeams = {
+                ...existingMemberTeams,
+                [ownerUid]: swapped,
               }
             }
           }
