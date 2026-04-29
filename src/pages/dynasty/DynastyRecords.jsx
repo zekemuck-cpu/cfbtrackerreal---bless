@@ -11,6 +11,7 @@ import {
   Badge,
   EmptyState,
   Tabs,
+  Modal,
 } from '../../components/ui'
 
 // Stat category definitions
@@ -25,7 +26,14 @@ const STAT_CATEGORIES = {
       { key: 'yards', label: 'Passing Yards', abbr: 'YDS', field: 'yds' },
       { key: 'ypa', label: 'Yards/Attempt', abbr: 'Y/A', calculated: true, minAtt: { career: 150, season: 50 }, format: 'avg' },
       { key: 'tds', label: 'Passing TDs', abbr: 'TD', field: 'td' },
-      { key: 'ints', label: 'Interceptions', abbr: 'INT', field: 'int', lowerIsBetter: true },
+      // Interceptions THROWN — sorted #1 = most picks (a "leader" by
+      // count). Used to be `lowerIsBetter: true` which surfaced the
+      // safest QB at #1; that's a "rate" stat (would need ATT-floor),
+      // not a leaderboard. Fewest INTs is interesting but doesn't fit
+      // the count-style cards here.
+      { key: 'ints', label: 'Interceptions', abbr: 'INT', field: 'int' },
+      { key: 'sacks', label: 'Sacks Taken', abbr: 'SCK', field: 'sacks' },
+      { key: 'longestPass', label: 'Longest Pass', abbr: 'LNG', field: 'lng' },
       { key: 'rating', label: 'Passer Rating', abbr: 'RTG', calculated: true, minAtt: { career: 150, season: 50 }, format: 'rating' },
     ]
   },
@@ -36,7 +44,12 @@ const STAT_CATEGORIES = {
       { key: 'attempts', label: 'Rush Attempts', abbr: 'ATT', field: 'car' },
       { key: 'yards', label: 'Rush Yards', abbr: 'YDS', field: 'yds' },
       { key: 'ypc', label: 'Yards/Carry', abbr: 'Y/C', calculated: true, minAtt: { career: 100, season: 25 }, format: 'avg' },
-      { key: 'tds', label: 'Rush TDs', abbr: 'TD', field: 'td' }
+      { key: 'tds', label: 'Rush TDs', abbr: 'TD', field: 'td' },
+      { key: 'longestRun', label: 'Longest Run', abbr: 'LNG', field: 'lng' },
+      { key: 'fumbles', label: 'Fumbles', abbr: 'FUM', field: 'fum' },
+      { key: 'brokenTackles', label: 'Broken Tackles', abbr: 'BT', field: 'bt' },
+      { key: 'yac', label: 'Yards After Contact', abbr: 'YAC', field: 'yac' },
+      { key: 'twentyPlus', label: '20+ Yard Runs', abbr: '20+', field: 'twentyPlus' },
     ]
   },
   receiving: {
@@ -46,7 +59,10 @@ const STAT_CATEGORIES = {
       { key: 'receptions', label: 'Receptions', abbr: 'REC', field: 'rec' },
       { key: 'yards', label: 'Receiving Yards', abbr: 'YDS', field: 'yds' },
       { key: 'ypr', label: 'Yards/Reception', abbr: 'Y/R', calculated: true, minAtt: { career: 50, season: 10 }, format: 'avg' },
-      { key: 'tds', label: 'Receiving TDs', abbr: 'TD', field: 'td' }
+      { key: 'tds', label: 'Receiving TDs', abbr: 'TD', field: 'td' },
+      { key: 'longestRecep', label: 'Longest Reception', abbr: 'LNG', field: 'lng' },
+      { key: 'rac', label: 'Yards After Catch', abbr: 'RAC', field: 'rac' },
+      { key: 'drops', label: 'Drops', abbr: 'DROP', field: 'drops' },
     ]
   },
   allPurpose: {
@@ -67,6 +83,8 @@ const STAT_CATEGORIES = {
       { key: 'ints', label: 'Interceptions', abbr: 'INT', field: 'int' },
       { key: 'pdef', label: 'Passes Defensed', abbr: 'PD', field: 'pd' },
       { key: 'ff', label: 'Forced Fumbles', abbr: 'FF', field: 'ff' },
+      { key: 'fr', label: 'Fumble Recoveries', abbr: 'FR', field: 'fr' },
+      { key: 'defTds', label: 'Defensive TDs', abbr: 'TD', field: 'td' },
     ]
   },
   kicking: {
@@ -76,6 +94,7 @@ const STAT_CATEGORIES = {
       { key: 'fgm', label: 'FG Made', abbr: 'FGM', field: 'fgm' },
       { key: 'fga', label: 'FG Attempted', abbr: 'FGA', field: 'fga' },
       { key: 'fgPct', label: 'FG %', abbr: 'FG%', calculated: true, minAtt: { career: 25, season: 5 }, format: 'pct' },
+      { key: 'longestFg', label: 'Longest FG', abbr: 'LNG', field: 'lng' },
       { key: 'xpm', label: 'XP Made', abbr: 'XPM', field: 'xpm' },
     ]
   },
@@ -85,7 +104,9 @@ const STAT_CATEGORIES = {
     stats: [
       { key: 'punts', label: 'Punts', abbr: 'P', field: 'punts' },
       { key: 'yards', label: 'Punt Yards', abbr: 'YDS', field: 'yds' },
-      { key: 'ypp', label: 'Yards/Punt', abbr: 'Y/P', calculated: true, minAtt: { career: 50, season: 10 }, format: 'avg' }
+      { key: 'ypp', label: 'Yards/Punt', abbr: 'Y/P', calculated: true, minAtt: { career: 50, season: 10 }, format: 'avg' },
+      { key: 'longestPunt', label: 'Longest Punt', abbr: 'LNG', field: 'lng' },
+      { key: 'in20', label: 'Punts Inside 20', abbr: 'IN20', field: 'in20' },
     ]
   },
   kickReturn: {
@@ -94,7 +115,8 @@ const STAT_CATEGORIES = {
       { key: 'returns', label: 'Kick Returns', abbr: 'RET', field: 'ret' },
       { key: 'yards', label: 'KR Yards', abbr: 'YDS', field: 'yds' },
       { key: 'avg', label: 'Yards/Return', abbr: 'AVG', calculated: true, minAtt: { career: 20, season: 5 }, format: 'avg' },
-      { key: 'tds', label: 'KR TDs', abbr: 'TD', field: 'td' }
+      { key: 'tds', label: 'KR TDs', abbr: 'TD', field: 'td' },
+      { key: 'longestKr', label: 'Longest Return', abbr: 'LNG', field: 'lng' },
     ]
   },
   puntReturn: {
@@ -103,7 +125,8 @@ const STAT_CATEGORIES = {
       { key: 'returns', label: 'Punt Returns', abbr: 'RET', field: 'ret' },
       { key: 'yards', label: 'PR Yards', abbr: 'YDS', field: 'yds' },
       { key: 'avg', label: 'Yards/Return', abbr: 'AVG', calculated: true, minAtt: { career: 20, season: 5 }, format: 'avg' },
-      { key: 'tds', label: 'PR TDs', abbr: 'TD', field: 'td' }
+      { key: 'tds', label: 'PR TDs', abbr: 'TD', field: 'td' },
+      { key: 'longestPr', label: 'Longest Return', abbr: 'LNG', field: 'lng' },
     ]
   }
 }
@@ -117,7 +140,11 @@ export default function DynastyRecords() {
 
   const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'career')
   const [activeCategory, setActiveCategory] = useState(() => localStorage.getItem('leaderboard-category') || 'passing')
-  const [selectedStat, setSelectedStat] = useState(null)
+  // Stat key for the "view full leaderboard" modal — null when closed.
+  // Replaces the prior `selectedStat` inline expand/collapse state; the
+  // inline 4-10 expansion only showed 7 more entries and felt cramped.
+  // Modal-based reveal can show the full ranked list with breathing room.
+  const [modalStat, setModalStat] = useState(null)
 
   // Get roster players
   const getRosterPlayers = () => {
@@ -546,7 +573,6 @@ export default function DynastyRecords() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 stagger-reveal">
           {category.stats.map(stat => {
             const statLeaderboard = catLeaderboards[stat.key] || []
-            const isExpanded = selectedStat === stat.key
 
             return (
               <div
@@ -567,14 +593,15 @@ export default function DynastyRecords() {
                   }}
                 />
 
-                {/* Card header: stat abbr eyebrow + name */}
+                {/* Card header: stat abbr eyebrow + name. Click anywhere
+                    in the header opens the full-leaderboard modal. */}
                 <div
                   className="flex items-baseline justify-between px-5 pt-4 pb-3 cursor-pointer select-none"
                   style={{
                     background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 60%, var(--surface-2)) 0%, var(--surface-2) 100%)',
                     borderBottom: '1px solid var(--rule-soft)'
                   }}
-                  onClick={() => setSelectedStat(isExpanded ? null : stat.key)}
+                  onClick={() => statLeaderboard.length > 0 && setModalStat(stat.key)}
                 >
                   <div>
                     <div
@@ -693,55 +720,11 @@ export default function DynastyRecords() {
                   </div>
                 )}
 
-                {/* Expanded View - Ranks 4-10 */}
-                {isExpanded && statLeaderboard.length > 3 && (
-                  <div
-                    className="records-expand"
-                    style={{
-                      borderTop: '1px solid var(--rule-soft)',
-                      backgroundColor: 'var(--surface-1)'
-                    }}
-                  >
-                    {statLeaderboard.slice(3, 10).map((entry, idx) => {
-                      const rank = idx + 4
-                      return (
-                        <div
-                          key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                          className="flex items-center gap-3 px-5 py-1.5 hover:bg-surface-2 transition-colors"
-                          style={idx > 0 ? { borderTop: '1px solid var(--rule-soft)' } : undefined}
-                        >
-                          <div
-                            className="w-5 text-right tabular text-txt-tertiary flex-shrink-0"
-                            style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '0.85rem' }}
-                          >
-                            {rank}
-                          </div>
-
-                          {entry.pictureUrl ? (
-                            <img src={entry.pictureUrl} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
-                          ) : entry.teamLogo ? (
-                            <img src={entry.teamLogo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />
-                          ) : null}
-
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={`${pathPrefix}/player/${entry.pid}`}
-                              className="text-[13px] text-txt-secondary hover:text-txt-primary hover:underline truncate block transition-colors"
-                            >
-                              {entry.name}
-                            </Link>
-                          </div>
-
-                          <div className="text-[13px] font-semibold text-txt-secondary tabular flex-shrink-0">
-                            {formatValue(entry.value, stat.format)}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Expand/Collapse */}
+                {/* "View full leaderboard" — opens the modal that shows
+                    all entries with breathing room. Replaces the prior
+                    inline 4-10 expansion which felt cramped and didn't
+                    surface entries past rank 10. Only shown when there
+                    are more entries than the top-3 podium displays. */}
                 {statLeaderboard.length > 3 && (
                   <button
                     className="mt-auto w-full px-5 py-2.5 text-center text-[10px] font-bold uppercase text-txt-tertiary hover:text-txt-primary transition-colors"
@@ -750,9 +733,9 @@ export default function DynastyRecords() {
                       letterSpacing: '2.5px',
                       backgroundColor: 'color-mix(in srgb, var(--surface-1) 55%, var(--surface-2))'
                     }}
-                    onClick={() => setSelectedStat(isExpanded ? null : stat.key)}
+                    onClick={() => setModalStat(stat.key)}
                   >
-                    {isExpanded ? 'Show Less ↑' : `+${statLeaderboard.length - 3} More ↓`}
+                    View All {statLeaderboard.length} ↗
                   </button>
                 )}
               </div>
@@ -760,6 +743,114 @@ export default function DynastyRecords() {
           })}
         </div>
       )}
+
+      {/* Full-leaderboard modal — opens when the user clicks a card
+          header or "View All" button. Shows every ranked entry for that
+          stat (1 through N) with consistent row treatment. The modal
+          body is the only place where users can see ranks 11+ and is
+          the single source of truth for "the entire list". */}
+      {modalStat && (() => {
+        const stat = category?.stats?.find(s => s.key === modalStat)
+        if (!stat) return null
+        const fullLeaderboard = catLeaderboards[modalStat] || []
+        const modalSubtitle = mode === 'career' ? 'Career leaders' : 'Single-season leaders'
+        return (
+          <Modal
+            isOpen={!!modalStat}
+            onClose={() => setModalStat(null)}
+            title={`${stat.label} · ${modalSubtitle}`}
+            size="lg"
+          >
+            {fullLeaderboard.length === 0 ? (
+              <EmptyState
+                title="No entries yet"
+                message="Stats will appear here once games are saved."
+              />
+            ) : (
+              <div className="space-y-0.5">
+                {category?.minNote && (
+                  <p className="text-[11px] text-txt-tertiary mb-3" style={{ letterSpacing: '0.5px' }}>
+                    {category.minNote}
+                  </p>
+                )}
+                <div
+                  className="rounded-lg overflow-hidden"
+                  style={{
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--rule-soft)',
+                  }}
+                >
+                  {fullLeaderboard.map((entry, idx) => {
+                    const rank = idx + 1
+                    const isTop3 = rank <= 3
+                    return (
+                      <div
+                        key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
+                        style={idx > 0 ? { borderTop: '1px solid var(--rule-soft)' } : undefined}
+                      >
+                        <div
+                          className="text-right tabular flex-shrink-0"
+                          style={{
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            fontSize: isTop3 ? '1.15rem' : '0.95rem',
+                            letterSpacing: '0.5px',
+                            lineHeight: 1,
+                            width: '2rem',
+                            color: isTop3 ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                          }}
+                        >
+                          {rank}
+                        </div>
+
+                        {entry.pictureUrl ? (
+                          <img
+                            src={entry.pictureUrl}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            style={{ border: '1px solid var(--surface-4)' }}
+                          />
+                        ) : entry.teamLogo ? (
+                          <img src={entry.teamLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-surface-4 flex-shrink-0" />
+                        )}
+
+                        <div className="flex-1 min-w-0">
+                          <Link
+                            to={`${pathPrefix}/player/${entry.pid}`}
+                            onClick={() => setModalStat(null)}
+                            className="text-sm font-semibold text-txt-primary hover:underline truncate block"
+                          >
+                            {entry.name}
+                          </Link>
+                          <p className="text-[11px] text-txt-tertiary truncate">
+                            {entry.position && `${entry.position} · `}
+                            {mode === 'career' ? formatYears(entry.years) : entry.year}
+                          </p>
+                        </div>
+
+                        <div
+                          className="tabular flex-shrink-0 text-right text-txt-primary"
+                          style={{
+                            fontFamily: "'Bebas Neue', sans-serif",
+                            fontSize: isTop3 ? '1.35rem' : '1.1rem',
+                            fontWeight: isTop3 ? 800 : 700,
+                            letterSpacing: '0.5px',
+                            lineHeight: 1,
+                          }}
+                        >
+                          {formatValue(entry.value, stat.format)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </Modal>
+        )
+      })()}
     </div>
   )
 }
