@@ -724,6 +724,18 @@ output that fails any of them.`,
     return `Cell A1 of the "${AI_UNIFIED_TAB.title}" tab — DO NOT paste into the individual category tabs (Passing, Rushing, etc.); those are driven by formulas off the "${AI_UNIFIED_TAB.title}" tab.`
   }, [sheetType])
 
+  // Short label used inside the Reset/Regenerate button text so the
+  // user can tell at a glance what's about to be wiped (e.g. "wipe
+  // BAMA stats" not just "wipe data"). Kept short on purpose — the
+  // confirm dialog has the full description.
+  const regenWipeShort = useMemo(() => {
+    if (sheetType === 'scoring') return 'scoring summary'
+    if (sheetType === 'teamStats') return 'team stats'
+    if (sheetType === 'homeStats') return `${homeTeamAbbr || 'home'} stats`
+    if (sheetType === 'awayStats') return `${awayTeamAbbr || 'away'} stats`
+    return 'saved data'
+  }, [sheetType, homeTeamAbbr, awayTeamAbbr])
+
   // Highlight save button when user returns to window
   useEffect(() => {
     if (!isOpen || !sheetId || useEmbedded) return
@@ -986,71 +998,6 @@ output that fails any of them.`,
     }
   }
 
-  // Wipe ONLY the saved dynasty data for this team / game / sheet
-  // type. Doesn't touch the Google Sheet — useful when a user already
-  // cleaned the sheet manually (or doesn't care about it) and just
-  // wants the bad stats out of their dynasty. Sister to
-  // handleRegenerateSheet, which does this PLUS deletes & recreates
-  // the sheet.
-  const [clearing, setClearing] = useState(false)
-  const handleClearSavedStats = async () => {
-    if (!currentDynasty || !game?.id) return
-
-    const wipeLabel = (() => {
-      if (sheetType === 'scoring') return 'the scoring summary for this game'
-      if (sheetType === 'teamStats') return 'the team stats for this game'
-      if (sheetType === 'homeStats') return `${homeTeamAbbr} player stats for this game`
-      if (sheetType === 'awayStats') return `${awayTeamAbbr} player stats for this game`
-      return 'the data for this sheet'
-    })()
-
-    const confirmed = await confirm({
-      title: 'Delete saved stats?',
-      message: `This wipes ${wipeLabel} from your dynasty. Player season totals are recalculated to subtract this game's contribution. The Google Sheet itself is left alone — clear it manually or hit "Regenerate sheet" if you want a fresh one.`,
-      confirmLabel: 'Delete saved stats',
-      variant: 'danger',
-    })
-    if (!confirmed) return
-
-    setClearing(true)
-    try {
-      const games = [...(currentDynasty.games || [])]
-      const gameIndex = games.findIndex(g => g.id === game.id)
-      if (gameIndex === -1) {
-        toast.error('Game not found.')
-        return
-      }
-      const prevGame = games[gameIndex]
-      const prevBoxScore = prevGame?.boxScore || {}
-      const sliceKey =
-        sheetType === 'scoring' ? 'scoringSummary'
-        : sheetType === 'teamStats' ? 'teamStats'
-        : sheetType === 'homeStats' ? 'home'
-        : sheetType === 'awayStats' ? 'away'
-        : null
-      if (!sliceKey) {
-        toast.error('Unknown sheet type — cannot clear.')
-        return
-      }
-      const updatedGame = {
-        ...prevGame,
-        boxScore: { ...prevBoxScore, [sliceKey]: null },
-      }
-      // addGame applies delta tracking so player season totals get
-      // re-aggregated correctly; calling it with cleared data
-      // subtracts this game's prior contribution from each player.
-      await addGame(currentDynasty.id, updatedGame)
-      toast.success('Saved stats deleted. Refresh the page to see updated season totals.')
-      // Keep the sheet open — user might want to re-enter, regenerate,
-      // or close manually.
-    } catch (err) {
-      console.error('Failed to clear saved stats:', err)
-      toast.error(`Failed to delete: ${err.message || 'Unknown error'}`)
-    } finally {
-      setClearing(false)
-    }
-  }
-
   // Regenerate sheet — also wipes the saved box-score slice for this
   // sheet type so we don't pre-fill the new sheet with the previous
   // (possibly bad) data. Without this clear, regenerating after a
@@ -1072,9 +1019,9 @@ output that fails any of them.`,
     })()
 
     const confirmed = await confirm({
-      title: 'Regenerate sheet?',
-      message: `This will delete your current sheet AND wipe ${wipeLabel} from the dynasty. You'll start over with a fresh empty sheet. Saved stats elsewhere (other sheets, season totals from other games) are not affected.`,
-      confirmLabel: 'Regenerate & Wipe',
+      title: 'Reset this sheet?',
+      message: `This deletes the Google Sheet AND wipes ${wipeLabel} from the dynasty. Player season totals are recalculated to subtract this game's contribution — so the bad stats won't linger anywhere. You'll start over with a fresh empty sheet. Other sheets and other games are not affected.`,
+      confirmLabel: `Reset & wipe ${wipeLabel.replace(/ for this game$/, '')}`.slice(0, 60),
       variant: 'danger',
     })
     if (!confirmed) return
@@ -1083,15 +1030,20 @@ output that fails any of them.`,
     try {
       await deleteGoogleSheet(sheetId)
 
-      // Clear sheet ID from game AND wipe the saved slice of game.boxScore
-      // that this sheet feeds into, so the next sheet creation starts
-      // from a clean slate (and the user's dynasty no longer holds the
-      // bad data).
+      // Clear sheet ID from game AND wipe the saved slice of
+      // game.boxScore that this sheet feeds into, so the next sheet
+      // creation starts from a clean slate (and the user's dynasty no
+      // longer holds the bad data).
+      //
+      // Use addGame instead of updateDynasty so player season totals
+      // get re-aggregated via the existing delta-tracking logic.
+      // Otherwise: data on the game would be cleared, but each
+      // affected player's statsByYear[year] would still include the
+      // bad contribution and the user would see ghost season stats.
       if (currentDynasty && game?.id) {
-        const games = [...(currentDynasty.games || [])]
-        const gameIndex = games.findIndex(g => g.id === game.id)
-        if (gameIndex !== -1) {
-          const prevGame = games[gameIndex]
+        const games = currentDynasty.games || []
+        const prevGame = games.find(g => g.id === game.id)
+        if (prevGame) {
           const prevBoxScore = prevGame?.boxScore || {}
           const sliceKey =
             sheetType === 'scoring' ? 'scoringSummary'
@@ -1102,12 +1054,12 @@ output that fails any of them.`,
           const nextBoxScore = sliceKey
             ? { ...prevBoxScore, [sliceKey]: null }
             : prevBoxScore
-          games[gameIndex] = {
+          const updatedGame = {
             ...prevGame,
             [config.sheetIdKey]: null,
             boxScore: nextBoxScore,
           }
-          await updateDynasty(currentDynasty.id, { games })
+          await addGame(currentDynasty.id, updatedGame)
         }
       }
 
@@ -1231,30 +1183,17 @@ output that fails any of them.`,
                     AI Prompt
                   </button>
                   <button
-                    onClick={handleClearSavedStats}
-                    disabled={syncing || deletingSheet || regenerating || clearing}
-                    title="Wipe saved stats from the dynasty. Doesn't touch the Google Sheet."
-                    className="px-3 sm:px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: '#EF4444',
-                      color: '#EF4444'
-                    }}
-                  >
-                    {clearing ? 'Deleting...' : 'Delete saved stats'}
-                  </button>
-                  <button
                     onClick={handleRegenerateSheet}
-                    disabled={syncing || deletingSheet || regenerating || clearing}
-                    title="Delete the Google Sheet AND wipe saved stats; start over with a fresh sheet."
-                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2"
+                    disabled={syncing || deletingSheet || regenerating}
+                    title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
+                    className="px-3 sm:px-4 py-2 rounded-lg font-semibold hover:opacity-90 transition-colors text-xs sm:text-sm border-2 ml-auto"
                     style={{
                       backgroundColor: 'transparent',
                       borderColor: '#EF4444',
                       color: '#EF4444'
                     }}
                   >
-                    {regenerating ? 'Regenerating...' : 'Regenerate sheet'}
+                    {regenerating ? 'Resetting...' : `Reset (regen sheet & wipe ${regenWipeShort})`}
                   </button>
                 </div>
               </div>
@@ -1393,35 +1332,23 @@ output that fails any of them.`,
                   </button>
                 </div>
 
-                {/* Start Over / Clean-up buttons */}
-                <div className="flex flex-col sm:flex-row gap-2 mb-4 items-center">
-                  <button
-                    onClick={handleClearSavedStats}
-                    disabled={syncing || deletingSheet || regenerating || clearing}
-                    title="Wipe saved stats from the dynasty. Doesn't touch the Google Sheet."
-                    className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: '#EF4444',
-                      color: '#EF4444'
-                    }}
-                  >
-                    {clearing ? 'Deleting...' : 'Stats look weird? Delete saved stats'}
-                  </button>
-                  <button
-                    onClick={handleRegenerateSheet}
-                    disabled={syncing || deletingSheet || regenerating || clearing}
-                    title="Delete the Google Sheet AND wipe saved stats; start over with a fresh sheet."
-                    className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border"
-                    style={{
-                      backgroundColor: 'transparent',
-                      borderColor: '#EF4444',
-                      color: '#EF4444'
-                    }}
-                  >
-                    {regenerating ? 'Regenerating...' : 'Messed up? Regenerate sheet'}
-                  </button>
-                </div>
+                {/* Start Over button — does both: deletes the Google
+                    Sheet AND wipes the saved stats slice for this team
+                    / this game (with delta-tracking on player season
+                    totals). */}
+                <button
+                  onClick={handleRegenerateSheet}
+                  disabled={syncing || deletingSheet || regenerating}
+                  title="Delete the Google Sheet AND wipe saved stats for this team / this game from the dynasty (player season totals are recalculated to subtract this game's contribution). Start over with a fresh sheet."
+                  className="text-xs px-4 py-2 rounded-lg font-medium hover:opacity-90 transition-colors border mb-4"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: '#EF4444',
+                    color: '#EF4444'
+                  }}
+                >
+                  {regenerating ? 'Resetting...' : `Stats look weird? Reset (regen sheet & wipe ${regenWipeShort})`}
+                </button>
 
                 <div className="bg-surface-2 text-xs p-3 rounded-lg max-w-sm text-txt-secondary">
                   <p className="font-semibold mb-1 text-txt-primary">Tabs:</p>
