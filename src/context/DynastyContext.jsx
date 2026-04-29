@@ -133,7 +133,7 @@ export function getUserGamePerspective(game, dynasty, options = {}) {
 
     // Derive tid from coachTeamByYear[year].team abbr if tid not set
     if (!userTid && userTeamAbbr) {
-      userTid = getTidFromAbbr(userTeamAbbr)
+      userTid = getTidFromAbbr(userTeamAbbr, dynasty)
     }
   }
 
@@ -184,14 +184,14 @@ export function getUserGamePerspective(game, dynasty, options = {}) {
   // Only match if userTeam matches the team user was coaching that year
   if (game.userTeam) {
     // Get tid from userTeam abbreviation to compare
-    const gameUserTid = getTidFromAbbr(game.userTeam)
+    const gameUserTid = getTidFromAbbr(game.userTeam, dynasty)
 
     // Check if this game's userTeam matches what we coached that year
     if (userTid && gameUserTid !== userTid) return null  // Different team
     if (!userTid && userTeamAbbr && game.userTeam !== userTeamAbbr) return null
 
     // Get opponent tid for the perspective
-    const opponentTid = game.opponentTid || getTidFromAbbr(game.opponent)
+    const opponentTid = game.opponentTid || getTidFromAbbr(game.opponent, dynasty)
 
     // Determine win/loss from result field or scores
     let userWon = false
@@ -4334,7 +4334,7 @@ export function DynastyProvider({ children }) {
 
         // PRIORITY 2: Check userTeam field (legacy format)
         if (g.userTeam) {
-          const tid = getTidFromAbbr(g.userTeam)
+          const tid = getTidFromAbbr(g.userTeam, migrated)
           if (tid) {
             inferredTeamsByYear[year] = tid
             return
@@ -4375,7 +4375,7 @@ export function DynastyProvider({ children }) {
 
           // PRIORITY 5: Check if dynasty starting team matches (for early years)
           const startingTid = getTidFromTeamName(migrated.teamName, migrated.teams) ||
-                              getTidFromAbbr(migrated.teamName)
+                              getTidFromAbbr(migrated.teamName, migrated)
           if (startingTid && (g.team1Tid === startingTid || g.team2Tid === startingTid)) {
             if (year <= (migrated.startYear || 2025) + 1) {
               inferredTeamsByYear[year] = startingTid
@@ -6180,9 +6180,11 @@ export function DynastyProvider({ children }) {
       if (gameData.team1Score === null || gameData.team1Score === undefined) continue
       if (gameData.team2Score === null || gameData.team2Score === undefined) continue
 
-      // Resolve team tids (accept both tid and abbr inputs)
-      const team1Tid = gameData.team1Tid || getTidFromAbbr(team1Abbr)
-      const team2Tid = gameData.team2Tid || getTidFromAbbr(team2Abbr)
+      // Resolve team tids (accept both tid and abbr inputs).
+      // Pass dynasty so TB takeovers' current abbrs resolve to the
+      // correct slot tids, not the static map's stale ones.
+      const team1Tid = gameData.team1Tid || getTidFromAbbr(team1Abbr, dynasty)
+      const team2Tid = gameData.team2Tid || getTidFromAbbr(team2Abbr, dynasty)
 
       // Determine winner (tid-based)
       const team1Score = parseInt(gameData.team1Score)
@@ -6446,9 +6448,9 @@ export function DynastyProvider({ children }) {
         return true
       })
       .map(cc => {
-        // Resolve team tids (accept both tid and abbr inputs)
-        const team1Tid = cc.team1Tid || getTidFromAbbr(cc.team1)
-        const team2Tid = cc.team2Tid || getTidFromAbbr(cc.team2)
+        // Resolve team tids (accept both tid and abbr inputs).
+        const team1Tid = cc.team1Tid || getTidFromAbbr(cc.team1, dynasty)
+        const team2Tid = cc.team2Tid || getTidFromAbbr(cc.team2, dynasty)
 
         // Determine winner (tid-based)
         const team1Score = parseInt(cc.team1Score)
@@ -6794,7 +6796,7 @@ export function DynastyProvider({ children }) {
 
         // TEAM-CENTRIC FIX: Store current schedule in team-centric structure before clearing
         const currentSchedule = dynasty.schedule || []
-        const currentTeamTid = getTidFromAbbr(currentTeamAbbr)
+        const currentTeamTid = getTidFromAbbr(currentTeamAbbr, dynasty)
 
         // Initialize byYear structure for the current team
         if (currentTeamTid) {
@@ -7410,7 +7412,7 @@ export function DynastyProvider({ children }) {
           const hasCurrentYear = player.teamsByYear?.[currentSeasonYear] || player.teamsByYear?.[String(currentSeasonYear)]
           if (!hasCurrentYear) {
             // Use tid for teamsByYear - convert player.team to tid if needed
-            const playerTeamTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team)
+            const playerTeamTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team, dynasty)
             const playerTeamValue = playerTeamTid || teamsByYearValue
             updated.teamsByYear = {
               ...(player.teamsByYear || {}),
@@ -7569,7 +7571,7 @@ export function DynastyProvider({ children }) {
       const playerTeamPrevSeason = player.teamsByYear?.[previousSeasonYear] ?? player.teamsByYear?.[String(previousSeasonYear)]
       if (playerTeamPrevSeason && !isTeamMatch(playerTeamPrevSeason)) return player
       // Also check player.team field (could be tid or abbr)
-      const playerTeamFieldTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team)
+      const playerTeamFieldTid = typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team, dynasty)
       if (!playerTeamPrevSeason && player.team && playerTeamFieldTid !== teamTid) return player
 
       // Check if player has any FUTURE year on this team (indicates they should still be on the team)
@@ -8335,7 +8337,7 @@ export function DynastyProvider({ children }) {
     } else if (dynasty.currentPhase === 'offseason') {
       // Reverting within offseason - handle different week transitions
       const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-      const teamTid = getTidFromAbbr(teamAbbr)
+      const teamTid = getTidFromAbbr(teamAbbr, dynasty)
 
       if (dynasty.currentWeek === 1 && prevPhase === 'postseason') {
         // Reverting FROM offseason week 1 TO postseason week 5
@@ -8616,7 +8618,7 @@ export function DynastyProvider({ children }) {
           }
         }
         // Also clear tid-based structure
-        const teamTid = getTidFromAbbr(teamAbbr)
+        const teamTid = getTidFromAbbr(teamAbbr, dynasty)
         if (teamTid && dynasty.teams?.[teamTid]?.byYear?.[trainingYear]) {
           const existingTeams = dynasty.teams
           const existingTeamData = existingTeams[teamTid] || {}
@@ -8731,16 +8733,18 @@ export function DynastyProvider({ children }) {
     // Derive storage type from dynasty's storageType field
     const useLocalStorage = dynasty.storageType !== 'cloud'
 
-    // Get team and year - use provided values or fall back to current user's team.
-    // getAbbrFromTid expects (teams, tid) — pass dynasty.teams so a TB
-    // takeover's CURRENT abbr is used (not the static FBS abbr that
-    // used to live in this slot).
-    const userTeamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
-    const targetTid = options.teamTid || getTidFromAbbr(userTeamAbbr)
+    // Get team and year — use provided values or fall back to user's
+    // current team. CRITICAL: derive tid via getCurrentTeamTid, not
+    // by round-tripping abbr → static map. A TeamBuilder's chosen
+    // abbr can collide with a real team's static abbr (e.g. a TB
+    // named "MUR" → Murray State Racers FCS), which would otherwise
+    // resolve to the WRONG tid and save games against a team the
+    // user doesn't actually own.
+    const targetTid = options.teamTid || getCurrentTeamTid(dynasty)
     const targetYear = options.year || dynasty.currentYear
-    const teamAbbr = options.teamTid
-      ? getAbbrFromTid(dynasty.teams, options.teamTid)
-      : userTeamAbbr
+    const teamAbbr = targetTid
+      ? getAbbrFromTid(dynasty.teams, targetTid)
+      : (getCurrentTeamAbbr(dynasty) || dynasty.teamName)
     const year = targetYear
     const tid = targetTid
 
@@ -8894,8 +8898,10 @@ export function DynastyProvider({ children }) {
     // If options.teamAbbr is provided, convert it to tid; otherwise use current user team's tid
     let teamTid
     if (options.teamAbbr) {
-      // Convert provided abbr to tid (for editing other teams)
-      teamTid = getTidFromAbbr(options.teamAbbr)
+      // Convert provided abbr to tid (for editing other teams).
+      // Pass dynasty so a TB takeover's CURRENT abbr resolves to the
+      // correct slot tid, not whatever the static map says.
+      teamTid = getTidFromAbbr(options.teamAbbr, dynasty)
     } else {
       // Use current user team's tid directly
       teamTid = getCurrentTeamTid(dynasty)
@@ -9109,7 +9115,7 @@ export function DynastyProvider({ children }) {
     const currentSetup = teamSetups[year] || dynasty.preseasonSetup || {}
 
     // Build NEW tid-based byYear structure updates
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, dynasty)
     const existingTeams = dynasty.teams || {}
     const existingTeamData = existingTeams[tid] || {}
     const existingByYear = existingTeamData.byYear || {}
@@ -9192,7 +9198,7 @@ export function DynastyProvider({ children }) {
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const year = dynasty.currentYear
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, dynasty)
 
     // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
@@ -9295,7 +9301,7 @@ export function DynastyProvider({ children }) {
     const useLocalStorage = dynasty.storageType !== 'cloud'
 
     // Get tid for new byYear structure
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, dynasty)
 
     const updates = {}
 
@@ -9409,7 +9415,7 @@ export function DynastyProvider({ children }) {
     // Get current team abbreviation and year for team-centric storage
     const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
     const year = dynasty.currentYear
-    const tid = getTidFromAbbr(teamAbbr)
+    const tid = getTidFromAbbr(teamAbbr, dynasty)
 
     // Build team-centric preseason setup storage (old structure)
     const existingPreseasonSetupByTeamYear = dynasty.preseasonSetupByTeamYear || {}
