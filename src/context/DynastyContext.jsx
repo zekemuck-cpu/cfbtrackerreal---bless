@@ -2043,60 +2043,11 @@ export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
 // ============================================================================
 
 // ============================================================================
-// CUSTOM TEAMS (TEAMBUILDER) SUPPORT
-// Custom teams replace FBS teams with user-created teams
-// ============================================================================
-
-/**
- * Get custom teams from dynasty (for Teambuilder feature)
- * @param {Object} dynasty - Dynasty object
- * @returns {Object|null} Custom teams object or null
- */
-export function getCustomTeams(dynasty) {
-  return dynasty?.customTeams || null
-}
-
-/**
- * Check if the dynasty has any custom teams
- * @param {Object} dynasty - Dynasty object
- * @returns {boolean} True if dynasty has custom teams
- */
-export function hasCustomTeams(dynasty) {
-  return dynasty?.customTeams && Object.keys(dynasty.customTeams).length > 0
-}
-
-/**
- * Get custom team by abbreviation
- * @param {Object} dynasty - Dynasty object
- * @param {string} abbr - Team abbreviation (custom or replaced)
- * @returns {Object|null} Custom team data or null
- */
-export function getCustomTeam(dynasty, abbr) {
-  if (!dynasty?.customTeams) return null
-
-  // Direct match on custom abbreviation
-  if (dynasty.customTeams[abbr]) {
-    return dynasty.customTeams[abbr]
-  }
-
-  // Check if this abbreviation was replaced by a custom team
-  const replaced = Object.values(dynasty.customTeams).find(t => t.replacesTeam === abbr)
-  return replaced || null
-}
-
-/**
- * Get the abbreviation to use for a team (resolves replaced teams to custom team abbr)
- * @param {Object} dynasty - Dynasty object
- * @param {string} abbr - Original team abbreviation
- * @returns {string} Custom team abbreviation if replaced, otherwise original
- */
-export function resolveTeamAbbr(dynasty, abbr) {
-  if (!dynasty?.customTeams) return abbr
-
-  const customTeam = Object.values(dynasty.customTeams).find(t => t.replacesTeam === abbr)
-  return customTeam ? customTeam.abbreviation : abbr
-}
-
+// (Removed: getCustomTeams, hasCustomTeams, getCustomTeam, resolveTeamAbbr.
+//  The codebase now reads team data exclusively from dynasty.teams[tid].
+//  TeamBuilder slots are just slots in that map — no separate "custom"
+//  concept needed at the data layer. The legacy `dynasty.customTeams`
+//  field is migrated away on load.)
 // ============================================================================
 
 /**
@@ -4273,6 +4224,41 @@ export function DynastyProvider({ children }) {
     return dynastyList.map(dynasty => {
       let migrated = dynasty
 
+      // ─── Collapse legacy customTeams into dynasty.teams ──────────────
+      // The site no longer reads `dynasty.customTeams` anywhere — the
+      // tid-keyed `dynasty.teams` map is the only source of truth. For
+      // dynasties created before this cleanup that still have a
+      // populated customTeams field, fold each entry into the matching
+      // tid slot (merging, so the slot's existing fields are preserved)
+      // and drop the field from the in-memory copy. This is idempotent
+      // and runs once per session per dynasty until the persisted copy
+      // gets re-saved without it.
+      if (migrated.customTeams && Object.keys(migrated.customTeams).length > 0) {
+        const teams = { ...(migrated.teams || {}) }
+        for (const [abbr, customTeam] of Object.entries(migrated.customTeams)) {
+          if (!customTeam) continue
+          // The replacedTid is what `customTeam.replacesTeam` referenced
+          // (the original FBS team's abbr → tid). For a TB whose slot
+          // is already populated with TB data this is a no-op.
+          const replacedTid = customTeam.replacesTeam
+            ? getTidFromAbbr(customTeam.replacesTeam)
+            : null
+          if (!replacedTid) continue
+          // Skip if the slot already shows the TB's abbr — already migrated.
+          const slot = teams[replacedTid]
+          if (slot?.abbr === abbr) continue
+          setTeambuilderTeam(teams, replacedTid, {
+            abbr,
+            name: customTeam.name,
+            logo: customTeam.logoUrl,
+            primaryColor: customTeam.backgroundColor || customTeam.primaryColor,
+            secondaryColor: customTeam.textColor || customTeam.secondaryColor,
+          })
+        }
+        const { customTeams: _drop, ...withoutCustomTeams } = migrated
+        migrated = { ...withoutCustomTeams, teams }
+      }
+
       // Apply game migration if needed
       if (!migrated._gamesMigrated) {
         migrated = migrateToUnifiedGames(migrated)
@@ -4918,8 +4904,14 @@ export function DynastyProvider({ children }) {
     const requestedStorageType = dynastyData.storageType || (isPremium && user ? 'cloud' : 'local')
     const finalStorageType = (requestedStorageType === 'cloud' && isPremium && user) ? 'cloud' : 'local'
 
+    // `customTeams` is a transient input used to populate the tid-keyed
+    // `teams` map above; it is NOT persisted on the dynasty doc. There
+    // is one source of truth: `dynasty.teams[tid]`. Strip it from the
+    // payload that gets stored.
+    const { customTeams: _droppedCustomTeams, ...dynastyDataNoCustomTeams } = dynastyData
+
     const newDynastyData = {
-      ...dynastyData,
+      ...dynastyDataNoCustomTeams,
       currentTid, // Primary team identifier (tid) - kept for backwards compatibility
       currentYear: startYear,
       currentWeek: 0,
@@ -6685,11 +6677,10 @@ export function DynastyProvider({ children }) {
       const newJobData = dynasty.newJobData
       if (newJobData?.takingNewJob && newJobData.team && newJobData.position) {
         // newJobData.team is a full team name from SearchableSelect (e.g., "Wisconsin Badgers")
-        // Get the full team name (handles both full names and abbreviations)
-        const newTeamName = getTeamName(newJobData.team, dynasty.customTeams)
-        // Get abbreviation for conference lookup (getTeamConference expects abbreviation)
+        // All lookups go through dynasty.teams[tid] — the only source of truth.
+        const newTeamName = getTeamName(newJobData.team, dynasty.teams)
         const newTeamAbbr = getAbbrFromTeamName(newJobData.team, dynasty.teams) || newJobData.team
-        const newConference = getTeamConference(newTeamAbbr, null, dynasty.customTeams)
+        const newConference = getTeamConference(newTeamAbbr, null, dynasty.teams)
 
         // REVERT SUPPORT: Save previous job data so we can restore on revert
         additionalUpdates.previousJobData = {
@@ -9984,7 +9975,7 @@ export function DynastyProvider({ children }) {
         dynasty.teamName,
         dynasty.currentYear,
         null,
-        dynasty.customTeams
+        dynasty.teams
       )
 
 
@@ -11007,30 +10998,10 @@ export function DynastyProvider({ children }) {
       isCustom: true
     }
 
-    // Build updates for both new and legacy structures
+    // Single source of truth: write only to the tid slot. The legacy
+    // `customTeams` map is no longer maintained.
     const dynastyUpdates = {
-      [`teams.${tid}`]: updatedTeam
-    }
-
-    // Update legacy customTeams structure
-    // If abbreviation changed, we need to remove old key and add new key
-    if (dynasty.customTeams) {
-      if (oldAbbr !== newAbbr && dynasty.customTeams[oldAbbr]) {
-        // Remove old key by setting to null (will be deleted in Firestore)
-        dynastyUpdates[`customTeams.${oldAbbr}`] = null
-      }
-
-      // Add/update the custom team data
-      dynastyUpdates[`customTeams.${newAbbr}`] = {
-        name: updatedTeam.name,
-        abbreviation: newAbbr,
-        logoUrl: updatedTeam.logo,
-        backgroundColor: updatedTeam.primaryColor,
-        textColor: updatedTeam.secondaryColor,
-        primaryColor: updatedTeam.primaryColor,
-        secondaryColor: updatedTeam.secondaryColor,
-        replacesTeam: dynasty.customTeams[oldAbbr]?.replacesTeam || getOriginalTeamAbbr(tid)
-      }
+      [`teams.${tid}`]: updatedTeam,
     }
 
     // If team name changed and this is the user's current team, update dynasty.teamName
@@ -11131,8 +11102,11 @@ export function DynastyProvider({ children }) {
     }
   }
 
-  // Get custom teams from current dynasty for easy access
-  const customTeams = currentDynasty?.customTeams || null
+  // Backward-compat: a few older consumers still destructure `customTeams`
+  // from the context. Keep the export but always null — the migration
+  // collapses the field on load and nothing writes it anymore. Consumers
+  // should read `dynasty.teams[tid]` instead.
+  const customTeams = null
 
   // Cloud dynasties are read-only for non-premium users
   // They can view but not edit until they export and import as local

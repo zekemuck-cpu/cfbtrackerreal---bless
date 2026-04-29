@@ -141,108 +141,48 @@ export const teamColors = {
   "Wyoming Cowboys": { primary: "#492f24", secondary: "#ffc425" }
 }
 
-// Helper to detect if teams object is tid-based (keys are numbers)
-function isTidBasedTeams(teams) {
-  if (!teams) return false
-  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
-}
-
-// Get team colors (checks dynasty.teams or customTeams first)
-export function getTeamColors(teamName, teamsOrCustomTeams = null) {
+// Get team colors. Single tid-based code path: looks up by name OR
+// abbr against `dynasty.teams[tid]` (the only source of truth) and
+// falls through to the static FBS color map only when no slot matches.
+//
+// The legacy `customTeams` (abbr-keyed) branch was removed in the
+// tid-only refactor — every consumer now passes `dynasty.teams`.
+export function getTeamColors(teamName, dynastyTeams = null) {
   if (!teamName) return { primary: "#ea580c", secondary: "#FFFFFF" }
 
-  // Check if we have tid-based dynasty.teams structure
-  if (isTidBasedTeams(teamsOrCustomTeams)) {
-    const teams = teamsOrCustomTeams
-    // Find team by name or abbreviation in tid-based structure
-    for (const [, team] of Object.entries(teams)) {
-      if (team.name === teamName || team.abbr === teamName) {
+  if (dynastyTeams) {
+    for (const team of Object.values(dynastyTeams)) {
+      if (team?.name === teamName || team?.abbr === teamName) {
         return {
           primary: team.primaryColor || '#374151',
           secondary: team.secondaryColor || '#FFFFFF',
-          isTeambuilder: team.isTeambuilder || false
         }
       }
     }
-    // Fall through to static colors
-    return teamColors[teamName] || { primary: "#ea580c", secondary: "#FFFFFF" }
   }
 
-  // Legacy path: customTeams object keyed by abbreviation
-  const customTeams = teamsOrCustomTeams
-  if (customTeams) {
-    // Check by name
-    const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
-    if (teambuilderByName) {
-      return {
-        primary: teambuilderByName.backgroundColor || teambuilderByName.primaryColor,
-        secondary: teambuilderByName.textColor || teambuilderByName.secondaryColor,
-        isTeambuilder: true
-      }
-    }
-    // Check by abbreviation
-    if (customTeams[teamName]) {
-      const t = customTeams[teamName]
-      return {
-        primary: t.backgroundColor || t.primaryColor,
-        secondary: t.textColor || t.secondaryColor,
-        isTeambuilder: true
-      }
-    }
-  }
+  // Static FBS fallback for callers that have no dynasty context yet.
   return teamColors[teamName] || { primary: "#ea580c", secondary: "#FFFFFF" }
 }
 
-// Get team colors by abbreviation (more reliable for teambuilder teams)
-export function getTeamColorsByAbbr(abbr, teamsOrCustomTeams = null) {
+// Get team colors by abbreviation. Same single-path principle as
+// getTeamColors — read from `dynasty.teams` only.
+export function getTeamColorsByAbbr(abbr, dynastyTeams = null) {
   if (!abbr) return { primary: "#ea580c", secondary: "#FFFFFF" }
 
-  // Check if we have tid-based dynasty.teams structure
-  if (isTidBasedTeams(teamsOrCustomTeams)) {
-    const teams = teamsOrCustomTeams
-    // Find team by abbreviation in tid-based structure
-    for (const [, team] of Object.entries(teams)) {
-      if (team.abbr === abbr) {
+  if (dynastyTeams) {
+    for (const team of Object.values(dynastyTeams)) {
+      if (team?.abbr === abbr) {
         return {
           primary: team.primaryColor || '#374151',
           secondary: team.secondaryColor || '#FFFFFF',
-          isTeambuilder: team.isTeambuilder || false
         }
       }
     }
-    // Fall through to static colors
   }
 
-  // Legacy path: customTeams object keyed by abbreviation
-  const customTeams = teamsOrCustomTeams
-  // Check if this IS a teambuilder team abbreviation
-  if (customTeams?.[abbr]) {
-    const t = customTeams[abbr]
-    return {
-      primary: t.backgroundColor || t.primaryColor,
-      secondary: t.textColor || t.secondaryColor,
-      isTeambuilder: true
-    }
-  }
-  // Check if this abbreviation was replaced by a teambuilder team
-  if (customTeams) {
-    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
-    if (teambuilderTeam) {
-      return {
-        primary: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
-        secondary: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
-        isTeambuilder: true
-      }
-    }
-  }
-  // Fall back to static colors by looking up team name
-  // Import would create circular dependency, so we do direct lookup here
-  const teamName = Object.entries(teamColors).find(([name]) => {
-    // This is a simplified check - full name lookup happens elsewhere
-    return name.includes(abbr)
-  })?.[0]
-  if (teamName) {
-    return teamColors[teamName]
-  }
+  // Static fallback — try to find a matching name in the static map.
+  const teamName = Object.keys(teamColors).find(name => name.includes(abbr))
+  if (teamName) return teamColors[teamName]
   return { primary: "#ea580c", secondary: "#FFFFFF" }
 }

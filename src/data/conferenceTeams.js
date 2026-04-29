@@ -38,47 +38,37 @@ export const conferenceTeams = {
 }
 
 // Get conference for a team abbreviation OR tid.
-// If customConferences is provided, it will be checked first before falling back to defaults
-// customTeams object is used to resolve replaced team lookups (teambuilder teams)
 //
-// `abbrOrTid` may be: an abbr string (legacy), a numeric tid (preferred), or
-// a numeric-string tid. Tid input is normalized through customTeams to the
-// team's CURRENT abbr — important for teambuilder teams whose abbr drifted
-// since the lookup site cached it.
-export function getTeamConference(abbrOrTid, customConferences = null, customTeams = null) {
-  // Normalize input: tid → current abbr
+// `abbrOrTid` may be an abbr string OR a numeric tid (preferred). Tid
+// input is resolved against `dynasty.teams[tid]` (tid-keyed) — the
+// slot's CURRENT abbr is used. For TB slots that's the TB's new abbr;
+// for FBS slots it's the original.
+//
+// Lookup order:
+//   1. customConferences (dynasty-specific, year-aware) — the TB's
+//      abbr is already swapped in here at creation via
+//      getConferencesWithCustomTeams, so a direct match works.
+//   2. Static default conferences keyed by FBS abbrs.
+//
+// No `customTeams` parameter — that legacy map is gone. Pass
+// `dynasty.teams` (tid-keyed) for tid resolution.
+export function getTeamConference(abbrOrTid, customConferences = null, dynastyTeams = null) {
+  // Normalize tid → abbr via dynasty.teams[tid].
   let abbr = abbrOrTid
-  if (customTeams && (typeof abbrOrTid === 'number' || (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid)))) {
-    const tidKey = String(abbrOrTid)
-    const teamRec = customTeams[tidKey] || customTeams[Number(tidKey)]
-    if (teamRec) abbr = teamRec.abbr || teamRec.abbreviation || abbr
+  if (dynastyTeams && (typeof abbrOrTid === 'number' || (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid)))) {
+    const slot = dynastyTeams[String(abbrOrTid)] || dynastyTeams[Number(abbrOrTid)]
+    if (slot?.abbr) abbr = slot.abbr
   }
 
-  // Check if this is a teambuilder team - if so, look up the conference of the team it replaced
-  let lookupAbbr = abbr
-  if (customTeams) {
-    // Check if abbr is a teambuilder team's abbreviation
-    const teambuilderTeam = Object.values(customTeams).find(t => t.abbreviation === abbr || t.abbr === abbr)
-    if (teambuilderTeam && teambuilderTeam.replacesTeam) {
-      // Use the replaced team's abbreviation to find the conference
-      lookupAbbr = teambuilderTeam.replacesTeam
-    }
-  }
-
-  // Check custom conferences first if provided
+  // Custom conferences win — they already contain TB's current abbr.
   if (customConferences) {
     for (const [conference, teams] of Object.entries(customConferences)) {
-      // Check for both the original abbr and the lookup abbr (in case custom conferences already has the teambuilder team)
-      if (teams && (teams.includes(abbr) || teams.includes(lookupAbbr))) {
-        return conference
-      }
+      if (teams?.includes(abbr)) return conference
     }
   }
-  // Fall back to default conferences using the lookup abbreviation
+  // Static default conferences (keyed by FBS abbrs).
   for (const [conference, teams] of Object.entries(conferenceTeams)) {
-    if (teams.includes(lookupAbbr)) {
-      return conference
-    }
+    if (teams.includes(abbr)) return conference
   }
   return null
 }

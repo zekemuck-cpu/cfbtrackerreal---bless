@@ -148,162 +148,67 @@ export function getTeamAbbreviationsList() {
   return Object.keys(teamAbbreviations).sort()
 }
 
-// Get team info by abbreviation (checks teambuilder teams first)
-export function getTeamByAbbreviation(abbr, customTeams = null) {
-  // Check if this IS a teambuilder team abbreviation
-  if (customTeams?.[abbr]) {
-    const ct = customTeams[abbr]
-    return {
-      name: ct.name,
-      backgroundColor: ct.backgroundColor || ct.primaryColor,
-      textColor: ct.textColor || ct.secondaryColor,
-      isTeambuilder: true,
-      logo: ct.logoUrl
-    }
-  }
-  // Check if this abbreviation was replaced by a teambuilder team
-  if (customTeams) {
-    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
-    if (teambuilderTeam) {
-      return {
-        name: teambuilderTeam.name,
-        backgroundColor: teambuilderTeam.backgroundColor || teambuilderTeam.primaryColor,
-        textColor: teambuilderTeam.textColor || teambuilderTeam.secondaryColor,
-        isTeambuilder: true,
-        logo: teambuilderTeam.logoUrl,
-        replacedBy: teambuilderTeam.abbreviation
+// Get team info by abbreviation. Single tid-based path: looks up
+// `dynasty.teams[tid]` by abbr and returns its data. The slot's data
+// is whatever's currently there — TB's data if a TB took over, FBS
+// data otherwise. No special-casing.
+export function getTeamByAbbreviation(abbr, dynastyTeams = null) {
+  if (!abbr) return null
+  if (dynastyTeams) {
+    for (const team of Object.values(dynastyTeams)) {
+      if (team?.abbr === abbr) {
+        return {
+          name: team.name,
+          backgroundColor: team.primaryColor,
+          textColor: team.secondaryColor,
+          logo: team.logo,
+        }
       }
     }
   }
   return teamAbbreviations[abbr] || null
 }
 
-// Helper to detect if teams object is tid-based (keys are numbers)
-function isTidBasedTeamsLocal(teams) {
-  if (!teams) return false
-  return Object.keys(teams).some(k => !isNaN(parseInt(k)))
-}
-
-// Convert abbreviation to full name (checks teambuilder teams first)
-export function getTeamName(abbr, teamsOrCustomTeams = null) {
+// Convert abbreviation to full name. Same single-path principle.
+export function getTeamName(abbr, dynastyTeams = null) {
   if (!abbr) return abbr
-
-  // Check if we have tid-based dynasty.teams structure
-  if (isTidBasedTeamsLocal(teamsOrCustomTeams)) {
-    const teams = teamsOrCustomTeams
-    // Find team by abbreviation in tid-based structure
-    for (const [, team] of Object.entries(teams)) {
-      if (team.abbr?.toUpperCase() === abbr.toUpperCase()) {
+  if (dynastyTeams) {
+    for (const team of Object.values(dynastyTeams)) {
+      if (team?.abbr?.toUpperCase() === abbr.toUpperCase()) {
         return team.name || abbr
       }
-    }
-    // Fall through to static lookup
-  }
-
-  // Legacy customTeams structure (abbr-keyed)
-  const customTeams = teamsOrCustomTeams
-
-  // Check if this IS a teambuilder team abbreviation
-  if (customTeams?.[abbr]) {
-    return customTeams[abbr].name
-  }
-  // Check if this abbreviation was replaced by a teambuilder team
-  if (customTeams) {
-    const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
-    if (teambuilderTeam) {
-      return teambuilderTeam.name
     }
   }
   return teamAbbreviations[abbr]?.name || abbr
 }
 
-// Get the resolved abbreviation (teambuilder team abbr if replaced, otherwise original)
-export function getResolvedAbbreviation(abbr, customTeams = null) {
-  if (!customTeams) return abbr
-  // Check if this abbreviation was replaced by a teambuilder team
-  const teambuilderTeam = Object.values(customTeams).find(t => t.replacesTeam === abbr)
-  if (teambuilderTeam) {
-    return teambuilderTeam.abbreviation
-  }
-  return abbr
-}
-
-// Check if an abbreviation is a teambuilder team or replaced by one
-export function isTeambuilderTeam(abbr, customTeams = null) {
-  if (!customTeams) return false
-  // Is this a teambuilder team abbreviation?
-  if (customTeams[abbr]) return true
-  // Is this replaced by a teambuilder team?
-  return Object.values(customTeams).some(t => t.replacesTeam === abbr)
-}
-
-// Detect if teams object is tid-based (new format) or abbr-based (old format)
-function isTidBasedTeams(teamsObj) {
-  if (!teamsObj) return false
-  const keys = Object.keys(teamsObj)
-  return keys.length > 0 && keys.some(k => !isNaN(parseInt(k)))
-}
-
-// Get sorted array of FBS team abbreviations only (for team selection - excludes FCS teams)
-// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
-export function getSelectableTeamsList(customTeams = null) {
-  // Check if we're dealing with tid-based teams (new format)
-  if (isTidBasedTeams(customTeams)) {
-    // dynasty.teams has ALL teams with correct abbrs already applied
-    // (teambuilder teams have replaced original abbrs at their tids)
-    // Just filter out FCS placeholders and return all abbrs
-    return Object.values(customTeams)
-      .filter(team => !team.isFCS && team.abbr)
+// Get sorted array of FBS team abbreviations (for team selection —
+// excludes FCS teams). Single tid-based path: reads abbrs straight off
+// `dynasty.teams[tid]`, where each slot's abbr is whatever's currently
+// there (TB's new abbr if a TB took over, otherwise the FBS original).
+// When called with no dynasty context, falls back to the static FBS map.
+export function getSelectableTeamsList(dynastyTeams = null) {
+  if (dynastyTeams && Object.keys(dynastyTeams).length > 0) {
+    return Object.values(dynastyTeams)
+      .filter(team => !team?.isFCS && team?.abbr)
       .map(team => team.abbr)
       .sort()
   }
-
-  // Old customTeams format
-  const replacedTeamAbbrs = customTeams
-    ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
-    : new Set()
-
-  // Get FBS teams excluding replaced teams
-  const fbsTeams = Object.keys(teamAbbreviations)
+  return Object.keys(teamAbbreviations)
     .filter(abbr => !teamAbbreviations[abbr].isFCS)
-    .filter(abbr => !replacedTeamAbbrs.has(abbr))
-
-  // Add teambuilder team abbreviations
-  const teambuilderAbbrs = customTeams
-    ? Object.values(customTeams).map(t => t.abbreviation)
-    : []
-
-  return [...fbsTeams, ...teambuilderAbbrs].sort()
+    .sort()
 }
 
-// Get sorted array of all team abbreviations including FCS (for scheduling opponents)
-// Supports BOTH old customTeams format and new dynasty.teams (tid-based) format
-export function getSchedulableTeamsList(customTeams = null) {
-  // Check if we're dealing with tid-based teams (new format)
-  if (isTidBasedTeams(customTeams)) {
-    // dynasty.teams has ALL teams with correct abbrs already applied
-    // (teambuilder teams have replaced original abbrs at their tids)
-    return Object.values(customTeams)
-      .filter(team => team.abbr)
+// Get sorted array of all team abbreviations including FCS (for
+// scheduling opponents). Same single-path principle.
+export function getSchedulableTeamsList(dynastyTeams = null) {
+  if (dynastyTeams && Object.keys(dynastyTeams).length > 0) {
+    return Object.values(dynastyTeams)
+      .filter(team => team?.abbr)
       .map(team => team.abbr)
       .sort()
   }
-
-  // Old customTeams format
-  const replacedTeamAbbrs = customTeams
-    ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
-    : new Set()
-
-  // Get all teams excluding replaced teams
-  const allTeams = Object.keys(teamAbbreviations)
-    .filter(abbr => !replacedTeamAbbrs.has(abbr))
-
-  // Add teambuilder team abbreviations
-  const teambuilderAbbrs = customTeams
-    ? Object.values(customTeams).map(t => t.abbreviation)
-    : []
-
-  return [...allTeams, ...teambuilderAbbrs].sort()
+  return Object.keys(teamAbbreviations).sort()
 }
 
 // Check if a team is an FCS team

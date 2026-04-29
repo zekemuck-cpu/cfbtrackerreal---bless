@@ -3,78 +3,30 @@ import { getTeamColors } from '../data/teamColors'
 import { getCurrentTeamTid, getColorsFromTid, TEAMS } from '../data/teamRegistry'
 
 /**
- * Hook to get and apply team colors
- * Supports both old customTeams and new tid-based dynasty.teams
+ * Hook to get and apply team colors. Single tid-based code path —
+ * looks up by name or abbr against `dynasty.teams[tid]` (the only
+ * source of truth) and falls through to the static FBS color map
+ * only when no slot matches.
  *
  * @param {string} teamName - Team name or abbreviation
- * @param {Object} customTeamsOrDynastyTeams - Either customTeams object OR dynasty.teams object
+ * @param {Object} dynastyTeams - The dynasty.teams object (tid-keyed)
  * @returns {Object} Team colors { primary, secondary, tertiary? }
  */
-export function useTeamColors(teamName, customTeamsOrDynastyTeams = null) {
+export function useTeamColors(teamName, dynastyTeams = null) {
   const colors = useMemo(() => {
-    // Check if we have the new tid-based dynasty.teams structure
-    // It's keyed by tid (numbers) instead of abbreviation (strings)
-    const isTidBased = customTeamsOrDynastyTeams &&
-      Object.keys(customTeamsOrDynastyTeams).some(k => !isNaN(parseInt(k)))
-
-    if (isTidBased && teamName) {
-      const teams = customTeamsOrDynastyTeams
-      // Try to find team by name or abbreviation in the tid-based structure
-      for (const [tid, team] of Object.entries(teams)) {
-        if (team.name === teamName || team.abbr === teamName) {
+    if (teamName && dynastyTeams) {
+      for (const team of Object.values(dynastyTeams)) {
+        if (team?.name === teamName || team?.abbr === teamName) {
           return {
             primary: team.primaryColor || '#374151',
             secondary: team.secondaryColor || '#FFFFFF'
           }
         }
       }
-      // Fall back to standard colors
-      return getTeamColors(teamName, null)
     }
-
-    // Legacy path: customTeams object keyed by abbreviation
-    const customTeams = customTeamsOrDynastyTeams
-    let result = null
-
-    if (customTeams && teamName) {
-      // Check by name
-      const teambuilderByName = Object.values(customTeams).find(t => t.name === teamName)
-      if (teambuilderByName) {
-        result = {
-          primary: teambuilderByName.backgroundColor || teambuilderByName.primaryColor,
-          secondary: teambuilderByName.textColor || teambuilderByName.secondaryColor
-        }
-      }
-
-      // Check by abbreviation
-      if (!result && customTeams[teamName]) {
-        const t = customTeams[teamName]
-        result = {
-          primary: t.backgroundColor || t.primaryColor,
-          secondary: t.textColor || t.secondaryColor
-        }
-      }
-
-      // Check if this is a replaced team
-      if (!result) {
-        const teambuilderReplacing = Object.values(customTeams).find(t => t.replacesTeam === teamName)
-        if (teambuilderReplacing) {
-          result = {
-            primary: teambuilderReplacing.backgroundColor || teambuilderReplacing.primaryColor,
-            secondary: teambuilderReplacing.textColor || teambuilderReplacing.secondaryColor,
-            isTeambuilder: true
-          }
-        }
-      }
-    }
-
-    // Fall back to standard colors
-    if (!result) {
-      result = getTeamColors(teamName, customTeams)
-    }
-
-    return result
-  }, [teamName, customTeamsOrDynastyTeams])
+    // Static FBS fallback for callers without dynasty context.
+    return getTeamColors(teamName, null)
+  }, [teamName, dynastyTeams])
 
   useEffect(() => {
     if (teamName && colors) {
@@ -108,8 +60,8 @@ export function useCurrentTeamColors(dynasty) {
       return getColorsFromTid(dynasty.teams, tid)
     }
 
-    // Fallback to old method
-    return getTeamColors(dynasty.teamName, dynasty.customTeams)
+    // Fallback to name-based lookup against dynasty.teams (or static).
+    return getTeamColors(dynasty.teamName, dynasty.teams)
   }, [dynasty])
 
   useEffect(() => {

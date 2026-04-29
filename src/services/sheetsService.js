@@ -140,70 +140,28 @@ function isTidBasedTeams(teamsObj) {
   return keys.length > 0 && keys.some(k => !isNaN(parseInt(k)))
 }
 
-// Build combined team list from dynasty.teams (tid-based)
-// Returns object of { abbr: { name, backgroundColor, textColor } }
-// dynasty.teams is the source of truth - teambuilder teams simply replace the data at their tid
-function getTeamsWithCustom(customTeams = null) {
-  // Check if we're dealing with tid-based teams (dynasty.teams format)
-  if (isTidBasedTeams(customTeams)) {
-    // dynasty.teams is keyed by tid - just use it directly as the source of truth
-    const teams = {}
-
-    for (const team of Object.values(customTeams)) {
-      if (team.abbr) {
-        teams[team.abbr] = {
-          name: team.name,
-          backgroundColor: team.primaryColor || '#333333',
-          textColor: team.secondaryColor || '#FFFFFF'
-        }
-      }
-    }
-
-    // If we got teams from dynasty.teams, return them
-    // Otherwise fall back to DEFAULT_TEAMS (from teamRegistry)
-    if (Object.keys(teams).length > 0) {
-      return teams
-    }
-
-    // Fallback: use DEFAULT_TEAMS if dynasty.teams didn't have valid abbr fields
-    console.warn('[getTeamsWithCustom] dynasty.teams exists but has no valid abbr fields, falling back to DEFAULT_TEAMS')
-    for (const team of Object.values(DEFAULT_TEAMS)) {
-      if (team.abbr) {
-        teams[team.abbr] = {
-          name: team.name,
-          backgroundColor: team.primaryColor || '#333333',
-          textColor: team.secondaryColor || '#FFFFFF'
-        }
-      }
-    }
-    return teams
-  }
-
-  // Old customTeams format: { ABBR: { abbreviation, name, backgroundColor, textColor, replacesTeam } }
-  const replacedTeamAbbrs = customTeams
-    ? new Set(Object.values(customTeams).map(t => t.replacesTeam))
-    : new Set()
-
+// Build the abbr-keyed display map (`{ abbr: { name, backgroundColor,
+// textColor } }`) from `dynasty.teams[tid]`. Single tid-based path:
+// every TB slot is just an entry in dynasty.teams whose `abbr` is the
+// TB's chosen one (the original FBS team's abbr is gone from that
+// slot). No legacy customTeams handling — that field is now dead
+// schema and migrated away on load.
+//
+// Falls back to DEFAULT_TEAMS only when called with no dynasty context
+// (e.g. some sheet-init paths during dynasty creation).
+function getTeamsWithCustom(dynastyTeams = null) {
   const teams = {}
-
-  // Add standard FBS teams, excluding replaced ones
-  for (const [abbr, teamData] of Object.entries(teamAbbreviations)) {
-    if (!replacedTeamAbbrs.has(abbr)) {
-      teams[abbr] = teamData
+  const source = (dynastyTeams && Object.keys(dynastyTeams).length > 0)
+    ? dynastyTeams
+    : DEFAULT_TEAMS
+  for (const team of Object.values(source)) {
+    if (!team?.abbr) continue
+    teams[team.abbr] = {
+      name: team.name,
+      backgroundColor: team.primaryColor || '#333333',
+      textColor: team.secondaryColor || '#FFFFFF',
     }
   }
-
-  // Add teambuilder teams
-  if (customTeams) {
-    for (const team of Object.values(customTeams)) {
-      teams[team.abbreviation] = {
-        name: team.name,
-        backgroundColor: team.backgroundColor || team.primaryColor,
-        textColor: team.textColor || team.secondaryColor
-      }
-    }
-  }
-
   return teams
 }
 

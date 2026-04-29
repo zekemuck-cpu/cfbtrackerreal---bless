@@ -1346,13 +1346,24 @@ export function initializeDynastyTeams() {
 export function setTeambuilderTeam(teams, tid, teambuilderData) {
   if (!teams || !tid || !teambuilderData) return teams
 
+  // MERGE — not replace. The slot already holds whatever the original
+  // FBS team had (conference, isFCS, byYear data, userId, etc.). The
+  // TeamBuilder takeover only overwrites identity-presentation fields:
+  // abbr, name, colors, logo. Everything else stays put so downstream
+  // consumers (conference standings, FBS filtering, year-by-year team
+  // data, etc.) keep working the moment a TB takes over.
+  const existing = teams[tid] || {}
   teams[tid] = {
+    ...existing,
     tid: parseInt(tid),
     abbr: teambuilderData.abbr || teambuilderData.abbreviation,
     name: teambuilderData.name,
     primaryColor: teambuilderData.primaryColor || teambuilderData.backgroundColor,
     secondaryColor: teambuilderData.secondaryColor || teambuilderData.textColor,
     logo: teambuilderData.logo || teambuilderData.logoUrl,
+    // isCustom is retained for the few UI surfaces that still want to
+    // show a "Teambuilder Team" badge. Functionally the rest of the
+    // codebase should not branch on this — a TB slot is just a team.
     isCustom: true
   }
 
