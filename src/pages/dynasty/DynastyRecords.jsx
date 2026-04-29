@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useState, useMemo, useEffect } from 'react'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getTeamLogoByTid } from '../../data/teams'
@@ -147,12 +147,33 @@ const STAT_CATEGORIES = {
 const CATEGORY_ORDER = ['production', 'passing', 'rushing', 'receiving', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
 
 export default function DynastyRecords() {
-  const { id: dynastyId } = useParams()
+  const { id: dynastyId, category: categoryParam } = useParams()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const navigate = useNavigate()
+
+  // Resolve which category tab is active. URL param wins (so a
+  // bookmarked /dynasty-records/passing always lands on Passing),
+  // falling back to last-visited via localStorage, then to the
+  // headline Production tab. Validates against STAT_CATEGORIES so a
+  // bad URL slug doesn't blank the page.
+  const resolveCategory = (param) => {
+    if (param && STAT_CATEGORIES[param]) return param
+    const stored = localStorage.getItem('leaderboard-category')
+    if (stored && STAT_CATEGORIES[stored]) return stored
+    return 'production'
+  }
 
   const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'career')
-  const [activeCategory, setActiveCategory] = useState(() => localStorage.getItem('leaderboard-category') || 'passing')
+  const [activeCategory, setActiveCategory] = useState(() => resolveCategory(categoryParam))
+
+  // Keep state in sync with URL — covers back/forward navigation,
+  // direct paste, and any external link to a specific tab.
+  useEffect(() => {
+    const next = resolveCategory(categoryParam)
+    if (next !== activeCategory) setActiveCategory(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryParam])
   // Stat key for the "view full leaderboard" modal — null when closed.
   // Replaces the prior `selectedStat` inline expand/collapse state; the
   // inline 4-10 expansion only showed 7 more entries and felt cramped.
@@ -612,8 +633,10 @@ export default function DynastyRecords() {
 
   const handleCategoryChange = (catKey) => {
     setActiveCategory(catKey)
-    setSelectedStat(null)
     localStorage.setItem('leaderboard-category', catKey)
+    // Push the new category into the URL so the tab is bookmarkable
+    // / shareable and the back button does the right thing.
+    navigate(`${pathPrefix}/dynasty-records/${catKey}`)
   }
 
   const handleModeChange = (newMode) => {

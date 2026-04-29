@@ -75,6 +75,7 @@ function AppRoutes() {
             <Route path="all-conference/:year" element={<AllConference />} />
             <Route path="all-conference/:year/:conference" element={<AllConference />} />
             <Route path="dynasty-records" element={<DynastyRecords />} />
+            <Route path="dynasty-records/:category" element={<DynastyRecords />} />
             <Route path="teams" element={<Teams />} />
             <Route path="team/:tid/:year" element={<TeamYear />} />
             <Route path="bowl-history" element={<BowlHistory />} />
@@ -143,6 +144,7 @@ function AppRoutes() {
                   <Route path="all-conference/:year" element={<AllConference />} />
                   <Route path="all-conference/:year/:conference" element={<AllConference />} />
                   <Route path="dynasty-records" element={<DynastyRecords />} />
+                  <Route path="dynasty-records/:category" element={<DynastyRecords />} />
                   <Route path="teams" element={<Teams />} />
                   <Route path="team/:tid/:year" element={<TeamYear />} />
                   <Route path="bowl-history" element={<BowlHistory />} />
