@@ -7,13 +7,14 @@ import { Card, ContactCTA } from '../components/ui'
 import { useToast } from '../components/ui/Toast'
 
 const SCREENSHOTS = [
-  { url: 'https://i.imgur.com/RflYzae.png', caption: 'Dashboard' },
-  { url: 'https://i.imgur.com/QBgvS3M.png', caption: 'Team Stats' },
-  { url: 'https://i.imgur.com/FNpdolf.png', caption: 'Player Profile' },
-  { url: 'https://i.imgur.com/T152n1f.png', caption: 'Schedule' },
-  { url: 'https://i.imgur.com/D9eQz1c.png', caption: 'Roster Management' },
-  { url: 'https://i.imgur.com/jslB1bq.png', caption: 'CFP Bracket' },
-  { url: 'https://i.imgur.com/EGStRRA.png', caption: 'Bowl History' },
+  { url: 'https://i.imgur.com/JJlshbp.png' },
+  { url: 'https://i.imgur.com/5yw02By.png' },
+  { url: 'https://i.imgur.com/LplBVog.png' },
+  { url: 'https://i.imgur.com/fA9YCIJ.png' },
+  { url: 'https://i.imgur.com/n9jCgKF.png' },
+  { url: 'https://i.imgur.com/dtlRlUk.png' },
+  { url: 'https://i.imgur.com/UpMdJGk.png' },
+  { url: 'https://i.imgur.com/hxgIbCY.png' },
 ]
 
 const FEATURES = [
