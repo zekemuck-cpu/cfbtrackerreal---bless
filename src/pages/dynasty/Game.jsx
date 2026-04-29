@@ -1802,8 +1802,16 @@ export default function Game() {
               game.natlDefensePOW && { scope: 'National', side: 'Defense', name: game.natlDefensePOW, national: true },
             ].filter(Boolean)
 
+            // Three-column gamecast at lg+. The middle Recap column used
+            // to be the only `1fr` track while the sides held their full
+            // 300/340px until the middle was squeezed to almost nothing
+            // on viewports between lg and xl. Flipped the priority:
+            // sides have a 180-280px / 220-320px range and shrink first;
+            // the middle has a 360px floor and fills any remaining
+            // space. Keeps the recap readable on a 1280px screen with
+            // devtools open.
             return (
-              <div className="px-5 py-6 sm:px-6 sm:py-7 grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)_minmax(0,340px)] gap-y-8 lg:gap-x-8 xl:gap-x-12">
+              <div className="px-5 py-6 sm:px-6 sm:py-7 grid grid-cols-1 lg:grid-cols-[minmax(180px,280px)_minmax(360px,1fr)_minmax(220px,320px)] gap-y-8 lg:gap-x-8 xl:gap-x-12">
                 {/* LEFT: Game Leaders — one unified panel, category rows inside */}
                 <aside className="order-2 lg:order-1 min-w-0">
                   <SectionHead>Game Leaders</SectionHead>
