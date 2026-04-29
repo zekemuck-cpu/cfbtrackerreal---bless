@@ -164,7 +164,12 @@ export default function Awards() {
     availableYears.push(year)
   }
 
-  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
+  // First-season dynasties have no prior year — default to current
+  // year so a 2025-start dynasty doesn't open showing "2024".
+  const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
+  const displayYear = urlYear
+    ? parseInt(urlYear)
+    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
   const yearAwards = awardsByYear[displayYear] || {}
 
   const handleYearChange = (year) => {

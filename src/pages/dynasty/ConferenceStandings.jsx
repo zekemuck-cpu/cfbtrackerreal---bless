@@ -171,7 +171,14 @@ export default function ConferenceStandings() {
   }
 
   const availableYears = yearsWithData.sort((a, b) => b - a)
-  const displayYear = urlYear ? parseInt(urlYear) : currentDynasty.currentYear - 1
+  // Default to the prior year (most recent completed season) on most
+  // visits, but stay on the current year when this IS the first season
+  // of the dynasty — there's no prior year to look at, and showing
+  // "2024 standings" on a 2025-start dynasty is just confusing.
+  const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
+  const displayYear = urlYear
+    ? parseInt(urlYear)
+    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
   const handleYearChange = (year) => navigate(`${pathPrefix}/conference-standings/${year}`)
   const yearStandings = standingsByYear[displayYear] || {}
 
