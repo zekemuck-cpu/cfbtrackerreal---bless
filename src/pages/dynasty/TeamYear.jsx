@@ -472,31 +472,21 @@ export default function TeamYear() {
   // (removed the early null-gate here — it was before the useMemo calls
   // below and caused hook-count mismatches. See the _dyn shadow above.)
 
-  // Merge TEAMS with dynasty.teams to ensure all teams are available
-  // dynasty.teams may contain partial data (byYear, userId) without team properties (tid, name, abbr)
-  // So we need to merge each team's data, not just overwrite
+  // Merge TEAMS with dynasty.teams. The dynasty's stored slot is the
+  // source of truth for everything (name, abbr, colors, logo) — a
+  // TeamBuilder takeover is just a slot whose identity fields have
+  // been overwritten. Static TEAMS data is the FALLBACK for fields
+  // the slot doesn't carry.
   const teamsSource = { ...TEAMS }
   if (currentDynasty.teams) {
     Object.entries(currentDynasty.teams).forEach(([key, dynastyTeamData]) => {
       const staticTeam = TEAMS[key]
-      if (staticTeam) {
-        // Merge: keep static team properties, add dynasty-specific data
-        teamsSource[key] = { ...staticTeam, ...dynastyTeamData }
-        // Ensure tid is always from static TEAMS (not overwritten by undefined)
-        if (dynastyTeamData.tid === undefined) {
-          teamsSource[key].tid = staticTeam.tid
-        }
-        // IMPORTANT: Preserve static team colors - dynasty data should not override team colors
-        // This prevents accidental color overrides that can break contrast/readability
-        if (staticTeam.primaryColor) {
-          teamsSource[key].primaryColor = staticTeam.primaryColor
-        }
-        if (staticTeam.secondaryColor) {
-          teamsSource[key].secondaryColor = staticTeam.secondaryColor
-        }
-      } else {
-        // Teambuilder team - use as-is
-        teamsSource[key] = dynastyTeamData
+      // Spread order: static first (defaults), dynasty second (wins).
+      // tid always comes from the static map since it's the slot id.
+      teamsSource[key] = {
+        ...(staticTeam || {}),
+        ...dynastyTeamData,
+        tid: dynastyTeamData?.tid ?? staticTeam?.tid,
       }
     })
   }
