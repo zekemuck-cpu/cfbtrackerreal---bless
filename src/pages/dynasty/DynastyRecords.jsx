@@ -13,9 +13,22 @@ import {
   Tabs,
   Modal,
 } from '../../components/ui'
+import { computeSeasonAV } from '../../utils/approximateValue'
 
 // Stat category definitions
 const STAT_CATEGORIES = {
+  // Approximate Value — single cross-position production metric.
+  // PFR-AV-inspired; calibrated so a top single-season lands in the
+  // 15-22 range and 4-year college careers top out in the 60-90s.
+  // No talent ratings (player.overall) feed into this — purely from
+  // box-score production. See src/utils/approximateValue.js.
+  production: {
+    name: 'Production',
+    minNote: 'Approximate Value — one cross-position production score (PFR-AV inspired). Higher = more total production. Top single-season around 15-22.',
+    stats: [
+      { key: 'av', label: 'Approximate Value', abbr: 'AV', calculated: true, format: 'av' },
+    ]
+  },
   passing: {
     name: 'Passing',
     minNote: 'Min 150 ATT (career) / 50 ATT (season)',
@@ -131,7 +144,7 @@ const STAT_CATEGORIES = {
   }
 }
 
-const CATEGORY_ORDER = ['passing', 'rushing', 'receiving', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
+const CATEGORY_ORDER = ['production', 'passing', 'rushing', 'receiving', 'allPurpose', 'defensive', 'kicking', 'punting', 'kickReturn', 'puntReturn']
 
 export default function DynastyRecords() {
   const { id: dynastyId } = useParams()
@@ -306,10 +319,89 @@ export default function DynastyRecords() {
       return Object.values(playerTotals).filter(p => p.plays > 0 || p.yards > 0)
     }
 
+    // Approximate Value — span every category for each player-season,
+    // run computeSeasonAV against the player's position for that year,
+    // sum across seasons in career mode. This bypasses the
+    // per-category aggregation above because AV is a cross-category
+    // formula.
+    const calcProductionStats = () => {
+      const playerTotals = {}
+      // Look up each player once so we can pass position into the AV
+      // formula. Position can drift across years for the rare position
+      // change; positionByYear takes precedence over the current
+      // primary position.
+      const playerById = {}
+      ;(currentDynasty?.players || []).forEach(p => {
+        playerById[p.pid] = p
+      })
+
+      allPlayerStats.forEach(ps => {
+        const player = playerById[ps.pid]
+        if (!player) return
+        const positionForYear = player.positionByYear?.[ps.year]
+          || player.positionByYear?.[String(ps.year)]
+          || player.position
+
+        // Re-build the year stats object in the shape computeSeasonAV
+        // expects (which mirrors player.statsByYear[year]).
+        const yearStats = {
+          passing: ps.passing,
+          rushing: ps.rushing,
+          receiving: ps.receiving,
+          // Note: the aggregator above renames `defense` → `defensive`
+          // for category-key consistency. The AV utility expects the
+          // canonical statsByYear shape (`defense`), so map back.
+          defense: ps.defensive,
+          // Blocking isn't aggregated above; pull from the original
+          // player.statsByYear[year] for OL credit.
+          blocking: player.statsByYear?.[ps.year]?.blocking
+            || player.statsByYear?.[String(ps.year)]?.blocking
+            || null,
+          kicking: ps.kicking,
+          punting: ps.punting,
+          kickReturn: ps.kickReturn,
+          puntReturn: ps.puntReturn,
+        }
+
+        const seasonAv = computeSeasonAV(yearStats, positionForYear)
+
+        const playerKey = mode === 'career' ? ps.pid : `${ps.pid}-${ps.year}`
+        if (!playerTotals[playerKey]) {
+          playerTotals[playerKey] = {
+            pid: ps.pid,
+            year: ps.year,
+            years: [],
+            gamesPlayed: 0,
+            av: 0,
+          }
+        }
+        if (!playerTotals[playerKey].years.includes(ps.year)) {
+          playerTotals[playerKey].years.push(ps.year)
+        }
+        playerTotals[playerKey].gamesPlayed += ps.gamesPlayed || 0
+
+        if (mode === 'career') {
+          playerTotals[playerKey].av += seasonAv
+        } else {
+          playerTotals[playerKey].av = seasonAv
+        }
+      })
+
+      // Round to 1 decimal at the end so career sums don't accumulate
+      // 0.1 + 0.1 + 0.1 = 0.30000000000000004 noise.
+      Object.values(playerTotals).forEach(p => {
+        p.av = Math.round(p.av * 10) / 10
+      })
+      return Object.values(playerTotals).filter(p => p.av > 0)
+    }
+
     const result = {}
 
     Object.entries(STAT_CATEGORIES).forEach(([catKey, category]) => {
-      let baseStats = catKey === 'allPurpose' ? calcAllPurposeStats() : aggregateStats(catKey)
+      let baseStats =
+        catKey === 'allPurpose' ? calcAllPurposeStats()
+        : catKey === 'production' ? calcProductionStats()
+        : aggregateStats(catKey)
 
       result[catKey] = {}
 
@@ -372,6 +464,11 @@ export default function DynastyRecords() {
                 if (stat.key === 'plays') value = p.plays
                 else if (stat.key === 'yards') value = p.yards
                 else if (stat.key === 'tds') value = p.tds
+                break
+
+              case 'production':
+                // calcProductionStats() pre-computed `av` per row.
+                if (stat.key === 'av') value = p.av
                 break
 
               case 'defensive':
@@ -470,6 +567,9 @@ export default function DynastyRecords() {
       case 'pct': return value.toFixed(1) + '%'
       case 'avg': return value.toFixed(1)
       case 'rating': return value.toFixed(1)
+      // AV displays at one decimal (e.g. "18.6"). Keeps the granular
+      // distinction between a 17.8 season and a 18.6 season visible.
+      case 'av': return value.toFixed(1)
       default: return value.toLocaleString()
     }
   }
