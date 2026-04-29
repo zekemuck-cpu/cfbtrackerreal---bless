@@ -207,39 +207,58 @@ function returnValue(s) {
  *
  * @param {object} yearStats — player.statsByYear[year]
  * @param {string} position — player position for this year
- * @returns {number} — non-negative AV (1 decimal precision)
+ * @param {object} [opts]
+ * @param {boolean} [opts.breakdown] — when true, return
+ *     `{ total, parts }` instead of just total. `parts` is an object
+ *     of role label → numeric contribution. Use for debugging /
+ *     transparency (the "show your work" view).
+ * @returns {number | { total: number, parts: object }}
  */
-export function computeSeasonAV(yearStats, position) {
-  if (!yearStats) return 0
+export function computeSeasonAV(yearStats, position, opts = {}) {
+  if (!yearStats) return opts.breakdown ? { total: 0, parts: {} } : 0
 
   const pos = (position || '').toUpperCase()
-  let av = 0
+  const parts = {}
 
-  if (QB_POS.has(pos))      av += qbValue(yearStats)
-  else if (RB_POS.has(pos))    av += rbValue(yearStats)
-  else if (WR_TE_POS.has(pos)) av += wrTeValue(yearStats)
-  else if (OL_POS.has(pos))    av += olValue(yearStats)
-  else if (DL_POS.has(pos))    av += defenseValue(yearStats, 'DL')
-  else if (LB_POS.has(pos))    av += defenseValue(yearStats, 'LB')
-  else if (DB_POS.has(pos))    av += defenseValue(yearStats, 'DB')
-  else if (K_POS.has(pos))     av += kValue(yearStats)
-  else if (P_POS.has(pos))     av += pValue(yearStats)
+  if (QB_POS.has(pos))         parts.qb = qbValue(yearStats)
+  else if (RB_POS.has(pos))    parts.rb = rbValue(yearStats)
+  else if (WR_TE_POS.has(pos)) parts.wrTe = wrTeValue(yearStats)
+  else if (OL_POS.has(pos))    parts.ol = olValue(yearStats)
+  else if (DL_POS.has(pos))    parts.dl = defenseValue(yearStats, 'DL')
+  else if (LB_POS.has(pos))    parts.lb = defenseValue(yearStats, 'LB')
+  else if (DB_POS.has(pos))    parts.db = defenseValue(yearStats, 'DB')
+  else if (K_POS.has(pos))     parts.k = kValue(yearStats)
+  else if (P_POS.has(pos))     parts.p = pValue(yearStats)
   // Unknown position — fall back to scanning all categories
   else {
-    av += qbValue(yearStats)
-    av += rbValue(yearStats)
-    av += wrTeValue(yearStats)
-    av += olValue(yearStats)
-    av += defenseValue(yearStats, 'LB')
-    av += kValue(yearStats)
-    av += pValue(yearStats)
+    parts.qb = qbValue(yearStats)
+    parts.rb = rbValue(yearStats)
+    parts.wrTe = wrTeValue(yearStats)
+    parts.ol = olValue(yearStats)
+    parts.lb = defenseValue(yearStats, 'LB')
+    parts.k = kValue(yearStats)
+    parts.p = pValue(yearStats)
   }
 
   // Returns are added on top of the primary-position role so a WR
   // who returns punts gets credit for both.
-  av += returnValue(yearStats)
+  const ret = returnValue(yearStats)
+  if (ret > 0) parts.returns = ret
 
-  return Math.round(av * 10) / 10
+  // Sum and round once — accumulating then rounding avoids the
+  // 0.1 + 0.2 = 0.30000000000000004 noise.
+  const sum = Object.values(parts).reduce((a, b) => a + b, 0)
+  const total = Math.round(sum * 10) / 10
+
+  if (opts.breakdown) {
+    // Round each part for nicer console.table display.
+    const niceParts = {}
+    Object.entries(parts).forEach(([k, v]) => {
+      if (v > 0) niceParts[k] = Math.round(v * 10) / 10
+    })
+    return { total, parts: niceParts }
+  }
+  return total
 }
 
 /**

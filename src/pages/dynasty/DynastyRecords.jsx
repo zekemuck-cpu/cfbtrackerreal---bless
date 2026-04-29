@@ -158,6 +158,10 @@ export default function DynastyRecords() {
   // inline 4-10 expansion only showed 7 more entries and felt cramped.
   // Modal-based reveal can show the full ranked list with breathing room.
   const [modalStat, setModalStat] = useState(null)
+  // Free-text search inside the modal — filters the displayed list by
+  // player-name substring while preserving each player's true rank in
+  // the leaderboard. Reset on close.
+  const [modalSearch, setModalSearch] = useState('')
 
   // Get roster players
   const getRosterPlayers = () => {
@@ -392,6 +396,62 @@ export default function DynastyRecords() {
       Object.values(playerTotals).forEach(p => {
         p.av = Math.round(p.av * 10) / 10
       })
+
+      // Console-trace top 25 with a per-stat breakdown so the user can
+      // verify how the AV math lands. Logs once per memoization (not on
+      // every render). Useful for tuning weights.
+      try {
+        const sorted = Object.values(playerTotals)
+          .filter(p => p.av > 0)
+          .sort((a, b) => b.av - a.av)
+        const trace = sorted.slice(0, 25).map(p => {
+          const player = playerById[p.pid]
+          // Recompute the breakdown for this player's career or season —
+          // mirror the same code path as the value above so the trace
+          // matches the leaderboard exactly.
+          const seasonsForTrace = mode === 'career'
+            ? p.years
+            : [p.year]
+          let totalAv = 0
+          const aggregateParts = {}
+          let primaryPos = player?.position || ''
+          seasonsForTrace.forEach(yr => {
+            const positionForYear = player?.positionByYear?.[yr]
+              || player?.positionByYear?.[String(yr)]
+              || player?.position
+            if (!primaryPos && positionForYear) primaryPos = positionForYear
+            const ys = player?.statsByYear?.[yr] || player?.statsByYear?.[String(yr)]
+            if (!ys) return
+            const { total, parts } = computeSeasonAV(ys, positionForYear, { breakdown: true })
+            totalAv += total
+            Object.entries(parts).forEach(([k, v]) => {
+              aggregateParts[k] = (aggregateParts[k] || 0) + v
+            })
+          })
+          return {
+            name: player?.name || `pid ${p.pid}`,
+            pos: primaryPos,
+            years: mode === 'career' ? `${Math.min(...p.years)}-${Math.max(...p.years)}` : String(p.year),
+            games: p.gamesPlayed || 0,
+            av: p.av,
+            ...Object.fromEntries(Object.entries(aggregateParts).map(([k, v]) => [k, Math.round(v * 10) / 10])),
+          }
+        })
+        const label = mode === 'career'
+          ? '[AV] Career leaders — top 25 with per-role breakdown'
+          : '[AV] Single-season leaders — top 25 with per-role breakdown'
+        // eslint-disable-next-line no-console
+        console.groupCollapsed(label)
+        // eslint-disable-next-line no-console
+        console.table(trace)
+        // eslint-disable-next-line no-console
+        console.groupEnd()
+      } catch (e) {
+        // Logging failure must never break the page render.
+        // eslint-disable-next-line no-console
+        console.warn('[AV] Could not log breakdown:', e?.message || e)
+      }
+
       return Object.values(playerTotals).filter(p => p.av > 0)
     }
 
@@ -854,10 +914,39 @@ export default function DynastyRecords() {
         if (!stat) return null
         const fullLeaderboard = catLeaderboards[modalStat] || []
         const modalSubtitle = mode === 'career' ? 'Career leaders' : 'Single-season leaders'
+
+        // Tag every entry with its TRUE rank in the leaderboard before
+        // filtering, so a search for "Crawford" still shows him as
+        // #6 instead of #1 in the filtered view.
+        const ranked = fullLeaderboard.map((entry, idx) => ({ entry, rank: idx + 1 }))
+        const q = modalSearch.trim().toLowerCase()
+        const filtered = q
+          ? ranked.filter(({ entry }) =>
+              (entry.name || '').toLowerCase().includes(q)
+              || (entry.position || '').toLowerCase().includes(q)
+              || (entry.teamAbbr || '').toLowerCase().includes(q)
+            )
+          : ranked
+
+        const handleClose = () => {
+          setModalStat(null)
+          setModalSearch('')
+        }
+
+        // Top-3 rank colors — gold / silver / bronze. Subtle but
+        // catches the eye on a long list.
+        const rankColor = (rank) => {
+          if (rank === 1) return 'var(--accent-warning)'              // gold
+          if (rank === 2) return 'rgba(192, 192, 192, 0.95)'           // silver
+          if (rank === 3) return 'rgba(205, 127, 50, 0.95)'            // bronze
+          if (rank <= 10) return 'var(--text-primary)'
+          return 'var(--text-tertiary)'
+        }
+
         return (
           <Modal
             isOpen={!!modalStat}
-            onClose={() => setModalStat(null)}
+            onClose={handleClose}
             title={`${stat.label} · ${modalSubtitle}`}
             size="lg"
           >
@@ -867,85 +956,142 @@ export default function DynastyRecords() {
                 message="Stats will appear here once games are saved."
               />
             ) : (
-              <div className="space-y-0.5">
+              <div className="space-y-3">
                 {category?.minNote && (
-                  <p className="text-[11px] text-txt-tertiary mb-3" style={{ letterSpacing: '0.5px' }}>
+                  <p className="text-[11px] text-txt-tertiary" style={{ letterSpacing: '0.5px' }}>
                     {category.minNote}
                   </p>
                 )}
-                <div
-                  className="rounded-lg overflow-hidden"
-                  style={{
-                    backgroundColor: 'var(--surface-2)',
-                    border: '1px solid var(--rule-soft)',
-                  }}
-                >
-                  {fullLeaderboard.map((entry, idx) => {
-                    const rank = idx + 1
-                    const isTop3 = rank <= 3
-                    return (
-                      <div
-                        key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
-                        style={idx > 0 ? { borderTop: '1px solid var(--rule-soft)' } : undefined}
-                      >
-                        <div
-                          className="text-right tabular flex-shrink-0"
-                          style={{
-                            fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: isTop3 ? '1.15rem' : '0.95rem',
-                            letterSpacing: '0.5px',
-                            lineHeight: 1,
-                            width: '2rem',
-                            color: isTop3 ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                          }}
-                        >
-                          {rank}
-                        </div>
 
-                        {entry.pictureUrl ? (
-                          <img
-                            src={entry.pictureUrl}
-                            alt=""
-                            className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                            style={{ border: '1px solid var(--surface-4)' }}
-                          />
-                        ) : entry.teamLogo ? (
-                          <img src={entry.teamLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-surface-4 flex-shrink-0" />
-                        )}
-
-                        <div className="flex-1 min-w-0">
-                          <Link
-                            to={`${pathPrefix}/player/${entry.pid}`}
-                            onClick={() => setModalStat(null)}
-                            className="text-sm font-semibold text-txt-primary hover:underline truncate block"
-                          >
-                            {entry.name}
-                          </Link>
-                          <p className="text-[11px] text-txt-tertiary truncate">
-                            {entry.position && `${entry.position} · `}
-                            {mode === 'career' ? formatYears(entry.years) : entry.year}
-                          </p>
-                        </div>
-
-                        <div
-                          className="tabular flex-shrink-0 text-right text-txt-primary"
-                          style={{
-                            fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: isTop3 ? '1.35rem' : '1.1rem',
-                            fontWeight: isTop3 ? 800 : 700,
-                            letterSpacing: '0.5px',
-                            lineHeight: 1,
-                          }}
-                        >
-                          {formatValue(entry.value, stat.format)}
-                        </div>
-                      </div>
-                    )
-                  })}
+                {/* Search — filters by name, position, or team abbr.
+                    True rank is preserved (e.g. searching "QB" shows
+                    quarterbacks at their actual leaderboard ranks). */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={modalSearch}
+                    onChange={(e) => setModalSearch(e.target.value)}
+                    placeholder={`Search ${fullLeaderboard.length} ${fullLeaderboard.length === 1 ? 'player' : 'players'}…`}
+                    className="w-full pl-9 pr-9 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-surface-5 transition-colors"
+                    style={{
+                      backgroundColor: 'var(--surface-1)',
+                      border: '1px solid var(--surface-4)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  {/* Search-glyph indicator */}
+                  <svg
+                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                  </svg>
+                  {modalSearch && (
+                    <button
+                      onClick={() => setModalSearch('')}
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-txt-tertiary hover:text-txt-primary transition-colors p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
+
+                {filtered.length === 0 ? (
+                  <p className="text-sm text-txt-tertiary text-center py-8">
+                    No players match "{modalSearch}".
+                  </p>
+                ) : (
+                  <div
+                    className="rounded-lg overflow-hidden"
+                    style={{
+                      backgroundColor: 'var(--surface-2)',
+                      border: '1px solid var(--rule-soft)',
+                    }}
+                  >
+                    {filtered.map(({ entry, rank }, displayIdx) => {
+                      const isTop3 = rank <= 3
+                      const isFirst = rank === 1
+                      return (
+                        <div
+                          key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
+                          style={{
+                            borderTop: displayIdx > 0 ? '1px solid var(--rule-soft)' : 'none',
+                            // Subtle gold tint behind the #1 row only.
+                            backgroundColor: isFirst ? 'rgba(234, 179, 8, 0.05)' : undefined,
+                          }}
+                        >
+                          <div
+                            className="text-right tabular flex-shrink-0"
+                            style={{
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: isTop3 ? '1.25rem' : '0.95rem',
+                              fontWeight: isTop3 ? 800 : 600,
+                              letterSpacing: '0.5px',
+                              lineHeight: 1,
+                              width: '2.25rem',
+                              color: rankColor(rank),
+                            }}
+                          >
+                            {rank}
+                          </div>
+
+                          {entry.pictureUrl ? (
+                            <img
+                              src={entry.pictureUrl}
+                              alt=""
+                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                              style={{ border: '1px solid var(--surface-4)' }}
+                            />
+                          ) : entry.teamLogo ? (
+                            <img src={entry.teamLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-surface-4 flex-shrink-0" />
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              to={`${pathPrefix}/player/${entry.pid}`}
+                              onClick={handleClose}
+                              className="text-sm font-semibold text-txt-primary hover:underline truncate block"
+                            >
+                              {entry.name}
+                            </Link>
+                            <p className="text-[11px] text-txt-tertiary truncate">
+                              {entry.position && `${entry.position} · `}
+                              {mode === 'career' ? formatYears(entry.years) : entry.year}
+                            </p>
+                          </div>
+
+                          <div
+                            className="tabular flex-shrink-0 text-right text-txt-primary"
+                            style={{
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: isTop3 ? '1.4rem' : '1.1rem',
+                              fontWeight: isTop3 ? 900 : 700,
+                              letterSpacing: '0.5px',
+                              lineHeight: 1,
+                            }}
+                          >
+                            {formatValue(entry.value, stat.format)}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Footer count — helps users see how many matched */}
+                {q && (
+                  <p className="text-[11px] text-txt-tertiary text-right">
+                    Showing {filtered.length} of {fullLeaderboard.length}
+                  </p>
+                )}
               </div>
             )}
           </Modal>
