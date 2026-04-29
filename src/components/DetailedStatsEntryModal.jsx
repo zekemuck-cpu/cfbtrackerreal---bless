@@ -863,6 +863,17 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Detailed Stats Entry`}
         prompt={aiPrompt}
+        pasteTarget={[
+          'Cell C2 of the "Passing" tab',
+          'Cell C2 of the "Rushing" tab',
+          'Cell C2 of the "Receiving" tab',
+          'Cell C2 of the "Blocking" tab',
+          'Cell C2 of the "Defensive" tab',
+          'Cell C2 of the "Kicking" tab',
+          'Cell C2 of the "Punting" tab',
+          'Cell C2 of the "Kick Return" tab',
+          'Cell C2 of the "Punt Return" tab',
+        ]}
       />
     </div>,
     document.body

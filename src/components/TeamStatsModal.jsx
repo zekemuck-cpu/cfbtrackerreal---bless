@@ -378,7 +378,10 @@ FINAL CHECK before you send the answer
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Team Statistics`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Team Statistics`} prompt={aiPrompt} pasteTarget={[
+        'Cell B1 of the "Offense" tab',
+        'Cell B1 of the "Defense" tab',
+      ]} />
     </div>,
     document.body,
   )

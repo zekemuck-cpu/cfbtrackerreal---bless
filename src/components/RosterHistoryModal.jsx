@@ -616,7 +616,7 @@ FINAL CHECK before you send
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`Roster History`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`Roster History`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Roster History" tab`} />
     </div>,
     document.body,
   )

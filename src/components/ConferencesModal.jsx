@@ -640,7 +640,7 @@ FINAL CHECK before you send
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title="Custom Conferences" prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title="Custom Conferences" prompt={aiPrompt} pasteTarget={`Cell A2 of the "${currentDynasty?.currentYear || new Date().getFullYear()}" tab`} />
     </div>,
     document.body,
   )

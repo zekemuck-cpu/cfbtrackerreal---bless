@@ -568,6 +568,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Fringe Case Class Assignment`}
         prompt={aiPrompt}
+        pasteTarget={`Cell E2 of the "Fringe Cases" tab`}
       />
     </div>,
     document.body,

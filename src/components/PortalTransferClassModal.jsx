@@ -557,6 +557,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Portal Transfer Class Assignment`}
         prompt={aiPrompt}
+        pasteTarget={`Cell D2 of the "Portal Transfers" tab`}
       />
     </div>
   )

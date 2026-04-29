@@ -7,6 +7,7 @@ import {
   createScoringSummarySheet,
   createGameTeamStatsSheet,
   readGameBoxScoreFromSheet,
+  readGameBoxScoreFromUnifiedTab,
   readScoringSummaryFromSheet,
   readGameTeamStatsFromSheet,
   deleteGoogleSheet,
@@ -710,6 +711,19 @@ output that fails any of them.`,
     return `${baseTitle} — ${config.teamAbbr || ''} Player Stats`
   }, [sheetType, config.teamAbbr, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear])
 
+  // Where the user should paste the AI's reply. Surfaced prominently in
+  // the AI Prompt modal so the user doesn't have to fish through the
+  // prompt text to find it. Critically: for player-stats the user
+  // pastes into the consolidated "AI All in One" tab (NOT the
+  // individual category tabs like Passing / Rushing — those are driven
+  // by formulas off the AI All in One tab).
+  const aiPasteTarget = useMemo(() => {
+    if (sheetType === 'scoring') return `Cell A2 of the "Scoring Summary" tab`
+    if (sheetType === 'teamStats') return `Cell B2 of the "Team Stats" tab`
+    // Player-stats sheet: single mega-paste into the AI All in One tab.
+    return `Cell A1 of the "${AI_UNIFIED_TAB.title}" tab — DO NOT paste into the individual category tabs (Passing, Rushing, etc.); those are driven by formulas off the "${AI_UNIFIED_TAB.title}" tab.`
+  }, [sheetType])
+
   // Highlight save button when user returns to window
   useEffect(() => {
     if (!isOpen || !sheetId || useEmbedded) return
@@ -887,6 +901,26 @@ output that fails any of them.`,
   }
 
   // Sync data from sheet
+  // Read player-stats data — prefers AI All in One tab so its values
+  // override anything the user may have manually pasted into the
+  // individual category tabs (Passing, Rushing, etc.). The category
+  // tabs are normally driven by formulas off AI All in One, but those
+  // formulas get clobbered if the user types directly into them. By
+  // reading AI All in One first and only falling back to the 9-tab
+  // read when AI All in One is empty / unreadable, the AI flow is
+  // authoritative.
+  const readPlayerStatsPreferUnified = async () => {
+    const teams = currentDynasty?.teams || currentDynasty?.customTeams
+    const unified = await readGameBoxScoreFromUnifiedTab(sheetId)
+    if (unified) {
+      const hasAnyData = Object.values(unified).some(arr => Array.isArray(arr) && arr.length > 0)
+      if (hasAnyData) return unified
+    }
+    // Empty AI All in One (or unreadable) → fall back so a manual
+    // workflow without the AI prompt still works.
+    return await readGameBoxScoreFromSheet(sheetId, teams)
+  }
+
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
 
@@ -898,7 +932,7 @@ output that fails any of them.`,
       } else if (sheetType === 'teamStats') {
         data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+        data = await readPlayerStatsPreferUnified()
       }
       await onSave(data)
       onClose()
@@ -927,7 +961,7 @@ output that fails any of them.`,
       } else if (sheetType === 'teamStats') {
         data = await readGameTeamStatsFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
       } else {
-        data = await readGameBoxScoreFromSheet(sheetId, (currentDynasty?.teams || currentDynasty?.customTeams))
+        data = await readPlayerStatsPreferUnified()
       }
       await onSave(data)
 
@@ -952,14 +986,30 @@ output that fails any of them.`,
     }
   }
 
-  // Regenerate sheet
+  // Regenerate sheet — also wipes the saved box-score slice for this
+  // sheet type so we don't pre-fill the new sheet with the previous
+  // (possibly bad) data. Without this clear, regenerating after a
+  // misaligned AI paste would leave the corrupt rows persisted on
+  // game.boxScore even though the Google Sheet was rebuilt.
   const handleRegenerateSheet = async () => {
     if (!sheetId) return
 
+    // Match per-sheetType so the warning text reflects what's actually
+    // about to be wiped — players see "all team stats" vs "all home
+    // player stats" vs "scoring summary" depending on which sheet they
+    // opened, rather than a generic "data will be lost".
+    const wipeLabel = (() => {
+      if (sheetType === 'scoring') return 'the scoring summary for this game'
+      if (sheetType === 'teamStats') return 'the team stats for this game'
+      if (sheetType === 'homeStats') return `${homeTeamAbbr} player stats for this game`
+      if (sheetType === 'awayStats') return `${awayTeamAbbr} player stats for this game`
+      return 'the data for this sheet'
+    })()
+
     const confirmed = await confirm({
       title: 'Regenerate sheet?',
-      message: "This will delete your current sheet and create a fresh one. Any unsaved data will be lost.",
-      confirmLabel: 'Regenerate',
+      message: `This will delete your current sheet AND wipe ${wipeLabel} from the dynasty. You'll start over with a fresh empty sheet. Saved stats elsewhere (other sheets, season totals from other games) are not affected.`,
+      confirmLabel: 'Regenerate & Wipe',
       variant: 'danger',
     })
     if (!confirmed) return
@@ -968,14 +1018,29 @@ output that fails any of them.`,
     try {
       await deleteGoogleSheet(sheetId)
 
-      // Clear sheet ID from game
+      // Clear sheet ID from game AND wipe the saved slice of game.boxScore
+      // that this sheet feeds into, so the next sheet creation starts
+      // from a clean slate (and the user's dynasty no longer holds the
+      // bad data).
       if (currentDynasty && game?.id) {
         const games = [...(currentDynasty.games || [])]
         const gameIndex = games.findIndex(g => g.id === game.id)
         if (gameIndex !== -1) {
+          const prevGame = games[gameIndex]
+          const prevBoxScore = prevGame?.boxScore || {}
+          const sliceKey =
+            sheetType === 'scoring' ? 'scoringSummary'
+            : sheetType === 'teamStats' ? 'teamStats'
+            : sheetType === 'homeStats' ? 'home'
+            : sheetType === 'awayStats' ? 'away'
+            : null
+          const nextBoxScore = sliceKey
+            ? { ...prevBoxScore, [sliceKey]: null }
+            : prevBoxScore
           games[gameIndex] = {
-            ...games[gameIndex],
-            [config.sheetIdKey]: null
+            ...prevGame,
+            [config.sheetIdKey]: null,
+            boxScore: nextBoxScore,
           }
           await updateDynasty(currentDynasty.id, { games })
         }
@@ -1317,6 +1382,7 @@ output that fails any of them.`,
         onClose={() => setShowAIPrompt(false)}
         title={aiPromptTitle}
         prompt={aiPrompt}
+        pasteTarget={aiPasteTarget}
       />
     </div>,
     document.body,

@@ -601,7 +601,7 @@ FINAL CHECK before you send
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Encourage Transfers`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Encourage Transfers`} prompt={aiPrompt} pasteTarget={`Cell D2 of the "Encourage Transfers" tab`} />
     </div>,
     document.body,
   )

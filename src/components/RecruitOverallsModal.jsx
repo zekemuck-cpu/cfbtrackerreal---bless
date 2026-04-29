@@ -580,6 +580,7 @@ FINAL CHECK before you send
         onClose={() => setShowAIPrompt(false)}
         title={`${currentYear} Recruiting Class Overalls`}
         prompt={aiPrompt}
+        pasteTarget={`Cell E2 of the "Recruit Overalls" tab`}
       />
     </div>,
     document.body,

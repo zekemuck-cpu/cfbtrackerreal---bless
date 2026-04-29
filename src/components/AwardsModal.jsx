@@ -403,7 +403,7 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Season Awards`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Season Awards`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "${currentYear}" tab`} />
     </div>,
     document.body,
   )

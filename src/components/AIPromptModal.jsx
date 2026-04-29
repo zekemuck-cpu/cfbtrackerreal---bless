@@ -2,7 +2,22 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useToast } from './ui/Toast'
 
-export default function AIPromptModal({ isOpen, onClose, title, prompt }) {
+/**
+ * AI prompt display modal.
+ *
+ * Props:
+ *   isOpen      — modal visibility
+ *   onClose     — close handler
+ *   title       — sheet name shown in the header (e.g. "2034 Awards")
+ *   prompt      — the full AI prompt text the user copies
+ *   pasteTarget — optional. Where the user should paste the AI's reply.
+ *                 Either a string (single paste target) or an array of
+ *                 strings (multiple — e.g. one per tab for the All-
+ *                 Conference sheet's 10 conference tabs). Rendered as
+ *                 a prominent banner near the top of the modal so the
+ *                 user can't miss it.
+ */
+export default function AIPromptModal({ isOpen, onClose, title, prompt, pasteTarget }) {
   const [copied, setCopied] = useState(false)
   const { toast } = useToast()
   const textareaRef = useRef(null)
@@ -67,8 +82,34 @@ export default function AIPromptModal({ isOpen, onClose, title, prompt }) {
         <div className="flex-1 overflow-hidden flex flex-col p-4 sm:p-6 gap-4">
           <p className="text-sm text-txt-secondary leading-relaxed">
             Copy this prompt into your AI chat tool along with screenshots of the source data.
-            The AI will return a tab-separated block you can paste directly into the Google Sheet starting at cell A1.
+            The AI will return a tab-separated block you can paste directly into the Google Sheet.
           </p>
+          {pasteTarget && (
+            <div
+              className="rounded-md p-3 text-sm"
+              style={{
+                backgroundColor: 'var(--surface-2)',
+                borderLeft: '3px solid var(--accent-warning)',
+              }}
+            >
+              <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+                Paste target
+              </div>
+              {Array.isArray(pasteTarget) ? (
+                <ul className="space-y-0.5 text-txt-primary font-medium">
+                  {pasteTarget.map((target, i) => (
+                    <li key={i} className="leading-snug">
+                      <span className="font-mono">{target}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-txt-primary font-medium leading-snug">
+                  <span className="font-mono">{pasteTarget}</span>
+                </p>
+              )}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             readOnly

@@ -459,7 +459,13 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Conference`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} All-Conference`} prompt={aiPrompt} pasteTarget={(() => {
+        const customConfs = currentDynasty?.conferencesByYear?.[currentYear]
+        const confs = customConfs && Object.keys(customConfs).length > 0
+          ? Object.keys(customConfs).sort()
+          : ['ACC', 'American', 'Big 12', 'Big Ten', 'Conference USA', 'Independent', 'MAC', 'Mountain West', 'Pac-12', 'SEC', 'Sun Belt']
+        return confs.map(c => `${c} → Cell A4 of the "${c}" tab`)
+      })()} />
     </div>,
     document.body,
   )

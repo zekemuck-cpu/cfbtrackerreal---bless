@@ -502,7 +502,7 @@ FINAL CHECK before you send
         onRefresh={() => setRetryCount(c => c + 1)}
         teamColors={teamColors}
       />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Players Leaving`} prompt={aiPrompt} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Players Leaving`} prompt={aiPrompt} pasteTarget={`Cell A2 of the "Players Leaving" tab`} />
     </div>,
     document.body,
   )
