@@ -251,6 +251,13 @@ FINAL CHECK before you send
     setSyncing(true)
     try {
       const players = await readRosterFromRosterSheet(sheetId)
+      // Empty sheet → no-op save. Tell the user instead of silently
+      // succeeding (the backend's data-loss guard would skip the write
+      // anyway, leaving the user wondering what happened).
+      if (!players || players.length === 0) {
+        toast.warning('No players found in the sheet. Fill in player data (first name + overall rating required) before saving.')
+        return
+      }
       await onSave(players)
       onClose()
     } catch (error) {
@@ -271,6 +278,10 @@ FINAL CHECK before you send
     setDeletingSheet(true)
     try {
       const players = await readRosterFromRosterSheet(sheetId)
+      if (!players || players.length === 0) {
+        toast.warning('No players found in the sheet. Fill in player data (first name + overall rating required) before saving.')
+        return
+      }
       await onSave(players)
 
       await deleteGoogleSheet(sheetId)

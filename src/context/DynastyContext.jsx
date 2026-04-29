@@ -8894,8 +8894,9 @@ export function DynastyProvider({ children }) {
     // Get year - use provided year or fall back to current year
     const year = options.year || dynasty.currentYear
 
-    // CRITICAL: Get tid directly - tid is the ONLY source of truth
-    // If options.teamAbbr is provided, convert it to tid; otherwise use current user team's tid
+    // CRITICAL: Get tid directly - tid is the ONLY source of truth.
+    // If options.teamAbbr is provided, convert it to tid; otherwise
+    // use current user team's tid.
     let teamTid
     if (options.teamAbbr) {
       // Convert provided abbr to tid (for editing other teams).
@@ -8906,8 +8907,10 @@ export function DynastyProvider({ children }) {
       // Use current user team's tid directly
       teamTid = getCurrentTeamTid(dynasty)
     }
-    // Get abbr for display/logging only
-    const teamAbbr = getCurrentTeamAbbr(dynasty) || dynasty.teamName
+    // Resolve the EDITED team's abbr from its tid so legacy player.team
+    // field comparisons match the right team. Was previously the user's
+    // current team's abbr, which is wrong when editing OTHER teams.
+    const teamAbbr = teamTid ? getAbbrFromTid(dynasty.teams, teamTid) : (getCurrentTeamAbbr(dynasty) || dynasty.teamName)
     // teamsByYear MUST store tid (number), never abbreviation
     const teamsByYearValue = teamTid
 
