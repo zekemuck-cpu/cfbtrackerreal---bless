@@ -646,7 +646,10 @@ export default function DynastyRecords() {
             return true
           })
           .sort((a, b) => stat.lowerIsBetter ? a.value - b.value : b.value - a.value)
-          .slice(0, 10)
+          // No cap. The card displays only the top 3 anyway; the modal
+          // shows the full list (with search) so capping at 10 was
+          // hiding entries from the modal — the user reported "only
+          // loading 10 players".
 
         result[catKey][stat.key] = leaderboard
       })
@@ -1003,129 +1006,219 @@ export default function DynastyRecords() {
                 message="Stats will appear here once games are saved."
               />
             ) : (
-              <div className="space-y-3">
-                {category?.minNote && (
-                  <p className="text-[11px] text-txt-tertiary" style={{ letterSpacing: '0.5px' }}>
-                    {category.minNote}
-                  </p>
-                )}
-
-                {/* Search — filters by name, position, or team abbr.
-                    True rank is preserved (e.g. searching "QB" shows
-                    quarterbacks at their actual leaderboard ranks). */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={modalSearch}
-                    onChange={(e) => setModalSearch(e.target.value)}
-                    placeholder={`Search ${fullLeaderboard.length} ${fullLeaderboard.length === 1 ? 'player' : 'players'}…`}
-                    className="w-full pl-9 pr-9 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-surface-5 transition-colors"
-                    style={{
-                      backgroundColor: 'var(--surface-1)',
-                      border: '1px solid var(--surface-4)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
-                  {/* Search-glyph indicator */}
-                  <svg
-                    className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary pointer-events-none"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-                  </svg>
-                  {modalSearch && (
-                    <button
-                      onClick={() => setModalSearch('')}
-                      aria-label="Clear search"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-txt-tertiary hover:text-txt-primary transition-colors p-1"
+              <div className="-mx-6 -my-5">
+                {/* Editorial top section — eyebrow + framing line +
+                    note. Mirrors the records-card header treatment so
+                    the modal feels like part of the same page rather
+                    than a generic dialog. */}
+                <div
+                  className="px-6 pt-5 pb-4"
+                  style={{
+                    borderBottom: '1px solid var(--rule-soft)',
+                    background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 35%, var(--surface-2)) 0%, var(--surface-2) 100%)',
+                  }}
+                >
+                  <div className="flex items-baseline justify-between gap-4 flex-wrap">
+                    <div>
+                      <div
+                        className="text-[10px] font-bold uppercase text-txt-tertiary"
+                        style={{ letterSpacing: '2.5px' }}
+                      >
+                        {stat.abbr} · {mode === 'career' ? 'Career' : 'Single Season'}
+                      </div>
+                      <div
+                        className="text-txt-primary mt-0.5 leading-tight"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem', letterSpacing: '1px' }}
+                      >
+                        {stat.label}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div
+                        className="tabular text-txt-primary leading-none"
+                        style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.5rem' }}
+                      >
+                        {fullLeaderboard.length}
+                      </div>
+                      <div
+                        className="text-[10px] font-bold uppercase text-txt-tertiary mt-0.5"
+                        style={{ letterSpacing: '2px' }}
+                      >
+                        {fullLeaderboard.length === 1 ? 'Player' : 'Players'}
+                      </div>
+                    </div>
+                  </div>
+                  {category?.minNote && (
+                    <p
+                      className="text-[12px] text-txt-secondary leading-snug mt-3 italic"
+                      style={{ maxWidth: '60ch' }}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
+                      {category.minNote}
+                    </p>
                   )}
                 </div>
 
+                {/* Search bar lives in its own band so it doesn't fight
+                    the editorial header above. */}
+                <div
+                  className="px-6 py-3"
+                  style={{
+                    backgroundColor: 'var(--surface-1)',
+                    borderBottom: '1px solid var(--rule-soft)',
+                  }}
+                >
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={modalSearch}
+                      onChange={(e) => setModalSearch(e.target.value)}
+                      placeholder={`Search ${fullLeaderboard.length} ${fullLeaderboard.length === 1 ? 'player' : 'players'} by name, position, team…`}
+                      className="w-full pl-9 pr-9 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-surface-5 transition-colors"
+                      style={{
+                        backgroundColor: 'var(--surface-2)',
+                        border: '1px solid var(--surface-4)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                    <svg
+                      className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary pointer-events-none"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                    </svg>
+                    {modalSearch && (
+                      <button
+                        onClick={() => setModalSearch('')}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-txt-tertiary hover:text-txt-primary transition-colors p-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* List body. Top-3 get the podium treatment matching
+                    the records cards: #1 with a gradient bg + a 3px
+                    accent rail on the left, #2/#3 with rank colors but
+                    a flat row. Past rank 10 a subtle divider band
+                    signals "the long tail" without breaking the rhythm. */}
                 {filtered.length === 0 ? (
-                  <p className="text-sm text-txt-tertiary text-center py-8">
+                  <p className="text-sm text-txt-tertiary text-center py-10">
                     No players match "{modalSearch}".
                   </p>
                 ) : (
-                  <div
-                    className="rounded-lg overflow-hidden"
-                    style={{
-                      backgroundColor: 'var(--surface-2)',
-                      border: '1px solid var(--rule-soft)',
-                    }}
-                  >
+                  <div>
                     {filtered.map(({ entry, rank }, displayIdx) => {
                       const isTop3 = rank <= 3
                       const isFirst = rank === 1
+                      // Insert a thin tier divider above rank 4 (so the
+                      // podium ends visually before rank 4 starts) and
+                      // above rank 11 (long tail begins). Only show
+                      // when the previous row in `filtered` was
+                      // actually at the previous tier.
+                      const prev = filtered[displayIdx - 1]
+                      const showPodiumDivider = rank === 4 && prev?.rank === 3
+                      const showTailDivider = rank === 11 && prev?.rank === 10
                       return (
-                        <div
-                          key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-3 transition-colors"
-                          style={{
-                            borderTop: displayIdx > 0 ? '1px solid var(--rule-soft)' : 'none',
-                            // Subtle gold tint behind the #1 row only.
-                            backgroundColor: isFirst ? 'rgba(234, 179, 8, 0.05)' : undefined,
-                          }}
-                        >
-                          <div
-                            className="text-right tabular flex-shrink-0"
-                            style={{
-                              fontFamily: "'Bebas Neue', sans-serif",
-                              fontSize: isTop3 ? '1.25rem' : '0.95rem',
-                              fontWeight: isTop3 ? 800 : 600,
-                              letterSpacing: '0.5px',
-                              lineHeight: 1,
-                              width: '2.25rem',
-                              color: rankColor(rank),
-                            }}
-                          >
-                            {rank}
-                          </div>
-
-                          {entry.pictureUrl ? (
-                            <img
-                              src={entry.pictureUrl}
-                              alt=""
-                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                              style={{ border: '1px solid var(--surface-4)' }}
-                            />
-                          ) : entry.teamLogo ? (
-                            <img src={entry.teamLogo} alt="" className="w-7 h-7 object-contain flex-shrink-0" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-surface-4 flex-shrink-0" />
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            <Link
-                              to={`${pathPrefix}/player/${entry.pid}`}
-                              onClick={handleClose}
-                              className="text-sm font-semibold text-txt-primary hover:underline truncate block"
+                        <div key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}>
+                          {(showPodiumDivider || showTailDivider) && (
+                            <div
+                              className="px-6 py-1.5 text-[10px] font-bold uppercase text-txt-tertiary tabular"
+                              style={{
+                                letterSpacing: '2px',
+                                backgroundColor: 'var(--surface-1)',
+                                borderTop: '1px solid var(--rule-soft)',
+                                borderBottom: '1px solid var(--rule-soft)',
+                              }}
                             >
-                              {entry.name}
-                            </Link>
-                            <p className="text-[11px] text-txt-tertiary truncate">
-                              {entry.position && `${entry.position} · `}
-                              {mode === 'career' ? formatYears(entry.years) : entry.year}
-                            </p>
-                          </div>
-
+                              {showPodiumDivider ? '— Below the podium —' : '— Long tail —'}
+                            </div>
+                          )}
                           <div
-                            className="tabular flex-shrink-0 text-right text-txt-primary"
+                            className="relative flex items-center gap-3 px-6 transition-colors"
                             style={{
-                              fontFamily: "'Bebas Neue', sans-serif",
-                              fontSize: isTop3 ? '1.4rem' : '1.1rem',
-                              fontWeight: isTop3 ? 900 : 700,
-                              letterSpacing: '0.5px',
-                              lineHeight: 1,
+                              padding: isFirst ? '14px 24px 14px 27px' : (isTop3 ? '10px 24px' : '8px 24px'),
+                              borderTop: displayIdx > 0 && !showPodiumDivider && !showTailDivider ? '1px solid var(--rule-soft)' : 'none',
+                              background: isFirst
+                                ? 'linear-gradient(90deg, rgba(234, 179, 8, 0.10) 0%, var(--surface-2) 70%)'
+                                : 'transparent',
                             }}
+                            onMouseEnter={(e) => { if (!isFirst) e.currentTarget.style.backgroundColor = 'var(--surface-3)' }}
+                            onMouseLeave={(e) => { if (!isFirst) e.currentTarget.style.backgroundColor = 'transparent' }}
                           >
-                            {formatValue(entry.value, stat.format)}
+                            {/* #1 accent rail */}
+                            {isFirst && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute left-0 top-0 bottom-0 w-[3px]"
+                                style={{ backgroundColor: 'var(--accent-warning)' }}
+                              />
+                            )}
+
+                            <div
+                              className="text-right tabular flex-shrink-0"
+                              style={{
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontSize: isFirst ? '1.5rem' : isTop3 ? '1.2rem' : '0.95rem',
+                                fontWeight: isFirst ? 900 : isTop3 ? 800 : 600,
+                                letterSpacing: '0.5px',
+                                lineHeight: 1,
+                                width: isTop3 ? '2.25rem' : '2rem',
+                                color: rankColor(rank),
+                              }}
+                            >
+                              {rank}
+                            </div>
+
+                            {entry.pictureUrl ? (
+                              <img
+                                src={entry.pictureUrl}
+                                alt=""
+                                className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`}
+                                style={{
+                                  border: isFirst
+                                    ? '1.5px solid var(--accent-warning)'
+                                    : '1px solid var(--surface-4)',
+                                }}
+                              />
+                            ) : entry.teamLogo ? (
+                              <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />
+                            ) : (
+                              <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
+                            )}
+
+                            <div className="flex-1 min-w-0">
+                              <Link
+                                to={`${pathPrefix}/player/${entry.pid}`}
+                                onClick={handleClose}
+                                className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}
+                              >
+                                {entry.name}
+                              </Link>
+                              <p className="text-[11px] text-txt-tertiary truncate">
+                                {entry.position && `${entry.position} · `}
+                                {mode === 'career' ? formatYears(entry.years) : entry.year}
+                              </p>
+                            </div>
+
+                            <div
+                              className="tabular flex-shrink-0 text-right text-txt-primary"
+                              style={{
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontSize: isFirst ? '1.85rem' : isTop3 ? '1.35rem' : '1.05rem',
+                                fontWeight: isFirst ? 900 : isTop3 ? 800 : 700,
+                                letterSpacing: '0.5px',
+                                lineHeight: 1,
+                                opacity: isFirst ? 1 : isTop3 ? 0.92 : 0.82,
+                              }}
+                            >
+                              {formatValue(entry.value, stat.format)}
+                            </div>
                           </div>
                         </div>
                       )
@@ -1133,11 +1226,18 @@ export default function DynastyRecords() {
                   </div>
                 )}
 
-                {/* Footer count — helps users see how many matched */}
-                {q && (
-                  <p className="text-[11px] text-txt-tertiary text-right">
+                {/* Filtered-results indicator */}
+                {q && filtered.length > 0 && (
+                  <div
+                    className="px-6 py-2.5 text-[11px] text-txt-tertiary text-right tabular"
+                    style={{
+                      borderTop: '1px solid var(--rule-soft)',
+                      backgroundColor: 'var(--surface-1)',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
                     Showing {filtered.length} of {fullLeaderboard.length}
-                  </p>
+                  </div>
                 )}
               </div>
             )}
