@@ -47,6 +47,7 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamName} Team Statistics`,
+    multiBlock: true,
     structure: `This sheet has TWO tabs ("Offense" and "Defense"). Each tab has 2 columns.
 Column A = stat name (pre-filled + PROTECTED). Column B = the value (empty, what you fill).
 

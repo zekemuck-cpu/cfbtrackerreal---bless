@@ -87,7 +87,12 @@ COLUMN D — Per-row allowed values (depends on the row's Column C "${currentYea
 If Column C = "Fr"    → allowed values: "RS Fr" | "So" | "RS So"
 If Column C = "So"    → allowed values: "RS So" | "Jr" | "RS Jr"
 If Column C = "Jr"    → allowed values: "RS Jr" | "Sr" | "RS Sr"
-(If Column C for a row is something other than Fr/So/Jr, the app falls back to the Fr set: "RS Fr" | "So" | "RS So".)
+If Column C = "Sr"    → allowed values: "RS Sr"  (only one option — last year of eligibility under redshirt)
+If Column C = "RS Fr" → allowed values: "So" | "RS So"
+If Column C = "RS So" → allowed values: "Jr" | "RS Jr"
+If Column C = "RS Jr" → allowed values: "Sr" | "RS Sr"
+If Column C = "RS Sr" → BLANK only (no eligibility left)
+(If Column C is anything outside the list above, fall back to the Fr set: "RS Fr" | "So" | "RS So".)
 
 Selection guidance:
 - Use the RS (redshirt) variant when the player likely used a redshirt at their previous school (e.g. played 4 or fewer regular-season games, or other redshirt indicators on the screenshot). Example: Fr who redshirted → "RS Fr".

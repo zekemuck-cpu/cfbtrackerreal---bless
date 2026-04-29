@@ -67,7 +67,7 @@ CRITICAL RULES — read before anything else
 5. Every FBS team must appear EXACTLY ONCE across all columns in the block. Duplicates will cause a validation error when the sheet is read back.
 6. Each team must be placed in the column matching its real conference.
 7. NO COMMAS. No commentary. No header rows. No "N/A", no dashes.
-8. Row order within a column: list the teams alphabetically by abbreviation (or by conference-member order — either is acceptable as long as no team is missing or duplicated).
+8. Row order within a column: list the teams ALPHABETICALLY BY ABBREVIATION (e.g. for SEC: ARK before AUB before BAMA before FLA before LSU). One team per row, top-to-bottom. The "either is acceptable" wording from older versions is gone — pick alphabetical and stick to it; the validator doesn't care, but a consistent rule prevents the AI from fence-sitting.
 9. ONE TSV block total. Label it with paste target.
 
 ═══════════════════════════════════════════════════════════
