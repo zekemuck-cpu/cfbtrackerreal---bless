@@ -4456,6 +4456,33 @@ export default function TeamYear() {
       {/* SCHEDULE TAB */}
       {activeTab === 'schedule' && (
         <div className="space-y-4">
+          {/* Schedule action bar — edit button for this team's schedule.
+              Available on any team (not just the user's), so a coach
+              can populate Florida's schedule from Florida's page. */}
+          {!isViewOnly && (
+            <div className="flex items-center justify-between gap-3 flex-wrap px-1">
+              <p className="text-xs text-txt-tertiary">
+                {teamYearGames.length > 0
+                  ? `${teamYearGames.length} game${teamYearGames.length === 1 ? '' : 's'} on the ${selectedYear} schedule.`
+                  : `No games scheduled for ${selectedYear} yet.`}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-colors"
+                style={{
+                  backgroundColor: teamInfo.backgroundColor,
+                  color: teamInfo.textColor,
+                }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                {teamYearGames.length > 0 ? 'Edit Schedule' : 'Enter Schedule'}
+              </button>
+            </div>
+          )}
+
           {/* Schedule - shows games played by this team this year */}
           {teamYearGames.length > 0 && (
         <div className="card-elevated overflow-hidden">
