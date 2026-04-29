@@ -90,6 +90,9 @@ const nestedStatsToFlat = (yearStats) => {
   const defense = yearStats.defense || {}
   const kicking = yearStats.kicking || {}
   const punting = yearStats.punting || {}
+  const kickReturn = yearStats.kickReturn || {}
+  const puntReturn = yearStats.puntReturn || {}
+  const blocking = yearStats.blocking || {}
 
   return {
     // Passing
@@ -133,6 +136,19 @@ const nestedStatsToFlat = (yearStats) => {
     puntLong: punting.lng ?? punting.long ?? '',
     puntIn20: punting.in20 ?? '',
     touchbacks: punting.tb ?? punting.touchbacks ?? '',
+    // Kick Return
+    krRet: kickReturn.ret ?? '',
+    krYds: kickReturn.yds ?? '',
+    krTD: kickReturn.td ?? '',
+    krLong: kickReturn.lng ?? kickReturn.long ?? '',
+    // Punt Return
+    prRet: puntReturn.ret ?? '',
+    prYds: puntReturn.yds ?? '',
+    prTD: puntReturn.td ?? '',
+    prLong: puntReturn.lng ?? puntReturn.long ?? '',
+    // Blocking
+    pancakes: blocking.pancakes ?? '',
+    sacksAllowed: blocking.sacksAllowed ?? '',
     // General
     gamesPlayed: yearStats.gamesPlayed ?? yearStats.games ?? '',
     snapsPlayed: yearStats.snapsPlayed ?? yearStats.snaps ?? '',
@@ -216,6 +232,25 @@ const flatStatsToNested = (flatStats, existingYearStats = {}) => {
   if (flatStats.puntIn20 !== '') punting.in20 = num(flatStats.puntIn20)
   if (flatStats.touchbacks !== '') punting.tb = num(flatStats.touchbacks)
   if (Object.keys(punting).length > 0) result.punting = punting
+
+  const kickReturn = {}
+  if (flatStats.krRet !== '') kickReturn.ret = num(flatStats.krRet)
+  if (flatStats.krYds !== '') kickReturn.yds = num(flatStats.krYds)
+  if (flatStats.krTD !== '') kickReturn.td = num(flatStats.krTD)
+  if (flatStats.krLong !== '') kickReturn.lng = num(flatStats.krLong)
+  if (Object.keys(kickReturn).length > 0) result.kickReturn = kickReturn
+
+  const puntReturn = {}
+  if (flatStats.prRet !== '') puntReturn.ret = num(flatStats.prRet)
+  if (flatStats.prYds !== '') puntReturn.yds = num(flatStats.prYds)
+  if (flatStats.prTD !== '') puntReturn.td = num(flatStats.prTD)
+  if (flatStats.prLong !== '') puntReturn.lng = num(flatStats.prLong)
+  if (Object.keys(puntReturn).length > 0) result.puntReturn = puntReturn
+
+  const blocking = {}
+  if (flatStats.pancakes !== '') blocking.pancakes = num(flatStats.pancakes)
+  if (flatStats.sacksAllowed !== '') blocking.sacksAllowed = num(flatStats.sacksAllowed)
+  if (Object.keys(blocking).length > 0) result.blocking = blocking
 
   // General stats at top level
   if (flatStats.gamesPlayed !== '') result.gamesPlayed = num(flatStats.gamesPlayed)
@@ -2039,6 +2074,19 @@ export default function PlayerEdit() {
                         puntLong: totals.punting?.lng || '',
                         puntIn20: totals.punting?.in20 || '',
                         touchbacks: totals.punting?.tb || '',
+                        // Kick Return
+                        krRet: totals.kickReturn?.ret || '',
+                        krYds: totals.kickReturn?.yds || '',
+                        krTD: totals.kickReturn?.td || '',
+                        krLong: totals.kickReturn?.lng || '',
+                        // Punt Return
+                        prRet: totals.puntReturn?.ret || '',
+                        prYds: totals.puntReturn?.yds || '',
+                        prTD: totals.puntReturn?.td || '',
+                        prLong: totals.puntReturn?.lng || '',
+                        // Blocking
+                        pancakes: totals.blocking?.pancakes || '',
+                        sacksAllowed: totals.blocking?.sacksAllowed || '',
                       }
 
                       setFormData(prev => ({ ...prev, stats: newStats }))
@@ -2202,6 +2250,87 @@ export default function PlayerEdit() {
                       ))}
                     </div>
                   </div>
+                )}
+
+                {/* Blocking — OL only */}
+                {['LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG'].includes(formData.position) && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Blocking</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { key: 'pancakes', label: 'Pancakes' },
+                        { key: 'sacksAllowed', label: 'Sacks Allowed' },
+                      ].map(stat => (
+                        <div key={stat.key}>
+                          <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                          <input
+                            type="number"
+                            value={formData.stats?.[stat.key] || ''}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                            }))}
+                            className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Returns — any skill or DB position can be a returner */}
+                {['HB', 'FB', 'WR', 'TE', 'CB', 'FS', 'SS'].includes(formData.position) && (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Kick Returns</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { key: 'krRet', label: 'Returns' },
+                          { key: 'krYds', label: 'Yards' },
+                          { key: 'krTD', label: 'TD' },
+                          { key: 'krLong', label: 'Long' },
+                        ].map(stat => (
+                          <div key={stat.key}>
+                            <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                            <input
+                              type="number"
+                              value={formData.stats?.[stat.key] || ''}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                              }))}
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold text-txt-secondary uppercase tracking-wide mb-3">Punt Returns</h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { key: 'prRet', label: 'Returns' },
+                          { key: 'prYds', label: 'Yards' },
+                          { key: 'prTD', label: 'TD' },
+                          { key: 'prLong', label: 'Long' },
+                        ].map(stat => (
+                          <div key={stat.key}>
+                            <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
+                            <input
+                              type="number"
+                              value={formData.stats?.[stat.key] || ''}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                              }))}
+                              className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 {/* Kicking */}

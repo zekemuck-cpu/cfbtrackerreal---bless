@@ -192,19 +192,16 @@ function pValue(s) {
 }
 
 function returnValue(s) {
-  // Returns are a bonus on top of the player's primary role, so they
-  // should add color, not double a return-specialist's AV. Calibrated
-  // so a top return season adds ~5-7 AV, an average year ~1-2.
   let av = 0
   const kr = s.kickReturn
   if (kr) {
-    av += (kr.yds || 0) * 0.0015
-    av += (kr.td  || 0) * 0.8
+    av += (kr.yds || 0) * 0.005
+    av += (kr.td  || 0) * 1.5
   }
   const pr = s.puntReturn
   if (pr) {
-    av += (pr.yds || 0) * 0.003   // PR yds harder to come by
-    av += (pr.td  || 0) * 0.8
+    av += (pr.yds || 0) * 0.008  // PR yds harder to come by
+    av += (pr.td  || 0) * 1.5
   }
   return Math.max(0, av)
 }
