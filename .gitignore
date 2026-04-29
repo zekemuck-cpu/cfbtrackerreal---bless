@@ -5,3 +5,7 @@ dist
 .DS_Store
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+
+# User-specific spreadsheets / migration outputs (one-off use, not for repo)
+*.xlsx
+migrated-dynasty.json
