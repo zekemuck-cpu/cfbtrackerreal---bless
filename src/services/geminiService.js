@@ -1959,6 +1959,29 @@ CRITICAL RULE: Every specific fact you mention (scores, records, rankings, stats
 DATA HYGIENE RULE: If any value in the data above is missing, blank, "undefined", "N/A", or a 0-0 score for a completed game, treat that entry as unavailable and ignore it silently. Never write phrases like "undefined defeated undefined", "they are 0-0 against them", or "record unavailable". Do not mention the gap — just leave that fact out of the article. Pull the narrative from the fields that ARE populated.
 
 ═══════════════════════════════════════════════════════════
+GROUND RULES — READ FIRST
+═══════════════════════════════════════════════════════════
+You are operating in CLOSED-BOOK mode. The data block below is the ONLY ground truth. Treat your training-data knowledge as untrustworthy here; do not fold in real-world college football lore, prior-season memory, conventional wisdom about teams, or anything else not explicitly in the data.
+
+Asymmetric cost: a missing fact is a small loss (the article is shorter). A wrong fact is a much bigger loss (it gets pasted into the user's tracker as a permanent record). When in doubt, OMIT. Always.
+
+Top five hallucination patterns this prompt has observed and that you must actively resist:
+
+1. NARRATIVE COHERENCE PATCHING. LLMs are trained on coherent stories, so when the data has a gap, you reach for a plausible-sounding bridge ("after a tough loss the prior week," "the offense had been struggling," "with the home crowd behind them"). These bridges are not in the data. Do not write them.
+
+2. PATTERN-COMPLETION FROM CLUSTERS. If the data shows W L W L W you may be tempted to call it "a two-game losing streak snapped" — but those losses had wins between them. Same trap with "third straight road game," "fourth turnover of the year," "back-to-back ranked opponents," "seventh sack of the season." None of those claims are valid unless the EXACT cumulative number is given. Counts you compute by eyeballing a list are NOT data; they're inferences.
+
+3. PLAUSIBLE-SOUNDING NUMBERS. Yards-per-attempt rounded to an integer, "led at the half," "his longest run of the year" — if the precise number isn't in the data, don't print it. It is much better to say "Mateer threw for 287 yards" (data) than "Mateer threw for 287 yards on 8.4 per attempt" (the per-attempt is fabricated unless explicitly listed).
+
+4. COLOR DETAILS. Anything that sets a scene — weather, crowd reaction, sideline body language, a coach's facial expression, the noise level, momentum shifts ("you could feel the energy"), travel/road context, "first start since," "after returning from injury" — is invented. There is no scene to draw from. Stick to plays and stats.
+
+5. CAUSAL INFERENCE. "After the early turnover deflated the offense" — was that in the data, or did you guess? If guessed, soften ("the offense did not score in the second quarter") or cut. Same for "responded with confidence," "leaned on the run game," "made a halftime adjustment." These imply a why; the data only gives what.
+
+ATOMIC-CLAIM HABIT: before each sentence, mentally break it into atomic claims (X happened, Y stat is N, Z is true). For each atom, ask "is this in the data?" If any atom is not, rewrite the sentence to drop that atom. A sentence with one fabricated atom is a fabricated sentence.
+
+CALIBRATION: do not use hedging language to launder a guess ("appeared to," "seemingly," "likely," "may have") — if you'd need a hedge to print something, that's the signal to omit it instead. Hedges are not a hallucination escape valve.
+
+═══════════════════════════════════════════════════════════
 THINK BEFORE YOU WRITE — this is mandatory
 ═══════════════════════════════════════════════════════════
 Take your time. Do not start drafting the article on your first response. The quality bar here is professional reporting; rushing produces hallucinations and weak prose. Even if you feel ready, force yourself through these steps in your head (or in <thinking> if your interface supports it) before writing a single word of the article:
@@ -1968,6 +1991,18 @@ Take your time. Do not start drafting the article on your first response. The qu
 2. PICK THE STORYLINE FROM THE DATA. Choose one or two threads that the data actually supports — e.g., "QB X dominates with 4 TD passes," "comeback after trailing by 17," "defense forces 4 turnovers," "lopsided road blowout extends streak." Do NOT pick a storyline the data can't carry. If the data is thin, the article is thin — that is correct.
 
 3. LIST EVERY CONCRETE CLAIM you intend to make (every score, stat, record, player name, play, ranking) and point each one at the specific row in the data that supports it. If you can't find the source, drop the claim. Things that ARE NEVER in the data and must NEVER appear in the article unless explicitly given: jersey numbers, weather, attendance figures, injuries, suspensions, quotes from players or coaches, sideline reactions, crowd noise, recruiting context, draft stock, family ties, prior-season head-to-head unless shown.
+
+═══════════════════════════════════════════════════════════
+STREAK / MOMENTUM CLAIMS — STRICT GUARDRAIL
+═══════════════════════════════════════════════════════════
+Streak claims are the #1 hallucination source in these articles. Read carefully:
+
+- A "streak" means CONSECUTIVE games with the same result, ending at the most recent game played BEFORE this one. It is NOT "any cluster of similar results" or "two of the last four were losses."
+- The ONLY trustworthy streak signal is the explicit "Current streak: ..." line in the data. If that line is absent, NO STREAK EXISTS. Do not infer one from the recent schedule.
+- "Snaps a losing streak" / "extends winning streak" / "ends the skid" / "now riding a two-game streak" / "back-to-back wins" / "third straight loss" — every one of these is a streak claim and is GOVERNED by the same rule above.
+- If the recent schedule shows (e.g.) W L W L W, that is not a "two-game losing streak" — the wins are interleaved. The team's last result before this game was a win OR a loss; nothing more can be inferred without the explicit streak line.
+- "Bouncing back" is a streak claim too (it implies the previous game was a loss). Only use it when the data explicitly shows the previous game was a loss.
+- When in doubt: omit. A clean article that just states the current record is correct; a fabricated streak claim is wrong.
 
 4. PLAN THE ARC. Decide your headline, dateline, lead, two or three middle beats, and closing line BEFORE drafting. The article should read like you knew where it was going.
 
@@ -1982,6 +2017,10 @@ Re-read your draft against the data, line by line, before sending. For every:
 - Quoted text: there are no quotes in the data. If you wrote a quote, delete it.
 - Causal language ("because," "due to," "after he was benched," "with confidence rebuilt"): is this stated in the data, or are you inferring? If inferring, soften to neutral or cut it.
 - Comparisons to past games or seasons: only when the data explicitly provides that history.
+- Streak / momentum language ("snaps a __-game losing streak," "extends winning streak to __," "third straight," "back-to-back," "bounces back"): the explicit "Current streak:" field MUST exist AND match the claim. Pattern-matching a recent schedule (e.g., seeing W L W L W and writing "snaps a two-game losing streak") is a hallucination — losses with wins between them are not a streak.
+- Counts derived by eyeballing a list ("third turnover of the year," "fifth sack," "fourth ranked opponent"): only valid if the cumulative count is explicitly in the data. If you derived it by scanning, drop it.
+- Color / scene details (weather, crowd, sideline reactions, momentum, travel context, "first start since"): never present in the data. If any survived to the draft, cut.
+- Hedged claims ("appeared to," "seemingly," "may have"): hedges are not a fabrication escape valve. If a claim needs a hedge, omit the claim.
 
 If anything fails, fix it before emitting. A shorter, 100% accurate article is much better than a longer one with fabrications.
 
@@ -2336,7 +2375,9 @@ SEASON CONTEXT FOR ${ctx.team1FullName}
 ===========================================
 Record entering game: ${ctx.recordBefore}
 Record after game: ${ctx.recordAfter}
-${ctx.streak ? `Current streak: ${ctx.streak}` : ''}
+${ctx.streak
+  ? `Current streak: ${ctx.streak}`
+  : 'Current streak: NONE — no consecutive same-result run going into this game. Do NOT claim any "snaps __-game losing streak" / "extends winning streak" / "back-to-back" framing in the article.'}
 ${ctx.isConferenceGame ? `Conference game: ${ctx.conference}` : ''}`
   }
 

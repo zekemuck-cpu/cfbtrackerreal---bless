@@ -864,8 +864,16 @@ export default function CoachCareer() {
                     const gameIsWin = isWin(game)
                     const userScore = game.perspective?.userScore || 0
                     const oppScore = game.perspective?.opponentScore || 0
+                    // Suppress NEUTRAL for postseason games — bowl / CFP
+                    // games are always neutral, so saying so is just
+                    // noise. Keep HOME / AWAY for regular-season games.
+                    const isPostseason = gameType === GAME_TYPES.BOWL ||
+                      gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP ||
+                      gameType.startsWith('cfp_')
                     const site = game.perspective?.isHome ? 'HOME'
-                      : game.perspective?.isAway ? 'AWAY' : 'NEUTRAL'
+                      : game.perspective?.isAway ? 'AWAY'
+                      : isPostseason ? null
+                      : 'NEUTRAL'
                     const isNatty = gameType === GAME_TYPES.CFP_CHAMPIONSHIP
 
                     const row = (
