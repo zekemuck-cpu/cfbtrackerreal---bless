@@ -851,15 +851,24 @@ export default function CoachCareer() {
                     const gameType = detectGameType(game)
                     const weekLabel = gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP ? 'CC'
                       : gameType === GAME_TYPES.BOWL ? 'Bowl'
-                      : gameType.startsWith('cfp_') ? 'CFP'
+                      : gameType === GAME_TYPES.CFP_FIRST_ROUND ? '1R'
+                      : gameType === GAME_TYPES.CFP_QUARTERFINAL ? 'QF'
+                      : gameType === GAME_TYPES.CFP_SEMIFINAL ? 'SF'
+                      : gameType === GAME_TYPES.CFP_CHAMPIONSHIP ? 'Natty'
                       : `W${game.week || '?'}`
+                    const roundLabel = gameType === GAME_TYPES.CFP_FIRST_ROUND ? 'First Round'
+                      : gameType === GAME_TYPES.CFP_QUARTERFINAL ? 'Quarterfinal'
+                      : gameType === GAME_TYPES.CFP_SEMIFINAL ? 'Semifinal'
+                      : gameType === GAME_TYPES.CFP_CHAMPIONSHIP ? 'National Championship'
+                      : null
                     const gameIsWin = isWin(game)
                     const userScore = game.perspective?.userScore || 0
                     const oppScore = game.perspective?.opponentScore || 0
                     const site = game.perspective?.isHome ? 'HOME'
                       : game.perspective?.isAway ? 'AWAY' : 'NEUTRAL'
+                    const isNatty = gameType === GAME_TYPES.CFP_CHAMPIONSHIP
 
-                    return (
+                    const row = (
                       <ScoreRow
                         key={`${year}-${game.week}-${index}`}
                         prefix={weekLabel}
@@ -870,9 +879,29 @@ export default function CoachCareer() {
                         result={gameIsWin ? 'W' : 'L'}
                         score={`${Math.max(userScore, oppScore)}-${Math.min(userScore, oppScore)}`}
                         site={site}
+                        notes={roundLabel ? [roundLabel] : []}
                         to={`${pathPrefix}/game/${game.id}`}
                       />
                     )
+                    if (isNatty) {
+                      return (
+                        <div
+                          key={`${year}-${game.week}-${index}-wrap`}
+                          className="natty-glow"
+                          style={{
+                            border: '1.5px solid #fbbf24',
+                            borderRadius: '8px',
+                            background: 'linear-gradient(180deg, rgba(251,191,36,0.07), rgba(251,191,36,0.02))',
+                            boxShadow: '0 0 14px rgba(251,191,36,0.45), 0 0 28px rgba(251,191,36,0.18)',
+                            margin: '6px 4px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {row}
+                        </div>
+                      )
+                    }
+                    return row
                   })}
                 </Card>
               </div>
