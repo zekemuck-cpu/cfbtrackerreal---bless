@@ -70,7 +70,48 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
     structure: `This sheet has ONE tab: "Week ${week} Scores". It is a freeform list of every FBS game played in Week ${week} of the ${year} season — across all 134 teams in the country. Each row is one game.
 
 ═══════════════════════════════════════════════════════════
-CRITICAL RULES — read before anything else
+EXHAUSTIVENESS — THE #1 FAILURE MODE OF THIS TASK
+═══════════════════════════════════════════════════════════
+The most common way you fail this task is by under-reporting games. A full FBS week typically has 50–70 games. The user's screenshots show every one of them — usually as a scrollable SCORES/SCHEDULES list in EA College Football 26, sometimes split across multiple screenshots ("1 of 2", "2 of 2", etc.) or multiple conference filter views. Missing even one game corrupts the user's standings, rankings, and records.
+
+Treat every visible matchup as in-scope. Specifically:
+
+1. PROCESS EVERY SCREENSHOT. If the user attached more than one image, every image is a different view of the same week. Walk through ALL of them in order. Do NOT stop after the first. Do NOT assume later screenshots duplicate earlier ones — they almost never do. Combine the games into ONE deduplicated list (a game seen twice = one row, not two).
+
+2. IF YOU SEE A LIST, EVERY ROW IN THE LIST IS A GAME. The CFB26 SCORES/SCHEDULES screen is a list of matchups — every row in that list is a separate FBS game with its own final score. Do not pick "the interesting ones" or "the highlight games" or "the ones with rankings." Output every row.
+
+3. EXPECT A LONG OUTPUT. 50–70 rows for a full week is normal. The sheet supports up to ${WEEKLY_SCORES_MAX_ROWS} rows. A 5-row or 10-row output for a Week with a full slate is almost always wrong. Length is REQUIRED, not laziness.
+
+4. NO SHORTCUTS. Never end with "...", "and so on", "[truncated for brevity]", "etc.". Never summarize. Never say "the rest of the games follow the same pattern." Output every row in full.
+
+5. ASYMMETRIC COST. Missing a game is a SERIOUS failure (corrupts the user's data). Including a borderline/duplicate row is a MINOR issue (the sheet's importer collapses duplicates by team pair). When in doubt about whether something is a game in scope, INCLUDE it.
+
+═══════════════════════════════════════════════════════════
+PRE-EXTRACTION COUNT — do this BEFORE writing any TSV
+═══════════════════════════════════════════════════════════
+Before writing the output, perform this counting step internally:
+
+A. Walk every screenshot top-to-bottom, left-to-right. For each one, count the matchups visible. Note partial rows at the edges of a screenshot — they may continue in the next image.
+
+B. Sum the counts across screenshots, deduplicating any matchup visible in more than one image. Call this number N.
+
+C. Your TSV output MUST contain EXACTLY N rows (one per FBS-vs-FBS game). If you find yourself emitting fewer than N rows, STOP and re-walk the screenshots — you missed something.
+
+D. If N > ${WEEKLY_SCORES_MAX_ROWS}, you have more games than the sheet supports — emit the first ${WEEKLY_SCORES_MAX_ROWS} games in the order they appear and add a one-line note AFTER the TSV block reporting how many were dropped.
+
+═══════════════════════════════════════════════════════════
+COMMON SCREENSHOT FORMATS — recognize these layouts
+═══════════════════════════════════════════════════════════
+• SCORES/SCHEDULES list view (CFB26): a vertical list of matchups, each row showing two team logos, scores, date. Every row = one game.
+• Single-game scoreboard / final card: shows ONE game with both team helmets, scores, and a "FINAL" tag. One game per card.
+• Conference filter view: same SCORES/SCHEDULES list filtered to one conference. Treat normally — every row is a game.
+• Scoreboard ticker / rotation: a strip showing several games at once. Each "panel" = one game.
+• Week recap / news page: may also list scores with summary text. Every score line is a game.
+
+If the screenshot shows pagination (e.g. "1 of 2" badge, page indicator), there are MORE images. The user attached them. Use them.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — output format
 ═══════════════════════════════════════════════════════════
 1. OUTPUT 7 COLUMNS PER ROW, in this exact order:
    Col A — HOME TEAM (abbreviation)
@@ -80,7 +121,7 @@ CRITICAL RULES — read before anything else
    Col E — AWAY RANK (integer 1–25, or BLANK if unranked)
    Col F — AWAY SCORE (integer)
    Col G — NEUTRAL? ("Y" if neutral site, otherwise leave BLANK)
-2. ONE ROW PER GAME. The sheet allows up to ${WEEKLY_SCORES_MAX_ROWS} rows. The screenshots are the SOURCE OF TRUTH for how many games to output.
+2. ONE ROW PER GAME. The sheet allows up to ${WEEKLY_SCORES_MAX_ROWS} rows. The screenshots are the SOURCE OF TRUTH for how many games to output (see EXHAUSTIVENESS above).
 3. TEAM ABBREVIATIONS ONLY (columns A and D). Use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt. Columns A and D are STRICT dropdowns — wrong text is rejected by the sheet.
 4. INTEGERS ONLY for scores — no decimals, no "pts", no commas. "24" never "1,234" never "24.0".
 5. RANKS — read directly from the screenshot. If a team's name is preceded by "#11" or shown as a ranked team in the matchup line (e.g. "#7 Texas vs Oklahoma"), put 11 / 7 in the rank column. If the team is unranked (no number shown), LEAVE THE RANK COLUMN BLANK. Do not guess. Do not write "NR" or "—" — blank means unranked.
@@ -88,9 +129,10 @@ CRITICAL RULES — read before anything else
    - "VISITOR @ HOME" notation: the team after the "@" is HOME.
    - "HOME vs VISITOR" notation: the team before "vs" is HOME.
    - Logos on a TV scoreboard: the team listed BELOW (or on the right in some layouts) is typically HOME — confirm with the matchup line if shown.
+   - In CFB26's SCORES/SCHEDULES list, the team listed SECOND (right side) is the HOME team. The team listed FIRST (left side) is the AWAY team. If you cannot tell, mark Col G = "Y" (neutral) and pick either team for Col A.
    - If a game is at a neutral site, put EITHER team in column A (it doesn't matter which) and put "Y" in column G.
 7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N".
-8. SKIP FCS opponents. If an FBS team played an FCS opponent and you cannot find the FCS team in the abbreviation mapping below, OMIT that game entirely — do not invent an abbreviation.
+8. UNKNOWN ABBREVIATIONS — never invent. If a team's abbreviation isn't in the mapping at the bottom of this prompt, that team is FCS or unmapped — OMIT that game entirely. (Do NOT use this rule to skip games whose abbreviations DO exist in the mapping but you didn't recognize at first glance — re-check the mapping carefully before omitting.)
 9. SKIP bye weeks. Teams on bye are not games and have no row.
 10. NO HEADER ROW in the output. Do not include "HOME TEAM" / "AWAY TEAM" labels.
 11. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
@@ -110,7 +152,7 @@ REQUIRED OUTPUT FORMAT
 === WEEK ${week} SCORES — paste at cell A2 of "Week ${week} Scores" tab ===
 <row1 HomeTeam>\\t<row1 HomeRank>\\t<row1 HomeScore>\\t<row1 AwayTeam>\\t<row1 AwayRank>\\t<row1 AwayScore>\\t<row1 Neutral?>
 <row2 HomeTeam>\\t<row2 HomeRank>\\t<row2 HomeScore>\\t<row2 AwayTeam>\\t<row2 AwayRank>\\t<row2 AwayScore>\\t<row2 Neutral?>
-... (one row per game in the screenshots)
+... (one row per game in the screenshots — DO NOT actually emit "..."; emit the FULL list)
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
@@ -121,16 +163,20 @@ ALA\\t\\t28\\tGA\\t3\\t31\\tY
 (In the second row, Alabama is unranked so Col B is blank, Georgia is #3, and "Y" in Col G means neutral site.)
 
 ═══════════════════════════════════════════════════════════
-FINAL CHECK before you send the answer
+FINAL CHECK before you send the answer — actually run these
 ═══════════════════════════════════════════════════════════
-[ ] Row count matches the number of FBS-vs-FBS games shown across the screenshots (FCS opponents and byes EXCLUDED)
-[ ] Exactly 7 tab-separated values per row (6 tab characters per line) — even when rank/neutral columns are blank, the surrounding tabs MUST still be present
-[ ] Columns A and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
-[ ] Scores in columns C and F are INTEGERS only — no commas, no decimals, no "pts"
-[ ] Ranks in columns B and E are integers 1–25 or BLANK — never "NR", never "—", never 0
-[ ] Column G is exactly "Y" or BLANK — never "N", never "neutral", never anything else
-[ ] HOME team is correctly identified per game (visitor @ HOME convention) — when in doubt, mark Y in column G and pick either team for column A
-[ ] No header row, no commentary, no follow-up text`,
+Don't just glance at this list. Physically execute each check on your draft.
+
+[ ] EXHAUSTIVENESS: count the games visible across ALL the user's screenshots (deduplicated). That number is N. Your TSV has EXACTLY N rows. If your row count is less than N, you missed games — go back to the screenshots and find them. A 2-row or 5-row output for a Week with a full slate is almost certainly wrong.
+[ ] EVERY SCREENSHOT PROCESSED: if the user sent multiple images (look for "1 of 2", "2 of 2" etc., or simply more than one attachment), confirm you read every one of them, not just the first.
+[ ] NO TRUNCATION: your output does not end with "...", "[and the rest]", "etc.", or any phrase implying you stopped early. The full list goes through.
+[ ] EXACTLY 7 tab-separated values per row (6 tab characters per line) — even when rank/neutral columns are blank, the surrounding tabs MUST still be present.
+[ ] Columns A and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping (re-check before omitting any unfamiliar one).
+[ ] Scores in columns C and F are INTEGERS only — no commas, no decimals, no "pts".
+[ ] Ranks in columns B and E are integers 1–25 or BLANK — never "NR", never "—", never 0.
+[ ] Column G is exactly "Y" or BLANK — never "N", never "neutral", never anything else.
+[ ] HOME team correctly identified per game (visitor @ HOME convention; in CFB26 lists, RIGHT side = home) — when in doubt, mark Y in column G and pick either team for column A.
+[ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
   }), [year, week, userAbbr])
 

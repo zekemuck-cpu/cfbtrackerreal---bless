@@ -134,7 +134,10 @@ CRITICAL RULES — read before anything else
 3. Tab-separated values within a line. Each tab has a FIXED number of stat columns (see spec per tab below); every line must have EXACTLY that many values (that many commas-are-not-allowed; that many values separated by tabs).
 4. Return NINE separate blocks, one per tab, labeled with the tab name and paste target (C2 on that tab).
 5. NO COMMAS in numbers. "1234" never "1,234". No quotes, no units, no "+/-", no percent signs.
-6. INTEGERS have no decimal point. Only two columns on TAB 1 (Passing) use decimals (1 decimal place). All other values on all tabs are integers.
+6. INTEGERS have no decimal point, with these EXCEPTIONS:
+   • Passing columns H (Net Yards/Attempt) and I (Adj Net Yards/Attempt) use 1 decimal place.
+   • Defensive Tackles for Loss (column E) and Sacks (column F) accept ".5" half-credits when the screenshot shows a half-credit (e.g. "1.5", "0.5"). Write the half exactly as shown — never round to an integer; never invent a half the screenshot doesn't show.
+   Every other column on every tab is an integer.
 7. BLANK cell for unknown values — never guess, never use 0, "-", or "N/A". To emit a blank cell between two tab characters, just have nothing between the tabs. To emit a blank line for a player with no visible stats, output the correct number of empty tab-separated cells (that is, N-1 tab characters with nothing between them).
 8. Only the positions listed per tab appear on that tab. Do NOT include quarterbacks on Receiving, for example.
 9. No commentary, no totals, no header row. Nine labeled TSV blocks.
@@ -199,8 +202,8 @@ Paste at cell C2 of the "Defensive" tab
 15 stat columns (C–Q), in this EXACT order:
   C  Solo Tackles                   integer
   D  Assisted Tackles               integer
-  E  Tackles for Loss               integer
-  F  Sacks                          integer
+  E  Tackles for Loss               integer or .5 half-credit (e.g. 1.5)
+  F  Sacks                          integer or .5 half-credit (e.g. 1.5)
   G  Interceptions                  integer
   H  INT Return Yards               integer
   I  INT Long                       integer
@@ -329,7 +332,7 @@ FINAL CHECK before you send
 [ ] NINE labeled blocks, one per tab, in the order above
 [ ] Each block's line count equals the number of pre-filled player rows on that tab (column A) — including any all-blank lines for players with no data
 [ ] Per-tab tab-count per line: Passing 8, Rushing 7, Receiving 5, Blocking 1, Defensive 14, Kicking 16, Punting 6, Kick Return 3, Punt Return 3
-[ ] Net Yards/Attempt and Adjusted Net Yards/Attempt (Passing columns H and I) use 1 decimal place; ALL other values on ALL tabs are integers
+[ ] Net Yards/Attempt and Adjusted Net Yards/Attempt (Passing columns H and I) use 1 decimal place; Defensive TFL (E) and Sacks (F) MAY use ".5" half-credits when the screenshot shows them; every other value on every tab is an integer
 [ ] No commas in any number
 [ ] No player name, no Snaps column, no header row, no commentary anywhere in output
 [ ] Row order within each block matches column A on that tab exactly

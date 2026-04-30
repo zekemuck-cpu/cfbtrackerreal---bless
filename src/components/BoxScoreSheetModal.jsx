@@ -695,7 +695,11 @@ CRITICAL RULES
 4. Data rows: each non-empty data row must have EXACTLY the column count of its section's header row. Empty slots in a data row are tab-separated empty fields, NOT skipped tabs. (e.g. a Passing data row always has 8 fields separated by 7 tabs.)
 5. Empty data slots (rows where no player stat-earner exists): output a TRULY EMPTY LINE (just \\n) — no tabs, no spaces.
 6. Blank separator rows (between sections): output a TRULY EMPTY LINE.
-7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only EXCEPT Passing Rtg which is one decimal (e.g. "148.3").
+7. NO COMMAS in numbers ("1234" not "1,234"). INTEGERS only, with these EXCEPTIONS:
+   • Passing Rtg — one decimal (e.g. "148.3").
+   • Defense Sacks — half-credits ARE valid (e.g. "2.5" or "0.5"). If the screenshot shows a half-sack, write it as "2.5" — DO NOT round to an integer. If the screenshot shows a whole number, write it whole (e.g. "2", not "2.0").
+   • Defense TFL (Tackles For Loss) — half-credits ARE valid for the same reason. Write "1.5" if the screenshot shows it; otherwise whole.
+   These half-credit values come from the screenshot directly. Never invent ".5" — only emit it when the source clearly shows it.
 8. Player names: if this is the user's team, names MUST match the roster (strict dropdown). For opponent, any reasonable name. NEVER "#12" or "J. Smith" when a full name exists in the roster.
 9. ${teamAbbr} players ONLY. No ${opponentAbbrLabel} players in this output.
 10. No commentary, no explanation, no markdown fencing. SINGLE block of ${layout.totalRows} lines.
@@ -709,7 +713,7 @@ Notes:
   • Passing: Rtg is decimal one-place (e.g. 148.3); all others integer.
   • Rushing: BT = Broken Tackles, YAC = Yards After Contact, "20+" = runs of 20+ yards.
   • Receiving: RAC = Receiving Yards After Catch.
-  • Defense: TFL = Tackles For Loss, FF = Forced Fumbles, FR = Fumble Recoveries, Blocks = kicks/punts blocked, TD = defensive TDs.
+  • Defense: TFL = Tackles For Loss, FF = Forced Fumbles, FR = Fumble Recoveries, Blocks = kicks/punts blocked, TD = defensive TDs. Sacks AND TFL accept half-credits (e.g. "1.5", "2.5") when the screenshot shows them — do NOT round halves to whole numbers; do NOT invent halves the screenshot doesn't show.
   • Kicking: FGA/FGM 29/39/49/50+ = field goals by distance bucket; XPM/XPA/XPB = extra points made/attempted/blocked.
   • Punting: Block = punts blocked, In20 = punts downed inside the 20, TB = touchbacks.
 
@@ -720,7 +724,8 @@ COMMON MISTAKES — actively avoid these
 ✗ Using "J. Smith" or jersey-number-only when the roster has the full name
 ✗ Guessing split Solo/Assists when the screenshot shows only a total
 ✗ Inventing 20+ / BT / YAC / RAC / Drops when those columns aren't visible
-✗ Outputting decimal numbers for anything except Passing Rtg
+✗ Outputting decimal numbers for anything except Passing Rtg, Defense Sacks (.5 OK), and Defense TFL (.5 OK)
+✗ Rounding a half-sack ("1.5") up or down to an integer — emit it as "1.5" exactly
 ✗ Adding commas to totals ("1,234" → wrong; "1234" is correct)
 ✗ Reordering columns — the column order per section is FIXED
 ✗ Mixing the "Long" value with TD yardage (Long is the longest SINGLE play)
@@ -778,8 +783,10 @@ mode of this output and it will silently corrupt the user's sheet.
 
 [ ] TEAM SCOPE: all stats are for ${teamAbbr} players only. No ${opponentAbbrLabel}.
 
-[ ] NUMBER FORMAT: no commas in any number. Rtg may have one
-    decimal; every other stat is integer.
+[ ] NUMBER FORMAT: no commas in any number. Allowed decimals are:
+    Passing Rtg (one decimal), and Defense Sacks / TFL (".5"
+    half-credits when the screenshot shows them). Every other stat
+    is an integer.
 
 [ ] NO COMMENTARY: no markdown fences, no "here is the output:",
     no trailing notes. The block is exactly ${layout.totalRows} lines and nothing

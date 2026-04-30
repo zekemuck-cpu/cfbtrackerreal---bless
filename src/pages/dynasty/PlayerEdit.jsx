@@ -163,6 +163,14 @@ const flatStatsToNested = (flatStats, existingYearStats = {}) => {
   if (!flatStats) return {}
 
   const num = (v) => (v !== '' && v !== null && v !== undefined) ? parseInt(v) : undefined
+  // numF: allows half-credit decimals (e.g. "1.5") for stats like defensive sacks/TFL.
+  // Rounded to one decimal place to avoid float drift.
+  const numF = (v) => {
+    if (v === '' || v === null || v === undefined) return undefined
+    const n = parseFloat(v)
+    if (isNaN(n)) return undefined
+    return Math.round(n * 10) / 10
+  }
 
   const result = {}
 
@@ -208,8 +216,8 @@ const flatStatsToNested = (flatStats, existingYearStats = {}) => {
       defense.astTkl = 0
     }
   }
-  if (flatStats.tfl !== '') defense.tfl = num(flatStats.tfl)
-  if (flatStats.sacks !== '') defense.sacks = num(flatStats.sacks)
+  if (flatStats.tfl !== '') defense.tfl = numF(flatStats.tfl)
+  if (flatStats.sacks !== '') defense.sacks = numF(flatStats.sacks)
   if (flatStats.ints !== '') defense.int = num(flatStats.ints)
   if (flatStats.pd !== '') defense.pd = num(flatStats.pd)
   if (flatStats.ff !== '') defense.ff = num(flatStats.ff)
@@ -2230,8 +2238,8 @@ export default function PlayerEdit() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
                         { key: 'tackles', label: 'Tackles' },
-                        { key: 'tfl', label: 'TFL' },
-                        { key: 'sacks', label: 'Sacks' },
+                        { key: 'tfl', label: 'TFL', allowHalf: true },
+                        { key: 'sacks', label: 'Sacks', allowHalf: true },
                         { key: 'ints', label: 'INT' },
                         { key: 'pd', label: 'Pass Def' },
                         { key: 'ff', label: 'Forced Fum' },
@@ -2242,10 +2250,18 @@ export default function PlayerEdit() {
                           <label className="block text-xs text-txt-muted mb-1">{stat.label}</label>
                           <input
                             type="number"
-                            value={formData.stats?.[stat.key] || ''}
+                            step={stat.allowHalf ? '0.5' : '1'}
+                            value={formData.stats?.[stat.key] ?? ''}
                             onChange={(e) => setFormData(prev => ({
                               ...prev,
-                              stats: { ...prev.stats, [stat.key]: e.target.value ? parseInt(e.target.value) : '' }
+                              stats: {
+                                ...prev.stats,
+                                [stat.key]: e.target.value === ''
+                                  ? ''
+                                  : (stat.allowHalf
+                                      ? Math.round(parseFloat(e.target.value) * 10) / 10
+                                      : parseInt(e.target.value))
+                              }
                             }))}
                             className="w-full px-2 py-2 rounded-lg border-2 border-surface-4 focus:border-blue-500 focus:outline-none text-center text-txt-primary"
                           />
