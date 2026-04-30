@@ -8,11 +8,12 @@ import TeambuilderEditModal from '../../components/TeambuilderEditModal'
 import { useToast } from '../../components/ui/Toast'
 
 export default function Teams() {
-  const { currentDynasty, updateTeambuilderTeam, isViewOnly } = useDynasty()
+  const { currentDynasty, updateTeambuilderTeam, addCustomTeam, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
   const [editingTid, setEditingTid] = useState(null)
+  const [adding, setAdding] = useState(false)
 
   if (!currentDynasty) return null
 
@@ -65,13 +66,25 @@ export default function Teams() {
           </>
         }
         actions={
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search teams…"
-            className="sm:w-64"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search teams…"
+              className="sm:w-64"
+            />
+            {!isViewOnly && (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded bg-surface-3 hover:bg-surface-4 text-txt-primary transition-colors flex-shrink-0"
+                title="Add a team to this dynasty"
+              >
+                + Add Team
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -158,6 +171,22 @@ export default function Teams() {
             const result = await updateTeambuilderTeam(currentDynasty.id, editingTid, updates)
             if (!result.success) throw new Error(result.message)
             toast.success(`${updates.name} updated`)
+          }}
+        />
+      )}
+
+      {adding && (
+        <TeambuilderEditModal
+          isOpen={adding}
+          onClose={() => setAdding(false)}
+          team={null}
+          tid={null}
+          dynastyTeams={teamsSource}
+          mode="add"
+          onSave={async (updates) => {
+            const result = await addCustomTeam(currentDynasty.id, updates)
+            if (!result.success) throw new Error(result.message)
+            toast.success(`${updates.name} added`)
           }}
         />
       )}

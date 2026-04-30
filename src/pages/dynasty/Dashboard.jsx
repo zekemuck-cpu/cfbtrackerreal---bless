@@ -21,6 +21,7 @@ import ConferenceChampionshipModal from '../../components/ConferenceChampionship
 import CoachingStaffModal from '../../components/CoachingStaffModal'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
 import BowlWeek2Modal from '../../components/BowlWeek2Modal'
+import WeeklyScoresModal from '../../components/WeeklyScoresModal'
 import BowlScoreModal from '../../components/BowlScoreModal'
 import CFPSeedsModal from '../../components/CFPSeedsModal'
 import CFPFirstRoundModal from '../../components/CFPFirstRoundModal'
@@ -273,6 +274,7 @@ export default function Dashboard() {
   const [showCCModal, setShowCCModal] = useState(false)
   const [showBowlWeek1Modal, setShowBowlWeek1Modal] = useState(false)
   const [showBowlWeek2Modal, setShowBowlWeek2Modal] = useState(false)
+  const [weeklyScoresModalWeek, setWeeklyScoresModalWeek] = useState(null)
   const [showBowlScoreModal, setShowBowlScoreModal] = useState(false)
   // showBowlGameModal removed - now using game pages instead
   const [showCFPSeedsModal, setShowCFPSeedsModal] = useState(false)
@@ -3559,6 +3561,82 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </>
+              )
+            })()}
+
+            {/* Last Week's Scores to-do — across-the-country results entry */}
+            {(() => {
+              const curWeek = Number(currentDynasty.currentWeek)
+              if (!Number.isFinite(curWeek) || curWeek < 1) return null
+              const prevWeek = curWeek - 1
+              const yearNum = Number(currentDynasty.currentYear)
+              const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
+              const savedCount = (currentDynasty.games || []).filter(g =>
+                g && Number(g.year) === yearNum && Number(g.week) === prevWeek
+                && g.gameType === 'regular' && g.source === 'weekly-scores'
+              ).length
+              const done = !!weeklyEntered || savedCount > 0
+              return (
+                <div
+                  className="rounded-xl p-3 sm:p-4 transition-all flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
+                  style={done ? {
+                    backgroundColor: 'color-mix(in srgb, #22c55e 8%, var(--surface-3))',
+                    border: '1px solid rgba(34, 197, 94, 0.3)'
+                  } : {
+                    backgroundColor: 'var(--surface-3)',
+                    border: '1px solid var(--rule-soft)'
+                  }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="font-display font-black leading-tight"
+                      style={{
+                        fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
+                        color: done ? '#22c55e' : 'var(--text-primary)',
+                        letterSpacing: '-0.01em'
+                      }}
+                    >
+                      {done
+                        ? `${savedCount} Game${savedCount === 1 ? '' : 's'} Logged`
+                        : `Enter Week ${prevWeek} Scores`}
+                    </div>
+                    <div
+                      className="text-xs sm:text-[13px] mt-1"
+                      style={{ color: done ? 'rgba(34, 197, 94, 0.8)' : 'var(--text-tertiary)' }}
+                    >
+                      {done
+                        ? 'Across-the-country results saved'
+                        : 'Log results to update records & rankings'}
+                    </div>
+                  </div>
+                  {!isViewOnly && (
+                    <div className="flex gap-2 w-full sm:w-auto sm:flex-shrink-0">
+                      <Link
+                        to={`${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`}
+                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px text-center"
+                        style={{
+                          backgroundColor: 'var(--surface-4)',
+                          color: 'var(--text-secondary)',
+                          letterSpacing: '2px'
+                        }}
+                      >
+                        View
+                      </Link>
+                      <button
+                        onClick={() => setWeeklyScoresModalWeek(prevWeek)}
+                        className="flex-1 sm:flex-none rounded-lg font-display font-black uppercase tracking-widest py-2 sm:py-3 px-4 text-xs sm:text-[13px] transition-all hover:opacity-90 active:translate-y-px"
+                        style={{
+                          backgroundColor: teamColors.primary,
+                          color: primaryBgText,
+                          letterSpacing: '2px',
+                          boxShadow: `0 6px 24px -8px ${teamColors.primary}66`
+                        }}
+                      >
+                        {done ? 'Edit' : 'Enter'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               )
             })()}
           </div>
@@ -8992,6 +9070,17 @@ export default function Dashboard() {
       />
 
       {/* CC and Bowl GameEntryModals removed - now using game pages instead */}
+
+      {/* Weekly Scores Modal — across-the-country results entry */}
+      {weeklyScoresModalWeek != null && (
+        <WeeklyScoresModal
+          isOpen={weeklyScoresModalWeek != null}
+          onClose={() => setWeeklyScoresModalWeek(null)}
+          year={Number(currentDynasty.currentYear)}
+          week={weeklyScoresModalWeek}
+          teamColors={teamColors}
+        />
+      )}
 
       {/* Bowl Week 1 Modal */}
       <BowlWeek1Modal

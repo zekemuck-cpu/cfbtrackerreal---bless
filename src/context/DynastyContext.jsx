@@ -6143,6 +6143,152 @@ export function DynastyProvider({ children }) {
     return newGames
   }
 
+  // Save a week's worth of CPU/league-wide regular-season game records.
+  // Each parsed row becomes a game in dynasty.games[] with a stable id so re-
+  // imports update in place. Games involving the user's own team that already
+  // have scores entered through the schedule flow are PRESERVED — we never
+  // overwrite the user's own results.
+  const saveWeeklyScores = async (dynastyId, weeklyGames, year, week) => {
+    if (blockIfReadOnly(dynastyId, 'save weekly scores')) return
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) return []
+
+    const yearNum = Number(year)
+    const weekNum = Number(week)
+    const userTid = getCurrentTeamTid(dynasty)
+    const existingGames = await getDynastyGames(dynasty)
+
+    // Stable id keyed by sorted tids — same matchup re-imported updates in place
+    const idForGame = (homeTid, awayTid) => {
+      const lo = Math.min(Number(homeTid), Number(awayTid))
+      const hi = Math.max(Number(homeTid), Number(awayTid))
+      return `weekly-${yearNum}-w${weekNum}-${lo}-${hi}`
+    }
+
+    // Index existing games for this week so we can update in place
+    const existingByPair = new Map()
+    for (const g of existingGames) {
+      if (!g) continue
+      if (Number(g.year) !== yearNum) continue
+      if (Number(g.week) !== weekNum) continue
+      if (!g.team1Tid || !g.team2Tid) continue
+      const lo = Math.min(Number(g.team1Tid), Number(g.team2Tid))
+      const hi = Math.max(Number(g.team1Tid), Number(g.team2Tid))
+      existingByPair.set(`${lo}-${hi}`, g)
+    }
+
+    const isUserGameWithScores = (g) => {
+      if (!g) return false
+      if (Number(g.team1Tid) !== userTid && Number(g.team2Tid) !== userTid) return false
+      return typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
+    }
+
+    // Custom conferences for isConferenceGame inference
+    const customConferences = getCustomConferencesForYear(dynasty, yearNum)
+
+    // Walk parsed rows, build a Map keyed by sorted-tid pair so duplicates collapse
+    const newByPair = new Map()
+    for (const row of weeklyGames) {
+      const homeTid = Number(row.homeTid)
+      const awayTid = Number(row.awayTid)
+      if (!homeTid || !awayTid || homeTid === awayTid) continue
+      if (typeof row.homeScore !== 'number' || typeof row.awayScore !== 'number') continue
+
+      const lo = Math.min(homeTid, awayTid)
+      const hi = Math.max(homeTid, awayTid)
+      const key = `${lo}-${hi}`
+
+      // Preserve user-team games that already have scores
+      const existing = existingByPair.get(key)
+      if (isUserGameWithScores(existing)) continue
+
+      // Use HOME as team1 so home/away orientation is preserved
+      const team1Tid = homeTid
+      const team2Tid = awayTid
+      const team1Score = row.homeScore
+      const team2Score = row.awayScore
+      const homeTeamTid = row.neutral ? null : homeTid
+      const winnerTid = team1Score === team2Score
+        ? null
+        : (team1Score > team2Score ? team1Tid : team2Tid)
+
+      // Infer conference matchup so confWins/confLosses update too
+      const homeAbbr = getAbbrFromTid(dynasty.teams, team1Tid) || row.homeTeam
+      const awayAbbr = getAbbrFromTid(dynasty.teams, team2Tid) || row.awayTeam
+      const homeConf = homeAbbr ? getTeamConference(homeAbbr, customConferences) : null
+      const awayConf = awayAbbr ? getTeamConference(awayAbbr, customConferences) : null
+      const isConferenceGame = !!(homeConf && awayConf && homeConf === awayConf)
+
+      // Ranks: column A = home (team1), column D = away (team2)
+      const homeRankRaw = row.homeRank
+      const awayRankRaw = row.awayRank
+      const team1Rank = (typeof homeRankRaw === 'number' && homeRankRaw >= 1 && homeRankRaw <= 25) ? homeRankRaw : null
+      const team2Rank = (typeof awayRankRaw === 'number' && awayRankRaw >= 1 && awayRankRaw <= 25) ? awayRankRaw : null
+
+      newByPair.set(key, {
+        id: existing?.id || idForGame(homeTid, awayTid),
+        year: yearNum,
+        week: weekNum,
+        gameType: GAME_TYPES.REGULAR,
+        team1Tid,
+        team2Tid,
+        team1Score,
+        team2Score,
+        team1Rank,
+        team2Rank,
+        homeTeamTid,
+        winnerTid,
+        isConferenceGame,
+        isPlayed: true,
+        source: 'weekly-scores',
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    // Build updated games array: keep everything except weekly-scores rows for
+    // this year+week that are being replaced. User-team scores stay because
+    // we excluded them from newByPair above.
+    const filtered = existingGames.filter(g => {
+      if (!g) return false
+      if (Number(g.year) !== yearNum || Number(g.week) !== weekNum) return true
+      if (!g.team1Tid || !g.team2Tid) return true
+      // Always keep user-team games (they have their own entry path)
+      if (Number(g.team1Tid) === userTid || Number(g.team2Tid) === userTid) return true
+      const lo = Math.min(Number(g.team1Tid), Number(g.team2Tid))
+      const hi = Math.max(Number(g.team1Tid), Number(g.team2Tid))
+      // Drop only previously-weekly-scores entries that aren't in the new set;
+      // and drop ones in the new set so the new version takes their place
+      if (g.source === 'weekly-scores') return false
+      // Keep non-weekly entries (e.g. shells from schedule flow)
+      return !newByPair.has(`${lo}-${hi}`)
+    })
+
+    const newGamesArr = Array.from(newByPair.values())
+    const updatedGames = [...filtered, ...newGamesArr]
+
+    // Track that this week's scores were entered (used by dashboard to-do)
+    const existingTracker = dynasty.weeklyScoresEntered || {}
+    const existingYearTracker = existingTracker[yearNum] || {}
+    const updatedTracker = {
+      ...existingTracker,
+      [yearNum]: {
+        ...existingYearTracker,
+        [weekNum]: {
+          enteredAt: new Date().toISOString(),
+          gameCount: newGamesArr.length,
+        }
+      }
+    }
+
+    await updateDynasty(dynastyId, {
+      games: updatedGames,
+      weeklyScoresEntered: updatedTracker,
+    })
+
+    return newGamesArr
+  }
+
   // Save CFP games in unified format to games[] array
   // Handles all rounds: First Round, Quarterfinals, Semifinals, Championship
   // This is the single source of truth for CFP games - does NOT write to cfpResultsByYear
@@ -11079,6 +11225,51 @@ export function DynastyProvider({ children }) {
     }
   }
 
+  // Add a brand-new team to the dynasty's teams map at a fresh tid.
+  // Use case: a team got accidentally removed from the dynasty (e.g.
+  // an abbr collision in an imported spreadsheet caused a real team to
+  // be dropped) and the user needs to add it back. Picks the next
+  // unused tid (max(existing) + 1, with a floor of 1000 so we don't
+  // collide with the reserved static FBS range 1-200).
+  const addCustomTeam = async (dynastyId, newTeam) => {
+    const dynasty = dynasties.find(d => d.id === dynastyId)
+    if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    const sourceTeams = dynasty.teams || TEAMS
+    const existingTids = Object.keys(sourceTeams).map(Number).filter(Number.isFinite)
+    const newTid = Math.max(1000, ...existingTids) + 1
+
+    const abbr = (newTeam.abbreviation || newTeam.abbr || '').toUpperCase()
+    if (!abbr || abbr.length < 2) {
+      return { success: false, message: 'Abbreviation must be at least 2 characters' }
+    }
+    // Reject collisions with any existing team in the dynasty
+    for (const t of Object.values(sourceTeams)) {
+      if (t?.abbr?.toUpperCase() === abbr) {
+        return { success: false, message: `Abbreviation "${abbr}" is already used by ${t.name || 'another team'}` }
+      }
+    }
+
+    const built = {
+      tid: newTid,
+      abbr,
+      name: newTeam.name || abbr,
+      primaryColor: newTeam.primaryColor || '#444444',
+      secondaryColor: newTeam.secondaryColor || '#ffffff',
+      logo: newTeam.logoUrl || newTeam.logo || '',
+      isFCS: false,
+      byYear: {},
+    }
+
+    try {
+      await updateDynasty(dynastyId, { [`teams.${newTid}`]: built })
+      return { success: true, tid: newTid, message: 'Team added' }
+    } catch (error) {
+      console.error('Failed to add team:', error)
+      return { success: false, message: error.message || 'Failed to add team' }
+    }
+  }
+
   // Manual migration to subcollections - can be triggered from Admin Tools
   const migrateToSubcollections = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
@@ -11303,6 +11494,7 @@ export function DynastyProvider({ children }) {
     addGame,
     updateGame,
     saveCPUBowlGames,
+    saveWeeklyScores,
     saveCFPGames,
     saveCPUConferenceChampionships,
     advanceWeek,
@@ -11329,6 +11521,7 @@ export function DynastyProvider({ children }) {
     optimizeDocumentSize,
     migrateToSubcollections,
     updateTeambuilderTeam,
+    addCustomTeam,
     migrateDynastyStorage,
   }
 

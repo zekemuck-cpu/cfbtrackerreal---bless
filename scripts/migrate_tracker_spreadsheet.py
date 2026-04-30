@@ -84,6 +84,36 @@ STATIC_TEAMS = load_static_teams()
 ABBR_TO_TID = {t['abbr']: t['tid'] for t in STATIC_TEAMS.values()}
 
 
+# Known abbr-collision resolutions. The Tracker spreadsheets sometimes
+# reuse the same abbr for two different real-world programs (a SEC team
+# and a non-SEC team that share initials). When the SAME abbr appears
+# in TWO different conferences in the user's standings, we keep the
+# canonical (static-FBS-matching) appearance under that abbr/tid and
+# split the OTHER appearance off into a fresh slot at tid 1000+ using
+# the mapping below.
+#
+# Format: { collidingAbbr: { conferenceWhereItIsTheOTHERTeam: {
+#   'abbr': new abbr, 'name': name, 'primaryColor', 'secondaryColor',
+#   'logo' } } }
+ABBR_COLLISION_RESOLUTIONS = {
+    'MSST': {
+        # MSST canonically = Mississippi State Bulldogs (SEC, tid 67).
+        # When it ALSO appears in Conference USA, the user almost
+        # certainly meant Missouri State Bears (FCS, tid 65 in our
+        # static map but often promoted to FBS/CUSA in dynasty mode).
+        'Conference USA': {
+            'abbr': 'MZST',
+            'name': 'Missouri State Bears',
+            'primaryColor': '#5E0009',
+            'secondaryColor': '#FFFFFF',
+            'logo': 'https://i.imgur.com/gybvEes.png',
+        },
+    },
+    # Other known collisions could be added here as they show up.
+    # E.g. KSU (Kansas State / Kennesaw State).
+}
+
+
 # Class progression mirrors src/data/CLASS_PROGRESSION + the implicit
 # Fr→So→Jr→Sr step. HS recruits enter as Fr; JUCO recruits start at
 # their stated level. Sr / RS Sr graduate (no next year).
@@ -1199,6 +1229,14 @@ def migrate(xlsx_path: Path, output_path: Path):
               f'{len(year_data["roster"])} roster')
 
     # ----- Auto-detect TBs -----------------------------------------------
+    # NOTE: TB detection runs BEFORE the abbr-collision resolver below.
+    # That order is intentional: TB pairings must be computed against
+    # the user's RAW standings (where colliding abbrs like "MSST in
+    # CUSA + SEC" are still under one abbr), so the canonical static
+    # slot is treated as removed and the TB takes it over the way it
+    # always has. The collision resolver THEN runs and adds the
+    # missing real-world team (e.g. Missouri State Bears) at a fresh
+    # tid 1001+, leaving the TB's slot untouched.
     print('\nAuto-detecting TeamBuilder teams …')
     tb_pairings, removed_fbs = detect_team_builders(all_year_data, user_team_abbr)
     print(f'  → TBs detected: {len(tb_pairings)} → {sorted(tb_pairings.keys())}')
@@ -1270,6 +1308,7 @@ def migrate(xlsx_path: Path, output_path: Path):
             'byYear': {},
         }
     abbr_to_tid = dict(ABBR_TO_TID)  # working copy with TB swaps applied
+
     user_team_tid = None
     for tb, info in tb_pairings.items():
         meta = TB_METADATA.get(tb, {})
@@ -1328,6 +1367,87 @@ def migrate(xlsx_path: Path, output_path: Path):
             abbr_to_tid.pop(abbr, None)
     if truly_removed:
         print(f'  → Truly removed FBS (no TB replacement): {truly_removed}')
+
+    # ----- Resolve abbr collisions (AFTER TB pairings) ------------------
+    # When the same abbr appears in two different conferences in the
+    # user's standings, the spreadsheet author almost certainly used
+    # one abbr for two real-world teams (e.g. MSST in BOTH the SEC
+    # AND CUSA = Mississippi State + Missouri State Bears). Without
+    # this resolver one of those teams silently disappears.
+    #
+    # Why this runs AFTER TB pairings: if the canonical static slot
+    # (e.g. tid 65 for MZST/Missouri State) was already taken by a TB
+    # like Montana State, we DON'T want to disrupt that pairing or
+    # change the existing tid layout. Instead we add the missing real
+    # team at a fresh tid (1001+), so:
+    #   - The user's existing TB tids stay exactly where they were
+    #     (TARL/UCD/MTST keep their slots, Missouri State just appears
+    #     as an additional team)
+    #   - The conference standings get re-pointed to the new tid for
+    #     the renamed team
+    next_collision_tid = 1001
+    while next_collision_tid in dynasty_teams:
+        next_collision_tid += 1
+    for year, yd in all_year_data.items():
+        standings = yd.get('standings') or {}
+        if not standings:
+            continue
+        # Map abbr → list of (conf, entry_ref) within this year
+        appearances = {}
+        for conf, entries in standings.items():
+            for e in entries:
+                ab = e.get('team')
+                if not ab:
+                    continue
+                appearances.setdefault(ab, []).append((conf, e))
+        for ab, occurrences in appearances.items():
+            if len(occurrences) <= 1:
+                continue
+            resolutions = ABBR_COLLISION_RESOLUTIONS.get(ab)
+            if not resolutions:
+                continue
+            # Identify the canonical conference for this abbr in the
+            # static FBS map.
+            canonical_conf = None
+            for conf, abbrs in STATIC_CONFERENCES.items():
+                if ab in abbrs:
+                    canonical_conf = conf
+                    break
+            for conf, entry in occurrences:
+                if conf == canonical_conf:
+                    continue
+                resolution = resolutions.get(conf)
+                if not resolution:
+                    continue
+                new_abbr = resolution['abbr']
+                # Reuse existing tid if we've already split this abbr
+                # for a previous year; otherwise allocate a fresh one
+                # at 1001+ (above the static FBS range AND above any
+                # tids the TB pairing pass might have used).
+                if new_abbr in abbr_to_tid and abbr_to_tid[new_abbr] >= 1000:
+                    used_tid = abbr_to_tid[new_abbr]
+                else:
+                    used_tid = next_collision_tid
+                    next_collision_tid += 1
+                    while next_collision_tid in dynasty_teams:
+                        next_collision_tid += 1
+                    dynasty_teams[used_tid] = {
+                        'tid': used_tid,
+                        'abbr': new_abbr,
+                        'name': resolution['name'],
+                        'primaryColor': resolution.get('primaryColor', '#444444'),
+                        'secondaryColor': resolution.get('secondaryColor', '#ffffff'),
+                        'logo': resolution.get('logo', ''),
+                        'isFCS': False,
+                        'byYear': {},
+                    }
+                    abbr_to_tid[new_abbr] = used_tid
+                # Rewrite the entry in-place so downstream passes
+                # (records, conferenceByTeamYear, schedules) carry
+                # the new abbr through.
+                entry['team'] = new_abbr
+                print(f'  → Abbr collision: {ab} in {conf} ({year}) → '
+                      f'{new_abbr} (tid {used_tid}); TB pairings preserved')
 
     def tid_for(abbr):
         """Resolve any abbr to its tid (TB or FBS). Returns None if

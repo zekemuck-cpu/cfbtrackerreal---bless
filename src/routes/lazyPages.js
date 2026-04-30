@@ -31,6 +31,7 @@ export const BowlHistory = lazyWithPreload(() => import('../pages/dynasty/BowlHi
 export const ConferenceChampionshipHistory = lazyWithPreload(() => import('../pages/dynasty/ConferenceChampionshipHistory'))
 export const ConferenceStandings = lazyWithPreload(() => import('../pages/dynasty/ConferenceStandings'))
 export const CFPBracket = lazyWithPreload(() => import('../pages/dynasty/CFPBracket'))
+export const WeeklyScores = lazyWithPreload(() => import('../pages/dynasty/WeeklyScores'))
 export const Game = lazyWithPreload(() => import('../pages/dynasty/Game'))
 export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'))
 export const DangerZone = lazyWithPreload(() => import('../pages/dynasty/DangerZone'))
@@ -51,6 +52,7 @@ export const preloadByNavName = {
   'CC History': ConferenceChampionshipHistory.preload,
   'Conf. Standings': ConferenceStandings.preload,
   'Top 25': Rankings.preload,
+  'Weekly Scores': WeeklyScores.preload,
   'All Teams': Teams.preload,
   'All Players': Players.preload,
   'Danger Zone': DangerZone.preload,

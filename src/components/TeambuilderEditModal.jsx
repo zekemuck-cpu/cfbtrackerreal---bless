@@ -23,7 +23,11 @@ export default function TeambuilderEditModal({
   // detect abbreviation collisions with OTHER teambuilder teams, not just
   // against the static FBS list.
   dynastyTeams = null,
+  // 'edit' (default) edits an existing team; 'add' creates a fresh
+  // team in the dynasty (no slot replacement, no original-team box).
+  mode = 'edit',
 }) {
+  const isAddMode = mode === 'add'
   const isCustomTB = !!team?.isCustom
   const { toast } = useToast()
   const [formData, setFormData] = useState({
@@ -43,7 +47,7 @@ export default function TeambuilderEditModal({
   const originalTeamAbbr = getOriginalTeamAbbr(tid)
   const originalTeamName = originalTeamAbbr ? getTeamName(originalTeamAbbr) : TEAMS[tid]?.name
 
-  // Initialize form data when team changes
+  // Initialize form data when team changes / when entering add mode
   useEffect(() => {
     if (team) {
       setFormData({
@@ -54,8 +58,17 @@ export default function TeambuilderEditModal({
         logoUrl: team.logo || ''
       })
       setAbbrError('')
+    } else if (isAddMode && isOpen) {
+      setFormData({
+        name: '',
+        abbreviation: '',
+        primaryColor: '#FF5500',
+        secondaryColor: '#FFFFFF',
+        logoUrl: ''
+      })
+      setAbbrError('')
     }
-  }, [team])
+  }, [team, isAddMode, isOpen])
 
   // Validate abbreviation against existing FBS teams
   const validateAbbreviation = (abbr) => {
@@ -164,7 +177,7 @@ export default function TeambuilderEditModal({
             className="text-2xl font-bold mb-4"
             style={{ color: modalColors.text }}
           >
-            {isCustomTB ? 'Edit Teambuilder Team' : 'Edit Team'}
+            {isAddMode ? 'Add Team' : isCustomTB ? 'Edit Teambuilder Team' : 'Edit Team'}
           </h2>
 
           {/* "Replaces" info box only applies to teambuilder slots. */}
@@ -369,7 +382,7 @@ export default function TeambuilderEditModal({
                   color: '#ffffff'
                 }}
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : isAddMode ? 'Add Team' : 'Save Changes'}
               </button>
               <button
                 type="button"

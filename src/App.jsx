@@ -24,7 +24,7 @@ import {
   Dashboard, Roster, Rankings, Stats, CoachCareer, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
-  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, Game,
+  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings,
 } from './routes/lazyPages'
 
@@ -84,6 +84,9 @@ function AppRoutes() {
             <Route path="conference-standings/:year" element={<ConferenceStandings />} />
             <Route path="cfp-bracket" element={<CFPBracket />} />
             <Route path="cfp-bracket/:year" element={<CFPBracket />} />
+            <Route path="weekly-scores" element={<WeeklyScores />} />
+            <Route path="weekly-scores/:year" element={<WeeklyScores />} />
+            <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="admin" element={<DangerZone />} />
           </Route>
@@ -153,6 +156,9 @@ function AppRoutes() {
                   <Route path="conference-standings/:year" element={<ConferenceStandings />} />
                   <Route path="cfp-bracket" element={<CFPBracket />} />
                   <Route path="cfp-bracket/:year" element={<CFPBracket />} />
+                  <Route path="weekly-scores" element={<WeeklyScores />} />
+                  <Route path="weekly-scores/:year" element={<WeeklyScores />} />
+                  <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />
                   <Route path="game/:gameId/edit" element={<GameEdit />} />

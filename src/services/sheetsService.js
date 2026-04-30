@@ -3306,6 +3306,359 @@ export function isBowlInWeek2(bowlName) {
   return BOWL_GAMES_WEEK_2.some(b => b === bowlName)
 }
 
+// ============================================================================
+// WEEKLY SCORES — across-the-country results entry
+// 134 FBS teams ÷ 2 = up to 67 games per week. The sheet allows freeform entry
+// of up to WEEKLY_SCORES_MAX_ROWS games. Pre-existing user-team games are
+// preserved on save (we never overwrite scores the user entered through the
+// schedule flow).
+// ============================================================================
+export const WEEKLY_SCORES_MAX_ROWS = 75
+
+export async function createWeeklyScoresSheet(dynastyName, year, week, existingGames = [], dynastyTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+    const sheetTitle = `Week ${week} Scores`
+
+    const response = await fetch(SHEETS_API_BASE, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        properties: {
+          title: `${dynastyName} - Week ${week} Scores ${year}`
+        },
+        sheets: [
+          {
+            properties: {
+              title: sheetTitle,
+              gridProperties: {
+                rowCount: WEEKLY_SCORES_MAX_ROWS + 1,
+                columnCount: 7,
+                frozenRowCount: 1
+              }
+            }
+          }
+        ]
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      console.error('Sheets API error:', error)
+      throw new Error(`Failed to create weekly scores sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const sheet = await response.json()
+    const wsSheetId = sheet.sheets[0].properties.sheetId
+
+    await initializeWeeklyScoresSheet(sheet.spreadsheetId, accessToken, wsSheetId, sheetTitle, existingGames, dynastyTeams)
+    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+
+    return {
+      spreadsheetId: sheet.spreadsheetId,
+      spreadsheetUrl: sheet.spreadsheetUrl,
+      sheetTitle,
+    }
+  } catch (error) {
+    console.error('Error creating weekly scores sheet:', error)
+    throw error
+  }
+}
+
+async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, sheetTitle, existingGames = [], dynastyTeams = null) {
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
+  const rowCount = WEEKLY_SCORES_MAX_ROWS
+
+  // Rank dropdown values: blank or 1..25
+  const rankDropdownValues = [{ userEnteredValue: '' }]
+  for (let r = 1; r <= 25; r++) rankDropdownValues.push({ userEnteredValue: String(r) })
+
+  // Build pre-fill rows from existingGames so re-opening the sheet shows what
+  // the user already has. Trim/fill to rowCount.
+  const prefillRows = []
+  for (let i = 0; i < rowCount; i++) {
+    const g = existingGames[i]
+    if (!g) {
+      prefillRows.push({ values: [
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+        { userEnteredValue: { stringValue: '' } },
+      ] })
+      continue
+    }
+    const homeAbbr = g.homeTeam || ''
+    const awayAbbr = g.awayTeam || ''
+    const homeScore = g.homeScore
+    const awayScore = g.awayScore
+    const homeRank = g.homeRank
+    const awayRank = g.awayRank
+    const neutral = g.neutral ? 'Y' : ''
+    prefillRows.push({ values: [
+      { userEnteredValue: { stringValue: homeAbbr } },
+      typeof homeRank === 'number' && homeRank >= 1 && homeRank <= 25
+        ? { userEnteredValue: { numberValue: homeRank } }
+        : { userEnteredValue: { stringValue: '' } },
+      typeof homeScore === 'number'
+        ? { userEnteredValue: { numberValue: homeScore } }
+        : { userEnteredValue: { stringValue: '' } },
+      { userEnteredValue: { stringValue: awayAbbr } },
+      typeof awayRank === 'number' && awayRank >= 1 && awayRank <= 25
+        ? { userEnteredValue: { numberValue: awayRank } }
+        : { userEnteredValue: { stringValue: '' } },
+      typeof awayScore === 'number'
+        ? { userEnteredValue: { numberValue: awayScore } }
+        : { userEnteredValue: { stringValue: '' } },
+      { userEnteredValue: { stringValue: neutral } },
+    ] })
+  }
+
+  const requests = [
+    {
+      updateCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 7 },
+        rows: [{ values: [
+          { userEnteredValue: { stringValue: 'Home Team' } },
+          { userEnteredValue: { stringValue: 'Home Rank' } },
+          { userEnteredValue: { stringValue: 'Home Score' } },
+          { userEnteredValue: { stringValue: 'Away Team' } },
+          { userEnteredValue: { stringValue: 'Away Rank' } },
+          { userEnteredValue: { stringValue: 'Away Score' } },
+          { userEnteredValue: { stringValue: 'Neutral?' } },
+        ] }],
+        fields: 'userEnteredValue'
+      }
+    },
+    {
+      updateCells: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 0, endColumnIndex: 7 },
+        rows: prefillRows,
+        fields: 'userEnteredValue'
+      }
+    },
+    // Body formatting
+    {
+      repeatCell: {
+        range: { sheetId },
+        cell: {
+          userEnteredFormat: {
+            textFormat: { bold: true, italic: true, fontFamily: 'Barlow', fontSize: 10 },
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'MIDDLE'
+          }
+        },
+        fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)'
+      }
+    },
+    // Strict team dropdown for HOME column (col A, index 0)
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 0, endColumnIndex: 1 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map(abbr => ({ userEnteredValue: abbr })) },
+          showCustomUi: true,
+          strict: true
+        }
+      }
+    },
+    // Home rank dropdown (col B, index 1) — blank or 1..25
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 1, endColumnIndex: 2 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: rankDropdownValues },
+          showCustomUi: true,
+          strict: false
+        }
+      }
+    },
+    // Strict team dropdown for AWAY column (col D, index 3)
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 3, endColumnIndex: 4 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map(abbr => ({ userEnteredValue: abbr })) },
+          showCustomUi: true,
+          strict: true
+        }
+      }
+    },
+    // Away rank dropdown (col E, index 4) — blank or 1..25
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 4, endColumnIndex: 5 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: rankDropdownValues },
+          showCustomUi: true,
+          strict: false
+        }
+      }
+    },
+    // Y / blank dropdown for neutral (col G, index 6)
+    {
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: 6, endColumnIndex: 7 },
+        rule: {
+          condition: { type: 'ONE_OF_LIST', values: [{ userEnteredValue: 'Y' }, { userEnteredValue: '' }] },
+          showCustomUi: true,
+          strict: false
+        }
+      }
+    },
+    // Protect header row
+    {
+      addProtectedRange: {
+        protectedRange: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1 },
+          description: 'Header row - do not edit',
+          warningOnly: true
+        }
+      }
+    },
+    // Column widths
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: 1 },
+        properties: { pixelSize: 110 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 1, endIndex: 2 },
+        properties: { pixelSize: 70 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 2, endIndex: 3 },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 3, endIndex: 4 },
+        properties: { pixelSize: 110 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 4, endIndex: 5 },
+        properties: { pixelSize: 70 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 5, endIndex: 6 },
+        properties: { pixelSize: 90 },
+        fields: 'pixelSize'
+      }
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: 6, endIndex: 7 },
+        properties: { pixelSize: 80 },
+        fields: 'pixelSize'
+      }
+    },
+    // Team color formatting on HOME (col 0) and AWAY (col 3)
+    ...generateBowlTeamFormattingRules(sheetId, 0, rowCount, dynastyTeams),
+    ...generateBowlTeamFormattingRules(sheetId, 3, rowCount, dynastyTeams),
+  ]
+
+  const batchResponse = await fetch(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ requests })
+  })
+
+  if (!batchResponse.ok) {
+    const error = await batchResponse.json()
+    console.error('Error initializing weekly scores sheet:', error)
+    throw new Error(`Failed to initialize weekly scores sheet: ${error.error?.message || 'Unknown error'}`)
+  }
+}
+
+export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynastyTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+    const range = `${sheetTitle}!A2:G${WEEKLY_SCORES_MAX_ROWS + 1}`
+
+    const response = await fetch(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Failed to read weekly scores: ${error.error?.message || 'Unknown error'}`)
+    }
+
+    const data = await response.json()
+    const rows = data.values || []
+
+    const parseRank = (raw) => {
+      if (raw === undefined || raw === '' || raw === null) return null
+      const n = parseInt(raw, 10)
+      if (isNaN(n) || n < 1 || n > 25) return null
+      return n
+    }
+
+    const games = []
+    for (const row of rows) {
+      const homeAbbr = (row[0] || '').toUpperCase().trim()
+      const awayAbbr = (row[3] || '').toUpperCase().trim()
+      if (!homeAbbr || !awayAbbr) continue
+      if (homeAbbr === awayAbbr) continue
+
+      const homeRank = parseRank(row[1])
+      const homeScoreRaw = row[2]
+      const awayRank = parseRank(row[4])
+      const awayScoreRaw = row[5]
+      const parsedHome = (homeScoreRaw === undefined || homeScoreRaw === '') ? null : parseInt(homeScoreRaw, 10)
+      const parsedAway = (awayScoreRaw === undefined || awayScoreRaw === '') ? null : parseInt(awayScoreRaw, 10)
+      const homeScore = parsedHome !== null && !isNaN(parsedHome) ? parsedHome : null
+      const awayScore = parsedAway !== null && !isNaN(parsedAway) ? parsedAway : null
+      const neutralFlag = (row[6] || '').toString().trim().toUpperCase()
+      const neutral = neutralFlag === 'Y' || neutralFlag === 'YES' || neutralFlag === '1' || neutralFlag === 'TRUE'
+
+      const homeTid = getTidFromAbbr(homeAbbr, dynastyTeams)
+      const awayTid = getTidFromAbbr(awayAbbr, dynastyTeams)
+      if (!homeTid || !awayTid) continue
+
+      games.push({
+        homeTeam: homeAbbr,
+        awayTeam: awayAbbr,
+        homeTid,
+        awayTid,
+        homeScore,
+        awayScore,
+        homeRank,
+        awayRank,
+        neutral,
+      })
+    }
+
+    return games
+  } catch (error) {
+    console.error('Error reading weekly scores:', error)
+    throw error
+  }
+}
+
 // Get CFP First Round game name based on seed (for seeds 5-12)
 export function getCFPFirstRoundGameName(seed) {
   if (seed < 5 || seed > 12) return null
