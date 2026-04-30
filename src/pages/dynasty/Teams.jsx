@@ -4,11 +4,15 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS } from '../../data/teamRegistry'
 import { PageHero, Card, EmptyState, TeamLogo, Input } from '../../components/ui'
+import TeambuilderEditModal from '../../components/TeambuilderEditModal'
+import { useToast } from '../../components/ui/Toast'
 
 export default function Teams() {
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, updateTeambuilderTeam, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
+  const [editingTid, setEditingTid] = useState(null)
 
   if (!currentDynasty) return null
 
@@ -37,6 +41,10 @@ export default function Teams() {
       team.abbr.toLowerCase().includes(query)
     ))
   }, [allTeams, searchQuery])
+
+  const editingTeam = editingTid != null
+    ? (teamsSource[editingTid] || TEAMS[editingTid] || null)
+    : null
 
   return (
     <div className="space-y-6 page-enter">
@@ -70,10 +78,9 @@ export default function Teams() {
       {filteredTeams.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 stagger-reveal">
           {filteredTeams.map(team => (
-            <Link
+            <div
               key={team.tid}
-              to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
-              className="team-card group relative flex items-center gap-3 pl-4 pr-3 py-3 rounded-lg bg-surface-2 transition-all duration-200"
+              className="team-card group relative flex items-center gap-3 pl-4 pr-2 py-3 rounded-lg bg-surface-2 transition-all duration-200"
               style={{
                 border: '1px solid var(--rule-soft, var(--surface-4))',
               }}
@@ -83,19 +90,24 @@ export default function Teams() {
                 className="absolute left-0 top-0 bottom-0 w-[3px] transition-all duration-200 group-hover:w-[5px]"
                 style={{ backgroundColor: team.primaryColor }}
               />
-              {team.logo ? (
-                <TeamLogo
-                  tid={team.tid}
-                  teams={teamsSource}
-                  size="md"
-                  className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
-                />
-              ) : (
-                <span className="w-6 h-6 flex-shrink-0" />
-              )}
-              <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-white">
-                {team.name}
-              </span>
+              <Link
+                to={`${pathPrefix}/team/${team.tid}/${currentDynasty.currentYear}`}
+                className="flex items-center gap-3 flex-1 min-w-0 no-underline"
+              >
+                {team.logo ? (
+                  <TeamLogo
+                    tid={team.tid}
+                    teams={teamsSource}
+                    size="md"
+                    className="flex-shrink-0 transition-transform duration-200 group-hover:scale-110"
+                  />
+                ) : (
+                  <span className="w-6 h-6 flex-shrink-0" />
+                )}
+                <span className="flex-1 min-w-0 text-sm font-semibold text-txt-primary truncate transition-colors group-hover:text-white">
+                  {team.name}
+                </span>
+              </Link>
               {team.isCustom && (
                 <span
                   className="label-xs flex-shrink-0 px-1.5 py-0.5 rounded"
@@ -109,7 +121,21 @@ export default function Teams() {
                   CUSTOM
                 </span>
               )}
-            </Link>
+              {!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setEditingTid(team.tid)
+                  }}
+                  className="flex-shrink-0 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider rounded text-txt-tertiary hover:text-white hover:bg-surface-3 transition-colors"
+                  title={`Edit ${team.name}`}
+                >
+                  Edit
+                </button>
+              )}
+            </div>
           ))}
         </div>
       ) : (
@@ -119,6 +145,21 @@ export default function Teams() {
             message={`Nothing matched "${searchQuery}". Try a different search.`}
           />
         </Card>
+      )}
+
+      {editingTeam && (
+        <TeambuilderEditModal
+          isOpen={editingTid != null}
+          onClose={() => setEditingTid(null)}
+          team={editingTeam}
+          tid={editingTid}
+          dynastyTeams={teamsSource}
+          onSave={async (updates) => {
+            const result = await updateTeambuilderTeam(currentDynasty.id, editingTid, updates)
+            if (!result.success) throw new Error(result.message)
+            toast.success(`${updates.name} updated`)
+          }}
+        />
       )}
 
       <style>{`

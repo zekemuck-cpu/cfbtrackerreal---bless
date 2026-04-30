@@ -6,9 +6,12 @@ import { TEAMS, getOriginalTeamAbbr } from '../data/teamRegistry'
 import { useToast } from './ui/Toast'
 
 /**
- * Modal for editing a teambuilder team's data.
- * Allows changing: name, abbreviation, colors, logo
- * Cannot change: which team slot (tid) is replaced
+ * Modal for editing a team's identity (name, abbr, colors, logo).
+ *
+ * Used for both teambuilder slots and stock FBS teams — the difference
+ * is the "Replaces" info box (only shown for TBs) and the modal title.
+ * Saves through `updateTeambuilderTeam`, which preserves the
+ * `isCustom` flag so FBS overrides don't get reclassified as TBs.
  */
 export default function TeambuilderEditModal({
   isOpen,
@@ -21,6 +24,7 @@ export default function TeambuilderEditModal({
   // against the static FBS list.
   dynastyTeams = null,
 }) {
+  const isCustomTB = !!team?.isCustom
   const { toast } = useToast()
   const [formData, setFormData] = useState({
     name: '',
@@ -160,21 +164,23 @@ export default function TeambuilderEditModal({
             className="text-2xl font-bold mb-4"
             style={{ color: modalColors.text }}
           >
-            Edit Teambuilder Team
+            {isCustomTB ? 'Edit Teambuilder Team' : 'Edit Team'}
           </h2>
 
-          {/* Info box showing which team is replaced */}
-          <div
-            className="mb-4 p-3 rounded-lg border-2 border-dashed"
-            style={{ borderColor: modalColors.inputBorder }}
-          >
-            <p className="text-sm" style={{ color: modalColors.text }}>
-              <span className="font-medium">Replaces:</span> {originalTeamName || 'Unknown'} ({originalTeamAbbr || '?'})
-            </p>
-            <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
-              The team slot cannot be changed after dynasty creation.
-            </p>
-          </div>
+          {/* "Replaces" info box only applies to teambuilder slots. */}
+          {isCustomTB && (
+            <div
+              className="mb-4 p-3 rounded-lg border-2 border-dashed"
+              style={{ borderColor: modalColors.inputBorder }}
+            >
+              <p className="text-sm" style={{ color: modalColors.text }}>
+                <span className="font-medium">Replaces:</span> {originalTeamName || 'Unknown'} ({originalTeamAbbr || '?'})
+              </p>
+              <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
+                The team slot cannot be changed after dynasty creation.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Team Name */}

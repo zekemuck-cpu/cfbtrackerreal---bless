@@ -508,7 +508,11 @@ export default function TeamYear() {
     availableYears.push(y)
   }
 
-  // Get team info from tid - teamsSource now has properly merged data
+  // Get team info from tid - teamsSource now has properly merged data.
+  // `team` may be undefined (e.g. tid for a TB slot whose dynasty
+  // metadata hasn't loaded yet). Hooks below MUST run regardless, so
+  // we read fields nil-safely and bail later via the `if (!team)`
+  // not-found block once all hooks have fired.
   const team = teamsSource[tid]
 
   // NOTE: loading-state and team-not-found early returns used to live
@@ -517,12 +521,12 @@ export default function TeamYear() {
   // component, right before the JSX return, after all hooks have fired.
 
   // Extract team data - using new tid-based structure
-  const teamAbbr = team.abbr  // Keep for backwards compatibility with data lookups
+  const teamAbbr = team?.abbr || ''  // Keep for backwards compatibility with data lookups
   const teamInfo = {
-    name: team.name,
-    backgroundColor: team.primaryColor || '#1f2937',
-    textColor: team.secondaryColor || '#f3f4f6',
-    isTeambuilder: team.isCustom || false
+    name: team?.name || '',
+    backgroundColor: team?.primaryColor || '#1f2937',
+    textColor: team?.secondaryColor || '#f3f4f6',
+    isTeambuilder: team?.isCustom || false
   }
   const customTeams = currentDynasty.customTeams  // Still needed for some lookups
 
@@ -536,8 +540,8 @@ export default function TeamYear() {
   // Uses getTeamConferenceForDynasty which checks: manual override -> custom conferences -> default conferences
   const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr, selectedYear)
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
-  const mascotName = team.name
-  const teamLogo = team.logo
+  const mascotName = team?.name || ''
+  const teamLogo = team?.logo || null
   const teamBgText = getContrastTextColor(teamInfo.backgroundColor)
   const teamPrimaryText = getContrastTextColor(teamInfo.textColor)
   const secondaryBgText = getContrastTextColor(viewedTeamColors.secondary)

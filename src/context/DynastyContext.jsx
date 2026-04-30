@@ -11002,16 +11002,18 @@ export function DynastyProvider({ children }) {
     const dynasty = dynasties.find(d => d.id === dynastyId)
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
 
-    const teams = dynasty.teams || TEAMS
-    const team = teams[tid]
+    // For dynasties without an explicit dynasty.teams map, seed from the
+    // static FBS registry so the override write below has a base to merge.
+    const sourceTeams = dynasty.teams || TEAMS
+    const team = sourceTeams[tid] || TEAMS[tid]
     if (!team) return { success: false, message: 'Team not found' }
-    if (!team.isCustom) return { success: false, message: 'Team is not a custom teambuilder team' }
 
     // Get old abbreviation for customTeams key update
     const oldAbbr = team.abbr
     const newAbbr = updates.abbreviation?.toUpperCase() || updates.abbr?.toUpperCase() || oldAbbr
 
-    // Build updated team object
+    // Build updated team object — preserve original isCustom flag so
+    // FBS overrides don't get re-flagged as TeamBuilder slots.
     const updatedTeam = {
       ...team,
       abbr: newAbbr,
@@ -11019,7 +11021,7 @@ export function DynastyProvider({ children }) {
       primaryColor: updates.primaryColor || team.primaryColor,
       secondaryColor: updates.secondaryColor || team.secondaryColor,
       logo: updates.logoUrl || updates.logo || team.logo,
-      isCustom: true
+      isCustom: team.isCustom || false,
     }
 
     // Single source of truth: write only to the tid slot. The legacy
