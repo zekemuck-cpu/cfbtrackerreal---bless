@@ -10200,6 +10200,41 @@ export function DynastyProvider({ children }) {
     // This forces the migration to run fresh on the imported data.
     delete cleanDynastyData._rosterMigratedV3
 
+    // Multiplayer-of-N seeder: imports built by external migrators
+    // (e.g. the Tracker spreadsheet migrator) carry an
+    // `_importMemberSeed` hint with the user's tid + coach name + a
+    // year→tid map. Stamp the editors/memberTeams/memberLabels/
+    // memberTeamHistory fields here using the importer's real Firebase
+    // auth UID. Skip if the import already brought populated fields
+    // keyed by a real-looking UID.
+    const importerUid = user?.uid
+    const seed = cleanDynastyData._importMemberSeed
+    delete cleanDynastyData._importMemberSeed
+    const hasRealMemberData =
+      Array.isArray(cleanDynastyData.editors) &&
+      cleanDynastyData.editors.length > 0 &&
+      cleanDynastyData.editors.every(uid =>
+        typeof uid === 'string' && uid.length >= 20 && !uid.includes('imported')
+      )
+    if (importerUid && seed && !hasRealMemberData) {
+      const tid = Number(seed.tid) || cleanDynastyData.currentTid || null
+      const coachLabel = (seed.coachName && seed.coachName !== '[Your Name]')
+        ? seed.coachName
+        : (cleanDynastyData.coachName || 'Coach')
+      cleanDynastyData.editors = [importerUid]
+      cleanDynastyData.memberTeams = tid ? { [importerUid]: [tid] } : {}
+      cleanDynastyData.memberLabels = { [importerUid]: coachLabel }
+      const yearMap = seed.teamHistoryByYear || {}
+      cleanDynastyData.memberTeamHistory = {
+        [importerUid]: { ...yearMap }
+      }
+      // Also tag the user team slot so getUserTeamTid resolves cleanly.
+      const teams = cleanDynastyData.teams
+      if (tid && teams && teams[tid]) {
+        teams[tid] = { ...teams[tid], userId: importerUid }
+      }
+    }
+
     // Save the dynasty using createDynasty logic
     const useLocalStorage = !storageService.isPremium()
 

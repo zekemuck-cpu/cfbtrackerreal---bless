@@ -120,7 +120,7 @@ export default function CoachCareer() {
       const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
       if (cty?.tid != null) return [Number(cty.tid)]
       if (cty?.team) {
-        const tid = getTidFromAbbr(cty.team)
+        const tid = getTidFromAbbr(cty.team, currentDynasty)
         if (tid) return [tid]
       }
     }
@@ -324,7 +324,11 @@ export default function CoachCareer() {
 
       const cfpYears = new Set(cfpGames.map(g => g.year)).size
 
-      const teamTid = getTidFromAbbr(teamAbbr)
+      // Pass dynasty so TB abbrs (not in static FBS map) resolve via
+      // dynasty.teams[tid].abbr. Without this, tid for STONY/etc. is
+      // null, the stint is never flagged isCurrent, and the placeholder
+      // current-stint code path injects a duplicate "2030" card.
+      const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
 
       return {
         teamAbbr,
@@ -391,7 +395,7 @@ export default function CoachCareer() {
       // owner with no assignment, fall back to the dynasty-level team.
       const myFirstCurrentTid = [...myCurrentTids][0]
       const fallbackTid = uid === currentDynasty.userId
-        ? getTidFromAbbr(currentTeamAbbr)
+        ? getTidFromAbbr(currentTeamAbbr, currentDynasty)
         : null
       const placeholderTid = myFirstCurrentTid != null ? myFirstCurrentTid : fallbackTid
       const placeholderTeam = placeholderTid != null ? currentDynasty.teams?.[placeholderTid] : null

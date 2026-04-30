@@ -37,6 +37,167 @@ from pathlib import Path
 import openpyxl
 
 
+# ---- static FBS team registry (parsed from teamRegistry.js) -----------
+
+def load_static_teams():
+    """Parse src/data/teamRegistry.js → { tid: {tid, abbr, name, primaryColor,
+    secondaryColor, logo, isFCS} } so the migrator can write
+    dynasty.teams[tid] directly with the TB info merged into the
+    replaced FBS slot."""
+    here = Path(__file__).resolve().parent.parent
+    src = (here / 'src' / 'data' / 'teamRegistry.js').read_text()
+    start = src.find('export const TEAMS = {') + len('export const TEAMS = {')
+    end = src.find('\n}', start)
+    section = src[start:end]
+    blocks = re.split(r'\n\s*(\d+):\s*\{', section)
+    teams = {}
+    for i in range(1, len(blocks), 2):
+        tid = int(blocks[i])
+        body = blocks[i + 1]
+        cut = body.find('\n  },')
+        if cut == -1:
+            cut = body.find('\n  }')
+        body = body[:cut] if cut != -1 else body
+        fields = {'tid': tid}
+        for fm in re.finditer(
+            r'^\s*(\w+):\s*("(?:[^"\\]|\\.)*"|true|false|\d+)',
+            body, re.MULTILINE,
+        ):
+            k, raw = fm.group(1), fm.group(2)
+            if raw == 'true':
+                v = True
+            elif raw == 'false':
+                v = False
+            elif raw.startswith('"'):
+                v = raw[1:-1]
+            else:
+                try:
+                    v = int(raw)
+                except ValueError:
+                    v = raw
+            fields[k] = v
+        teams[tid] = fields
+    return teams
+
+
+STATIC_TEAMS = load_static_teams()
+ABBR_TO_TID = {t['abbr']: t['tid'] for t in STATIC_TEAMS.values()}
+
+
+# Class progression mirrors src/data/CLASS_PROGRESSION + the implicit
+# Fr→So→Jr→Sr step. HS recruits enter as Fr; JUCO recruits start at
+# their stated level. Sr / RS Sr graduate (no next year).
+CLASS_PROGRESSION = {
+    'HS': 'Fr',
+    'JUCO Fr': 'Fr',
+    'JUCO So': 'So',
+    'JUCO Jr': 'Jr',
+    'JUCO Sr': 'Sr',
+    'Fr': 'Fr',
+    'RS Fr': 'RS Fr',
+    'So': 'So',
+    'RS So': 'RS So',
+    'Jr': 'Jr',
+    'RS Jr': 'RS Jr',
+    'Sr': 'Sr',
+    'RS Sr': 'RS Sr',
+}
+NEXT_CLASS = {
+    'Fr': 'So',
+    'So': 'Jr',
+    'Jr': 'Sr',
+    'Sr': None,
+    'RS Fr': 'RS So',
+    'RS So': 'RS Jr',
+    'RS Jr': 'RS Sr',
+    'RS Sr': None,
+}
+
+
+# Spreadsheet uses short bowl names ("Rose", "Fiesta") while the app
+# stores the full name ("Rose Bowl", "Fiesta Bowl"). The CFP-specific
+# entries (CFP First Round, Nat'l Championship) need different
+# game-type tagging in addition to a name swap.
+BOWL_NAME_MAP = {
+    "68 Ventures": "68 Ventures Bowl",
+    "Alamo": "Alamo Bowl",
+    "Arizona": "Arizona Bowl",
+    "Armed Forces": "Armed Forces Bowl",
+    "Bahamas": "Bahamas Bowl",
+    "Birmingham": "Birmingham Bowl",
+    "Boca Raton": "Boca Raton Bowl",
+    "Citrus": "Citrus Bowl",
+    "Cotton": "Cotton Bowl",
+    "Cure": "Cure Bowl",
+    "Duke's Mayo": "Duke's Mayo Bowl",
+    "Famous Idaho Potato": "Famous Idaho Potato Bowl",
+    "Fenway": "Fenway Bowl",
+    "Fiesta": "Fiesta Bowl",
+    "First Responder": "First Responder Bowl",
+    "Frisco": "Frisco Bowl",
+    "GameAbove Sports": "GameAbove Sports Bowl",
+    "Gasparilla": "Gasparilla Bowl",
+    "Gator": "Gator Bowl",
+    "Hawaii": "Hawaii Bowl",
+    "Holiday": "Holiday Bowl",
+    "Independence": "Independence Bowl",
+    "LA": "LA Bowl",
+    "Las Vegas": "Las Vegas Bowl",
+    "Liberty": "Liberty Bowl",
+    "Military": "Military Bowl",
+    "Music City": "Music City Bowl",
+    "Myrtle Beach": "Myrtle Beach Bowl",
+    "New Mexico": "New Mexico Bowl",
+    "New Orleans": "New Orleans Bowl",
+    "Orange": "Orange Bowl",
+    "Peach": "Peach Bowl",
+    "Pop-Tarts": "Pop-Tarts Bowl",
+    "Rate": "Rate Bowl",
+    "Reliaquest": "Reliaquest Bowl",
+    "Rose": "Rose Bowl",
+    "Salute to Veterans": "Salute to Veterans Bowl",
+    "Sugar": "Sugar Bowl",
+    "Sun": "Sun Bowl",
+    "Texas": "Texas Bowl",
+    # Special — CFP final keeps no "Bowl" suffix, matching app shape.
+    "Nat'l Championship": "National Championship",
+}
+
+
+# CFP slot mapping. The bowl name (after normalization) tells us which
+# CFP round + slot it represents — but only if the user is in the CFP
+# bracket for that year. The app constructs CFP game IDs as
+# `{slotId}-{year}` and links to them from the CFP Bracket and
+# TeamYear pages, so we have to match that format.
+BOWL_TO_CFP_SLOT = {
+    'Sugar Bowl': ('cfpqf1', 'cfp_quarterfinal'),
+    'Orange Bowl': ('cfpqf2', 'cfp_quarterfinal'),
+    'Rose Bowl': ('cfpqf3', 'cfp_quarterfinal'),
+    'Cotton Bowl': ('cfpqf4', 'cfp_quarterfinal'),
+    'Peach Bowl': ('cfpsf1', 'cfp_semifinal'),
+    'Fiesta Bowl': ('cfpsf2', 'cfp_semifinal'),
+    'National Championship': ('cfpnc', 'cfp_championship'),
+}
+
+
+def normalize_bowl_name(short):
+    """Map a Tracker short bowl name to the app's canonical full name.
+    If the name is already a full name (already ends with 'Bowl' or
+    matches a known entry), return as-is. Returns None for empty input."""
+    if not short:
+        return None
+    s_ = short.strip()
+    if not s_:
+        return None
+    if s_ in BOWL_NAME_MAP:
+        return BOWL_NAME_MAP[s_]
+    # Already-canonical (user typed 'Rose Bowl' explicitly, etc.)
+    if s_.endswith(' Bowl') or s_ == 'National Championship':
+        return s_
+    # Best-effort fallback — append " Bowl" so it at least looks right
+    return f'{s_} Bowl'
+
+
 # ---- helpers ----------------------------------------------------------
 
 def num(v):
@@ -191,12 +352,34 @@ def parse_schedule(rows, user_abbr, year, next_id_ref, make_game):
         elif is_bowl:
             m = re.search(r'wk\s*(\d+)', week_label.lower())
             bowl_week = 14 + (int(m.group(1)) if m else 1)
-            games.append(make_game(
-                bowl_week, opp, user_score, cpu_score, year,
-                game_type='bowl',
-                is_bowl=True, bowl_name=bowl_name,
-                user_rank=user_rank, opp_rank=opp_rank, site=site,
-            ))
+            # Special CFP cases — these aren't real "bowls" in the app's
+            # game-type taxonomy, they're CFP rounds. The bowl-name cell
+            # tells us which round.
+            raw_bowl = bowl_name or ''
+            if raw_bowl.strip().lower() in ('cfp first round', 'cfp first', 'first round'):
+                games.append(make_game(
+                    bowl_week, opp, user_score, cpu_score, year,
+                    game_type='cfp_first_round',
+                    is_bowl=False, bowl_name=None, is_playoff=True,
+                    user_rank=user_rank, opp_rank=opp_rank, site=site,
+                ))
+            elif raw_bowl.strip().lower() in ("nat'l championship", "national championship"):
+                games.append(make_game(
+                    bowl_week, opp, user_score, cpu_score, year,
+                    game_type='cfp_championship',
+                    is_bowl=True,  # Bowl page also surfaces championship
+                    bowl_name=normalize_bowl_name(raw_bowl),
+                    is_playoff=True,
+                    user_rank=user_rank, opp_rank=opp_rank, site=site,
+                ))
+            else:
+                games.append(make_game(
+                    bowl_week, opp, user_score, cpu_score, year,
+                    game_type='bowl',
+                    is_bowl=True,
+                    bowl_name=normalize_bowl_name(raw_bowl),
+                    user_rank=user_rank, opp_rank=opp_rank, site=site,
+                ))
     return games
 
 
@@ -374,25 +557,30 @@ def parse_awards(rows):
     start = find_section(rows, 'Awards', col=19)
     if start is None:
         return None
+    # These keys MUST match Awards.jsx's AWARD_ORDER list — typo
+    # mismatches (e.g. daveyOBrien vs daveyObrien) make the award
+    # silently disappear from the page.
     AWARD_KEY_MAP = {
         'Heisman': 'heisman',
         'Maxwell': 'maxwell',
         'Walter Camp': 'walterCamp',
         'Bear Bryant Coach of the Year': 'bearBryantCoachOfTheYear',
-        "Davey O'Brien": 'daveyOBrien',
-        'Davey OBrien': 'daveyOBrien',
+        "Davey O'Brien": 'daveyObrien',
+        'Davey OBrien': 'daveyObrien',
         'Chuck Bednarik': 'chuckBednarik',
         'Bronco Nagurski': 'broncoNagurski',
         'Jim Thorpe': 'jimThorpe',
         'Doak Walker': 'doakWalker',
-        'Fred Biletnikoff': 'biletnikoff',
+        'Fred Biletnikoff': 'fredBiletnikoff',
+        'Biletnikoff': 'fredBiletnikoff',
         'Lombardi': 'lombardi',
         'Unitas Golden Arm': 'unitasGoldenArm',
         'Edge Rusher of the Year': 'edgeRusherOfTheYear',
         'Outland': 'outland',
         'John Mackey': 'johnMackey',
         'Broyles': 'broyles',
-        'Dick Butkus': 'butkus',
+        'Dick Butkus': 'dickButkus',
+        'Butkus': 'dickButkus',
         'Rimington': 'rimington',
         'Lou Groza': 'louGroza',
         'Ray Guy': 'rayGuy',
@@ -931,6 +1119,7 @@ def migrate(xlsx_path: Path, output_path: Path):
 
     def make_game(week, opp, user_score, cpu_score, year, *,
                   game_type='regular', is_bowl=False, is_cc=False, bowl_name=None,
+                  is_playoff=False,
                   user_rank=None, opp_rank=None, site=None):
         gid = f'imported-game-{next_game_id_box[0]}'
         next_game_id_box[0] += 1
@@ -938,7 +1127,7 @@ def migrate(xlsx_path: Path, output_path: Path):
         location = (site or '').lower() if site else None
         is_home = location == 'home'
         is_away = location == 'away'
-        is_neutral = location == 'neutral' or is_bowl or is_cc
+        is_neutral = location == 'neutral' or is_bowl or is_cc or is_playoff
         return {
             'id': gid,
             'week': week,
@@ -962,7 +1151,7 @@ def migrate(xlsx_path: Path, output_path: Path):
             'isBowlGame': is_bowl,
             'bowlGameName': bowl_name,
             'isConferenceChampionship': is_cc,
-            'isPlayoff': False,
+            'isPlayoff': is_playoff,
             'location': location,
             'isHome': is_home,
             'isAway': is_away,
@@ -1067,19 +1256,85 @@ def migrate(xlsx_path: Path, output_path: Path):
         },
     }
 
-    custom_teams = {}
+    # Build dynasty.teams[tid] entries. Start from the full static FBS
+    # map so the All Teams page (and every other consumer) sees every
+    # team. For TBs we then override the replaced FBS team's slot
+    # in-place: the tid stays the same as the FBS team's tid but the
+    # abbr/name/colors/logo become the TB's. The site never has to
+    # know it's a "teambuilder" — it just reads dynasty.teams[tid]
+    # and shows what's there.
+    dynasty_teams = {}
+    for tid, t in STATIC_TEAMS.items():
+        dynasty_teams[tid] = {
+            **t,
+            'byYear': {},
+        }
+    abbr_to_tid = dict(ABBR_TO_TID)  # working copy with TB swaps applied
+    user_team_tid = None
     for tb, info in tb_pairings.items():
         meta = TB_METADATA.get(tb, {})
-        custom_teams[tb] = {
-            'name': meta.get('name', f'{tb} (TeamBuilder)'),
-            'abbreviation': tb,
-            'logoUrl': meta.get('logoUrl', ''),
-            'backgroundColor': meta.get('primaryColor', '#444444'),
-            'textColor': '#ffffff',
-            'primaryColor': meta.get('primaryColor', '#444444'),
-            'secondaryColor': meta.get('secondaryColor', '#ffffff'),
-            'replacesTeam': info['replacesAbbr'],
+        replaced = info['replacesAbbr']
+        slot_tid = ABBR_TO_TID.get(replaced)
+        if slot_tid is None:
+            print(f'  ! Cannot place {tb}: replacement abbr {replaced!r} not in static FBS map')
+            continue
+        static = STATIC_TEAMS.get(slot_tid, {})
+        # No `isCustom` flag — the app shouldn't need to know this slot
+        # used to belong to a different team. It's just dynasty.teams[tid]
+        # like any other team, with whatever name/abbr/colors/logo are
+        # written here. byYear is filled in below for record/schedule.
+        merged = {
+            'tid': slot_tid,
+            'abbr': tb,
+            'name': meta.get('name', tb),
+            'primaryColor': meta.get('primaryColor', static.get('primaryColor', '#444444')),
+            'secondaryColor': meta.get('secondaryColor', static.get('secondaryColor', '#ffffff')),
+            'logo': meta.get('logoUrl', ''),
+            'isFCS': False,
+            'byYear': {},
         }
+        if tb == user_team_abbr:
+            merged['userId'] = 'currentUser'
+        dynasty_teams[slot_tid] = merged
+        # Remap abbr → tid so the TB's abbr resolves to the slot's tid
+        # (and the original FBS abbr no longer resolves to anything).
+        abbr_to_tid.pop(replaced, None)
+        abbr_to_tid[tb] = slot_tid
+        if tb == user_team_abbr:
+            user_team_tid = slot_tid
+
+    if user_team_tid is None:
+        # User team isn't a TB — must be a real FBS team. Bring in the
+        # static slot so the dashboard can find a userId-tagged team.
+        user_team_tid = abbr_to_tid.get(user_team_abbr)
+        if user_team_tid and user_team_tid in STATIC_TEAMS:
+            base = dict(STATIC_TEAMS[user_team_tid])
+            base['userId'] = 'currentUser'
+            base.setdefault('byYear', {})
+            dynasty_teams[user_team_tid] = base
+
+    # Drop FBS slots the user removed and DIDN'T pair with a TB. This
+    # collapses the team count down to whatever the user actually has
+    # in their dynasty — no zombie "Akron Zips" entries when the user
+    # removed AKR's slot and STONY took it over (handled above), and
+    # no zombie "Kennesaw State" / "ULM" when the user just removed
+    # them outright with no TB replacement.
+    paired_replacements = {info['replacesAbbr'] for info in tb_pairings.values()}
+    truly_removed = [a for a in removed_fbs if a not in paired_replacements]
+    for abbr in truly_removed:
+        slot_tid = ABBR_TO_TID.get(abbr)
+        if slot_tid is not None:
+            dynasty_teams.pop(slot_tid, None)
+            abbr_to_tid.pop(abbr, None)
+    if truly_removed:
+        print(f'  → Truly removed FBS (no TB replacement): {truly_removed}')
+
+    def tid_for(abbr):
+        """Resolve any abbr to its tid (TB or FBS). Returns None if
+        nothing matches."""
+        if not abbr:
+            return None
+        return abbr_to_tid.get(s(abbr))
 
     # ----- Players: merge per-year rosters from each YYYY sheet ---------
     # The Individual sheet only has career-level data (one row per
@@ -1148,7 +1403,7 @@ def migrate(xlsx_path: Path, output_path: Path):
                     'firstName': first,
                     'lastName': last,
                     'position': entry['position'],
-                    'team': user_team_abbr,
+                    'team': user_team_tid,            # numeric tid
                     'school': user_team_abbr,
                     'year': entry.get('class') or 'Sr',
                     'stars': meta.get('stars'),
@@ -1158,7 +1413,7 @@ def migrate(xlsx_path: Path, output_path: Path):
                     'overall': entry.get('overall'),
                     'overallByYear': {},
                     'overallProgression': [],
-                    'teamsByYear': {},
+                    'teamsByYear': {},                # tid (numeric)
                     'classByYear': {},
                     'statsByYear': {},
                     'movementByYear': {},
@@ -1177,7 +1432,8 @@ def migrate(xlsx_path: Path, output_path: Path):
                 }
             p = players_by_name[name]
             ystr = str(year)
-            p['teamsByYear'][ystr] = user_team_abbr
+            # Numeric tid — the app's roster check expects this.
+            p['teamsByYear'][ystr] = user_team_tid
             if entry.get('overall') is not None:
                 p['overallByYear'][ystr] = entry['overall']
             if entry.get('class'):
@@ -1215,14 +1471,274 @@ def migrate(xlsx_path: Path, output_path: Path):
             p = players_by_name.get(d['name'])
             if not p:
                 continue
-            mov = {
-                'type': d['movementType'],
-            }
+            mov = {'type': d['movementType']}
             if d['movementType'] == 'transferred_out':
-                mov['toTeamTid'] = None  # filled in post-import via Transfer Destinations
-                mov['toTeamAbbr'] = d.get('destination')
+                # Resolve destination abbr → tid when possible
+                dest_abbr = d.get('destination')
+                mov['toTeamTid'] = tid_for(dest_abbr)
+                mov['toTeamAbbr'] = dest_abbr
                 mov['reason'] = d.get('reason')
             p['movementByYear'][int(year)] = mov
+
+    # ----- Strip ghost roster entries for players who left -------------
+    # The Tracker spreadsheet sometimes carries a player into the next
+    # year's Individual Statistics block even after they graduated /
+    # got drafted / transferred — the user used those rows as "carry
+    # this name into next year so I remember to remove them" notes.
+    # On import they show up on the active roster, which is wrong.
+    #
+    # Rule: if the player has a movement entry of graduated /
+    # declared_for_draft / transferred_out in year Y, drop their
+    # teamsByYear entries for every year > Y, plus the matching
+    # classByYear / overallByYear / statsByYear / devTraitByYear
+    # so they don't appear elsewhere either.
+    LEAVE_TYPES = ('graduated', 'declared_for_draft', 'transferred_out')
+    purged = 0
+    for p in players_by_name.values():
+        mov = p.get('movementByYear') or {}
+        if not mov:
+            continue
+        # Find the earliest leave year, if any.
+        leave_year = None
+        for y_raw, m in mov.items():
+            try:
+                y_int = int(y_raw)
+            except (TypeError, ValueError):
+                continue
+            if m.get('type') in LEAVE_TYPES:
+                if leave_year is None or y_int < leave_year:
+                    leave_year = y_int
+        if leave_year is None:
+            continue
+        for field in ('teamsByYear', 'classByYear', 'overallByYear',
+                      'statsByYear', 'devTraitByYear'):
+            store = p.get(field) or {}
+            for k in list(store.keys()):
+                try:
+                    yk = int(k)
+                except (TypeError, ValueError):
+                    continue
+                if yk > leave_year:
+                    del store[k]
+                    purged += 1
+    print(f'  → Purged {purged} ghost roster entries for departed players')
+
+    # ----- Build per-year schedule entries from user's games ------------
+    # The Dashboard reads dynasty.teams[userTid].byYear[year].schedule
+    # (and falls back to dynasty.schedulesByTeamYear); without a populated
+    # schedule the pre-season checklist shows "0/12 games" even when the
+    # underlying game records exist.
+    schedules_by_team_year = {}
+    user_byyear_schedule = {}  # year -> [entries]
+    for g in games:
+        if g.get('gameType') != 'regular':
+            continue
+        if g.get('team1') != user_team_abbr and g.get('team2') != user_team_abbr:
+            continue
+        is_user_team1 = g['team1'] == user_team_abbr
+        opp_abbr = g['team2'] if is_user_team1 else g['team1']
+        opp_tid = tid_for(opp_abbr)
+        location = g.get('location') or 'neutral'
+        if location not in ('home', 'away', 'neutral'):
+            location = 'neutral'
+        entry = {
+            'week': g['week'],
+            'opponent': opp_abbr,
+            'opponentTid': opp_tid,
+            'isBye': False,
+            'location': location,
+            'gameId': g['id'],
+            'userTeam': user_team_abbr,
+            'userTeamTid': user_team_tid,
+        }
+        user_byyear_schedule.setdefault(g['year'], []).append(entry)
+
+    for year, sched in user_byyear_schedule.items():
+        sched.sort(key=lambda e: e['week'])
+        if user_team_tid in dynasty_teams:
+            by_year = dynasty_teams[user_team_tid].setdefault('byYear', {})
+            year_block = by_year.setdefault(str(year), {})
+            year_block['schedule'] = sched
+            year_block.setdefault('preseasonSetup', {})['scheduleEntered'] = True
+        # Legacy team-centric storage (dual-keyed by abbr + tid)
+        schedules_by_team_year.setdefault(user_team_abbr, {})[str(year)] = sched
+        schedules_by_team_year.setdefault(str(user_team_tid), {})[str(year)] = sched
+
+    # ----- Stamp byYear[year].record on user team from team_records -----
+    if user_team_tid in dynasty_teams:
+        by_year = dynasty_teams[user_team_tid].setdefault('byYear', {})
+        for year, rec in team_records.items():
+            year_block = by_year.setdefault(str(year), {})
+            year_block['record'] = {
+                'wins': rec['wins'],
+                'losses': rec['losses'],
+            }
+
+    # ----- Convert games to fully tid-based format -----------------------
+    # Drop the legacy abbr fields so the in-app `migrateToFullTidSystem`
+    # skip-condition triggers (`team1Tid && team2Tid && !userTeam &&
+    # !opponent`) and our pre-resolved tids stay untouched.
+    #
+    # Also align field names with the app's runtime shape (matching the
+    # reference UK_2034 dynasty):
+    #   bowl game        : `bowlName` (NOT `bowlGameName`),
+    #                      `bowlWeek` = 'week1'/'week2'/...,
+    #                      `week` = 'Bowl' (string)
+    #   conf championship: `conference` field, `week` = 'CCG' (string)
+    #   regular conf game: `isConferenceGame: true` so confWins/confLosses
+    #                      get computed
+    def conf_for_year(abbr, year):
+        """Look up the team's conference for a given year. User team uses
+        team_records[year]; everyone else falls back to standings."""
+        if abbr == user_team_abbr and year in team_records:
+            return team_records[year].get('conference')
+        standings = (all_year_data.get(year) or {}).get('standings') or {}
+        for conf, teams in standings.items():
+            for entry in teams:
+                if entry['team'] == abbr:
+                    return conf
+        return None
+
+    # Build a quick "is user in CFP this year?" lookup. cfp_seeds_by_year
+    # isn't populated until the by-year structures pass below, so we
+    # walk all_year_data directly here.
+    user_in_cfp_year = {}
+    for yr_int, yd in all_year_data.items():
+        seeds = yd.get('cfpSeeds') or []
+        for e in seeds:
+            if (e.get('team') or '').upper() == user_team_abbr:
+                user_in_cfp_year[int(yr_int)] = True
+                break
+
+    # Build a (year, week) → POTW lookup so we can stamp
+    # `conferencePOW` / `nationalPOW` on each game record. The Player
+    # page sums these per-game stamps to compute career POW totals
+    # (no separate by-year structure exists). "Conf Champ" goes on
+    # the conference championship game.
+    potw_lookup = {}  # {(year, week_int_or_'CCG'): {'conf': name, 'natl': name}}
+    for yr_int, yd in all_year_data.items():
+        block = yd.get('potw') or {}
+        for kind in ('conference', 'national'):
+            for entry in block.get(kind, []):
+                wk = entry.get('week')
+                # Normalize week: numeric stays numeric; "Conf Champ"
+                # → 'CCG' (matches the cleaned game's week field for CCs).
+                wk_norm = None
+                if isinstance(wk, (int, float)):
+                    wk_norm = int(wk)
+                elif isinstance(wk, str):
+                    s_ = wk.strip().lower()
+                    if 'champ' in s_:
+                        wk_norm = 'CCG'
+                    else:
+                        try:
+                            wk_norm = int(float(s_))
+                        except (TypeError, ValueError):
+                            wk_norm = None
+                if wk_norm is None:
+                    continue
+                key = (int(yr_int), wk_norm)
+                slot = potw_lookup.setdefault(key, {})
+                slot['conf' if kind == 'conference' else 'natl'] = entry.get('player')
+
+    tid_games = []
+    for g in games:
+        t1 = tid_for(g.get('team1'))
+        t2 = tid_for(g.get('team2'))
+        winner_abbr = g.get('winner')
+        winner_tid = tid_for(winner_abbr) if winner_abbr else None
+        if g.get('isHome'):
+            home_tid = user_team_tid
+        elif g.get('isAway'):
+            home_tid = t2
+        else:
+            home_tid = None
+
+        gtype = g['gameType']
+        bowl_name_full = g.get('bowlGameName') or ''
+        year_int = g['year']
+
+        # If this is a bowl game whose bowl name is one of the
+        # CFP-host bowls AND the user was in the CFP that year,
+        # promote it from a regular bowl to the matching CFP round.
+        # Reassigns gameType and the game id (`{slotId}-{year}`) so
+        # CFP Bracket page links resolve.
+        if gtype == 'bowl' and bowl_name_full in BOWL_TO_CFP_SLOT and user_in_cfp_year.get(year_int):
+            slot_id, cfp_gtype = BOWL_TO_CFP_SLOT[bowl_name_full]
+            gtype = cfp_gtype
+            game_id = f'{slot_id}-{year_int}'
+            is_playoff = True
+        elif gtype == 'cfp_championship':
+            game_id = f'cfpnc-{year_int}'
+            is_playoff = True
+        elif gtype == 'cfp_first_round':
+            game_id = g['id']  # we don't know which fr1/2/3/4 — leave imported id
+            is_playoff = True
+        else:
+            game_id = g['id']
+            is_playoff = g.get('isPlayoff', False)
+
+        clean = {
+            'id': game_id,
+            'year': year_int,
+            'gameType': gtype,
+            'team1Tid': t1,
+            'team2Tid': t2,
+            'team1Score': g.get('team1Score', 0),
+            'team2Score': g.get('team2Score', 0),
+            'team1Rank': g.get('team1Rank'),
+            'team2Rank': g.get('team2Rank'),
+            'winnerTid': winner_tid,
+            'homeTeamTid': home_tid,
+            'isPlayed': g.get('isPlayed', False),
+            'isBowlGame': g.get('isBowlGame', False) or gtype in ('cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship'),
+            'isConferenceChampionship': g.get('isConferenceChampionship', False),
+            'isPlayoff': is_playoff,
+        }
+        # CFP slot id stamp for bracket lookups
+        if gtype in ('cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship'):
+            clean['cfpSlot'] = game_id.split('-')[0]
+
+        if gtype in ('bowl', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship'):
+            wk_idx = max(1, int(g['week']) - 14) if g.get('week') else 1
+            clean['week'] = 'Bowl'
+            clean['bowlWeek'] = f'week{wk_idx}'
+            clean['bowlName'] = bowl_name_full
+        elif gtype == 'cfp_first_round':
+            wk_idx = max(1, int(g['week']) - 14) if g.get('week') else 1
+            clean['week'] = 'Bowl'
+            clean['bowlWeek'] = f'week{wk_idx}'
+        elif gtype == 'conference_championship':
+            clean['week'] = 'CCG'
+            user_conf = (
+                team_records.get(g['year'], {}).get('conference')
+                or conf_for_year(user_team_abbr, g['year'])
+            )
+            if user_conf:
+                clean['conference'] = user_conf
+        else:
+            # Regular season — keep numeric week and tag conference games
+            # so confWins / confLosses get tallied.
+            clean['week'] = g['week']
+            user_conf = conf_for_year(user_team_abbr, g['year'])
+            opp_abbr = g.get('team2') if g.get('team1') == user_team_abbr else g.get('team1')
+            opp_conf = conf_for_year(opp_abbr, g['year'])
+            if user_conf and opp_conf and user_conf == opp_conf:
+                clean['isConferenceGame'] = True
+
+        # Stamp POTW honorees on the matching game record. The Player
+        # page sums conferencePOW / nationalPOW string-equality matches
+        # across games — there's no by-year POW table.
+        potw_key = (year_int, clean.get('week'))
+        potw = potw_lookup.get(potw_key)
+        if potw:
+            if potw.get('conf'):
+                clean['conferencePOW'] = potw['conf']
+            if potw.get('natl'):
+                clean['nationalPOW'] = potw['natl']
+
+        tid_games.append(clean)
+    games = tid_games
 
     # ----- Build by-year app data structures -----------------------------
     final_polls_by_year = {}
@@ -1236,6 +1752,7 @@ def migrate(xlsx_path: Path, output_path: Path):
     players_leaving_by_year = {}
     players_leaving_by_team_year = {}
     recruits_by_team_year = {}
+    recruiting_commitments_by_team_year = {}  # primary path the app reads
     legacy_recruits = []
 
     team_records_by_team_year = {}   # abbr -> { year -> {wins, losses} }
@@ -1245,9 +1762,24 @@ def migrate(xlsx_path: Path, output_path: Path):
         ystr = str(year)
 
         if yd.get('finalPolls'):
-            final_polls_by_year[ystr] = yd['finalPolls']
+            # Strip the placeholder tid:null fields and resolve real
+            # tids — matches the reference dynasty's `{rank, team, tid}`
+            # poll entry shape.
+            polls = yd['finalPolls']
+            polls_clean = {
+                k: [
+                    {'rank': e['rank'], 'team': e['team'], 'tid': tid_for(e['team'])}
+                    for e in (polls.get(k) or [])
+                ]
+                for k in ('media', 'coaches')
+            }
+            final_polls_by_year[ystr] = polls_clean
         if yd.get('cfpSeeds'):
-            cfp_seeds_by_year[ystr] = yd['cfpSeeds']
+            # Reference shape: {seed, team, tid} only — no conference/autoBid
+            cfp_seeds_by_year[ystr] = [
+                {'seed': e['seed'], 'team': e['team'], 'tid': tid_for(e['team'])}
+                for e in yd['cfpSeeds']
+            ]
         if yd.get('standings'):
             conf_standings_by_year[ystr] = yd['standings']
             # Stamp team records + conference for every team in standings
@@ -1264,7 +1796,28 @@ def migrate(xlsx_path: Path, output_path: Path):
                     }
                     conf_by_team_year.setdefault(abbr, {})[ystr] = conf
         if yd.get('confChamps'):
-            conf_champs_by_year[ystr] = yd['confChamps']
+            # Reference shape: {conference, team1, team2, team1Score,
+            # team2Score, winner}. Our parser gives {conference,
+            # champion, opponent, coach}. We don't have CC scores in
+            # the standings table (only the user's CC has a score, in
+            # the schedule grid). Leave team1Score/team2Score = 0 — the
+            # app reads scores from games[] anyway via the CC merge.
+            cc_records = []
+            for cc in yd['confChamps']:
+                champ = cc.get('champion')
+                opp = cc.get('opponent')
+                rec = {
+                    'conference': cc.get('conference'),
+                    'team1': champ,
+                    'team2': opp,
+                    'team1Score': 0,
+                    'team2Score': 0,
+                    'winner': champ,
+                }
+                if cc.get('coach'):
+                    rec['coach'] = cc['coach']
+                cc_records.append(rec)
+            conf_champs_by_year[ystr] = cc_records
         if yd.get('natlChamp'):
             natl_champ_by_year[ystr] = yd['natlChamp']
         if yd.get('awards'):
@@ -1317,11 +1870,39 @@ def migrate(xlsx_path: Path, output_path: Path):
             players_leaving_by_year[ystr] = simple
             players_leaving_by_team_year.setdefault(user_team_abbr, {})[ystr] = simple
 
-        # Recruits → recruitsByTeamYear[user_team_abbr][year], plus
-        # add to legacy recruits[] with team field for compatibility.
+        # Recruits — the Recruiting page reads
+        # `recruitingCommitmentsByTeamYear[teamKey][year][weekKey] = [recruits]`.
+        # Use 'signing_5' as the bucket label (matches how completed
+        # classes are stored in the reference dynasty). Each recruit
+        # entry uses the canonical recruit shape (no firstName/lastName
+        # split, just `name`).
         rec = yd.get('recruits') or []
         if rec:
             recruits_by_team_year.setdefault(user_team_abbr, {})[ystr] = rec
+            commitments_year = {
+                'signing_5': [
+                    {
+                        'name': r.get('name', ''),
+                        'class': r.get('class') or 'HS',
+                        'position': r.get('position') or '',
+                        'archetype': r.get('archetype') or '',
+                        'stars': r.get('stars'),
+                        'nationalRank': r.get('nationalRank'),
+                        'stateRank': r.get('stateRank'),
+                        'positionRank': r.get('positionRank'),
+                        'height': r.get('height') or '',
+                        'weight': r.get('weight'),
+                        'hometown': r.get('hometown') or '',
+                        'state': r.get('state') or '',
+                        'gemBust': r.get('gemBust') or '',
+                        'devTrait': r.get('devTrait') or 'Normal',
+                        'previousTeam': r.get('previousTeam') or '',
+                        'isPortal': r.get('isPortal', False),
+                    }
+                    for r in rec
+                ]
+            }
+            recruiting_commitments_by_team_year.setdefault(user_team_abbr, {})[ystr] = commitments_year
             for r in rec:
                 legacy_recruits.append({**r, 'team': user_team_abbr, 'recruitYear': year})
 
@@ -1329,19 +1910,21 @@ def migrate(xlsx_path: Path, output_path: Path):
     coach_team_by_year = {}
     coach_career = []
     for year, rec in team_records.items():
+        # coachTeamByYear shape (matches reference):
+        # { tid, team (abbr), teamName, position }
         coach_team_by_year[str(year)] = {
+            'tid': user_team_tid,
             'team': user_team_abbr,
             'teamName': user_team_full_name,
-        }
-        coach_career.append({
-            'startYear': year,
-            'endYear': year,
-            'teamAbbr': user_team_abbr,
-            'teamName': user_team_full_name,
             'position': rec['role'],
-            'conference': rec['conference'],
-            'wins': rec['wins'],
-            'losses': rec['losses'],
+        }
+        # coachCareer shape (matches reference): one entry per year, just
+        # { tid, year, position }. The CoachCareer page derives wins,
+        # losses, and conference from games[] / conferenceByTeamYear.
+        coach_career.append({
+            'tid': user_team_tid,
+            'year': year,
+            'position': rec['role'],
         })
         # User team record → if not already in team_records_by_team_year
         # (which comes from standings), drop in conferred values from Team sheet
@@ -1354,28 +1937,231 @@ def migrate(xlsx_path: Path, output_path: Path):
         if rec['conference']:
             conf_by_team_year.setdefault(user_team_abbr, {}).setdefault(str(year), rec['conference'])
 
+    # ----- Link recruits to players (shared pid) ------------------------
+    # The user expects each recruit on the Recruiting page to share a
+    # pid with the same-named player on the active roster, just like
+    # if they had been entered through the site normally. We do this
+    # AFTER all year-rosters are merged (so every recurring name is
+    # already in players_by_name), and AFTER coach career build (so
+    # we don't disturb earlier ordering).
+    #
+    # Strategy: for each recruit, look up by exact name in
+    # players_by_name. If found → stamp `pid` on the recruit entry
+    # AND copy recruit-specific fields (archetype, height, weight,
+    # hometown, state, gemBust, isPortal, previousTeam, recruitYear,
+    # stars, nationalRank) onto the player record. If not found
+    # (recruit who never made the roster), spin up a new player
+    # record with isHonorOnly=False, isRecruit=True so they're
+    # tracked but not surfaced as active roster.
+    matched, created = 0, 0
+    for team_abbr, by_year in recruiting_commitments_by_team_year.items():
+        for year_str, year_buckets in by_year.items():
+            try:
+                recruit_year_int = int(year_str)
+            except (TypeError, ValueError):
+                recruit_year_int = None
+            for week_key, recruit_list in year_buckets.items():
+                for r in recruit_list:
+                    name = (r.get('name') or '').strip()
+                    if not name:
+                        continue
+                    if name in players_by_name:
+                        p = players_by_name[name]
+                        r['pid'] = p['pid']
+                        # Copy recruit metadata onto player (don't
+                        # overwrite already-populated fields — roster
+                        # data wins for things like position).
+                        if not p.get('archetype'):
+                            p['archetype'] = r.get('archetype', '')
+                        if not p.get('height'):
+                            p['height'] = r.get('height', '')
+                        if not p.get('weight'):
+                            p['weight'] = r.get('weight')
+                        if not p.get('hometown'):
+                            p['hometown'] = r.get('hometown', '')
+                        if not p.get('state'):
+                            p['state'] = r.get('state', '')
+                        if not p.get('gemBust'):
+                            p['gemBust'] = r.get('gemBust', '')
+                        # Stars / nationalRank from Individual sheet
+                        # might be missing; recruit row has them.
+                        if p.get('stars') is None:
+                            p['stars'] = r.get('stars')
+                        if p.get('nationalRank') is None:
+                            p['nationalRank'] = r.get('nationalRank')
+                        if not p.get('previousTeam'):
+                            p['previousTeam'] = r.get('previousTeam') or ''
+                        p['isRecruit'] = True
+                        p['isPortal'] = bool(r.get('isPortal'))
+                        if recruit_year_int is not None:
+                            p['recruitYear'] = recruit_year_int
+                            # If the player has a yearStarted later than
+                            # recruitYear (e.g. roster data wasn't filled
+                            # in for an early year), keep the older one.
+                            ys = p.get('yearStarted')
+                            if not ys or recruit_year_int < ys:
+                                p['yearStarted'] = recruit_year_int
+                        matched += 1
+                    else:
+                        # Recruit didn't show up on any year's Individual
+                        # Statistics roster. Still create a player record
+                        # so they aren't orphaned — that mirrors what
+                        # happens in normal site flow (recruits become
+                        # roster players on year-rollover) AND propagate
+                        # them forward through subsequent seasons until
+                        # graduation, since users should see continuity
+                        # ('28 recruit shows up on '29 roster as a So,
+                        # etc.) without having to re-enter them.
+                        first, last = split_name(name)
+                        pid = next_pid
+                        next_pid += 1
+                        new_p = {
+                            'pid': pid,
+                            'id': f'imported-player-{pid}',
+                            'name': name,
+                            'firstName': first,
+                            'lastName': last,
+                            'position': r.get('position') or '',
+                            'team': user_team_tid,
+                            'school': team_abbr,
+                            'year': r.get('class') or 'Fr',
+                            'stars': r.get('stars'),
+                            'nationalRank': r.get('nationalRank'),
+                            'devTrait': r.get('devTrait') or 'Normal',
+                            'devTraitByYear': {},
+                            'overall': None,
+                            'overallByYear': {},
+                            'overallProgression': [],
+                            'teamsByYear': {},
+                            'classByYear': {},
+                            'statsByYear': {},
+                            'movementByYear': {},
+                            'movements': [],
+                            'yearStarted': recruit_year_int or start_year,
+                            'jerseyNumber': '',
+                            'archetype': r.get('archetype') or '',
+                            'height': r.get('height') or '',
+                            'weight': r.get('weight'),
+                            'hometown': r.get('hometown') or '',
+                            'state': r.get('state') or '',
+                            'gemBust': r.get('gemBust') or '',
+                            'pictureUrl': '',
+                            'isHonorOnly': False,
+                            'isPortal': bool(r.get('isPortal')),
+                            'isRecruit': True,
+                            'recruitYear': recruit_year_int,
+                            'previousTeam': r.get('previousTeam') or '',
+                        }
+                        # Propagate roster membership year-over-year
+                        # using the class-progression table.
+                        if recruit_year_int is not None:
+                            initial_class = CLASS_PROGRESSION.get(
+                                r.get('class') or 'HS', r.get('class') or 'Fr'
+                            )
+                            cur_class = initial_class
+                            cur_year = recruit_year_int
+                            while cur_year <= last_active_year and cur_class:
+                                new_p['teamsByYear'][str(cur_year)] = user_team_tid
+                                new_p['classByYear'][str(cur_year)] = cur_class
+                                cur_class = NEXT_CLASS.get(cur_class)
+                                cur_year += 1
+                        players_by_name[name] = new_p
+                        r['pid'] = pid
+                        created += 1
+    # Refresh the players list since we may have appended new entries.
+    players = list(players_by_name.values())
+    print(f'  → Recruit↔player link: {matched} matched to roster, {created} new players created')
+
+    # Mirror pids onto the legacy `recruits` list too (same rules).
+    name_to_pid = {n: p['pid'] for n, p in players_by_name.items()}
+    for r in legacy_recruits:
+        nm = (r.get('name') or '').strip()
+        if nm and nm in name_to_pid:
+            r['pid'] = name_to_pid[nm]
+
     # ----- Build dynasty skeleton ----------------------------------------
+    # Final-form team name (from TB metadata if user is on a TB,
+    # otherwise from Team sheet text). dynasty.teams[userTid].name is
+    # the canonical display name; teamName here mirrors it.
+    user_team_display_name = (
+        dynasty_teams.get(user_team_tid, {}).get('name') or user_team_full_name
+    )
+
+    # ----- Build customConferences map from user's standings ------------
+    # The user did extensive realignment. Reference dynasty stores this
+    # as customConferences (current snapshot, conf → [abbr,...]) and
+    # customConferencesByYear (year-stamped historical view).
+    custom_conferences_by_year = {}  # year-stamped snapshots
+    most_complete_year = None
+    most_complete_count = -1
+    for year in sorted(all_year_data.keys()):
+        standings = all_year_data[year].get('standings') or {}
+        if not standings:
+            continue
+        year_snapshot = {
+            conf: [e['team'] for e in entries if e.get('team')]
+            for conf, entries in standings.items()
+        }
+        # Year-stamped record always uses the year's own snapshot.
+        custom_conferences_by_year[str(year)] = year_snapshot
+        # Track which year has the most conferences populated — that's
+        # the user's intended realignment snapshot.
+        team_count = sum(len(v) for v in year_snapshot.values())
+        if team_count > most_complete_count:
+            most_complete_count = team_count
+            most_complete_year = year
+
+    # Live snapshot = most-complete year's mapping. If no year has any
+    # standings, leave empty (the static FBS map kicks in as fallback).
+    custom_conferences = (
+        custom_conferences_by_year.get(str(most_complete_year), {})
+        if most_complete_year is not None else {}
+    )
+
+    # ----- Multiplayer-of-N schema -------------------------------------
+    # We DON'T pre-seed editors / memberTeams / memberLabels /
+    # memberTeamHistory here — those need to be keyed by the importer's
+    # real Firebase auth UID, which we obviously don't know at
+    # migration time. processImportData() in DynastyContext.jsx seeds
+    # them post-import.
+    #
+    # We do prepare a year-by-tid map, though, so the import seeder
+    # can build memberTeamHistory directly without re-deriving from
+    # coachTeamByYear:
+    member_team_history_by_year = {
+        str(year): [user_team_tid] for year in sorted(team_records.keys())
+    }
+
     dynasty = {
         'name': f'{user_team_abbr} Dynasty (imported)',
         'dynastyName': f'{user_team_abbr} Dynasty (imported)',
-        'teamName': user_team_full_name,
+        'teamName': user_team_display_name,
+        'currentTid': user_team_tid,
         'coachName': coach_name,
         'coachPosition': coach_position,
         'startYear': start_year,
+        # Land at 2029 Week 12 so the user picks up mid-season on the
+        # last roster they had filled in.
         'currentYear': last_active_year,
-        'currentWeek': 0,
-        'currentPhase': 'preseason',
+        'currentWeek': 12,
+        'currentPhase': 'regular_season',
         'conference': team_records.get(last_active_year, {}).get('conference') or '',
         'storageType': 'local',
 
-        # TBs (collapsed into dynasty.teams[tid] by applyMigrations)
-        'customTeams': custom_teams,
+        # TB info baked directly into dynasty.teams[tid] — the site reads
+        # the slot and renders whatever's there. No separate TB concept.
+        'teams': {str(t): v for t, v in dynasty_teams.items()},
+        # Marker so the in-app `customTeams → dynasty.teams` collapse
+        # migration is a no-op.
+        '_tidMigrated': True,
+        '_tidFullyMigrated': True,
 
         # Year-keyed structured data
         'games': games,
         'players': players,
         'recruits': legacy_recruits,
         'recruitsByTeamYear': recruits_by_team_year,
+        'recruitingCommitmentsByTeamYear': recruiting_commitments_by_team_year,
         'finalPollsByYear': final_polls_by_year,
         'cfpSeedsByYear': cfp_seeds_by_year,
         'conferenceStandingsByYear': conf_standings_by_year,
@@ -1386,8 +2172,9 @@ def migrate(xlsx_path: Path, output_path: Path):
         'playersOfTheWeekByYear': players_of_week_by_year,
         'playersLeavingByYear': players_leaving_by_year,
         'playersLeavingByTeamYear': players_leaving_by_team_year,
+        'schedulesByTeamYear': schedules_by_team_year,
 
-        'schedule': [],
+        'schedule': user_byyear_schedule.get(last_active_year, []),
         'rankings': [],
         'nextPID': next_pid,
 
@@ -1408,6 +2195,44 @@ def migrate(xlsx_path: Path, output_path: Path):
         'coachTeamByYear': coach_team_by_year,
         'teamRecordsByTeamYear': team_records_by_team_year,
         'conferenceByTeamYear': conf_by_team_year,
+
+        # Conference realignment
+        'customConferences': custom_conferences,
+        'customConferencesByYear': custom_conferences_by_year,
+
+        # Hint for the import seeder. The actual editors / memberTeams /
+        # memberLabels / memberTeamHistory entries are written by
+        # processImportData() once the importer's real UID is known.
+        '_importMemberSeed': {
+            'tid': user_team_tid,
+            'coachName': coach_name,
+            'teamHistoryByYear': member_team_history_by_year,
+        },
+
+        # Migration markers — set everything so the in-app migration
+        # passes are no-ops on first load.
+        '_schemaVersion': 2,
+        '_tidDataMigrationPending': False,
+        '_userTeamSystemMigrated': True,
+        '_coachTeamByYearMigrated': True,
+        '_movementsMigrated': True,
+        '_legacyDepartureFieldsMigrated': True,
+        '_gamesMigrated': True,
+        '_statsMigrated': True,
+        '_subcollectionsMigrated': False,  # set True only after a real Firestore migration
+        '_normalizedAt': '',
+        '_gameCount': len(games),
+        '_playerCount': len(players),
+
+        # Misc state
+        'isPublic': False,
+        'favorite': False,
+        'seasons': [],
+        'coachingHistory': [],
+        'isFirstYearOnCurrentTeam': False,
+        'newJobData': None,
+        'previousJobData': None,
+        'pendingCoordinatorHires': None,
     }
 
     # ----- Output --------------------------------------------------------
@@ -1418,7 +2243,8 @@ def migrate(xlsx_path: Path, output_path: Path):
     print('\nSummary:')
     print(f'  Games: {len(games)}')
     print(f'  Players: {len(players)}')
-    print(f'  TBs: {len(custom_teams)} (user TB = {user_team_abbr})')
+    print(f'  Slots overridden in dynasty.teams: {len(dynasty_teams)} '
+          f'(user team = {user_team_abbr} → tid {user_team_tid})')
     print(f'  Years with standings: {len(conf_standings_by_year)}')
     print(f'  Years with awards: {len(awards_by_year)}')
     print(f'  Years with All-Americans/Conference: {len(all_americans_by_year)}')
@@ -1426,9 +2252,6 @@ def migrate(xlsx_path: Path, output_path: Path):
     print(f'  Years with recruiting class: '
           f'{len(recruits_by_team_year.get(user_team_abbr, {}))}')
     print('\nDone. Import this file via the homepage "Import File" button.')
-    print('After import:')
-    print('  • TBs have placeholder gray colors / generic names — open Danger')
-    print('    Zone → Edit each TeamBuilder team to set logo / colors / full name')
     print('  • Coach name is "[Your Name]" — set it via Account')
 
 
