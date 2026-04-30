@@ -149,7 +149,8 @@ FINAL CHECK before you send
 [ ] Blank fields for unknowns — nothing invented
 [ ] No rank numbers, no header row, no commentary, no commas in the output`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

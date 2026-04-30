@@ -149,7 +149,8 @@ FINAL CHECK before you send
 [ ] Did not invent teams to fill to 20 — shorter blocks allowed
 [ ] No Conference column, no Rank column, no header row, no commentary in the output`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

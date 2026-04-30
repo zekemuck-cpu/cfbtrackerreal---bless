@@ -119,7 +119,8 @@ FINAL CHECK before you send
 [ ] Blank lines used for uncertain rows — nothing guessed
 [ ] No header row, no totals`,
     includeTeamMap: true,
-  }), [currentYear, userRoster])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, userRoster, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

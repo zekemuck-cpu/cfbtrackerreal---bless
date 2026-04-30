@@ -120,7 +120,8 @@ FINAL CHECK before you send the answer
 [ ] Casing matches the mapping exactly (e.g. "BAMA" not "bama" or "Bama")
 [ ] No commas, no surrounding quotes, no trailing commentary`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

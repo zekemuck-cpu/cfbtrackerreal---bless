@@ -122,7 +122,8 @@ FINAL CHECK before you send
 [ ] Blank entire lines for unknown results — nothing invented
 [ ] No Conference name, no header row, no commentary in the output`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

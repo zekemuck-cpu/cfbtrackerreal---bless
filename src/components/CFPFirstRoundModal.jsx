@@ -101,7 +101,8 @@ FINAL CHECK before you send the answer
 [ ] Blank cell for any unknown value — invented nothing
 [ ] Winner is implied by the higher of the two scores; I did not add a winner column`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   const creatingSheetRef = useRef(false)
 

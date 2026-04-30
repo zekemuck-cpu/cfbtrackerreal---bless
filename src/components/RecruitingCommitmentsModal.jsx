@@ -165,8 +165,9 @@ FINAL CHECK before you send
 [ ] Prev Team is blank for HS/JUCO recruits, an abbreviation (from mapping) for transfers
 [ ] Blank cells for unknowns — invented nothing`,
     includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
     notes: 'Column O (Prev Team) applies ONLY to transfer-portal recruits (Class = Fr, RS Fr, So, RS So, Jr, or RS Jr). For HS and JUCO recruits, leave column O blank. Use ONLY the team abbreviations in the mapping below — never a full team name.',
-  }), [currentYear, recruitingLabel])
+  }), [currentYear, recruitingLabel, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

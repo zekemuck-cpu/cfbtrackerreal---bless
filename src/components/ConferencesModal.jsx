@@ -121,7 +121,8 @@ FINAL CHECK before you send
 [ ] Empty cells (two consecutive tabs) for conferences with fewer teams than the row index
 [ ] No header row, no commas, no commentary in the output`,
     includeTeamMap: true,
-  }), [currentDynasty?.currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentDynasty?.currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

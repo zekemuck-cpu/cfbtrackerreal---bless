@@ -123,8 +123,9 @@ FINAL CHECK before you send
 [ ] Blank line ONLY for rows where Column C = "RS Sr" (no progression)
 [ ] No header row, no totals`,
     includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
     notes: `The "Games" column (protected) reflects regular-season games played in ${currentYear}. In the fringe-case context, the game decides whether a redshirt was applied (typically ≤ 4 games used a redshirt; 5–9 games is the fringe case where either progression or redshirt may apply). Use the screenshot's Games and context to pick the correct allowed value for each row.`
-  }), [currentYear, userRoster])
+  }), [currentYear, userRoster, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

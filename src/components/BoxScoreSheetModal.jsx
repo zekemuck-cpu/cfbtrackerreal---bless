@@ -358,6 +358,7 @@ FINAL CHECK before you send
 [ ] Total rows ≤ 30; no header row; no commas in numbers
 [ ] PAT row is NOT a separate row; the PAT result is in column F of the TD row`,
         includeTeamMap: true,
+        dynastyTeams: currentDynasty?.teams,
       })
     }
 
@@ -478,6 +479,7 @@ FINAL CHECK before you send
 [ ] 0 used for genuine zeros; blank only for truly unknown stats
 [ ] No header row, no stat labels, no commentary`,
         includeTeamMap: true,
+        dynastyTeams: currentDynasty?.teams,
       })
     }
 
@@ -795,8 +797,9 @@ mode of this output and it will silently corrupt the user's sheet.
 If ANY of these fails, fix and re-run the checks. Do not send
 output that fails any of them.`,
       includeTeamMap: true,
+      dynastyTeams: currentDynasty?.teams,
     })
-  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear])
+  }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, homeRosterObjects, awayRosterObjects, homeTeamTid, awayTeamTid, userTidForGameYear, currentDynasty?.teams])
 
   const aiPromptTitle = useMemo(() => {
     const weekLabel = game?.week != null ? `Week ${game.week}` : 'Game'

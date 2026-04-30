@@ -126,7 +126,8 @@ FINAL CHECK before you send
 [ ] Blank lines used for unknown destinations — nothing invented, no "UNK"/"N/A"/"TBD"
 [ ] No header row, no commentary, no totals`,
     includeTeamMap: true,
-  }), [currentYear, userRoster])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, userRoster, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

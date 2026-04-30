@@ -95,9 +95,11 @@ A. Walk every screenshot top-to-bottom, left-to-right. For each one, count the m
 
 B. Sum the counts across screenshots, deduplicating any matchup visible in more than one image. Call this number N.
 
-C. Your TSV output MUST contain EXACTLY N rows (one per FBS-vs-FBS game). If you find yourself emitting fewer than N rows, STOP and re-walk the screenshots — you missed something.
+C. Your TSV output MUST contain EXACTLY N rows (ONE per game, including FBS-vs-FCS games — FCS placeholders like FCSE/FCSM/FCSN/FCSW are valid teams in this dynasty). If you find yourself emitting fewer than N rows, STOP and re-walk the screenshots — you missed something.
 
-D. If N > ${WEEKLY_SCORES_MAX_ROWS}, you have more games than the sheet supports — emit the first ${WEEKLY_SCORES_MAX_ROWS} games in the order they appear and add a one-line note AFTER the TSV block reporting how many were dropped.
+D. Common skip-trap to watch: Week 0 (and many early-season weeks) routinely have multiple FBS-vs-FCS warm-up games. Those games are NOT optional. The FCS opponent is in the team mapping below. INCLUDE every one of them.
+
+E. If N > ${WEEKLY_SCORES_MAX_ROWS}, you have more games than the sheet supports — emit the first ${WEEKLY_SCORES_MAX_ROWS} games in the order they appear and add a one-line note AFTER the TSV block reporting how many were dropped.
 
 ═══════════════════════════════════════════════════════════
 COMMON SCREENSHOT FORMATS — recognize these layouts
@@ -132,10 +134,11 @@ CRITICAL RULES — output format
    - In CFB26's SCORES/SCHEDULES list, the team listed SECOND (right side) is the HOME team. The team listed FIRST (left side) is the AWAY team. If you cannot tell, mark Col G = "Y" (neutral) and pick either team for Col A.
    - If a game is at a neutral site, put EITHER team in column A (it doesn't matter which) and put "Y" in column G.
 7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, conference championship venues). For ordinary home games leave column G BLANK. Do NOT write "N".
-8. UNKNOWN ABBREVIATIONS — never invent. If a team's abbreviation isn't in the mapping at the bottom of this prompt, that team is FCS or unmapped — OMIT that game entirely. (Do NOT use this rule to skip games whose abbreviations DO exist in the mapping but you didn't recognize at first glance — re-check the mapping carefully before omitting.)
-9. SKIP bye weeks. Teams on bye are not games and have no row.
-10. NO HEADER ROW in the output. Do not include "HOME TEAM" / "AWAY TEAM" labels.
-11. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
+8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
+9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
+10. SKIP bye weeks. Teams on bye are not games and have no row.
+11. NO HEADER ROW in the output. Do not include "HOME TEAM" / "AWAY TEAM" labels.
+12. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
 
 ═══════════════════════════════════════════════════════════
 TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} rows × 7 columns
@@ -156,18 +159,20 @@ REQUIRED OUTPUT FORMAT
 
 (Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
 
-Example rows (for illustration only — your data should match the screenshots):
+Example rows (for illustration only — your data should match the screenshots, and you should use ONLY abbreviations that appear in the mapping at the bottom of this prompt):
 TEX\\t7\\t34\\tOU\\t\\t21\\t
-ALA\\t\\t28\\tGA\\t3\\t31\\tY
+BAMA\\t\\t28\\tUGA\\t3\\t31\\tY
+LSU\\t\\t52\\tFCSE\\t\\t10\\t
 
-(In the second row, Alabama is unranked so Col B is blank, Georgia is #3, and "Y" in Col G means neutral site.)
+(Row 1: Texas at home, ranked #7. Row 2: Alabama unranked, Georgia ranked #3, neutral site. Row 3: LSU hosts an FCS opponent — FCSE is the placeholder for FCS East in this dynasty's mapping. Use whichever FCS placeholder matches what the screenshot shows.)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer — actually run these
 ═══════════════════════════════════════════════════════════
 Don't just glance at this list. Physically execute each check on your draft.
 
-[ ] EXHAUSTIVENESS: count the games visible across ALL the user's screenshots (deduplicated). That number is N. Your TSV has EXACTLY N rows. If your row count is less than N, you missed games — go back to the screenshots and find them. A 2-row or 5-row output for a Week with a full slate is almost certainly wrong.
+[ ] EXHAUSTIVENESS: count the games visible across ALL the user's screenshots (deduplicated, INCLUDING FBS-vs-FCS warm-ups). That number is N. Your TSV has EXACTLY N rows. If your row count is less than N, you missed games — go back to the screenshots and find them. A 2-row or 5-row output for a Week with a full slate is almost certainly wrong.
+[ ] FCS GAMES INCLUDED: every FBS-vs-FCS game in the screenshots is a row in your output, mapped to the appropriate FCS placeholder (FCSE / FCSM / FCSN / FCSW or whatever appears in the team mapping below). Skipping a Week 0 FCS warm-up is a known failure mode — confirm you didn't.
 [ ] EVERY SCREENSHOT PROCESSED: if the user sent multiple images (look for "1 of 2", "2 of 2" etc., or simply more than one attachment), confirm you read every one of them, not just the first.
 [ ] NO TRUNCATION: your output does not end with "...", "[and the rest]", "etc.", or any phrase implying you stopped early. The full list goes through.
 [ ] EXACTLY 7 tab-separated values per row (6 tab characters per line) — even when rank/neutral columns are blank, the surrounding tabs MUST still be present.
@@ -178,7 +183,8 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] HOME team correctly identified per game (visitor @ HOME convention; in CFB26 lists, RIGHT side = home) — when in doubt, mark Y in column G and pick either team for column A.
 [ ] No header row, no commentary, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}).`,
     includeTeamMap: true,
-  }), [year, week, userAbbr])
+    dynastyTeams: currentDynasty?.teams,
+  }), [year, week, userAbbr, currentDynasty?.teams])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

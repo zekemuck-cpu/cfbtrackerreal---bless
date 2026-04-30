@@ -107,7 +107,8 @@ FINAL CHECK before you send the answer
 [ ] Winner column matches the team abbreviation with the higher score (or blank if tied/unknown)
 [ ] Blank cells for any unknowns — I invented nothing`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

@@ -139,7 +139,8 @@ FINAL CHECK before you send the answer
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
 [ ] No header row, no bowl name text, no winner column in the output`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

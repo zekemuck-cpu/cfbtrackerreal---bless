@@ -111,7 +111,8 @@ FINAL CHECK before you send
 [ ] Player Name has no trailing whitespace
 [ ] At most 499 data lines`,
     includeTeamMap: true,
-  }), [years.join(',')])
+    dynastyTeams: currentDynasty?.teams,
+  }), [years.join(','), currentDynasty?.teams])
 
   useEffect(() => {
     setIsMobile(isMobileDevice())

@@ -138,7 +138,8 @@ FINAL CHECK before you send the answer
 [ ] No score columns, no week numbers, no user team column, no header row in the output
 [ ] Blank cells only where the week's matchup is genuinely unknown — invented nothing`,
     includeTeamMap: true,
-  }), [currentYear, displayTeamName, targetTeamAbbr])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, displayTeamName, targetTeamAbbr, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)

@@ -175,7 +175,8 @@ FINAL CHECK before you send
 [ ] Blank fields for unknowns — nothing was invented
 [ ] No commas, no header rows, no commentary in the output`,
     includeTeamMap: true,
-  }), [currentYear])
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation
   const creatingSheetRef = useRef(false)

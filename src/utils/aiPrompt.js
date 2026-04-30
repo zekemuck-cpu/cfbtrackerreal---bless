@@ -173,6 +173,22 @@ function buildRosterBlock(roster, heading) {
 }
 
 /**
+ * Build an abbr → name mapping string from a dynasty teams object.
+ * Sorted by abbreviation. Includes ALL teams (FBS + FCS + custom),
+ * since callers append this to prompts that need every abbr the
+ * AI might see in a screenshot.
+ */
+function buildTeamMapFromDynasty(dynastyTeams) {
+  if (!dynastyTeams || typeof dynastyTeams !== 'object') return null
+  const entries = Object.values(dynastyTeams)
+    .filter(t => t && t.abbr && t.name)
+    .map(t => ({ abbr: String(t.abbr).toUpperCase(), name: t.name }))
+  if (entries.length === 0) return null
+  entries.sort((a, b) => a.abbr.localeCompare(b.abbr))
+  return entries.map(({ abbr, name }) => `${abbr} = ${name}`).join('\n')
+}
+
+/**
  * Build an AI prompt describing the structure of a Google Sheet so a user
  * can feed screenshots to an AI chat tool and paste the output back into
  * the sheet cell-for-cell.
@@ -180,7 +196,14 @@ function buildRosterBlock(roster, heading) {
  * @param {object} config
  * @param {string} config.title      — Human-friendly sheet name (e.g. "Team Statistics")
  * @param {string} config.structure  — Multi-line string describing tabs, headers, row count, formats
- * @param {boolean} [config.includeTeamMap=false] — Append the team-abbreviation mapping
+ * @param {boolean} [config.includeTeamMap=false] — Append the team-abbreviation mapping.
+ *   If `dynastyTeams` is also provided, the mapping is built from THAT
+ *   (covers FCS placeholders and custom/teambuilder teams). Otherwise a
+ *   static FBS-only fallback list is used.
+ * @param {object} [config.dynastyTeams] — Optional dynasty.teams object used
+ *   to dynamically build the abbreviation map. When supplied, the prompt's
+ *   team list reflects the user's actual dynasty (so the AI knows about
+ *   FCS placeholders, renamed TB teams, etc.).
  * @param {string}  [config.notes]   — Optional extra guidance (e.g. "opponent abbreviations…")
  * @param {Array<object|string>} [config.roster] — Optional user-team roster
  *   so the AI can resolve "A. Guess" → "Alex Guess". Accepts objects
@@ -201,6 +224,7 @@ export function buildAIPrompt({
   title,
   structure,
   includeTeamMap = false,
+  dynastyTeams = null,
   notes,
   roster,
   rosterLabel = 'YOUR TEAM ROSTER (match abbreviated names like "A. Guess" to full names)',
@@ -337,10 +361,11 @@ export function buildAIPrompt({
     sections.push('', opponentBlock)
   }
   if (includeTeamMap) {
+    const dynamicMap = buildTeamMapFromDynasty(dynastyTeams)
     sections.push(
       '',
-      `When a team appears, use the following abbreviations (format: ABBR = Full Name):`,
-      TEAM_ABBR_MAPPING,
+      `When a team appears, use the following abbreviations (format: ABBR = Full Name). EVERY team in this list — including any FCS placeholders or custom names — is a VALID, in-scope team for this dynasty:`,
+      dynamicMap || TEAM_ABBR_MAPPING,
     )
   }
   return sections.join('\n')
