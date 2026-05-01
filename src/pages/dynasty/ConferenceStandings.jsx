@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -158,11 +158,37 @@ const getConferenceData = (yearStandings, conferenceName) => {
 export default function ConferenceStandings() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConferencesModal, setShowConferencesModal] = useState(false)
+  // Track flash highlight for the conference linked from the team page.
+  const [highlightConf, setHighlightConf] = useState(null)
+  const containerRef = useRef(null)
+  // ?conf=<name> tells us to scroll a specific conference into view —
+  // used by the conference link on the team page.
+  const focusConf = searchParams.get('conf')
+
+  useEffect(() => {
+    if (!focusConf || !containerRef.current) return
+    // Run after layout so heights are correct.
+    const rafId = requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector(
+        `[data-conference="${CSS.escape(focusConf)}"]`
+      )
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        setHighlightConf(focusConf)
+        // Drop the highlight after the flash so it doesn't stick on
+        // subsequent navigations within the page.
+        const t = setTimeout(() => setHighlightConf(null), 2200)
+        return () => clearTimeout(t)
+      }
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [focusConf])
 
   if (!currentDynasty) return null
 
@@ -417,9 +443,20 @@ export default function ConferenceStandings() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 stagger-reveal">
+      <div ref={containerRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6 stagger-reveal">
         {filteredConferences.map(conferenceName => (
-          <ConferenceCard key={conferenceName} conferenceName={conferenceName} />
+          <div
+            key={conferenceName}
+            data-conference={conferenceName}
+            className={
+              highlightConf === conferenceName
+                ? 'rounded-lg ring-2 ring-offset-2 ring-offset-bg-primary transition-shadow duration-300'
+                : ''
+            }
+            style={highlightConf === conferenceName ? { '--tw-ring-color': teamColors?.primary || '#fbbf24' } : undefined}
+          >
+            <ConferenceCard conferenceName={conferenceName} />
+          </div>
         ))}
       </div>
 

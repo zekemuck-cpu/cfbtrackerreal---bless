@@ -2435,7 +2435,11 @@ export default function TeamYear() {
                   <span className="text-txt-muted">•</span>
                 )}
                 {conference && (
-                  <div className="flex items-center gap-1.5">
+                  <Link
+                    to={`${pathPrefix}/conference-standings/${selectedYear}?conf=${encodeURIComponent(conference)}`}
+                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+                    title={`View ${conference} standings`}
+                  >
                     {conferenceLogo && (
                       <img
                         src={conferenceLogo}
@@ -2443,10 +2447,10 @@ export default function TeamYear() {
                         className="w-4 h-4 object-contain"
                       />
                     )}
-                    <span className="text-sm font-semibold text-txt-secondary">
+                    <span className="text-sm font-semibold text-txt-secondary hover:underline">
                       {conference}
                     </span>
-                  </div>
+                  </Link>
                 )}
               </div>
             )}
