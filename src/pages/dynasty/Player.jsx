@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../../context/DynastyContext'
 import PlayerCardFlip from '../../components/PlayerCardFlip'
+import { getPlayerCards } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -1896,10 +1897,10 @@ export default function Player() {
           { key: 'gamelog', label: 'Game Log' },
           { key: 'timeline', label: 'Timeline' },
           { key: 'awards', label: 'Awards' },
-          // The Card tab only appears once a front-of-card image has
-          // been uploaded — most players won't have one, so we hide
-          // the tab to avoid an empty placeholder.
-          ...(player?.cardFront || player?.cardBack ? [{ key: 'card', label: 'Card' }] : []),
+          // The Cards tab only appears once at least one card exists
+          // for this player. Pulls from player.cards[] with a fallback
+          // to the legacy single-card fields.
+          ...(getPlayerCards(player).length > 0 ? [{ key: 'card', label: 'Cards' }] : []),
         ].map(tab => {
           const isActive = activeTab === tab.key
           return (
@@ -5123,45 +5124,74 @@ export default function Player() {
         )
       })()}
 
-      {/* Card Tab — flip view of the player's saved trading card */}
-      {activeTab === 'card' && (player?.cardFront || player?.cardBack) && (() => {
-        // If the card was tagged to a specific game, surface a link
-        // to that game page below the flip.
-        const linkedGame = player?.cardGameId
-          ? (currentDynasty?.games || []).find(g => String(g.id) === String(player.cardGameId))
-          : null
-        let gameLinkLabel = ''
-        if (linkedGame) {
-          const t1 = currentDynasty?.teams?.[Number(linkedGame.team1Tid)]?.abbr || ''
-          const t2 = currentDynasty?.teams?.[Number(linkedGame.team2Tid)]?.abbr || ''
-          gameLinkLabel = `Wk ${linkedGame.week ?? '?'} ${t1} vs ${t2}`
-        }
+      {/* Cards Tab — full collection of trading cards for this player */}
+      {activeTab === 'card' && (() => {
+        const collection = getPlayerCards(player)
+        if (collection.length === 0) return null
+
         return (
           <div className="card overflow-hidden">
             <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
             <div className="p-5">
-              <PlayerCardFlip
-                frontUrl={player.cardFront || ''}
-                backUrl={player.cardBack || ''}
-                accentColor={teamInfo.backgroundColor}
-              />
-              <div className="flex flex-col items-center gap-2 mt-4">
-                {linkedGame && (
-                  <Link
-                    to={`${pathPrefix}/game/${linkedGame.id}`}
-                    className="px-3 py-1.5 rounded-md text-xs font-semibold border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
-                  >
-                    View game · {gameLinkLabel} →
-                  </Link>
-                )}
+              <div className="flex items-end justify-between mb-5">
+                <div>
+                  <div className="label-xs text-txt-tertiary mb-1" style={{ letterSpacing: '1.5px' }}>
+                    {collection.length} {collection.length === 1 ? 'card' : 'cards'}
+                  </div>
+                  <h2 className="text-xl font-black text-txt-primary" style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '1px' }}>
+                    Card Collection
+                  </h2>
+                </div>
                 {!isViewOnly && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit?tab=card`)}
-                    className="text-xs text-txt-tertiary hover:text-txt-secondary transition-colors"
+                    className="px-3 py-1.5 rounded-md text-xs font-semibold border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
                   >
-                    Edit card →
+                    Edit collection →
                   </button>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {collection.map((card, idx) => {
+                  const linkedGame = card.gameId
+                    ? (currentDynasty?.games || []).find(g => String(g.id) === String(card.gameId))
+                    : null
+                  let gameLinkLabel = ''
+                  if (linkedGame) {
+                    const t1 = currentDynasty?.teams?.[Number(linkedGame.team1Tid)]?.abbr || ''
+                    const t2 = currentDynasty?.teams?.[Number(linkedGame.team2Tid)]?.abbr || ''
+                    gameLinkLabel = `Wk ${linkedGame.week ?? '?'} ${t1} vs ${t2}`
+                  }
+                  return (
+                    <div key={card.id || idx} className="flex flex-col items-center">
+                      {(card.year || card.label) && (
+                        <div className="mb-2 text-center">
+                          {card.year && (
+                            <div className="text-xs font-bold text-txt-secondary tabular">{card.year}</div>
+                          )}
+                          {card.label && (
+                            <div className="text-xs text-txt-tertiary mt-0.5">{card.label}</div>
+                          )}
+                        </div>
+                      )}
+                      <PlayerCardFlip
+                        frontUrl={card.front || ''}
+                        backUrl={card.back || ''}
+                        accentColor={teamInfo.backgroundColor}
+                        sizeWidth="min(300px, 100%)"
+                      />
+                      {linkedGame && (
+                        <Link
+                          to={`${pathPrefix}/game/${linkedGame.id}`}
+                          className="mt-3 px-3 py-1.5 rounded-md text-xs font-semibold border border-surface-4 text-txt-secondary hover:bg-surface-3 transition-colors"
+                        >
+                          View game · {gameLinkLabel} →
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear } from '../../context/DynastyContext'
 import PlayerCardFlip from '../../components/PlayerCardFlip'
+import { getCardsForGame } from '../../utils/playerCards'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 // useTeamColors not needed - using neutral colors for game recap
 import { getBowlLogo } from '../../data/bowlLogos'
@@ -636,15 +637,12 @@ export default function Game() {
   const effectiveDefaultTab = defaultTabPref === 'auto' ? autoDefaultTab : defaultTabPref
   const activeTab = searchParams.get('tab') || effectiveDefaultTab
 
-  // Trading cards tagged to this specific game. Walks dynasty.players
-  // looking for `cardGameId === game.id` so a "Cards" tab appears
-  // automatically when any player has a card linked here.
+  // Trading cards tagged to this specific game — walks every
+  // player's cards[] array for one matching this game.id. Falls back
+  // to the legacy single-card fields via getCardsForGame.
   const cardsForGame = useMemo(() => {
-    if (!game?.id || !currentDynasty?.players) return []
-    return currentDynasty.players.filter(p =>
-      p && String(p.cardGameId || '') === String(game.id) && (p.cardFront || p.cardBack)
-    )
-  }, [game?.id, currentDynasty?.players])
+    return getCardsForGame(currentDynasty, game?.id)
+  }, [currentDynasty, game?.id])
 
   // Get user perspective for this game (if user's team was in it)
   const perspective = getUserGamePerspective(game, currentDynasty)
@@ -2867,29 +2865,38 @@ export default function Game() {
             )
           })()}
 
-          {/* Cards tab — flip cards for every player whose card is
-              tagged to this game (player.cardGameId === game.id). */}
+          {/* Cards tab — every card across every player tagged to this
+              game (card.gameId === game.id). One player can show up
+              multiple times if they have multiple cards from the same
+              matchup. */}
           {activeTab === 'cards' && cardsForGame.length > 0 && (
             <div className="px-3 sm:px-5 py-5 sm:py-6">
               <h3 className="text-base font-bold text-txt-primary mb-1">
                 Cards from this game
               </h3>
               <p className="text-xs text-txt-tertiary mb-5">
-                {cardsForGame.length} player{cardsForGame.length === 1 ? '' : 's'} {cardsForGame.length === 1 ? 'has a card' : 'have cards'} tagged to this matchup. Click any name to open their player page.
+                {cardsForGame.length} card{cardsForGame.length === 1 ? '' : 's'} tagged to this matchup. Click any player name to open their full collection.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cardsForGame.map(p => (
-                  <div key={p.pid} className="flex flex-col items-center">
+                {cardsForGame.map(({ player: p, card }) => (
+                  <div key={`${p.pid}-${card.id}`} className="flex flex-col items-center">
                     <Link
                       to={`${pathPrefix}/player/${p.pid}?tab=card`}
-                      className="text-sm font-semibold text-txt-primary hover:underline mb-2"
+                      className="text-sm font-semibold text-txt-primary hover:underline mb-1"
                     >
                       {p.name}
                       {p.position ? <span className="text-txt-tertiary"> · {p.position}</span> : null}
                     </Link>
+                    {(card.year || card.label) && (
+                      <div className="text-[11px] text-txt-tertiary mb-2">
+                        {card.year ? <span className="tabular">{card.year}</span> : null}
+                        {card.year && card.label ? <span className="mx-1">·</span> : null}
+                        {card.label}
+                      </div>
+                    )}
                     <PlayerCardFlip
-                      frontUrl={p.cardFront || ''}
-                      backUrl={p.cardBack || ''}
+                      frontUrl={card.front || ''}
+                      backUrl={card.back || ''}
                       sizeWidth="min(280px, 100%)"
                     />
                   </div>
