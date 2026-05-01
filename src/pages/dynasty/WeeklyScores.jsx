@@ -35,24 +35,47 @@ function formatRecord(rec) {
 
 function GameCard({ game, teams, pathPrefix, recordsByTid }) {
   const navigate = useNavigate()
-  const team1 = teams[game.team1Tid] || TEAMS[game.team1Tid] || null
-  const team2 = teams[game.team2Tid] || TEAMS[game.team2Tid] || null
+  const t1 = Number(game.team1Tid)
+  const t2 = Number(game.team2Tid)
   const team1Score = typeof game.team1Score === 'number' ? game.team1Score : null
   const team2Score = typeof game.team2Score === 'number' ? game.team2Score : null
   const isPlayed = team1Score !== null && team2Score !== null
-  const team1Won = isPlayed && team1Score > team2Score
-  const team2Won = isPlayed && team2Score > team1Score
   const isTie = isPlayed && team1Score === team2Score
   const isNeutral = game.homeTeamTid == null
-  const team1IsHome = !isNeutral && Number(game.homeTeamTid) === Number(game.team1Tid)
-  const team2IsHome = !isNeutral && Number(game.homeTeamTid) === Number(game.team2Tid)
 
-  const winnerColor = team1Won ? team1?.primaryColor : team2Won ? team2?.primaryColor : null
+  // Always render away on top, home on bottom (ordering by visual convention).
+  // For neutral games — no real home — keep team1/team2 source order.
+  let topTid, bottomTid
+  if (isNeutral) {
+    topTid = t1
+    bottomTid = t2
+  } else {
+    const homeTid = Number(game.homeTeamTid)
+    topTid = homeTid === t1 ? t2 : t1
+    bottomTid = homeTid
+  }
 
-  const team1Record = formatRecord(recordsByTid?.[game.team1Tid]?.[Number(game.week)])
-  const team2Record = formatRecord(recordsByTid?.[game.team2Tid]?.[Number(game.week)])
-  const team1Rank = game.team1Rank ? parseInt(game.team1Rank, 10) : null
-  const team2Rank = game.team2Rank ? parseInt(game.team2Rank, 10) : null
+  const scoreFor = (tid) => (tid === t1 ? team1Score : team2Score)
+  const rankFor = (tid) => {
+    const raw = tid === t1 ? game.team1Rank : game.team2Rank
+    if (raw == null || raw === '') return null
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) && n >= 1 && n <= 25 ? n : null
+  }
+
+  const topScore = scoreFor(topTid)
+  const bottomScore = scoreFor(bottomTid)
+  const topWon = isPlayed && !isTie && topScore > bottomScore
+  const bottomWon = isPlayed && !isTie && bottomScore > topScore
+  const topTeam = teams[topTid] || TEAMS[topTid] || null
+  const bottomTeam = teams[bottomTid] || TEAMS[bottomTid] || null
+  const winnerColor = topWon ? topTeam?.primaryColor : bottomWon ? bottomTeam?.primaryColor : null
+
+  const wk = Number(game.week)
+  const topRecord = formatRecord(recordsByTid?.[topTid]?.[wk])
+  const bottomRecord = formatRecord(recordsByTid?.[bottomTid]?.[wk])
+  const topRank = rankFor(topTid)
+  const bottomRank = rankFor(bottomTid)
 
   const handleCardClick = () => navigate(`${pathPrefix}/game/${game.id}`)
   const handleCardKey = (e) => {
@@ -62,25 +85,35 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
     }
   }
 
-  const TeamRow = ({ team, tid, score, won, isHome, lost, record, rank }) => {
+  const statusLabel = !isPlayed
+    ? 'Not yet played'
+    : isTie
+      ? 'Tie'
+      : isNeutral
+        ? 'Neutral site'
+        : null
+
+  const TeamRow = ({ tid, team, score, won, lost, record, rank }) => {
     const mascot = getMascotNameFromTeams(tid, teams) || team?.name || ''
     const school = getSchoolName(mascot) || team?.abbr || `TID ${tid}`
     return (
-      <div className="flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2.5">
+      <div className="flex items-center gap-3 px-4 py-3">
         <TeamLogo tid={tid} teams={teams} size="sm" className="flex-shrink-0" />
-        <div className="flex-1 min-w-0 flex items-baseline gap-1.5">
-          {rank ? (
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
+          {rank != null && (
             <span
-              className="tabular-nums font-semibold flex-shrink-0"
-              style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
+              className="tabular-nums flex-shrink-0"
+              style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}
             >
               #{rank}
             </span>
-          ) : null}
+          )}
           <Link
             to={`${pathPrefix}/team/${tid}/${game.year}`}
             onClick={(e) => e.stopPropagation()}
-            className={`font-semibold text-sm truncate hover:underline ${won ? 'text-txt-primary' : lost ? 'text-txt-tertiary' : 'text-txt-secondary'}`}
+            className={`text-[15px] truncate hover:underline transition-colors ${
+              won ? 'font-bold' : 'font-semibold'
+            } ${won ? 'text-txt-primary' : lost ? 'text-txt-tertiary' : 'text-txt-secondary'}`}
             style={won ? { color: '#fafafa' } : undefined}
           >
             {school}
@@ -90,20 +123,18 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
               className="tabular-nums flex-shrink-0"
               style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}
             >
-              ({record})
-            </span>
-          )}
-          {isHome && (
-            <span className="label-xs text-txt-tertiary flex-shrink-0" style={{ fontSize: '9px', letterSpacing: '1px' }}>
-              HOME
+              {record}
             </span>
           )}
         </div>
         <span
-          className={`font-display tabular-nums text-base sm:text-lg flex-shrink-0 ${won ? 'font-black' : 'font-bold'}`}
+          className={`font-display tabular-nums leading-none flex-shrink-0 ${
+            won ? 'font-black' : 'font-bold'
+          }`}
           style={{
+            fontSize: '22px',
             color: won ? '#fafafa' : lost ? 'var(--text-tertiary)' : 'var(--text-secondary)',
-            minWidth: '2.25rem',
+            minWidth: '2.5rem',
             textAlign: 'right',
           }}
         >
@@ -119,43 +150,46 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
-      className="rounded-lg overflow-hidden bg-surface-2 transition-all hover:translate-y-[-1px] hover:bg-surface-3 cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
+      className="game-card relative rounded-xl overflow-hidden bg-surface-2 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-surface-5"
       style={{ border: '1px solid var(--rule-soft, var(--surface-4))' }}
     >
       {winnerColor && (
-        <div
+        <span
           aria-hidden="true"
-          className="h-[2px] w-full"
+          className="absolute left-0 top-0 bottom-0 w-[3px]"
           style={{ backgroundColor: winnerColor }}
         />
       )}
       <TeamRow
-        team={team1}
-        tid={game.team1Tid}
-        score={team1Score}
-        won={team1Won}
-        lost={team2Won}
-        isHome={team1IsHome}
-        record={team1Record}
-        rank={team1Rank}
+        tid={topTid}
+        team={topTeam}
+        score={topScore}
+        won={topWon}
+        lost={bottomWon}
+        record={topRecord}
+        rank={topRank}
       />
       <div style={{ borderTop: '1px solid var(--surface-4)' }}>
         <TeamRow
-          team={team2}
-          tid={game.team2Tid}
-          score={team2Score}
-          won={team2Won}
-          lost={team1Won}
-          isHome={team2IsHome}
-          record={team2Record}
-          rank={team2Rank}
+          tid={bottomTid}
+          team={bottomTeam}
+          score={bottomScore}
+          won={bottomWon}
+          lost={topWon}
+          record={bottomRecord}
+          rank={bottomRank}
         />
       </div>
-      {(isNeutral || isTie || !isPlayed) && (
-        <div className="px-4 py-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wider text-txt-tertiary" style={{ borderTop: '1px solid var(--surface-4)', backgroundColor: 'var(--surface-1)' }}>
-          {isNeutral && <span style={{ letterSpacing: '1.5px' }}>Neutral Site</span>}
-          {isTie && <span style={{ letterSpacing: '1.5px' }}>Tie</span>}
-          {!isPlayed && <span style={{ letterSpacing: '1.5px' }}>Not yet played</span>}
+      {statusLabel && (
+        <div
+          className="px-4 py-1.5 text-[10px] uppercase text-txt-tertiary"
+          style={{
+            borderTop: '1px solid var(--surface-4)',
+            backgroundColor: 'var(--surface-1)',
+            letterSpacing: '1.5px',
+          }}
+        >
+          {statusLabel}
         </div>
       )}
     </div>
@@ -328,6 +362,20 @@ export default function WeeklyScores() {
           teamColors={teamColors}
         />
       )}
+
+      <style>{`
+        .game-card {
+          transition: background-color 200ms ease, border-color 200ms ease, transform 200ms ease;
+        }
+        .game-card:hover {
+          background-color: var(--surface-3);
+          transform: translateY(-1px);
+          border-color: color-mix(in srgb, var(--surface-5) 60%, transparent);
+        }
+        .game-card:active {
+          transform: translateY(0);
+        }
+      `}</style>
     </div>
   )
 }
