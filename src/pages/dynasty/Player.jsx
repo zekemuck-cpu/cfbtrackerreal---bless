@@ -4,7 +4,7 @@ import { useDynasty, getEncourageTransfers, getRecruitingCommitments } from '../
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
@@ -90,49 +90,18 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Get just the school name (without mascot) for cleaner display in timeline
+// Get just the school name (without mascot) for cleaner display in timeline.
+// Tid/abbr lookup goes through the canonical helper first; if that returns
+// null (e.g. raw mascot string passed in), we fall back to the local
+// `getMascotName` then strip via the shared helper so the mascot list
+// stays in one place.
 const getSchoolName = (abbrOrTid, teamsData = null) => {
-  // Try tid-based lookup first if teams data provided
   if (teamsData) {
     const result = getSchoolNameFromTeams(abbrOrTid, teamsData)
     if (result) return result
   }
-  // Fall back to extracting from mascot name
   const fullName = getMascotName(abbrOrTid, teamsData)
-  if (!fullName) return null
-
-  // Split and remove mascot (last word or known two-word mascots)
-  const parts = fullName.split(' ')
-  if (parts.length <= 1) return fullName
-
-  const threeWordMascots = [
-    "Fightin' Blue Hens", 'Fightin Blue Hens', 'Fighting Blue Hens',
-  ]
-
-  if (parts.length >= 4) {
-    const lastThree = `${parts[parts.length - 3]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`
-    if (threeWordMascots.some(m => m.toLowerCase() === lastThree.toLowerCase())) {
-      return parts.slice(0, -3).join(' ')
-    }
-  }
-
-  const twoWordMascots = [
-    'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
-    'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',
-    'Red Raiders', 'Red Wolves', 'Mean Green', 'Green Wave', 'Horned Frogs',
-    'Nittany Lions', 'Scarlet Knights', 'Fighting Irish', 'Demon Deacons',
-    'Crimson Tide', 'Golden Hurricane', 'Thundering Herd', 'Tar Heels',
-    'Ragin\' Cajuns', 'Wolf Pack', 'Fighting Illini'
-  ]
-
-  if (parts.length >= 3) {
-    const lastTwo = `${parts[parts.length - 2]} ${parts[parts.length - 1]}`
-    if (twoWordMascots.some(m => m.toLowerCase() === lastTwo.toLowerCase())) {
-      return parts.slice(0, -2).join(' ')
-    }
-  }
-
-  return parts.slice(0, -1).join(' ')
+  return stripMascotFromName(fullName)
 }
 
 // Class progression order

@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr } from '../../data/teamRegistry'
 import AwardsModal from '../../components/AwardsModal'
@@ -124,30 +124,8 @@ const CATEGORY_LABEL = {
   player: 'Player'
 }
 
-// Extract school name from mascot
-const getSchoolName = (mascotName) => {
-  if (!mascotName) return null
-  // Order matters — longer/more-specific mascots must come first so that
-  // "Delaware Fightin' Blue Hens" doesn't match "Blue Hens" first.
-  const specialMascots = [
-    'Fightin\' Blue Hens', 'Fightin Blue Hens', 'Fighting Blue Hens',
-    'Crimson Tide', 'Blue Hens', 'Golden Flashes', 'Mean Green',
-    'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
-    'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
-    'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',
-    'Sun Devils', 'Wolf Pack', 'Black Knights', 'Tar Heels', 'Red Storm'
-  ]
-  for (const mascot of specialMascots) {
-    if (mascotName.endsWith(mascot)) {
-      return mascotName.slice(0, -mascot.length).trim()
-    }
-  }
-  const parts = mascotName.split(' ')
-  if (parts.length > 1) {
-    return parts.slice(0, -1).join(' ')
-  }
-  return mascotName
-}
+// Delegate to the shared mascot-strip helper.
+const getSchoolName = stripMascotFromName
 
 export default function Awards() {
   const { id, year: urlYear } = useParams()

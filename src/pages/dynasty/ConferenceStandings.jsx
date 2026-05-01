@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, calculateTeamRecordFromGames, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
@@ -18,30 +18,11 @@ import {
   TitleWithYear,
 } from '../../components/ui'
 
-// Extract school name from full mascot name
-const getSchoolName = (mascotName) => {
-  if (!mascotName) return null
-  // Order matters — longer/more-specific mascots must come first so that
-  // "Delaware Fightin' Blue Hens" doesn't match "Blue Hens" first.
-  const specialMascots = [
-    'Fightin\' Blue Hens', 'Fightin Blue Hens', 'Fighting Blue Hens',
-    'Crimson Tide', 'Blue Hens', 'Golden Flashes', 'Mean Green',
-    'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
-    'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
-    'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',
-    'Sun Devils', 'Wolf Pack', 'Black Knights', 'Tar Heels', 'Red Storm'
-  ]
-  for (const mascot of specialMascots) {
-    if (mascotName.endsWith(mascot)) {
-      return mascotName.slice(0, -mascot.length).trim()
-    }
-  }
-  const parts = mascotName.split(' ')
-  if (parts.length > 1) {
-    return parts.slice(0, -1).join(' ')
-  }
-  return mascotName
-}
+// Extract school name from full mascot name. Delegates to the shared
+// helper in src/data/teams.js so the known-mascot list lives in one
+// place — adding a new two/three-word mascot there fixes every page
+// (this one, AllAmericans, Awards, Rankings, Player, etc.) at once.
+const getSchoolName = stripMascotFromName
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {

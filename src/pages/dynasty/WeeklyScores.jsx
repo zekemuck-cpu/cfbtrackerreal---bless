@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid } from '../../data/teamRegistry'
-import { getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
@@ -12,28 +12,9 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 
 const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
 
-function getSchoolName(mascotName) {
-  if (!mascotName) return ''
-  // FCS placeholders use "FCS <Direction>" — the directional word is part of
-  // the school name, not a mascot. Return as-is so we don't render plain "FCS".
-  if (/^FCS\s+/i.test(mascotName)) return mascotName
-  // Order matters — longer/more-specific mascots must be checked first so
-  // that "Delaware Fightin' Blue Hens" doesn't match "Blue Hens" and leave
-  // "Delaware Fightin'" as the school name.
-  const specialMascots = [
-    "Fightin' Blue Hens", 'Fightin Blue Hens', 'Fighting Blue Hens',
-    'Crimson Tide', 'Blue Hens', 'Golden Flashes', 'Mean Green',
-    "Ragin' Cajuns", 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
-    'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
-    'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',
-    'Sun Devils', 'Wolf Pack', 'Black Knights', 'Tar Heels', 'Red Storm'
-  ]
-  for (const mascot of specialMascots) {
-    if (mascotName.endsWith(mascot)) return mascotName.slice(0, -mascot.length).trim()
-  }
-  const parts = mascotName.split(' ')
-  return parts.length > 1 ? parts.slice(0, -1).join(' ') : mascotName
-}
+// Delegate to the shared mascot-strip helper so this page stays in
+// sync with the canonical list (FCS placeholders + 2/3-word mascots).
+const getSchoolName = (m) => stripMascotFromName(m) || ''
 
 function formatRecord(rec) {
   if (!rec) return null

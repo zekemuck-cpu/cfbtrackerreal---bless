@@ -15,7 +15,7 @@ import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
 import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
 import { calculateRecruitingClassScore, formatRecruitingClassScore, flattenClassCommitments } from '../../utils/recruitingScore'
 import { useToast } from '../../components/ui/Toast'
@@ -186,39 +186,10 @@ const getMascotName = (abbr, teamsData = null) => {
   return mascotMap[abbr] || null
 }
 
-// Extract school name from full team name (e.g., "Kentucky Wildcats" -> "Kentucky")
-const getSchoolName = (mascotName) => {
-  if (!mascotName) return ''
-
-  // Three-word mascots that need to be removed
-  const threeWordMascots = ["Fightin' Blue Hens"]
-  for (const mascot of threeWordMascots) {
-    if (mascotName.endsWith(mascot)) {
-      return mascotName.replace(` ${mascot}`, '')
-    }
-  }
-
-  // Two-word mascots that need to be removed
-  const twoWordMascots = [
-    'Crimson Tide', 'Golden Bears', 'Sun Devils', 'Red Wolves', 'Black Knights',
-    'Blue Devils', 'Fighting Illini', 'Yellow Jackets', 'Fighting Irish', 'Nittany Lions',
-    'Scarlet Knights', 'Golden Eagles', 'Demon Deacons', 'Horned Frogs', 'Green Wave',
-    'Golden Hurricane', 'Mean Green', 'Tar Heels', 'Golden Gophers', 'Golden Flashes',
-    'Blue Raiders', 'Wolf Pack', "Ragin' Cajuns", 'Rainbow Warriors'
-  ]
-  for (const mascot of twoWordMascots) {
-    if (mascotName.endsWith(mascot)) {
-      return mascotName.replace(` ${mascot}`, '')
-    }
-  }
-
-  // Default: remove last word (single-word mascot)
-  const words = mascotName.split(' ')
-  if (words.length > 1) {
-    return words.slice(0, -1).join(' ')
-  }
-  return mascotName
-}
+// Extract school name from full team name (e.g., "Kentucky Wildcats"
+// -> "Kentucky"). Delegates to the shared helper so the known-mascot
+// list stays in one place.
+const getSchoolName = (m) => stripMascotFromName(m) || ''
 
 // Award display names
 const AWARD_DISPLAY = {

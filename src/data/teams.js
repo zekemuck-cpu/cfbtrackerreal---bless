@@ -313,20 +313,27 @@ export function getMascotName(abbrOrTid, dynastyTeams = null) {
   return teamAbbreviations[upperAbbr]?.name || null
 }
 
-// Helper function to get just the school name (without mascot) from abbreviation or tid
-// e.g., "Memphis Tigers" -> "Memphis", "Kentucky Wildcats" -> "Kentucky"
-export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
-  const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
-  if (!fullName) return null
+/**
+ * Strip the mascot suffix off a full team name like "Arkansas State Red Wolves"
+ * → "Arkansas State". This is the shared mascot-stripping logic used by
+ * `getSchoolName` and by all page-local helpers across the app, so the
+ * known-mascot list lives in exactly one place. Pages that already have a
+ * mascot string (e.g. from a saved standings row) call this directly;
+ * pages that have an abbr/tid go through `getSchoolName` to look up the
+ * mascot first.
+ *
+ * @param {string} fullName - Full team name including mascot
+ * @returns {string} School name without the mascot suffix
+ */
+export function stripMascotFromName(fullName) {
+  if (!fullName) return fullName
 
-  // FCS placeholder schools ("FCS East", "FCS Northwest", "FCS Southeast", etc.)
-  // have a directional last word that IS part of the school name, not a
-  // mascot. Return the full name unchanged so cards don't render as just
-  // "FCS" with the direction stripped.
+  // FCS placeholder schools ("FCS East", "FCS Northwest", "FCS Southeast",
+  // etc.) have a directional last word that IS part of the school name,
+  // not a mascot. Return the full name unchanged so cards don't render
+  // as just "FCS" with the direction stripped.
   if (/^FCS\s+/i.test(fullName)) return fullName
 
-  // Split by space and remove the last word (mascot)
-  // Handle multi-word mascots like "Sun Devils", "Golden Bears", "Black Knights"
   const parts = fullName.split(' ')
   if (parts.length <= 1) return fullName
 
@@ -334,9 +341,8 @@ export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
   // Checked before the two-word list so we don't strip just "Blue Hens"
   // and leave "Delaware Fightin'" as the school name.
   const threeWordMascots = [
-    "Fightin' Blue Hens", "Fightin Blue Hens", "Fighting Blue Hens",
+    "Fightin' Blue Hens", 'Fightin Blue Hens', 'Fighting Blue Hens',
   ]
-
   if (parts.length >= 4) {
     const lastThree = `${parts[parts.length - 3]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`
     if (threeWordMascots.some(m => m.toLowerCase() === lastThree.toLowerCase())) {
@@ -344,21 +350,20 @@ export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
     }
   }
 
-  // Common two-word mascots that we need to handle. Keep in sync with the
-  // fallback list in src/pages/dynasty/Player.jsx — missing an entry here
-  // produces buggy renders like "Tulsa Golden" instead of "Tulsa".
+  // Common two-word mascots. Adding here fixes every page in one shot
+  // (Conference Standings, AllAmericans, Awards, Rankings, Player, etc.)
+  // since they all delegate the strip to this function. Missing an entry
+  // produces buggy renders like "Arkansas State Red" or "Minnesota Golden".
   const twoWordMascots = [
     'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
     'Golden Hurricane', 'Golden Knights',
     'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',
-    'Red Raiders', 'Red Wolves', 'Mean Green', 'Green Wave', 'Horned Frogs',
+    'Red Raiders', 'Red Wolves', 'Red Storm', 'Mean Green', 'Green Wave', 'Horned Frogs',
     'Nittany Lions', 'Scarlet Knights', 'Orange Men', 'Fighting Irish',
     'Demon Deacons', 'Crimson Tide', 'War Eagles', 'Runnin Utes',
     'Thundering Herd', 'Tar Heels', "Ragin' Cajuns", 'Wolf Pack', 'Fighting Illini',
     'Rainbow Warriors',
   ]
-
-  // Check if the last two words form a known two-word mascot
   if (parts.length >= 3) {
     const lastTwo = `${parts[parts.length - 2]} ${parts[parts.length - 1]}`
     if (twoWordMascots.some(m => m.toLowerCase() === lastTwo.toLowerCase())) {
@@ -366,8 +371,16 @@ export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
     }
   }
 
-  // Default: remove just the last word
+  // Default: drop just the last word (single-word mascot)
   return parts.slice(0, -1).join(' ')
+}
+
+// Helper function to get just the school name (without mascot) from abbreviation or tid
+// e.g., "Memphis Tigers" -> "Memphis", "Kentucky Wildcats" -> "Kentucky"
+export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
+  const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
+  if (!fullName) return null
+  return stripMascotFromName(fullName)
 }
 
 // Get team logo URL by name or abbreviation. Single tid-based path:

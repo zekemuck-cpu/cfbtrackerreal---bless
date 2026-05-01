@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
-import { getTeamLogo } from '../data/teams'
+import { getTeamLogo, stripMascotFromName } from '../data/teams'
 import { getBowlLogo } from '../data/bowlGames'
 import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
@@ -124,28 +124,9 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
     const mascotName = mascotMap[abbr] || teamData.name
     const logo = teamData.logo || (mascotName ? getTeamLogo(mascotName, teams) : null)
 
-    // Extract just the school name (remove mascot suffix)
-    // e.g., "Kentucky Wildcats" -> "Kentucky", "Duke Blue Devils" -> "Duke"
-    const getSchoolName = (fullName) => {
-      if (!fullName) return abbr
-      // Common multi-word mascots to remove
-      const mascots = [
-        'Fightin\' Blue Hens', 'Blue Devils', 'Yellow Jackets', 'Golden Gophers',
-        'Horned Frogs', 'Red Raiders', 'Green Wave', 'Golden Hurricane', 'Mean Green',
-        'Demon Deacons', 'Fighting Irish', 'Fighting Illini', 'Golden Flashes',
-        'Ragin\' Cajuns', 'Black Knights', 'Blue Raiders', 'Golden Bears', 'Scarlet Knights',
-        'Nittany Lions', 'Crimson Tide', 'Sun Devils', 'Red Wolves', 'Thundering Herd',
-        'Rainbow Warriors', 'Wolf Pack', 'Tar Heels', 'Running Rebels'
-      ]
-      for (const mascot of mascots) {
-        if (fullName.endsWith(mascot)) {
-          return fullName.replace(mascot, '').trim()
-        }
-      }
-      // Default: remove last word (single-word mascot)
-      const words = fullName.split(' ')
-      return words.length > 1 ? words.slice(0, -1).join(' ') : fullName
-    }
+    // Extract just the school name (remove mascot suffix). Delegates
+    // to the shared helper so the known-mascot list stays in one place.
+    const getSchoolName = (fullName) => stripMascotFromName(fullName) || abbr
 
     return {
       abbr,
