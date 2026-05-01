@@ -1145,11 +1145,17 @@ export const TEAMS = {
     secondaryColor: "#ffc425",
     logo: "https://i.imgur.com/Pjw5U7w.png"
   },
-  // FCS Teams (137-140)
+  // FCS Teams (137-141) — match CFB26's actual five generic directional
+  // schools: FCS East, FCS Southeast, FCS Midwest, FCS Northwest, FCS West.
+  // Abbreviations match CFB26's 5-letter in-game codes (FCSE, FCSSE, FCSMW,
+  // FCSNW, FCSW). Existing dynasties created before FCSSE was added (or
+  // that still hold the old 4-letter FCSM / FCSN abbrs and the made-up
+  // nicknames) are migrated forward by migrateFCSFiveTeams() in
+  // DynastyContext.
   137: {
     tid: 137,
     abbr: "FCSE",
-    name: "FCS East Judicials",
+    name: "FCS East",
     primaryColor: "#2F1936",
     secondaryColor: "#8E85A1",
     logo: "https://i.imgur.com/eFyXxwT.png",
@@ -1157,8 +1163,8 @@ export const TEAMS = {
   },
   138: {
     tid: 138,
-    abbr: "FCSM",
-    name: "FCS Midwest Rebels",
+    abbr: "FCSMW",
+    name: "FCS Midwest",
     primaryColor: "#91ABC7",
     secondaryColor: "#1a1a1a",
     logo: "https://i.imgur.com/NOJOPG8.png",
@@ -1166,8 +1172,8 @@ export const TEAMS = {
   },
   139: {
     tid: 139,
-    abbr: "FCSN",
-    name: "FCS Northwest Stallions",
+    abbr: "FCSNW",
+    name: "FCS Northwest",
     primaryColor: "#BFA544",
     secondaryColor: "#477F62",
     logo: "https://i.imgur.com/uBvbn1s.png",
@@ -1176,10 +1182,19 @@ export const TEAMS = {
   140: {
     tid: 140,
     abbr: "FCSW",
-    name: "FCS West Titans",
+    name: "FCS West",
     primaryColor: "#462E6A",
     secondaryColor: "#AF9458",
     logo: "https://i.imgur.com/Y8A8u0g.png",
+    isFCS: true
+  },
+  141: {
+    tid: 141,
+    abbr: "FCSSE",
+    name: "FCS Southeast",
+    primaryColor: "#4A7C59",
+    secondaryColor: "#F0E68C",
+    logo: "",
     isFCS: true
   }
 }

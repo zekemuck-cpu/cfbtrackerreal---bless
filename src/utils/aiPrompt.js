@@ -366,6 +366,11 @@ export function buildAIPrompt({
       '',
       `When a team appears, use the following abbreviations (format: ABBR = Full Name). EVERY team in this list — including any FCS placeholders or custom names — is a VALID, in-scope team for this dynasty:`,
       dynamicMap || TEAM_ABBR_MAPPING,
+      '',
+      `IMPORTANT — abbreviation handling:`,
+      `• The mapping above is the SOURCE OF TRUTH. The Google Sheet's strict dropdown is built from this exact list — anything else is rejected.`,
+      `• If the in-game screenshot shows a slightly different short form than what's in the mapping (e.g. screenshot shows "FCSMW" but mapping shows "FCSM", or vice versa), USE THE MAPPING's value. Match by the team's full name and direction (East / Midwest / Northwest / Southeast / West) — not by character-for-character abbreviation match.`,
+      `• Never invent an abbreviation that isn't in the mapping. If after a careful re-scan you still can't find a team in the mapping, omit that row — but check carefully first, because abbreviation drift between the in-game UI and the dropdown is a known issue.`,
     )
   }
   return sections.join('\n')

@@ -3659,6 +3659,81 @@ export function migrateToUserTeamSystem(dynasty) {
   }
 }
 
+/**
+ * Migration: Sync FCS team set to CFB26's actual five teams.
+ *
+ * Older dynasties were created when the registry held only four FCS teams
+ * (FCSE / FCSM / FCSN / FCSW) with made-up nicknames (Judicials / Rebels /
+ * Stallions / Titans). CFB26 actually ships five generic directional
+ * schools — FCS East, FCS Southeast, FCS Midwest, FCS Northwest, FCS West
+ * — with no nicknames, and uses 5-letter codes for the compound
+ * directions (FCSE, FCSSE, FCSMW, FCSNW, FCSW). This migration:
+ *
+ *   • Renames tid 138's abbr from "FCSM" to "FCSMW" if still 4-letter.
+ *   • Renames tid 139's abbr from "FCSN" to "FCSNW" if still 4-letter.
+ *   • Strips made-up nicknames from existing FCS team names.
+ *   • Adds tid 141 (FCSSE / FCS Southeast) if missing.
+ *
+ * Only `abbr` and `name` on FCS slots are normalized; user customizations
+ * to colors/logos are preserved. tid remains the stable identifier.
+ */
+export function migrateFCSFiveTeams(dynasty) {
+  if (!dynasty) return dynasty
+  if (dynasty._fcs5TeamsMigrated) return dynasty
+
+  const teams = { ...(dynasty.teams || {}) }
+
+  // Canonical names for the four pre-existing FCS slots. The migration
+  // overwrites the team's `name` with these only if the current name
+  // matches one of the legacy made-up forms (so user-renamed FCS teams
+  // are left alone).
+  const canonicalNames = {
+    137: { name: 'FCS East',      legacy: ['FCS East Judicials'] },
+    138: { name: 'FCS Midwest',   legacy: ['FCS Midwest Rebels'] },
+    139: { name: 'FCS Northwest', legacy: ['FCS Northwest Stallions'] },
+    140: { name: 'FCS West',      legacy: ['FCS West Titans'] },
+  }
+
+  // Rename old 4-letter abbrs to CFB26's 5-letter codes (only when the
+  // dynasty still holds the legacy 4-letter form).
+  if (teams[138] && teams[138].abbr === 'FCSM') {
+    teams[138] = { ...teams[138], abbr: 'FCSMW' }
+  }
+  if (teams[139] && teams[139].abbr === 'FCSN') {
+    teams[139] = { ...teams[139], abbr: 'FCSNW' }
+  }
+
+  // Strip made-up nicknames from any FCS slot still holding the legacy
+  // form. User-customized names pass through untouched.
+  for (const [tidStr, { name, legacy }] of Object.entries(canonicalNames)) {
+    const tid = Number(tidStr)
+    const slot = teams[tid]
+    if (slot && legacy.includes(slot.name)) {
+      teams[tid] = { ...slot, name }
+    }
+  }
+
+  // Add FCSSE if missing.
+  if (!teams[141]) {
+    teams[141] = {
+      tid: 141,
+      abbr: 'FCSSE',
+      name: 'FCS Southeast',
+      primaryColor: '#4A7C59',
+      secondaryColor: '#F0E68C',
+      logo: '',
+      isFCS: true,
+      byYear: {},
+    }
+  }
+
+  return {
+    ...dynasty,
+    teams,
+    _fcs5TeamsMigrated: true,
+  }
+}
+
 // ============================================================================
 // MOVEMENT TYPES - Player movement tracking system
 // ============================================================================
@@ -4315,6 +4390,12 @@ export function DynastyProvider({ children }) {
         migrated = migrateToUserTeamSystem(migrated)
       }
 
+      // Sync FCS team set to CFB26's actual five teams (5-letter compound
+      // codes + FCSSE). Idempotent via _fcs5TeamsMigrated flag.
+      if (!migrated._fcs5TeamsMigrated) {
+        migrated = migrateFCSFiveTeams(migrated)
+      }
+
       // FIX: Ensure coachTeamByYear has correct entries for ALL years with games
       // Infer from games data - find what team the user played as each year
       const games = migrated.games || []
@@ -4684,6 +4765,14 @@ export function DynastyProvider({ children }) {
             }
             if (migrated._tidMigrated && !raw._tidMigrated) {
               flagsToSave._tidMigrated = true
+            }
+            if (migrated._fcs5TeamsMigrated && !raw._fcs5TeamsMigrated) {
+              flagsToSave._fcs5TeamsMigrated = true
+              // Also persist the updated teams map so the new abbrs / FCSSE
+              // team survive a refresh without waiting on another mutation.
+              if (migrated.teams) {
+                flagsToSave.teams = migrated.teams
+              }
             }
 
             // Check if we should persist migrated data
