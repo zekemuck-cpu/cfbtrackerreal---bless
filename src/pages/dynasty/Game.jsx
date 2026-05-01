@@ -984,15 +984,21 @@ export default function Game() {
   const confLogo = game.isConferenceChampionship && confName ? getConferenceLogo(confName) : null
   const eventLogo = bowlLogo || confLogo
 
-  // Get rankings - for CPU games use team1Rank/team2Rank, for user games use userRank/opponentRank
+  // Get rankings. For CPU games, displayTeam is the viewing perspective (often
+  // the winner) which is independent of visual side — so we have to resolve
+  // perspective→team1/2, then apply the leftTeam/rightTeam mapping. The old
+  // code conflated the two and rendered team1Rank on the visual left even
+  // when the display team was actually on the right (e.g. UNC #10 at home
+  // showed as "FCS Midwest #10").
   let leftRank, rightRank
   if (isCPUGame) {
-    // For CPU games, compare displayTeamAbbr with team1 abbreviation
     const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
     const team1Abbr = team1Info?.abbr || game.team1
-    const isLeftTeam1 = displayTeamAbbr === team1Abbr
-    leftRank = isLeftTeam1 ? game.team1Rank : game.team2Rank
-    rightRank = isLeftTeam1 ? game.team2Rank : game.team1Rank
+    const isDisplayTeam1 = displayTeamAbbr === team1Abbr
+    const displayRank = isDisplayTeam1 ? game.team1Rank : game.team2Rank
+    const oppRank = isDisplayTeam1 ? game.team2Rank : game.team1Rank
+    leftRank = leftTeam === 'user' ? displayRank : oppRank
+    rightRank = rightTeam === 'user' ? displayRank : oppRank
   } else {
     // For user games, use perspective ranks or fallback to game fields
     const userRank = perspective?.userRank ?? game.userRank ?? game.team1Rank

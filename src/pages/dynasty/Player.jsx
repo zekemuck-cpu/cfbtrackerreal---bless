@@ -105,6 +105,17 @@ const getSchoolName = (abbrOrTid, teamsData = null) => {
   const parts = fullName.split(' ')
   if (parts.length <= 1) return fullName
 
+  const threeWordMascots = [
+    "Fightin' Blue Hens", 'Fightin Blue Hens', 'Fighting Blue Hens',
+  ]
+
+  if (parts.length >= 4) {
+    const lastThree = `${parts[parts.length - 3]} ${parts[parts.length - 2]} ${parts[parts.length - 1]}`
+    if (threeWordMascots.some(m => m.toLowerCase() === lastThree.toLowerCase())) {
+      return parts.slice(0, -3).join(' ')
+    }
+  }
+
   const twoWordMascots = [
     'Sun Devils', 'Golden Bears', 'Golden Gophers', 'Golden Eagles', 'Golden Flashes',
     'Black Knights', 'Yellow Jackets', 'Blue Devils', 'Blue Raiders', 'Blue Hens',

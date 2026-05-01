@@ -86,8 +86,11 @@ const getMascotName = (abbr, teamsData = null) => {
 
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
+  // Order matters — longer/more-specific mascots must come first so that
+  // "Delaware Fightin' Blue Hens" doesn't match "Blue Hens" first.
   const specialMascots = [
-    'Crimson Tide', 'Blue Hens', 'Fightin\' Blue Hens', 'Golden Flashes', 'Mean Green',
+    'Fightin\' Blue Hens', 'Fightin Blue Hens', 'Fighting Blue Hens',
+    'Crimson Tide', 'Blue Hens', 'Golden Flashes', 'Mean Green',
     'Ragin\' Cajuns', 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
     'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
     'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',

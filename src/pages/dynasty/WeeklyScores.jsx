@@ -17,8 +17,12 @@ function getSchoolName(mascotName) {
   // FCS placeholders use "FCS <Direction>" — the directional word is part of
   // the school name, not a mascot. Return as-is so we don't render plain "FCS".
   if (/^FCS\s+/i.test(mascotName)) return mascotName
+  // Order matters — longer/more-specific mascots must be checked first so
+  // that "Delaware Fightin' Blue Hens" doesn't match "Blue Hens" and leave
+  // "Delaware Fightin'" as the school name.
   const specialMascots = [
-    'Crimson Tide', 'Blue Hens', "Fightin' Blue Hens", 'Golden Flashes', 'Mean Green',
+    "Fightin' Blue Hens", 'Fightin Blue Hens', 'Fighting Blue Hens',
+    'Crimson Tide', 'Blue Hens', 'Golden Flashes', 'Mean Green',
     "Ragin' Cajuns", 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',
     'Demon Deacons', 'Yellow Jackets', 'Horned Frogs', 'Scarlet Knights',
     'Blue Raiders', 'Red Raiders', 'Golden Bears', 'Nittany Lions', 'Green Wave',

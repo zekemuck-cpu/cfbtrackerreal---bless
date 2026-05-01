@@ -1441,11 +1441,6 @@ export function buildGameRecapContext(dynasty, game) {
   const scoreDiff = Math.abs(team1Score - team2Score)
   const team1Won = team1Score > team2Score
 
-  // For user games (including unified format user games), get season context
-  let recordBefore = null
-  let recordAfter = null
-  let streak = null
-
   // Calculate game order for this game (used for filtering previous games)
   const thisGameOrder = getGameOrder(game)
 
@@ -1462,38 +1457,81 @@ export function buildGameRecapContext(dynasty, game) {
     return g.result === 'win' || g.result === 'W'
   }
 
-  // Calculate season context for user games
-  if (isCurrentGameUserGame) {
+  // Compute record entering / exiting this game + streak going in for either
+  // team (user OR CPU). The recap prompt needs full season context for both
+  // sides — even pure CPU-vs-CPU rows should know each team's record so the
+  // article can frame the matchup ("a 5-0 #10 UNC team hosts winless FCS
+  // Midwest"). Gating this behind isCurrentGameUserGame, which the previous
+  // version did, left CPU games with no record context at all.
+  const computeRecordContext = (sideTid, sideAbbr, sideScoreInThisGame, otherScoreInThisGame) => {
+    const tidNum = sideTid != null ? Number(sideTid) : null
+    const abbrU = (sideAbbr || '').toUpperCase()
+
+    const teamPlayedIn = (g) => {
+      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+      if (tidNum != null && (t1 === tidNum || t2 === tidNum)) return true
+      const a1 = (g.team1 || '').toUpperCase()
+      const a2 = (g.team2 || '').toUpperCase()
+      const userA = (g.userTeam || '').toUpperCase()
+      const oppA = (g.opponent || '').toUpperCase()
+      return abbrU && (a1 === abbrU || a2 === abbrU || userA === abbrU || oppA === abbrU)
+    }
+
+    const sideWon = (g) => {
+      const t1 = g.team1Tid != null ? Number(g.team1Tid) : null
+      const t2 = g.team2Tid != null ? Number(g.team2Tid) : null
+      if (tidNum != null && t1 === tidNum) return g.team1Score > g.team2Score
+      if (tidNum != null && t2 === tidNum) return g.team2Score > g.team1Score
+      const a1 = (g.team1 || '').toUpperCase()
+      const a2 = (g.team2 || '').toUpperCase()
+      if (abbrU && a1 === abbrU) return g.team1Score > g.team2Score
+      if (abbrU && a2 === abbrU) return g.team2Score > g.team1Score
+      // Legacy user-game fallback: result is from the user's perspective.
+      if (abbrU && (g.userTeam || '').toUpperCase() === abbrU) {
+        return g.result === 'win' || g.result === 'W'
+      }
+      if (abbrU && (g.opponent || '').toUpperCase() === abbrU) {
+        return !(g.result === 'win' || g.result === 'W')
+      }
+      return false
+    }
+
     const seasonGames = allGames.filter(g =>
-      Number(g.year) === Number(year) && isUserGame(g) && !isUnplayedGame(g)
+      Number(g.year) === Number(year) && teamPlayedIn(g) && !isUnplayedGame(g)
     )
-
     const gamesBefore = seasonGames.filter(g => getGameOrder(g) < thisGameOrder)
+    const winsBefore = gamesBefore.filter(g => sideWon(g) === true).length
+    const lossesBefore = gamesBefore.length - winsBefore
+    const isThisWin = sideScoreInThisGame > otherScoreInThisGame
+    const recordBefore = `${winsBefore}-${lossesBefore}`
+    const recordAfter = isThisWin
+      ? `${winsBefore + 1}-${lossesBefore}`
+      : `${winsBefore}-${lossesBefore + 1}`
 
-    const winsBefore = gamesBefore.filter(g => getGameWin(g) === true).length
-    const lossesBefore = gamesBefore.filter(g => getGameWin(g) === false).length
-
-    const isWin = currentGamePerspective?.userWon ?? (game.result === 'win' || game.result === 'W') ?? team1Won
-    recordBefore = `${winsBefore}-${lossesBefore}`
-    recordAfter = isWin ? `${winsBefore + 1}-${lossesBefore}` : `${winsBefore}-${lossesBefore + 1}`
-
-    // Calculate streak
-    const gamesUpToThis = [...gamesBefore, game].sort((a, b) => getGameOrder(a) - getGameOrder(b))
-    let streakCount = 0
-    const streakType = isWin ? 'win' : 'loss'
-    for (let i = gamesUpToThis.length - 1; i >= 0; i--) {
-      const g = gamesUpToThis[i]
-      const gWin = getGameWin(g)
-      if (gWin === isWin) {
-        streakCount++
-      } else {
-        break
+    let streak = null
+    const sortedBefore = [...gamesBefore].sort((a, b) => getGameOrder(a) - getGameOrder(b))
+    if (sortedBefore.length > 0) {
+      const lastWon = sideWon(sortedBefore[sortedBefore.length - 1])
+      let count = 0
+      for (let i = sortedBefore.length - 1; i >= 0; i--) {
+        if (sideWon(sortedBefore[i]) === lastWon) count++
+        else break
+      }
+      if (count >= 2) {
+        streak = `${count}-game ${lastWon ? 'win' : 'loss'} streak`
       }
     }
-    if (streakCount > 1) {
-      streak = `${streakCount}-game ${streakType} streak`
-    }
+    return { recordBefore, recordAfter, streak }
   }
+
+  const team1RecordContext = computeRecordContext(team1Tid, team1, team1Score, team2Score)
+  const team2RecordContext = computeRecordContext(team2Tid, team2, team2Score, team1Score)
+  // Keep the legacy single-team field aliases pointing at the user side so
+  // older prompt sections that reference recordBefore/etc. still render.
+  const recordBefore = isCurrentGameUserGame ? team1RecordContext.recordBefore : null
+  const recordAfter = isCurrentGameUserGame ? team1RecordContext.recordAfter : null
+  const streak = isCurrentGameUserGame ? team1RecordContext.streak : null
 
   // Determine game significance
   const isBlowout = scoreDiff >= 21
@@ -1550,10 +1588,15 @@ export function buildGameRecapContext(dynasty, game) {
   const team1Staff = !isCPUGame ? getCoachingStaff(dynasty, team1, year) : null
   const team2Staff = getCoachingStaff(dynasty, team2, year)
 
-  // Get full season results before this game (for user games)
-  const seasonResults = !isCPUGame
-    ? getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder, dynasty)
-    : []
+  // Full season results before this game for BOTH teams. Previously this
+  // only ran for the user's team — CPU games therefore had no past-game
+  // context, leaving the AI to guess at records or make up storylines. Now
+  // we always include each team's prior schedule so the prompt can frame
+  // the matchup with real season context (e.g. "5-0 UNC opens conference
+  // play coming off a comeback at Pitt").
+  const team1SeasonResults = getSeasonResultsBeforeGame(allGames, team1, year, thisGameOrder, dynasty)
+  // Backwards-compat alias for prompt code that still reads `seasonResults`.
+  const seasonResults = isCurrentGameUserGame ? team1SeasonResults : []
 
   // Determine if user is team1 or team2 in the original game data
   // This affects how quarters are mapped since quarters.team/quarters.opponent
@@ -1609,10 +1652,14 @@ export function buildGameRecapContext(dynasty, game) {
   const team1SeasonHistory = getTeamSeasonHistory(allGames, team1, year)
   const team2SeasonHistory = getTeamSeasonHistory(allGames, team2, year)
 
-  // NEW: Get opponent's season results (how they've done this year)
-  const team2SeasonResults = !isCPUGame
-    ? getOpponentSeasonResults(allGames, team2, year, thisGameOrder, dynasty)
-    : []
+  // Opponent / second-team's prior-game list this season. Always computed
+  // now so the recap prompt always has both teams' running records and
+  // recent form, not just the user's.
+  const team2SeasonResults = getOpponentSeasonResults(allGames, team2, year, thisGameOrder, dynasty)
+  // Same shape as team2SeasonResults but for team1 — gives both sides a
+  // running W-L summary in the prompt (used alongside the more detailed
+  // team1SeasonResults line list).
+  const team1SeasonResultsSummary = getOpponentSeasonResults(allGames, team1, year, thisGameOrder, dynasty)
 
   // Get conferences for both teams. dynasty.teams is the only team-data
   // source — `customTeams` is gone post-refactor.
@@ -1710,10 +1757,21 @@ export function buildGameRecapContext(dynasty, game) {
     team1Ranking,
     team2Ranking,
 
-    // Season context (only for user games)
+    // Season context — legacy single-team fields (point at the user side
+    // when this is a user game; null otherwise). Prefer the team1*/team2*
+    // variants below for new prompt sections.
     recordBefore,
     recordAfter,
     streak,
+
+    // Per-team season context (computed for user AND CPU games so the
+    // prompt can frame any matchup with each team's record + streak).
+    team1RecordBefore: team1RecordContext.recordBefore,
+    team1RecordAfter: team1RecordContext.recordAfter,
+    team1Streak: team1RecordContext.streak,
+    team2RecordBefore: team2RecordContext.recordBefore,
+    team2RecordAfter: team2RecordContext.recordAfter,
+    team2Streak: team2RecordContext.streak,
 
     // Conference info
     conference: dynasty.conference,
@@ -1730,7 +1788,11 @@ export function buildGameRecapContext(dynasty, game) {
     team2Staff,
 
     // NEW: Full season results before this game
+    // Legacy: only populated for user games (team1's detailed schedule).
     seasonResults,
+    // Both teams' detailed game-by-game schedule before this game.
+    team1SeasonResults,
+    // (team2SeasonResults is exported below in the historical-data block)
 
     // Box score highlights for both teams (enhanced with player info)
     boxScore: boxScoreContext,
@@ -1774,7 +1836,10 @@ export function buildGameRecapContext(dynasty, game) {
     team1SeasonHistory,
     team2SeasonHistory,
 
-    // NEW: Opponent's season results (their games this year)
+    // Both teams' running W-L summary before this game (compact form,
+    // complements the more detailed team1SeasonResults / team2SeasonResults
+    // detailed lists used elsewhere in the prompt).
+    team1SeasonResultsSummary,
     team2SeasonResults,
 
     // NEW: Prior year postseason results (bowl/CFP from previous season)
@@ -2367,30 +2432,56 @@ ${talentContext}
 Use this context to inform your narrative about favorites, underdogs, and upsets. Do NOT mention specific rating numbers.`
   }
 
-  // Add season context for user games
-  if (!ctx.isCPUGame && ctx.recordBefore) {
-    prompt += `\n
+  // Per-team season context. Rendered for BOTH teams (user and CPU games)
+  // so the AI always knows each team's record, streak, and detailed prior
+  // schedule going into this game. Without this, CPU-vs-CPU recaps had to
+  // guess at records — the article could call a 0-5 team "surging" or a
+  // 5-0 team "looking for its first win."
+  const renderSeasonContext = (label, teamName, recordBefore, recordAfter, streakLine, detailedResults) => {
+    if (!recordBefore) return ''
+    let block = `\n
 ===========================================
-SEASON CONTEXT FOR ${ctx.team1FullName}
+${label} FOR ${teamName}
 ===========================================
-Record entering game: ${ctx.recordBefore}
-Record after game: ${ctx.recordAfter}
-${ctx.streak
-  ? `Current streak: ${ctx.streak}`
-  : 'Current streak: NONE — no consecutive same-result run going into this game. Do NOT claim any "snaps __-game losing streak" / "extends winning streak" / "back-to-back" framing in the article.'}
-${ctx.isConferenceGame ? `Conference game: ${ctx.conference}` : ''}`
+Record entering game: ${recordBefore}
+Record after game: ${recordAfter}
+${streakLine
+  ? `Current streak: ${streakLine}`
+  : 'Current streak: NONE — no consecutive same-result run going into this game. Do NOT claim any "snaps __-game losing streak" / "extends winning streak" / "back-to-back" framing for this team.'}`
+    if (detailedResults && detailedResults.length > 0) {
+      block += `\n\n${teamName} season results before this game (most recent last):`
+      detailedResults.forEach(g => {
+        const resultChar = g.result === 'win' || g.result === 'W' ? 'W' : 'L'
+        const locationChar = g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs'
+        const rankStr = g.opponentRank ? `#${g.opponentRank} ` : ''
+        const opponentName = getTeamName(g.opponent) || g.opponent
+        block += `\n  Week ${g.week}: ${resultChar} ${g.teamScore}-${g.opponentScore} ${locationChar} ${rankStr}${opponentName}`
+      })
+    }
+    return block
   }
 
-  // Add full season results if available
-  if (ctx.seasonResults && ctx.seasonResults.length > 0) {
-    prompt += `\n\nSeason results before this game:`
-    ctx.seasonResults.forEach(g => {
-      const resultChar = g.result === 'win' || g.result === 'W' ? 'W' : 'L'
-      const locationChar = g.location === 'home' ? 'vs' : g.location === 'away' ? '@' : 'vs'
-      const rankStr = g.opponentRank ? `#${g.opponentRank} ` : ''
-      const opponentName = getTeamName(g.opponent) || g.opponent
-      prompt += `\n  Week ${g.week}: ${resultChar} ${g.teamScore}-${g.opponentScore} ${locationChar} ${rankStr}${opponentName}`
-    })
+  prompt += renderSeasonContext(
+    ctx.isUserGame ? `SEASON CONTEXT (USER'S TEAM)` : `SEASON CONTEXT`,
+    ctx.team1FullName,
+    ctx.team1RecordBefore,
+    ctx.team1RecordAfter,
+    ctx.team1Streak,
+    ctx.team1SeasonResults
+  )
+  prompt += renderSeasonContext(
+    `SEASON CONTEXT`,
+    ctx.team2FullName,
+    ctx.team2RecordBefore,
+    ctx.team2RecordAfter,
+    ctx.team2Streak,
+    // team2SeasonResults uses a different shape (compact summary). Skip the
+    // detailed list here — the dedicated "current season results" section
+    // below renders team2's full week-by-week.
+    null
+  )
+  if (ctx.isConferenceGame && ctx.conference) {
+    prompt += `\n\nConference game: ${ctx.conference}`
   }
 
   // Add player stats for both teams - CRITICAL: Include team name with each player for clarity
@@ -2580,20 +2671,28 @@ Use this context to enrich your narrative when relevant (e.g., defending nationa
     }
   }
 
-  // Add opponent's current season results (how they've done this year)
-  if (ctx.team2SeasonResults && ctx.team2SeasonResults.length > 0) {
-    const oppWins = ctx.team2SeasonResults.filter(g => g.result === 'W').length
-    const oppLosses = ctx.team2SeasonResults.filter(g => g.result === 'L').length
+  // Both teams' current season results (week-by-week, compact form). For
+  // user games, team1 already gets a detailed schedule in the SEASON
+  // CONTEXT section above; we still emit team1 here for CPU games and as
+  // a "fact-check" anchor that pins each team's record explicitly.
+  const renderSeasonRecordList = (teamName, results) => {
+    if (!results || results.length === 0) return
+    const wins = results.filter(g => g.result === 'W').length
+    const losses = results.filter(g => g.result === 'L').length
     prompt += `\n
 ===========================================
-${ctx.team2FullName.toUpperCase()}'S SEASON RECORD: ${oppWins}-${oppLosses}
+${teamName.toUpperCase()}'S SEASON RECORD: ${wins}-${losses}
 (THIS IS THEIR ACTUAL RECORD - DO NOT ASSUME A DIFFERENT RECORD)
 ===========================================`
-    ctx.team2SeasonResults.forEach(g => {
+    results.forEach(g => {
       const oppName = getTeamName(g.opponent) || g.opponent
       prompt += `\n  Week ${g.week}: ${g.result} ${g.score} vs ${oppName}${g.isConferenceGame ? ' (conf)' : ''}`
     })
   }
+  if (ctx.isCPUGame) {
+    renderSeasonRecordList(ctx.team1FullName, ctx.team1SeasonResultsSummary)
+  }
+  renderSeasonRecordList(ctx.team2FullName, ctx.team2SeasonResults)
 
   // Add player performance trends (hot streaks, bounce backs)
   if ((ctx.team1PlayerTrends && ctx.team1PlayerTrends.length > 0) || (ctx.team2PlayerTrends && ctx.team2PlayerTrends.length > 0)) {
