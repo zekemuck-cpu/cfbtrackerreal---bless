@@ -2206,29 +2206,32 @@ export default function TeamYear() {
               </span>
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              {/* Ranking Badge - Final poll (yellow) or In-season (blue/gray) */}
+              {/* Ranking Badge - Final poll (yellow) or In-season (blue/gray).
+                  Badge links to the Top 25 page for the displayed year. */}
               {finalPollRanking ? (
-                <div
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold"
+                <Link
+                  to={`${pathPrefix}/rankings/${selectedYear}`}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                   style={{
                     backgroundColor: '#fbbf24',
                     color: '#78350f'
                   }}
-                  title={`Final Ranking: #${finalPollRanking.media}`}
+                  title={`Final Ranking: #${finalPollRanking.media} — view Top 25`}
                 >
                   #{finalPollRanking.media}
-                </div>
+                </Link>
               ) : unifiedRanking?.rank ? (
-                <div
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold"
+                <Link
+                  to={`${pathPrefix}/rankings/${selectedYear}`}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity"
                   style={{
                     backgroundColor: '#6b7280',
                     color: '#ffffff'
                   }}
-                  title={`Current Ranking (Week ${unifiedRanking.week || '?'})`}
+                  title={`Current Ranking (Week ${unifiedRanking.week || '?'}) — view Top 25`}
                 >
                   #{unifiedRanking.rank}
-                </div>
+                </Link>
               ) : null}
               {/* Team Selector - embedded in team name */}
               <div className="inline-flex items-center gap-1 rounded-lg cursor-pointer hover:bg-surface-3 transition-colors bg-surface-2 border border-surface-4">

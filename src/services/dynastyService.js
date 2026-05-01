@@ -289,24 +289,28 @@ export async function migrateLocalStorageData(userId) {
 // ============================================================================
 
 /**
- * Get all players from the players subcollection
+ * Get all players from the players subcollection.
+ *
+ * Uses `getDocs()` so the SDK can serve from its local cache when the
+ * cached version matches the server, and only round-trips when fresh
+ * data is genuinely needed. The previous version used
+ * `getDocsFromServer()` to defeat a stale-cache bug seen during the
+ * one-time subcollection migration; that migration is long done, but
+ * the forced server fetch was still firing on every dynasty open and
+ * adding 5–30s of cold-start latency on mobile (where Firestore
+ * deserialization is slower and the payload can be multiple MB).
+ *
  * @param {string} dynastyId - The dynasty document ID
  * @returns {Promise<Array>} Array of player objects
  */
 export async function getPlayersSubcollection(dynastyId) {
   try {
     const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-    // CRITICAL: Use getDocsFromServer to bypass local cache and always get fresh server data
-    // This fixes issues where Firestore's local persistence serves stale data after migration
-    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Fetching from SERVER (bypassing cache)...`)
-    const snapshot = await getDocsFromServer(playersRef)
+    const snapshot = await getDocs(playersRef)
     const players = snapshot.docs.map(doc => ({
       ...doc.data(),
       _firestoreId: doc.id // Keep track of Firestore doc ID for updates
     }))
-
-    console.log(`[getPlayersSubcollection] Dynasty ${dynastyId}: Loaded ${players.length} players FROM SERVER`)
-
     return players
   } catch (error) {
     console.error('Error fetching players subcollection:', error)
@@ -327,7 +331,6 @@ export async function getGamesSubcollection(dynastyId) {
       ...doc.data(),
       _firestoreId: doc.id // Keep track of Firestore doc ID for updates
     }))
-    console.log(`[getGamesSubcollection] Dynasty ${dynastyId}: Loaded ${games.length} games from subcollection`)
     return games
   } catch (error) {
     console.error('Error fetching games subcollection:', error)
