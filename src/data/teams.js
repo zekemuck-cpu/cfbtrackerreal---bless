@@ -319,6 +319,12 @@ export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
   const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
   if (!fullName) return null
 
+  // FCS placeholder schools ("FCS East", "FCS Northwest", "FCS Southeast", etc.)
+  // have a directional last word that IS part of the school name, not a
+  // mascot. Return the full name unchanged so cards don't render as just
+  // "FCS" with the direction stripped.
+  if (/^FCS\s+/i.test(fullName)) return fullName
+
   // Split by space and remove the last word (mascot)
   // Handle multi-word mascots like "Sun Devils", "Golden Bears", "Black Knights"
   const parts = fullName.split(' ')

@@ -13,6 +13,9 @@ const REGULAR_SEASON_WEEKS = Array.from({ length: 16 }, (_, i) => i)  // 0-15
 
 function getSchoolName(mascotName) {
   if (!mascotName) return ''
+  // FCS placeholders use "FCS <Direction>" — the directional word is part of
+  // the school name, not a mascot. Return as-is so we don't render plain "FCS".
+  if (/^FCS\s+/i.test(mascotName)) return mascotName
   const specialMascots = [
     'Crimson Tide', 'Blue Hens', "Fightin' Blue Hens", 'Golden Flashes', 'Mean Green',
     "Ragin' Cajuns", 'Thundering Herd', 'Golden Hurricane', 'Fighting Irish',

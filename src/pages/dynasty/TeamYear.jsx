@@ -491,9 +491,18 @@ export default function TeamYear() {
     })
   }
 
-  // Get all FBS teams for dropdown (sorted alphabetically)
+  // Get all FBS teams for dropdown (sorted alphabetically). FCS placeholder
+  // teams are normally hidden from the picker, but if the URL points at an
+  // FCS team (e.g. user clicked an FCS row on the Weekly Scores page) we
+  // need that team's option present — otherwise the <select value={tid}> has
+  // no matching option and the browser silently displays the first option
+  // ("Air Force Falcons") as the team header.
+  const tidNum = Number(tidParam)
   const allTeams = Object.values(teamsSource)
-    .filter(team => team && team.tid !== undefined && !team.isFCS && team.name)
+    .filter(team => (
+      team && team.tid !== undefined && team.name &&
+      (!team.isFCS || team.tid === tidNum)
+    ))
     .map(team => ({
       tid: team.tid,
       abbr: team.abbr,
