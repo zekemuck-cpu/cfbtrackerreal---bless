@@ -1192,15 +1192,22 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
 }
 
 /**
- * Build a live Top 25 for a given year from the most recent week's
- * game-level rankings (`team1Rank` / `team2Rank` on each game). Lets
- * the Rankings page reflect weekly score entries the moment they land
- * — no end-of-season manual entry required for in-season viewing.
+ * Build a live Top 25 for a given year from game-level rankings
+ * (`team1Rank` / `team2Rank` on each game). Drives the Rankings page
+ * so weekly score entries flow into the Top 25 without requiring
+ * end-of-season manual entry.
  *
- * For each rank 1–25, the first team encountered (across all games in
- * the latest week with rank data) wins the slot. Returns the same
- * shape as a saved final-poll's `media` array so callers can swap
- * between live and saved with no shape changes.
+ * The naive "use only the latest week with rank data" approach falls
+ * apart when the user enters their own Week N game first (one ranked
+ * team) before logging the rest of Week N's nationwide scores — Top
+ * 25 collapses to a single row. To fix that, we walk weeks newest →
+ * oldest and fill each rank 1–25 from the most recent week that
+ * supplied it, with a guard to keep any one team from appearing in
+ * two slots (a team's rank can shift week-to-week, so we always keep
+ * its newest rank and drop older ones).
+ *
+ * Returns the same shape as a saved final-poll's `media` array so
+ * callers can swap between live and saved with no shape changes.
  *
  * @param {Object} dynasty
  * @param {number} year
@@ -1212,45 +1219,75 @@ export function buildLiveTop25FromGames(dynasty, year) {
   const yearNum = Number(year)
   const validRank = (n) => typeof n === 'number' && n >= 1 && n <= 25
 
-  // Find the latest week (regular-season ordering, not bowl/postseason)
-  // that has any rank entered on a game.
-  let maxWeek = -1
+  // Bucket game-level (rank, team) observations by week. Each
+  // week-bucket holds rank → first team seen at that rank that week.
+  // Working off these buckets lets us walk weeks in order without
+  // re-scanning the whole games list per pass.
+  const weekBuckets = new Map() // wk -> Map(rank -> { tid, abbr })
+  const observe = (wk, rank, tid, abbr) => {
+    if (!validRank(rank)) return
+    if (!weekBuckets.has(wk)) weekBuckets.set(wk, new Map())
+    const bucket = weekBuckets.get(wk)
+    if (bucket.has(rank)) return
+    bucket.set(rank, {
+      tid: tid != null ? Number(tid) : null,
+      abbr: abbr || null,
+    })
+  }
   for (const g of games) {
     if (!g || Number(g.year) !== yearNum) continue
     const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
     if (!Number.isFinite(wk)) continue
-    if (validRank(g.team1Rank) || validRank(g.team2Rank)) {
-      if (wk > maxWeek) maxWeek = wk
-    }
-  }
-  if (maxWeek < 0) return { entries: [], week: null }
-
-  // Collect rank → team from games in maxWeek (each rank wins on first
-  // encounter so a single team can't claim two ranks).
-  const rankToTeam = new Map()
-  const teamsToRank = new Set()
-  const tryAdd = (rank, tid, abbr) => {
-    if (!validRank(rank)) return
-    if (rankToTeam.has(rank)) return
-    const teamKey = tid != null ? `tid:${tid}` : `abbr:${abbr || ''}`
-    if (!teamKey || teamsToRank.has(teamKey)) return
-    rankToTeam.set(rank, { rank, team: abbr || null, tid: tid != null ? Number(tid) : null })
-    teamsToRank.add(teamKey)
-  }
-  for (const g of games) {
-    if (!g || Number(g.year) !== yearNum) continue
-    const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
-    if (wk !== maxWeek) continue
     const t1Tid = g.team1Tid != null ? Number(g.team1Tid) : null
     const t2Tid = g.team2Tid != null ? Number(g.team2Tid) : null
     const t1Abbr = (t1Tid && dynasty.teams?.[t1Tid]?.abbr) || g.team1 || null
     const t2Abbr = (t2Tid && dynasty.teams?.[t2Tid]?.abbr) || g.team2 || null
-    tryAdd(g.team1Rank, t1Tid, t1Abbr)
-    tryAdd(g.team2Rank, t2Tid, t2Abbr)
+    observe(wk, g.team1Rank, t1Tid, t1Abbr)
+    observe(wk, g.team2Rank, t2Tid, t2Abbr)
+  }
+  if (weekBuckets.size === 0) return { entries: [], week: null }
+
+  const sortedWeeks = Array.from(weekBuckets.keys()).sort((a, b) => b - a)
+  const latestWeek = sortedWeeks[0]
+
+  // Two-pass fill:
+  //  Pass 1 — register every team's NEWEST rank (across all weeks)
+  //    so a team that shifted from #1 last week to #3 this week
+  //    appears only at #3, never both.
+  //  Pass 2 — write to slot map newest → oldest. A slot is only
+  //    filled if (a) it isn't already taken and (b) the team that
+  //    held it that week still holds that exact rank in their
+  //    "newest" registration (otherwise that's a stale duplicate).
+  const teamNewestRank = new Map() // teamKey -> { rank, tid, abbr }
+  const teamKeyOf = (tid, abbr) => tid != null ? `tid:${tid}` : `abbr:${abbr || ''}`
+  for (const wk of sortedWeeks) {
+    const bucket = weekBuckets.get(wk)
+    for (const [rank, info] of bucket.entries()) {
+      const key = teamKeyOf(info.tid, info.abbr)
+      if (!key) continue
+      if (!teamNewestRank.has(key)) {
+        teamNewestRank.set(key, { rank, tid: info.tid, abbr: info.abbr })
+      }
+    }
   }
 
-  const entries = Array.from(rankToTeam.values()).sort((a, b) => a.rank - b.rank)
-  return { entries, week: maxWeek }
+  const slotMap = new Map() // rank -> { rank, team, tid }
+  for (const wk of sortedWeeks) {
+    const bucket = weekBuckets.get(wk)
+    for (const [rank, info] of bucket.entries()) {
+      if (slotMap.has(rank)) continue
+      const key = teamKeyOf(info.tid, info.abbr)
+      const newest = teamNewestRank.get(key)
+      // Skip if this team's newest rank isn't this slot — they'll be
+      // (or have been) placed elsewhere by their newest entry.
+      if (!newest || newest.rank !== rank) continue
+      slotMap.set(rank, { rank, team: info.abbr || null, tid: info.tid })
+    }
+    if (slotMap.size === 25) break
+  }
+
+  const entries = Array.from(slotMap.values()).sort((a, b) => a.rank - b.rank)
+  return { entries, week: latestWeek }
 }
 
 /**
