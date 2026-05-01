@@ -1,11 +1,10 @@
-import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, buildLiveTop25FromGames, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
-import { PageHero, Card, EmptyState, Tabs, TitleWithYear } from '../../components/ui'
+import { PageHero, Card, EmptyState, TitleWithYear } from '../../components/ui'
 
 const getSchoolName = (mascotName) => {
   if (!mascotName) return null
@@ -99,33 +98,53 @@ export default function Rankings() {
   const navigate = useNavigate()
   const { currentDynasty } = useDynasty()
   const pathPrefix = usePathPrefix()
-  const [activeTab, setActiveTab] = useState('both')
 
   if (!currentDynasty) return null
 
+  // Year selector: include any year with a saved final poll, any year with
+  // games entered, plus the current dynasty year so an empty current
+  // season still shows up. The page itself derives a live Top 25 from
+  // games when no final poll has been saved.
   const finalPolls = currentDynasty.finalPollsByYear || {}
-  const yearsWithData = Object.keys(finalPolls).map(y => parseInt(y))
+  const yearsWithFinalPolls = Object.keys(finalPolls).map(y => parseInt(y))
+  const yearsWithGames = new Set(
+    (currentDynasty.games || [])
+      .map(g => Number(g?.year))
+      .filter(y => Number.isFinite(y))
+  )
+  const yearsCombined = new Set([...yearsWithFinalPolls, ...yearsWithGames])
+  if (currentDynasty.currentYear) yearsCombined.add(Number(currentDynasty.currentYear))
 
-  if (!yearsWithData.includes(currentDynasty.currentYear)) {
-    yearsWithData.push(currentDynasty.currentYear)
-  }
-
-  const availableYears = yearsWithData.sort((a, b) => b - a)
+  const availableYears = Array.from(yearsCombined).sort((a, b) => b - a)
   // First-season dynasties have no prior year — default to current
   // year so a 2025-start dynasty doesn't open showing "2024".
   const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
   const displayYear = urlYear
     ? parseInt(urlYear)
-    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
-  const yearPolls = finalPolls[displayYear] || {}
-  const mediaPoll = yearPolls.media || []
-  const coachesPoll = yearPolls.coaches || []
+    : (isFirstSeason
+        ? currentDynasty.currentYear
+        : (yearsCombined.has(Number(currentDynasty.currentYear) - 1)
+            ? currentDynasty.currentYear - 1
+            : currentDynasty.currentYear))
 
+  // Source priority: saved final media poll → live Top 25 derived from
+  // the latest week's game-level ranks. Final poll wins because it's
+  // the authoritative end-of-season ranking the user explicitly saved;
+  // when it's absent the page reflects whatever the most recent weekly
+  // entry showed, so adding scores updates the page in real time.
+  const yearPolls = finalPolls[displayYear] || {}
+  const savedMedia = Array.isArray(yearPolls.media) ? yearPolls.media : []
+  const live = buildLiveTop25FromGames(currentDynasty, displayYear)
+  const usingLive = savedMedia.length === 0 && live.entries.length > 0
+  const top25 = usingLive ? live.entries : savedMedia
+  const sourceLabel = usingLive
+    ? (live.week != null ? `Live · After Week ${live.week}` : 'Live')
+    : 'Final Poll'
+
+  // Saved conference standings give us a quick W-L lookup; calculated
+  // record (from games[]) is more authoritative when it differs.
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
   const yearStandings = standingsByYear[displayYear] || {}
-  // Index records by BOTH tid and abbr — abbr lookup is the legacy path,
-  // tid lookup survives teambuilder renames. Sheet readers store both
-  // (`team` + `tid`) on each row.
   const teamRecords = {}
   const teamRecordsByTid = {}
   Object.values(yearStandings).forEach(conferenceTeams => {
@@ -138,6 +157,15 @@ export default function Rankings() {
     }
   })
   const lookupRecord = (abbr, tid) => {
+    // Prefer live games[]-derived record so the row reflects weekly
+    // score entries; fall back to saved standings only when no games
+    // have been logged yet.
+    if (tid != null) {
+      const calc = calculateTeamRecordFromGames(currentDynasty, Number(tid), displayYear)
+      if (calc && (calc.wins > 0 || calc.losses > 0)) {
+        return { wins: calc.wins, losses: calc.losses }
+      }
+    }
     if (tid != null && teamRecordsByTid[Number(tid)]) return teamRecordsByTid[Number(tid)]
     return teamRecords[abbr] || null
   }
@@ -147,11 +175,11 @@ export default function Rankings() {
   if (availableYears.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHero eyebrow="Final Rankings" title="Top 25" />
+        <PageHero eyebrow="Top 25" title="Rankings" />
         <Card>
           <EmptyState
             title="No Rankings Yet"
-            message="Complete a season and enter final rankings to see the championship standings."
+            message="Enter weekly scores with team rankings, or enter the final poll at season's end, to populate the Top 25."
           />
         </Card>
       </div>
@@ -280,7 +308,7 @@ export default function Rankings() {
               className="label-xs text-txt-tertiary mb-1"
               style={{ letterSpacing: '2px', fontSize: '10px' }}
             >
-              Final Poll
+              {sourceLabel}
             </div>
             <h2 className="text-display-md text-txt-primary m-0 leading-none">{title}</h2>
           </div>
@@ -326,8 +354,8 @@ export default function Rankings() {
           <Card>
             <EmptyState
               variant="compact"
-              title="No data"
-              message={`No ${title.toLowerCase()} data for ${displayYear}.`}
+              title="No rankings yet"
+              message={`Enter weekly scores with team ranks, or save a final poll, for ${displayYear}.`}
             />
           </Card>
         )}
@@ -338,7 +366,7 @@ export default function Rankings() {
   return (
     <div className="space-y-6 page-enter">
       <PageHero
-        eyebrow="Final Rankings"
+        eyebrow={sourceLabel}
         title={
           <TitleWithYear
             year={displayYear}
@@ -347,30 +375,17 @@ export default function Rankings() {
             label="Top 25"
           />
         }
-        meta={<span>End of season poll standings</span>}
+        meta={
+          <span>
+            {usingLive
+              ? 'Updates as weekly scores are entered'
+              : 'End of season poll standings'}
+          </span>
+        }
       />
 
-      {/* Mobile poll switcher */}
-      <div className="lg:hidden">
-        <Tabs
-          variant="pill"
-          value={activeTab}
-          onChange={setActiveTab}
-          options={[
-            { value: 'both', label: 'Both' },
-            { value: 'media', label: 'AP Poll' },
-            { value: 'coaches', label: 'Coaches' },
-          ]}
-        />
-      </div>
-
-      <div className={`grid gap-8 ${activeTab === 'both' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-2xl mx-auto'}`}>
-        {(activeTab === 'both' || activeTab === 'media') && (
-          <PollColumn title="Media Poll" data={mediaPoll} pollType="media" />
-        )}
-        {(activeTab === 'both' || activeTab === 'coaches') && (
-          <PollColumn title="Coaches Poll" data={coachesPoll} pollType="coaches" />
-        )}
+      <div className="grid gap-8 grid-cols-1 max-w-2xl mx-auto">
+        <PollColumn title="Top 25" data={top25} pollType="media" />
       </div>
 
       <style>{`

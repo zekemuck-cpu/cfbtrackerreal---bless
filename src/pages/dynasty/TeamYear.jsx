@@ -1160,82 +1160,75 @@ export default function TeamYear() {
 
   const seasonStats = getSeasonTeamStats()
 
-  // Get record from multiple sources (priority: standings > stored > calculated from games)
-  // Normalize year to number for consistent lookups
+  // Single source of truth for the team's record this year: the games[]
+  // array. Previously the team page preferred saved conference standings
+  // or manually-stored records over calculated, which meant entering
+  // weekly scores didn't update the visible record. Now any game with
+  // valid scores — entered via the schedule, weekly scores sheet, or
+  // Game Edit — flows straight into the displayed record. The legacy
+  // standings/stored records remain as a fallback ONLY when no games
+  // have been logged yet (e.g. an imported mid-season dynasty before
+  // back-fills).
   const yearNum = Number(selectedYear)
-
-  // 1. Conference standings (most authoritative for full season records) - tid-based
-  const getRecordFromStandings = () => {
-    // Check both number and string keys for year
-    const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
-                          currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
-    for (const confTeams of Object.values(yearStandings)) {
-      if (Array.isArray(confTeams)) {
-        // Match by tid (resolve abbreviation to tid for comparison)
-        const teamData = confTeams.find(t => {
-          if (!t || !t.team) return false
-          const resolvedTid = t.tid || resolveTid(t.team, teamsSource)
-          return resolvedTid === tid
-        })
-        if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
-          return { wins: teamData.wins, losses: teamData.losses }
-        }
-      }
-    }
-    return null
-  }
-
-  // 2. Stored team records (populated when conference standings saved)
-  const getRecordFromStored = () => {
-    // Check both number and string keys for year
-    const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[yearNum] ||
-                         currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
-    if (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0)) {
-      return legacyRecord
-    }
-    const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.record ||
-                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.record
-    if (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0)) {
-      return tidRecord
-    }
-    return null
-  }
-
-  // 3. Calculate from games (fallback for user's own games)
   const calculatedRecord = calculateTeamRecordFromGames(currentDynasty, tid, yearNum)
-
-  // Determine which record to display (priority: standings > stored > games)
-  const standingsRecord = getRecordFromStandings()
-  const storedRecord = getRecordFromStored()
+  const hasPlayedGames = !!calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0)
 
   let displayRecord = null
-  let recordSource = 'none'
-
-  if (standingsRecord) {
-    displayRecord = { ...standingsRecord, pointsFor: null, pointsAgainst: null }
-    recordSource = 'standings'
-  } else if (storedRecord) {
-    displayRecord = { ...storedRecord, pointsFor: null, pointsAgainst: null }
-    recordSource = 'stored'
-  } else if (calculatedRecord && (calculatedRecord.wins > 0 || calculatedRecord.losses > 0)) {
+  if (hasPlayedGames) {
     displayRecord = {
       wins: calculatedRecord.wins,
       losses: calculatedRecord.losses,
       confWins: calculatedRecord.confWins || 0,
       confLosses: calculatedRecord.confLosses || 0,
       pointsFor: null,
-      pointsAgainst: null
+      pointsAgainst: null,
     }
-    recordSource = 'games'
+  } else {
+    // No games yet → fall back to whatever was previously saved.
+    const yearStandings = currentDynasty.conferenceStandingsByYear?.[yearNum] ||
+                          currentDynasty.conferenceStandingsByYear?.[selectedYear] || {}
+    let standingsRecord = null
+    for (const confTeams of Object.values(yearStandings)) {
+      if (Array.isArray(confTeams)) {
+        const teamData = confTeams.find(t => {
+          if (!t || !t.team) return false
+          const resolvedTid = t.tid || resolveTid(t.team, teamsSource)
+          return resolvedTid === tid
+        })
+        if (teamData && (teamData.wins > 0 || teamData.losses > 0)) {
+          standingsRecord = { wins: teamData.wins, losses: teamData.losses }
+          break
+        }
+      }
+    }
+    const legacyRecord = currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[yearNum] ||
+                         currentDynasty.teamRecordsByTeamYear?.[teamAbbr]?.[selectedYear]
+    const tidRecord = currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.record ||
+                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.record ||
+                      currentDynasty.teams?.[tid]?.byYear?.[yearNum]?.teamRecord ||
+                      currentDynasty.teams?.[tid]?.byYear?.[selectedYear]?.teamRecord
+    const storedRecord =
+      (legacyRecord && (legacyRecord.wins > 0 || legacyRecord.losses > 0) && legacyRecord) ||
+      (tidRecord && (tidRecord.wins > 0 || tidRecord.losses > 0) && tidRecord) ||
+      null
+    const fallback = standingsRecord || storedRecord
+    if (fallback) {
+      displayRecord = {
+        wins: fallback.wins,
+        losses: fallback.losses,
+        confWins: fallback.confWins || 0,
+        confLosses: fallback.confLosses || 0,
+        pointsFor: null,
+        pointsAgainst: null,
+      }
+    }
   }
-
-  // Debug log (only once per mount, not on every render)
-  // console.log(`[TeamYear:${teamAbbr}] Record for ${yearNum}: source=${recordSource}`, displayRecord)
 
   // Get team ratings for this year (try both tid and abbr keys for backwards compatibility)
   const teamRatings = lookupByTeamYear(currentDynasty.teamRatingsByTeamYear, currentDynasty, tid, selectedYear) || null
 
-  // Get final poll rankings for this team in this year (tid-based)
+  // Get final poll rankings for this team in this year (tid-based).
+  // Coaches poll was retired — only the media poll is consulted now.
   const getFinalPollRankings = () => {
     const pollsData = currentDynasty.finalPollsByYear?.[selectedYear]
     if (!pollsData) return null
@@ -1245,18 +1238,10 @@ export default function TeamYear() {
       const pollTid = p.tid || resolveTid(p.team, teamsSource)
       return pollTid === tid
     })?.rank
-    const coachesRank = pollsData.coaches?.find(p => {
-      if (!p) return false
-      const pollTid = p.tid || resolveTid(p.team, teamsSource)
-      return pollTid === tid
-    })?.rank
 
-    if (!mediaRank && !coachesRank) return null
+    if (!mediaRank) return null
 
-    return {
-      media: mediaRank || null,
-      coaches: coachesRank || null
-    }
+    return { media: mediaRank }
   }
 
   const finalPollRanking = getFinalPollRankings()
@@ -2229,9 +2214,9 @@ export default function TeamYear() {
                     backgroundColor: '#fbbf24',
                     color: '#78350f'
                   }}
-                  title={`Final Ranking: ${finalPollRanking.media ? `AP #${finalPollRanking.media}` : ''}${finalPollRanking.media && finalPollRanking.coaches ? ' / ' : ''}${finalPollRanking.coaches ? `Coaches #${finalPollRanking.coaches}` : ''}`}
+                  title={`Final Ranking: #${finalPollRanking.media}`}
                 >
-                  #{finalPollRanking.media || finalPollRanking.coaches}
+                  #{finalPollRanking.media}
                 </div>
               ) : unifiedRanking?.rank ? (
                 <div

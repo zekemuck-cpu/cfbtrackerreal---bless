@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
@@ -294,6 +294,13 @@ export default function ConferenceStandings() {
     const pointDiff = (team.pointsFor || 0) - (team.pointsAgainst || 0)
     const diffColor = pointDiff !== 0 ? 'var(--text-primary)' : 'var(--text-tertiary)'
     const linkTid = team.tid != null ? Number(team.tid) : resolveTid(teamAbbr, teamsSource || TEAMS)
+    // Source-of-truth record: prefer games[] over the saved standings row
+    // so both this page and the team page show the same numbers as soon
+    // as weekly scores land. Falls back to the saved value when the
+    // dynasty has no games entered for that year.
+    const calc = linkTid ? calculateTeamRecordFromGames(currentDynasty, linkTid, displayYear) : null
+    const liveWins = calc && (calc.wins > 0 || calc.losses > 0) ? calc.wins : (team.wins || 0)
+    const liveLosses = calc && (calc.wins > 0 || calc.losses > 0) ? calc.losses : (team.losses || 0)
 
     return (
       <Link
@@ -328,7 +335,7 @@ export default function ConferenceStandings() {
         </span>
 
         <span className="text-sm font-display font-black text-txt-primary tabular flex-shrink-0">
-          {team.wins || 0}<span className="text-txt-tertiary font-normal">–</span>{team.losses || 0}
+          {liveWins}<span className="text-txt-tertiary font-normal">–</span>{liveLosses}
         </span>
 
         <div className="relative flex-shrink-0 group/diff">
@@ -411,9 +418,43 @@ export default function ConferenceStandings() {
 
         {hasData ? (
           <div>
-            {teams.sort((a, b) => (a.rank || 0) - (b.rank || 0)).map((team, idx) => (
-              <TeamRow key={`${team.team}-${idx}`} team={team} rank={team.rank || idx + 1} />
-            ))}
+            {(() => {
+              // Re-sort by live games[]-derived record so the standings
+              // reorder as weekly scores come in. Falls back to the saved
+              // rank when no team in the conference has any game data
+              // for the year (e.g. a future season the user is browsing).
+              const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams
+              const enriched = teams.map(t => {
+                const tid = t.tid != null ? Number(t.tid) : resolveTid(t.team, teamsSrc || TEAMS)
+                const calc = tid ? calculateTeamRecordFromGames(currentDynasty, tid, displayYear) : null
+                const hasLive = !!calc && (calc.wins > 0 || calc.losses > 0)
+                return {
+                  ...t,
+                  _liveWins: hasLive ? calc.wins : (t.wins || 0),
+                  _liveLosses: hasLive ? calc.losses : (t.losses || 0),
+                  _liveConfWins: hasLive ? (calc.confWins || 0) : (t.confWins || 0),
+                  _liveConfLosses: hasLive ? (calc.confLosses || 0) : (t.confLosses || 0),
+                  _isLive: hasLive,
+                }
+              })
+              const anyLive = enriched.some(t => t._isLive)
+              const sortFn = anyLive
+                ? (a, b) => {
+                    if (b._liveWins !== a._liveWins) return b._liveWins - a._liveWins
+                    if (a._liveLosses !== b._liveLosses) return a._liveLosses - b._liveLosses
+                    if (b._liveConfWins !== a._liveConfWins) return b._liveConfWins - a._liveConfWins
+                    if (a._liveConfLosses !== b._liveConfLosses) return a._liveConfLosses - b._liveConfLosses
+                    return 0
+                  }
+                : (a, b) => (a.rank || 0) - (b.rank || 0)
+              return enriched.sort(sortFn).map((team, idx) => (
+                <TeamRow
+                  key={`${team.team}-${idx}`}
+                  team={team}
+                  rank={anyLive ? idx + 1 : (team.rank || idx + 1)}
+                />
+              ))
+            })()}
           </div>
         ) : (
           <div className="px-4 py-8 text-center">

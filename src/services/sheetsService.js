@@ -6813,8 +6813,10 @@ export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTea
 }
 
 /**
- * Create a Google Sheet for final Top 25 polls entry
- * Three columns: # | Media | Coaches with 25 rows
+ * Create a Google Sheet for the final Top 25 entry. Two columns:
+ * # | Top 25 with 25 rows. The Coaches column was removed when the
+ * site dropped the coaches poll — only the media-style top-25 lives
+ * here now.
  */
 export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTeams = null) {
   try {
@@ -6829,14 +6831,14 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
       },
       body: JSON.stringify({
         properties: {
-          title: `${year} Final Top 25 Polls`
+          title: `${year} Final Top 25`
         },
         sheets: [{
           properties: {
             title: 'Polls',
             gridProperties: {
               rowCount: 26,
-              columnCount: 3,
+              columnCount: 2,
               frozenRowCount: 1
             }
           }
@@ -6860,7 +6862,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
     const requests = []
 
     // Column headers
-    const headers = ['#', 'Media', 'Coaches']
+    const headers = ['#', 'Top 25']
 
     // Set header row
     requests.push({
@@ -6870,7 +6872,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
           startRowIndex: 0,
           endRowIndex: 1,
           startColumnIndex: 0,
-          endColumnIndex: 3
+          endColumnIndex: 2
         },
         rows: [{
           values: headers.map(h => ({
@@ -6900,7 +6902,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
             startRowIndex: 0,
             endRowIndex: 1,
             startColumnIndex: 0,
-            endColumnIndex: 3
+            endColumnIndex: 2
           },
           description: 'Header row - do not edit',
           warningOnly: true
@@ -6939,7 +6941,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
     })
 
     // Set column widths
-    const columnWidths = [50, 150, 150]
+    const columnWidths = [50, 150]
     columnWidths.forEach((width, index) => {
       requests.push({
         updateDimensionProperties: {
@@ -6977,7 +6979,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
           startRowIndex: 1,
           endRowIndex: 26,
           startColumnIndex: 1,
-          endColumnIndex: 3
+          endColumnIndex: 2
         },
         cell: {
           userEnteredFormat: {
@@ -6990,17 +6992,11 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
       }
     })
 
-    // Add team dropdown validation for Media column (column B, index 1)
+    // Add team dropdown validation for the Top 25 column (column B, index 1)
     requests.push(generateTeamValidation(sheetId, 1, 1, 26, dynastyTeams))
 
-    // Add team dropdown validation for Coaches column (column C, index 2)
-    requests.push(generateTeamValidation(sheetId, 2, 1, 26, dynastyTeams))
-
-    // Add conditional formatting for team colors in Media column
+    // Conditional formatting (team colors) for the Top 25 column
     requests.push(...generateTeamFormattingRulesForRange(sheetId, 1, 1, 26, dynastyTeams))
-
-    // Add conditional formatting for team colors in Coaches column
-    requests.push(...generateTeamFormattingRulesForRange(sheetId, 2, 1, 26, dynastyTeams))
 
     // Execute all requests
     const batchResponse = await fetch(
@@ -7022,7 +7018,7 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
     }
 
     // Pre-fill existing polls if provided
-    if (existingPolls && (existingPolls.media?.length > 0 || existingPolls.coaches?.length > 0)) {
+    if (existingPolls && existingPolls.media?.length > 0) {
       await prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existingPolls)
     }
 
@@ -7037,30 +7033,26 @@ export async function createFinalPollsSheet(year, existingPolls = {}, dynastyTea
 }
 
 /**
- * Pre-fill existing final polls data into sheet
+ * Pre-fill the existing top-25 (media-only) into the sheet
  */
 async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existingPolls) {
-  const { media = [], coaches = [] } = existingPolls
+  const { media = [] } = existingPolls
 
   // Build values array for each rank 1-25
   const values = []
   for (let rank = 1; rank <= 25; rank++) {
     const mediaTeam = media.find(t => t.rank === rank)?.team || ''
-    const coachesTeam = coaches.find(t => t.rank === rank)?.team || ''
-
-    // Only add if there's data
-    if (mediaTeam || coachesTeam) {
+    if (mediaTeam) {
       values.push({
         row: rank + 1, // +1 because row 1 is header (1-indexed)
         media: mediaTeam,
-        coaches: coachesTeam
       })
     }
   }
 
   if (values.length === 0) return
 
-  // Build batch update for existing data - update columns B-C for each rank
+  // Build batch update for existing data — only column B (Top 25)
   const requests = values.map(v => ({
     updateCells: {
       range: {
@@ -7068,12 +7060,11 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
         startRowIndex: v.row - 1, // Convert to 0-indexed
         endRowIndex: v.row,
         startColumnIndex: 1, // Column B
-        endColumnIndex: 3    // Column C
+        endColumnIndex: 2    // Column B only
       },
       rows: [{
         values: [
           { userEnteredValue: { stringValue: v.media } },
-          { userEnteredValue: { stringValue: v.coaches } }
         ]
       }],
       fields: 'userEnteredValue'
@@ -7099,15 +7090,17 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
 }
 
 /**
- * Read final polls from Google Sheet
+ * Read the final Top 25 from the Google Sheet. Returns a `{ media }`
+ * shape — `coaches` is left as an empty array purely so legacy
+ * persistence code that destructures it doesn't choke.
  */
 export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
 
-    // Read all data from the Polls tab
+    // Read all data from the Polls tab (rank + Top 25 abbr)
     const response = await fetch(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Polls!A2:C26`,
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/Polls!A2:B26`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -7123,35 +7116,21 @@ export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null
     const data = await response.json()
     const rows = data.values || []
 
-    // Parse rows into media and coaches polls
+    // Parse rows into the single Top 25 list. Storing tid alongside
+    // abbr keeps downstream lookups stable across teambuilder renames.
     const media = []
-    const coaches = []
-
-    // Resolve abbr → tid at read time. Storing the tid alongside the abbr
-    // means downstream poll lookups (Rankings page, TeamYear, CoachCareer
-    // year-by-year) work even after a teambuilder team is renamed.
     rows.forEach(row => {
       const rank = parseInt(row[0]) || 0
-      const mediaTeam = row[1]?.trim().toUpperCase() || ''
-      const coachesTeam = row[2]?.trim().toUpperCase() || ''
-
-      if (rank >= 1 && rank <= 25) {
-        if (mediaTeam) {
-          const tid = getTidFromAbbr(mediaTeam, dynastyTeams)
-          media.push({ rank, team: mediaTeam, tid: tid != null ? Number(tid) : null })
-        }
-        if (coachesTeam) {
-          const tid = getTidFromAbbr(coachesTeam, dynastyTeams)
-          coaches.push({ rank, team: coachesTeam, tid: tid != null ? Number(tid) : null })
-        }
+      const teamAbbr = row[1]?.trim().toUpperCase() || ''
+      if (rank >= 1 && rank <= 25 && teamAbbr) {
+        const tid = getTidFromAbbr(teamAbbr, dynastyTeams)
+        media.push({ rank, team: teamAbbr, tid: tid != null ? Number(tid) : null })
       }
     })
 
-    // Sort by rank
     media.sort((a, b) => a.rank - b.rank)
-    coaches.sort((a, b) => a.rank - b.rank)
 
-    return { media, coaches }
+    return { media, coaches: [] }
   } catch (error) {
     console.error('Error reading final polls:', error)
     throw error

@@ -47,107 +47,104 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
-    title: `${currentYear} Final Top 25 Polls`,
-    structure: `This sheet has ONE tab named "Polls". 3 columns, 26 rows: row 1 is a protected header, rows 2-26 are ranks 1-25.
+    title: `${currentYear} Final Top 25 Poll`,
+    structure: `This sheet has ONE tab named "Polls". 2 columns, 26 rows: row 1 is a protected header, rows 2-26 are ranks 1-25.
 
 Column A (rank number 1-25) is PRE-FILLED — you never output it.
-You fill columns B (Media poll team) and C (Coaches poll team).
+You fill column B (Top 25 team for that rank).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY columns B and C (Media, Coaches). NEVER output column A (rank), the header row, or any rank labels.
+1. Output ONLY column B (one team abbreviation per line). NEVER output column A (rank), the header row, or any rank labels.
 2. Row order is FIXED: rank 1 first, rank 25 last. EXACTLY 25 lines of output.
-3. Each line has EXACTLY 2 tab-separated fields: <Media team>\\t<Coaches team>
+3. Each line has EXACTLY 1 field: <Team abbreviation>
 4. Team values must be UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
-5. NO COMMAS. No commentary. No rank numbers. No header row.
-6. A team may appear in Media and Coaches — they are independent rankings. A team can appear at the same rank in both polls (common) or at different ranks in each.
-7. Within a single column (Media OR Coaches), each team abbreviation should appear AT MOST ONCE — no duplicate teams in a single 25-team poll.
-8. BLANK field for unknown (empty between tabs). Never guess. If you only see the Media poll and not the Coaches poll, output Media abbr and empty Coaches field (still tab-separated).
-9. ONE TSV block. Label it with paste target.
+5. NO COMMAS. No commentary. No rank numbers. No header row. No tabs.
+6. Each team abbreviation must appear AT MOST ONCE across all 25 ranks — no duplicates in the poll.
+7. BLANK line for unknown ranks (just an empty line between two filled ranks). Never guess.
+8. ONE block. Label it with paste target.
 
 ═══════════════════════════════════════════════════════════
-TAB "Polls" — 25 rows × 2 output columns
+TAB "Polls" — 25 rows × 1 output column
 Paste at cell B2 of the "Polls" tab
 ═══════════════════════════════════════════════════════════
 
 Row-by-row mapping:
 
-Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output: Media\\tCoaches
-----------+----------------------------------+-----------------------------
-    2     | 1                                | <Media rank 1>\\t<Coaches rank 1>
-    3     | 2                                | <Media rank 2>\\t<Coaches rank 2>
-    4     | 3                                | <Media rank 3>\\t<Coaches rank 3>
-    5     | 4                                | <Media rank 4>\\t<Coaches rank 4>
-    6     | 5                                | <Media rank 5>\\t<Coaches rank 5>
-    7     | 6                                | <Media rank 6>\\t<Coaches rank 6>
-    8     | 7                                | <Media rank 7>\\t<Coaches rank 7>
-    9     | 8                                | <Media rank 8>\\t<Coaches rank 8>
-   10     | 9                                | <Media rank 9>\\t<Coaches rank 9>
-   11     | 10                               | <Media rank 10>\\t<Coaches rank 10>
-   12     | 11                               | <Media rank 11>\\t<Coaches rank 11>
-   13     | 12                               | <Media rank 12>\\t<Coaches rank 12>
-   14     | 13                               | <Media rank 13>\\t<Coaches rank 13>
-   15     | 14                               | <Media rank 14>\\t<Coaches rank 14>
-   16     | 15                               | <Media rank 15>\\t<Coaches rank 15>
-   17     | 16                               | <Media rank 16>\\t<Coaches rank 16>
-   18     | 17                               | <Media rank 17>\\t<Coaches rank 17>
-   19     | 18                               | <Media rank 18>\\t<Coaches rank 18>
-   20     | 19                               | <Media rank 19>\\t<Coaches rank 19>
-   21     | 20                               | <Media rank 20>\\t<Coaches rank 20>
-   22     | 21                               | <Media rank 21>\\t<Coaches rank 21>
-   23     | 22                               | <Media rank 22>\\t<Coaches rank 22>
-   24     | 23                               | <Media rank 23>\\t<Coaches rank 23>
-   25     | 24                               | <Media rank 24>\\t<Coaches rank 24>
-   26     | 25                               | <Media rank 25>\\t<Coaches rank 25>
+Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output: Top 25 team
+----------+----------------------------------+-------------------------
+    2     | 1                                | <Rank 1 team>
+    3     | 2                                | <Rank 2 team>
+    4     | 3                                | <Rank 3 team>
+    5     | 4                                | <Rank 4 team>
+    6     | 5                                | <Rank 5 team>
+    7     | 6                                | <Rank 6 team>
+    8     | 7                                | <Rank 7 team>
+    9     | 8                                | <Rank 8 team>
+   10     | 9                                | <Rank 9 team>
+   11     | 10                               | <Rank 10 team>
+   12     | 11                               | <Rank 11 team>
+   13     | 12                               | <Rank 12 team>
+   14     | 13                               | <Rank 13 team>
+   15     | 14                               | <Rank 14 team>
+   16     | 15                               | <Rank 15 team>
+   17     | 16                               | <Rank 16 team>
+   18     | 17                               | <Rank 17 team>
+   19     | 18                               | <Rank 18 team>
+   20     | 19                               | <Rank 19 team>
+   21     | 20                               | <Rank 20 team>
+   22     | 21                               | <Rank 21 team>
+   23     | 22                               | <Rank 22 team>
+   24     | 23                               | <Rank 23 team>
+   25     | 24                               | <Rank 24 team>
+   26     | 25                               | <Rank 25 team>
 
-Per-line output (2 tab-separated fields):
-<Media team abbreviation>\\t<Coaches team abbreviation>
+Per-line output (1 field):
+<Team abbreviation>
 
-Field formats:
-- Media (strict dropdown) — UPPERCASE abbreviation from the team mapping at the bottom (e.g. OSU, BAMA, UGA). One team per rank. Blank if unknown.
-- Coaches (strict dropdown) — same rules as Media. Independent of the Media column.
+Field format:
+- Top 25 team (strict dropdown) — UPPERCASE abbreviation from the team mapping at the bottom (e.g. OSU, BAMA, UGA). One team per rank. Blank if unknown.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== FINAL POLLS — paste at cell B2 of "Polls" tab ===
-<rank 1 line: MediaAbbr\\tCoachesAbbr>
-<rank 2 line: MediaAbbr\\tCoachesAbbr>
-<rank 3 line: MediaAbbr\\tCoachesAbbr>
-<rank 4 line: MediaAbbr\\tCoachesAbbr>
-<rank 5 line: MediaAbbr\\tCoachesAbbr>
-<rank 6 line: MediaAbbr\\tCoachesAbbr>
-<rank 7 line: MediaAbbr\\tCoachesAbbr>
-<rank 8 line: MediaAbbr\\tCoachesAbbr>
-<rank 9 line: MediaAbbr\\tCoachesAbbr>
-<rank 10 line: MediaAbbr\\tCoachesAbbr>
-<rank 11 line: MediaAbbr\\tCoachesAbbr>
-<rank 12 line: MediaAbbr\\tCoachesAbbr>
-<rank 13 line: MediaAbbr\\tCoachesAbbr>
-<rank 14 line: MediaAbbr\\tCoachesAbbr>
-<rank 15 line: MediaAbbr\\tCoachesAbbr>
-<rank 16 line: MediaAbbr\\tCoachesAbbr>
-<rank 17 line: MediaAbbr\\tCoachesAbbr>
-<rank 18 line: MediaAbbr\\tCoachesAbbr>
-<rank 19 line: MediaAbbr\\tCoachesAbbr>
-<rank 20 line: MediaAbbr\\tCoachesAbbr>
-<rank 21 line: MediaAbbr\\tCoachesAbbr>
-<rank 22 line: MediaAbbr\\tCoachesAbbr>
-<rank 23 line: MediaAbbr\\tCoachesAbbr>
-<rank 24 line: MediaAbbr\\tCoachesAbbr>
-<rank 25 line: MediaAbbr\\tCoachesAbbr>
+=== FINAL POLL — paste at cell B2 of "Polls" tab ===
+<rank 1 abbr>
+<rank 2 abbr>
+<rank 3 abbr>
+<rank 4 abbr>
+<rank 5 abbr>
+<rank 6 abbr>
+<rank 7 abbr>
+<rank 8 abbr>
+<rank 9 abbr>
+<rank 10 abbr>
+<rank 11 abbr>
+<rank 12 abbr>
+<rank 13 abbr>
+<rank 14 abbr>
+<rank 15 abbr>
+<rank 16 abbr>
+<rank 17 abbr>
+<rank 18 abbr>
+<rank 19 abbr>
+<rank 20 abbr>
+<rank 21 abbr>
+<rank 22 abbr>
+<rank 23 abbr>
+<rank 24 abbr>
+<rank 25 abbr>
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] Exactly 25 lines in the block, rank 1 first, rank 25 last
-[ ] Every line has exactly 2 tab-separated fields (1 tab)
+[ ] Every line has exactly 1 field (no tabs, no commas)
 [ ] All team values are uppercase abbreviations from the mapping — no full names
-[ ] No team duplicated within the Media column
-[ ] No team duplicated within the Coaches column
-[ ] Blank fields for unknowns — nothing invented
-[ ] No rank numbers, no header row, no commentary, no commas in the output`,
+[ ] No team duplicated across the 25 ranks
+[ ] Blank lines for unknowns — nothing invented
+[ ] No rank numbers, no header row, no commentary in the output`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -295,7 +292,7 @@ FINAL CHECK before you send
       <div className="card-elevated w-full sm:w-[95vw] max-h-[calc(100dvh-4rem)] sm:h-[95dvh] flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
         <div className="h-[3px] w-full" style={{ backgroundColor: 'var(--surface-5)' }} aria-hidden="true" />
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-surface-4">
-          <h2 className="text-2xl font-bold text-txt-primary">{currentYear} Final Top 25 Polls</h2>
+          <h2 className="text-2xl font-bold text-txt-primary">{currentYear} Final Top 25</h2>
           <button aria-label="Close" onClick={handleClose} className="text-txt-tertiary hover:text-txt-primary transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -343,7 +340,7 @@ FINAL CHECK before you send
                   <p className="label-xs text-txt-tertiary mb-3">Instructions</p>
                   <ol className="text-sm space-y-2 text-txt-secondary">
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">1.</span><span>Tap the button below to open Google Sheets</span></li>
-                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter Media and Coaches poll rankings (1-25)</span></li>
+                    <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">2.</span><span>Enter the final Top 25 (1-25)</span></li>
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">3.</span><span>Return to this app when done</span></li>
                     <li className="flex gap-3"><span className="font-bold text-txt-primary tabular-nums">4.</span><span>Tap "Save" below to sync results</span></li>
                   </ol>
@@ -380,7 +377,7 @@ FINAL CHECK before you send
         </div>
       </div>
       <AuthErrorModal isOpen={showAuthError} onClose={() => setShowAuthError(false)} onRefresh={() => setRetryCount(c => c + 1)} teamColors={teamColors} />
-      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25 Polls`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Polls" tab`} />
+      <AIPromptModal isOpen={showAIPrompt} onClose={() => setShowAIPrompt(false)} title={`${currentYear} Final Top 25`} prompt={aiPrompt} pasteTarget={`Cell B2 of the "Polls" tab`} />
     </div>,
     document.body
   )

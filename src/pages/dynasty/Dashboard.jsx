@@ -5910,11 +5910,9 @@ export default function Dashboard() {
                       )
                     })()}
 
-                    {/* Task: Final Top 25 Polls Entry */}
+                    {/* Task: Final Top 25 Entry */}
                     {(() => {
-                      const hasPollsData = currentDynasty?.finalPollsByYear?.[currentDynasty.currentYear] &&
-                        (currentDynasty.finalPollsByYear[currentDynasty.currentYear].media?.length > 0 ||
-                         currentDynasty.finalPollsByYear[currentDynasty.currentYear].coaches?.length > 0)
+                      const hasPollsData = currentDynasty?.finalPollsByYear?.[currentDynasty.currentYear]?.media?.length > 0
                       const taskNumber = !userInCFPChampionship ? 5 : 4
 
                       return (
@@ -5943,11 +5941,11 @@ export default function Dashboard() {
                             </div>
                             <div className="min-w-0">
                               <div className="text-sm sm:text-base font-semibold" style={{ color: hasPollsData ? '#22c55e' : '#fafafa' }}>
-                                Final Top 25 Polls
+                                Final Top 25
                               </div>
                               {hasPollsData && (
                                 <div className="text-xs sm:text-sm mt-0.5 sm:mt-1" style={{ color: '#22c55e' }}>
-                                  ✓ Final Media and Coaches Poll rankings entered
+                                  ✓ Final Top 25 entered
                                 </div>
                               )}
                             </div>

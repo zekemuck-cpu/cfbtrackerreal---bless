@@ -1192,6 +1192,68 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
 }
 
 /**
+ * Build a live Top 25 for a given year from the most recent week's
+ * game-level rankings (`team1Rank` / `team2Rank` on each game). Lets
+ * the Rankings page reflect weekly score entries the moment they land
+ * — no end-of-season manual entry required for in-season viewing.
+ *
+ * For each rank 1–25, the first team encountered (across all games in
+ * the latest week with rank data) wins the slot. Returns the same
+ * shape as a saved final-poll's `media` array so callers can swap
+ * between live and saved with no shape changes.
+ *
+ * @param {Object} dynasty
+ * @param {number} year
+ * @returns {{ entries: Array<{ rank, team, tid }>, week: number|null }}
+ */
+export function buildLiveTop25FromGames(dynasty, year) {
+  if (!dynasty || !year) return { entries: [], week: null }
+  const games = dynasty.games || []
+  const yearNum = Number(year)
+  const validRank = (n) => typeof n === 'number' && n >= 1 && n <= 25
+
+  // Find the latest week (regular-season ordering, not bowl/postseason)
+  // that has any rank entered on a game.
+  let maxWeek = -1
+  for (const g of games) {
+    if (!g || Number(g.year) !== yearNum) continue
+    const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
+    if (!Number.isFinite(wk)) continue
+    if (validRank(g.team1Rank) || validRank(g.team2Rank)) {
+      if (wk > maxWeek) maxWeek = wk
+    }
+  }
+  if (maxWeek < 0) return { entries: [], week: null }
+
+  // Collect rank → team from games in maxWeek (each rank wins on first
+  // encounter so a single team can't claim two ranks).
+  const rankToTeam = new Map()
+  const teamsToRank = new Set()
+  const tryAdd = (rank, tid, abbr) => {
+    if (!validRank(rank)) return
+    if (rankToTeam.has(rank)) return
+    const teamKey = tid != null ? `tid:${tid}` : `abbr:${abbr || ''}`
+    if (!teamKey || teamsToRank.has(teamKey)) return
+    rankToTeam.set(rank, { rank, team: abbr || null, tid: tid != null ? Number(tid) : null })
+    teamsToRank.add(teamKey)
+  }
+  for (const g of games) {
+    if (!g || Number(g.year) !== yearNum) continue
+    const wk = typeof g.week === 'number' ? g.week : parseInt(g.week, 10)
+    if (wk !== maxWeek) continue
+    const t1Tid = g.team1Tid != null ? Number(g.team1Tid) : null
+    const t2Tid = g.team2Tid != null ? Number(g.team2Tid) : null
+    const t1Abbr = (t1Tid && dynasty.teams?.[t1Tid]?.abbr) || g.team1 || null
+    const t2Abbr = (t2Tid && dynasty.teams?.[t2Tid]?.abbr) || g.team2 || null
+    tryAdd(g.team1Rank, t1Tid, t1Abbr)
+    tryAdd(g.team2Rank, t2Tid, t2Abbr)
+  }
+
+  const entries = Array.from(rankToTeam.values()).sort((a, b) => a.rank - b.rank)
+  return { entries, week: maxWeek }
+}
+
+/**
  * Get current ranking for the user's current team in current year
  * Convenience wrapper for Dashboard usage
  */
