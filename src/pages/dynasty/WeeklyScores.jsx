@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
-import { useDynasty, GAME_TYPES } from '../../context/DynastyContext'
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useDynasty, GAME_TYPES, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams } from '../../data/teams'
+import { conferenceTeams as DEFAULT_CONFERENCES, getTeamConference } from '../../data/conferenceTeams'
 import { PageHero, Card, EmptyState, TeamLogo } from '../../components/ui'
 import InlineYearSelect from '../../components/ui/InlineYearSelect'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
@@ -202,9 +203,23 @@ function GameCard({ game, teams, pathPrefix, recordsByTid }) {
 export default function WeeklyScores() {
   const { year: urlYear, week: urlWeek } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { currentDynasty, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const [editing, setEditing] = useState(false)
+
+  // ESPN-style filter (?filter=all | top25 | <Conference Name>). Lives in
+  // search params so the user's selection survives navigating into a game
+  // and back.
+  const filter = searchParams.get('filter') || 'all'
+  const setFilter = (value) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (!value || value === 'all') next.delete('filter')
+      else next.set('filter', value)
+      return next
+    }, { replace: true })
+  }
 
   const userTeamName = currentDynasty
     ? (currentDynasty.teams?.[getCurrentTeamTid(currentDynasty)]?.name || currentDynasty.teamName)
@@ -284,12 +299,52 @@ export default function WeeklyScores() {
   const gamesThisWeek = gamesByWeek.get(displayWeek) || []
   const playedThisWeek = gamesThisWeek.filter(g => typeof g.team1Score === 'number' && typeof g.team2Score === 'number')
 
+  // Conference list for the filter dropdown. Prefer the dynasty's custom
+  // conferences for this year (handles realignment, custom names, etc.);
+  // fall back to the static FBS defaults so the dropdown still has options
+  // before any custom alignment is saved.
+  const conferenceList = useMemo(() => {
+    const customConfs = getCustomConferencesForYear(currentDynasty, displayYear)
+    const source = customConfs && Object.keys(customConfs).length > 0
+      ? customConfs
+      : DEFAULT_CONFERENCES
+    return Object.keys(source).sort((a, b) => a.localeCompare(b))
+  }, [currentDynasty, displayYear])
+
+  // Apply ESPN-style filter (all / top25 / conference) to this week's games.
+  const filteredGames = useMemo(() => {
+    if (filter === 'all') return playedThisWeek
+    const customConfs = getCustomConferencesForYear(currentDynasty, displayYear)
+    if (filter === 'top25') {
+      return playedThisWeek.filter(g => {
+        const r1 = parseInt(g.team1Rank, 10)
+        const r2 = parseInt(g.team2Rank, 10)
+        const isRanked = (r) => Number.isFinite(r) && r >= 1 && r <= 25
+        return isRanked(r1) || isRanked(r2)
+      })
+    }
+    // Conference filter: include games where AT LEAST one team is in the
+    // selected conference (matches ESPN's behavior — conf games + non-conf
+    // games involving a team from that conference).
+    return playedThisWeek.filter(g => {
+      const t1Conf = getTeamConference(g.team1Tid, customConfs, teams)
+      const t2Conf = getTeamConference(g.team2Tid, customConfs, teams)
+      return t1Conf === filter || t2Conf === filter
+    })
+  }, [playedThisWeek, filter, currentDynasty, displayYear, teams])
+
   // Sort: ranked games first, then alphabetical by team1 name
-  const sortedGames = [...playedThisWeek].sort((a, b) => {
+  const sortedGames = [...filteredGames].sort((a, b) => {
     const nameA = teams[a.team1Tid]?.name || ''
     const nameB = teams[b.team1Tid]?.name || ''
     return nameA.localeCompare(nameB)
   })
+
+  const filterLabel = filter === 'all'
+    ? 'All FBS'
+    : filter === 'top25'
+      ? 'Top 25'
+      : filter
 
   return (
     <div className="space-y-6 page-enter">
@@ -313,21 +368,38 @@ export default function WeeklyScores() {
           </h1>
         }
         actions={
-          !isViewOnly && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded transition-colors flex-shrink-0"
-              style={{
-                backgroundColor: teamColors.primary,
-                color: '#fff',
-                letterSpacing: '1.5px',
-              }}
-              title={`Edit Week ${displayWeek} scores`}
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="bg-surface-3 text-txt-primary text-sm px-2 py-2 rounded border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-surface-5 transition-colors cursor-pointer"
+              style={{ minWidth: '9rem' }}
+              aria-label="Filter games"
             >
-              Edit Week {displayWeek}
-            </button>
-          )
+              <option value="all">All FBS</option>
+              <option value="top25">Top 25</option>
+              <optgroup label="Conferences">
+                {conferenceList.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </optgroup>
+            </select>
+            {!isViewOnly && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="px-3 py-2 text-xs font-semibold uppercase tracking-wider rounded transition-colors flex-shrink-0"
+                style={{
+                  backgroundColor: teamColors.primary,
+                  color: '#fff',
+                  letterSpacing: '1.5px',
+                }}
+                title={`Edit Week ${displayWeek} scores`}
+              >
+                Edit Week {displayWeek}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -343,6 +415,17 @@ export default function WeeklyScores() {
             />
           ))}
         </div>
+      ) : playedThisWeek.length > 0 ? (
+        <Card>
+          <EmptyState
+            title={`No ${filterLabel} games in Week ${displayWeek}`}
+            message={
+              filter === 'top25'
+                ? `No ranked teams played in Week ${displayWeek}, ${displayYear}.`
+                : `No games involving ${filterLabel} were played in Week ${displayWeek}, ${displayYear}.`
+            }
+          />
+        </Card>
       ) : (
         <Card>
           <EmptyState

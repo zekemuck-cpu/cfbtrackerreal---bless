@@ -13,6 +13,7 @@ import RosterEditModal from '../../components/RosterEditModal'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
+import TeamEditModal from '../../components/TeamEditModal'
 import { TEAMS, resolveTid, getTeam, getTeamByAbbr, getCurrentTeamAbbr, getCurrentTeamTid, getGameTeamInfo, getAbbrFromTeamName, getTidFromTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
 import { isSameYear } from '../../utils/compareUtils'
@@ -420,9 +421,6 @@ export default function TeamYear() {
   const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false)
   const [leadersMode, setLeadersMode] = useState('career') // 'career' or 'season'
   const [leadersCategory, setLeadersCategory] = useState('passing')
-  const [editWins, setEditWins] = useState('')
-  const [editLosses, setEditLosses] = useState('')
-  const [editConference, setEditConference] = useState('')
 
   // Quick image upload state
   const [quickImagePlayer, setQuickImagePlayer] = useState(null)
@@ -2167,12 +2165,7 @@ export default function TeamYear() {
               {/* Edit Team Info Button (mobile) */}
               {!isViewOnly && (
                 <button
-                  onClick={() => {
-                    setEditWins(displayRecord?.wins?.toString() || '')
-                    setEditLosses(displayRecord?.losses?.toString() || '')
-                    setEditConference(lookupByTeamYear(currentDynasty.conferenceByTeamYear, currentDynasty, tid, selectedYear) || conference || '')
-                    setShowTeamEditModal(true)
-                  }}
+                  onClick={() => setShowTeamEditModal(true)}
                   className="p-1.5 rounded-lg transition-colors hover:bg-surface-3 flex-shrink-0 text-txt-secondary hover:text-txt-primary"
                   title="Edit Team Info"
                 >
@@ -2655,12 +2648,7 @@ export default function TeamYear() {
             {/* Edit Team Info Button (desktop) */}
             {!isViewOnly && (
               <button
-                onClick={() => {
-                  setEditWins(displayRecord?.wins?.toString() || '')
-                  setEditLosses(displayRecord?.losses?.toString() || '')
-                  setEditConference(currentDynasty.conferenceByTeamYear?.[teamAbbr]?.[selectedYear] || conference || '')
-                  setShowTeamEditModal(true)
-                }}
+                onClick={() => setShowTeamEditModal(true)}
                 className="p-2 rounded-lg transition-colors hover:bg-surface-3 flex-shrink-0 text-txt-secondary hover:text-txt-primary"
                 title="Edit Team Info"
               >
@@ -6551,131 +6539,18 @@ export default function TeamYear() {
         teamName={mascotName || teamAbbr}
       />
 
-      {/* Team Edit Modal */}
-      {showTeamEditModal && createPortal(
-        <div
-          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4 modal-backdrop-in"
-          style={{ margin: 0 }}
-          onClick={() => setShowTeamEditModal(false)}
-        >
-          <div
-            className="card-elevated max-w-md w-full overflow-hidden modal-panel-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="h-[3px] w-full" style={{ backgroundColor: teamInfo.backgroundColor }} aria-hidden="true" />
-            <div className="px-6 py-4 flex items-center justify-between border-b border-surface-4">
-              <div className="flex items-center gap-3">
-                {teamLogo && (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white p-[2px]" style={{ border: `2px solid ${teamInfo.backgroundColor}` }}>
-                    <img src={teamLogo} alt={`${teamAbbr} logo`} className="w-full h-full object-contain" />
-                  </div>
-                )}
-                <h2 className="display-md text-txt-primary m-0">Edit Team Info</h2>
-              </div>
-              <button aria-label="Close"
-                onClick={() => setShowTeamEditModal(false)}
-                className="p-1.5 rounded-md text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors"
-                aria-label="Close"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6 space-y-5">
-              <div className="text-center">
-                <div className="display-md text-txt-primary">{mascotName || teamAbbr}</div>
-                <div className="label-sm text-txt-tertiary mt-1">{selectedYear} Season</div>
-              </div>
+      {/* Team Edit Modal — tabbed (Info + Branding) */}
+      <TeamEditModal
+        isOpen={showTeamEditModal}
+        onClose={() => setShowTeamEditModal(false)}
+        team={team}
+        tid={tid}
+        year={selectedYear}
+        dynastyTeams={teamsSource}
+        initialRecord={displayRecord ? { wins: displayRecord.wins, losses: displayRecord.losses } : null}
+        initialConference={lookupByTeamYear(currentDynasty.conferenceByTeamYear, currentDynasty, tid, selectedYear) || conference || ''}
+      />
 
-              {/* Record Section */}
-              <div>
-                <label className="label-sm text-txt-secondary mb-2 block">
-                  Season Record
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={editWins}
-                    onChange={(e) => setEditWins(e.target.value)}
-                    placeholder="W"
-                    className="w-20 px-3 py-2 rounded-lg text-center font-bold text-lg tabular bg-surface-3 border border-surface-4 text-txt-primary focus:outline-none focus:border-surface-5"
-                  />
-                  <span className="text-2xl font-bold text-txt-tertiary">-</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    value={editLosses}
-                    onChange={(e) => setEditLosses(e.target.value)}
-                    placeholder="L"
-                    className="w-20 px-3 py-2 rounded-lg text-center font-bold text-lg tabular bg-surface-3 border border-surface-4 text-txt-primary focus:outline-none focus:border-surface-5"
-                  />
-                </div>
-                <p className="label-xs text-txt-muted mt-1">
-                  Leave blank to use calculated record
-                </p>
-              </div>
-
-              {/* Conference Section */}
-              <div>
-                <label className="label-sm text-txt-secondary mb-2 block">
-                  Conference
-                </label>
-                <select
-                  value={editConference}
-                  onChange={(e) => setEditConference(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg font-semibold bg-surface-3 border border-surface-4 text-txt-primary focus:outline-none focus:border-surface-5"
-                >
-                  <option value="">-- Select Conference --</option>
-                  <option value="ACC">ACC</option>
-                  <option value="Big Ten">Big Ten</option>
-                  <option value="Big 12">Big 12</option>
-                  <option value="SEC">SEC</option>
-                  <option value="Pac-12">Pac-12</option>
-                  <option value="American">American</option>
-                  <option value="Conference USA">Conference USA</option>
-                  <option value="MAC">MAC</option>
-                  <option value="Mountain West">Mountain West</option>
-                  <option value="Sun Belt">Sun Belt</option>
-                  <option value="Independent">Independent</option>
-                </select>
-              </div>
-            </div>
-            <div className="px-6 py-4 border-t border-surface-4 bg-surface-2 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowTeamEditModal(false)}
-                className="px-4 py-2 rounded-lg font-semibold transition-all press bg-surface-3 hover:bg-surface-4 text-txt-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  const info = {}
-                  if (editWins !== '' && editLosses !== '') {
-                    info.wins = parseInt(editWins)
-                    info.losses = parseInt(editLosses)
-                  }
-                  if (editConference) {
-                    info.conference = editConference
-                  }
-                  if (Object.keys(info).length > 0) {
-                    await saveTeamYearInfo(currentDynasty.id, teamAbbr, selectedYear, info)
-                  }
-                  setShowTeamEditModal(false)
-                }}
-                className="px-4 py-2 rounded-lg font-semibold transition-all press"
-                style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
 
       {/* Quick Image Upload Modal */}
       {quickImagePlayer && createPortal(

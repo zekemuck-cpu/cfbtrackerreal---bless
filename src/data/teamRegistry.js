@@ -1194,7 +1194,7 @@ export const TEAMS = {
     name: "FCS Southeast",
     primaryColor: "#4A7C59",
     secondaryColor: "#F0E68C",
-    logo: "",
+    logo: "https://i.imgur.com/8qfTMIy.png",
     isFCS: true
   }
 }

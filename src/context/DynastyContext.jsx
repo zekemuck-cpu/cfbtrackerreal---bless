@@ -3679,7 +3679,25 @@ export function migrateToUserTeamSystem(dynasty) {
  */
 export function migrateFCSFiveTeams(dynasty) {
   if (!dynasty) return dynasty
-  if (dynasty._fcs5TeamsMigrated) return dynasty
+
+  // The main one-shot migration is gated by _fcs5TeamsMigrated, but the
+  // FCSSE logo backfill runs unconditionally below (cheap, idempotent —
+  // only acts when the logo field is empty). This handles dynasties that
+  // already ran the gated migration before the logo was known.
+  const FCSSE_LOGO = 'https://i.imgur.com/8qfTMIy.png'
+  if (dynasty._fcs5TeamsMigrated) {
+    const slot = dynasty.teams?.[141]
+    if (slot && !slot.logo) {
+      return {
+        ...dynasty,
+        teams: {
+          ...dynasty.teams,
+          141: { ...slot, logo: FCSSE_LOGO },
+        },
+      }
+    }
+    return dynasty
+  }
 
   const teams = { ...(dynasty.teams || {}) }
 
@@ -3713,7 +3731,8 @@ export function migrateFCSFiveTeams(dynasty) {
     }
   }
 
-  // Add FCSSE if missing.
+  // Add FCSSE if missing, OR backfill its logo if a previous run of this
+  // migration created the slot with an empty logo string.
   if (!teams[141]) {
     teams[141] = {
       tid: 141,
@@ -3721,10 +3740,12 @@ export function migrateFCSFiveTeams(dynasty) {
       name: 'FCS Southeast',
       primaryColor: '#4A7C59',
       secondaryColor: '#F0E68C',
-      logo: '',
+      logo: FCSSE_LOGO,
       isFCS: true,
       byYear: {},
     }
+  } else if (!teams[141].logo) {
+    teams[141] = { ...teams[141], logo: FCSSE_LOGO }
   }
 
   return {
@@ -4391,10 +4412,10 @@ export function DynastyProvider({ children }) {
       }
 
       // Sync FCS team set to CFB26's actual five teams (5-letter compound
-      // codes + FCSSE). Idempotent via _fcs5TeamsMigrated flag.
-      if (!migrated._fcs5TeamsMigrated) {
-        migrated = migrateFCSFiveTeams(migrated)
-      }
+      // codes + FCSSE). The function is internally idempotent: gated work
+      // skips on _fcs5TeamsMigrated, but it still runs the FCSSE-logo
+      // backfill (only acts when the logo is empty).
+      migrated = migrateFCSFiveTeams(migrated)
 
       // FIX: Ensure coachTeamByYear has correct entries for ALL years with games
       // Infer from games data - find what team the user played as each year
@@ -4773,6 +4794,14 @@ export function DynastyProvider({ children }) {
               if (migrated.teams) {
                 flagsToSave.teams = migrated.teams
               }
+            } else if (
+              raw._fcs5TeamsMigrated &&
+              migrated.teams?.[141]?.logo &&
+              raw.teams?.[141]?.logo !== migrated.teams[141].logo
+            ) {
+              // FCSSE logo backfill ran on an already-migrated dynasty —
+              // persist the updated teams map so the logo sticks.
+              flagsToSave.teams = migrated.teams
             }
 
             // Check if we should persist migrated data
