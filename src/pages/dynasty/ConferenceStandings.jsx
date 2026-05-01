@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../../data/teams'
@@ -8,6 +8,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../../data/conferenceTeams'
 import {
   PageHero,
   Card,
@@ -193,21 +194,23 @@ export default function ConferenceStandings() {
   if (!currentDynasty) return null
 
   const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
-  const yearsWithData = Object.keys(standingsByYear).map(y => parseInt(y))
-
-  if (!yearsWithData.includes(currentDynasty.currentYear)) {
-    yearsWithData.push(currentDynasty.currentYear)
+  // Year picker shows: any year with saved standings, any year with
+  // games entered (so an in-progress season is reachable), and the
+  // dynasty's current year as a guaranteed entry.
+  const yearsCombined = new Set(
+    Object.keys(standingsByYear).map(y => parseInt(y))
+  )
+  for (const g of (currentDynasty.games || [])) {
+    const y = Number(g?.year)
+    if (Number.isFinite(y)) yearsCombined.add(y)
   }
+  if (currentDynasty.currentYear) yearsCombined.add(Number(currentDynasty.currentYear))
 
-  const availableYears = yearsWithData.sort((a, b) => b - a)
-  // Default to the prior year (most recent completed season) on most
-  // visits, but stay on the current year when this IS the first season
-  // of the dynasty — there's no prior year to look at, and showing
-  // "2024 standings" on a 2025-start dynasty is just confusing.
-  const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
-  const displayYear = urlYear
-    ? parseInt(urlYear)
-    : (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1)
+  const availableYears = Array.from(yearsCombined).sort((a, b) => b - a)
+  // Default to the dynasty's CURRENT year — the page now derives
+  // standings live from games[], so the current season is always
+  // populated as soon as any score has been entered.
+  const displayYear = urlYear ? parseInt(urlYear) : Number(currentDynasty.currentYear)
   const handleYearChange = (year) => navigate(`${pathPrefix}/conference-standings/${year}`)
   const yearStandings = standingsByYear[displayYear] || {}
 
@@ -244,42 +247,10 @@ export default function ConferenceStandings() {
 
   const pageWrapperClass = "space-y-6 page-enter"
 
-  // Empty state
-  if (availableYears.length === 0 || Object.keys(yearStandings).length === 0) {
-    return (
-      <div className={pageWrapperClass}>
-        {hero}
-        <Card>
-          <EmptyState
-            title="No Standings Data"
-            message="Conference standings will appear here after you enter them during the End of Season Recap."
-          />
-        </Card>
-        <ConferencesModal
-          isOpen={showConferencesModal}
-          onClose={() => setShowConferencesModal(false)}
-          onSave={async (data) => {
-            const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
-            if (isMultiYear) {
-              const existingByYear = currentDynasty.customConferencesByYear || {}
-              const newByYear = { ...existingByYear, ...data }
-              await updateDynasty(currentDynasty.id, {
-                customConferencesByYear: newByYear,
-                ...(data[currentDynasty.currentYear] ? { customConferences: data[currentDynasty.currentYear] } : {})
-              })
-            } else {
-              const existingByYear = currentDynasty.customConferencesByYear || {}
-              await updateDynasty(currentDynasty.id, {
-                customConferencesByYear: { ...existingByYear, [currentDynasty.currentYear]: data },
-                customConferences: data
-              })
-            }
-          }}
-          teamColors={teamColors}
-        />
-      </div>
-    )
-  }
+  // No empty state for "no saved standings" anymore — the page derives
+  // standings from games[] + the conference alignment, so it always
+  // shows something. Saved standings just become the seed when they
+  // exist (carrying over rank order + PF/PA tiebreakers from EOS).
 
   // Team row component. Tid-first identity so a renamed teambuilder team
   // still resolves to current logo/name/link — `team.team` is the abbr at
@@ -358,9 +329,35 @@ export default function ConferenceStandings() {
     )
   }
 
+  // Build a roster for this conference — saved standings if they
+  // exist, otherwise stub rows from the (custom) conference alignment
+  // for the year. Stub rows have wins/losses 0; the live re-rank
+  // pass below populates them from games[] so an in-progress season
+  // shows real records as soon as scores are entered.
+  const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
+  const customConfsForYear = getCustomConferencesForYear(currentDynasty, displayYear)
+  const buildConferenceRoster = (conferenceName) => {
+    const saved = getConferenceData(yearStandings, conferenceName)
+    if (saved.length > 0) return saved
+
+    const confMap = customConfsForYear || DEFAULT_CONFERENCE_TEAMS
+    const aliases = CONFERENCE_ALIASES[conferenceName] || [conferenceName]
+    let teamAbbrs = []
+    for (const alias of aliases) {
+      if (Array.isArray(confMap[alias]) && confMap[alias].length > 0) {
+        teamAbbrs = confMap[alias]
+        break
+      }
+    }
+    return teamAbbrs.map(abbr => {
+      const tid = resolveTid(abbr, teamsSource || TEAMS)
+      return { team: abbr, tid: tid != null ? Number(tid) : null, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 }
+    })
+  }
+
   // Conference card component
   const ConferenceCard = ({ conferenceName }) => {
-    const teams = getConferenceData(yearStandings, conferenceName)
+    const teams = buildConferenceRoster(conferenceName)
     const hasData = teams.length > 0
     const confLogo = getConferenceLogo(conferenceName)
 
